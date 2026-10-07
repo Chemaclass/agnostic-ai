@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,4 +103,65 @@ func TestSync_KeepsHandWrittenHooks(t *testing.T) {
 			}
 		}
 	})
+	// import turns hand-written hooks into specs and leaves the entries
+	// on disk; the next sync must not run them twice.
+	for _, c := range cases {
+		if c.target == "cursor" || c.target == "qoder" {
+			continue // no hook import
+		}
+		t.Run("import-then-sync/"+c.target, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			path := filepath.Join(dir, c.file)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(c.hand), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: ["+c.target+"]\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			run(t, dir, "import", c.target)
+			run(t, dir, "sync", "--gitignore=off")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, command := range []string{"./guard.sh", "./hello.sh"} {
+				if n := countHookCommands(t, data, command); n != 1 {
+					t.Errorf("%s appears %d times, want once:\n%s", command, n, data)
+				}
+			}
+		})
+	}
+}
+
+// countHookCommands counts the handlers in a hooks file whose `command`
+// runs script.
+func countHookCommands(t *testing.T, data []byte, script string) int {
+	t.Helper()
+	var doc any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	var walk func(any)
+	walk = func(v any) {
+		switch x := v.(type) {
+		case map[string]any:
+			if command, ok := x["command"].(string); ok && strings.HasSuffix(command, script) {
+				n++
+			}
+			for _, child := range x {
+				walk(child)
+			}
+		case []any:
+			for _, child := range x {
+				walk(child)
+			}
+		}
+	}
+	walk(doc)
+	return n
 }

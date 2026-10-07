@@ -314,11 +314,12 @@ func (s *Session) ReleaseMergedJSON(path string, keys []MergedKey, created, forc
 // list raw. It keeps the value unless the list ends up empty, and leaves
 // anything but a list alone.
 func withoutItems(raw json.RawMessage, items []string) (value any, keep, changed bool) {
-	var list []any
+	// Raw entries keep the user's key order in what stays.
+	var list []json.RawMessage
 	if err := json.Unmarshal(raw, &list); err != nil {
 		return nil, true, false
 	}
-	kept := slices.DeleteFunc(slices.Clone(list), func(entry any) bool {
+	kept := slices.DeleteFunc(slices.Clone(list), func(entry json.RawMessage) bool {
 		return slices.Contains(items, ContentSum(canonicalJSON(entry)))
 	})
 	if len(kept) == len(list) {

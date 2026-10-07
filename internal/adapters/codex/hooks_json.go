@@ -34,7 +34,7 @@ func emitHooksJSON(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, d
 	var body []byte
 	if doc := buildHooksJSON(hooks); doc != nil {
 		var err error
-		if body, err = json.MarshalIndent(doc, "", "  "); err != nil {
+		if body, err = emit.MarshalJSONIndent(doc); err != nil {
 			return err
 		}
 		if planned, err = emit.ObjectAt(body, "hooks"); err != nil {
@@ -53,6 +53,8 @@ func emitHooksJSON(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, d
 	if err := sess.MergeJSONFileNested(path, map[string]any{"hooks": value}, []string{"hooks"}, dryRun); err != nil {
 		return err
 	}
+	// Codex keys trust by position; sync's entries lead each event, so
+	// their positions match body's.
 	if body != nil && !sess.IsCapturing() && !sess.IsUnmanaged(path) {
 		NoteHookTrust(path, body)
 	}
@@ -85,7 +87,7 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 		}
 		buf.Write(key)
 		buf.WriteByte(':')
-		val, err := json.Marshal(d.Events[event])
+		val, err := emit.MarshalJSONCompact(d.Events[event])
 		if err != nil {
 			return nil, err
 		}

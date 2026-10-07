@@ -38,7 +38,7 @@ func TestMergeOwnedLists_ReplacesWhatSyncClaimedBefore(t *testing.T) {
 
 	merged, _ := mergeOwnedLists(prior, false, disk, planned)
 
-	want := map[string][]any{"SessionStart": {map[string]any{"command": "mine"}, map[string]any{"command": "new"}}}
+	want := map[string][]any{"SessionStart": {map[string]any{"command": "new"}, map[string]any{"command": "mine"}}}
 	if !reflect.DeepEqual(merged, want) {
 		t.Errorf("merged = %v, want %v", merged, want)
 	}
@@ -88,7 +88,20 @@ func TestWithoutItems_DropsClaimedObjectEntries(t *testing.T) {
 
 	value, keep, changed := withoutItems(raw, []string{ContentSum(canonicalJSON(entry))})
 
-	if !changed || !keep || len(value.([]any)) != 1 {
+	if !changed || !keep || len(value.([]json.RawMessage)) != 1 {
 		t.Errorf("value %v keep %v changed %v", value, keep, changed)
+	}
+}
+
+// import turns a hand-written hook into a spec but leaves the entry on
+// disk; sync renders it with its own extras and must not run it twice.
+func TestMergeOwnedLists_AdoptsAnImportedEntryInItsOriginalShape(t *testing.T) {
+	disk := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"./guard.sh"}]}`)}}
+	planned := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"export AGNOSTIC_AI_TARGET=codex; ./guard.sh","commandWindows":"./guard.sh"}]}`)}}
+
+	merged, _ := mergeOwnedLists(nil, false, disk, planned)
+
+	if len(merged["PreToolUse"]) != 1 {
+		t.Errorf("hook written twice: %v", merged)
 	}
 }

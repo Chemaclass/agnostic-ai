@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"os"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // doctor --fix must not delete a merged file an older ledger lists
@@ -18,6 +20,41 @@ func TestDoctorFix_LegacyLedgerKeepsMergedUserSettings(t *testing.T) {
 	}
 	if got := readJSONMap(t, settings); got["userKey"] != "mine" {
 		t.Errorf("user key lost: %#v", got)
+	}
+}
+
+// A confirmed removal that empties a merged file keeps its bytes as
+// .bak under --backup, as a whole-file removal does.
+func TestDoctorFix_BackupKeepsConfirmedMergedRelease(t *testing.T) {
+	const settings = ".gemini/settings.json"
+	const model = ".agnostic-ai/settings/model.yaml"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	mustWriteFile(t, model, "model: example-model\n")
+	runSyncOK(t)
+	doc := readJSONMap(t, settings)
+	doc["model"] = map[string]any{"name": "edited"}
+	writeJSONFile(t, settings, doc)
+	original, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removeSpecs(t, model)
+	runSyncOK(t)
+	cfg, err := config.Load(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{settings}}}
+	if _, err := offerOrphanRemoval(cfg, reports, true, func(string) (bool, error) { return true, nil }); err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(settings) {
+		t.Errorf("%s stayed after a confirmed release emptied it", settings)
+	}
+	backup, err := os.ReadFile(settings + ".bak")
+	if err != nil || string(backup) != string(original) {
+		t.Errorf("backup = %q, %v; want %q", backup, err, original)
 	}
 }
 

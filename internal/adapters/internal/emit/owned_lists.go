@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"slices"
+	"strings"
 )
 
 // MergeOwnedLists merges planned into onDisk, a map of lists the user
@@ -41,23 +42,31 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 func mergeOwnedLists(prior map[string][]string, wholeOwned bool, onDisk, planned map[string][]any) (map[string][]any, map[string][]string) {
 	merged := map[string][]any{}
 	claims := map[string][]string{}
+	// Sync's entries lead each list, so their positions match the
+	// rendered specs (Codex keys hook trust by position).
+	for key, entries := range planned {
+		for _, entry := range entries {
+			merged[key] = append(merged[key], entry)
+			claims[key] = append(claims[key], canonicalJSON(entry))
+		}
+	}
 	for key, entries := range onDisk {
-		var plannedSums []string
+		var plannedSums, plannedShapes []string
 		for _, entry := range planned[key] {
 			plannedSums = append(plannedSums, ContentSum(canonicalJSON(entry)))
+			plannedShapes = append(plannedShapes, hookShape(entry))
 		}
 		for _, entry := range entries {
 			sum := ContentSum(canonicalJSON(entry))
 			if wholeOwned || slices.Contains(prior[key], sum) || slices.Contains(plannedSums, sum) {
 				continue
 			}
+			// An entry `import` turned into a spec stays on disk in the
+			// shape the user wrote; sync renders it with its own extras.
+			if shape := hookShape(entry); shape != "" && slices.Contains(plannedShapes, shape) {
+				continue
+			}
 			merged[key] = append(merged[key], entry)
-		}
-	}
-	for key, entries := range planned {
-		for _, entry := range entries {
-			merged[key] = append(merged[key], entry)
-			claims[key] = append(claims[key], canonicalJSON(entry))
 		}
 	}
 	for key, entries := range merged {
@@ -78,6 +87,9 @@ func canonicalJSON(entry any) string {
 		var decoded any
 		if err := json.Unmarshal(v, &decoded); err != nil {
 			return string(v)
+		}
+		if s, ok := decoded.(string); ok {
+			return s
 		}
 		entry = decoded
 	}
@@ -258,3 +270,65 @@ func ClaimsItemsUnder(path, key string) bool {
 // PriorOutputSum returns the sum the last sync recorded for a file it
 // wrote whole, or "". The CLI sets it from the ledger.
 var PriorOutputSum func(path string) string
+
+// hookShape is what a hook entry runs, without the fields sync adds when
+// it renders one: its matcher, empty when unset, and each handler's
+// command without the AGNOSTIC_AI_TARGET export. It is "" for an entry
+// with no command. Two entries with the same shape run the same hooks.
+func hookShape(entry any) string {
+	var decoded any
+	if raw, ok := entry.(json.RawMessage); ok {
+		if json.Unmarshal(raw, &decoded) != nil {
+			return ""
+		}
+	} else {
+		decoded = entry
+	}
+	object, ok := decoded.(map[string]any)
+	if !ok {
+		return ""
+	}
+	matcher, _ := object["matcher"].(string)
+	var commands []string
+	add := func(handler map[string]any) {
+		if command, ok := handler["command"].(string); ok && command != "" {
+			commands = append(commands, stripHookTargetExport(command))
+		}
+	}
+	add(object)
+	if handlers, ok := object["hooks"].([]any); ok {
+		for _, h := range handlers {
+			if handler, ok := h.(map[string]any); ok {
+				add(handler)
+			}
+		}
+	}
+	if len(commands) == 0 {
+		return ""
+	}
+	return matcher + "\x00" + strings.Join(commands, "\x00")
+}
+
+// stripHookTargetExport drops the `export AGNOSTIC_AI_TARGET=<t>; `
+// prefix sync puts on a shell-form command.
+func stripHookTargetExport(command string) string {
+	const prefix = "export " + HookTargetEnv + "="
+	if !strings.HasPrefix(command, prefix) {
+		return command
+	}
+	if i := strings.Index(command, "; "); i >= 0 {
+		return command[i+2:]
+	}
+	return command
+}
+
+// HasJSONKey reports whether the JSON file at path has key at its top
+// level.
+func (s *Session) HasJSONKey(path, key string, dryRun bool) bool {
+	doc, err := s.readExistingJSON(path, dryRun)
+	if err != nil {
+		return false
+	}
+	_, found := doc.Get(key)
+	return found
+}

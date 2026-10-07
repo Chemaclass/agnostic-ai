@@ -90,7 +90,7 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 		}
 		buf.Write(key)
 		buf.WriteByte(':')
-		val, err := json.Marshal(d.events[event])
+		val, err := emit.MarshalJSONCompact(d.events[event])
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +111,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	var order []string
 	if doc := buildHooks(hooks); doc != nil {
 		order = doc.order
-		body, err := json.Marshal(doc)
+		body, err := emit.MarshalJSONCompact(doc)
 		if err != nil {
 			return err
 		}
