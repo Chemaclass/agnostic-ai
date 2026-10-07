@@ -304,11 +304,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.Hooks, hooksDir, dryRun); err != nil {
 		return err
 	}
-	memory, err := emit.MemoryIndexPaths(cfg, target)
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	memory, err := emit.MemoryIndexPaths(cfg, path, target)
 	if err != nil {
 		return err
 	}
-	return emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun)
 }
 
 // EmitAgents writes one `<dir>/<name>.md` per agent spec. A spec's

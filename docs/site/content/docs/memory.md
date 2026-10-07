@@ -104,18 +104,18 @@ The store is `$AGNOSTIC_AI_HOME/local/memory/<repo-slug>/` (default `~/.agnostic
 The store's absolute path goes only into files that never reach Git:
 
 - `.claude/settings.local.json` points `autoMemoryDirectory` at it.
-- With a managed [`.gitignore` block](@/docs/configuration.md#gitignore), no `gitignore.allow` line, and no `gitignore.commit` kind for that tool, sync also writes it to `CLAUDE.md`, `opencode.json`, `kilo.jsonc`, `.codex/config.toml`, and `.gemini/settings.json`.
+- With a managed root [`.gitignore` block](@/docs/configuration.md#gitignore), and no `gitignore.commit` kind for that tool, sync also writes it to `CLAUDE.md`, `opencode.json`, `kilo.jsonc`, `.codex/config.toml`, and `.gemini/settings.json`. An output matched by `gitignore.allow` keeps its checkout path. `--gitignore off` disables these absolute paths, including in previews.
 - Otherwise those files may be committed, so they keep the checkout paths. Claude Code still loads the store through auto memory, and the other tools through the session-start hook. OpenCode and Kilo Code then load no personal memory, and Codex and Gemini CLI cannot save there.
 - If one of those files was committed before the managed block existed, run `agnostic-ai sync --untrack` to stop tracking it.
 
-Sync creates the store folder, readable only by you. The session-start hook, `memory lint`, `memory index`, and `memory list` read the store from your local config. Switching back to `checkout` removes the repo index from the OpenCode and Kilo Code `instructions` lists.
+Sync creates the store folder, readable only by you. The session-start hook, `memory lint`, `memory index`, and `memory list` read the store from your local config. The hook names the repo store even before its first fact, so the tool knows where to save it. Switching back to `checkout` removes the repo index from the OpenCode and Kilo Code `instructions` lists.
 
 ### Sandbox settings
 
 Codex and Gemini CLI write only inside the workspace. So that they can save a fact, sync adds the store to:
 
 - Codex: `writable_roots` under `[sandbox_workspace_write]` in `.codex/config.toml`. It applies when `sandbox_mode` is `workspace-write`, and only in a [trusted project](https://learn.chatgpt.com/docs/config-file/config-reference). An overlay that sets `[sandbox_workspace_write]` keeps its own table; add the store to it yourself.
-- Gemini CLI: `context.includeDirectories` in `.gemini/settings.json` ([configuration reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md)). Your own entries stay.
+- Gemini CLI: `context.includeDirectories` in `.gemini/settings.json` ([configuration reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md)). Your own entries stay, including directories from `x-gemini` settings specs.
 
 ### Claude Code import prompt
 

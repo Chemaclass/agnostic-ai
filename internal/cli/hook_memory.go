@@ -27,8 +27,8 @@ func newHookMemoryCmd() *cobra.Command {
 		Use:   "memory",
 		Short: "Print the shared memory index from inside a session-start hook",
 		Long: "Prints the project's shared memory index (.agnostic-ai/memory/MEMORY.md) in the reply " +
-			"format the target adds to the model's context. Prints nothing when the project has no index, " +
-			"so a missing store never disturbs a session.",
+			"format the target adds to the model's context. Names the personal repo store even before " +
+			"its first index exists. Prints nothing when checkout memory has no index.",
 		Example: `  # Hook command that does nothing when the binary is missing
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook memory`,
 		Args: cobra.NoArgs,
@@ -50,8 +50,12 @@ func newHookMemoryCmd() *cobra.Command {
 			for _, scope := range scopes {
 				if text, ok := readMemoryIndex(root, scope.path); ok {
 					scope.text = text
-					indexes = append(indexes, scope)
+				} else if filepath.IsAbs(scope.path) {
+					scope.text = "Save personal facts in this folder and list them in this index."
+				} else {
+					continue
 				}
+				indexes = append(indexes, scope)
 			}
 			if len(indexes) == 0 {
 				return nil

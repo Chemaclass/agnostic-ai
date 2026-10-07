@@ -127,11 +127,11 @@ func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overla
 // memoryWritableRoots returns the repo store of personal memory when it
 // lies outside the checkout, so Codex's workspace-write sandbox lets the
 // session save there.
-func memoryWritableRoots(sess *emit.Session, cfg *config.Config, dryRun bool) ([]string, error) {
-	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, target) {
+func memoryWritableRoots(sess *emit.Session, cfg *config.Config, path string, dryRun bool) ([]string, error) {
+	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
 		return nil, nil
 	}
-	dir, err := emit.PersonalMemoryDirFor(cfg, target)
+	dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
 	if err != nil {
 		return nil, err
 	}

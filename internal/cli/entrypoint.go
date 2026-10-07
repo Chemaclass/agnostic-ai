@@ -485,7 +485,7 @@ func memoryBlockFor(cfg *config.Config, path string, readers []string) (string, 
 	if !slices.Contains(cfg.Builtins, memoryBuiltin) || len(readers) == 0 || !pathSupportsFileImports(readers) {
 		return "", nil
 	}
-	dir, err := adapters.PersonalMemoryDirFor(cfg, readers...)
+	dir, err := adapters.PersonalMemoryDirFor(cfg, path, readers...)
 	if err != nil {
 		return "", err
 	}

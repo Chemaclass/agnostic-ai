@@ -952,14 +952,14 @@ func configuredSources(cfg *config.Config) []string {
 // recollect collects the drift again when exportMissing checks out an
 // output the first pass found missing. The first pass already printed its
 // warnings, so the second runs quietly and replaces the pending ones.
-func (t *againstTree) recollect(reports []driftReport, targets []string) ([]driftReport, error) {
+func (t *againstTree) recollect(reports []driftReport, targets []string, gitignoreFlag string) ([]driftReport, error) {
 	late, err := t.exportMissing(reports)
 	if err != nil || !late {
 		return reports, err
 	}
 	defer quiet()()
 	resetDrops()
-	return collectDrift(targets)
+	return collectDriftWithGitignore(targets, nil, gitignoreFlag)
 }
 
 // quiet silences warnings, notes, and verbose lines until the returned

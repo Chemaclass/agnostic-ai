@@ -192,3 +192,76 @@ func TestMemoryList_ReadsTheRepoStore(t *testing.T) {
 		t.Errorf("memory list:\n%s", out.String())
 	}
 }
+
+func TestSync_RepoPersonalMemoryHonorsGitignoreOverride(t *testing.T) {
+	for _, format := range []string{"text", "json", "preview"} {
+		t.Run(format, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			args := []string{"sync", "--gitignore", "off"}
+			if format == "json" {
+				args = append(args, "--json")
+			}
+			var out strings.Builder
+			cmd := NewRootCmd("test")
+			cmd.SetOut(&out)
+			cmd.SetArgs(args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if body := readText(t, "CLAUDE.md"); strings.Contains(body, filepath.ToSlash(parent)) {
+				t.Errorf("committable CLAUDE.md exposes the personal store: %s", body)
+			}
+			if format == "preview" {
+				out.Reset()
+				cmd = NewRootCmd("test")
+				cmd.SetOut(&out)
+				cmd.SetArgs([]string{"sync", "--dry-run", "--json", "--gitignore", "off"})
+				if err := cmd.Execute(); err != nil {
+					t.Fatal(err)
+				}
+				var got syncJSONOutput
+				if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+					t.Fatal(err)
+				}
+				if len(got.Writes) > 0 {
+					t.Errorf("preview differs from sync with the same override: %s", out.String())
+				}
+			}
+			if err := runSync(t, "--check", "--gitignore", "off"); err != nil {
+				t.Errorf("sync --check differs from sync with the same override: %v", err)
+			}
+		})
+	}
+}
+
+func TestSync_RepoPersonalMemoryHonorsAllowedOutputPaths(t *testing.T) {
+	for _, path := range []string{"CLAUDE.md", ".codex/config.toml", ".gemini/settings.json", "opencode.json", "kilo.jsonc"} {
+		t.Run(path, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, gemini, opencode, kilo]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n  allow: ["+path+"]\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.FromSlash(path))
+			if err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), filepath.ToSlash(parent)) {
+				t.Errorf("allowed output %s exposes the personal store: %s", path, data)
+			}
+			if err := exec.Command("git", "check-ignore", "-q", path).Run(); err == nil {
+				t.Errorf("allowed output %s is ignored", path)
+			}
+			if local := readText(t, ".claude/settings.local.json"); !strings.Contains(local, filepath.ToSlash(parent)) {
+				t.Errorf("personal settings lost the repo store: %s", local)
+			}
+			if path != "CLAUDE.md" && !strings.Contains(readText(t, "CLAUDE.md"), filepath.ToSlash(parent)) {
+				t.Error("an unrelated allow disabled repo memory in ignored CLAUDE.md")
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v", err)
+			}
+		})
+	}
+}

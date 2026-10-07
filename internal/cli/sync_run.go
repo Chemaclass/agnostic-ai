@@ -489,6 +489,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err != nil {
 		return err
 	}
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
 	effectiveTargets := targets
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
@@ -1034,6 +1035,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err != nil {
 		return err
 	}
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
 	effectiveTargets := targets
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets

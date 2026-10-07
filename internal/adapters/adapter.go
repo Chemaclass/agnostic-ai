@@ -898,8 +898,8 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 
 // PersonalMemoryDirFor returns the personal store the project files of
 // targets may name (re-exported from the emit layer).
-func PersonalMemoryDirFor(cfg *config.Config, targets ...string) (string, error) {
-	return emit.PersonalMemoryDirFor(cfg, targets...)
+func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (string, error) {
+	return emit.PersonalMemoryDirFor(cfg, path, targets...)
 }
 
 // AppendMemoryBlock appends the memory block to body, replacing any

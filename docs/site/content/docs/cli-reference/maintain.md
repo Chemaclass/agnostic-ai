@@ -114,7 +114,7 @@ agnostic-ai hook memory --target codex
 
 - Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}`, Copilot `{"additionalContext": ...}`, and Gemini CLI `{"hookSpecificOutput": {"additionalContext": ...}}`.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
-- With no project or no index, it prints nothing. It finds the project the same way the `shared-memory` skill does.
+- With no project, it prints nothing. With `memory.personal: repo`, it names the personal store even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
 
 | Flag | Description |
 |------|-------------|

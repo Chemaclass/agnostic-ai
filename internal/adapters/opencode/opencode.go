@@ -172,11 +172,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	memory, err := emit.MemoryIndexPaths(cfg, target)
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	memory, err := emit.MemoryIndexPaths(cfg, path, target)
 	if err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, path, dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a

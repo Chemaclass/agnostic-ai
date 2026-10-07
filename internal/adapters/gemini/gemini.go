@@ -277,6 +277,9 @@ func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, hooks [
 		"portable permission lists have no Gemini mapping; use x-gemini for native settings")
 	emit.MergeSettingsCustomKeys(keys, b.Settings, target, "mcpServers")
 	emit.MergeSettingsCustomRecordMap(keys, b.Settings, target, "mcpServers")
+	if slices.Contains(cfg.Builtins, emit.MemoryBuiltin) && emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
+		claimMemoryDirectories(sess, keys, path, dryRun)
+	}
 	// Hook entries sync did not write stay; sync claims only its own,
 	// x-gemini hooks included, once they joined the block (#1858).
 	value, ok, err := sess.OwnedEventLists(path, "hooks", keys["hooks"], dryRun)
@@ -311,28 +314,34 @@ func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, hooks [
 // context.includeDirectories when it lies outside the checkout, so Gemini
 // CLI's file tools can save there. The user's own entries stay.
 func includeMemoryDirectory(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
-	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, target) {
+	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
 		return nil
 	}
-	dir, err := emit.PersonalMemoryDirFor(cfg, target)
+	dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
 	if err != nil {
 		return err
 	}
 	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
 		return err
 	}
-	dir = filepath.ToSlash(dir)
-	var list []any
-	if existing, ok := sess.ExistingJSONObject(path, "context", dryRun)["includeDirectories"].([]any); ok {
-		list = existing
-	}
-	var added []string
-	if !slices.Contains(list, any(dir)) {
-		list = append(list, dir)
-		added = append(added, dir)
-	}
-	keys["context"] = map[string]any{"includeDirectories": emit.ClaimedJSONItems(list, added)}
+	keys["context"] = map[string]any{"includeDirectories": []any{filepath.ToSlash(dir)}}
 	return nil
+}
+
+func claimMemoryDirectories(sess *emit.Session, keys map[string]any, path string, dryRun bool) {
+	context, ok := keys["context"].(map[string]any)
+	if !ok {
+		return
+	}
+	planned, ok := context["includeDirectories"].([]any)
+	if !ok {
+		return
+	}
+	existing, _ := sess.ExistingJSONObject(path, "context", dryRun)["includeDirectories"].([]any)
+	merged, claims := emit.MergeOwnedLists(path, []string{"context"},
+		map[string][]any{"includeDirectories": existing},
+		map[string][]any{"includeDirectories": planned})
+	context["includeDirectories"] = emit.ClaimedJSONItems(merged["includeDirectories"], claims["includeDirectories"])
 }
 
 // buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit

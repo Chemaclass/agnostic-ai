@@ -3,6 +3,9 @@ package gemini
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -58,5 +61,93 @@ func TestEmit_SettingsModelAndPermissionsCoverage(t *testing.T) {
 	emit.FlushCoverageNotes()
 	if !strings.Contains(notes.String(), "permissions") {
 		t.Errorf("missing coverage: %s", notes.String())
+	}
+}
+
+func TestEmit_SettingsMergesMemoryWithCustomAndNativeDirectories(t *testing.T) {
+	testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	if err := os.MkdirAll(".gemini", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(defaultSettingsFile, []byte(`{"context":{"includeDirectories":["native"],"fileName":"CUSTOM.md"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Builtins:  []string{emit.MemoryBuiltin},
+		Memory:    config.MemoryConfig{Personal: config.PersonalMemoryRepo},
+		Gitignore: config.Gitignore{Enabled: true},
+	}
+	dir, err := emit.PersonalMemoryDirFor(cfg, defaultSettingsFile, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir = filepath.ToSlash(dir)
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{
+		"x-gemini": map[string]any{"context": map[string]any{
+			"includeDirectories": []any{"custom"}, "discoveryMaxDirs": 25,
+		}},
+	}}})
+	prior := emit.PriorMergedKeys
+	t.Cleanup(func() { emit.PriorMergedKeys = prior })
+	var claims []emit.MergedKey
+	emit.PriorMergedKeys = func(string) []emit.MergedKey { return claims }
+	for range 2 {
+		sess := emit.NewSession()
+		sess.StartDetailedRecording()
+		if err := emitSettings(sess, b, cfg, nil, defaultSettingsFile, false); err != nil {
+			t.Fatal(err)
+		}
+		writes := sess.StopDetailedRecording()
+		if len(writes) != 1 {
+			t.Fatalf("writes = %v", writes)
+		}
+		claims = writes[0].Keys
+		raw, err := os.ReadFile(defaultSettingsFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Context struct {
+				IncludeDirectories []string
+				FileName           string
+				DiscoveryMaxDirs   int
+			}
+		}
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		got := slices.Clone(doc.Context.IncludeDirectories)
+		slices.Sort(got)
+		want := []string{"native", "custom", dir}
+		slices.Sort(want)
+		if !slices.Equal(got, want) {
+			t.Errorf("directories = %v, want %v", got, want)
+		}
+		if doc.Context.FileName != "CUSTOM.md" || doc.Context.DiscoveryMaxDirs != 25 {
+			t.Errorf("context siblings lost: %s", raw)
+		}
+	}
+	if _, _, err := emit.NewSession().ReleaseMergedJSON(defaultSettingsFile, claims, false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(defaultSettingsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Context struct {
+			IncludeDirectories []string
+			FileName           string
+		}
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(doc.Context.IncludeDirectories, []string{"native"}) || doc.Context.FileName != "CUSTOM.md" {
+		t.Errorf("release removed native settings: %s", raw)
 	}
 }

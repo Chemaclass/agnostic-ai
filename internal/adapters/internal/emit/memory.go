@@ -28,11 +28,11 @@ const MemoryBuiltin = "memory"
 // MemoryIndexPaths returns the memory indexes target loads when it
 // lists its context files, personal first, or nil when the memory
 // built-in is off.
-func MemoryIndexPaths(cfg *config.Config, target string) ([]string, error) {
+func MemoryIndexPaths(cfg *config.Config, path, target string) ([]string, error) {
 	if cfg == nil || !slices.Contains(cfg.Builtins, MemoryBuiltin) {
 		return nil, nil
 	}
-	dir, err := PersonalMemoryDirFor(cfg, target)
+	dir, err := PersonalMemoryDirFor(cfg, path, target)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +110,8 @@ func WithoutStalePersonalIndexes(list, current []string) []string {
 // targets may name. The repo store is an absolute path, so it lands only
 // in files the managed .gitignore block keeps out of Git; otherwise the
 // files keep the checkout store, as a project without repo mode has.
-func PersonalMemoryDirFor(cfg *config.Config, targets ...string) (string, error) {
-	if !PersonalMemoryLeavesCheckout(cfg, targets...) {
+func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (string, error) {
+	if !PersonalMemoryLeavesCheckout(cfg, path, targets...) {
 		return PersonalMemoryDir(nil, ".")
 	}
 	return PersonalMemoryDir(cfg, ".")
@@ -119,9 +119,23 @@ func PersonalMemoryDirFor(cfg *config.Config, targets ...string) (string, error)
 
 // PersonalMemoryLeavesCheckout reports whether the project files of
 // targets name the repo store rather than the checkout one.
-func PersonalMemoryLeavesCheckout(cfg *config.Config, targets ...string) bool {
-	// An allow line can re-track any output, so it counts as committed.
-	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled || len(cfg.Gitignore.Allow) > 0 {
+func PersonalMemoryLeavesCheckout(cfg *config.Config, path string, targets ...string) bool {
+	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled || filepath.IsAbs(path) {
+		return false
+	}
+	if cfg.Gitignore.Path != "" && filepath.Clean(cfg.Gitignore.Path) != ".gitignore" {
+		return false
+	}
+	root, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(root, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || cfg.Gitignore.AllowsPath(rel) {
 		return false
 	}
 	for _, t := range targets {

@@ -79,13 +79,13 @@ func TestPersonalMemoryDirFor_KeepsTheCheckoutStoreInCommittedFiles(t *testing.T
 		"instructions committed": {Memory: repo, Gitignore: config.Gitignore{Enabled: true, Commit: []string{"instructions"}}},
 		"codex kind committed":   {Memory: repo, Gitignore: config.Gitignore{Enabled: true, Commit: []string{"codex:mcps"}}},
 	} {
-		got, err := PersonalMemoryDirFor(cfg, "codex")
+		got, err := PersonalMemoryDirFor(cfg, ".codex/config.toml", "codex")
 		if err != nil || filepath.IsAbs(got) {
 			t.Errorf("%s: got %q, %v; want the checkout store", name, got, err)
 		}
 	}
 	ignored := &config.Config{Memory: repo, Gitignore: config.Gitignore{Enabled: true, Commit: []string{"cursor:reviews"}}}
-	if got, err := PersonalMemoryDirFor(ignored, "codex"); err != nil || !filepath.IsAbs(got) {
+	if got, err := PersonalMemoryDirFor(ignored, ".codex/config.toml", "codex"); err != nil || !filepath.IsAbs(got) {
 		t.Errorf("ignored output: got %q, %v; want the repo store", got, err)
 	}
 }
@@ -95,7 +95,7 @@ func TestPersonalMemoryDirFor_KeepsTheCheckoutStoreWithAnAllowLine(t *testing.T)
 		Memory:    config.MemoryConfig{Personal: config.PersonalMemoryRepo},
 		Gitignore: config.Gitignore{Enabled: true, Allow: []string{"opencode.json"}},
 	}
-	if got, err := PersonalMemoryDirFor(cfg, "opencode"); err != nil || filepath.IsAbs(got) {
+	if got, err := PersonalMemoryDirFor(cfg, "opencode.json", "opencode"); err != nil || filepath.IsAbs(got) {
 		t.Errorf("got %q, %v; want the checkout store", got, err)
 	}
 }
@@ -107,5 +107,19 @@ func TestRenderMemoryBlock_KeepsAnAbsolutePersonalIndex(t *testing.T) {
 
 	if !strings.Contains(got, "\n@"+filepath.ToSlash(index)+"\n") {
 		t.Errorf("personal import not absolute:\n%s", got)
+	}
+}
+
+func TestPersonalMemoryDirFor_RequiresAProjectRelativeIgnoredOutput(t *testing.T) {
+	root := testutil.TempCwd(t)
+	cfg := &config.Config{
+		Memory:    config.MemoryConfig{Personal: config.PersonalMemoryRepo},
+		Gitignore: config.Gitignore{Enabled: true},
+	}
+	for _, path := range []string{filepath.Join(root, "CLAUDE.md"), "../CLAUDE.md", "../../CLAUDE.md"} {
+		got, err := PersonalMemoryDirFor(cfg, path, "claude")
+		if err != nil || filepath.IsAbs(got) {
+			t.Errorf("output %s: got %q, %v; want the checkout store", path, got, err)
+		}
 	}
 }
