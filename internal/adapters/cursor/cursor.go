@@ -248,7 +248,14 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
 	byEvent := buildHooks(hooks)
 	if len(byEvent) == 0 {
-		// Releasing the file takes out only sync's entries.
+		// Releasing the file takes out only sync's entries. Cursor needs
+		// `version` beside any hook the user wrote, so it stays theirs.
+		if emit.ClaimsKey(path, "version") && sess.HoldsUnclaimedEntries(path, "hooks", dryRun) {
+			keys := map[string]any{"version": emit.CarriedJSONValue(1)}
+			if err := sess.MergeJSONFileOrdered(path, keys, nil, []string{"version", "hooks"}, dryRun); err != nil {
+				return fmt.Errorf("cursor hooks: %w", err)
+			}
+		}
 		return nil
 	}
 	// Hook entries sync did not write stay; sync claims only its own (#1858).
@@ -260,7 +267,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		return nil
 	}
 	keys := map[string]any{"hooks": value, "version": 1}
-	if sess.HasJSONKey(path, "version", dryRun) && !emit.ClaimsKey(path, "version") {
+	if sess.HasJSONKey(path, "version", dryRun) && (!emit.ClaimsKey(path, "version") || sess.HoldsUnclaimedEntries(path, "hooks", dryRun)) {
 		// The user's own version key stays theirs when sync lets go.
 		keys["version"] = emit.CarriedJSONValue(1)
 	}

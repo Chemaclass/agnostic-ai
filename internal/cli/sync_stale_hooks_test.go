@@ -155,3 +155,31 @@ func TestSync_CursorHooksFileKeepsTheUsersVersionKey(t *testing.T) {
 		t.Errorf("hooks file = %#v, want the user's version key alone", got)
 	}
 }
+
+// A hook the user adds to the file sync created keeps the version key
+// Cursor needs once sync's own hooks leave.
+func TestSync_CursorHooksFileKeepsVersionBesideAUserHook(t *testing.T) {
+	const hooksFile = ".cursor/hooks.json"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
+	runSyncOK(t)
+	runSyncOK(t)
+	doc := readJSONMap(t, hooksFile)
+	hooks, _ := doc["hooks"].(map[string]any)
+	hooks["stop"] = []any{map[string]any{"command": "echo mine"}}
+	writeJSONFile(t, hooksFile, doc)
+	removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
+	runSyncOK(t)
+	got := readJSONMap(t, hooksFile)
+	gotHooks, _ := got["hooks"].(map[string]any)
+	if got["version"] != float64(1) || gotHooks["stop"] == nil || gotHooks["afterFileEdit"] != nil {
+		t.Errorf("hooks file = %#v, want version and the user's stop hook alone", got)
+	}
+	// The write that kept version hands the file back on the next sync.
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	if got := readJSONMap(t, hooksFile); got["version"] != float64(1) {
+		t.Errorf("hooks file = %#v, want version kept after the hand-back", got)
+	}
+}

@@ -169,7 +169,7 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 			load.path = f.Path
 			load.setFile(f.Path, f.Content, f.Layers)
 			// `@AGENTS.md` in the entry point loads that file whole too.
-			if agentsFile != nil && f.Path != agentsFile.Path && importsAgents(f.Content) {
+			if agentsFile != nil && f.Path != agentsFile.Path && adapters.SupportsFileImports(t) && importsAgents(f.Content) {
 				load.add("AGENTS.md import", wordsIn(agentsFile.Content))
 			}
 		}
@@ -214,7 +214,7 @@ func globalSessionLoads(source string, targets []string, b spec.Bundle) ([]sessi
 }
 
 func importsAgents(content string) bool {
-	for _, line := range strings.Split(content, "\n") {
+	for _, line := range strings.Split(withoutCodeFences(content), "\n") {
 		if strings.TrimSpace(line) == "@AGENTS.md" {
 			return true
 		}

@@ -408,3 +408,29 @@ func (s *Session) HasJSONKey(path, key string, dryRun bool) bool {
 	_, found := doc.Get(key)
 	return found
 }
+
+// HoldsUnclaimedEntries reports whether the object of lists at key in the
+// JSON file at path holds an entry the last sync did not record as its
+// own: a list longer than sync's claim, or a list sync never claimed.
+func (s *Session) HoldsUnclaimedEntries(path, key string, dryRun bool) bool {
+	existing := s.existingObject(path, []string{key}, dryRun)
+	if existing == nil {
+		return false
+	}
+	raw, err := MarshalJSONCompact(existing)
+	if err != nil {
+		return false
+	}
+	lists, err := RawEventLists(raw)
+	if err != nil {
+		return true
+	}
+	prior := priorMergedKeys(path)
+	for event, entries := range lists {
+		claim, ok := priorClaim(prior, []string{key, event})
+		if !ok || len(entries) > len(claim.Items) {
+			return true
+		}
+	}
+	return false
+}

@@ -364,3 +364,15 @@ func TestLintBudget_CountsTheAGENTSMdClaudeMdImports(t *testing.T) {
 		t.Errorf("claude's line lacks the imported AGENTS.md:\n%s", claude)
 	}
 }
+
+// An `@AGENTS.md` inside a code example is text, not an import, and only a
+// tool that resolves imports loads the file.
+func TestLintBudget_IgnoresAGENTSMdOutsideARealImport(t *testing.T) {
+	dir := budgetProject(t, "targets: [gemini, codex]\nlint:\n  instructions-words: 1000\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(600)+"\n\n```markdown\n@AGENTS.md\n```\n")
+
+	out, _ := runCLI(t, "lint")
+	if strings.Contains(out, "AGENTS.md import") {
+		t.Errorf("no tool here imports AGENTS.md:\n%s", out)
+	}
+}
