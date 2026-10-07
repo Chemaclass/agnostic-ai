@@ -248,11 +248,13 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 				}
 			}
 		}
-		var added []string
+		added := emit.StillClaimedItems(path, []string{"instructions"}, memory)
 		for _, index := range memory {
 			if !slices.Contains(list, index) {
 				list = append(list, index)
-				added = append(added, index)
+				if !slices.Contains(added, index) {
+					added = append(added, index)
+				}
 			}
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)

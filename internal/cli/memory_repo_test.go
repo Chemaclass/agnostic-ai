@@ -204,6 +204,72 @@ func TestSync_MovingTheHomeDropsTheOldRepoIndexFromInstructions(t *testing.T) {
 	}
 }
 
+// opencodeInstructions reads the instructions list of opencode.json.
+func opencodeInstructions(t *testing.T) []string {
+	t.Helper()
+	var doc struct {
+		Instructions []string `json:"instructions"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc.Instructions
+}
+
+func TestSync_MovingTheHomeDropsAnUnclaimedIndexOfThisRepository(t *testing.T) {
+	stores := repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	list := opencodeInstructions(t)
+	i := slices.IndexFunc(list, func(s string) bool { return strings.HasPrefix(s, filepath.ToSlash(stores)) })
+	if i < 0 {
+		t.Fatalf("first sync instructions: %v", list)
+	}
+	// An older release left this repository's index from a former home
+	// unclaimed after the move.
+	slug := filepath.Base(filepath.Dir(list[i]))
+	stale := filepath.ToSlash(filepath.Join(t.TempDir(), "local", "memory", slug, "MEMORY.md"))
+	raw, err := json.Marshal(map[string]any{"instructions": append(list, stale)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "opencode.json", string(raw))
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := opencodeInstructions(t); slices.Contains(got, stale) {
+		t.Errorf("instructions keep the former home's index: %v", got)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Fatalf("sync --check: %v", err)
+	}
+}
+
+func TestSync_TurningMemoryOffAfterMovingTheHomeLeavesNoIndex(t *testing.T) {
+	repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	newHome, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", newHome)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\ngitignore:\n  enabled: true\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	if text, err := os.ReadFile("opencode.json"); err == nil && strings.Contains(string(text), "MEMORY.md") {
+		t.Errorf("opencode.json keeps a memory index after memory is off:\n%s", text)
+	}
+}
+
 func TestSync_CreatesThePrivateRepoStore(t *testing.T) {
 	parent := repoMemoryProject(t, true)
 	if err := runSync(t, "--dry-run"); err != nil {

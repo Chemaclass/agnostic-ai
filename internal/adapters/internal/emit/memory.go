@@ -115,13 +115,24 @@ func WithoutStalePersonalIndexes(path string, list, current []string) []string {
 	inStores := func(entry string) bool {
 		return slices.ContainsFunc(prefixes, func(prefix string) bool { return strings.HasPrefix(entry, prefix) })
 	}
-	// A store under a home folder sync no longer uses matches no prefix.
+	// A store under a home folder sync no longer uses matches no prefix,
+	// so the claim and the store folder named after this repository
+	// identify it. An older release left the latter unclaimed.
 	claimed := PriorClaimedItems(path, []string{"instructions"})
+	var ownStores []string
+	for _, entry := range current {
+		if inStores(entry) {
+			ownStores = append(ownStores, "/local/memory/"+filepath.Base(filepath.Dir(entry))+"/MEMORY.md")
+		}
+	}
+	ownStore := func(entry string) bool {
+		return slices.ContainsFunc(ownStores, func(suffix string) bool { return strings.HasSuffix(entry, suffix) })
+	}
 	out := make([]string, 0, len(list))
 	for _, entry := range list {
 		index := strings.HasSuffix(entry, "/MEMORY.md")
 		personal := entry == PersonalMemoryIndexPath ||
-			index && (inStores(entry) || slices.Contains(claimed, ContentSum(entry)))
+			index && (inStores(entry) || ownStore(entry) || slices.Contains(claimed, ContentSum(entry)))
 		if personal && !slices.Contains(current, entry) {
 			continue
 		}
