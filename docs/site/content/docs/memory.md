@@ -70,7 +70,10 @@ Ask for the `shared-memory` skill to recall what the project knows about a topic
 | --- | --- |
 | Claude Code | `CLAUDE.md` imports both `MEMORY.md` indexes, so the tool loads them at session start. |
 | Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | With `memory-hook`, a session-start hook adds the index to the model's context. See [load at session start](#load-at-session-start). |
+| OpenCode, Kilo Code | `instructions` in `opencode.json` or `kilo.jsonc` lists both indexes, so the tool loads them at session start. A missing index is skipped. Your own entries stay, except in a Kilo list that sync owns because it lists rule files there. |
 | Every other target | The `shared-memory-policy` rule names both indexes, and the tool reads them before a task. |
+
+Aider and Kiro keep the rule only. Aider prints an error for each missing `read:` file at every start, and Kiro puts a visible marker in its steering text for a missing reference. Once both indexes exist, add them yourself: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]` in `.aider.conf.yml`, or `#[[file:.agnostic-ai/memory/MEMORY.md]]` in a Kiro steering file.
 
 The import goes only into files whose readers all follow `@` lines. A file that `sync.resolve-imports` rewrites never carries memory text, so saves never show up as `sync --check` drift.
 

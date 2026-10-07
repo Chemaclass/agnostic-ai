@@ -48,6 +48,7 @@ package opencode
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -171,7 +172,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitProjectConfig(sess, b.MCPs, b.Settings, emit.MemoryIndexPaths(cfg), emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
@@ -196,7 +197,7 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 // map and a `$schema` link. Routes through emit.MergeJSONFile so any
 // pre-existing user-managed keys (theme, small_model, ...) survive the
 // sync; only `$schema`, `mcp`, and the portable `model` field are owned.
-func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path string, dryRun bool) error {
+func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory []string, path string, dryRun bool) error {
 	permissions, dropped := buildPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
 	// An `x-opencode` block on a settings spec carries the keys this
@@ -209,7 +210,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 	// The block is read twice, once to decide whether the file is
 	// written at all and once to merge it in.
 	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
-	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && emit.SettingsModel(settings, target) == "" {
+	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && emit.SettingsModel(settings, target) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
@@ -223,6 +224,27 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 		keys[permissionKey] = permissions
 	}
 	emit.MergeSettingsCustomKeys(keys, settings, target, permissionKey)
+	if len(memory) > 0 {
+		// The merge replaces the whole array, so the user's entries and
+		// any x-opencode instructions ride along, and sync claims only
+		// the indexes it adds. Ownership wraps last, after that merge.
+		list := sess.ExistingStrings(path, "instructions", dryRun)
+		if custom, ok := keys["instructions"].([]any); ok {
+			for _, v := range custom {
+				if s, ok := v.(string); ok && !slices.Contains(list, s) {
+					list = append(list, s)
+				}
+			}
+		}
+		var added []string
+		for _, index := range memory {
+			if !slices.Contains(list, index) {
+				list = append(list, index)
+				added = append(added, index)
+			}
+		}
+		keys["instructions"] = emit.ClaimedJSONItems(list, added)
+	}
 	emit.MergeEntriesOf(keys, "mcp")
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
