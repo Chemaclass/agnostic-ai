@@ -36,7 +36,7 @@ augment	docs	https://docs.augmentcode.com/cli/rules.md	200	markdown-mirror	556b1
 augment	docs	https://docs.augmentcode.com/cli/skills.md	200	markdown-mirror	7326aab9bf5ed579a4e34cb229a73154ba7177fd434c7ea3418f331e6190be7e	2026-10-02
 augment	docs	https://docs.augmentcode.com/cli/subagents.md	200	markdown-mirror	c38d57d164aab595ffe41e7b6d00ab09f57ee2dcb0b87eec5fd06b20dbb45589	2026-10-02
 augment	docs	https://docs.augmentcode.com/setup-augment/guidelines.md	200	markdown-mirror	a87a75f9a174307bf26692afce87c7ac8c9257939e59e735a9dd5cef1f94c38f	2026-10-02
-claude	changelog	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md	200	raw-github	27e1b6ea7d5c7d9163c5b9eb336954fa8c7321762ea506effd679495dd144f4e	2026-10-07
+claude	changelog	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md	200	raw-github	601c5cbb1f52dae6c46b665d90c566f31e4cb8aa8d0521854f36776f25dc65b5	2026-10-07
 claude	docs	https://code.claude.com/docs/en/desktop	200	html	d46caef4b76ae45d28672da0b8d0b288fbd39cb8d05618c070e808004d53b866	2026-10-07
 claude	docs	https://code.claude.com/docs/en/hooks	200	html	a267aa6939e9c77e1ecd871b262ae53db44a88e21ab52d50a31effa786b08dbf	2026-10-07
 claude	docs	https://code.claude.com/docs/en/mcp	200	html	b2c7a8e4ca87c09b79565cd98d935490cfbb8d0c6b3c6ef15c994781b4aa52ac	2026-10-06
@@ -45,10 +45,10 @@ claude	docs	https://code.claude.com/docs/en/plugins/loading	200	html	eeca1c01eed
 claude	docs	https://code.claude.com/docs/en/plugins/mods/events	200	html	3738c4659156b6fadfc2e72f582e64b2532f01bd8686a815b16a970678e4bdb6	2026-10-02
 claude	docs	https://code.claude.com/docs/en/plugins/mods/overview	200	html	d8b3cf1fbe1ec92efacce4026e391a1320ff4a48b601a6754d9cdefd23341583	2026-10-06
 claude	docs	https://code.claude.com/docs/en/plugins/mods/reference	200	html	4b2340a0929dc7f00c1a322984d353e96a95dc97da310f27198a33eb39451905	2026-10-07
-claude	docs	https://code.claude.com/docs/en/settings	200	html	9ce9cbf9068569c98955d9f44ab371c6b2b979913e6dcfed5cdd50054b1f6fd1	2026-10-07
+claude	docs	https://code.claude.com/docs/en/settings	200	html	31da29a1a08929adfb5d423b517339f5fb3cc7f68df22610ab5b3f389f9e95af	2026-10-07
 claude	docs	https://code.claude.com/docs/en/settings-reference	200	html	96bacfa2ea83e4e3e0781ca8399b561707549653dd455d6d0cd4c8edc966b78b	2026-10-07
 claude	docs	https://code.claude.com/docs/en/skills	200	html	50c146dcbd405f5c8f08091c37cd095b914dabc82c8150e19299e929a5b3ec37	2026-10-06
-claude	docs	https://code.claude.com/docs/en/sub-agents	200	html	93b2c751d3bd082657f9a7a4640ea1712b402291cbebed9972643a766b7d8930	2026-10-07
+claude	docs	https://code.claude.com/docs/en/sub-agents	200	html	8c1ef751b2e300b0b2816d056ef2ffb2f178c2c1c07270e7aef70fcb69ecf9d3	2026-10-07
 claude	schema	https://www.schemastore.org/claude-code-launch.json	200	schema-keys	98ec297b1920aef478914155baf62cd23c81087832505e4077759f8cd0c50f16	2026-09-30
 claude	schema	https://www.schemastore.org/claude-code-settings.json	200	schema-keys	b71fab659a910b21d8bf7b6c29b7d18143772a5ecb70cc771df57c98eda6b6c9	2026-09-30
 cline	changelog	https://github.com/cline/cline/releases	200	github-api	fd032bf5f6905ca09fa99b5359959f5842625c353a9bf9433661dec640c3e298	2026-10-07
@@ -74,14 +74,14 @@ continue	changelog	https://github.com/continuedev/continue/releases	200	github-a
 continue	docs	https://docs.continue.dev/customize/deep-dives/mcp	200	html	9a9eb0b55cc061761f48fb71035ba6d8b3e5527d9394bf18528f306acb804962	2026-09-22
 continue	docs	https://docs.continue.dev/customize/deep-dives/rules	200	html	d9c4a571cebdf2e028c6d3e0d279631e1a54e87c7d085e5688c8d7d01f55e737	2026-09-22
 continue	docs	https://docs.continue.dev/reference	200	html	a0067dd0c4619606119427464ddfc3c7708814a2d4973e6d8416dacf147cc3a4	2026-09-22
-copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	da555815344e7a42992103f0e71de14f4f179fd35b2799d1b8f0e5bbe636ee2b	2026-10-07
+copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	b799cdf692383a7222c5be496b14b722ba421e7a9ad39807ee2d2f0aff239233	2026-10-07
 copilot	docs	https://code.visualstudio.com/docs/agent-customization/mcp-servers	200	html	f75706abacbfc49c6c5f8b5cedb60901e8f857380c24ad8fd5a90eda40fadc12	2026-10-07
 copilot	docs	https://code.visualstudio.com/docs/agents/reference/mcp-configuration	200	html	282fcd2ce15b95aaf84ef5e9f679165ffe0ab4c527eb930f17d1eec3dfe41650	2026-10-07
 copilot	docs	https://docs.github.com/en/copilot/concepts/agents/hooks.md	200	markdown-mirror	bfd40aa93ad62133efc17a50f189034f01594dc89a5d31a13a0c541d691acede	2026-09-25
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers.md	200	markdown-mirror	8c8370a38ff10f4c80177f5a45faf349fc1956b0aeb12aea7b031b1caecae2bb	2026-10-06
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills.md	200	markdown-mirror	2aa46e4615fc9cdaaae6a70061fd0056719886c4d2a3ead98b5daf5e45e90c91	2026-09-25
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/use-hooks.md	200	markdown-mirror	32771aaf4ebf2cb92d19fb184cfe0ea7f9775502e4050a776cd2b9cb7dee0032	2026-10-06
-copilot	docs	https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference.md	200	markdown-mirror	487db33512087f2363917ec43459416c928583fb2b4dc8d3c0b2494e5b940bed	2026-10-07
+copilot	docs	https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference.md	200	markdown-mirror	7758268169c928efca0ce685c01949531f12ccfbb6b2c59e6c953684f4495922	2026-10-07
 copilot	docs	https://docs.github.com/en/copilot/reference/custom-agents-configuration.md	200	markdown-mirror	914d2b3aca98f2bc096e477a4acaa19ce26adc7c76542a70e3cea48eb1ba26cc	2026-09-25
 copilot	docs	https://docs.github.com/en/copilot/reference/hooks-reference.md	200	markdown-mirror	a7ec2364d80912e6c7d13dd63e9031435cdcc6d325bbf3318744970bdfb7fb97	2026-10-07
 crush	changelog	https://github.com/charmbracelet/crush/releases	200	github-api	eae64fc75e72526ce69ddb4cc5b251ea34165d833fa8a08e4cb3d0df4bd626b4	2026-09-30
@@ -89,7 +89,7 @@ crush	docs	https://github.com/charmbracelet/crush	200	raw-github	4a72550d9d6d9b8
 crush	docs	https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md	200	raw-github	0871ecba435c774b38650046a10341cccf07661c78a4bf803ce585c8740f4d38	2026-09-22
 crush	schema	https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json	200	schema-keys	308ae8defeb921dcda55cabc280d30243312983e91cc7256fb6002807c788c5f	2026-09-30
 cursor	changelog	https://cursor.com/changelog	200	reader-proxy	fbd9c8eab44a6e0061bacb2da5041de6540350f71b70b0ba35c5d2736105f6ba	2026-10-07
-cursor	docs	https://cursor.com/docs/bugbot	200	reader-proxy	5729b5ab7e5131c85faa1a36125647f239da9be3f336f21ac34190cdbabf5617	2026-10-06
+cursor	docs	https://cursor.com/docs/bugbot	200	reader-proxy	88aba3fb5654708f900efd5818dd02c715a0e44771aebbd9894438fac5b4c551	2026-10-07
 cursor	docs	https://cursor.com/docs/configuration/worktrees	200	reader-proxy	a2f2c3b4212216a33234fe6ccb7fdb5ef3305b38287bb79b3893f244dafda58a	2026-09-29
 cursor	docs	https://cursor.com/docs/hooks	200	reader-proxy	edb0d388b7743bf62a49848f8f71b6edcac2c3555996ca8fa64c3838d1d0b544	2026-09-29
 cursor	docs	https://cursor.com/docs/mcp	200	reader-proxy	1cd0265281aae01edeadaa048afeee6ebd8c901a85774ed991b2fe43045c37e4	2026-10-06
@@ -157,7 +157,7 @@ kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daa
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	3d660caed47c7252466c544bcec647c9e1b470d71a56bfea50f9bf9e11208568	2026-09-22
 kilo	schema	https://app.kilo.ai/config.json	200	schema-keys	3769296995eb87ead3c969a636822fcd5dd8477d5481318c68c2c8bc61398c0f	2026-10-06
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	11d138b413a005267122b2d11e713bc831d9d728aa52155754eab8ea5df7605c	2026-10-07
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	55ba4d3cfa45e2d6038dfac9cb33b148175ffded500324f3440a08ecf5c027c0	2026-10-07
 kiro	docs	https://kiro.dev/docs/cli/chat/manage-prompts.md	200	markdown-mirror	c1709a715b4d13a98012d3ed57a23d5bcdeca460502ce93d48f2ae9973e9de0e	2026-10-04
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	47257b52caedeec916a92a82c7c3e20a22889b37c47c4688dfb989f70370f13f	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	4901ef1d9bb61a831849697619ca484a4b0517ac23ea3afd94de5fd399799400	2026-09-25
@@ -224,7 +224,7 @@ trae	docs	https://docs.trae.ai/ide/slash-commands	200	router-data	856729aa8e23b3
 trae	docs	https://docs.trae.ai/ide/subagents	200	router-data	6167b42483564c74066c2e4584829c377036b29551aee3c1f1637ef168479c46	2026-09-23
 warp	changelog	https://docs.warp.dev/changelog.md	200	markdown-mirror	0f93b856e6d112f2360b7ae515e8c26949cdfff20d90f8157d66b0e5a8178ac2	2026-09-25
 warp	changelog	https://docs.warp.dev/changelog/2026.md	200	markdown-mirror	2acd6b336688a94822a159a40205b6a115fb133754ed96633c04a9f84844e1ec	2026-10-06
-warp	docs	https://docs.warp.dev/agents/capabilities/mcp.md	200	markdown-mirror	2bce0b7bb40694c6341e5f7119b1ef4e61131d248e90b767197c7f176cb9a5c7	2026-10-07
+warp	docs	https://docs.warp.dev/agents/capabilities/mcp.md	200	markdown-mirror	e47853fd272a88f2861e05b615dc70e06e18afa1784e643e25bee19505dd5e58	2026-10-07
 warp	docs	https://docs.warp.dev/agents/capabilities/skills.md	200	markdown-mirror	5fd081c21e5feb387fc0949d836790e214d6105c88442b603378d7b49ab6c41d	2026-10-06
 warp	docs	https://docs.warp.dev/terminal/entry/yaml-workflows.md	200	markdown-mirror	34c06c691a16d92a5b82e998cd16595cd6ea35fb47f5c1d50f5cf1326ee1281f	2026-10-06
 warp	schema	https://www.schemastore.org/warp-workflows.json	200	schema-keys	769d2ec471bd8bd45a678743af5c13f4b0ef82960a559a5acdfe095e5b7fcb68	2026-09-30
@@ -244,7 +244,7 @@ windsurf	docs	https://docs.devin.ai/desktop/cascade/skills.md	200	markdown-mirro
 windsurf	docs	https://docs.devin.ai/desktop/cascade/workflows.md	200	markdown-mirror	7e2d7601d0b4031742c6df212bd82e82ff36a4460536c3ac36d074c5f502a952	2026-10-02
 windsurf	docs	https://docs.devin.ai/desktop/context-awareness/devin-ignore.md	200	markdown-mirror	bad2f8e5514b126d17f2d953fbdbfe940d7d34195df6510b800f2d7009b602fb	2026-10-02
 windsurf	docs	https://docs.devin.ai/desktop/devin-local.md	200	markdown-mirror	d762c47f6e71c993d9e199834b912064324d92a66c55c4b1ddeb2a8b2a9c03c0	2026-10-02
-zed	changelog	https://zed.dev/releases	200	html	9a938754d426dfd63e60fa6cb72f18513a0b392a55efa3eb9f0940d8e9ea8a93	2026-09-30
+zed	changelog	https://zed.dev/releases	200	html	c277519a899d2ae3143cca516bf0d910b25ae7df4981ac906f3ef4c3d2e46f5c	2026-10-07
 zed	docs	https://zed.dev/docs/ai/instructions	200	html	a52d64173b8e7872cc7c1cb09d101f30ceb532c6f4a50693c001b885a27bbf1f	2026-09-22
 zed	docs	https://zed.dev/docs/ai/mcp	200	html	959546ac9fb815465af55cce0f84cfe480a24f6738478df2aab35e778acc4cc6	2026-09-22
 zed	docs	https://zed.dev/docs/ai/skills	200	html	889151a10465b93ed61ece711ac60c3db3ce4f049a447ecb10f7267b3feb3461	2026-09-22
