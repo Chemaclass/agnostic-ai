@@ -10,16 +10,16 @@ group = "Reference"
 
 # MCP servers
 
-`mcps/` connects agents to outside tools and data through the Model Context Protocol: a browser, a database, GitHub, an issue tracker, internal APIs. Each tool keeps servers in its own file and format, such as `.mcp.json`, `.cursor/mcp.json`, or `[mcp_servers.*]` in `.codex/config.toml`. One YAML file per server feeds all of them.
+`mcps/` connects agents to outside tools and data through the Model Context Protocol: a browser, a database, GitHub, an issue tracker. Each tool keeps servers in its own file and format, such as `.mcp.json`, `.cursor/mcp.json`, or `[mcp_servers.*]` in `.codex/config.toml`. One YAML file per server feeds all of them.
 
-- **Declared once.** Add or change a server in one file. Every tool picks it up on the next sync.
+- **Declared once.** Change a server in one file. Every tool picks it up on the next sync.
 - **Local or remote.** A `stdio` server runs a command on your machine. `http`, `sse`, and `ws` servers connect to a URL.
-- **Tool options kept.** Timeouts, tool filters, OAuth, and approval settings that only some tools read go to the tools that read them.
+- **Tool options kept.** Timeouts, tool filters, OAuth, and approval settings go only to the tools that read them.
 - **Limited per agent.** An [agent's `mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target) limits which servers one subagent may reach.
 
 ## Write one
 
-`agnostic-ai new mcp filesystem` creates `mcps/filesystem.yaml`. It is plain YAML with no markdown body, one file per server.
+`agnostic-ai new mcp filesystem` creates `mcps/filesystem.yaml`: plain YAML, no markdown body.
 
 ```yaml
 name: filesystem
@@ -48,25 +48,25 @@ Real servers to copy are on the [MCP recipes](@/docs/spec-format/mcp-recipes.md)
 
 ## Fields
 
-`name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. Such names are percent-encoded in YAML filenames and written as they are in every generated config. Other spec kinds need a name that is one safe path segment, because their names become output paths.
+`name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. Such names are percent-encoded in filenames and written as they are in every generated config.
 
-A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a missing one as LINT008. `validate` and `sync` do not, so some tools get a server that cannot start. See [lint](@/docs/cli-reference/check.md#lint).
+A server needs `command` (stdio) or `url` (remote). Only `agnostic-ai lint` reports a missing one (LINT008), so run it before `sync`. See [lint](@/docs/cli-reference/check.md#lint).
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier and key in the generated config. |
-| `description` | no | empty | Free-form notes. Dropped where the tool's MCP format has no such key (Junie, Warp). |
-| `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` does not. Augment, Factory, and Qoder get no server for a `ws` entry. |
+| `description` | no | empty | Free-form notes. Dropped for Junie and Warp. |
+| `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote types write an explicit `type`; `stdio` does not. Augment, Factory, and Qoder get no server for `ws`. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. An element can hold a [reference](#references-in-url-and-args). |
 | `env` | no | empty | Environment variables for the server. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
 | `url` | http/sse/ws only | none | Endpoint URL. It can hold a [reference](#references-in-url-and-args). |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
 | `cwd` | no | empty | Working directory for a stdio server, where the tool supports it. |
-| `timeout` | no | empty | Units vary by tool: milliseconds on most. |
-| `oauth` | no | empty | OAuth settings. The format differs by tool; see the tool's page. |
+| `timeout` | no | empty | Milliseconds on most tools. |
+| `oauth` | no | empty | OAuth settings. The format differs by tool. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
-| `roots` | no | empty | List of `{uri, name}` objects, for tools that support MCP roots. |
+| `roots` | no | empty | List of `{uri, name}` objects, for tools with MCP roots. |
 
 ## Secrets and plain settings {#plain-settings}
 
@@ -78,15 +78,15 @@ env:
   NODE_ENV: !literal production
 ```
 
-`!literal` is for YAML only. Sync writes `NODE_ENV: production` to every tool, the same output a plain `production` gave. An editor with the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
+Sync writes `NODE_ENV: production` to every tool. An editor with the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
 
-`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, counts, since that text may be the secret. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
+`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
 
-[`agnostic-ai migrate --only secrets`](@/docs/cli-reference/maintain.md#migrate) rewrites existing specs. A value that import would treat as a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, named the way import names it. The command lists each variable to set, never the value. Sync then writes the reference instead of the value. Every other value gets `!literal`, so sync writes the same files. The migration leaves two cases to you: a key with a [credential name](#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
+[`agnostic-ai migrate --only secrets`](@/docs/cli-reference/maintain.md#migrate) rewrites existing specs. A value that looks like a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, and the command lists each variable to set, never the value. Every other value gets `!literal`. It leaves two cases to you: a key with a [credential name](#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
 
 ## Environment references
 
-Write a token or key as `${NAME}` in an `env` or `headers` value. The spec then names the variable and never holds the secret. The reference can be the whole value or part of it:
+Write a token or key as `${NAME}` in an `env` or `headers` value, whole or in part:
 
 ```yaml
 env:
@@ -95,9 +95,9 @@ headers:
   Authorization: Bearer ${API_KEY}
 ```
 
-`${NAME:-default}` uses `default` when `NAME` is unset. Only Claude Code, Crush, OpenHands, and Gemini document that form. Any other `${...}`, such as `${env:NAME}` or `${input:id}`, is not a reference in a spec.
+`${NAME:-default}` uses `default` when `NAME` is unset. Only Claude Code, Crush, OpenHands, and Gemini support that form. Any other `${...}`, such as `${env:NAME}` or `${input:id}`, is not a reference in a spec.
 
-Sync writes each tool's own form. Where a tool cannot read a reference in that field, sync leaves the key out. It prints a note naming the server, the key, and the variable, and never writes the reference as plain text. This applies to a tool with no reference form, Amp `env`, a `${NAME:-default}` outside the four tools above, and any other `${...}`. A literal value is written as it is.
+Sync writes each tool's own form. Where a tool cannot read a reference in that field, sync leaves the key out and prints a note naming the server, the key, and the variable. It never writes the reference as plain text. This applies to a tool with no reference form, Amp `env`, a `${NAME:-default}` outside the four tools above, and any other `${...}`.
 
 | Target | `env` | `headers` |
 |--------|-------|-----------|
@@ -110,26 +110,26 @@ Sync writes each tool's own form. Where a tool cannot read a reference in that f
 | [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}` on stdio servers | `{% raw %}${{ secrets.NAME }}{% endraw %}` under `requestOptions.headers` |
 | [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Left out | Left out |
 
-Kiro expands only the variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset, and Claude Code passes the `${NAME}` text to the server as it is.
+Kiro expands only variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset.
 
-[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable that is unset in your shell, in top-level fields and in the `x-<target>` block of each selected tool. It checks disabled servers too, since several tools start them anyway, and it can list a variable that an override replaces. A tool started from a desktop launcher may see a different environment, and Continue also reads `.env` files, so treat the list as a hint.
+[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable that is unset in your shell, including in `x-<target>` blocks and disabled servers. A tool started from a desktop launcher may see a different environment, and Continue also reads `.env` files, so treat the list as a hint.
 
-Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env` files. Its CLI also reads environment variables. See [Continue's secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables). Keep `.env` files out of Git.
+Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env`. Its CLI also reads environment variables. See [Continue's secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables). Keep `.env` files out of Git.
 
 ### References in `url` and `args`
 
-A `${NAME}` can also sit in `url` or in an `args` element, such as a host that differs per machine or a token a server takes on its command line:
+A `${NAME}` can also sit in `url` or an `args` element, such as a per-machine host or a token on the command line:
 
 ```yaml
 url: https://${API_HOST}/mcp
 args: [--token, "${GH_TOKEN}"]
 ```
 
-Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, because dropping one argument would change the command. The note names the server, the field, and the variable. Sync checks only the field the tool uses for the server's transport, after any `x-<target>` override for that tool. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, OpenHands, and Gemini.
+Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, because dropping one argument would change the command. The note names the server, the field, and the variable. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, OpenHands, and Gemini.
 
-A tool's own form at the top level, such as `${env:NAME}`, is copied as plain text to every tool that does not read that form. `agnostic-ai lint` reports it as LINT028. Write `${NAME}`, or put the tool's own text under `x-<target>:`.
+A tool's own form at the top level, such as `${env:NAME}`, is copied as text to every other tool, and `agnostic-ai lint` reports it as LINT028. Write `${NAME}`, or put the tool's own text under `x-<target>:`.
 
-`${workspaceFolder}`, `${workspaceFolderBasename}`, `${userHome}`, and `${pathSeparator}` are tool variables, not environment references, and stay as written. So does any other `${...}`, such as `${input:id}`, and every literal URL or argument.
+`${workspaceFolder}`, `${workspaceFolderBasename}`, `${userHome}`, and `${pathSeparator}` are tool variables, not references, and stay as written. So does any other `${...}`, such as `${input:id}`.
 
 | Target | `url` | `args` |
 |--------|-------|--------|
@@ -140,48 +140,43 @@ A tool's own form at the top level, such as `${env:NAME}`, is copied as plain te
 | [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}` | `{% raw %}${{ secrets.NAME }}{% endraw %}` |
 | [Codex](@/docs/targets/codex.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Server left out | Server left out |
 
-Import reads each tool's form in `url` and `args` back as `${NAME}`, including a whole-argument `$NAME` on Gemini and Crush. A reference to a variable named like one of the four tool variables, such as Cursor's `${env:workspaceFolder}`, is kept as written, so it never becomes the tool variable. Import keeps a literal URL or argument as written, except for the [credentials in it](#what-import-writes).
-
 ### Literal `${NAME}` text {#literal-text}
 
-Some servers expand `${NAME}` themselves, such as `mcp-remote` in a header argument. Write `$${NAME}` to pass the text on as it is. It works in `url`, `args`, `env`, and `headers`:
+Some servers expand `${NAME}` themselves, such as `mcp-remote` in a header argument. Write `$${NAME}` to pass the text on unchanged. It works in `url`, `args`, `env`, and `headers`:
 
 ```yaml
 command: npx
 args: ["-y", "mcp-remote", "https://mcp.example.com", "--header", "x-chroma-token: $${X_CHROMA_TOKEN}"]
 ```
 
-Sync writes `${X_CHROMA_TOKEN}` to every built-in tool, with no tool form, no left-out server, and no note. An external adapter gets the spec as written, `$${NAME}` included. Quote it inside a `[...]` list, as you would `${NAME}`. Only `$${` is special. Any other `$$` is written as it is.
+Sync writes `${X_CHROMA_TOKEN}` to every built-in tool, with no left-out server and no note. An external adapter gets the spec as written. Quote it inside a `[...]` list, as you would `${NAME}`.
 
-A tool that expands `${NAME}` in that field fills in the value from its own environment before the server sees it. These are Claude Code, Crush, OpenHands, and Gemini in `url` and `args`, Amp in `url`, and the tools with `${NAME}` in the [`env` and `headers` table](#environment-references). None of them documents a way to write a literal `${`, so sync still writes the server. The tool reads its own environment, not the server's `env` block. The server gets the same value unless its `env` sets that variable to something else. A value expanded in `args` shows in the process list, as it does for a `${NAME}` reference. When the variable is unset and has no default, Claude Code keeps the `${NAME}` text and warns in `claude mcp list`. In a remote server's `url` and `headers`, some credential variables read as empty instead ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcp-json)).
-
-When sync leaves out a reference a tool cannot read, the note names the `$${NAME}` form to use instead.
+A tool that expands `${NAME}` in that field fills in the value from its own environment before the server sees it: Claude Code, Crush, OpenHands, and Gemini in `url` and `args`, Amp in `url`, and the tools with `${NAME}` in the [`env` and `headers` table](#environment-references). None of them has a way to write a literal `${`, so sync still writes the server. The tool reads its own environment, not the server's `env` block. A value expanded in `args` shows in the process list. When the variable is unset and has no default, Claude Code keeps the `${NAME}` text and warns in `claude mcp list`.
 
 ### What import writes
 
-`import` reads each tool's own form back as `${NAME}`, including a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini. A `${NAME}` in a field the tool never expands is plain text, so the spec gets [`$${NAME}`](#literal-text) and the tool's file keeps `${NAME}`, as in Warp, Zed, and Codex `args`. A `$${NAME}` in a field whose form is `${NAME}`, such as Gemini `args`, imports as `$$${NAME}`, so sync writes the same text back. Gemini reads it as `$` plus the value. A `${NAME}` in a Codex `env` table is plain text too, so it no longer imports as a variable Codex forwards; `env_vars` still does. Import also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting, and a spec is meant to be committed. A plain setting such as `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set. Factory fails the connection without it. Put a plain setting back by hand when it is not a secret.
+`import` reads each tool's own form in `env`, `headers`, `url`, and `args` back as `${NAME}`, including a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini. A `${NAME}` in a field the tool never expands is plain text, so the spec gets [`$${NAME}`](#literal-text), as in Warp, Zed, and Codex `args`. Import also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. A plain setting such as `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set. Put a plain setting back by hand when it is not a secret.
 
 - An `env` value reads the variable its key names.
 - A header reads `<SERVER>_<HEADER>` in upper case, with any character other than a letter or digit as `_`, and keeps a `Bearer ` prefix outside the reference.
-- When two different values would share a name, or the import already references that name, each one reads `<SERVER>_<KEY>` instead, then `_2`, `_3` if that still clashes. Equal values share one name. Codex forwards a variable only under its key's own name. A renamed `env` value such as `API_KEY: ${GH_API_KEY}` is left out of `.codex/config.toml` with a note. Rename the variable to match the key when Codex needs that server.
+- When two different values would share a name, each one reads `<SERVER>_<KEY>` instead, then `_2`, `_3`. Codex forwards a variable only under its key's own name, so a renamed `env` value such as `API_KEY: ${GH_API_KEY}` is left out of `.codex/config.toml` with a note. Rename the variable to match the key when Codex needs that server.
 - A `${NAME:-default}` loses its default, since a default is a value too.
-- A value with text around its references, such as `postgres://u:pw@${HOST}/db` or `Bearer sk-1 ${EXTRA}`, is replaced whole, since that text may be the secret. So is a value with any other `${...}`, such as a VS Code `${input:id}` prompt, which sync could not write. The output names the prompt.
-- A Crush `$(command)` value becomes a reference, and the output names the command it ran.
-- When a `url` or argument is exactly one URL, only its credentials become references: a `user:password@` password, a username that is a token by the prefixes below (`https://ghp_...@github.com`), and the value of a query or fragment parameter with a [credential name](#credential-names), such as `api_key`, `access_token`, or `clientSecret` (not `token_type`, `key_id`, or `sortKey`). A parameter named exactly `auth`, `sig`, `signature`, `code`, `session`, `jwt`, or `bearer` counts too, but `country_code` does not. A `;` separates parameters like `&`, and `#access_token=...` counts like `?access_token=...`. Each reads `<SERVER>_<NAME>`, so `postgresql://admin:pw@db/app` in server `pg` becomes `postgresql://admin:${PG_PASSWORD}@db/app`. The rest of the URL stays as written. This includes a URL that starts with a reference, such as `${API_BASE}/mcp?token=...`. A credential that is already a reference loses its default. So does a reference whose default is a URL with a credential, such as `${MCP_URL:-https://x.example/mcp?token=...}`. The output names the field and variable, never the URL.
+- A value with text around its references, such as `postgres://u:pw@${HOST}/db` or `Bearer sk-1 ${EXTRA}`, is replaced whole, since that text may be the secret. So is a value with any other `${...}`, such as a VS Code `${input:id}` prompt.
+- A Crush `$(command)` value becomes a reference.
+- When a `url` or argument is exactly one URL, only its credentials become references: a `user:password@` password, a username that is a token by the prefixes below (`https://ghp_...@github.com`), and the value of a query or fragment parameter with a [credential name](#credential-names), such as `api_key`, `access_token`, or `clientSecret` (not `token_type`, `key_id`, or `sortKey`). A parameter named exactly `auth`, `sig`, `signature`, `code`, `session`, `jwt`, or `bearer` counts too, but `country_code` does not. Each reads `<SERVER>_<NAME>`, so `postgresql://admin:pw@db/app` in server `pg` becomes `postgresql://admin:${PG_PASSWORD}@db/app`. The rest of the URL stays as written, including a leading reference such as `${API_BASE}/mcp?token=...`. The output names the field and variable, never the URL.
 - One URL means no spaces, quotes, or `$${`, and it starts with a scheme or a `${NAME}`. Import never rewrites any other value, such as a `sh -c` command or `--url=...`.
-- In `args`, the value of a long flag with a [credential name](#credential-names) becomes a reference named after the flag, as `--api-key value` or `--api-key=value`. In server `gh`, `--api-key X` becomes `--api-key ${GH_API_KEY}`. A flag such as `--token-file`, `--key-id`, `--sort-key`, or `--no-token` is not a credential. These values stay as written: a `$NAME`, a file path (starting with `/`, `~`, `./`, `../`, or a drive such as `C:\`), a file name ending in `.json`, `.txt`, `.pem`, `.key`, `.env`, `.yaml`, `.yml`, `.toml`, `.crt`, `.p12`, or `.db`, a value starting with `@`, a number, `true`, `false`, `yes`, `no`, `on`, `off`, and lower-case words joined by dashes such as `streamable-http`. A value in its own argument must not start with `-`. After a flag whose name ends in `key`, `apikey`, `authentication`, or `authorization`, it also needs at least 8 characters, so `--require-api-key run` stays as written.
-- An argument that is a whole token by its prefix becomes `${<SERVER>_TOKEN}`, then `_2`, `_3` for more tokens. The prefixes are `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`, `glpat-`, `xoxb-`, `xoxp-`, `xoxa-`, `xapp-`, `sk_live_`, `sk_test_`, `rk_live_`, `sk-proj-`, and `sk-ant-` with at least 8 more characters, `npm_` with at least 30, `AIza` with 35, `sk-` with at least 20 more letters or digits, a digit among them, and no further dash, and `AKIA` with 16 upper-case letters or digits. A JWT (`eyJ...` with three dot-separated parts) counts too.
-- Import leaves the server out and names the server and field when a value it does not rewrite holds a literal credential, or a value still shows one after the rewrite. A credential here is any of these:
+- In `args`, the value of a long flag with a [credential name](#credential-names) becomes a reference named after the flag, as `--api-key value` or `--api-key=value`. In server `gh`, `--api-key X` becomes `--api-key ${GH_API_KEY}`. A flag such as `--token-file`, `--key-id`, `--sort-key`, or `--no-token` is not a credential. These values stay as written: a `$NAME`, a file path (starting with `/`, `~`, `./`, `../`, or a drive such as `C:\`), a file name ending in `.json`, `.txt`, `.pem`, `.key`, `.env`, `.yaml`, `.yml`, `.toml`, `.crt`, `.p12`, or `.db`, a value starting with `@`, a number, a boolean word, and lower-case words joined by dashes such as `streamable-http`. After a flag whose name ends in `key`, `apikey`, `authentication`, or `authorization`, a value needs at least 8 characters, so `--require-api-key run` stays as written.
+- An argument that is a whole token by its prefix becomes `${<SERVER>_TOKEN}`, then `_2`, `_3`. The prefixes are `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`, `glpat-`, `xoxb-`, `xoxp-`, `xoxa-`, `xapp-`, `sk_live_`, `sk_test_`, `rk_live_`, `sk-proj-`, `sk-ant-`, `npm_`, `AIza`, `sk-`, and `AKIA`, each with a plausible length. A JWT (`eyJ...` with three dot-separated parts) counts too.
+- Import leaves the server out and names the server and field when a value it does not rewrite still holds a literal credential. A credential here is any of these:
   - a URL password or credential parameter (a quoted value such as `token='...'` counts, a quoted `'${NAME}'` does not);
   - a token by its prefix inside a longer value;
-  - a `Bearer` with a literal token that has a digit, one of `-._~+/=`, or at least 20 characters, as in `-H 'Authorization: Bearer ...'` or a JSON headers value;
+  - a `Bearer` with a literal token that has a digit, one of `-._~+/=`, or at least 20 characters;
   - a line `Name: value` or a JSON pair `"name": "value"` with a credential key and a literal value, as in a headers value `X-Api-Key: ...` or `{"apiKey": "..."}`;
   - a `--header` or `-H` argument such as `Authorization: ...`, `Cookie: ...`, or `X-Api-Key: ...` with a literal value;
   - a `user:password@host` without a scheme, as in `root:pw@db:3306`;
   - a `NAME=value` or `--name value` with a credential name inside a longer value, as in `sh -c "API_TOKEN=... exec srv"` or `sh -c "npx srv --token ..."`;
   - an all-digit password before `#`, or before `/` with no host, as in `redis://:1234#5@host`.
-- A value with `%26`, `%3D`, or `%3F` is read again with those decoded once. A value without a credential, nested URLs included, imports unchanged.
-- Import never rewrites `command`, `cwd`, Continue `requestOptions` keys other than `headers`, or an `x-<target>` block. A credential in any of them leaves the server out, and so does a key there with a credential name and a literal value.
+- Import never rewrites `command`, `cwd`, Continue `requestOptions` keys other than `headers`, or an `x-<target>` block. A credential in any of them, or a key there with a credential name and a literal value, leaves the server out.
 - Import does not find these credentials, so check such servers by hand:
   - a short flag such as `-p secret` or `-psecret`, since `-p` may be a port or profile, or a single-dash flag such as `-token secret`;
   - a credential value that starts with `-` in its own argument after a flag;
@@ -190,21 +185,21 @@ When sync leaves out a reference a tool cannot read, the note names the `$${NAME
   - a token in a URL path, such as a Slack webhook `https://hooks.slack.com/services/...`, also under `import --global`;
   - a URL username that is a token without one of the prefixes above;
   - a token format not listed above.
-- A query or fragment parameter named exactly `auth` or `code` always becomes a reference, even when it holds no secret.
+- A query or fragment parameter named exactly `auth` or `code` always becomes a reference, even without a secret.
 
-Import prints each replacement and the variable to set. `import --global` cannot change a server, because the user files it adopts must sync back unchanged. It leaves out each server with a literal credential and names the server and field, never the value. That is any credential above, and an `env` or header value that has a [credential name](#credential-names) or looks like a credential. A plain setting such as `NODE_ENV: production`, a path, a number, and a value that is only a reference after one word, such as `Bearer ${TOKEN}`, still import as written, a plain string marked [`!literal`](#plain-settings). A value under a [credential name](#credential-names) that does not look like a credential stays unmarked, so `lint` asks about it. Add a left-out server by hand under `local/mcps`, or write it with a `${NAME}` reference.
+Import prints each replacement and the variable to set. `import --global` cannot change a server, so it leaves out each server with a literal credential and names the server and field, never the value. That is any credential above, and an `env` or header value with a [credential name](#credential-names) or that looks like a credential. A plain setting such as `NODE_ENV: production`, a path, a number, or `Bearer ${TOKEN}` still imports as written, marked [`!literal`](#plain-settings). A value under a [credential name](#credential-names) that does not look like a credential stays unmarked, so `lint` asks about it. Add a left-out server by hand under `local/mcps`, or write it with a `${NAME}` reference.
 
 #### Credential names
 
-A name holds a credential when its last word is `token`, `secret`, `password`, `passwd`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, or `authorization`. Words split at punctuation and at camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not. A one-word name that ends in `password`, `passwd`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.
+A name is a credential name when its last word is `token`, `secret`, `password`, `passwd`, `pwd`, `pass`, `accesstoken`, `authtoken`, `credential`, `credentials`, `cookie`, `bearer`, `apikey`, `authentication`, or `authorization`. Words split at punctuation and camelCase, so `clientSecret` and `API_TOKEN` count and `token_type` does not. A one-word name ending in `password`, `passwd`, `secret`, or `token` counts too, as `PGPASSWORD` and `MYTOKEN` do.
 
 A last word `key` counts unless the word before it is `sort`, `cache`, `public`, `partition`, `primary`, `foreign`, `idempotency`, `routing`, `object`, `row`, `hash`, `map`, `lookup`, `group`, `dedup`, `shard`, `index`, `unique`, `composite`, `natural`, `surrogate`, `ssh`, `gpg`, `pgp`, `s3`, or `id`. So `api_key`, `OPENAI_KEY`, and `--openai-key` count, and `sort_key`, `cache_key`, `--public-key`, and `--ssh-key` do not.
 
-An `env` or header key, a key in an `x-<target>` block or `requestOptions`, and a name in a `Name: value` line or JSON pair also count when the last word is `cred` or `auth`, as `MY_CRED` and `X_AUTH` do. A flag such as `--auth oauth` does not.
+In an `env` or header key, an `x-<target>` or `requestOptions` key, and a `Name: value` line or JSON pair, a last word `cred` or `auth` counts too, as in `MY_CRED` and `X_AUTH`. A flag such as `--auth oauth` does not.
 
 ## Target-only fields
 
-These fields apply only to the listed tools. Other tools ignore them.
+These fields apply only to the listed tools.
 
 | Target | Extra fields |
 |--------|--------------|
@@ -222,7 +217,7 @@ These fields apply only to the listed tools. Other tools ignore them.
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
 
-Claude Code's `alwaysLoad` and `bareElicitationCapability` keep an explicit `true` or `false` through import and sync. Omit a flag to keep Claude Code's default. Set them at the top level or under `x-claude`, which wins over the top-level value. Other tools leave out both flags. See [Claude Code MCP behavior](@/docs/targets/claude.md#output) for tool loading and connection compatibility.
+Claude Code's `alwaysLoad` and `bareElicitationCapability` keep an explicit `true` or `false`. Omit a flag to keep Claude Code's default. Set them at the top level or under `x-claude`, which wins. Other tools leave out both flags. See [Claude Code MCP behavior](@/docs/targets/claude.md#output).
 
 ```yaml
 x-claude:
@@ -231,8 +226,6 @@ x-claude:
 ```
 
 ## `disabled` support by target
-
-Only the listed tools were checked.
 
 | Target | Behavior |
 |--------|----------|
