@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - With `memory`, OpenCode and Kilo Code list both memory indexes in `instructions`, so each loads them at session start (#1845).
 - `memory.personal: repo` in `agnostic-ai.local.yaml` keeps one personal memory store per repository, shared by every worktree (#1859).
 - Repo memory names its store before the first fact, respects output ignore exceptions, and keeps Gemini's custom context directories (#1869).
+- `agnostic-ai memory path` prints each memory folder; in repo mode the `memory` rule has tools without a hook run it to find personal memory (#1877).
 - `memory lint`, `memory index`, and `memory list` check, rebuild, and list shared memory; `lint` and `doctor` flag dead links and secrets (#1847).
 - A built-in spec inlined into a shared instructions file names its source as `builtin:<name>` instead of a cache path (#1844).
 

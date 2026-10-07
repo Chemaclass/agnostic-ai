@@ -45,12 +45,13 @@ agnostic-ai packs remove superpowers
 
 ## memory
 
-Check, list, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`, or in the [repository store](@/docs/memory.md#one-store-per-repository) with `memory.personal: repo`. A store whose folder is missing is skipped.
+Check, list, locate, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`, or in the [repository store](@/docs/memory.md#one-store-per-repository) with `memory.personal: repo`. A store whose folder is missing is skipped.
 
 ```bash
 agnostic-ai memory lint     # run only the memory checks
 agnostic-ai memory index    # rebuild each MEMORY.md from its fact files
 agnostic-ai memory list     # print each fact's scope, type, and title
+agnostic-ai memory path     # print each memory folder's absolute path
 ```
 
 - `memory lint` reports [LINT039 to LINT042](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same format as `lint --json`, with `command` set to `memory lint`.
@@ -58,6 +59,7 @@ agnostic-ai memory list     # print each fact's scope, type, and title
 - The type comes from `metadata.type`, or from a top-level `type` as Claude Code's auto memory writes it.
 - With no store, `memory lint` says so and exits 0.
 - `memory list` prints facts in index order. The title is the index line's link text, or the fact's `name` when no line links it.
+- `memory path` prints one `scope  folder` line per store, project first, as absolute paths. It works from any folder inside the project and from a linked worktree, and prints a folder that does not exist yet. With `memory.personal: repo`, every worktree of the repository gets the same personal folder. The [`shared-memory-policy` rule](@/docs/memory.md#how-each-tool-loads-it) has tools without a session-start hook run it.
 
 | Flag | Description |
 |------|-------------|
