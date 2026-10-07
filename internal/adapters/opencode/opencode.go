@@ -172,7 +172,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, emit.MemoryIndexPaths(cfg), emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	memory, err := emit.MemoryIndexPaths(cfg, path, target)
+	if err != nil {
+		return err
+	}
+	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, path, dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
@@ -228,7 +233,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory [
 		// The merge replaces the whole array, so the user's entries and
 		// any x-opencode instructions ride along, and sync claims only
 		// the indexes it adds. Ownership wraps last, after that merge.
-		list := sess.ExistingStrings(path, "instructions", dryRun)
+		list := emit.WithoutStalePersonalIndexes(sess.ExistingStrings(path, "instructions", dryRun), memory)
 		if custom, ok := keys["instructions"].([]any); ok {
 			for _, v := range custom {
 				if s, ok := v.(string); ok && !slices.Contains(list, s) {

@@ -304,7 +304,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.Hooks, hooksDir, dryRun); err != nil {
 		return err
 	}
-	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.MemoryIndexPaths(cfg), emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	memory, err := emit.MemoryIndexPaths(cfg, path, target)
+	if err != nil {
+		return err
+	}
+	return emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun)
 }
 
 // EmitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
@@ -419,7 +424,7 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir string
 	} else if len(memory) > 0 {
 		// The rules reach Kilo through AGENTS.md, so the user's entries
 		// ride along and sync claims only the indexes it adds.
-		list := kept
+		list := emit.WithoutStalePersonalIndexes(kept, memory)
 		for _, index := range memory {
 			if !slices.Contains(list, index) {
 				list = append(list, index)

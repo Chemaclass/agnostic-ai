@@ -886,8 +886,20 @@ func Names() []string {
 // RenderMemoryBlock returns the block importing the shared memory index
 // into the entry-point file at entryPath (re-exported from the emit
 // layer).
-func RenderMemoryBlock(entryPath string) string {
-	return emit.RenderMemoryBlock(entryPath)
+func RenderMemoryBlock(entryPath, personalIndex string) string {
+	return emit.RenderMemoryBlock(entryPath, personalIndex)
+}
+
+// PersonalMemoryDir returns the personal store of the project at root
+// (re-exported from the emit layer).
+func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
+	return emit.PersonalMemoryDir(cfg, root)
+}
+
+// PersonalMemoryDirFor returns the personal store the project files of
+// targets may name (re-exported from the emit layer).
+func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (string, error) {
+	return emit.PersonalMemoryDirFor(cfg, path, targets...)
 }
 
 // AppendMemoryBlock appends the memory block to body, replacing any

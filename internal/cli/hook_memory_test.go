@@ -85,6 +85,35 @@ func TestHookMemory_PrintsNothingWithoutAStore(t *testing.T) {
 	}
 }
 
+func TestHookMemory_NamesTheRepoStoreBeforeTheFirstPersonalFact(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+
+	var reply struct {
+		AdditionalContext string `json:"additional_context"`
+	}
+	if err := json.Unmarshal([]byte(runHookMemory(t, "--target", "cursor")), &reply); err != nil {
+		t.Fatalf("decode cursor context: %v", err)
+	}
+	store := repoStore(t, parent, reply.AdditionalContext)
+	if !strings.Contains(reply.AdditionalContext, store+"/MEMORY.md") {
+		t.Errorf("personal index missing from context: %s", reply.AdditionalContext)
+	}
+	if _, err := os.Stat(filepath.FromSlash(store + "/MEMORY.md")); !os.IsNotExist(err) {
+		t.Errorf("fresh personal index: %v, want absent", err)
+	}
+}
+
+func TestHookMemory_NamesTheEmptyRepoStoreAlongsideTheProjectIndex(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	writeFile(t, filepath.Join(".agnostic-ai", "memory", "MEMORY.md"), sampleIndex)
+
+	got := runHookMemory(t, "--target", "codex")
+	store := repoStore(t, parent, got)
+	if !strings.Contains(got, store+"/MEMORY.md") || !strings.Contains(got, "CI is Ubuntu only") {
+		t.Errorf("hook context should name both scopes: %s", got)
+	}
+}
+
 func TestHookMemory_PrintsNothingOutsideAProject(t *testing.T) {
 	testutil.TempCwd(t)
 

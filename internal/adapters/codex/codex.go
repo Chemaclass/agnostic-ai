@@ -159,7 +159,7 @@ func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool 
 	case spec.KindSettings:
 		settings := emit.WithoutForeignClaudeModels(caps, spec.Bundle{Settings: []spec.Entry{e}}).Settings
 		protected, _ := spec.ProtectedPaths(settings)
-		if renderConfigTOML(settings, nil, nil, "", nil) != "" || len(protected) > 0 {
+		if renderConfigTOML(settings, nil, nil, nil, "", nil) != "" || len(protected) > 0 {
 			return true
 		}
 		if cfg.Outputs[target].ExecPoliciesFromPermissions && nativeExecPoliciesSource(cfg) == "" {
@@ -388,8 +388,12 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 		codexCfg = o.Config
 	}
 	noteIgnoredConfigFields(codexCfg)
-	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, overlay, overlayKeys)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
+	roots, err := memoryWritableRoots(sess, cfg, path, dryRun)
+	if err != nil {
+		return err
+	}
+	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, roots, overlay, overlayKeys)
 	if body == "" {
 		// Nothing to render this sync: a prior sync may have left a stale
 		// agnostic-ai-managed config.toml on disk (e.g. the user removed

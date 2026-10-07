@@ -57,6 +57,7 @@ type Config struct {
 	Lint          LintConfig           `yaml:"lint,omitempty"           json:"lint,omitempty"`
 	Doctor        DoctorConfig         `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
 	Coverage      CoverageConfig       `yaml:"coverage,omitempty"       json:"coverage,omitempty"`
+	Memory        MemoryConfig         `yaml:"memory,omitempty"         json:"memory,omitempty"`
 }
 
 // VerifyConfig defines the external command that re-clears generated AI
@@ -517,6 +518,13 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		return nil, nil, err
 	}
 	if err := cfg.Coverage.Validate(strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
+	base, err := readYAMLMap(basePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := validateMemory(cfg.Memory, base, basePath, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	return cfg, sources, nil

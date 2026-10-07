@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // memoryIndexLineCap matches the cap the shared-memory skill keeps the
@@ -27,9 +28,23 @@ type memoryStore struct {
 	dir   string
 }
 
-var memoryStores = []memoryStore{
+var defaultMemoryStores = []memoryStore{
 	{scope: "project", dir: filepath.Dir(filepath.FromSlash(adapters.ProjectMemoryIndexPath))},
 	{scope: "personal", dir: filepath.Dir(filepath.FromSlash(adapters.PersonalMemoryIndexPath))},
+}
+
+// memoryStores returns the stores of the project in the working
+// directory, with the personal one where memory.personal puts it.
+func memoryStores() ([]memoryStore, error) {
+	cfg, err := config.Load(".")
+	if err != nil || !cfg.RepoPersonalMemory() {
+		return defaultMemoryStores, nil
+	}
+	dir, err := adapters.PersonalMemoryDir(cfg, ".")
+	if err != nil {
+		return nil, err
+	}
+	return []memoryStore{defaultMemoryStores[0], {scope: "personal", dir: dir}}, nil
 }
 
 func (s memoryStore) indexPath() string { return filepath.Join(s.dir, memoryIndexFile) }
@@ -133,8 +148,8 @@ func memoryLinkTarget(link string) (string, bool) {
 	return filepath.Clean(filepath.FromSlash(link)), true
 }
 
-func anyMemoryStore() bool {
-	for _, s := range memoryStores {
+func anyMemoryStore(stores []memoryStore) bool {
+	for _, s := range stores {
 		if info, err := os.Stat(s.dir); err == nil && info.IsDir() {
 			return true
 		}
@@ -152,8 +167,12 @@ func (c memoryContents) linked() map[string]bool {
 
 // lintMemory checks every memory store that exists (LINT039 to LINT042).
 func lintMemory() ([]lintFinding, error) {
+	stores, err := memoryStores()
+	if err != nil {
+		return nil, err
+	}
 	var out []lintFinding
-	for _, s := range memoryStores {
+	for _, s := range stores {
 		c, ok, err := loadMemoryStore(s)
 		if err != nil {
 			return nil, err
@@ -320,8 +339,8 @@ func newMemoryCmd() *cobra.Command {
 		Use:   "memory",
 		Short: "Check, list, and rebuild the shared memory",
 		Long: "Works on the shared memory stores in the working directory: project memory in " +
-			filepath.ToSlash(memoryStores[0].dir) + "/ and personal memory in " + filepath.ToSlash(memoryStores[1].dir) +
-			"/. A store whose folder is missing is skipped.",
+			filepath.ToSlash(defaultMemoryStores[0].dir) + "/ and personal memory in " + filepath.ToSlash(defaultMemoryStores[1].dir) +
+			"/, or in the repository store with memory.personal: repo. A store whose folder is missing is skipped.",
 	}
 	cmd.AddCommand(newMemoryLintCmd(), newMemoryIndexCmd(), newMemoryListCmd())
 	return cmd
@@ -347,8 +366,8 @@ func newMemoryLintCmd() *cobra.Command {
 			if asJSON {
 				return printLintJSON(cmd, "memory lint", findings, strict)
 			}
-			if !anyMemoryStore() {
-				cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(memoryStores[0].dir), filepath.ToSlash(memoryStores[1].dir))
+			if stores, err := memoryStores(); err != nil || !anyMemoryStore(stores) {
+				cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(defaultMemoryStores[0].dir), filepath.ToSlash(defaultMemoryStores[1].dir))
 				return nil
 			}
 			if len(findings) == 0 {
@@ -373,7 +392,11 @@ func newMemoryIndexCmd() *cobra.Command {
 			"a line gets `- [name](file.md): description` from its frontmatter.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			for _, s := range memoryStores {
+			stores, err := memoryStores()
+			if err != nil {
+				return err
+			}
+			for _, s := range stores {
 				c, ok, err := loadMemoryStore(s)
 				if err != nil {
 					return err
@@ -408,8 +431,12 @@ func newMemoryListCmd() *cobra.Command {
 			"the index line's link text, or the fact's name when no line links it.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			stores, err := memoryStores()
+			if err != nil {
+				return err
+			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			for _, s := range memoryStores {
+			for _, s := range stores {
 				c, ok, err := loadMemoryStore(s)
 				if err != nil {
 					return err

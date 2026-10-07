@@ -81,6 +81,7 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 | [`lint`](#lint) | map | see section | Budgets for always-loaded text. |
 | [`doctor`](#doctor) | map | see section | Opt-in diagnostic checks. |
 | [`coverage`](#coverage) | map | none | Coverage notes to accept, and whether notes fail sync. |
+| [`memory`](#memory) | map | `personal: checkout` | Where personal memory lives. Set it in `agnostic-ai.local.yaml` only. |
 
 ## Built-ins
 
@@ -102,6 +103,23 @@ builtins: [handoff, handoff-hook]
 The same list works in the [global home config](#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` turns them all off there. Removing a built-in deletes its generated files on the next sync.
 
 Set `requires` to at least 0.80.0 when you enable built-ins, so an older binary cannot skip them. An upgrade that changes built-in text makes `sync --check` fail until you sync.
+
+## `memory`
+
+`memory.personal` sets where the `memory` built-in keeps personal memory. It is one user's choice, so it belongs in `agnostic-ai.local.yaml`. In `agnostic-ai.yaml` it fails as AAI-004.
+
+| Value | Personal store |
+|-------|----------------|
+| `checkout` (default) | `.agnostic-ai/local/memory/` in each checkout. |
+| `repo` | `$AGNOSTIC_AI_HOME/local/memory/<repo-slug>/`, one store that every worktree of the repository shares. |
+
+```yaml
+# agnostic-ai.local.yaml
+memory:
+  personal: repo
+```
+
+See [one store per repository](@/docs/memory.md#one-store-per-repository) for what sync writes and which tools can save there.
 
 ## `requires`
 

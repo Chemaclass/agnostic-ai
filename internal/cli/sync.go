@@ -163,7 +163,7 @@ func newSyncCmd() *cobra.Command {
 				if err := checkHandWrittenInstructions(effective, backup); err != nil {
 					return err
 				}
-				reports, err := collectDrift(effective)
+				reports, err := collectDriftWithGitignore(effective, nil, gitignoreFlag)
 				if err != nil {
 					return err
 				}
@@ -188,12 +188,12 @@ func newSyncCmd() *cobra.Command {
 						return err
 					}
 				}
-				reports, err := collectDrift(effective)
+				reports, err := collectDriftWithGitignore(effective, nil, gitignoreFlag)
 				if err != nil {
 					return err
 				}
 				if tree != nil {
-					if reports, err = tree.recollect(reports, effective); err != nil {
+					if reports, err = tree.recollect(reports, effective, gitignoreFlag); err != nil {
 						return err
 					}
 				}
@@ -241,7 +241,7 @@ func newSyncCmd() *cobra.Command {
 				if err := checkHandWrittenInstructions(effective, backup); err != nil {
 					return err
 				}
-				reports, err := collectDrift(effective)
+				reports, err := collectDriftWithGitignore(effective, nil, gitignoreFlag)
 				if err != nil {
 					return err
 				}

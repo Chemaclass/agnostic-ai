@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -22,7 +23,7 @@ import (
 // Hooks no longer render here. They land in `.codex/hooks.json` (see
 // emitHooksJSON) which natively supports per-hook `timeout` and
 // `statusMessage` metadata that the TOML schema discarded.
-func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, overlayBody string, overlayKeys map[string]bool) string {
+func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, writableRoots []string, overlayBody string, overlayKeys map[string]bool) string {
 	portableModel := emit.SettingsModel(settings, target)
 	portableEffort := emit.SettingsEffortLevel(settings, target, nil)
 	effectiveCfg := &config.CodexConfig{Model: portableModel, ModelReasoningEffort: portableEffort}
@@ -36,7 +37,11 @@ func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, over
 		}
 		effectiveCfg = &copy
 	}
-	hasContent := anyNamedMCP(mcps) || hasCodexConfig(effectiveCfg) || overlayBody != ""
+	// An overlay that sets the table keeps it; TOML forbids a second one.
+	if overlayKeys["sandbox_workspace_write"] {
+		writableRoots = nil
+	}
+	hasContent := anyNamedMCP(mcps) || hasCodexConfig(effectiveCfg) || overlayBody != "" || len(writableRoots) > 0
 	if !hasContent {
 		return ""
 	}
@@ -54,6 +59,11 @@ func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, over
 		sb.WriteString("\n")
 	}
 	if writeCodexConfigTables(&sb, effectiveCfg, overlayKeys) {
+		sb.WriteString("\n")
+	}
+	if len(writableRoots) > 0 {
+		sb.WriteString("[sandbox_workspace_write]\n")
+		emit.WriteTOMLStringArray(&sb, "writable_roots", writableRoots)
 		sb.WriteString("\n")
 	}
 	writeMCPServers(&sb, mcps)
@@ -112,6 +122,23 @@ func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overla
 		wrote = true
 	}
 	return wrote
+}
+
+// memoryWritableRoots returns the repo store of personal memory when it
+// lies outside the checkout, so Codex's workspace-write sandbox lets the
+// session save there.
+func memoryWritableRoots(sess *emit.Session, cfg *config.Config, path string, dryRun bool) ([]string, error) {
+	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
+		return nil, nil
+	}
+	dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
+	if err != nil {
+		return nil, err
+	}
+	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
+		return nil, err
+	}
+	return []string{filepath.ToSlash(dir)}, nil
 }
 
 func anyNamedMCP(mcps []spec.Entry) bool {

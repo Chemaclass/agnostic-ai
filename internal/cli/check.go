@@ -167,11 +167,16 @@ func collectDrift(targets []string) ([]driftReport, error) {
 // complete configured consumer set. A nil entryPointTargets slice preserves
 // the normal check/doctor behavior by using targets for both concerns.
 func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]driftReport, error) {
+	return collectDriftWithGitignore(targets, entryPointTargets, "")
+}
+
+func collectDriftWithGitignore(targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
 	reports := make([]driftReport, 0, len(targets)+1)
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
 	}
+	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}

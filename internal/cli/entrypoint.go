@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -179,7 +180,11 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			content = adapters.AppendLocalInstructions(content, localView)
 			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView})
 		}
-		if memory := memoryBlockFor(cfg, path, consumers[path]); memory != "" {
+		memory, err := memoryBlockFor(cfg, path, consumers[path])
+		if err != nil {
+			return nil, err
+		}
+		if memory != "" {
 			content = adapters.AppendMemoryBlock(content, memory)
 			layers = append(layers, instructionLayer{Name: "shared memory", Text: memory})
 		}
@@ -259,7 +264,10 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 			parts = append(parts, only)
 		}
 	}
-	parts = appendMemoryPart(cfg, parts, files[claudeAt].Path)
+	parts, err := appendMemoryPart(cfg, parts, files[claudeAt].Path)
+	if err != nil {
+		return nil, err
+	}
 	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
@@ -294,7 +302,10 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 		agentsText = adapters.AppendLocalInstructions(agentsText, shared[1])
 	}
 	rendered := strings.TrimRight(header.With(agentsText, header.FormatMarkdown), "\n") + "\n"
-	parts = appendMemoryPart(cfg, parts, files[claudeAt].Path)
+	parts, err := appendMemoryPart(cfg, parts, files[claudeAt].Path)
+	if err != nil {
+		return nil, err
+	}
 	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
@@ -470,18 +481,23 @@ const memoryBuiltin = "memory"
 // reader of path cannot follow `@` lines. Those readers find the index
 // through the always-on shared-memory rule instead, so the block never
 // reaches a file resolve-imports rewrites.
-func memoryBlockFor(cfg *config.Config, path string, readers []string) string {
+func memoryBlockFor(cfg *config.Config, path string, readers []string) (string, error) {
 	if !slices.Contains(cfg.Builtins, memoryBuiltin) || len(readers) == 0 || !pathSupportsFileImports(readers) {
-		return ""
+		return "", nil
 	}
-	return adapters.RenderMemoryBlock(path)
+	dir, err := adapters.PersonalMemoryDirFor(cfg, path, readers...)
+	if err != nil {
+		return "", err
+	}
+	return adapters.RenderMemoryBlock(path, filepath.Join(dir, "MEMORY.md")), nil
 }
 
 // appendMemoryPart adds the shared memory import block to the parts of
 // the CLAUDE.md companion at path.
-func appendMemoryPart(cfg *config.Config, parts []string, path string) []string {
-	if memory := memoryBlockFor(cfg, path, []string{"claude"}); memory != "" {
-		return append(parts, strings.TrimRight(memory, "\n"))
+func appendMemoryPart(cfg *config.Config, parts []string, path string) ([]string, error) {
+	memory, err := memoryBlockFor(cfg, path, []string{"claude"})
+	if err != nil || memory == "" {
+		return parts, err
 	}
-	return parts
+	return append(parts, strings.TrimRight(memory, "\n")), nil
 }

@@ -27,8 +27,8 @@ func newHookMemoryCmd() *cobra.Command {
 		Use:   "memory",
 		Short: "Print the shared memory index from inside a session-start hook",
 		Long: "Prints the project's shared memory index (.agnostic-ai/memory/MEMORY.md) in the reply " +
-			"format the target adds to the model's context. Prints nothing when the project has no index, " +
-			"so a missing store never disturbs a session.",
+			"format the target adds to the model's context. Names the personal repo store even before " +
+			"its first index exists. Prints nothing when checkout memory has no index.",
 		Example: `  # Hook command that does nothing when the binary is missing
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook memory`,
 		Args: cobra.NoArgs,
@@ -40,22 +40,27 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
-			var indexes []memoryIndex
-			for _, scope := range []memoryIndex{
+			scopes := []memoryIndex{
 				// Personal first: it is short, and a long project index must
 				// not push the user's own corrections out of the limit.
-				{name: "Personal memory", path: adapters.PersonalMemoryIndexPath},
+				personalMemoryIndex(root),
 				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
-			} {
+			}
+			var indexes []memoryIndex
+			for _, scope := range scopes {
 				if text, ok := readMemoryIndex(root, scope.path); ok {
 					scope.text = text
-					indexes = append(indexes, scope)
+				} else if filepath.IsAbs(scope.path) {
+					scope.text = "Save personal facts in this folder and list them in this index."
+				} else {
+					continue
 				}
+				indexes = append(indexes, scope)
 			}
 			if len(indexes) == 0 {
 				return nil
 			}
-			reply, err := memoryHookReply(target, memoryContext(indexes))
+			reply, err := memoryHookReply(target, memoryContext(indexes, scopes))
 			if err != nil {
 				return nil
 			}
@@ -67,13 +72,33 @@ func newHookMemoryCmd() *cobra.Command {
 	return cmd
 }
 
-// memoryIndex is one scope's index as the hook prints it.
+// memoryIndex is one scope's index as the hook prints it. path is
+// relative to the project root, or absolute for the repo store.
 type memoryIndex struct{ name, path, text string }
 
+// personalMemoryIndex returns the personal index of the project at root,
+// in the checkout unless its config sets memory.personal: repo.
+func personalMemoryIndex(root string) memoryIndex {
+	index := memoryIndex{name: "Personal memory", path: adapters.PersonalMemoryIndexPath}
+	cfg, err := config.Load(root)
+	if err != nil || !cfg.RepoPersonalMemory() {
+		return index
+	}
+	if dir, err := adapters.PersonalMemoryDir(cfg, root); err == nil {
+		index.path = filepath.ToSlash(filepath.Join(dir, "MEMORY.md"))
+	}
+	return index
+}
+
 // memoryContext frames the indexes for the model and cuts them at a
-// whole line to stay under memoryContextLimit.
-func memoryContext(indexes []memoryIndex) string {
-	const cut = "\n(More facts are in " + adapters.PersonalMemoryIndexPath + " and " + adapters.ProjectMemoryIndexPath + ".)\n"
+// whole line to stay under memoryContextLimit. The cut note names every
+// scope's index.
+func memoryContext(indexes, scopes []memoryIndex) string {
+	paths := make([]string, len(scopes))
+	for i, index := range scopes {
+		paths[i] = index.path
+	}
+	cut := "\n(More facts are in " + strings.Join(paths, " and ") + ".)\n"
 	text := "## Shared memory\n\nOpen a fact's file, in the folder of its index, when its line is relevant.\n"
 	head := 0
 	for i, index := range indexes {
@@ -182,12 +207,15 @@ const memoryIndexMaxBytes = 1 << 20
 // context unasked, so any symlink on the way, such as one a cloned
 // checkout ships to .env or a credentials file, is skipped.
 func readMemoryIndex(root, indexPath string) (string, bool) {
-	root = canonicalDir(root)
-	real, err := filepath.EvalSymlinks(filepath.Join(root, indexPath))
+	want := filepath.Join(canonicalDir(root), indexPath)
+	if filepath.IsAbs(indexPath) {
+		want = filepath.Join(canonicalDir(filepath.Dir(indexPath)), filepath.Base(indexPath))
+	}
+	real, err := filepath.EvalSymlinks(want)
 	if err != nil {
 		return "", false
 	}
-	if real != filepath.Join(root, indexPath) {
+	if real != want {
 		return "", false
 	}
 	f, err := os.Open(real)
