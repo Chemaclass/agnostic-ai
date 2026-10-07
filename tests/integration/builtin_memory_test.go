@@ -77,6 +77,12 @@ func TestBuiltinMemory(t *testing.T) {
 		} else {
 			compareGolden(t, expectedDir, output, "builtin-memory")
 		}
+		// memory alone never rewrites a hook file; memory-hook opts in.
+		for _, path := range []string{".codex/hooks.json", ".cursor/hooks.json", ".gemini/settings.json"} {
+			if _, err := os.Stat(filepath.Join(dir, path)); !os.IsNotExist(err) {
+				t.Errorf("%s written without memory-hook: %v", path, err)
+			}
+		}
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})
 

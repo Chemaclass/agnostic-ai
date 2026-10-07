@@ -39,7 +39,7 @@ AGENTS.md                          # pointer body + inlined rules (shared path)
   - Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md` with bundled assets. Unscoped skills keep `.agents/skills/`.
   - `outputs.factory.skills-dir` replaces the directory at the root and in each scope. Unmanaged files keep their contents.
 - **Commands**: `.factory/commands/<name>.md` takes `description` and `argument-hint`. `$ARGUMENTS` is preserved. Factory prefers Skills for new workflows but still loads commands.
-- **Hooks**: `.factory/hooks.json` is the committed project file ([hooks docs](https://docs.factory.com/harness/hooks)). `sync` overwrites it whole, so change the hook spec, not the file. With `builtins: [memory]`, a `SessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
+- **Hooks**: `.factory/hooks.json` is the committed project file ([hooks docs](https://docs.factory.com/harness/hooks)). `sync` overwrites it whole, so change the hook spec, not the file. With `builtins: [memory, memory-hook]`, a `SessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
   - Nine events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`.
   - The file is keyed by event name, `{"<Event>": [{matcher, hooks: [...]}]}`, with no `hooks` wrapper (unlike Claude Code, Codex, Gemini, and Qoder).
   - Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60). Factory's `commandRegex` has no spec counterpart and is not emitted.

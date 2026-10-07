@@ -64,10 +64,25 @@ Ask for the `shared-memory` skill to recall what the project knows about a topic
 | Target | How the index loads |
 | --- | --- |
 | Claude Code | `CLAUDE.md` imports `.agnostic-ai/memory/MEMORY.md`, so the tool loads it at session start. |
-| Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | A session-start hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory), which adds the index to the model's context. Without `agnostic-ai` on `PATH`, the hook does nothing. Codex runs it only after you trust the project's hooks. On Windows, Copilot, Cursor, and Gemini CLI need `sh` on `PATH`, such as Git Bash (#1856). |
+| Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | With `memory-hook`, a session-start hook adds the index to the model's context. See [load at session start](#load-at-session-start). |
 | Every other target | The `shared-memory-policy` rule names the index, and the tool reads it before a task. |
 
 The import goes only into files whose readers all follow `@` lines. A file that `sync.resolve-imports` rewrites never carries memory text, so saves never show up as `sync --check` drift.
+
+## Load at session start
+
+Without a hook, Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory read the index only when the model follows the rule. Add `memory-hook` to load it at every session start:
+
+```yaml
+builtins: [handoff, memory, memory-hook]
+```
+
+The hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory), which adds the index to the model's context.
+
+- Import hand-written hooks first (`agnostic-ai import <target>`). Sync rewrites each target's hook file and drops entries it did not write (#1858).
+- Without `agnostic-ai` on `PATH`, the hook does nothing.
+- Codex runs it only after you trust the project's hooks.
+- On Windows, Copilot, Cursor, and Gemini CLI need `sh` on `PATH`, such as Git Bash (#1856).
 
 ## Memory is background
 

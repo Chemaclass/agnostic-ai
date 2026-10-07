@@ -85,7 +85,7 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 
 ## hook memory
 
-Run inside a `session-start` hook. It prints the project's shared memory index, `.agnostic-ai/memory/MEMORY.md`, in the reply the target adds to the model's context. The [`memory` built-in](@/docs/memory.md) wires it up.
+Run inside a `session-start` hook. It prints the project's shared memory index, `.agnostic-ai/memory/MEMORY.md`, in the reply the target adds to the model's context. The [`memory-hook` built-in](@/docs/memory.md#load-at-session-start) wires it up.
 
 ```bash
 agnostic-ai hook memory --target codex
