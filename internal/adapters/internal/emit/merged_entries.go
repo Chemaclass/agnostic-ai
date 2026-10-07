@@ -188,3 +188,17 @@ func PriorClaimedItems(path string, keyPath []string) []string {
 	claim, _ := priorClaim(priorMergedKeys(path), keyPath)
 	return append(slices.Clone(claim.Items), claim.Within...)
 }
+
+// StillClaimedItems returns the items the prior claim on keyPath in the
+// file at path already holds, so a merge that claims only what it adds
+// keeps them sync's.
+func StillClaimedItems(path string, keyPath []string, items []string) []string {
+	prior := PriorClaimedItems(path, keyPath)
+	var kept []string
+	for _, item := range items {
+		if slices.Contains(prior, ContentSum(item)) {
+			kept = append(kept, item)
+		}
+	}
+	return kept
+}

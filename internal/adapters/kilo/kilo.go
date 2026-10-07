@@ -425,11 +425,14 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir string
 	} else if len(memory) > 0 {
 		// The rules reach Kilo through AGENTS.md, so the user's entries
 		// ride along and sync claims only the indexes it adds.
-		list := emit.WithoutStalePersonalIndexes(kept, memory)
+		list := emit.WithoutStalePersonalIndexes(path, kept, memory)
+		addedMemory = emit.StillClaimedItems(path, []string{"instructions"}, memory)
 		for _, index := range memory {
 			if !slices.Contains(list, index) {
 				list = append(list, index)
-				addedMemory = append(addedMemory, index)
+				if !slices.Contains(addedMemory, index) {
+					addedMemory = append(addedMemory, index)
+				}
 			}
 		}
 		keys["instructions"] = list

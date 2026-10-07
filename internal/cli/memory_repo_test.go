@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -150,6 +151,124 @@ func TestSync_LeavingRepoModeDropsTheRepoIndexFromInstructions(t *testing.T) {
 		if strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/local/memory/MEMORY.md"`) {
 			t.Errorf("%s instructions after leaving repo mode:\n%s", file, text)
 		}
+	}
+}
+
+func TestSync_MovingTheHomeDropsTheOldRepoIndexFromInstructions(t *testing.T) {
+	oldStores := repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Instructions []string `json:"instructions"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(doc.Instructions, func(s string) bool { return strings.HasPrefix(s, filepath.ToSlash(oldStores)) })
+	if i < 0 {
+		t.Fatalf("first sync instructions: %v", doc.Instructions)
+	}
+	oldIndex := doc.Instructions[i]
+	// A path the user listed in the old home is theirs, not sync's.
+	userIndex := filepath.ToSlash(filepath.Join(oldStores, "notes", "MEMORY.md"))
+	doc.Instructions = append(doc.Instructions, userIndex)
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "opencode.json", string(raw))
+
+	newHome, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", newHome)
+	for range 2 {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Fatalf("sync --check after moving the home: %v", err)
+	}
+
+	doc.Instructions = nil
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	newStores := filepath.ToSlash(filepath.Join(newHome, "local", "memory"))
+	if slices.Contains(doc.Instructions, oldIndex) || !slices.Contains(doc.Instructions, userIndex) ||
+		!slices.ContainsFunc(doc.Instructions, func(s string) bool { return strings.HasPrefix(s, newStores) }) {
+		t.Errorf("instructions after moving the home: %v", doc.Instructions)
+	}
+}
+
+// opencodeInstructions reads the instructions list of opencode.json.
+func opencodeInstructions(t *testing.T) []string {
+	t.Helper()
+	var doc struct {
+		Instructions []string `json:"instructions"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc.Instructions
+}
+
+func TestSync_MovingTheHomeDropsAnUnclaimedIndexOfThisRepository(t *testing.T) {
+	stores := repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	list := opencodeInstructions(t)
+	i := slices.IndexFunc(list, func(s string) bool { return strings.HasPrefix(s, filepath.ToSlash(stores)) })
+	if i < 0 {
+		t.Fatalf("first sync instructions: %v", list)
+	}
+	// An older release left this repository's index from a former home
+	// unclaimed after the move.
+	slug := filepath.Base(filepath.Dir(list[i]))
+	stale := filepath.ToSlash(filepath.Join(t.TempDir(), "local", "memory", slug, "MEMORY.md"))
+	// A relative path is the user's: sync writes store indexes absolute.
+	archive := "archives/local/memory/" + slug + "/MEMORY.md"
+	raw, err := json.Marshal(map[string]any{"instructions": append(list, stale, archive)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "opencode.json", string(raw))
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := opencodeInstructions(t); slices.Contains(got, stale) || !slices.Contains(got, archive) {
+		t.Errorf("instructions after the sync: %v", got)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Fatalf("sync --check: %v", err)
+	}
+}
+
+func TestSync_TurningMemoryOffAfterMovingTheHomeLeavesNoIndex(t *testing.T) {
+	repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	newHome, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", newHome)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\ngitignore:\n  enabled: true\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	if text, err := os.ReadFile("opencode.json"); err == nil && strings.Contains(string(text), "MEMORY.md") {
+		t.Errorf("opencode.json keeps a memory index after memory is off:\n%s", text)
 	}
 }
 

@@ -98,11 +98,12 @@ func repoMemoryHome() (string, error) {
 	return filepath.Join(user, ".agnostic-ai"), nil
 }
 
-// WithoutStalePersonalIndexes drops from list each personal memory index
-// that current does not name: the checkout index, or one in a repo
-// store. It is the entry an earlier sync added before memory.personal or
-// the gitignore setup changed.
-func WithoutStalePersonalIndexes(list, current []string) []string {
+// WithoutStalePersonalIndexes drops from the instructions list of the
+// file at path each personal memory index that current does not name:
+// the checkout index, one in a repo store, or one an earlier sync
+// claimed there. It is the entry an earlier sync added before
+// memory.personal, the gitignore setup, or the home folder changed.
+func WithoutStalePersonalIndexes(path string, list, current []string) []string {
 	// An earlier sync may have written the store through the symlink.
 	var prefixes []string
 	if stores, err := repoMemoryStores(); err == nil {
@@ -114,10 +115,25 @@ func WithoutStalePersonalIndexes(list, current []string) []string {
 	inStores := func(entry string) bool {
 		return slices.ContainsFunc(prefixes, func(prefix string) bool { return strings.HasPrefix(entry, prefix) })
 	}
+	// A store under a home folder sync no longer uses matches no prefix,
+	// so the claim and the store folder named after this repository
+	// identify it. An older release left the latter unclaimed.
+	claimed := PriorClaimedItems(path, []string{"instructions"})
+	var ownStores []string
+	for _, entry := range current {
+		if inStores(entry) {
+			ownStores = append(ownStores, "/local/memory/"+filepath.Base(filepath.Dir(entry))+"/MEMORY.md")
+		}
+	}
+	// Sync writes a store index as an absolute path.
+	ownStore := func(entry string) bool {
+		return filepath.IsAbs(entry) && slices.ContainsFunc(ownStores, func(suffix string) bool { return strings.HasSuffix(entry, suffix) })
+	}
 	out := make([]string, 0, len(list))
 	for _, entry := range list {
+		index := strings.HasSuffix(entry, "/MEMORY.md")
 		personal := entry == PersonalMemoryIndexPath ||
-			inStores(entry) && strings.HasSuffix(entry, "/MEMORY.md")
+			index && (inStores(entry) || ownStore(entry) || slices.Contains(claimed, ContentSum(entry)))
 		if personal && !slices.Contains(current, entry) {
 			continue
 		}

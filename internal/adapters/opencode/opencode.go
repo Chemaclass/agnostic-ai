@@ -240,7 +240,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 		// The merge replaces the whole array, so the user's entries and
 		// any x-opencode instructions ride along, and sync claims only
 		// the indexes it adds. Ownership wraps last, after that merge.
-		list := emit.WithoutStalePersonalIndexes(sess.ExistingStrings(path, "instructions", dryRun), memory)
+		list := emit.WithoutStalePersonalIndexes(path, sess.ExistingStrings(path, "instructions", dryRun), memory)
 		if custom, ok := keys["instructions"].([]any); ok {
 			for _, v := range custom {
 				if s, ok := v.(string); ok && !slices.Contains(list, s) {
@@ -248,11 +248,13 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 				}
 			}
 		}
-		var added []string
+		added := emit.StillClaimedItems(path, []string{"instructions"}, memory)
 		for _, index := range memory {
 			if !slices.Contains(list, index) {
 				list = append(list, index)
-				added = append(added, index)
+				if !slices.Contains(added, index) {
+					added = append(added, index)
+				}
 			}
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)
