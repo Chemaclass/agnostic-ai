@@ -29,10 +29,10 @@ const (
 // renders what sync writes.
 func init() {
 	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
-		return readStateFile(".").Merged[path].Keys
+		return slices.Clone(priorStateFile().Merged[path].Keys)
 	})
 	adapters.SetPriorOutputSum(func(path string) string {
-		return readStateFile(".").OutputSums[path]
+		return priorStateFile().OutputSums[path]
 	})
 }
 

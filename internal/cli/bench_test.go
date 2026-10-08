@@ -211,7 +211,7 @@ func BenchmarkGraph(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				edges, err := computeGraphEdges(bundle, cfg)
+				edges, err := computeGraphEdges(bundle, cfg, graphFilter{})
 				if err != nil {
 					b.Fatal(err)
 				}

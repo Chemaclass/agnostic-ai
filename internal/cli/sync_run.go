@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -135,6 +136,41 @@ func readStateFile(projectRoot string) syncStateFile {
 	}
 	_ = json.Unmarshal(data, &s)
 	return s
+}
+
+// heldState is the state file copy holdStateFile serves, or nil.
+var heldState struct {
+	sync.Mutex
+	state *syncStateFile
+}
+
+// holdStateFile reads the state file under root once and serves the
+// prior-key hooks from that copy until release runs. The state file
+// lists every output, and a command that emits each spec alone asks the
+// hooks on every emit. Only a command that never writes the state file
+// may hold it; sync reads the file fresh on every lookup.
+func holdStateFile(root string) (release func()) {
+	s := readStateFile(root)
+	heldState.Lock()
+	heldState.state = &s
+	heldState.Unlock()
+	return func() {
+		heldState.Lock()
+		heldState.state = nil
+		heldState.Unlock()
+	}
+}
+
+// priorStateFile is the held state file, or else the one on disk.
+// Callers must not modify the result.
+func priorStateFile() syncStateFile {
+	heldState.Lock()
+	held := heldState.state
+	heldState.Unlock()
+	if held != nil {
+		return *held
+	}
+	return readStateFile(".")
 }
 
 // readStateFileStrict is readStateFile that reports a state file that
