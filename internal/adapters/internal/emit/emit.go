@@ -296,7 +296,8 @@ func (s *Session) BackupBlockedEdits() []string {
 // backsUpEdit reports whether a write of content to path replaces a hand
 // edit BackUpEditsSince must keep. Call it under the path lock, so a
 // second target writing the same bytes sees the first one's write.
-func (s *Session) backsUpEdit(path, content string) bool {
+func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
+	path := cur.path
 	s.mu.Lock()
 	sum := s.backupSums[path]
 	merging := s.merging[path]
@@ -306,10 +307,10 @@ func (s *Session) backsUpEdit(path, content string) bool {
 		return false
 	}
 	// A link's target may live outside the project; never copy it in.
-	if info, err := os.Lstat(path); err != nil || !info.Mode().IsRegular() {
+	if info, err := cur.lstat(); err != nil || !info.Mode().IsRegular() {
 		return false
 	}
-	existing, err := os.ReadFile(path)
+	existing, err := cur.bytes()
 	if err != nil || string(existing) == content {
 		return false
 	}
@@ -849,11 +850,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}
-	editBackup := s.backsUpEdit(path, content)
+	cur := &onDisk{path: path}
+	editBackup := s.backsUpEdit(cur, content)
 	var backupPath string
 	if editBackup {
 		backupPath = path + ".bak"
-		switch err := backUpEdit(path, backupPath); {
+		switch err := backUpEdit(cur, backupPath); {
 		case errors.Is(err, fs.ErrExist):
 			s.mu.Lock()
 			s.backedUp = append(s.backedUp, path)
@@ -877,8 +879,8 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 
 	// Detailed recording: inspect existing content to classify the action.
 	if detailing {
-		existing, err := os.ReadFile(path)
-		info, statErr := os.Stat(path)
+		existing, err := cur.bytes()
+		info, statErr := cur.stat()
 		var action string
 		switch {
 		case os.IsNotExist(err):
@@ -926,8 +928,8 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 
 	// Log pre-write state for rollback.
 	if transacting {
-		pre, readErr := os.ReadFile(path)
-		info, statErr := os.Stat(path)
+		pre, readErr := cur.bytes()
+		info, statErr := cur.stat()
 		s.mu.Lock()
 		switch {
 		case readErr == nil:
@@ -944,7 +946,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	}
 
 	if backup {
-		if existing, err := os.ReadFile(path); err == nil && string(existing) != content {
+		if existing, err := cur.bytes(); err == nil && string(existing) != content {
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
@@ -964,12 +966,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 
 // backUpEdit copies path to backup, which must not exist yet in any form,
 // so an earlier backup is never lost and a planted link is never followed.
-func backUpEdit(path, backup string) error {
-	data, err := os.ReadFile(path)
+func backUpEdit(cur *onDisk, backup string) error {
+	data, err := cur.bytes()
 	if err != nil {
 		return err
 	}
-	info, err := os.Stat(path)
+	info, err := cur.stat()
 	if err != nil {
 		return err
 	}
