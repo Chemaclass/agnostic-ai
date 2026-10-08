@@ -114,12 +114,6 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 	return next
 }
 
-// specEntryFiles lists the spec and skill assets, relative to root when
-// inside it and absolute otherwise.
-func specEntryFiles(root string, e spec.Entry, include func(asset string) bool) []string {
-	return newSpecFileLister(root).files(e, include)
-}
-
 // specFileLister lists spec files for every target of one sync. Targets
 // share specs, so it walks each skill folder and resolves each path once.
 type specFileLister struct {
@@ -281,7 +275,7 @@ func inSpecDir(path string, specDirs []string) bool {
 }
 
 // specPathKey names path the way spec file sums key it, lexically like
-// specEntryFiles: slash form, relative to the working directory when
+// specFileLister.files: slash form, relative to the working directory when
 // inside it, and absolute otherwise.
 func specPathKey(path string) string {
 	abs, err := filepath.Abs(filepath.FromSlash(path))

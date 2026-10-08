@@ -306,6 +306,8 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	if sum == "" || merging {
 		return false
 	}
+	// Read before the type check: the write reads this file anyway, and
+	// an unchanged output then needs no stat.
 	existing, err := cur.bytes()
 	if err != nil || string(existing) == content {
 		return false
@@ -854,10 +856,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		if cur.found() {
 			return nil
 		}
-		if err := makeParent(path); err != nil {
-			return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
-		}
-		return nil
+		return makeParent(path)
 	}
 	editBackup := s.backsUpEdit(cur, content)
 	var backupPath string

@@ -30,7 +30,7 @@ func linkedSourceSkill(t *testing.T) (spec.Entry, string) {
 
 func TestSpecEntryFiles_LinkedSourceKeepsAssetProvenance(t *testing.T) {
 	e, _ := linkedSourceSkill(t)
-	got := specEntryFiles(".", e, func(string) bool { return true })
+	got := newSpecFileLister(".").files(e, func(string) bool { return true })
 	want := []string{"skill-link/SKILL.md", "skill-link/references/guide.txt"}
 	if !slices.Equal(got, want) {
 		t.Errorf("spec files = %v, want %v", got, want)
