@@ -3,7 +3,9 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -42,8 +44,8 @@ func reportInstalledCLIs(cmd *cobra.Command) {
 	cmd.Println()
 	cmd.Println("Installed AI CLIs:")
 	any := false
-	for target, bin := range knownCLIBinaries {
-		path, err := exec.LookPath(bin)
+	for _, target := range slices.Sorted(maps.Keys(knownCLIBinaries)) {
+		path, err := exec.LookPath(knownCLIBinaries[target])
 		if err != nil {
 			continue
 		}
