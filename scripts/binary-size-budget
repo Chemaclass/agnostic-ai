@@ -8,4 +8,6 @@
 # the checkout path: main measured 18280608.
 # #1894 measured 18296992: doctor shares one loaded project with its
 # migration plans and lint.
-18305000
+# #1919 measured 18321568: global hooks files are edited in place as text,
+# so add-then-remove keeps the user's bytes.
+18330000
