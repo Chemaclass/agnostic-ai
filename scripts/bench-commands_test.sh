@@ -35,3 +35,10 @@ function test_refuses_a_missing_binary() {
   assert_general_error "$?"
   assert_contains "no binary at" "$out"
 }
+
+function test_refuses_a_run_count_below_one() {
+  local out
+  out="$(bench_commands_main --bin "$dir/bin" --runs 0 2>&1)"
+  assert_exit_code 2
+  assert_contains "positive integers" "$out"
+}

@@ -39,7 +39,7 @@ test-shell: build
 # `-run '^$$'` skips the unit tests so only Benchmark* functions run. See
 # docs/internal/benchmarks.md for how to read and extend the suite.
 bench:
-	go test -run '^$$' -bench . -benchmem ./...
+	go test -timeout 30m -run '^$$' -bench . -benchmem ./...
 
 # bench-commands times every read-only command and a no-op sync end to end
 # on the 500-spec benchmark fixture. Local only, like bench.

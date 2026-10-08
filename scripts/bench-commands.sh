@@ -47,12 +47,12 @@ bench_now_ms() {
 
 # bench_commands_run <bin> <project-dir> <runs> times each command in the dir.
 bench_commands_run() {
-  local bin="$1" dir="$2" runs="$3" line best start end took code i
+  local bin="$1" dir="$2" runs="$3" line best best_code start end took code i
   local -a args
   while IFS= read -r line; do
     read -r -a args <<<"$line"
     best=""
-    code=0
+    best_code=0
     for ((i = 0; i < runs; i++)); do
       start=$(bench_now_ms)
       code=0
@@ -61,9 +61,10 @@ bench_commands_run() {
       took=$((end - start))
       if [ -z "$best" ] || [ "$took" -lt "$best" ]; then
         best=$took
+        best_code=$code
       fi
     done
-    printf '%s\t%s\t%s\n' "$best" "$code" "$line"
+    printf '%s\t%s\t%s\n' "$best" "$best_code" "$line"
   done < <(bench_commands_list)
 }
 
@@ -77,15 +78,19 @@ bench_commands_main() {
       *) printf 'error: unknown argument %s\n' "$1" >&2; return 2 ;;
     esac
   done
+  case "$specs$runs" in
+    *[!0-9]*) printf 'error: --specs and --runs need positive integers\n' >&2; return 2 ;;
+  esac
+  [ "$specs" -ge 1 ] && [ "$runs" -ge 1 ] || { printf 'error: --specs and --runs need positive integers\n' >&2; return 2; }
   [ -x "$bin" ] || { printf 'error: no binary at %s; run make build\n' "$bin" >&2; return 1; }
   bin="$(CDPATH='' cd -- "$(dirname -- "$bin")" && pwd)/$(basename -- "$bin")"
   dir=$(mktemp -d)
   BENCH_COMMANDS_DIR="$dir"
   trap 'rm -rf "$BENCH_COMMANDS_DIR"' EXIT
   (cd "$BENCH_COMMANDS_ROOT" && AGNOSTIC_AI_BENCH_FIXTURE="$dir" AGNOSTIC_AI_BENCH_SPECS="$specs" \
-    go test -count=1 -run '^TestWriteBenchFixture$' ./internal/cli/ >/dev/null)
+    go test -count=1 -run '^TestWriteBenchFixture$' ./internal/cli/ >&2)
   (cd "$dir" && git init -q && "$bin" sync -q && git add -A && git -c user.name=bench -c user.email=bench@localhost \
-    -c commit.gpgsign=false commit -qm fixture)
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m fixture)
   printf '# %s specs, best of %s runs, %s\n' "$specs" "$runs" "$("$bin" --version)"
   bench_commands_run "$bin" "$dir" "$runs"
 }

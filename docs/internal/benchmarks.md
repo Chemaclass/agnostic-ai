@@ -18,8 +18,13 @@ make bench
 That expands to:
 
 ```bash
-go test -run '^$' -bench . -benchmem ./...
+go test -timeout 30m -run '^$' -bench . -benchmem ./...
 ```
+
+At 100 and 500 specs, `BenchmarkCompare`, `BenchmarkGraph`, and
+`BenchmarkLint` run once per invocation, and one run can differ from the
+next by up to 3x. To compare a change, run each side with `-count=6` and
+read the two outputs with `benchstat`.
 
 Target one area or size while iterating:
 

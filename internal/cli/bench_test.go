@@ -92,11 +92,10 @@ func BenchmarkSyncEmit(b *testing.B) {
 // sync before timing so the measured iterations are the steady-state
 // re-sync (create-then-skip), the common dev and CI path.
 //
-// Each spec count runs twice — serial (--jobs 1) and parallel (--jobs 0 =
-// one worker per CPU) — so the two subjects sit side by side and the
-// parallel-emission crossover
-// (the spec count where fan-out beats serial) is read straight off the
-// numbers.
+// Each spec count runs twice, serial (--jobs 1) and parallel (--jobs 0,
+// one worker per CPU), so the two subjects sit side by side and the
+// parallel-emission crossover (the spec count where fan-out beats
+// serial) is read straight off the numbers.
 func BenchmarkSyncFull(b *testing.B) {
 	jobsCases := []struct {
 		name string
@@ -266,6 +265,9 @@ func TestWriteBenchFixture(t *testing.T) {
 	root := os.Getenv("AGNOSTIC_AI_BENCH_FIXTURE")
 	if root == "" {
 		t.Skip("AGNOSTIC_AI_BENCH_FIXTURE not set")
+	}
+	if !filepath.IsAbs(root) {
+		t.Fatalf("AGNOSTIC_AI_BENCH_FIXTURE=%q: want an absolute path outside the source tree", root)
 	}
 	n := 500
 	if v := os.Getenv("AGNOSTIC_AI_BENCH_SPECS"); v != "" {
