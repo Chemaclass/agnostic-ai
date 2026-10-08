@@ -45,15 +45,15 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 // that fails suggests nothing, since migrate then rewrites nothing, and
 // so does a project command run in the global home, where migrate needs
 // --global.
-func lintPortableHookForms(root string, cfg *config.Config, b spec.Bundle) []lintFinding {
-	if refuseGlobalHome(root, "") != nil {
+func lintPortableHookForms(s migrationScope, cfg *config.Config, b spec.Bundle) []lintFinding {
+	if refuseGlobalHome(s.root, "") != nil {
 		return nil
 	}
-	hs, err := projectHookMigrationSpecs(root, cfg, b)
+	hs, err := projectHookMigrationSpecs(s.root, cfg, b)
 	if err != nil {
 		return nil
 	}
-	planned, _, err := planPortableHooks(migrationScope{root: root}, hs)
+	planned, _, err := planPortableHooks(s, hs)
 	if err != nil {
 		return nil
 	}

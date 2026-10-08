@@ -26,7 +26,7 @@ func planCapabilitiesSettingsPermissions(s migrationScope) ([]migrationChange, [
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Settings })
+	extended, err := s.extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Settings })
 	if err != nil {
 		return nil, nil, err
 	}

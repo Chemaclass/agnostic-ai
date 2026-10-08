@@ -695,7 +695,7 @@ func TestDoctor_NamesPendingMigrations(t *testing.T) {
 func TestPendingMigrationHint_SaysManualWhenOnlySkips(t *testing.T) {
 	dir := migrationFixture(t, "config-file-name")
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	if got := pendingMigrationHint("."); got != "1 spec migration needs a manual step (config-file-name). Preview: agnostic-ai migrate --dry-run" {
+	if got := pendingMigrationHint(projectMigrationScope(".")); got != "1 spec migration needs a manual step (config-file-name). Preview: agnostic-ai migrate --dry-run" {
 		t.Errorf("hint = %q", got)
 	}
 }
@@ -721,7 +721,7 @@ func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *tes
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
 	}
-	if hint := pendingMigrationHint("."); !strings.HasPrefix(hint, "1 spec migration needs a manual step (hooks-portable-events)") {
+	if hint := pendingMigrationHint(projectMigrationScope(".")); !strings.HasPrefix(hint, "1 spec migration needs a manual step (hooks-portable-events)") {
 		t.Errorf("a local extension needs the user, so doctor names it: %q", hint)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "hooks", "no-force-push.yaml"))
@@ -851,21 +851,40 @@ func lintCodeHooks(t *testing.T, code string) []string {
 func TestPendingMigrationHint_CountsOnlyRewritesAndActionableSkips(t *testing.T) {
 	dir := migrationFixture(t, "hooks-portable-events")
 	silence(t)
-	if got := pendingMigrationHint("."); !strings.HasPrefix(got, "1 spec migration applies (hooks-portable-events)") {
+	if got := pendingMigrationHint(projectMigrationScope(".")); !strings.HasPrefix(got, "1 spec migration applies (hooks-portable-events)") {
 		t.Errorf("before the run: %q", got)
 	}
 	if _, err := runCLI(t, "migrate"); err != nil {
 		t.Fatal(err)
 	}
-	if got := pendingMigrationHint("."); got != "" {
+	if got := pendingMigrationHint(projectMigrationScope(".")); got != "" {
 		t.Errorf("only skips that need nothing remain, so doctor must stay quiet: %q", got)
 	}
 	if out, _ := runCLI(t, "migrate", "--list"); !strings.Contains(out, "hooks-portable-events (0.79.0): rewrite a hook's event: and matcher: as the portable on: and match:: 0 to rewrite, 2 skipped") {
 		t.Errorf("--list still counts every skip:\n%s", out)
 	}
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
-	if got := pendingMigrationHint("."); !strings.HasPrefix(got, "1 spec migration needs a manual step (hooks-portable-events)") {
+	if got := pendingMigrationHint(projectMigrationScope(".")); !strings.HasPrefix(got, "1 spec migration needs a manual step (hooks-portable-events)") {
 		t.Errorf("a spec with both forms needs the user: %q", got)
+	}
+}
+
+func TestPendingMigrationHint_PlansTheProjectTheCheckScopeLoaded(t *testing.T) {
+	dir := migrationFixture(t, "hooks-portable-events")
+	silence(t)
+	if _, err := runCLI(t, "migrate"); err != nil {
+		t.Fatal(err)
+	}
+	scope, err := loadCheckScope(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
+	if got := pendingMigrationHint(scope.migrationScope()); got != "" {
+		t.Errorf("doctor must plan the specs it loaded instead of loading them again: %q", got)
+	}
+	if got := pendingMigrationHint(projectMigrationScope(".")); !strings.HasPrefix(got, "1 spec migration needs a manual step (hooks-portable-events)") {
+		t.Errorf("a new scope loads the project from disk: %q", got)
 	}
 }
 
@@ -883,7 +902,7 @@ func TestMigrate_APlanThatFailsDoesNotStopTheOthers(t *testing.T) {
 	if out, _ := runCLI(t, "migrate", "--list"); !strings.Contains(out, "hooks-broken (0.79.0): fails to plan: cannot plan: parse hooks/x.yaml: token: <redacted>") {
 		t.Errorf("--list must show the failed plan:\n%s", out)
 	}
-	if got := pendingMigrationHint("."); !strings.HasPrefix(got, "1 spec migration applies (config-file-name)") {
+	if got := pendingMigrationHint(projectMigrationScope(".")); !strings.HasPrefix(got, "1 spec migration applies (config-file-name)") {
 		t.Errorf("the hint ignores a failed plan: %q", got)
 	}
 	out, err := runCLI(t, "migrate")

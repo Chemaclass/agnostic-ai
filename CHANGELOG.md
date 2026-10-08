@@ -14,7 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync` asks git once, not once per 500 outputs, which files it tracks but ignores: at 500 specs `sync` takes half the time (#1897).
 - `sync`, `sync --check`, and `status` read each skill folder once per run, not once per tool: `status` is about 15% faster at 500 specs (#1896).
 - `explain` on a spec renders each tool in parallel: at 500 specs it takes a third of the time (#1899).
-- `doctor` reuses the project it loaded for its checks and drift, and scans for unmanaged config while other checks run: about 20% faster at 500 specs (#1894).
+- `doctor` loads the project once for its checks, drift, and migration plans, and scans for unmanaged config while other checks run: it drops from 11 s to about 3 s at 500 specs (#1894).
 - Release binaries no longer embed the build machine's source paths (#1902).
 - A `sync` with nothing to change is about 30% faster at 500 specs: it reads each output once and skips repeated folder, state, and skill-folder reads (#1895).
 - `doctor` lists the installed AI CLIs in name order, so two runs print the same output (#1903).

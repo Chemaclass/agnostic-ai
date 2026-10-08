@@ -37,7 +37,7 @@ type hookMigrationSpecs struct {
 // targets a default sync --global writes hooks for.
 func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
 	if !s.global {
-		cfg, b, err := loadProject(s.root)
+		cfg, b, err := s.loadProject()
 		if err != nil {
 			return hookMigrationSpecs{}, err
 		}
@@ -149,7 +149,7 @@ type plannedPortableHook struct {
 // portable form exactly where migrate writes it; that includes the spec
 // roots check the registry repeats for every migration.
 func planPortableHooks(s migrationScope, hs hookMigrationSpecs) ([]plannedPortableHook, []migrationSkip, error) {
-	extended, err := extendedSpecNames(hs.layers, func(lb spec.Bundle) []spec.Entry { return lb.Hooks })
+	extended, err := s.extendedSpecNames(hs.layers, func(lb spec.Bundle) []spec.Entry { return lb.Hooks })
 	if err != nil {
 		return nil, nil, err
 	}
@@ -241,11 +241,11 @@ func (f portableHookForm) rewrites() []yamlKeyRewrite {
 // extendedSpecNames names the specs of one kind, which kind picks from
 // a layer, that a local/ spec merges into a lower layer's spec of the
 // same name. Their fields come from two files.
-func extendedSpecNames(layers []spec.Layer, kind func(spec.Bundle) []spec.Entry) (map[string]bool, error) {
+func (s migrationScope) extendedSpecNames(layers []spec.Layer, kind func(spec.Bundle) []spec.Entry) (map[string]bool, error) {
 	seen := map[string]bool{}
 	extended := map[string]bool{}
 	for _, layer := range layers {
-		lb, err := spec.LoadLayered([]spec.Layer{layer})
+		lb, err := s.loadLayer(layer)
 		if err != nil {
 			return nil, err
 		}

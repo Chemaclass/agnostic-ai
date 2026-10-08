@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -20,11 +21,7 @@ import (
 // HTTP/SSE servers (no command, only url) are skipped. The check is
 // advisory: missing binaries do not flip doctor's exit code, since
 // they reflect environment state, not spec state.
-func reportMCPCommandResolution(cmd *cobra.Command) {
-	_, b, err := loadProject(".")
-	if err != nil {
-		return
-	}
+func reportMCPCommandResolution(cmd *cobra.Command, b spec.Bundle) {
 	if len(b.MCPs) == 0 {
 		return
 	}
@@ -83,11 +80,7 @@ func installHint(command string) string {
 // and Factory fails the connection. A reference with a default is
 // skipped. The tool may run with a different environment than this
 // shell, so the check is advisory and prints names, never values.
-func reportMCPUnsetEnvRefs(cmd *cobra.Command, targets []string) {
-	cfg, b, err := loadProject(".")
-	if err != nil {
-		return
-	}
+func reportMCPUnsetEnvRefs(cmd *cobra.Command, cfg *config.Config, b spec.Bundle, targets []string) {
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}

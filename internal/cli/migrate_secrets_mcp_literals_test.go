@@ -125,7 +125,7 @@ func TestMigrate_SecretsSkipsWhatItCannotDecide(t *testing.T) {
 	if got, _ := os.ReadFile(path); string(got) != strings.Replace(body, "MODE: fast", "MODE: !literal fast", 1) {
 		t.Errorf("api.yaml =\n%s\nwant only MODE marked", got)
 	}
-	if hint := pendingMigrationHint("."); !strings.Contains(hint, "needs a manual step (secrets-mcp-literals)") {
+	if hint := pendingMigrationHint(projectMigrationScope(".")); !strings.Contains(hint, "needs a manual step (secrets-mcp-literals)") {
 		t.Errorf("doctor hint = %q, want the skips named as a manual step", hint)
 	}
 }

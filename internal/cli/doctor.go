@@ -165,8 +165,12 @@ func newDoctorMCPCmd() *cobra.Command {
 		Use:   "mcp",
 		Short: "Check that each MCP server's command is on PATH and its ${NAME} references are set.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reportMCPCommandResolution(cmd)
-			reportMCPUnsetEnvRefs(cmd, nil)
+			cfg, b, err := loadProject(".")
+			if err != nil {
+				return nil
+			}
+			reportMCPCommandResolution(cmd, b)
+			reportMCPUnsetEnvRefs(cmd, cfg, b, nil)
 			return nil
 		},
 	}
