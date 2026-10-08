@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 const (
@@ -363,5 +365,19 @@ func TestImport_ClineSkipsBlockRulesThatAlreadyHaveASpec(t *testing.T) {
 
 	if exists(filepath.Join(dir, ".agnostic-ai", "rules", "always.md")) {
 		t.Error("import cline duplicated the always rule, which already has a spec")
+	}
+}
+
+func TestRulesInEntryPoint_NamesTheAlwaysOnRulesAGENTSMdCarriesForCline(t *testing.T) {
+	ruleFilesProject(t, "targets: [codex, cline]\n")
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := adapters.RulesInEntryPoint(cfg, b, "cline")
+
+	if len(got) != 1 || !got["always"] {
+		t.Errorf("RulesInEntryPoint(cline) = %v, want only always: the scoped go rule keeps its file", got)
 	}
 }

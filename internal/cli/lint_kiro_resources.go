@@ -20,13 +20,10 @@ func lintKiroAgentResources(cfg *config.Config, targets []string, b spec.Bundle)
 	if !slices.Contains(targets, "kiro") {
 		return nil
 	}
-	kiro := b.For("kiro")
-	inlined := slices.ContainsFunc(kiro.Rules, func(r spec.Entry) bool {
-		return adapters.RuleInEntryPoint(cfg, b, "kiro", r)
-	})
-	if !inlined {
+	if len(adapters.RulesInEntryPoint(cfg, b, "kiro")) == 0 {
 		return nil
 	}
+	kiro := b.For("kiro")
 	var out []lintFinding
 	for _, a := range kiro.Agents {
 		resources, _ := adapters.ResolveMeta(a.Meta, "kiro")["resources"].([]any)
