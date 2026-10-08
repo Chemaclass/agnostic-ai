@@ -10,8 +10,8 @@ var readFile = os.ReadFile
 
 // onDisk is the file at path as one write finds it, read and stat-ed at
 // most once. The checks before a write (hand edit, backup, rollback,
-// up to date) all look at the same bytes, and at 20,000 outputs a second
-// read per file is most of a no-op sync. Use it only under the path lock.
+// up to date) all look at the same bytes. Use it only under the path
+// lock, and read the file only through it, or a write reads it twice.
 type onDisk struct {
 	path string
 
