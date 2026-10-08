@@ -213,10 +213,11 @@ func singleEntryBundle(e spec.Entry) spec.Bundle {
 
 // captureEmit runs an adapter's Emit under capture mode so output stays
 // in memory instead of writing to disk. dryRun is false because dryRun
-// prints to stdout, which would defeat the purpose of capturing.
+// prints to stdout, which would defeat the purpose of capturing. Every
+// caller reads the written files only, so legacy tree sweeps are skipped.
 func captureEmit(a adapters.Adapter, b spec.Bundle, cfg *config.Config) ([]adapters.CapturedFile, error) {
 	sess := adapters.NewSession()
-	sess.StartCapture()
+	sess.StartWritesOnlyCapture()
 	err := adapters.EmitWithProvenance(sess, a, b, cfg, false)
 	captured := sess.StopCapture()
 	if err != nil {
