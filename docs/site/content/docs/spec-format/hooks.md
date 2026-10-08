@@ -180,7 +180,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
-- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Cursor. `loop_limit`: Cursor, Trae.
+- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Claude Code (command and HTTP handlers), Cursor. `loop_limit`: Cursor, Trae.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.

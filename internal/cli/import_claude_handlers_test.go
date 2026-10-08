@@ -46,3 +46,20 @@ func importedClaudeHandlers(t *testing.T, data string) map[string]map[string]any
 	}
 	return out
 }
+
+func TestImportClaude_KeepsOnFailureBlockAsFailClosed(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	const native = `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"http","url":"https://example.test/check","onFailure":"block"},
+{"type":"command","command":"guard.sh","onFailure":"block"}
+]}]}}`
+	writeFile(t, ".claude/settings.json", native)
+	execCLI(t, "import", "claude")
+	execCLI(t, "sync", "-t", "claude")
+	want, got := importedClaudeHandlers(t, native), importedClaudeHandlers(t, readFile(t, ".claude/settings.json"))
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("round-trip handlers = %#v, want %#v", got, want)
+	}
+}

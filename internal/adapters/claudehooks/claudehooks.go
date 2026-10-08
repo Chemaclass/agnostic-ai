@@ -63,6 +63,7 @@ type CommandEntry struct {
 	Prompt                 string            `json:"prompt,omitempty"`
 	Model                  string            `json:"model,omitempty"`
 	ContinueOnBlock        bool              `json:"continueOnBlock,omitempty"`
+	OnFailure              string            `json:"onFailure,omitempty"`
 }
 
 // Group mirrors one `{matcher, hooks}` object in a settings.json hook

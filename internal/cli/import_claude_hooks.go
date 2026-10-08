@@ -51,7 +51,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			cmds := make([]string, 0, len(g.Hooks))
 			timeout := 0
 			statusMessage, shell, ifRule := "", "", ""
-			async, asyncRewake, once := false, false, false
+			async, asyncRewake, once, failClosed := false, false, false, false
 			var args []string
 			for _, h := range g.Hooks {
 				h.Command = adapters.StripCursorGuard(h.Command)
@@ -85,6 +85,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				async = async || h.Async
 				asyncRewake = asyncRewake || h.AsyncRewake
 				once = once || h.Once
+				failClosed = failClosed || h.OnFailure == "block"
 			}
 			if len(cmds) == 0 {
 				continue
@@ -124,6 +125,9 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			}
 			if ifRule != "" {
 				doc["if"] = ifRule
+			}
+			if failClosed {
+				doc["failClosed"] = true
 			}
 			pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
 			if err := writeHookSpecFile(dstDir, name, doc); err != nil {
@@ -167,6 +171,10 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 	}
 	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)},
 		map[string]any{"type": h.Type, "url": h.URL, "server": h.Server, "tool": h.Tool, "prompt": h.Prompt})
+	if doc["onFailure"] == "block" {
+		delete(doc, "onFailure")
+		doc["failClosed"] = true
+	}
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
 	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
 	pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
