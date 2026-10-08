@@ -3,7 +3,9 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -42,8 +44,8 @@ func reportInstalledCLIs(cmd *cobra.Command) {
 	cmd.Println()
 	cmd.Println("Installed AI CLIs:")
 	any := false
-	for target, bin := range knownCLIBinaries {
-		path, err := exec.LookPath(bin)
+	for _, target := range slices.Sorted(maps.Keys(knownCLIBinaries)) {
+		path, err := exec.LookPath(knownCLIBinaries[target])
 		if err != nil {
 			continue
 		}
@@ -202,7 +204,8 @@ func newDoctorInstallCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.Println("AI CLI installation check:")
 			found := 0
-			for target, bin := range knownCLIBinaries {
+			for _, target := range slices.Sorted(maps.Keys(knownCLIBinaries)) {
+				bin := knownCLIBinaries[target]
 				path, err := exec.LookPath(bin)
 				if err != nil {
 					cmd.Printf("  — %s (%s) not found\n", target, bin)
