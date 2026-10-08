@@ -68,7 +68,7 @@ func planMCPLiterals(s migrationScope) (mcpLiteralsPlan, error) {
 	var files []mcpLiteralsFile
 	var credentials []mcpLiteral
 	for _, layer := range layers {
-		lb, err := spec.LoadLayered([]spec.Layer{layer})
+		lb, err := s.loadLayer(layer)
 		if err != nil {
 			return plan, err
 		}

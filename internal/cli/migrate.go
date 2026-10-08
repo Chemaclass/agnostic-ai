@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -40,6 +41,69 @@ type specMigration struct {
 type migrationScope struct {
 	root   string
 	global bool
+	// project, when set, holds the project at root once loaded, so the
+	// migrations of one plan read it once instead of each loading it.
+	project *loadedProject
+}
+
+// loadedProject is a project loaded once, plus each of its layers loaded
+// on its own once. Its methods are safe for concurrent use: doctor plans
+// migrations while lint reads the same project.
+type loadedProject struct {
+	once   sync.Once
+	cfg    *config.Config
+	bundle spec.Bundle
+	err    error
+
+	mu     sync.Mutex
+	layers map[string]spec.Bundle
+}
+
+// projectMigrationScope is the project at root, loaded on first use.
+func projectMigrationScope(root string) migrationScope {
+	return migrationScope{root: root, project: &loadedProject{}}
+}
+
+// loadedMigrationScope is the project at root, already loaded as cfg and b.
+func loadedMigrationScope(root string, cfg *config.Config, b spec.Bundle) migrationScope {
+	p := &loadedProject{cfg: cfg, bundle: b}
+	p.once.Do(func() {})
+	return migrationScope{root: root, project: p}
+}
+
+// loadProject loads the project at root, once per scope when it holds
+// one.
+func (s migrationScope) loadProject() (*config.Config, spec.Bundle, error) {
+	p := s.project
+	if p == nil {
+		return loadProject(s.root)
+	}
+	p.once.Do(func() { p.cfg, p.bundle, p.err = loadProject(s.root) })
+	return p.cfg, p.bundle, p.err
+}
+
+// loadLayer loads one layer on its own, once per scope when it holds a
+// project.
+func (s migrationScope) loadLayer(layer spec.Layer) (spec.Bundle, error) {
+	p := s.project
+	if p == nil {
+		return spec.LoadLayered([]spec.Layer{layer})
+	}
+	key := layer.Name + "\x00" + layer.Root
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if b, ok := p.layers[key]; ok {
+		return b, nil
+	}
+	b, err := spec.LoadLayered([]spec.Layer{layer})
+	if err != nil {
+		return b, err
+	}
+	if p.layers == nil {
+		p.layers = map[string]spec.Bundle{}
+	}
+	p.layers[key] = b
+	return b, nil
 }
 
 // migrationChange is one file edit: new content for Path, written to
@@ -184,7 +248,7 @@ func resolveMigrationScope(global bool) (migrationScope, error) {
 	if _, _, err := config.ResolveConfigPath("."); err != nil {
 		return migrationScope{}, err
 	}
-	return migrationScope{root: "."}, nil
+	return projectMigrationScope("."), nil
 }
 
 func selectMigrations(set bool, only []string) ([]specMigration, error) {
@@ -219,7 +283,7 @@ func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
 	if s.global {
 		return s.loadGlobalSpecs()
 	}
-	cfg, b, err := loadProject(s.root)
+	cfg, b, err := s.loadProject()
 	if err != nil {
 		return spec.Bundle{}, nil, err
 	}
@@ -732,9 +796,9 @@ func writeMigrationChange(c migrationChange) error {
 // when migrations apply here, or "" when none do. A migration whose plan
 // fails is left out. One that only skips needs a manual step when a skip
 // is actionable, and says so; other skips need nothing.
-func pendingMigrationHint(root string) string {
+func pendingMigrationHint(s migrationScope) string {
 	var apply, manual []string
-	for _, p := range planMigrations(migrationScope{root: root}, specMigrations) {
+	for _, p := range planMigrations(s, specMigrations) {
 		switch {
 		case !p.needsUser():
 		case len(p.changes) > 0:

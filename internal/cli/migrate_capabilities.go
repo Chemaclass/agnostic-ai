@@ -26,7 +26,7 @@ func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migratio
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Agents })
+	extended, err := s.extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Agents })
 	if err != nil {
 		return nil, nil, err
 	}

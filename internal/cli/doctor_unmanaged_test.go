@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -72,5 +73,21 @@ func TestFindUnmanagedConfig_EmptyTree(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("expected no findings in empty tree, got %+v", got)
+	}
+}
+
+// A directory a config glob matches is not a config file.
+func TestFindUnmanagedConfig_SkipsADirectoryAGlobMatches(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".claude", "agents", "nested.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := findUnmanagedConfig(dir, &config.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Errorf("a directory must not be reported: %+v", got)
 	}
 }

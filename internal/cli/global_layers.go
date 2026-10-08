@@ -61,6 +61,15 @@ type checkScope struct {
 	// output for a project, user-level surfaces for the global scope.
 	support kindSupport
 	bundle  spec.Bundle
+	// project is the loaded project that migration plans read; nil for
+	// the global scope.
+	project *loadedProject
+}
+
+// migrationScope is the project scope plans read, sharing what the check
+// scope loaded.
+func (s checkScope) migrationScope() migrationScope {
+	return migrationScope{root: ".", project: s.project}
 }
 
 // loadCheckScope loads the project in the working directory, or the
@@ -93,7 +102,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 		if err != nil {
 			return checkScope{}, err
 		}
-		return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: projectKindSupport(cfg), bundle: b}, nil
+		return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: projectKindSupport(cfg), bundle: b, project: loadedMigrationScope(".", cfg, b).project}, nil
 	}
 	source, err := globalSourceRoot()
 	if err != nil {

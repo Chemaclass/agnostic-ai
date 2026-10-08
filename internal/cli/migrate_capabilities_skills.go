@@ -16,7 +16,7 @@ func planCapabilitiesSkillTools(s migrationScope) ([]migrationChange, []migratio
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Skills })
+	extended, err := s.extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Skills })
 	if err != nil {
 		return nil, nil, err
 	}

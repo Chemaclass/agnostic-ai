@@ -107,13 +107,9 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 	return out, nil
 }
 
-// isUnmarkedFile reports whether path is a readable regular file without
-// the provenance marker.
+// isUnmarkedFile reports whether path is a readable file without the
+// provenance marker. Reading a directory fails, so it counts as marked.
 func isUnmarkedFile(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return false
-	}
 	data, err := os.ReadFile(path)
 	return err == nil && !header.Has(string(data))
 }

@@ -679,8 +679,6 @@ func newDoctorCmd() *cobra.Command {
 			cfg := scope.cfg
 			// These two read files only and take a large share of a run on
 			// a big project, so they run beside the checks before them.
-			// Under -v, the migration plan's own project load can log a
-			// line inside the spec health section.
 			var (
 				unmanagedFound []unmanagedFinding
 				unmanagedErr   error
@@ -694,7 +692,7 @@ func newDoctorCmd() *cobra.Command {
 			}()
 			go func() {
 				defer background.Done()
-				migrationHint = pendingMigrationHint(".")
+				migrationHint = pendingMigrationHint(scope.migrationScope())
 			}()
 			configPath, _, _ := config.ResolveConfigPath(".")
 			cmd.Printf("  ✓ %s valid (version %d, %d target(s))\n", filepath.Base(configPath), cfg.Version, len(cfg.Targets))
@@ -779,8 +777,8 @@ func newDoctorCmd() *cobra.Command {
 			reportTrackedIgnored(cmd, reports)
 
 			// 5. MCP resolution
-			reportMCPCommandResolution(cmd)
-			reportMCPUnsetEnvRefs(cmd, targets)
+			reportMCPCommandResolution(cmd, bundle)
+			reportMCPUnsetEnvRefs(cmd, cfg, bundle, targets)
 
 			// 5b. Hook script body divergence across per-tool stashes.
 			scriptDrift, err := reportDivergentHookScripts(cmd, ".")
