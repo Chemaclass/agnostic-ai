@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 
@@ -43,7 +44,7 @@ func mergedClaudeHookSpecs(cfg *config.Config, b spec.Bundle) []string {
 		}
 		for _, g := range s.Hooks[event] {
 			if g.Matcher == matcher && holdsWithOtherSettings(g.Hooks, handlers) {
-				out = append(out, h.Path)
+				out = append(out, filepath.ToSlash(h.Path))
 				break
 			}
 		}
