@@ -536,20 +536,27 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 
 // RuleInEntryPoint reports whether target skips its own file for rule r
 // because the entry point it reads already carries r, with the same
-// text, and that file would load r in every session too.
+// text, and that file would load r in every session too. To check many
+// rules, build the set once with RulesInEntryPoint.
 func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.Entry) bool {
+	return RulesInEntryPoint(cfg, b, target)[r.Name]
+}
+
+// RulesInEntryPoint returns, by name, every rule RuleInEntryPoint
+// reports for target.
+func RulesInEntryPoint(cfg *config.Config, b spec.Bundle, target string) map[string]bool {
 	own := slices.Clone(b.For(target).Rules)
 	vals := emit.VarsFor(cfg, target)
 	for i := range own {
 		own[i].Body, _ = emit.ExpandVars(own[i].Body, vals)
 		own[i].Body, _ = emit.ExpandRefs(own[i].Body, emit.RefForms[target])
 	}
-	for _, skipped := range entryPointRules(cfg, b, target, own) {
-		if skipped.Name == r.Name {
-			return true
-		}
+	skipped := entryPointRules(cfg, b, target, own)
+	names := make(map[string]bool, len(skipped))
+	for _, r := range skipped {
+		names[r.Name] = true
 	}
-	return false
+	return names
 }
 
 // entryPointRules returns the rules in own, target's rules as its files

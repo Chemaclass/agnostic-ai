@@ -254,9 +254,10 @@ var legacyRulesFileScoped = map[string]bool{"copilot": true}
 func alwaysOnRuleWords(cfg *config.Config, b spec.Bundle, target string) int {
 	legacyWhole := adapters.HasLegacyRulesFile(cfg, target) && !legacyRulesFileScoped[target]
 	whole := legacyWhole || adapters.ImportsRulesIntoEntryPoint(cfg, target)
+	inEntryPoint := adapters.RulesInEntryPoint(cfg, b, target)
 	n := 0
 	for _, r := range adapters.EntryPointRules(b, target, cfg).Rules {
-		if whole || adapters.AlwaysOnRule(target, r) && !adapters.RuleInEntryPoint(cfg, b, target, r) {
+		if whole || adapters.AlwaysOnRule(target, r) && !inEntryPoint[r.Name] {
 			n += wordsIn(r.Body)
 		}
 	}

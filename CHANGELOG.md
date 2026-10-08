@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - `compare` runs in under a second on large projects, down from 47 s at 500 specs; `graph` also gets faster (#1891).
+- `lint` runs in a quarter second at 500 specs, down from 4 s, and `doctor` gets the same saving (#1893).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 
 ### By tool
