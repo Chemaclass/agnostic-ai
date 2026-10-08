@@ -2,4 +2,6 @@
 # `make size-check` in CI. Raise it in the PR that needs more, and say why.
 # v0.78.0 measured 17137824. main after #1868 measured 18227360.
 # #1888 measured 18301088: the stale memory index fix crossed one page.
-18310000
+# #1896 measured 18321568: per-skill asset lists on spec entries, checked
+# again at copy time.
+18330000

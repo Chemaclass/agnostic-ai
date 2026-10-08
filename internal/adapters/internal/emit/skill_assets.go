@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -34,17 +35,17 @@ func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(r
 		return nil
 	}
 	if (skip != nil && skip(OpenAIYAMLRel)) || !s.codexScansSkillFolder(dstDir) || !bundlesOpenAIYAML(sk) {
-		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
+		return s.copySkillFiles(sk, dstDir, skip, dryRun)
 	}
 	merged, err := OpenAIYAML(sk)
 	if err != nil {
 		return err
 	}
 	if merged == "" {
-		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
+		return s.copySkillFiles(sk, dstDir, skip, dryRun)
 	}
 	skipBundled := func(rel string) bool { return rel == OpenAIYAMLRel || (skip != nil && skip(rel)) }
-	if err := s.CopyTree(sk.SkillAssetDir(), dstDir, skipBundled, dryRun); err != nil {
+	if err := s.copySkillFiles(sk, dstDir, skipBundled, dryRun); err != nil {
 		return err
 	}
 	return s.WriteFile(filepath.Join(dstDir, filepath.FromSlash(OpenAIYAMLRel)), WithHeader(merged, FormatYAML), dryRun)
@@ -120,4 +121,38 @@ func RelinkBundledAssets(sk spec.Entry, body, fromDir, folder string) string {
 // to propagate.
 func FolderBasedSkill(s spec.Entry) bool {
 	return s.SkillAssetDir() != ""
+}
+
+// copySkillFiles is CopyTree over the files the load listed for sk, so a
+// skill emitted to every target walks its folder once per run. A skill
+// built without a listing walks its folder.
+func (s *Session) copySkillFiles(sk spec.Entry, dstDir string, skip func(rel string) bool, dryRun bool) error {
+	if sk.Assets == nil {
+		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
+	}
+	src := sk.SkillAssetDir()
+	for _, f := range *sk.Assets {
+		if skip != nil && skip(f.Rel) {
+			continue
+		}
+		path := filepath.Join(src, filepath.FromSlash(f.Rel))
+		// The file may have changed since the load listed it. Copy it only
+		// while it is still a regular file, with its current mode, as
+		// CopyTree would.
+		info, err := os.Lstat(path)
+		if IsAbsent(err) || err == nil && !info.Mode().IsRegular() {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", path, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		if err := s.writeFileWithMode(filepath.Join(dstDir, filepath.FromSlash(f.Rel)), string(data), info.Mode().Perm(), true, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
 }

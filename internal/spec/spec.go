@@ -97,6 +97,10 @@ type Entry struct {
 	// one holding Path: a local skill that only edits fields keeps the
 	// shared folder's assets. Read it through SkillAssetDir.
 	AssetDir string
+	// Assets lists the regular files under SkillAssetDir as the load
+	// found them, so a skill emitted to many targets walks its folder
+	// once. Nil means a skill built without a listing, which walks it.
+	Assets *[]AssetFile
 	// ModelTier names the `models:` tier the spec's `model` resolved
 	// through, or "" for a literal model. See Bundle.ApplyModelTiers.
 	ModelTier string
@@ -107,6 +111,13 @@ type Entry struct {
 	// PortableDecision whether it set `decision: stdout`.
 	PortableMatch    string
 	PortableDecision bool
+}
+
+// AssetFile is one file in a skill folder: its path relative to the
+// folder, with forward slashes, and its mode.
+type AssetFile struct {
+	Rel  string
+	Mode fs.FileMode
 }
 
 // SkillAssetDir returns the folder whose sibling files ship with a skill,
@@ -985,12 +996,27 @@ func hasDotPathSegment(name string) bool {
 
 func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]Entry, error) {
 	var entries []Entry
+	var files []string
+	modes := map[string]fs.FileMode{}
 	err := WalkSourceRoot(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if path == dir && errors.Is(walkErr, fs.ErrNotExist) {
 				return nil
 			}
 			return walkErr
+		}
+		if kind == KindSkill && d.Type().IsRegular() {
+			info, err := d.Info()
+			if errors.Is(err, fs.ErrNotExist) {
+				// Gone since the folder was read, such as an editor's
+				// temporary save file.
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+			files = append(files, path)
+			modes[path] = info.Mode()
 		}
 		if d.IsDir() || filepath.Ext(path) != ext {
 			return nil
@@ -1028,7 +1054,39 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 	if err != nil {
 		return nil, err
 	}
+	if kind == KindSkill {
+		listSkillAssets(entries, dir, files, modes)
+	}
 	return entries, nil
+}
+
+// listSkillAssets records, on each folder skill, every file under its
+// folder in walk order, as CopyTree would visit them.
+func listSkillAssets(entries []Entry, root string, files []string, modes map[string]fs.FileMode) {
+	byDir := map[string][]string{}
+	for _, f := range files {
+		for d := filepath.Dir(f); ; d = filepath.Dir(d) {
+			byDir[d] = append(byDir[d], f)
+			if d == root || d == filepath.Dir(d) {
+				break
+			}
+		}
+	}
+	for i := range entries {
+		dir := entries[i].SkillAssetDir()
+		if dir == "" {
+			continue
+		}
+		list := []AssetFile{}
+		for _, f := range byDir[dir] {
+			rel, err := filepath.Rel(dir, f)
+			if err != nil {
+				continue
+			}
+			list = append(list, AssetFile{Rel: filepath.ToSlash(rel), Mode: modes[f]})
+		}
+		entries[i].Assets = &list
+	}
 }
 
 // ParseMarkdownBytes parses an in-memory spec document and returns the

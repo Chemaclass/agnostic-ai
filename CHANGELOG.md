@@ -12,6 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `lint` runs in a quarter second at 500 specs, down from 4 s; `doctor` drops from 11 s to 5 s (#1893).
 - `graph` runs in about 2 s at 500 specs, down from 40 s, and `graph --target` only renders that target (#1892).
 - `sync` asks git once, not once per 500 outputs, which files it tracks but ignores: at 500 specs `sync` takes half the time (#1897).
+- `sync`, `sync --check`, and `status` read each skill folder once per run, not once per tool: `status` is about 15% faster at 500 specs (#1896).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 
 ### By tool

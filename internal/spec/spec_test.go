@@ -3,6 +3,7 @@ package spec
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -719,5 +720,34 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLoadAll_ListsTheFilesOfAFolderSkill(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "skills", "alpha", "SKILL.md"), "---\nname: alpha\n---\nskill body")
+	mustWrite(t, filepath.Join(dir, "skills", "alpha", "scripts", "run.sh"), "#!/bin/sh\n")
+	mustWrite(t, filepath.Join(dir, "skills", "beta", "SKILL.md"), "---\nname: beta\n---\nbeta body")
+
+	entries, err := LoadAll(dir, defaultsForTest())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := map[string][]string{}
+	for _, s := range Filter(entries, KindSkill) {
+		if s.Assets == nil {
+			t.Fatalf("%s: assets not listed at load", s.Name)
+		}
+		for _, f := range *s.Assets {
+			got[s.Name] = append(got[s.Name], f.Rel)
+		}
+	}
+	if want := []string{"SKILL.md", "scripts/run.sh"}; !slices.Equal(got["alpha"], want) {
+		t.Errorf("alpha files = %v, want %v", got["alpha"], want)
+	}
+	if want := []string{"SKILL.md"}; !slices.Equal(got["beta"], want) {
+		t.Errorf("beta files = %v, want %v", got["beta"], want)
 	}
 }
