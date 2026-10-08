@@ -737,10 +737,10 @@ func TestLoadAll_ListsTheFilesOfAFolderSkill(t *testing.T) {
 
 	got := map[string][]string{}
 	for _, s := range Filter(entries, KindSkill) {
-		if !s.AssetsListed {
+		if s.Assets == nil {
 			t.Fatalf("%s: assets not listed at load", s.Name)
 		}
-		for _, f := range s.AssetFiles {
+		for _, f := range *s.Assets {
 			got[s.Name] = append(got[s.Name], f.Rel)
 		}
 	}

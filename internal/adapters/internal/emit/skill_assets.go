@@ -127,11 +127,11 @@ func FolderBasedSkill(s spec.Entry) bool {
 // skill emitted to every target walks its folder once per run. A skill
 // built without a listing walks its folder.
 func (s *Session) copySkillFiles(sk spec.Entry, dstDir string, skip func(rel string) bool, dryRun bool) error {
-	if !sk.AssetsListed {
+	if sk.Assets == nil {
 		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
 	}
 	src := sk.SkillAssetDir()
-	for _, f := range sk.AssetFiles {
+	for _, f := range *sk.Assets {
 		if skip != nil && skip(f.Rel) {
 			continue
 		}

@@ -195,8 +195,7 @@ func TestPropagateSkillAssets_CopiesTheListedFilesWithoutWalkingTheFolder(t *tes
 	}
 	s := spec.Entry{
 		Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(srcSkill, "SKILL.md"),
-		AssetsListed: true,
-		AssetFiles:   []spec.AssetFile{{Rel: "SKILL.md", Mode: 0o644}, {Rel: "listed.txt", Mode: 0o644}},
+		Assets: &[]spec.AssetFile{{Rel: "SKILL.md", Mode: 0o644}, {Rel: "listed.txt", Mode: 0o644}},
 	}
 	dst := filepath.Join(dir, "out", "alpha")
 

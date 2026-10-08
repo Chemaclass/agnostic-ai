@@ -97,12 +97,10 @@ type Entry struct {
 	// one holding Path: a local skill that only edits fields keeps the
 	// shared folder's assets. Read it through SkillAssetDir.
 	AssetDir string
-	// AssetFiles lists the regular files under SkillAssetDir as the load
+	// Assets lists the regular files under SkillAssetDir as the load
 	// found them, so a skill emitted to many targets walks its folder
-	// once. AssetsListed tells an empty list from a skill built without
-	// one, which falls back to walking the folder.
-	AssetFiles   []AssetFile
-	AssetsListed bool
+	// once. Nil means a skill built without a listing, which walks it.
+	Assets *[]AssetFile
 	// ModelTier names the `models:` tier the spec's `model` resolved
 	// through, or "" for a literal model. See Bundle.ApplyModelTiers.
 	ModelTier string
@@ -1082,7 +1080,7 @@ func listSkillAssets(entries []Entry, root string, files []string, modes map[str
 			}
 			list = append(list, AssetFile{Rel: filepath.ToSlash(rel), Mode: modes[f]})
 		}
-		entries[i].AssetFiles, entries[i].AssetsListed = list, true
+		entries[i].Assets = &list
 	}
 }
 
