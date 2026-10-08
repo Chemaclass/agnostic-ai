@@ -16,6 +16,7 @@ amp	docs	https://ampcode.com/docs/the-dial	200	llms-txt	f25a28ed33101f2ee28c9b1f
 amp	docs	https://ampcode.com/docs/tools	200	llms-txt	3157b7a4f040ba46a33ae268cf6dd132c054981255773ab5c2585f340071fba7	2026-10-08
 amp	docs	https://ampcode.com/llms.txt	200	text	86f9ca34b43f1c380c5dbaad0e7f96edfa39b5585d38fefb6042ff2f6e169270	2026-10-04
 amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	2280837ae5d21ff966c5f5e935c4840e140dc3a3837af02ede2717c42fb1c72e	2026-09-30
+antigravity	changelog	https://antigravity.google/docs/changelog	200	html	44b4291287af7525dd092c7872842b17d88d8369afcdb58c67a04fa9adfd4926	2026-10-08
 antigravity	docs	https://antigravity.google/docs/hooks?tab=ide	200	html	6345acd75a0c22fc0351e1a19a0de9373f719cb4d6cb3bf940396319d4978b3f	2026-10-01
 antigravity	docs	https://antigravity.google/docs/ide/workflows	200	html	648723471511f6b09714c1ff96c1603c116debc328e3df8ab2e677d44c397a08	2026-10-07
 antigravity	docs	https://antigravity.google/docs/mcp?tab=ide	200	html	c20cf290d277de824ee123304b40d3180716ba3ec755b07ab4fcb609294998b8	2026-10-01
