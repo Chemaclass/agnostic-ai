@@ -1,4 +1,4 @@
-.PHONY: build test test-race ci-local test-shell size-check bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: build test test-race ci-local test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -31,14 +31,20 @@ test-shell: build
 	bashunit scripts/release-notes_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh \
-		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh
+		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh \
+		scripts/bench-commands_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
 # `-run '^$$'` skips the unit tests so only Benchmark* functions run. See
 # docs/internal/benchmarks.md for how to read and extend the suite.
 bench:
-	go test -run '^$$' -bench . -benchmem ./...
+	go test -timeout 30m -run '^$$' -bench . -benchmem ./...
+
+# bench-commands times every read-only command and a no-op sync end to end
+# on the 500-spec benchmark fixture. Local only, like bench.
+bench-commands: build
+	scripts/bench-commands.sh --bin ./$(BIN)
 
 # The version check runs first because a stale golangci-lint reports the
 # mismatch as "export data version N is greater than maximum supported

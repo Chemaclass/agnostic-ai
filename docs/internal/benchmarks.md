@@ -18,8 +18,13 @@ make bench
 That expands to:
 
 ```bash
-go test -run '^$' -bench . -benchmem ./...
+go test -timeout 30m -run '^$' -bench . -benchmem ./...
 ```
+
+At 100 and 500 specs, `BenchmarkCompare`, `BenchmarkGraph`, and
+`BenchmarkLint` run once per invocation, and one run can differ from the
+next by up to 3x. To compare a change, run each side with `-count=6` and
+read the two outputs with `benchstat`.
 
 Target one area or size while iterating:
 
@@ -31,6 +36,16 @@ go test -run '^$' -bench 'Fingerprint' -benchmem -benchtime=100x ./internal/cli/
 Benchmarks are not a CI gate. They report numbers for local comparison,
 not pass or fail.
 
+To time the built binary end to end on the same fixture (500 specs by
+default), including process startup and git calls the benchmarks skip:
+
+```bash
+make bench-commands
+scripts/bench-commands.sh --specs 100 --runs 5
+```
+
+It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
+
 ## What it covers
 
 | Benchmark | Path |
@@ -40,6 +55,9 @@ not pass or fail.
 | `BenchmarkSyncCheck` | The `--check` capture-compare pass against an in-sync tree. |
 | `BenchmarkEntryPointRender` | Entry-point body render plus byte-dedupe across targets. |
 | `BenchmarkFolderFingerprint` | Shared-skills folder fingerprint (`folderFingerprint`). |
+| `BenchmarkCompare` | `compare claude codex` against a synced tree: every agent, skill, and rule emitted alone to both targets. |
+| `BenchmarkGraph` | `graph` edges against a synced tree: every spec emitted alone to every target. |
+| `BenchmarkLint` | The full project `lint` report, the spec-health pass `doctor` also runs. |
 | `BenchmarkCompareToDisk` | Capture-compare drift verdict: status-quo full read vs the `CompareToDisk` size-precheck fast path, swept by scenario and file size. |
 
 ## Read the output
@@ -48,8 +66,7 @@ not pass or fail.
 BenchmarkSyncEmit/specs=100-14   26   45589017 ns/op   80354676 B/op   317246 allocs/op
 ```
 
-- `ns/op`: nanoseconds per call. Divide by 1000 for the `μs/call` the rule
-  asks for.
+- `ns/op`: nanoseconds per call. Divide by 1000 for `μs/call`.
 - `B/op`, `allocs/op`: bytes and allocations per call, from
   `b.ReportAllocs()`.
 - `specs=N`: the spec-count parameter. Each fixture holds N rules, N
@@ -63,8 +80,8 @@ numbers are comparable across runs on the same machine.
 
 ## Three subjects
 
-`BenchmarkFolderFingerprint` follows the "three subjects" shape from the
-rule so a future proposal has a place to slot in:
+`BenchmarkFolderFingerprint` follows the "three subjects" shape so a
+future proposal has a place to slot in:
 
 - `status-quo`: `folderFingerprint`, the production impl. It streams each
   entry into the digest.

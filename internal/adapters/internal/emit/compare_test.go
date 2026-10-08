@@ -148,10 +148,10 @@ func mutate(r *rand.Rand, disk []byte) []byte {
 // benchStateSink defeats dead-code elimination of the benchmarked verdict.
 var benchStateSink DiskState
 
-// BenchmarkCompareToDisk is the decision artifact required by
-// bench-before-perf-refactor.md. It puts two subjects side by side over one
-// on-disk file per scenario, reporting μs/call so the crossover can be
-// computed:
+// BenchmarkCompareToDisk is the "three subjects" decision artifact
+// described in docs/internal/benchmarks.md. It puts two subjects side by
+// side over one on-disk file per scenario, reporting μs/call so the
+// crossover can be computed:
 //
 //   - status-quo: fullCompare, an unconditional full read then byte compare.
 //     For a pure I/O short-circuit the naive baseline and the status-quo
