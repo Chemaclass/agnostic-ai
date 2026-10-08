@@ -8,7 +8,9 @@
 # the checkout path: main measured 18280608.
 # #1894 measured 18296992: doctor shares one loaded project with its
 # migration plans and lint.
-# #1919 measured 18342048: global hooks files are edited in place as text,
-# and sync records the containers it created, so add-then-remove keeps
-# the user's bytes.
-18350000
+# #1922 measured 18309280: doctor names Claude hook specs an older
+# import merged.
+# #1919 measured 18358432 on top of #1922: global hooks files are edited
+# in place as text, and sync records the containers it created, so
+# add-then-remove keeps the user's bytes.
+18365000
