@@ -23,7 +23,7 @@ test-race:
 # number matches the published binary.
 size-check:
 	@dir=$$(mktemp -d) && trap 'rm -rf "$$dir"' EXIT && \
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=0.0.0" -o "$$dir/$(BIN)" $(PKG) && \
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=0.0.0" -o "$$dir/$(BIN)" $(PKG) && \
 	scripts/binary-size.sh "$$dir/$(BIN)"
 
 # e2e_test.sh drives the built binary, so build first.
