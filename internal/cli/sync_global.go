@@ -1587,6 +1587,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		if reflect.DeepEqual(merged, before) {
 			return nil, errGlobalFileUnchanged
 		}
+		return editGlobalHooksText(path, data, before, merged)
 	}
 	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
@@ -1617,6 +1618,90 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		return nil, fmt.Errorf("marshal %s: %w", path, err)
 	}
 	return append(out, '\n'), nil
+}
+
+// editGlobalHooksText turns the existing file's text from before into
+// after by editing only what sync owns: the schema version, the target
+// variable in env, each changed hooks event, and within an event each
+// entry. Every other byte stays as written, so removing what an earlier
+// run added gives back the original file.
+func editGlobalHooksText(path string, data []byte, before, after map[string]any) ([]byte, error) {
+	var order, remove []string
+	set := map[string]any{}
+	edit := func(key string, was, now any, had, has bool) {
+		switch {
+		case !has && had:
+			remove = append(remove, key)
+		case has && (!had || !reflect.DeepEqual(was, now)):
+			order = append(order, key)
+			set[key] = now
+		}
+	}
+	version, hadVersion := before["version"]
+	newVersion, hasVersion := after["version"]
+	edit("version", version, newVersion, hadVersion, hasVersion)
+
+	// A dot would split an event name into a key path.
+	dotted := func(events map[string]any) bool {
+		return slices.ContainsFunc(slices.Collect(maps.Keys(events)), func(event string) bool { return strings.Contains(event, ".") })
+	}
+	oldHooks, hadHooks := before["hooks"].(map[string]any)
+	newHooks, hasHooks := after["hooks"].(map[string]any)
+	var events []string
+	switch {
+	case hadHooks && hasHooks && !dotted(oldHooks) && !dotted(newHooks):
+		for _, event := range slices.Sorted(maps.Keys(oldHooks)) {
+			if _, ok := newHooks[event]; !ok {
+				remove = append(remove, "hooks."+event)
+			}
+		}
+		for _, event := range slices.Sorted(maps.Keys(newHooks)) {
+			was, had := oldHooks[event]
+			now := newHooks[event]
+			_, wasList := was.([]any)
+			_, isList := now.([]any)
+			if had && wasList && isList {
+				if !reflect.DeepEqual(was, now) {
+					events = append(events, event)
+				}
+				continue
+			}
+			edit("hooks."+event, was, now, had, true)
+		}
+	default:
+		_, hadKey := before["hooks"]
+		_, hasKey := after["hooks"]
+		edit("hooks", before["hooks"], after["hooks"], hadKey, hasKey)
+	}
+
+	oldEnv, oldIsObject := before["env"].(map[string]any)
+	newEnv, newIsObject := after["env"].(map[string]any)
+	_, hadEnv := before["env"]
+	_, hasEnv := after["env"]
+	if (oldIsObject || !hadEnv) && (newIsObject || !hasEnv) {
+		was, had := oldEnv[adapters.HookTargetEnv]
+		now, has := newEnv[adapters.HookTargetEnv]
+		edit("env."+adapters.HookTargetEnv, was, now, had, has)
+	} else {
+		edit("env", before["env"], after["env"], hadEnv, hasEnv)
+	}
+
+	// Sets go first, so a parent such as hooks that loses its last old
+	// member while gaining a new one keeps its place.
+	out, err := editJSONRoot(path, data, order, set, nil)
+	if err == nil {
+		out, err = editJSONRoot(path, out, nil, nil, remove)
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, event := range events {
+		items, _ := newHooks[event].([]any)
+		if out, err = editJSONArray(path, out, "hooks."+event, items); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // mergeGlobalAgentEfforts sets subagents.agents.<name>.effortLevel for

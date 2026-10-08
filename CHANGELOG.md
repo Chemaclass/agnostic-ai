@@ -26,6 +26,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `failClosed: true` on a hook now blocks when the hook fails or times out, in project and global sync and in `hook run` (#1916).
 - `import claude` keeps each hook command's own timeout, shell, and other settings, so the next sync no longer adds a duplicate group (#1920).
+- `sync --global` edits hooks in `~/.claude/settings.json` in place, so removing a hook gives back the file exactly as you wrote it (#1919).
 
 #### Codex
 

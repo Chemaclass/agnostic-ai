@@ -83,3 +83,100 @@ func TestSyncGlobal_UnchangedHookWithTimeoutIsNotRewritten(t *testing.T) {
 		t.Errorf("an unchanged hook with a numeric field must not trigger a rewrite:\n%s", after)
 	}
 }
+
+func TestSyncGlobal_HookAddThenRemoveRestoresSettingsBytes(t *testing.T) {
+	cases := map[string]string{
+		"odd spacing":               `{"model": "opus",   "theme": "dark"}`,
+		"tabs and no final newline": "{\n\t\"theme\": \"dark\",\n\t\"model\": \"opus\"\n}",
+		"hand-written hooks":        "{\"model\": \"opus\",   \"theme\": \"dark\",\n  \"hooks\":  {\n    \"PostToolUse\": [ {\"matcher\": \"Write\",  \"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]} ],\n    \"PreToolUse\": [{\"matcher\": \"\", \"hooks\": [{\"command\": \"pre\", \"type\": \"command\"}]}]\n  }\n}\n",
+	}
+	for name, original := range cases {
+		t.Run(name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			settings := filepath.Join(home, ".claude", "settings.json")
+			mustWriteGlobalTest(t, settings, original)
+			fmtHook := filepath.Join(source, "hooks", "fmt.yaml")
+			mustWriteGlobalTest(t, fmtHook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+			startHook := filepath.Join(source, "hooks", "start.yaml")
+			mustWriteGlobalTest(t, startHook, "event: SessionStart\ncommand: echo hi\n")
+
+			if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+				t.Fatal(err)
+			}
+			added, err := os.ReadFile(settings)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(added), "gofmt -w .") || !strings.Contains(string(added), "echo hi") {
+				t.Fatalf("the managed hooks must land:\n%s", added)
+			}
+			for _, path := range []string{fmtHook, startHook} {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(settings)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != original {
+				t.Errorf("add then remove must restore the original bytes\nwant:\n%s\ngot:\n%s\nafter add:\n%s", original, data, added)
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_HookAddThenRemoveDropsSettingsSyncCreated(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	hook := filepath.Join(source, "hooks", "fmt.yaml")
+	mustWriteGlobalTest(t, hook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(home, ".claude", "settings.json")
+	if _, err := os.Stat(settings); err != nil {
+		t.Fatalf("sync must create settings.json: %v", err)
+	}
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(settings); !os.IsNotExist(err) {
+		data, _ := os.ReadFile(settings)
+		t.Errorf("a settings file sync created must go once its hooks do:\n%s", data)
+	}
+}
+
+func TestSyncGlobal_HookRemoveKeepsKeyAddedToSettingsSyncCreated(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	hook := filepath.Join(source, "hooks", "fmt.yaml")
+	mustWriteGlobalTest(t, hook, "event: PostToolUse\nmatcher: Edit\ncommand: gofmt -w .\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(home, ".claude", "settings.json")
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := strings.Replace(string(data), "{", "{\n  \"model\":   \"opus\",", 1)
+	mustWriteGlobalTest(t, settings, edited)
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{\n  \"model\":   \"opus\"\n}\n"; string(after) != want {
+		t.Errorf("removing the hook must keep the user's key as written\nwant:\n%s\ngot:\n%s", want, after)
+	}
+}
