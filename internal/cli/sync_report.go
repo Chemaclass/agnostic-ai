@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -302,35 +304,47 @@ const gitPathsPerCall = 500
 // tracks and ignores, plus such files under a candidate directory: a
 // file the repo committed before it moved into a gitignore rule,
 // typically the managed block, so the ignore has no effect until the
-// index entry is removed (#1330). It asks git once for every tracked
-// and ignored file under root and matches the candidates here, since
-// passing the candidates as pathspecs costs one git call per batch and
-// git matches every index entry against every pathspec. Outside a git
-// work tree, or when git is missing or slow, it returns nothing, the
-// same convenience contract as gitPending.
+// index entry is removed (#1330). Outside a git work tree, or when git is
+// missing or slow, it returns nothing, the same convenience contract as
+// gitPending.
+//
+// One git call per batch of output paths made git rescan the index for
+// each batch. Asking once for the top-level entries that hold outputs
+// keeps one scan and keeps git out of unrelated trees such as vendor
+// folders, where matching every file against every ignore rule is slow.
 func gitTrackedAndIgnored(root string, candidates []string) []string {
-	if len(candidates) == 0 {
-		return nil
-	}
-	got, ok := runGit(root, "ls-files", "-ci", "--exclude-standard", "-z")
-	if !ok {
-		return nil
-	}
 	want := make(map[string]struct{}, len(candidates))
+	tops := map[string]struct{}{}
 	for _, c := range candidates {
-		want[path.Clean(filepath.ToSlash(c))] = struct{}{}
+		c = path.Clean(filepath.ToSlash(c))
+		if c == "." || c == ".." || strings.HasPrefix(c, "../") || path.IsAbs(c) {
+			continue
+		}
+		want[c] = struct{}{}
+		top, _, _ := strings.Cut(c, "/")
+		tops[top] = struct{}{}
+	}
+	if len(want) == 0 {
+		return nil
 	}
 	var out []string
-	for _, p := range strings.Split(strings.TrimRight(got, "\x00"), "\x00") {
-		if p != "" && underCandidate(p, want) {
-			out = append(out, p)
+	pathspecs := slices.Sorted(maps.Keys(tops))
+	for start := 0; start < len(pathspecs); start += gitPathsPerCall {
+		end := min(start+gitPathsPerCall, len(pathspecs))
+		got, ok := runGit(root, append([]string{"ls-files", "-ci", "--exclude-standard", "-z", "--"}, pathspecs[start:end]...)...)
+		if !ok {
+			return nil
+		}
+		for _, p := range strings.Split(strings.TrimRight(got, "\x00"), "\x00") {
+			if p != "" && underCandidate(p, want) {
+				out = append(out, p)
+			}
 		}
 	}
 	sort.Strings(out)
 	return out
 }
 
-// underCandidate reports whether p, or a directory above it, is in want.
 func underCandidate(p string, want map[string]struct{}) bool {
 	for d := p; d != "." && d != "/"; d = path.Dir(d) {
 		if _, ok := want[d]; ok {

@@ -249,17 +249,21 @@ func TestSyncUntrack_QuietStillWarnsOtherClones(t *testing.T) {
 
 func TestGitTrackedAndIgnored_ReturnsOnlyCandidatesAndFilesUnderCandidateDirs(t *testing.T) {
 	dir, gitc := gitRepo(t)
-	for _, p := range []string{"out/a.md", "other/b.md", "skills/s/SKILL.md", "a[X]b.txt", "aXb.txt"} {
+	for _, p := range []string{"out/a.md", "other/b.md", "skills/s/SKILL.md", "a[X]b.txt", "aXb.txt", "sub/out/c.md"} {
 		mustWriteFile(t, filepath.Join(dir, p), "x\n")
 	}
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
 	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "out/\nother/\nskills/\na*b.txt\n")
 
-	got := gitTrackedAndIgnored(dir, []string{"out/a.md", "skills/s", "a[X]b.txt", "missing.md"})
-
+	got := gitTrackedAndIgnored(dir, []string{"./out/a.md", "skills/s/", "a[X]b.txt", "missing.md", "../outside.md"})
 	want := []string{"a[X]b.txt", "out/a.md", "skills/s/SKILL.md"}
 	if !slices.Equal(got, want) {
 		t.Errorf("gitTrackedAndIgnored = %v, want %v", got, want)
+	}
+
+	got = gitTrackedAndIgnored(filepath.Join(dir, "sub"), []string{"out/c.md"})
+	if want := []string{"out/c.md"}; !slices.Equal(got, want) {
+		t.Errorf("from a subdirectory root = %v, want %v", got, want)
 	}
 }
