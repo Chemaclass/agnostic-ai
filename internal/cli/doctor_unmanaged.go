@@ -125,6 +125,11 @@ func isUnmarkedFile(path string) bool {
 // the number of findings so callers can fold the count into a summary.
 func reportUnmanagedConfig(cmd *cobra.Command, root string, cfg *config.Config) int {
 	all, err := findUnmanagedConfig(root, cfg)
+	return printUnmanagedConfig(cmd, cfg, all, err)
+}
+
+// printUnmanagedConfig prints what findUnmanagedConfig found.
+func printUnmanagedConfig(cmd *cobra.Command, cfg *config.Config, all []unmanagedFinding, err error) int {
 	if err != nil {
 		return 0
 	}

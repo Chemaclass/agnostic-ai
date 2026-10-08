@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -171,11 +172,19 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 }
 
 func collectDriftWithGitignore(targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
-	reports := make([]driftReport, 0, len(targets)+1)
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
 	}
+	return collectLoadedDrift(cfg, b, targets, entryPointTargets, gitignoreFlag)
+}
+
+// collectLoadedDrift is collectDriftWithGitignore for a project the
+// caller already loaded. It leaves cfg unchanged.
+func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
+	reports := make([]driftReport, 0, len(targets)+1)
+	view := *loaded
+	cfg := &view
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
 	if len(targets) == 0 {
 		targets = cfg.Targets
@@ -668,26 +677,44 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			cfg := scope.cfg
+			// These two read files only and take a large share of a run on
+			// a big project, so they run beside the checks before them.
+			var (
+				unmanagedFound []unmanagedFinding
+				unmanagedErr   error
+				migrationHint  string
+				background     sync.WaitGroup
+			)
+			background.Add(2)
+			go func() {
+				defer background.Done()
+				unmanagedFound, unmanagedErr = findUnmanagedConfig(".", cfg)
+			}()
+			go func() {
+				defer background.Done()
+				migrationHint = pendingMigrationHint(".")
+			}()
 			configPath, _, _ := config.ResolveConfigPath(".")
 			cmd.Printf("  ✓ %s valid (version %d, %d target(s))\n", filepath.Base(configPath), cfg.Version, len(cfg.Targets))
 
 			// 3. Unsupported kinds, then what `lint` reports.
 			reportUnsupportedKinds(cmd, cfg)
 			lint, err := reportSpecHealth(cmd, scope)
+			background.Wait()
 			if err != nil {
 				return err
 			}
 
 			// 3b. Config present on disk but not single-sourced, then
 			// the paths the user owns through sync.unmanaged.
-			unmanaged := reportUnmanagedConfig(cmd, ".", cfg)
+			unmanaged := printUnmanagedConfig(cmd, cfg, unmanagedFound, unmanagedErr)
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg)
-			if hint := pendingMigrationHint("."); hint != "" {
+			if migrationHint != "" {
 				cmd.Println()
 				cmd.Println("Spec migrations:")
-				cmd.Printf("  ! %s\n", hint)
+				cmd.Printf("  ! %s\n", migrationHint)
 			}
 
 			// 4. Drift
@@ -695,10 +722,7 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Sync drift:")
 			// A copy beside a scoped AGENTS.md stops the drift check, so
 			// --fix removes it before that check runs.
-			_, bundle, err := loadProject(".")
-			if err != nil {
-				return err
-			}
+			bundle := scope.bundle
 			copies := nestedClaudeCopies(cfg, bundle)
 			reportNestedClaudeCopies(cmd, copies)
 			removedCopies := 0
@@ -707,7 +731,7 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 			}
-			reports, err := collectDrift(targets)
+			reports, err := collectLoadedDrift(cfg, bundle, targets, nil, "")
 			if err != nil {
 				return err
 			}
