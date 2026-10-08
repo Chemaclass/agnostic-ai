@@ -148,9 +148,24 @@ var heldState struct {
 // prior-key hooks from that copy until release runs. The state file
 // lists every output, and a command that emits each spec alone asks the
 // hooks on every emit. Only a command that never writes the state file
-// may hold it; sync reads the file fresh on every lookup.
+// may hold it; sync holds its own copy through holdPriorState.
 func holdStateFile(root string) (release func()) {
-	s := readStateFile(root)
+	return holdState(readStateFile(root))
+}
+
+// holdPriorState serves the prior-key hooks from prev, the state file a
+// sync pass read before its first write, until release runs. The pass
+// writes the state file only after its last emit, so it must release
+// before that write. The hooks read the working directory's state file,
+// so a pass on another root holds nothing.
+func holdPriorState(root string, prev syncStateFile) (release func()) {
+	if filepath.Clean(root) != "." {
+		return func() {}
+	}
+	return holdState(prev)
+}
+
+func holdState(s syncStateFile) (release func()) {
 	heldState.Lock()
 	heldState.state = &s
 	heldState.Unlock()
@@ -581,6 +596,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		return err
 	}
 	prev := readStateFile(root)
+	release := holdPriorState(root, prev)
+	defer release()
 	edits := editGuardFor(keepEdits, prev)
 
 	// mainSess drives the serial post-emission writes (entry points,
@@ -866,6 +883,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if verbosity >= levelDefault && len(toList) > 0 {
 		ledger.listed = append(slices.Clone(ledger.listed), toList...)
 	}
+	release()
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
@@ -1094,6 +1112,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		return err
 	}
 	prev := readStateFile(root)
+	release := holdPriorState(root, prev)
+	defer release()
 	edits := editGuardFor(keepEdits, prev)
 
 	// mainSess handles the serial entry-point and shared-link writes; each
@@ -1271,6 +1291,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	ledger.listed = carriedListed(prev)
+	release()
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}

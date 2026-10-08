@@ -2,7 +2,9 @@ package emit
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -67,6 +69,84 @@ func TestWriteFile_ReadsOnceForRollbackAndBackup(t *testing.T) {
 	}
 	if got, err := os.ReadFile(path + ".bak"); err != nil || string(got) != "old\n" {
 		t.Errorf(".bak = %q, %v; want the old bytes", got, err)
+	}
+}
+
+// countParentMakes counts the folders writes create for the test.
+func countParentMakes(t *testing.T) *int {
+	t.Helper()
+	calls := 0
+	prev := makeParent
+	makeParent = func(path string) error {
+		calls++
+		return prev(path)
+	}
+	t.Cleanup(func() { makeParent = prev })
+	return &calls
+}
+
+func TestWriteFile_UnchangedFileMakesNoFolder(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	path := filepath.Join("dir", "out.md")
+	body := WithHeader("body\n", FormatMarkdown)
+	if err := os.MkdirAll("dir", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	makes := countParentMakes(t)
+
+	sess := NewSession()
+	sess.BackUpEditsSince(map[string]string{path: ContentSum(body)})
+	sess.StartTransaction()
+	sess.StartDetailedRecording()
+	if err := sess.WriteFile(path, body, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if *makes != 0 {
+		t.Errorf("made the folder %d times for an unchanged file, want 0", *makes)
+	}
+	if got := sess.StopDetailedRecording(); len(got) != 1 || got[0].Action != "skip" {
+		t.Errorf("recorded %v, want one skip", got)
+	}
+}
+
+func TestWriteFile_NewFileMakesItsFolder(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	path := filepath.Join("a", "b", "out.md")
+
+	for _, detailed := range []bool{false, true} {
+		sess := NewSession()
+		sess.StartTransaction()
+		if detailed {
+			sess.StartDetailedRecording()
+		}
+		if err := sess.WriteFile(path, "body\n", false); err != nil {
+			t.Fatalf("detailed=%v: %v", detailed, err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != "body\n" {
+			t.Fatalf("detailed=%v: read back %q, %v", detailed, got, err)
+		}
+		if err := os.RemoveAll("a"); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestWriteFile_ParentIsAFileNamesTheFolder(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	if err := os.WriteFile("a", []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sess := NewSession()
+	sess.StartDetailedRecording()
+	err := sess.WriteFile(filepath.Join("a", "out.md"), "body\n", false)
+
+	if err == nil || !strings.HasPrefix(err.Error(), "mkdir a:") {
+		t.Errorf("err = %v, want it to name the folder it could not make", err)
 	}
 }
 

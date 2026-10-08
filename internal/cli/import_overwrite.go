@@ -50,6 +50,7 @@ type importSpecFileFilter interface {
 // unchanged provenance for targets this sync did not cover.
 func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle, targets []string, cfg *config.Config) map[string]specFileSum {
 	next := map[string]specFileSum{}
+	lister := newSpecFileLister(root)
 	for _, target := range targets {
 		adapter, err := adapters.Resolve(target)
 		if err != nil {
@@ -61,7 +62,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 				continue
 			}
 			include := func(asset string) bool { return !filtered || filter.RendersSpecFile(e, cfg, asset) }
-			for _, path := range specEntryFiles(root, e, include) {
+			for _, path := range lister.files(e, include) {
 				rec, ok := next[path]
 				if !ok {
 					data, err := os.ReadFile(config.ResolveSourcePath(root, filepath.FromSlash(path)))
@@ -113,41 +114,85 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 	return next
 }
 
-// specEntryFiles lists the spec and skill assets, relative to root when
-// inside it and absolute otherwise.
-func specEntryFiles(root string, e spec.Entry, include func(asset string) bool) []string {
-	var files []string
-	add := func(path string) {
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
-		}
-		absRoot, err := filepath.Abs(root)
-		if err != nil {
-			return
-		}
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			return
-		}
-		files = append(files, relativeKey(absRoot, abs))
-	}
+// specFileLister lists spec files for every target of one sync. Targets
+// share specs, so it walks each skill folder and resolves each path once.
+type specFileLister struct {
+	root    string
+	absRoot string
+	rootErr error
+	keys    map[string]string
+	assets  map[string][]skillAssetFile
+}
+
+// skillAssetFile is a regular file in a skill folder, with its path
+// relative to that folder.
+type skillAssetFile struct {
+	path, rel string
+}
+
+func newSpecFileLister(root string) *specFileLister {
+	absRoot, err := filepath.Abs(root)
+	return &specFileLister{root: root, absRoot: absRoot, rootErr: err, keys: map[string]string{}, assets: map[string][]skillAssetFile{}}
+}
+
+func (l *specFileLister) files(e spec.Entry, include func(asset string) bool) []string {
 	if e.Path == "" {
 		return nil
+	}
+	var files []string
+	add := func(path string) {
+		if key := l.key(path); key != "" {
+			files = append(files, key)
+		}
 	}
 	if include("") {
 		add(e.Path)
 	}
 	if dir := e.SkillAssetDir(); dir != "" {
-		_ = spec.WalkSourceRoot(dir, func(p string, d fs.DirEntry, err error) error {
-			if err == nil && d.Type().IsRegular() && filepath.Clean(p) != filepath.Clean(e.Path) {
-				if rel, err := filepath.Rel(dir, p); err == nil && rel != "SKILL.md" && include(filepath.ToSlash(rel)) {
-					add(p)
-				}
+		for _, f := range l.skillAssets(dir) {
+			if filepath.Clean(f.path) != filepath.Clean(e.Path) && f.rel != "SKILL.md" && include(filepath.ToSlash(f.rel)) {
+				add(f.path)
 			}
-			return nil
-		})
+		}
 	}
 	return files
+}
+
+// key is path relative to root when inside it and absolute otherwise, or
+// "" when it cannot be resolved.
+func (l *specFileLister) key(path string) string {
+	if key, ok := l.keys[path]; ok {
+		return key
+	}
+	var key string
+	if l.rootErr == nil {
+		joined := path
+		if !filepath.IsAbs(joined) {
+			joined = filepath.Join(l.root, joined)
+		}
+		if abs, err := filepath.Abs(joined); err == nil {
+			key = relativeKey(l.absRoot, abs)
+		}
+	}
+	l.keys[path] = key
+	return key
+}
+
+func (l *specFileLister) skillAssets(dir string) []skillAssetFile {
+	if found, ok := l.assets[dir]; ok {
+		return found
+	}
+	var found []skillAssetFile
+	_ = spec.WalkSourceRoot(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if rel, err := filepath.Rel(dir, p); err == nil {
+				found = append(found, skillAssetFile{path: p, rel: rel})
+			}
+		}
+		return nil
+	})
+	l.assets[dir] = found
+	return found
 }
 
 // alreadyRead reports whether before, the bytes of an existing spec,
@@ -230,7 +275,7 @@ func inSpecDir(path string, specDirs []string) bool {
 }
 
 // specPathKey names path the way spec file sums key it, lexically like
-// specEntryFiles: slash form, relative to the working directory when
+// specFileLister.files: slash form, relative to the working directory when
 // inside it, and absolute otherwise.
 func specPathKey(path string) string {
 	abs, err := filepath.Abs(filepath.FromSlash(path))
