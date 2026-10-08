@@ -138,38 +138,39 @@ func readStateFile(projectRoot string) syncStateFile {
 	return s
 }
 
-// stateCache holds the last parsed state file for cachedStateFile, keyed
-// by the file's absolute path, size, and modification time.
-var stateCache struct {
+// heldState is the state file copy holdStateFile serves, or nil.
+var heldState struct {
 	sync.Mutex
-	path  string
-	size  int64
-	mod   time.Time
-	state syncStateFile
+	state *syncStateFile
 }
 
-// cachedStateFile is readStateFile for lookups repeated inside one run:
-// the merge writers ask for prior keys on every merged file and every
-// per-spec emit, and the state file lists every output. It parses the
-// file again only when its size or modification time changes. Callers
-// must not modify the result.
-func cachedStateFile(projectRoot string) syncStateFile {
-	p, err := filepath.Abs(stateFilePath(projectRoot))
-	if err != nil {
-		return readStateFile(projectRoot)
+// holdStateFile reads the state file under root once and serves the
+// prior-key hooks from that copy until release runs. The state file
+// lists every output, and a command that emits each spec alone asks the
+// hooks on every emit. Only a command that never writes the state file
+// may hold it; sync reads the file fresh on every lookup.
+func holdStateFile(root string) (release func()) {
+	s := readStateFile(root)
+	heldState.Lock()
+	heldState.state = &s
+	heldState.Unlock()
+	return func() {
+		heldState.Lock()
+		heldState.state = nil
+		heldState.Unlock()
 	}
-	info, err := os.Stat(p)
-	if err != nil {
-		return syncStateFile{}
+}
+
+// priorStateFile is the held state file, or else the one on disk.
+// Callers must not modify the result.
+func priorStateFile() syncStateFile {
+	heldState.Lock()
+	held := heldState.state
+	heldState.Unlock()
+	if held != nil {
+		return *held
 	}
-	stateCache.Lock()
-	defer stateCache.Unlock()
-	if stateCache.path == p && stateCache.size == info.Size() && stateCache.mod.Equal(info.ModTime()) {
-		return stateCache.state
-	}
-	stateCache.path, stateCache.size, stateCache.mod = p, info.Size(), info.ModTime()
-	stateCache.state = readStateFile(projectRoot)
-	return stateCache.state
+	return readStateFile(".")
 }
 
 // readStateFileStrict is readStateFile that reports a state file that

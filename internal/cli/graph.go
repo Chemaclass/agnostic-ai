@@ -108,6 +108,7 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config, f graphFilter) ([]grap
 	// already conveys what each target emits.
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
+	defer holdStateFile(".")()
 
 	targets := cfg.Targets
 	if len(targets) == 0 {
