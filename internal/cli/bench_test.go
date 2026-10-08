@@ -1,9 +1,9 @@
 package cli
 
-// Permanent benchmark suite for the sync hot paths. See
-// docs/internal/benchmarks.md for how to run and read these, and
-// .agnostic-ai/rules/bench-before-perf-refactor.md for the policy that
-// makes them a prerequisite for any hot-path perf change.
+// Permanent benchmark suite for the sync hot paths and the commands
+// that emit per spec. See docs/internal/benchmarks.md for how to run and
+// read these, and for the "three subjects" shape a hot-path perf change
+// measures against before it lands.
 //
 // Covered paths:
 //   - BenchmarkSyncEmit:          the emission loop over N specs x every
@@ -14,8 +14,11 @@ package cli
 //   - BenchmarkEntryPointRender:  the entry-point body render plus
 //     byte-dedupe across targets.
 //   - BenchmarkFolderFingerprint: the shared-skills folder fingerprint,
-//     shaped as the rule's "three subjects" (status-quo + naive
-//     baseline) so a future proposal slots a third subject in.
+//     shaped as "three subjects" (status-quo + naive baseline) so a
+//     future proposal slots a third subject in.
+//   - BenchmarkCompare:           `compare claude codex`, per-spec emits.
+//   - BenchmarkGraph:             `graph` edges, per-spec emits.
+//   - BenchmarkLint:              the full project `lint` report.
 //
 // Fixtures are deterministic (content fixed per index) so numbers stay
 // comparable across runs. Every benchmark calls b.ReportAllocs() and
@@ -29,6 +32,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -89,8 +93,8 @@ func BenchmarkSyncEmit(b *testing.B) {
 // re-sync (create-then-skip), the common dev and CI path.
 //
 // Each spec count runs twice — serial (--jobs 1) and parallel (--jobs 0 =
-// one worker per CPU) — so the two subjects sit side by side per
-// bench-before-perf-refactor.md and the parallel-emission crossover
+// one worker per CPU) — so the two subjects sit side by side and the
+// parallel-emission crossover
 // (the spec count where fan-out beats serial) is read straight off the
 // numbers.
 func BenchmarkSyncFull(b *testing.B) {
@@ -179,9 +183,103 @@ func BenchmarkEntryPointRender(b *testing.B) {
 	}
 }
 
+// BenchmarkCompare measures `compare claude codex`: every agent, skill,
+// and rule emitted alone to both targets. The fixture is synced first
+// because each per-spec emit still reads the output tree on disk.
+func BenchmarkCompare(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			cfg, bundle := benchSyncedProject(b, n)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				out, err := compareTargets(cfg, bundle, []string{"claude", "codex"})
+				if err != nil {
+					b.Fatal(err)
+				}
+				benchIntSink = len(out.Specs)
+			}
+		})
+	}
+}
+
+// BenchmarkGraph measures the `graph` edge computation: every spec
+// emitted alone to every target, against a synced output tree.
+func BenchmarkGraph(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			cfg, bundle := benchSyncedProject(b, n)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				edges, err := computeGraphEdges(bundle, cfg)
+				if err != nil {
+					b.Fatal(err)
+				}
+				benchIntSink = len(edges)
+			}
+		})
+	}
+}
+
+// BenchmarkLint measures the full project `lint` report, the same pass
+// `doctor` runs for spec health.
+func BenchmarkLint(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			benchSyncedProject(b, n)
+			scope, err := loadCheckScope(false)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				findings, _, err := lintScopeReport(scope)
+				if err != nil {
+					b.Fatal(err)
+				}
+				benchIntSink = len(findings)
+			}
+		})
+	}
+}
+
+// benchSyncedProject builds the fixture, makes it the working directory,
+// and syncs it once, for commands whose cost depends on the output tree.
+func benchSyncedProject(b *testing.B, n int) (*config.Config, spec.Bundle) {
+	b.Helper()
+	root := benchProject(b, n)
+	benchQuiet(b)
+	benchChdir(b, root)
+	if err := runSyncOnce(".", nil, false, false, "off", 0); err != nil {
+		b.Fatal(err)
+	}
+	resetBenchBuffers()
+	return benchLoad(b, root)
+}
+
+// TestWriteBenchFixture writes the benchmark fixture to
+// $AGNOSTIC_AI_BENCH_FIXTURE with $AGNOSTIC_AI_BENCH_SPECS specs (default
+// 500) for scripts/bench-commands.sh. It skips when the variable is unset.
+func TestWriteBenchFixture(t *testing.T) {
+	root := os.Getenv("AGNOSTIC_AI_BENCH_FIXTURE")
+	if root == "" {
+		t.Skip("AGNOSTIC_AI_BENCH_FIXTURE not set")
+	}
+	n := 500
+	if v := os.Getenv("AGNOSTIC_AI_BENCH_SPECS"); v != "" {
+		var err error
+		if n, err = strconv.Atoi(v); err != nil || n < 1 {
+			t.Fatalf("AGNOSTIC_AI_BENCH_SPECS=%q: want a positive integer", v)
+		}
+	}
+	writeBenchProject(t, root, n)
+}
+
 // BenchmarkFolderFingerprint measures the shared-skills folder
 // fingerprint. It follows the "three subjects" shape from
-// bench-before-perf-refactor.md:
+// docs/internal/benchmarks.md:
 //
 //   - status-quo: folderFingerprint, which streams each entry into the
 //     digest with no intermediate buffer.
@@ -241,19 +339,27 @@ func naiveFolderFingerprint(files map[string]string) string {
 func benchProject(b *testing.B, n int) string {
 	b.Helper()
 	root := b.TempDir()
-	writeBenchFile(b, filepath.Join(root, "agnostic-ai.yaml"), benchConfigYAML())
+	writeBenchProject(b, root, n)
+	return root
+}
+
+// writeBenchProject writes the benchProject fixture under root.
+// TestWriteBenchFixture reuses it so the end-to-end timing script
+// measures the same project shape as the benchmarks.
+func writeBenchProject(tb testing.TB, root string, n int) {
+	tb.Helper()
+	writeBenchFile(tb, filepath.Join(root, "agnostic-ai.yaml"), benchConfigYAML())
 	base := filepath.Join(root, config.SourceBaseDir)
 	for i := 0; i < n; i++ {
-		writeBenchFile(b, filepath.Join(base, "rules", fmt.Sprintf("rule-%04d.md", i)), benchRule(i))
-		writeBenchFile(b, filepath.Join(base, "agents", fmt.Sprintf("agent-%04d.md", i)), benchAgent(i))
-		writeBenchFile(b, filepath.Join(base, "skills", fmt.Sprintf("skill-%04d", i), "SKILL.md"), benchSkill(i))
+		writeBenchFile(tb, filepath.Join(base, "rules", fmt.Sprintf("rule-%04d.md", i)), benchRule(i))
+		writeBenchFile(tb, filepath.Join(base, "agents", fmt.Sprintf("agent-%04d.md", i)), benchAgent(i))
+		writeBenchFile(tb, filepath.Join(base, "skills", fmt.Sprintf("skill-%04d", i), "SKILL.md"), benchSkill(i))
 	}
 	for i := 0; i < benchFixedSpecs; i++ {
-		writeBenchFile(b, filepath.Join(base, "hooks", fmt.Sprintf("hook-%02d.yaml", i)), benchHook(i))
-		writeBenchFile(b, filepath.Join(base, "mcps", fmt.Sprintf("mcp-%02d.yaml", i)), benchMCP(i))
-		writeBenchFile(b, filepath.Join(base, "commands", fmt.Sprintf("command-%02d.md", i)), benchCommand(i))
+		writeBenchFile(tb, filepath.Join(base, "hooks", fmt.Sprintf("hook-%02d.yaml", i)), benchHook(i))
+		writeBenchFile(tb, filepath.Join(base, "mcps", fmt.Sprintf("mcp-%02d.yaml", i)), benchMCP(i))
+		writeBenchFile(tb, filepath.Join(base, "commands", fmt.Sprintf("command-%02d.md", i)), benchCommand(i))
 	}
-	return root
 }
 
 // benchLoad loads the fixture config and a project-only bundle. It skips
@@ -373,13 +479,13 @@ func benchSkillFolderFiles(n int) map[string]string {
 	return files
 }
 
-func writeBenchFile(b *testing.B, path, content string) {
-	b.Helper()
+func writeBenchFile(tb testing.TB, path, content string) {
+	tb.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		b.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+		tb.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		b.Fatalf("write %s: %v", path, err)
+		tb.Fatalf("write %s: %v", path, err)
 	}
 }
 
