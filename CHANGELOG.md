@@ -17,6 +17,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `doctor` reuses the project it loaded for its checks and drift, and scans for unmanaged config while other checks run: about 20% faster at 500 specs (#1894).
 - Release binaries no longer embed the build machine's source paths (#1902).
 - `sync` reads each output file once instead of twice when checking for your edits: about 10% less CPU at 500 specs (#1895).
+- A `sync` with nothing to change is about 30% faster at 500 specs (#1895).
 - `doctor` lists the installed AI CLIs in name order, so two runs print the same output (#1903).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 

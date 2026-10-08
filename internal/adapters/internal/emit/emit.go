@@ -306,12 +306,12 @@ func (s *Session) backsUpEdit(cur *onDisk, content string) bool {
 	if sum == "" || merging {
 		return false
 	}
-	// A link's target may live outside the project; never copy it in.
-	if info, err := cur.lstat(); err != nil || !info.Mode().IsRegular() {
-		return false
-	}
 	existing, err := cur.bytes()
 	if err != nil || string(existing) == content {
+		return false
+	}
+	// A link's target may live outside the project; never copy it in.
+	if info, err := cur.lstat(); err != nil || !info.Mode().IsRegular() {
 		return false
 	}
 	got := ContentSum(string(existing))
@@ -847,10 +847,18 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	// early s.mu section above has already been released, so no goroutine
 	// holds s.mu while acquiring a path lock and the two never deadlock.
 	defer lockPath(path)()
-	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
-	}
 	cur := &onDisk{path: path}
+	// A file already found there proves its folder exists, so an
+	// unchanged output costs no extra call.
+	ensureParent := func() error {
+		if cur.found() {
+			return nil
+		}
+		if err := makeParent(path); err != nil {
+			return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
+		}
+		return nil
+	}
 	editBackup := s.backsUpEdit(cur, content)
 	var backupPath string
 	if editBackup {
@@ -880,12 +888,11 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	// Detailed recording: inspect existing content to classify the action.
 	if detailing {
 		existing, err := cur.bytes()
-		info, statErr := cur.stat()
 		var action string
 		switch {
 		case os.IsNotExist(err):
 			action = "create"
-		case err == nil && string(existing) == content && (!enforceMode || statErr == nil && info.Mode().Perm() == mode.Perm()):
+		case err == nil && string(existing) == content && (!enforceMode || cur.hasPerm(mode)):
 			// File is already up to date; skip the write.
 			s.mu.Lock()
 			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: ContentSum(content)})
@@ -894,13 +901,16 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		default:
 			action = "update"
 		}
+		if err := ensureParent(); err != nil {
+			return err
+		}
 		// Log pre-write state for rollback (only for actual writes, not skips).
 		if transacting {
 			var pre []byte
 			var preMode os.FileMode
 			if action == "update" {
 				pre = existing
-				if statErr == nil {
+				if info, statErr := cur.stat(); statErr == nil {
 					preMode = info.Mode().Perm()
 				}
 			}
@@ -926,6 +936,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return nil
 	}
 
+	if err := ensureParent(); err != nil {
+		return err
+	}
 	// Log pre-write state for rollback.
 	if transacting {
 		pre, readErr := cur.bytes()
