@@ -101,8 +101,11 @@ type WrittenFile struct {
 // test -race stays clean when a single Session is shared across
 // goroutines.
 type Session struct {
-	mu          sync.Mutex
-	capturing   bool
+	mu        sync.Mutex
+	capturing bool
+	// writesOnly skips tree sweeps during capture, for callers that
+	// read the captured writes and never the removals.
+	writesOnly  bool
 	captured    []CapturedFile
 	removals    []CapturedRemoval
 	backup      bool
@@ -400,6 +403,20 @@ func (s *Session) SetBackup(b bool) {
 func (s *Session) StartCapture() {
 	s.mu.Lock()
 	s.capturing = true
+	s.writesOnly = false
+	s.captured = nil
+	s.removals = nil
+	s.mu.Unlock()
+}
+
+// StartWritesOnlyCapture is StartCapture for callers that read only the
+// captured writes. It skips legacy tree sweeps, which walk and read every
+// file under a directory that grows with the spec count, so emitting one
+// spec at a time stays linear.
+func (s *Session) StartWritesOnlyCapture() {
+	s.mu.Lock()
+	s.capturing = true
+	s.writesOnly = true
 	s.captured = nil
 	s.removals = nil
 	s.mu.Unlock()
@@ -420,6 +437,7 @@ func (s *Session) StopCapture() []CapturedFile {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.capturing = false
+	s.writesOnly = false
 	out := s.captured
 	s.captured = nil
 	return out
@@ -1285,6 +1303,12 @@ func (s *Session) RemoveGeneratedTreeExt(dir, ext string, dryRun bool) error {
 // removeGeneratedTree walks dir and removes generated files, optionally
 // limited to one extension. An empty ext matches every file.
 func (s *Session) removeGeneratedTree(dir, ext string, dryRun bool) error {
+	s.mu.Lock()
+	writesOnly := s.writesOnly
+	s.mu.Unlock()
+	if writesOnly {
+		return nil
+	}
 	info, err := os.Stat(dir)
 	if IsAbsent(err) {
 		return nil
