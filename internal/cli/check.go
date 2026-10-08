@@ -611,7 +611,8 @@ func newDoctorCmd() *cobra.Command {
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
-			"  7. Check persisted Codex hook trust.\n" +
+			"  7. Check persisted Codex hook trust, and Claude hook specs an older\n" +
+			"     import merged so each hook runs twice.\n" +
 			"  8. Check existing packaging ignore files against generated paths.\n" +
 			"  9. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
@@ -667,13 +668,13 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Config:")
 			if !configOK {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
-				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig)
+				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
 				return errDoctorNoConfig
 			}
 			scope, err := loadCheckScope(false)
 			if err != nil {
 				cmd.Printf("  ✗ %v\n", err)
-				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, err)
+				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, err, 0, 0)
 				return err
 			}
 			cfg := scope.cfg
@@ -792,12 +793,14 @@ func newDoctorCmd() *cobra.Command {
 			reportPackagingIgnoreFindings(cmd, packaging)
 			hookTrust := collectCodexHookTrust(cfg, targets)
 			reportCodexHookTrust(cmd, hookTrust)
+			mergedHooks := mergedClaudeHookSpecs(cfg, bundle)
+			reportMergedClaudeHookSpecs(cmd, cfg, mergedHooks)
 
 			// 6. Next step
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
 			manualOnly = manualOnly && !scriptDrift && len(copies) == 0
-			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), unmanaged, nil, len(packaging))
+			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), unmanaged, nil, len(packaging), len(mergedHooks))
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant
