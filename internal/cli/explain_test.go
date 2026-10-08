@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -309,5 +311,44 @@ func TestExplain_JSONPathsUseSlashes(t *testing.T) {
 		if strings.Contains(p, `\`) {
 			t.Errorf("path %q has a backslash", p)
 		}
+	}
+}
+
+// A target with the provenance header off runs in its own batch. The
+// header changes no contribution, and explain leaves the shared toggle
+// as it found it.
+func TestExplain_SameContributionsWhenOneTargetTurnsTheHeaderOff(t *testing.T) {
+	dir := setupExplainFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	explainJSON := func() []contribution {
+		t.Helper()
+		var out bytes.Buffer
+		root := NewRootCmd("test")
+		root.SetOut(&out)
+		root.SetArgs([]string{"explain", "rules/no-console-log.md", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		var got explainOutput
+		if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+			t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+		}
+		return append(got.Contributions, got.WouldEmitIfEnabled...)
+	}
+	want := explainJSON()
+
+	cfgPath := filepath.Join(dir, "agnostic-ai.yaml")
+	cfg, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, cfgPath, string(cfg)+"outputs:\n  codex:\n    provenance-header: false\n")
+
+	if got := explainJSON(); !reflect.DeepEqual(got, want) {
+		t.Errorf("contributions changed with codex's header off:\ngot  %+v\nwant %+v", got, want)
+	}
+	if !adapters.ProvenanceEnabled() {
+		t.Error("explain left the provenance header toggle off")
 	}
 }
