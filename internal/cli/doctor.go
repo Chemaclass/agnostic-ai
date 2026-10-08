@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // knownCLIBinaries maps target name to the binary expected on PATH.
@@ -56,11 +57,7 @@ func reportInstalledCLIs(cmd *cobra.Command) {
 
 // reportUnsupportedKinds prints any spec kinds that no enabled target supports,
 // using the same logic as lintOrphanKinds in validate but formatted for doctor.
-func reportUnsupportedKinds(cmd *cobra.Command, cfg *config.Config) {
-	_, b, err := loadProject(".")
-	if err != nil {
-		return
-	}
+func reportUnsupportedKinds(cmd *cobra.Command, cfg *config.Config, b spec.Bundle) {
 	issues := lintOrphanKinds(b, cfg.Targets, projectKindSupport(cfg))
 	if len(issues) == 0 {
 		return

@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -83,5 +84,49 @@ func TestDoctorFix_KeepsNestedClaudeMDThatDiffersFromEveryRule(t *testing.T) {
 	}
 	if strings.Contains(out, "src/a/CLAUDE.md") || strings.Contains(out, "src/c/CLAUDE.md") {
 		t.Errorf("doctor should not list a nested CLAUDE.md no rule holds, got:\n%s", out)
+	}
+}
+
+// With rules sourced from the project root, the nested copy doctor --fix
+// removes is also a rule spec. The drift check after it must not render
+// that spec back.
+func TestDoctorFix_DoesNotRenderANestedCopyItRemovedFromTheRulesSource(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, "rules", "sub", "tabs.md"), "---\nscope: rules/sub\n---\nUse tabs in sub.\n")
+	mustWrite(t, filepath.Join(dir, "rules", "sub", "CLAUDE.md"), "Use tabs in sub.\n")
+
+	if out, err := runDoctor(t, "--fix"); err != nil {
+		t.Logf("doctor --fix: %v\n%s", err, out)
+	}
+
+	if fileExists(filepath.Join(dir, "rules", "sub", "CLAUDE.md")) {
+		t.Fatal("doctor --fix should remove the nested copy")
+	}
+	if fileExists(filepath.Join(dir, ".claude", "rules", "CLAUDE.md")) {
+		t.Error("doctor --fix rendered the removed copy as a rule")
+	}
+}
+
+func TestCollectLoadedDrift_LeavesTheLoadedConfigUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "rules", "a.md"), nestedClaudeRuleA)
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := cfg.Gitignore
+
+	if _, err := collectLoadedDrift(cfg, b, nil, nil, "off"); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(cfg.Gitignore, before) {
+		t.Errorf("collectLoadedDrift changed the caller's gitignore config: %+v, was %+v", cfg.Gitignore, before)
 	}
 }
