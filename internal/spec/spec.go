@@ -1007,8 +1007,13 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 		}
 		if kind == KindSkill && d.Type().IsRegular() {
 			info, err := d.Info()
+			if errors.Is(err, fs.ErrNotExist) {
+				// Gone since the folder was read, such as an editor's
+				// temporary save file.
+				return nil
+			}
 			if err != nil {
-				return err
+				return fmt.Errorf("%s: %w", path, err)
 			}
 			files = append(files, path)
 			modes[path] = info.Mode()
@@ -1076,7 +1081,7 @@ func listSkillAssets(entries []Entry, root string, files []string, modes map[str
 		for _, f := range byDir[dir] {
 			rel, err := filepath.Rel(dir, f)
 			if err != nil {
-				return
+				continue
 			}
 			list = append(list, AssetFile{Rel: filepath.ToSlash(rel), Mode: modes[f]})
 		}

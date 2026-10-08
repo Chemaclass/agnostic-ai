@@ -203,10 +203,42 @@ func TestPropagateSkillAssets_CopiesTheListedFilesWithoutWalkingTheFolder(t *tes
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dst, "listed.txt")); err != nil {
-		t.Errorf("listed asset not copied: %v", err)
+	if got, err := os.ReadFile(filepath.Join(dst, "listed.txt")); err != nil || string(got) != "listed\n" {
+		t.Errorf("listed asset: %q, %v; want the source bytes", got, err)
 	}
 	if _, err := os.Stat(filepath.Join(dst, "added-later.txt")); err == nil {
 		t.Error("copied a file the load did not list: the folder was walked again")
+	}
+}
+
+func TestPropagateSkillAssets_SkipsAListedFileThatBecameASymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	t.Parallel()
+	dir := t.TempDir()
+	srcSkill := filepath.Join(dir, "skills", "alpha")
+	if err := os.MkdirAll(srcSkill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(dir, "secret.txt")
+	if err := os.WriteFile(outside, []byte("outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(srcSkill, "link.txt")); err != nil {
+		t.Fatal(err)
+	}
+	s := spec.Entry{
+		Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(srcSkill, "SKILL.md"),
+		Assets: &[]spec.AssetFile{{Rel: "link.txt", Mode: 0o644}},
+	}
+	dst := filepath.Join(dir, "out", "alpha")
+
+	if err := NewSession().PropagateSkillAssets(s, dst, SkipSKILLMd, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Lstat(filepath.Join(dst, "link.txt")); err == nil {
+		t.Error("copied a listed file that is now a symlink; CopyTree skips links")
 	}
 }

@@ -136,14 +136,21 @@ func (s *Session) copySkillFiles(sk spec.Entry, dstDir string, skip func(rel str
 			continue
 		}
 		path := filepath.Join(src, filepath.FromSlash(f.Rel))
-		data, err := os.ReadFile(path)
-		if IsAbsent(err) {
+		// The file may have changed since the load listed it. Copy it only
+		// while it is still a regular file, with its current mode, as
+		// CopyTree would.
+		info, err := os.Lstat(path)
+		if IsAbsent(err) || err == nil && !info.Mode().IsRegular() {
 			continue
 		}
 		if err != nil {
+			return fmt.Errorf("stat %s: %w", path, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if err := s.writeFileWithMode(filepath.Join(dstDir, filepath.FromSlash(f.Rel)), string(data), f.Mode.Perm(), true, dryRun); err != nil {
+		if err := s.writeFileWithMode(filepath.Join(dstDir, filepath.FromSlash(f.Rel)), string(data), info.Mode().Perm(), true, dryRun); err != nil {
 			return err
 		}
 	}
