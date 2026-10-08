@@ -89,7 +89,7 @@ func setJSONPath(text string, open int, path []string, value any, unit string) (
 	if len(path) == 1 {
 		if i >= 0 {
 			m := members[i]
-			return text[:m.valueStart] + jsonValueText(value, lineIndent(text, m.start), unit) + text[m.end:], nil
+			return text[:m.valueStart] + fileNewlines(text, jsonValueText(value, lineIndent(text, m.start), unit)) + text[m.end:], nil
 		}
 		return insertJSONMember(text, open, closing, members, path[0], value, unit), nil
 	}
@@ -153,7 +153,14 @@ func removeJSONMember(text string, open, closing int, members []jsonMember, i in
 		}
 		return text[:m.start] + text[j:]
 	case strings.TrimSpace(text[open+1:m.start]) == "":
-		return text[:open+1] + text[closing:]
+		// What follows the member stays, so a container the user wrote
+		// as `{ }` gets its spacing back; only the line break an insert
+		// into `{}` adds goes with it.
+		rest := text[m.end:closing]
+		if strings.HasPrefix(strings.TrimLeft(rest, " \t\r\n"), ",") || rest == fileNewline(text)+lineIndent(text, open) {
+			rest = ""
+		}
+		return text[:open+1] + rest + text[closing:]
 	default:
 		return text[:keptBefore(text, open+1, m.start)] + text[m.end:]
 	}
@@ -164,13 +171,20 @@ func insertJSONMember(text string, open, closing int, members []jsonMember, key 
 }
 
 // insertJSONEntry adds label and value after the last entry of the object
-// or array opening at open. An array element has an empty label.
+// or array opening at open. An array element has an empty label. New
+// lines use the file's line ending.
 func insertJSONEntry(text string, open, closing int, members []jsonMember, label string, value any, unit string) string {
+	nl := fileNewline(text)
 	if len(members) == 0 {
 		outer := lineIndent(text, open)
 		indent := outer + unit
-		member := label + jsonValueText(value, indent, unit)
-		return text[:open+1] + "\n" + indent + member + "\n" + outer + text[closing:]
+		member := label + fileNewlines(text, jsonValueText(value, indent, unit))
+		// Keep what the empty container held, such as `{ }`, so removing
+		// the entry again gives it back.
+		if inner := text[open+1 : closing]; inner != "" {
+			return text[:open+1] + nl + indent + member + inner + text[closing:]
+		}
+		return text[:open+1] + nl + indent + member + nl + outer + text[closing:]
 	}
 	last := members[len(members)-1].end
 	first := members[0].start
@@ -179,8 +193,48 @@ func insertJSONEntry(text string, open, closing int, members []jsonMember, label
 		// Members on the brace's own line: stay inline.
 		return text[:last] + ", " + label + jsonValueText(value, "", "") + text[last:]
 	}
-	member := label + jsonValueText(value, indent, unit)
-	return text[:last] + ",\n" + indent + member + text[last:]
+	member := label + fileNewlines(text, jsonValueText(value, indent, unit))
+	return text[:last] + "," + nl + indent + member + text[last:]
+}
+
+// fileNewline is the line ending text uses.
+func fileNewline(text string) string {
+	if strings.Contains(text, "\r\n") {
+		return "\r\n"
+	}
+	return "\n"
+}
+
+// fileNewlines gives the line breaks in s the line ending text uses.
+func fileNewlines(text, s string) string {
+	if nl := fileNewline(text); nl != "\n" {
+		return strings.ReplaceAll(s, "\n", nl)
+	}
+	return s
+}
+
+// removeJSONKey removes the member at a dotted key path and keeps its
+// parent object, even when that leaves the parent empty.
+func removeJSONKey(path string, data []byte, key string) ([]byte, error) {
+	text := string(data)
+	open, err := jsonRootOpen(text)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	keys := strings.Split(key, ".")
+	parent := open
+	if len(keys) > 1 {
+		if parent, err = findJSONPath(text, open, keys[:len(keys)-1]); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		if parent < 0 || text[parent] != '{' {
+			return data, nil
+		}
+	}
+	if text, err = removeJSONPath(text, parent, keys[len(keys)-1:]); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return []byte(text), nil
 }
 
 // editJSONArray sets the array at a dotted key path to items, editing
@@ -219,13 +273,8 @@ func editJSONArray(path string, data []byte, key string, items []any) ([]byte, e
 		}
 		drop = append(drop, i)
 	}
-	for _, i := range slices.Backward(drop) {
-		elements, closing, err := scanJSONArray(text, start)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, err)
-		}
-		text = removeJSONMember(text, start, closing, elements, i)
-	}
+	// New elements go in before the old ones are cut, so an array that
+	// loses every element keeps its layout.
 	unit := adapters.DetectJSONIndent(data)
 	for _, item := range want[kept:] {
 		elements, closing, err := scanJSONArray(text, start)
@@ -233,6 +282,13 @@ func editJSONArray(path string, data []byte, key string, items []any) ([]byte, e
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 		text = insertJSONEntry(text, start, closing, elements, "", item, unit)
+	}
+	for _, i := range slices.Backward(drop) {
+		elements, closing, err := scanJSONArray(text, start)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		text = removeJSONMember(text, start, closing, elements, i)
 	}
 	return []byte(text), nil
 }
