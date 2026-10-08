@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -316,7 +318,8 @@ func gitTrackedAndIgnored(root string, candidates []string) []string {
 	want := make(map[string]struct{}, len(candidates))
 	tops := map[string]struct{}{}
 	for _, c := range candidates {
-		c = path.Clean(filepath.ToSlash(c))
+		// git composes Unicode in the names it prints on macOS.
+		c = norm.NFC.String(path.Clean(filepath.ToSlash(c)))
 		if c == "." || c == ".." || strings.HasPrefix(c, "../") || path.IsAbs(c) {
 			continue
 		}
@@ -336,7 +339,7 @@ func gitTrackedAndIgnored(root string, candidates []string) []string {
 			return nil
 		}
 		for _, p := range strings.Split(strings.TrimRight(got, "\x00"), "\x00") {
-			if p != "" && underCandidate(p, want) {
+			if p != "" && underCandidate(norm.NFC.String(p), want) {
 				out = append(out, p)
 			}
 		}

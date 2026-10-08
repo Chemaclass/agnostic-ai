@@ -267,3 +267,16 @@ func TestGitTrackedAndIgnored_ReturnsOnlyCandidatesAndFilesUnderCandidateDirs(t 
 		t.Errorf("from a subdirectory root = %v, want %v", got, want)
 	}
 }
+
+func TestGitTrackedAndIgnored_MatchesAnOutputNamedInDecomposedUnicode(t *testing.T) {
+	dir, gitc := gitRepo(t)
+	decomposed := "out/café.md"
+	mustWriteFile(t, filepath.Join(dir, decomposed), "x\n")
+	gitc("add", "-A")
+	gitc("commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "out/\n")
+
+	if got := gitTrackedAndIgnored(dir, []string{decomposed}); len(got) != 1 {
+		t.Errorf("gitTrackedAndIgnored = %q, want the one output", got)
+	}
+}
