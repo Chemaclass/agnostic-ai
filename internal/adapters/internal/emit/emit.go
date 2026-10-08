@@ -403,6 +403,7 @@ func (s *Session) SetBackup(b bool) {
 func (s *Session) StartCapture() {
 	s.mu.Lock()
 	s.capturing = true
+	s.writesOnly = false
 	s.captured = nil
 	s.removals = nil
 	s.mu.Unlock()
@@ -413,9 +414,11 @@ func (s *Session) StartCapture() {
 // file under a directory that grows with the spec count, so emitting one
 // spec at a time stays linear.
 func (s *Session) StartWritesOnlyCapture() {
-	s.StartCapture()
 	s.mu.Lock()
+	s.capturing = true
 	s.writesOnly = true
+	s.captured = nil
+	s.removals = nil
 	s.mu.Unlock()
 }
 
