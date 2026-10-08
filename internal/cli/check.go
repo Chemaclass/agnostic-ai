@@ -679,6 +679,8 @@ func newDoctorCmd() *cobra.Command {
 			cfg := scope.cfg
 			// These two read files only and take a large share of a run on
 			// a big project, so they run beside the checks before them.
+			// Under -v, the migration plan's own project load can log a
+			// line inside the spec health section.
 			var (
 				unmanagedFound []unmanagedFinding
 				unmanagedErr   error
@@ -698,7 +700,7 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Printf("  ✓ %s valid (version %d, %d target(s))\n", filepath.Base(configPath), cfg.Version, len(cfg.Targets))
 
 			// 3. Unsupported kinds, then what `lint` reports.
-			reportUnsupportedKinds(cmd, cfg)
+			reportUnsupportedKinds(cmd, cfg, scope.bundle)
 			lint, err := reportSpecHealth(cmd, scope)
 			background.Wait()
 			if err != nil {
@@ -728,6 +730,13 @@ func newDoctorCmd() *cobra.Command {
 			removedCopies := 0
 			if fix {
 				if removedCopies, err = removeNestedClaudeCopies(copies, backup); err != nil {
+					return err
+				}
+			}
+			// A removed copy can itself be a spec, when rules are sourced
+			// from the project tree, so load the project again after one.
+			if removedCopies > 0 {
+				if _, bundle, err = loadProject("."); err != nil {
 					return err
 				}
 			}
