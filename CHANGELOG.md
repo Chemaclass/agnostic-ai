@@ -26,6 +26,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).
 
+#### Kilo Code
+
+- The note for a command spec named `goal` now says Kilo offers it as `/goal:command` and warns, instead of rejecting it (#1906).
+
 #### OpenCode
 
 - In repo mode, OpenCode saves personal memory without asking each time: sync allows its folder under `permission.external_directory` (#1881).

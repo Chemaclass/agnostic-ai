@@ -97,11 +97,11 @@
 // (internal/adapters/opencode); `variant` (a reasoning-effort override)
 // is the one extra key this vendor documents. Arbitrary `x-kilo` keys
 // pass through the same way commands.go's OpenCode counterpart does
-// (#630). One name is off limits: "A custom command or an MCP prompt
-// named `goal` is reserved. Kilo rejects it and reports an error;
-// rename it" (code-with-ai/agents/goals, shipped in v7.6.0). A command
-// spec called `goal` still emits, so the spec is never lost in
-// silence, and surfaces a coverage note naming the rename (#736).
+// (#630). One name is off limits: Kilo keeps `goal` for its session
+// goals, ignores a command file by that name with a configuration
+// warning, and offers it as /goal:command (code-with-ai/agents/goals).
+// A command spec called `goal` still emits, so the spec is never lost
+// in silence, and surfaces a coverage note naming the rename (#736).
 //
 // Hooks emit as one plugin module per hook spec at
 // `.kilo/plugin/<name>.ts` (override via outputs.kilo.hooks-dir), the

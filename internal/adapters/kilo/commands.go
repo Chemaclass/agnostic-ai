@@ -21,10 +21,12 @@ import (
 // dropped so internal-only fields (globs, tools, ...) do not leak.
 var commandFrontmatterKeys = []string{"description", "agent", "model", "variant", "subtask"}
 
-// reservedCommandName is the one slash-command name Kilo Code refuses
-// to load: "A custom command or an MCP prompt named `goal` is
-// reserved. Kilo rejects it and reports an error; rename it"
-// (kilo.ai/docs/code-with-ai/agents/goals, shipped in v7.6.0). See
+// reservedCommandName is the one slash-command name Kilo Code keeps for
+// itself: "A custom command named goal (from your config or a plugin) is
+// reserved for this feature. Kilo ignores it, reports a configuration
+// warning, and makes it available as /goal:command instead of running
+// it as /goal"
+// (kilo.ai/docs/code-with-ai/agents/goals, verified 2026-10-08). See
 // #736.
 const reservedCommandName = "goal"
 
@@ -49,7 +51,7 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 		}
 	}
 	emit.NoteCoverageGap(target, spec.KindCommand, reserved,
-		"Kilo reserves the name goal for its own session-goals feature and rejects a command file using it; rename the spec")
+		"Kilo reserves the name goal for its own session-goals feature: it ignores a command file using it, warns, and offers it as /goal:command; rename the spec to run it as a plain command")
 	return nil
 }
 
