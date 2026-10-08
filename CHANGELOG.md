@@ -24,7 +24,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
-- `failClosed: true` on a hook now blocks the action when the hook fails or times out: sync writes `onFailure: "block"` (#1916).
+- `failClosed: true` on a hook now blocks when the hook fails or times out, in project and global sync and in `hook run` (#1916).
 
 #### Codex
 

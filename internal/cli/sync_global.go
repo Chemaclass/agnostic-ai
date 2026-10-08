@@ -1423,6 +1423,9 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 						commandHook[key] = value
 					}
 				}
+				if target.name == "claude" && metaTrue(entry.Meta["failClosed"]) {
+					commandHook["onFailure"] = "block"
+				}
 				if len(args) > 0 && !wraps {
 					switch {
 					case target.args:

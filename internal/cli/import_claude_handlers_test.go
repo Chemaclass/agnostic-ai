@@ -63,3 +63,33 @@ func TestImportClaude_KeepsOnFailureBlockAsFailClosed(t *testing.T) {
 		t.Errorf("round-trip handlers = %#v, want %#v", got, want)
 	}
 }
+
+func TestImportClaude_KeepsOnFailureOnTheHandlerThatSetsIt(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"command","command":"guard.sh","onFailure":"block"},
+{"type":"command","command":"audit-log.sh"}
+]}]}}`)
+	execCLI(t, "import", "claude")
+	execCLI(t, "sync", "-t", "claude")
+
+	var doc struct {
+		Hooks map[string][]struct {
+			Hooks []map[string]any `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, ".claude/settings.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	onFailure := map[string]any{}
+	for _, group := range doc.Hooks["PreToolUse"] {
+		for _, h := range group.Hooks {
+			onFailure[h["command"].(string)] = h["onFailure"]
+		}
+	}
+	if onFailure["guard.sh"] != "block" || onFailure["audit-log.sh"] != nil {
+		t.Errorf("onFailure by command = %v, want only guard.sh to block", onFailure)
+	}
+}

@@ -180,7 +180,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
-- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Claude Code (command and HTTP handlers), Cursor. `loop_limit`: Cursor, Trae.
+- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Claude Code (command and HTTP handlers), Cursor. Both block when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output, which Claude Code allows. `loop_limit`: Cursor, Trae.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.
@@ -731,7 +731,7 @@ For each configured tool the hook reaches, it runs every command sync wrote for 
 - **Timeout.** The timeout sync writes, or the tool's default.
 - **Async.** An `async: true` hook, or an `asyncRewake: true` one on Claude Code and Qoder, runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because the tool does not wait for it. The same holds for Cursor `sessionStart` and `sessionEnd` hooks, Copilot `notification` hooks, and Cline hooks on any event but `PreToolUse` and `PostToolUse`.
 - **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
-- **Stale tool file.** Commands come from the spec, so the run works before a sync. The tool prints a `warning` naming the file when the synced file is missing, when no handler under the event runs the command the spec produces, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. On Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`. An `env` warning names the keys, never their values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
+- **Stale tool file.** Commands come from the spec, so the run works before a sync. The tool prints a `warning` naming the file when the synced file is missing, when no handler under the event runs the command the spec produces, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. On Claude Code and Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`. An `env` warning names the keys, never their values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
 
 {% <details summary="Environment variables per tool"> %}
 `hook run` first removes the variables listed here from the calling shell's env. Other variables pass through.
@@ -794,6 +794,8 @@ Each command reports one decision.
 - `allow`: any other exit 0.
 - `error`: any other non-zero exit.
 - `timeout`: the command ran past its timeout.
+
+With `failClosed: true`, Claude Code reads an `error` or `timeout` as `block` on every event that can block.
 
 Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the tool adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 
