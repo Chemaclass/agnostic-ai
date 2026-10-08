@@ -150,7 +150,7 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 		cmd.Println("  Review packaging ignore coverage before publishing.")
 	}
 	if mergedHookSpecs > 0 {
-		cmd.Println("  Delete the Claude hook spec(s) listed above, then run: agnostic-ai import claude")
+		cmd.Println("  Delete the Claude hook spec(s) listed above, run: agnostic-ai sync, then: agnostic-ai import claude")
 	}
 	if !drift && lintFindings == 0 && hookFindings == 0 && unmanaged == 0 && packaging == 0 && mergedHookSpecs == 0 {
 		cmd.Println("  All checks passed. Nothing to do.")

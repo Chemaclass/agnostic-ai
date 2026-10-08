@@ -34,9 +34,9 @@ func mergedClaudeHookSpecs(cfg *config.Config, b spec.Bundle) []string {
 	}
 	var out []string
 	for _, h := range b.HooksFor("claude") {
+		h = adapters.TargetHook("claude", h)
 		event, _ := h.Meta["event"].(string)
 		matcher, _ := h.Meta["matcher"].(string)
-		h = adapters.TargetHook("claude", h)
 		handlers := claude.CommandHandlers(claude.GuardCursorCopies(cfg, []spec.Entry{h})[0])
 		if len(handlers) < 2 {
 			continue
@@ -52,14 +52,14 @@ func mergedClaudeHookSpecs(cfg *config.Config, b spec.Bundle) []string {
 }
 
 // holdsWithOtherSettings reports whether group has a command handler for
-// every one in want, and at least one of them differs from want.
+// every one in want, and at least one command has no handler with want's settings.
 func holdsWithOtherSettings(group, want []claudehooks.CommandEntry) bool {
-	byCommand := map[string]claudehooks.CommandEntry{}
+	byCommand := map[string][]claudehooks.CommandEntry{}
 	for _, h := range group {
 		if h.Type == "" || h.Type == "command" {
 			h.Type = "command"
 			h.Command = adapters.StripCursorGuard(h.Command)
-			byCommand[h.Command] = h
+			byCommand[h.Command] = append(byCommand[h.Command], h)
 		}
 	}
 	differs := false
@@ -69,7 +69,7 @@ func holdsWithOtherSettings(group, want []claudehooks.CommandEntry) bool {
 		if !ok {
 			return false
 		}
-		differs = differs || !reflect.DeepEqual(got, w)
+		differs = differs || !slices.ContainsFunc(got, func(h claudehooks.CommandEntry) bool { return reflect.DeepEqual(h, w) })
 	}
 	return differs
 }
