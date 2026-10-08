@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync`, `sync --check`, and `status` read each skill folder once per run, not once per tool: `status` is about 15% faster at 500 specs (#1896).
 - `explain` on a spec renders each tool in parallel: at 500 specs it takes a third of the time (#1899).
 - `doctor` reuses the project it loaded for its checks and drift, and scans for unmanaged config while other checks run: about 20% faster at 500 specs (#1894).
+- Release binaries no longer embed the build machine's source paths (#1902).
 - `sync` reads each output file once instead of twice when checking for your edits: about 10% less CPU at 500 specs (#1895).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 
