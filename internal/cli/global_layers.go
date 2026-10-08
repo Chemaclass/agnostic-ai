@@ -69,6 +69,9 @@ type checkScope struct {
 // migrationScope is the project scope plans read, sharing what the check
 // scope loaded.
 func (s checkScope) migrationScope() migrationScope {
+	if s.global {
+		panic("migrationScope: spec migrations plan the project, not the global scope")
+	}
 	return migrationScope{root: ".", project: s.project}
 }
 

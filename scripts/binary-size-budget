@@ -6,4 +6,6 @@
 # again at copy time.
 # #1902 adds -trimpath, as releases do, so the size no longer depends on
 # the checkout path: main measured 18280608.
-18290000
+# #1894 measured 18296992: doctor shares one loaded project with its
+# migration plans and lint.
+18305000
