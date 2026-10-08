@@ -48,88 +48,102 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	count := 0
 	for _, event := range events {
 		for _, g := range s.Hooks[event] {
-			cmds := make([]string, 0, len(g.Hooks))
-			timeout := 0
-			statusMessage, shell, ifRule := "", "", ""
-			async, asyncRewake, once := false, false, false
-			var args []string
-			for _, h := range g.Hooks {
-				h.Command = adapters.StripCursorGuard(h.Command)
-				if h.Type != "" && h.Type != "command" {
-					n, err := importClaudeNonCommandHook(root, dstDir, event, g.Matcher, h, pin, namer)
-					if err != nil {
-						return count, err
+			// Handlers that fail closed and those that do not become
+			// separate specs, so one handler's onFailure never spreads
+			// to its siblings.
+			for _, failClosed := range []bool{false, true} {
+				cmds := make([]string, 0, len(g.Hooks))
+				timeout := 0
+				statusMessage, shell, ifRule := "", "", ""
+				async, asyncRewake, once := false, false, false
+				var args []string
+				for _, h := range g.Hooks {
+					h.Command = adapters.StripCursorGuard(h.Command)
+					if h.Type != "" && h.Type != "command" {
+						if failClosed {
+							continue
+						}
+						n, err := importClaudeNonCommandHook(root, dstDir, event, g.Matcher, h, pin, namer)
+						if err != nil {
+							return count, err
+						}
+						count += n
+						continue
 					}
-					count += n
+					if (h.OnFailure == "block") != failClosed {
+						continue
+					}
+					if h.Command == "" || claudehooks.IsWorktreeSetupCommand(h.Command) || importLocal.dropsHookCommand("claude", event, g.Matcher, adapters.ExecFormCommand(h.Command, h.Args)) {
+						continue
+					}
+					cmds = append(cmds, h.Command)
+					if len(h.Args) > 0 && args == nil {
+						args = h.Args
+					}
+					if h.Timeout != 0 && timeout == 0 {
+						timeout = h.Timeout
+					}
+					if h.StatusMessage != "" && statusMessage == "" {
+						statusMessage = h.StatusMessage
+					}
+					if h.Shell != "" && shell == "" {
+						shell = h.Shell
+					}
+					if h.If != "" && ifRule == "" {
+						ifRule = h.If
+					}
+					async = async || h.Async
+					asyncRewake = asyncRewake || h.AsyncRewake
+					once = once || h.Once
+				}
+				if len(cmds) == 0 {
 					continue
 				}
-				if h.Command == "" || claudehooks.IsWorktreeSetupCommand(h.Command) || importLocal.dropsHookCommand("claude", event, g.Matcher, adapters.ExecFormCommand(h.Command, h.Args)) {
-					continue
+				name := namer.name(event, g.Matcher, hookRunLabel(cmds[0]), cmds, map[string]any{"command": cmds})
+				doc := map[string]any{
+					"name":        name,
+					"description": hookDescription(event, g.Matcher, cmds),
+					"event":       event,
+					"matcher":     g.Matcher,
 				}
-				cmds = append(cmds, h.Command)
-				if len(h.Args) > 0 && args == nil {
-					args = h.Args
+				if len(cmds) == 1 {
+					doc["command"] = cmds[0]
+				} else {
+					doc["command"] = cmds
 				}
-				if h.Timeout != 0 && timeout == 0 {
-					timeout = h.Timeout
+				if len(args) > 0 {
+					doc["args"] = args
 				}
-				if h.StatusMessage != "" && statusMessage == "" {
-					statusMessage = h.StatusMessage
+				if timeout != 0 {
+					doc["timeout"] = timeout
 				}
-				if h.Shell != "" && shell == "" {
-					shell = h.Shell
+				if statusMessage != "" {
+					doc["statusMessage"] = statusMessage
 				}
-				if h.If != "" && ifRule == "" {
-					ifRule = h.If
+				if async {
+					doc["async"] = true
 				}
-				async = async || h.Async
-				asyncRewake = asyncRewake || h.AsyncRewake
-				once = once || h.Once
+				if asyncRewake {
+					doc["asyncRewake"] = true
+				}
+				if once {
+					doc["once"] = true
+				}
+				if shell != "" {
+					doc["shell"] = shell
+				}
+				if ifRule != "" {
+					doc["if"] = ifRule
+				}
+				if failClosed {
+					doc["failClosed"] = true
+				}
+				pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
+				if err := writeHookSpecFile(dstDir, name, doc); err != nil {
+					return count, err
+				}
+				count++
 			}
-			if len(cmds) == 0 {
-				continue
-			}
-			name := namer.name(event, g.Matcher, hookRunLabel(cmds[0]), cmds, map[string]any{"command": cmds})
-			doc := map[string]any{
-				"name":        name,
-				"description": hookDescription(event, g.Matcher, cmds),
-				"event":       event,
-				"matcher":     g.Matcher,
-			}
-			if len(cmds) == 1 {
-				doc["command"] = cmds[0]
-			} else {
-				doc["command"] = cmds
-			}
-			if len(args) > 0 {
-				doc["args"] = args
-			}
-			if timeout != 0 {
-				doc["timeout"] = timeout
-			}
-			if statusMessage != "" {
-				doc["statusMessage"] = statusMessage
-			}
-			if async {
-				doc["async"] = true
-			}
-			if asyncRewake {
-				doc["asyncRewake"] = true
-			}
-			if once {
-				doc["once"] = true
-			}
-			if shell != "" {
-				doc["shell"] = shell
-			}
-			if ifRule != "" {
-				doc["if"] = ifRule
-			}
-			pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
-			if err := writeHookSpecFile(dstDir, name, doc); err != nil {
-				return count, err
-			}
-			count++
 		}
 	}
 	return count, nil
@@ -167,6 +181,10 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 	}
 	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)},
 		map[string]any{"type": h.Type, "url": h.URL, "server": h.Server, "tool": h.Tool, "prompt": h.Prompt})
+	if doc["onFailure"] == "block" {
+		delete(doc, "onFailure")
+		doc["failClosed"] = true
+	}
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
 	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
 	pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))

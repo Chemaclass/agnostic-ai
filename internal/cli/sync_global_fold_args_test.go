@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,5 +76,35 @@ func TestSyncGlobal_NotesCursorMayRunClaudeExecFormHooksWithoutArgs(t *testing.T
 		if got := strings.Count(warnings, note); got != map[bool]int{true: 1, false: 0}[tc.want] {
 			t.Errorf("config %q, --only %s: warnings:\n%s", tc.config, tc.only, warnings)
 		}
+	}
+}
+
+func TestSyncGlobal_ClaudeHookFailClosedWritesOnFailureBlock(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "hooks", "guard.yaml")
+	mustWriteGlobalTest(t, spec, "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: guard.sh\nfailClosed: true\n")
+	only := []string{"--only", "claude,codex"}
+	if _, _, err := runGlobalAgentTest(only...); err != nil {
+		t.Fatal(err)
+	}
+	claude := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")
+	if claude["onFailure"] != "block" {
+		t.Errorf("claude handler = %v, want onFailure block", claude)
+	}
+	codex := readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json"))
+	if strings.Contains(fmt.Sprint(codex), "onFailure") {
+		t.Errorf("codex hooks carry onFailure: %v", codex)
+	}
+
+	mustWriteGlobalTest(t, spec, "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: guard.sh\n")
+	if _, _, err := runGlobalAgentTest(only...); err != nil {
+		t.Fatal(err)
+	}
+	groups := readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json"))["hooks"].(map[string]any)["PreToolUse"].([]any)
+	if len(groups) != 1 {
+		t.Fatalf("PreToolUse groups = %v, want the one entry updated in place", groups)
+	}
+	if _, set := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")["onFailure"]; set {
+		t.Error("onFailure stayed after failClosed was removed")
 	}
 }

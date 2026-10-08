@@ -64,3 +64,28 @@ func TestHookHandlers_PromptContinueOnBlockFalseKeepsNativeDefault(t *testing.T)
 		t.Error("continueOnBlock false became true")
 	}
 }
+
+func TestHookHandlers_FailClosedBlocksOnCommandAndHTTPFailure(t *testing.T) {
+	cases := []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"command", map[string]any{"command": "guard.sh", "failClosed": true}, "block"},
+		{"http", map[string]any{"type": "http", "url": "https://example.test/check", "failClosed": true}, "block"},
+		{"prompt has no onFailure", map[string]any{"type": "prompt", "prompt": "Check it.", "failClosed": true}, ""},
+		{"unset keeps the native default", map[string]any{"command": "guard.sh"}, ""},
+		{"false keeps the native default", map[string]any{"command": "guard.sh", "failClosed": false}, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			handlers := hookHandlers(spec.Entry{Kind: spec.KindHook, Meta: c.meta})
+			if len(handlers) != 1 {
+				t.Fatalf("handlers = %#v", handlers)
+			}
+			if got := handlers[0].OnFailure; got != c.want {
+				t.Errorf("onFailure = %q, want %q", got, c.want)
+			}
+		})
+	}
+}

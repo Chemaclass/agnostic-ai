@@ -22,6 +22,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Claude Code
+
+- `failClosed: true` on a hook now blocks when the hook fails or times out, in project and global sync and in `hook run` (#1916).
+
 #### Codex
 
 - **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).

@@ -65,3 +65,38 @@ func TestDrift_ReportsAMissingCommand(t *testing.T) {
 		t.Errorf("Drift = %+v, %v", drift, err)
 	}
 }
+
+func TestDecideHandler_ClaudeFailClosedBlocksAFailedRun(t *testing.T) {
+	closed, open := Handler{Command: "guard.sh", FailClosed: true}, Handler{Command: "guard.sh"}
+	cases := []struct {
+		name  string
+		event string
+		h     Handler
+		r     Result
+		want  Decision
+	}{
+		{"exit 1 fails closed", "PreToolUse", closed, Result{Exit: 1}, Block},
+		{"timeout fails closed", "PreToolUse", closed, Result{TimedOut: true}, Block},
+		{"exit 1 fails open by default", "PreToolUse", open, Result{Exit: 1}, Error},
+		{"exit 0 with no output still allows", "PreToolUse", closed, Result{}, Allow},
+		{"session events cannot block", "SessionStart", closed, Result{Exit: 1}, Error},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := DecideHandler("claude", c.event, c.h, c.r); got != c.want {
+				t.Errorf("decision = %s, want %s", got, c.want)
+			}
+		})
+	}
+}
+
+func TestDrift_NamesAClaudeOnFailureThatDiffersFromFailClosed(t *testing.T) {
+	body := []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"guard.sh"}]}]}}`)
+	drift, err := Drift("claude", body, "PreToolUse", "Bash", "linux", []Handler{{Command: "guard.sh", FailClosed: true}}, func(n, s string) bool { return n == s })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(drift) != 1 || !strings.Contains(drift[0].Reason, "onFailure") {
+		t.Errorf("drift = %+v, want one naming onFailure", drift)
+	}
+}

@@ -55,7 +55,8 @@ type Handler struct {
 	Timeout time.Duration
 	// If is Claude Code's `if` permission rule.
 	If string
-	// FailClosed is Goose's `on_failure: block`: a failed run blocks.
+	// FailClosed is a failed run that blocks: Goose's `on_failure: block`,
+	// Cursor's `failClosed`, and Claude Code's `onFailure: "block"`.
 	FailClosed bool
 	// Script is the body of Cline's event script; Command is its path.
 	Script string
@@ -194,6 +195,18 @@ func Decide(target, event string, r Result) Decision {
 		return Block
 	}
 	return Allow
+}
+
+// decideClaude is Decide plus Claude Code's `onFailure: "block"`: a hook
+// that cannot start, times out, or exits with a code other than 0 or 2
+// blocks the action instead of letting it through, on events that can
+// block at all.
+func decideClaude(event string, h Handler, r Result) Decision {
+	d := Decide("claude", event, r)
+	if h.FailClosed && (d == Error || d == Timeout) && !slices.Contains(nonBlockingEvents, event) {
+		return Block
+	}
+	return d
 }
 
 // contextEvents add a hook's plain stdout on exit 0 to the session.

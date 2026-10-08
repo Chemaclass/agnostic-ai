@@ -24,6 +24,8 @@ type nativeHandler struct {
 	Timeout        float64           `json:"timeout"`
 	Env            map[string]string `json:"env"`
 	OnFailure      string            `json:"on_failure"`
+	// ClaudeOnFailure is Claude Code's `onFailure`, unlike Goose's key.
+	ClaudeOnFailure string `json:"onFailure"`
 }
 
 // runs compares what the target starts on goos: Codex runs
@@ -134,6 +136,9 @@ func fieldDrift(target, nativeMatcher, matcher string, n nativeHandler, h Handle
 	// a spec without one cannot tell a stale value from a sibling's.
 	if got := n.timeout(target); got != h.Timeout && (target != "codex" || h.Timeout != 0) {
 		return fmt.Sprintf("runs %q with timeout %s, not %s", h.Command, got, h.Timeout)
+	}
+	if target == "claude" && (n.ClaudeOnFailure == "block") != h.FailClosed {
+		return fmt.Sprintf("runs %q with onFailure %q, not what failClosed %t writes", h.Command, n.ClaudeOnFailure, h.FailClosed)
 	}
 	if target == "gemini" && !maps.Equal(n.Env, h.Env) {
 		return fmt.Sprintf("runs %q with different env %s", h.Command, strings.Join(envKeysDiffering(n.Env, h.Env), ", "))
