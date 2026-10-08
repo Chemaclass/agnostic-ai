@@ -212,18 +212,21 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 
 	names := adapters.Names()
 	type emitted struct {
-		full, minus []adapters.CapturedFile
-		err         error
-		skip        bool
+		found []contribution
+		err   error
 	}
 	// Each adapter's two captures are independent of every other
 	// adapter's. As in sync's parallel emit, adapters run in batches that
-	// share the provenance-header setting, the one global they toggle,
-	// and results merge in name order.
+	// share the provenance-header setting, the one global they toggle.
+	// Each worker keeps only what it found, not its captures, and results
+	// merge in name order.
 	results := make([]emitted, len(names))
 	orig := adapters.ProvenanceEnabled()
 	defer adapters.SetProvenanceEnabled(orig)
-	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
+	// Each worker holds two full captures; past four workers the run gets
+	// little faster while memory keeps growing (500 specs: 0.83 s and
+	// 98 MB at four, 0.73 s and 164 MB at ten).
+	sem := make(chan struct{}, min(runtime.GOMAXPROCS(0), explainWorkers))
 	for _, batch := range provenanceBatches(cfg, names) {
 		adapters.SetProvenanceEnabled(batch.provenance)
 		var wg sync.WaitGroup
@@ -233,15 +236,7 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
-				adapter, err := adapters.Resolve(names[i])
-				if err != nil {
-					results[i].skip = true
-					return
-				}
-				r := &results[i]
-				if r.full, r.err = captureEmit(adapter, b, cfg); r.err == nil {
-					r.minus, r.err = captureEmit(adapter, withoutSpec, cfg)
-				}
+				results[i].found, results[i].err = specContributions(names[i], e, b, withoutSpec, cfg)
 			}()
 		}
 		wg.Wait()
@@ -249,30 +244,11 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 
 	var configured, extra []contribution
 	for i, name := range names {
-		r := results[i]
-		if r.skip {
-			continue
+		if results[i].err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", name, results[i].err)
 		}
-		if r.err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", name, r.err)
-		}
-		full, minus := r.full, r.minus
-		minusByPath := make(map[string]string, len(minus))
-		for _, f := range minus {
-			minusByPath[f.Path] = f.Content
-		}
-		for _, f := range full {
-			before, present := minusByPath[f.Path]
-			switch {
-			case !present:
-				addContribution(&configured, &extra, configuredSet, contribution{
-					Target: name, Path: f.Path, Mode: "full",
-				})
-			case before != f.Content:
-				addContribution(&configured, &extra, configuredSet, contribution{
-					Target: name, Path: f.Path, Section: e.Name, Mode: "section",
-				})
-			}
+		for _, c := range results[i].found {
+			addContribution(&configured, &extra, configuredSet, c)
 		}
 	}
 	// Rule bodies inlined into an entry-point file (AGENTS.md, GEMINI.md,
@@ -425,4 +401,39 @@ func emitExplainJSON(cmd *cobra.Command, v explainOutput) error {
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
+}
+
+// explainWorkers caps how many adapters explain renders at once.
+const explainWorkers = 4
+
+// specContributions renders target with and without e and returns the
+// files e owns or contributes a section to, in emit order.
+func specContributions(target string, e spec.Entry, b, withoutSpec spec.Bundle, cfg *config.Config) ([]contribution, error) {
+	adapter, err := adapters.Resolve(target)
+	if err != nil {
+		return nil, nil
+	}
+	full, err := captureEmit(adapter, b, cfg)
+	if err != nil {
+		return nil, err
+	}
+	minus, err := captureEmit(adapter, withoutSpec, cfg)
+	if err != nil {
+		return nil, err
+	}
+	minusByPath := make(map[string]string, len(minus))
+	for _, f := range minus {
+		minusByPath[f.Path] = f.Content
+	}
+	var found []contribution
+	for _, f := range full {
+		before, present := minusByPath[f.Path]
+		switch {
+		case !present:
+			found = append(found, contribution{Target: target, Path: f.Path, Mode: "full"})
+		case before != f.Content:
+			found = append(found, contribution{Target: target, Path: f.Path, Section: e.Name, Mode: "section"})
+		}
+	}
+	return found, nil
 }
