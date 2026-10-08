@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -208,20 +210,53 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 		configuredSet[t] = struct{}{}
 	}
 
+	names := adapters.Names()
+	type emitted struct {
+		full, minus []adapters.CapturedFile
+		err         error
+		skip        bool
+	}
+	// Each adapter's two captures are independent of every other
+	// adapter's. As in sync's parallel emit, adapters run in batches that
+	// share the provenance-header setting, the one global they toggle,
+	// and results merge in name order.
+	results := make([]emitted, len(names))
+	orig := adapters.ProvenanceEnabled()
+	defer adapters.SetProvenanceEnabled(orig)
+	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
+	for _, batch := range provenanceBatches(cfg, names) {
+		adapters.SetProvenanceEnabled(batch.provenance)
+		var wg sync.WaitGroup
+		for _, i := range batch.indices {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				adapter, err := adapters.Resolve(names[i])
+				if err != nil {
+					results[i].skip = true
+					return
+				}
+				r := &results[i]
+				if r.full, r.err = captureEmit(adapter, b, cfg); r.err == nil {
+					r.minus, r.err = captureEmit(adapter, withoutSpec, cfg)
+				}
+			}()
+		}
+		wg.Wait()
+	}
+
 	var configured, extra []contribution
-	for _, name := range adapters.Names() {
-		adapter, err := adapters.Resolve(name)
-		if err != nil {
+	for i, name := range names {
+		r := results[i]
+		if r.skip {
 			continue
 		}
-		full, err := captureEmit(adapter, b, cfg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", name, err)
+		if r.err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", name, r.err)
 		}
-		minus, err := captureEmit(adapter, withoutSpec, cfg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", name, err)
-		}
+		full, minus := r.full, r.minus
 		minusByPath := make(map[string]string, len(minus))
 		for _, f := range minus {
 			minusByPath[f.Path] = f.Content
