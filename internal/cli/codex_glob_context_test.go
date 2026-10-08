@@ -54,7 +54,7 @@ func TestSync_CodexGlobContextUsesExactSubtrees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	edges, err := computeGraphEdges(bundle, cfg)
+	edges, err := computeGraphEdges(bundle, cfg, graphFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}

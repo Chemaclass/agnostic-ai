@@ -148,7 +148,7 @@ func TestScopedContext_InspectionMatchesSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	edges, err := computeGraphEdges(b, cfg)
+	edges, err := computeGraphEdges(b, cfg, graphFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}

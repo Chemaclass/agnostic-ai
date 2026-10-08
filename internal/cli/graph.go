@@ -68,11 +68,10 @@ func newGraphCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			edges, err := computeGraphEdges(bundle, cfg)
+			edges, err := computeGraphEdges(bundle, cfg, graphFilter{spec: specFilter, target: targetFilter, kind: kindFilter})
 			if err != nil {
 				return err
 			}
-			edges = filterGraphEdges(edges, specFilter, targetFilter, kindFilter)
 			sortGraphEdges(edges)
 			return renderGraph(cmd.OutOrStdout(), format, edges, cfg.Targets, specFilter, targetFilter, kindFilter)
 		},
@@ -93,10 +92,18 @@ func validateGraphFormat(f string) error {
 	return fmt.Errorf("unknown --format %q (want text, mermaid, dot, or json)", f)
 }
 
+// graphFilter narrows the graph to one spec, target, or kind. An empty
+// field matches everything.
+type graphFilter struct {
+	spec, target, kind string
+}
+
 // computeGraphEdges asks every configured target which files each spec
 // in the bundle would produce. Strategy mirrors `explain`: render each
-// adapter once per spec under capture mode, never touching disk.
-func computeGraphEdges(b spec.Bundle, cfg *config.Config) ([]graphEdge, error) {
+// adapter once per spec under capture mode, never touching disk. Each
+// edge depends only on its own spec and target, so the filter skips the
+// emits it would drop.
+func computeGraphEdges(b spec.Bundle, cfg *config.Config, f graphFilter) ([]graphEdge, error) {
 	// Suppress per-adapter "X not supported" warnings; the matrix
 	// already conveys what each target emits.
 	adapters.SetWarner(io.Discard)
@@ -112,6 +119,9 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config) ([]graphEdge, error) {
 	}
 	var edges []graphEdge
 	for _, t := range targets {
+		if f.target != "" && t != f.target {
+			continue
+		}
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			// Skip unknown targets in the user's config rather than failing
@@ -120,6 +130,9 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config) ([]graphEdge, error) {
 			continue
 		}
 		for _, e := range b.All() {
+			if f.spec != "" && e.Name != f.spec || f.kind != "" && string(e.Kind) != f.kind {
+				continue
+			}
 			single := singleEntryBundle(e)
 			captured, err := captureEmit(adapter, single, cfg)
 			if err != nil {
@@ -145,26 +158,6 @@ func computeGraphEdges(b spec.Bundle, cfg *config.Config) ([]graphEdge, error) {
 		}
 	}
 	return edges, nil
-}
-
-func filterGraphEdges(edges []graphEdge, specFilter, targetFilter, kindFilter string) []graphEdge {
-	if specFilter == "" && targetFilter == "" && kindFilter == "" {
-		return edges
-	}
-	out := make([]graphEdge, 0, len(edges))
-	for _, e := range edges {
-		if specFilter != "" && e.Spec != specFilter {
-			continue
-		}
-		if targetFilter != "" && e.Target != targetFilter {
-			continue
-		}
-		if kindFilter != "" && e.Kind != kindFilter {
-			continue
-		}
-		out = append(out, e)
-	}
-	return out
 }
 
 func sortGraphEdges(edges []graphEdge) {

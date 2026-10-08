@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -135,6 +136,40 @@ func readStateFile(projectRoot string) syncStateFile {
 	}
 	_ = json.Unmarshal(data, &s)
 	return s
+}
+
+// stateCache holds the last parsed state file for cachedStateFile, keyed
+// by the file's absolute path, size, and modification time.
+var stateCache struct {
+	sync.Mutex
+	path  string
+	size  int64
+	mod   time.Time
+	state syncStateFile
+}
+
+// cachedStateFile is readStateFile for lookups repeated inside one run:
+// the merge writers ask for prior keys on every merged file and every
+// per-spec emit, and the state file lists every output. It parses the
+// file again only when its size or modification time changes. Callers
+// must not modify the result.
+func cachedStateFile(projectRoot string) syncStateFile {
+	p, err := filepath.Abs(stateFilePath(projectRoot))
+	if err != nil {
+		return readStateFile(projectRoot)
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return syncStateFile{}
+	}
+	stateCache.Lock()
+	defer stateCache.Unlock()
+	if stateCache.path == p && stateCache.size == info.Size() && stateCache.mod.Equal(info.ModTime()) {
+		return stateCache.state
+	}
+	stateCache.path, stateCache.size, stateCache.mod = p, info.Size(), info.ModTime()
+	stateCache.state = readStateFile(projectRoot)
+	return stateCache.state
 }
 
 // readStateFileStrict is readStateFile that reports a state file that
