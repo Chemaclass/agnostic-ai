@@ -44,7 +44,7 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
   - `args` switches to the form without a shell: `command` is one program and each `args` element is one literal argument. Qoder then ignores `shell`. Sync still writes both and adds a note.
   - `once` has no effect, and `sync` says so. Qoder honors it only for session-scoped hooks ([Hooks](https://docs.qoder.com/cli/hooks), [Subagent](https://docs.qoder.com/cli/subagent)), and portable hooks go in settings.
   - HTTP handlers have `url`, optional `headers`, and `allowedEnvVars`. Prompt handlers have `prompt` and optional `model`. Both keep filters, timeouts in seconds, and matcher groups.
-  - Other handler types get a coverage note. Sync does not write Qoder's `env`, `rewakeMessage`, `rewakeSummary`, or agent handlers.
+  - Other handler types get a coverage note. Sync writes only one `env` entry, `AGNOSTIC_AI_TARGET`, and no `rewakeMessage`, `rewakeSummary`, or agent handlers.
 
 {% <details summary="Unmanaged AGENTS.md"> %}
 Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. But sync then stops writing `AGENTS.md`, so other tools that read it, such as Codex, miss rule changes.

@@ -372,12 +372,14 @@ func TestEmit_Agent_UnmappedToolSurfacesCoverageNote(t *testing.T) {
 	}
 }
 
-// "A custom command or an MCP prompt named `goal` is reserved. Kilo
-// rejects it and reports an error; rename it"
-// (kilo.ai/docs/code-with-ai/agents/goals, shipped in v7.6.0, verified
-// 2026-09-11). The file still emits, since dropping it would lose the
-// spec silently, but the clash gets a coverage note so the user knows
-// to rename before Kilo errors (#736).
+// "A custom command named goal (from your config or a plugin) is
+// reserved for this feature. Kilo ignores it, reports a configuration
+// warning, and makes it available as /goal:command instead of running
+// it as /goal"
+// (kilo.ai/docs/code-with-ai/agents/goals, verified 2026-10-08). The
+// file still emits, since dropping it would lose the spec silently,
+// but the clash gets a coverage note so the user knows to rename it
+// (#736).
 func TestEmit_Command_ReservedGoalNameSurfacesCoverageNote(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()

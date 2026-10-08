@@ -19,7 +19,7 @@ cap-cosmos-daemon-pool-config	2026-09-25	2026-09-25	watch					augment Auggie CLI
 cap-cross-tool-config-import-toggle	2026-09-18	2026-09-18						
 cap-directory-scoped-skills	2026-09-15	2026-09-21						published
 cap-factory-skill-metadata-fields	2026-09-25	2026-09-25	target-extension					Factory SKILL.md allowed-tools, enabled, user-invocable, license, compatibility, version, metadata reach the file through x-factory; reproduced, no code change needed.
-cap-fail-closed-hook-policy	2026-09-15	2026-09-15						
+cap-fail-closed-hook-policy	2026-09-15	2026-10-08	adapter-gap	1916				Cursor failClosed since 2026-09-15; Claude Code 2.1.295 added onFailure: block for command and HTTP hooks (changelog only), which the claude adapter does not write.
 cap-kilo-session-goals	2026-09-22	2026-09-22	target-extension					Reachable today through x-kilo.permission (goal, goal_report); reproduced end to end, no code change needed.
 cap-kilo-skill-metadata-fields	2026-09-23	2026-09-23	target-extension					Kilo skill license, compatibility, metadata reach SKILL.md through x-kilo today; reproduced, no code change needed.
 cap-manual-only-skill-invocation	2026-09-15	2026-09-16						published
