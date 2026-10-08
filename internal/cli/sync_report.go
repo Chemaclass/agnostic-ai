@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -298,32 +303,58 @@ func removeMatching(paths, exclude []string) []string {
 const gitPathsPerCall = 500
 
 // gitTrackedAndIgnored returns the paths among candidates that git both
-// tracks and ignores: a file the repo committed before it moved into a
-// gitignore rule, typically the managed block, so the ignore has no
-// effect until the index entry is removed (#1330). Pathspecs given to
-// `ls-files` resolve relative to root, so no prefix-stripping is needed
-// the way gitPending needs it for `status`. Outside a git work tree, or
-// when git is missing or slow, it returns nothing, the same convenience
-// contract as gitPending.
+// tracks and ignores, plus such files under a candidate directory: a
+// file the repo committed before it moved into a gitignore rule,
+// typically the managed block, so the ignore has no effect until the
+// index entry is removed (#1330). Outside a git work tree, or when git is
+// missing or slow, it returns nothing, the same convenience contract as
+// gitPending.
+//
+// One git call per batch of output paths made git rescan the index for
+// each batch. Asking once for the top-level entries that hold outputs
+// keeps one scan and keeps git out of unrelated trees such as vendor
+// folders, where matching every file against every ignore rule is slow.
 func gitTrackedAndIgnored(root string, candidates []string) []string {
-	if len(candidates) == 0 {
+	want := make(map[string]struct{}, len(candidates))
+	tops := map[string]struct{}{}
+	for _, c := range candidates {
+		// git composes Unicode in the names it prints on macOS.
+		c = norm.NFC.String(path.Clean(filepath.ToSlash(c)))
+		if c == "." || c == ".." || strings.HasPrefix(c, "../") || path.IsAbs(c) {
+			continue
+		}
+		want[c] = struct{}{}
+		top, _, _ := strings.Cut(c, "/")
+		tops[top] = struct{}{}
+	}
+	if len(want) == 0 {
 		return nil
 	}
 	var out []string
-	for start := 0; start < len(candidates); start += gitPathsPerCall {
-		end := min(start+gitPathsPerCall, len(candidates))
-		got, ok := runGit(root, append([]string{"ls-files", "-ci", "--exclude-standard", "-z", "--"}, candidates[start:end]...)...)
+	pathspecs := slices.Sorted(maps.Keys(tops))
+	for start := 0; start < len(pathspecs); start += gitPathsPerCall {
+		end := min(start+gitPathsPerCall, len(pathspecs))
+		got, ok := runGit(root, append([]string{"ls-files", "-ci", "--exclude-standard", "-z", "--"}, pathspecs[start:end]...)...)
 		if !ok {
 			return nil
 		}
 		for _, p := range strings.Split(strings.TrimRight(got, "\x00"), "\x00") {
-			if p != "" {
+			if p != "" && underCandidate(norm.NFC.String(p), want) {
 				out = append(out, p)
 			}
 		}
 	}
 	sort.Strings(out)
 	return out
+}
+
+func underCandidate(p string, want map[string]struct{}) bool {
+	for d := p; d != "." && d != "/"; d = path.Dir(d) {
+		if _, ok := want[d]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // gitRmCached removes paths from git's index without touching the
