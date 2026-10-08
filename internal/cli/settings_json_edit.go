@@ -17,12 +17,21 @@ import (
 // created with it and removed again once empty. A new member goes after
 // the last one, and removing it undoes that exactly.
 func editJSONRoot(path string, data []byte, order []string, set map[string]any, remove []string) ([]byte, error) {
+	return editJSONRootIndent(path, data, "", order, set, remove)
+}
+
+// editJSONRootIndent is editJSONRoot with the indent unit to use when
+// the file shows none, such as `{}`.
+func editJSONRootIndent(path string, data []byte, fallback string, order []string, set map[string]any, remove []string) ([]byte, error) {
 	text := strings.TrimRight(string(data), " \t\r\n")
 	trailing := string(data)[len(text):]
 	if text == "" {
 		text, trailing = "{}", "\n"
 	}
 	unit := adapters.DetectJSONIndent(data)
+	if unit == "" {
+		unit = fallback
+	}
 	for _, key := range remove {
 		open, err := jsonRootOpen(text)
 		if err == nil {
@@ -213,6 +222,56 @@ func fileNewlines(text, s string) string {
 	return s
 }
 
+// jsonContainerSpan finds the object or array at a dotted key path, ""
+// for the root, with the offsets of its brackets and how many entries it
+// holds.
+func jsonContainerSpan(text, key string) (open, closing, entries int, ok bool) {
+	root, err := jsonRootOpen(text)
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	open = root
+	if key != "" {
+		if open, err = findJSONPath(text, root, strings.Split(key, ".")); err != nil || open < 0 {
+			return 0, 0, 0, false
+		}
+	}
+	var members []jsonMember
+	switch text[open] {
+	case '{':
+		members, closing, err = scanJSONObject(text, open)
+	case '[':
+		members, closing, err = scanJSONArray(text, open)
+	default:
+		return 0, 0, 0, false
+	}
+	return open, closing, len(members), err == nil
+}
+
+// jsonContainerInner is what sits between the brackets of the empty
+// object or array at key.
+func jsonContainerInner(text, key string) (string, bool) {
+	open, closing, entries, ok := jsonContainerSpan(text, key)
+	if !ok || entries > 0 {
+		return "", false
+	}
+	return text[open+1 : closing], true
+}
+
+// setJSONContainerInner puts inner between the brackets of the empty
+// object or array at key, giving back what the user wrote there.
+func setJSONContainerInner(path string, data []byte, key, inner string) ([]byte, error) {
+	text := string(data)
+	open, closing, entries, ok := jsonContainerSpan(text, key)
+	if !ok {
+		return nil, fmt.Errorf("parse %s: no container at %q", path, key)
+	}
+	if entries > 0 || strings.TrimSpace(text[open+1:closing]) != "" {
+		return data, nil
+	}
+	return []byte(text[:open+1] + inner + text[closing:]), nil
+}
+
 // removeJSONKey removes the member at a dotted key path and keeps its
 // parent object, even when that leaves the parent empty.
 func removeJSONKey(path string, data []byte, key string) ([]byte, error) {
@@ -253,7 +312,7 @@ func editJSONArray(path string, data []byte, key string, items []any) ([]byte, e
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if start < 0 || text[start] != '[' {
-		return editJSONRoot(path, data, []string{key}, map[string]any{key: items}, nil)
+		return editJSONRootIndent(path, data, "  ", []string{key}, map[string]any{key: items}, nil)
 	}
 	want, _ := jsonRoundTrip(items).([]any)
 	elements, _, err := scanJSONArray(text, start)
@@ -276,6 +335,9 @@ func editJSONArray(path string, data []byte, key string, items []any) ([]byte, e
 	// New elements go in before the old ones are cut, so an array that
 	// loses every element keeps its layout.
 	unit := adapters.DetectJSONIndent(data)
+	if unit == "" {
+		unit = "  "
+	}
 	for _, item := range want[kept:] {
 		elements, closing, err := scanJSONArray(text, start)
 		if err != nil {

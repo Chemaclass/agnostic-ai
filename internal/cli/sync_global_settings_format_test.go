@@ -206,6 +206,11 @@ func TestSyncGlobal_HookAddThenRemoveKeepsUserContainers(t *testing.T) {
 			"cursor template":      "{\"version\": 1, \"hooks\": {}}",
 			"user version":         "{\n  \"version\": 1\n}\n",
 			"one-line hooks event": "{\"hooks\": {\"" + target.event + "\": [{\"matcher\": \"\", \"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]}]}}",
+			"multi-line empty":     "{\n}\n",
+			"crlf multi-line":      "{\r\n}\r\n",
+			"multi-line hooks":     "{\n  \"hooks\": {\n  }\n}\n",
+			"multi-line event":     "{\"hooks\": {\"" + target.event + "\": [\n]}}",
+			"null event":           "{\"hooks\": {\"" + target.event + "\": null}}",
 		}
 		for name, original := range cases {
 			t.Run(target.name+"/"+name, func(t *testing.T) {
@@ -242,6 +247,69 @@ func TestSyncGlobal_HookAddThenRemoveKeepsUserContainers(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) {
+	const spec = "event: SessionStart\ncommand: echo hi\n"
+	created := func(t *testing.T, target, file string) string {
+		home, source := globalAgentTestHome(t)
+		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), spec)
+		if _, _, err := runGlobalAgentTest("--only", target); err != nil {
+			t.Fatal(err)
+		}
+		return readGlobalTest(t, filepath.Join(home, filepath.FromSlash(file)))
+	}
+	for _, target := range []struct{ name, file string }{
+		{"claude", ".claude/settings.json"},
+		{"codex", ".codex/hooks.json"},
+		{"gemini", ".gemini/settings.json"},
+		{"cursor", ".cursor/hooks.json"},
+	} {
+		for _, original := range []string{"{}\n", "{}", "{ }"} {
+			t.Run(target.name+"/"+original, func(t *testing.T) {
+				want := created(t, target.name, target.file)
+				home, source := globalAgentTestHome(t)
+				native := filepath.Join(home, filepath.FromSlash(target.file))
+				mustWriteGlobalTest(t, native, original)
+				mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), spec)
+				if _, _, err := runGlobalAgentTest("--only", target.name); err != nil {
+					t.Fatal(err)
+				}
+				got := readGlobalTest(t, native)
+				body := strings.TrimSuffix(strings.TrimSuffix(want, "\n}\n"), "\n")
+				if original == "{}\n" && got != want || !strings.HasPrefix(got, body) {
+					t.Errorf("a hook added to %q must be indented like a file sync creates\nwant: %q\ngot:  %q", original, want, got)
+				}
+			})
+		}
+	}
+}
+
+func TestSyncGlobal_UpgradeKeepsUserEnvOnTargetWithoutHookHistory(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be terse.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(source, "state", "global.json")
+	mustWriteGlobalTest(t, statePath, strings.Replace(readGlobalTest(t, statePath), `"version": 6`, `"version": 5`, 1))
+	settings := filepath.Join(home, ".claude", "settings.json")
+	original := `{"model":"x","env":{}}`
+	mustWriteGlobalTest(t, settings, original)
+	hook := filepath.Join(source, "hooks", "start.yaml")
+	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTest(t, settings); got != original {
+		t.Errorf("a target with no hook history must not take the user's containers\nwant: %q\ngot:  %q", original, got)
 	}
 }
 

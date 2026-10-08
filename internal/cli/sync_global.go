@@ -1410,6 +1410,9 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			made = append(made, token)
 		}
 	}
+	// Version 5 state treated every empty container as sync's, which
+	// holds only for a file that already carried its hooks.
+	legacy = legacy && len(previous) > 0
 	if legacy {
 		for _, token := range []string{"<file>", "hooks", "env", "version"} {
 			mark(token)
@@ -1582,6 +1585,8 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			hooks[event] = current
 		case owns("hooks." + event):
 			delete(hooks, event)
+		case owns("hooks." + event + "=null"):
+			hooks[event] = nil
 		default:
 			if _, isList := hooks[event].([]any); isList {
 				hooks[event] = []any{}
@@ -1607,8 +1612,10 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) }) {
 			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
 		}
-		if _, ok := hooks[event]; !ok {
+		if value, ok := hooks[event]; !ok {
 			mark("hooks." + event)
+		} else if value == nil {
+			mark("hooks." + event + "=null")
 		}
 		current, _ := hooks[event].([]any)
 		hooks[event] = append(current, item)
@@ -1650,15 +1657,38 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			delete(doc, "version")
 		}
 	}
+	// An empty container the user wrote gets back its own inside, such
+	// as a line break, once sync's entries leave it: the text alone
+	// cannot tell that break from the one an insert adds.
+	for _, key := range globalHookContainerKeys(before) {
+		was, _ := globalHookContainer(before, key)
+		now, _ := globalHookContainer(doc, key)
+		if emptyJSONContainer(was) && !emptyJSONContainer(now) && now != nil {
+			if inner, ok := jsonContainerInner(string(data), key); ok {
+				mark(globalInnerToken(key, inner))
+			}
+		}
+	}
+	restore := map[string]string{}
+	for _, token := range made {
+		key, inner, ok := parseGlobalInnerToken(token)
+		if now, present := globalHookContainer(doc, key); ok && present && emptyJSONContainer(now) {
+			restore[key] = inner
+		}
+	}
 	merge.created = slices.DeleteFunc(made, func(token string) bool {
+		if key, _, ok := parseGlobalInnerToken(token); ok {
+			now, present := globalHookContainer(doc, key)
+			return !present || emptyJSONContainer(now)
+		}
 		key, null := strings.CutSuffix(token, "=null")
 		if token == "<file>" {
 			return false
 		}
 		if event, ok := strings.CutPrefix(key, "hooks."); ok {
-			_, kept := hooks[event]
+			value, kept := hooks[event]
 			_, isObject := doc["hooks"].(map[string]any)
-			return !kept || !isObject
+			return !kept || !isObject || (null && value == nil)
 		}
 		value, kept := doc[key]
 		return !kept || (null && value == nil)
@@ -1688,7 +1718,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		if reflect.DeepEqual(merged, before) {
 			return nil, errGlobalFileUnchanged
 		}
-		return editGlobalHooksText(path, data, before, merged)
+		return editGlobalHooksText(path, data, before, merged, restore)
 	}
 	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
@@ -1726,7 +1756,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 // variable in env, each changed hooks event, and within an event each
 // entry. Every other byte stays as written, so removing what an earlier
 // run added gives back the original file.
-func editGlobalHooksText(path string, data []byte, before, after map[string]any) ([]byte, error) {
+func editGlobalHooksText(path string, data []byte, before, after map[string]any, restore map[string]string) ([]byte, error) {
 	var order, remove []string
 	set := map[string]any{}
 	edit := func(key string, was, now any, had, has bool) {
@@ -1790,7 +1820,7 @@ func editGlobalHooksText(path string, data []byte, before, after map[string]any)
 	// Sets go first, so a parent such as hooks that loses its last old
 	// member while gaining a new one keeps its place. A removal keeps the
 	// parent: merge already dropped every container sync created.
-	out, err := editJSONRoot(path, data, order, set, nil)
+	out, err := editJSONRootIndent(path, data, "  ", order, set, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1805,7 +1835,67 @@ func editGlobalHooksText(path string, data []byte, before, after map[string]any)
 			return nil, err
 		}
 	}
+	for _, key := range slices.Sorted(maps.Keys(restore)) {
+		if out, err = setJSONContainerInner(path, out, key, restore[key]); err != nil {
+			return nil, err
+		}
+	}
 	return out, nil
+}
+
+// globalHookContainerKeys lists the containers of a hooks file whose
+// inside sync may change: the root (""), hooks, env, and each event.
+func globalHookContainerKeys(doc map[string]any) []string {
+	keys := []string{"", "hooks", "env"}
+	hooks, _ := doc["hooks"].(map[string]any)
+	for _, event := range slices.Sorted(maps.Keys(hooks)) {
+		if !strings.Contains(event, ".") {
+			keys = append(keys, "hooks."+event)
+		}
+	}
+	return keys
+}
+
+// globalHookContainer is the value at a globalHookContainerKeys key.
+func globalHookContainer(doc map[string]any, key string) (any, bool) {
+	if key == "" {
+		return doc, true
+	}
+	if event, ok := strings.CutPrefix(key, "hooks."); ok {
+		hooks, _ := doc["hooks"].(map[string]any)
+		value, ok := hooks[event]
+		return value, ok
+	}
+	value, ok := doc[key]
+	return value, ok
+}
+
+func emptyJSONContainer(v any) bool {
+	switch v := v.(type) {
+	case map[string]any:
+		return len(v) == 0
+	case []any:
+		return len(v) == 0
+	}
+	return false
+}
+
+// globalInnerToken records in globalState.HookContainers what the empty
+// container at key held between its brackets.
+func globalInnerToken(key, inner string) string {
+	return "inner:" + key + "=" + jsonString(inner)
+}
+
+func parseGlobalInnerToken(token string) (key, inner string, ok bool) {
+	rest, ok := strings.CutPrefix(token, "inner:")
+	if !ok {
+		return "", "", false
+	}
+	key, quoted, ok := strings.Cut(rest, "=")
+	if !ok || json.Unmarshal([]byte(quoted), &inner) != nil {
+		return "", "", false
+	}
+	return key, inner, true
 }
 
 // mergeGlobalAgentEfforts sets subagents.agents.<name>.effortLevel for
