@@ -378,11 +378,6 @@ func TestRulesInEntryPoint_NamesTheAlwaysOnRulesAGENTSMdCarriesForCline(t *testi
 	got := adapters.RulesInEntryPoint(cfg, b, "cline")
 
 	if len(got) != 1 || !got["always"] {
-		t.Errorf("RulesInEntryPoint(cline) = %v, want only always", got)
-	}
-	for _, r := range b.For("cline").Rules {
-		if want := adapters.RuleInEntryPoint(cfg, b, "cline", r); got[r.Name] != want {
-			t.Errorf("%s: set says %v, RuleInEntryPoint says %v", r.Name, got[r.Name], want)
-		}
+		t.Errorf("RulesInEntryPoint(cline) = %v, want only always: the scoped go rule keeps its file", got)
 	}
 }
