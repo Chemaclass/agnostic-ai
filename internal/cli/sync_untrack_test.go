@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -243,5 +244,22 @@ func TestSyncUntrack_QuietStillWarnsOtherClones(t *testing.T) {
 		if !strings.Contains(warnings, want) {
 			t.Errorf("quiet migration warning misses %s: %s", want, warnings)
 		}
+	}
+}
+
+func TestGitTrackedAndIgnored_ReturnsOnlyCandidatesAndFilesUnderCandidateDirs(t *testing.T) {
+	dir, gitc := gitRepo(t)
+	for _, p := range []string{"out/a.md", "other/b.md", "skills/s/SKILL.md", "a[X]b.txt", "aXb.txt"} {
+		mustWriteFile(t, filepath.Join(dir, p), "x\n")
+	}
+	gitc("add", "-A")
+	gitc("commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "out/\nother/\nskills/\na*b.txt\n")
+
+	got := gitTrackedAndIgnored(dir, []string{"out/a.md", "skills/s", "a[X]b.txt", "missing.md"})
+
+	want := []string{"a[X]b.txt", "out/a.md", "skills/s/SKILL.md"}
+	if !slices.Equal(got, want) {
+		t.Errorf("gitTrackedAndIgnored = %v, want %v", got, want)
 	}
 }
