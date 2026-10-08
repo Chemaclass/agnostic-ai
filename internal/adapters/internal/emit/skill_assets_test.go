@@ -179,3 +179,35 @@ func TestSkillHasBundledAssets(t *testing.T) {
 		})
 	}
 }
+
+func TestPropagateSkillAssets_CopiesTheListedFilesWithoutWalkingTheFolder(t *testing.T) {
+	t.Parallel()
+	sess := NewSession()
+	dir := t.TempDir()
+	srcSkill := filepath.Join(dir, "skills", "alpha")
+	for rel, body := range map[string]string{"SKILL.md": "---\nname: alpha\n---\nbody\n", "listed.txt": "listed\n", "added-later.txt": "late\n"} {
+		if err := os.MkdirAll(srcSkill, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(srcSkill, rel), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := spec.Entry{
+		Kind: spec.KindSkill, Name: "alpha", Path: filepath.Join(srcSkill, "SKILL.md"),
+		AssetsListed: true,
+		AssetFiles:   []spec.AssetFile{{Rel: "SKILL.md", Mode: 0o644}, {Rel: "listed.txt", Mode: 0o644}},
+	}
+	dst := filepath.Join(dir, "out", "alpha")
+
+	if err := sess.PropagateSkillAssets(s, dst, SkipSKILLMd, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dst, "listed.txt")); err != nil {
+		t.Errorf("listed asset not copied: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "added-later.txt")); err == nil {
+		t.Error("copied a file the load did not list: the folder was walked again")
+	}
+}

@@ -43,6 +43,7 @@ func extendEntry(base, over Entry) Entry {
 	}
 	if over.Kind == KindSkill && !skillShipsAssets(over.Path) {
 		out.AssetDir = base.SkillAssetDir()
+		out.AssetFiles, out.AssetsListed = base.AssetFiles, base.AssetsListed
 	}
 	return out
 }
