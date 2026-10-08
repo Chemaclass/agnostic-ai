@@ -8,4 +8,6 @@
 # the checkout path: main measured 18280608.
 # #1894 measured 18296992: doctor shares one loaded project with its
 # migration plans and lint.
-18305000
+# #1922 measured 18309280: doctor names Claude hook specs an older
+# import merged.
+18315000
