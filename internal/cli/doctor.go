@@ -204,7 +204,8 @@ func newDoctorInstallCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.Println("AI CLI installation check:")
 			found := 0
-			for target, bin := range knownCLIBinaries {
+			for _, target := range slices.Sorted(maps.Keys(knownCLIBinaries)) {
+				bin := knownCLIBinaries[target]
 				path, err := exec.LookPath(bin)
 				if err != nil {
 					cmd.Printf("  — %s (%s) not found\n", target, bin)
