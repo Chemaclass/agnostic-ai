@@ -182,7 +182,7 @@ func collectDriftWithGitignore(targets, entryPointTargets []string, gitignoreFla
 // collectLoadedDrift is collectDriftWithGitignore for a project the
 // caller already loaded. It leaves cfg unchanged.
 func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPointTargets []string, gitignoreFlag string) ([]driftReport, error) {
-	reports := make([]driftReport, 0, len(targets)+1)
+	reports := make([]driftReport, 0, len(targets))
 	view := *loaded
 	cfg := &view
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
