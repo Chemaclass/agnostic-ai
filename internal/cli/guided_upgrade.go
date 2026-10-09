@@ -67,7 +67,7 @@ func automaticUpgradeAllowed(cmd *cobra.Command, version string, interactive boo
 			return false
 		}
 	}
-	for _, name := range []string{"quiet", "json", "global", "watch", "check", "dry-run"} {
+	for _, name := range []string{"quiet", "json", "global", "watch", "check", "dry-run", "plan"} {
 		if f := cmd.Flags().Lookup(name); f != nil && f.Value.String() == "true" {
 			return false
 		}
