@@ -10,14 +10,22 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestGuidedUpgrade_RejectsExternalOrGlobalConfigAliases(t *testing.T) {
-	for _, name := range []string{"base config", "local config", "global config", "nested global config"} {
+	for _, name := range []string{"base config", "local config", "global config", "nested global config", "directory alias"} {
 		t.Run(name, func(t *testing.T) {
 			root := testutil.TempCwd(t)
 			outside := t.TempDir()
+			if name == "directory alias" {
+				aliasDir := filepath.Join(t.TempDir(), "external")
+				if err := os.Symlink(outside, aliasDir); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				outside = aliasDir
+			}
 			if name == "nested global config" {
 				outside = filepath.Join(root, "global")
 				if err := os.Mkdir(outside, 0700); err != nil {
@@ -56,7 +64,11 @@ func TestGuidedUpgrade_RejectsExternalOrGlobalConfigAliases(t *testing.T) {
 			if handled, err := runGuidedUpgrade(cmd, "0.81.0", deps); handled || err != nil {
 				t.Errorf("unsafe upgrade handled=%v error=%v", handled, err)
 			}
-			if !strings.Contains(notes.String(), target) || strings.Contains(notes.String(), "[Y/n]") {
+			resolvedTarget, err := config.ResolveSourceAlias(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(notes.String(), resolvedTarget) || strings.Contains(notes.String(), "[Y/n]") {
 				t.Errorf("unsafe offer: %s", notes.String())
 			}
 			if _, err := deps.project(); err == nil {
