@@ -158,7 +158,7 @@ func TestImporters_WriteOnlyThroughImportWriteFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") || f == "import_write.go" || f == "import_preview.go" || f == "import_local_guard.go" {
+		if strings.HasSuffix(f, "_test.go") || f == "import_write.go" || f == "import_preview.go" || f == "import_local_guard.go" || f == "import_tool_view.go" {
 			continue
 		}
 		data, err := os.ReadFile(f)

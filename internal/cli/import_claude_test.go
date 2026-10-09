@@ -1114,6 +1114,8 @@ func TestImportFromClaude_AliasedReadonlyOptoutSurvivesSyncImportSync(t *testing
 	if strings.Contains(before, "disallowedTools:") {
 		t.Fatalf("initial alias optout was not applied:\n%s", before)
 	}
+	before = strings.Replace(before, "Review code.", "Review code closely.", 1)
+	writeFile(t, ".claude/agents/reviewer.md", before)
 	execCLI(t, "import", "claude")
 	canonical := readFile(t, ".agnostic-ai/agents/reviewer.md")
 	if !strings.Contains(canonical, "x-claude: {readonly: false}") || strings.Contains(canonical, "*opts") {

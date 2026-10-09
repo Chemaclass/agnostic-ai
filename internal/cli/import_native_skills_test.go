@@ -62,8 +62,8 @@ func TestImportAntigravity_PrefersCurrentSkillsAndFallsBackToLegacy(t *testing.T
 }
 
 // A target that emits a subset of a skill's frontmatter must not delete
-// the rest of it on the way back: sync then import leaves the spec as it
-// found it, keys the target cannot express included.
+// the rest of it on the way back: an edit made in the tool comes back,
+// and the keys the target cannot express stay.
 func TestImport_SyncThenImportKeepsSpecFrontmatter(t *testing.T) {
 	const spec = "---\nname: gh-issues\ndescription: Walk the open issues.\nargument-hint: \"[--limit N]\"\nallowed-tools: \"Read, Bash(gh *)\"\n---\n\nWalk every open issue.\n"
 	for _, target := range []string{"cursor", "copilot", "opencode", "zed", "codex"} {
@@ -75,10 +75,17 @@ func TestImport_SyncThenImportKeepsSpecFrontmatter(t *testing.T) {
 			writeFile(t, ".agnostic-ai/skills/gh-issues/SKILL.md", spec)
 
 			execCLI(t, "sync")
+			if !editEmitted(t, dir, "Walk every open issue.", "Walk each open issue.") {
+				t.Fatal("no emitted file holds the skill body")
+			}
 			execCLI(t, "import", target)
 
-			if got := readFile(t, ".agnostic-ai/skills/gh-issues/SKILL.md"); got != spec {
-				t.Errorf("spec after sync and import:\ngot:\n%s\nwant:\n%s", got, spec)
+			got := readFile(t, ".agnostic-ai/skills/gh-issues/SKILL.md")
+			frontmatter, _, _ := strings.Cut(strings.TrimPrefix(spec, "---\n"), "---\n")
+			for _, want := range []string{"---\n" + frontmatter + "---\n", "Walk each open issue."} {
+				if !strings.Contains(got, want) {
+					t.Errorf("spec after sync, edit, and import lacks %q:\n%s", want, got)
+				}
 			}
 		})
 	}
@@ -97,6 +104,7 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 			writeFile(t, ".agnostic-ai/agents/reviewer.md", spec)
 
 			execCLI(t, "sync")
+			edited := editEmitted(t, dir, "Review what changed.", "Review every change.")
 			var before map[string]string
 			if target == "kiro" {
 				before = snapshotEmitted(t, dir)
@@ -108,7 +116,11 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 			if target == "kiro" {
 				toolsKey = "can:"
 			}
-			for _, key := range []string{toolsKey, "effort:"} {
+			wants := []string{toolsKey, "effort:"}
+			if edited {
+				wants = append(wants, "Review every change.")
+			}
+			for _, key := range wants {
 				if !strings.Contains(got, key) {
 					t.Errorf("%s dropped from the spec after sync and import:\n%s", key, got)
 				}
@@ -119,6 +131,20 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 			}
 		})
 	}
+}
+
+// editEmitted replaces old with new in every file sync wrote under dir,
+// and reports whether one held it.
+func editEmitted(t *testing.T, dir, old, new string) bool {
+	t.Helper()
+	edited := 0
+	for rel, content := range snapshotEmitted(t, dir) {
+		if strings.Contains(content, old) {
+			writeFile(t, filepath.Join(dir, filepath.FromSlash(rel)), strings.Replace(content, old, new, 1))
+			edited++
+		}
+	}
+	return edited > 0
 }
 
 func TestImportCodex_ImportsEditsWithoutGeneratedSkillHeader(t *testing.T) {

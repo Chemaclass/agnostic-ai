@@ -211,20 +211,26 @@ func alreadyRead(rec specFileSum, ok bool, before []byte, sources []string) bool
 
 // replacesSpec reports whether an import write stops the run: it replaces
 // an existing spec with different content, the spec is not
-// AGNOSTIC_AI.md, which import merges into, and its bytes were not
-// already in what the writing sources read. It sets e.heldBy to the
-// tools the current bytes came from or went to, for the stop message.
+// AGNOSTIC_AI.md, which import merges into, and either its bytes were
+// not already in what the writing sources read or the new bytes lose
+// what those tools never show (see keepHidden). A merge stops only for
+// the latter. It sets e.heldBy to the tools the current bytes came from
+// or went to, and e.drops to what the new bytes lose, for the message.
 func replacesSpec(e *importPreviewEntry, specDirs []string, sums map[string]specFileSum) bool {
 	key := specPathKey(e.path)
-	if !e.existed || !e.replaced || bytes.Equal(e.before, e.after) ||
+	if !e.existed || bytes.Equal(e.before, e.after) ||
 		key == agnosticMainFile || !inSpecDir(e.path, specDirs) {
+		return false
+	}
+	e.drops = importDrops[key]
+	if !e.replaced && len(e.drops) == 0 {
 		return false
 	}
 	rec, ok := sums[key]
 	if ok && rec.Sum == sha256Hex(e.before) {
 		e.heldBy = rec.By + ":" + strings.Join(rec.holders(), ", ")
 	}
-	return !alreadyRead(rec, ok, e.before, e.sources)
+	return len(e.drops) > 0 || !alreadyRead(rec, ok, e.before, e.sources)
 }
 
 // overwrites returns the existing specs the import replaces with
@@ -348,14 +354,19 @@ func printImportOverwrites(w io.Writer, entries []importPreviewEntry) {
 func importOverwriteError(entries []importPreviewEntry, remedy func(sources []string) string) error {
 	var b strings.Builder
 	var sources []string
+	drops := false
 	fmt.Fprintf(&b, "import would replace %d existing spec(s) with different content, so no spec was written:\n", len(entries))
 	for _, e := range entries {
-		fmt.Fprintf(&b, "  %s (from %s%s)\n", e.path, strings.Join(e.sources, ", "), heldByNote(e.heldBy))
+		fmt.Fprintf(&b, "  %s (from %s%s%s)\n", e.path, strings.Join(e.sources, ", "), heldByNote(e.heldBy), dropsNote(e))
+		drops = drops || len(e.drops) > 0
 		for _, s := range e.sources {
 			if !slices.Contains(sources, s) {
 				sources = append(sources, s)
 			}
 		}
+	}
+	if drops {
+		b.WriteString("to keep what other tools read, make the tool's edit in the spec by hand; ")
 	}
 	b.WriteString(remedy(sources))
 	return errs.Coded(errs.CodeImportWouldReplace, "%s", b.String())
@@ -372,6 +383,14 @@ func heldByNote(heldBy string) string {
 	default:
 		return "; now holds what sync wrote for " + tools
 	}
+}
+
+// dropsNote names what replacing the spec would lose.
+func dropsNote(e importPreviewEntry) string {
+	if len(e.drops) == 0 {
+		return ""
+	}
+	return "; would lose what " + strings.Join(e.sources, ", ") + " does not show: " + strings.Join(e.drops, ", ")
 }
 
 // importOverwriteRemedy names the two ways past an import that would
