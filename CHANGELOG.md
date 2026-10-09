@@ -23,7 +23,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 - Turning on `memory.personal: repo` no longer changes the committed `.gitignore` and `.worktreeinclude`, so teammates and CI stay in sync. With the `memory` built-in on, the block now always lists `.codex/config.toml`, `.cursor/cli.json`, `.cursor/.agnostic-ai-permissions.json`, and `.devin/config.json` for their tools; to commit one of them, add it to `gitignore.allow` (#1936).
 - The `shared-memory-policy` rule describes `memory.personal: repo` in one shorter sentence, so every session loads 155 fewer bytes (#1931).
-- A re-import with no edits leaves every spec as it is, for every source: `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote stay. A tool edit keeps frontmatter keys the tool never shows and comments on kept keys, and stops with AAI-203 when it would lose `::target` blocks (#1938, #1941).
+- Re-import keeps unedited specs, including linked sources and older overlays, and refuses edits that lose text for other tools (#1938, #1941).
 
 ### By tool
 
