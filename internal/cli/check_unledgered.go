@@ -65,23 +65,10 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 	loc := newOutputLocations(cfg, emitted)
 	history := &historyRenderer{sources: configuredSources(cfg)}
 	manifest := readOutputManifest()
-	var head map[string]string
 	headRendered := func(p string) bool {
-		if !missing {
-			return false
-		}
-		if head == nil {
-			if head = renderedAtHEAD(configuredSources(cfg)); head == nil {
-				head = map[string]string{}
-			}
-		}
-		content, ok := head[filepath.ToSlash(p)]
-		if !ok {
-			return false
-		}
-		data, err := os.ReadFile(p)
-		return err == nil && string(data) == content
+		return missing && history.provesAtHEAD(p)
 	}
+
 	for _, p := range candidates {
 		where := loc.holds(filepath.ToSlash(p))
 		if where == noLocation || !stranded(p) {
@@ -269,22 +256,22 @@ const maxHistoryRenders = 8
 // the specs at the last commit that changed it: a file that still holds
 // exactly what that commit rendered is generated, even after the spec
 // behind it was deleted in a later commit. Renders are cached per commit
-// and bounded by maxHistoryRenders.
+// and historical admissions are bounded by maxHistoryRenders.
 type historyRenderer struct {
 	sources  []string
 	toplevel string
 	prefix   string
 	ready    bool
+	head     string
 	renders  map[string]map[string]string
+	admitted map[string]bool
 }
 
-func (h *historyRenderer) proves(p string) bool {
-	if filepath.Ext(p) != ".json" {
-		return false
-	}
+func (h *historyRenderer) prepare() bool {
 	if !h.ready {
 		h.ready = true
 		h.renders = map[string]map[string]string{}
+		h.admitted = map[string]bool{}
 		top, err := gitOutput(".", nil, "rev-parse", "--show-toplevel")
 		if err != nil {
 			return false
@@ -293,23 +280,46 @@ func (h *historyRenderer) proves(p string) bool {
 		if err != nil {
 			return false
 		}
-		h.toplevel, h.prefix = strings.TrimSpace(top), strings.TrimSpace(prefix)
+		head, err := gitOutput(".", nil, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+		if err != nil {
+			return false
+		}
+		h.toplevel, h.prefix, h.head = strings.TrimSpace(top), strings.TrimSpace(prefix), strings.TrimSpace(head)
 	}
-	if h.toplevel == "" {
+	return h.toplevel != "" && h.head != ""
+}
+
+func (h *historyRenderer) provesAtHEAD(p string) bool {
+	return h.prepare() && renderedContentMatches(h.rendered(h.head), p)
+}
+
+func (h *historyRenderer) proves(p string) bool {
+	if filepath.Ext(p) != ".json" || !h.prepare() {
 		return false
 	}
-	commit, ok := runGit(".", "log", "-1", "--format=%H", "--", p)
+	commit, ok := runGit(".", "log", "-1", "--format=%H", h.head, "--", p)
 	if commit = strings.TrimSpace(commit); !ok || commit == "" {
 		return false
 	}
-	rendered, seen := h.renders[commit]
-	if !seen {
-		if len(h.renders) >= maxHistoryRenders {
+	if !h.admitted[commit] {
+		if len(h.admitted) >= maxHistoryRenders {
 			return false
 		}
+		h.admitted[commit] = true
+	}
+	return renderedContentMatches(h.rendered(commit), p)
+}
+
+func (h *historyRenderer) rendered(commit string) map[string]string {
+	rendered, seen := h.renders[commit]
+	if !seen {
 		rendered = h.render(commit)
 		h.renders[commit] = rendered
 	}
+	return rendered
+}
+
+func renderedContentMatches(rendered map[string]string, p string) bool {
 	content, ok := rendered[filepath.ToSlash(p)]
 	if !ok {
 		return false
