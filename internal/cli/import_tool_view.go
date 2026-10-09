@@ -21,6 +21,9 @@ import (
 type importViewGuard struct {
 	source string
 	files  map[string]*importViewFile
+	// restoreErrs holds each failure to put the run's bytes back after a
+	// render read the old ones, which leaves the old bytes on disk.
+	restoreErrs []error
 }
 
 type importViewFile struct {
@@ -74,11 +77,17 @@ func withImportViewGuard(root string, fn func() error) error {
 	guard := &importViewGuard{files: map[string]*importViewFile{}}
 	importView = guard
 	importDrops = map[string][]string{}
-	runErr := fn()
-	importView = prior
-	return errors.Join(runErr, guard.keepUnchanged(root))
+	runErr := func() error {
+		defer func() { importView = prior }()
+		return fn()
+	}()
+	err := guard.keepUnchanged(root)
+	return errors.Join(runErr, err, errors.Join(guard.restoreErrs...))
 }
 
+// keepUnchanged puts back the specs the tools show unchanged. Specs that
+// do not load, before or after the run, keep what the run wrote, and
+// replacesSpec decides on them as it did before this guard.
 func (g *importViewGuard) keepUnchanged(root string) error {
 	paths := g.rewrittenSpecs(root)
 	if len(paths) == 0 {
@@ -89,12 +98,12 @@ func (g *importViewGuard) keepUnchanged(root string) error {
 		return nil
 	}
 	var before spec.Bundle
+	var loadErr error
 	if err := g.withBefore(paths, func() error {
-		var loadErr error
 		_, before, loadErr = loadProject(root)
-		return loadErr
-	}); err != nil {
 		return nil
+	}); err != nil || loadErr != nil {
+		return err
 	}
 	adapters.SetWarner(io.Discard)
 	defer func() {
@@ -118,7 +127,7 @@ func (g *importViewGuard) keepUnchanged(root string) error {
 				return err
 			}
 			if len(lost) > 0 {
-				importDrops[specPathKey(path)] = lost
+				importDrops[specPathKey(importOriginalSourcePath(path))] = lost
 			}
 		case !newOK && !oldOK && !inSkillFolder(after, path):
 			others = append(others, path)
@@ -126,15 +135,41 @@ func (g *importViewGuard) keepUnchanged(root string) error {
 	}
 	keep = append(keep, r.othersShowSame(others)...)
 	for _, path := range keep {
-		info, err := os.Stat(path)
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		if err := importWriteFile(path, g.files[path].before, info.Mode().Perm()); err != nil {
+		if err := g.rewrite(path, g.files[path].before); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// rewrite writes data to path as a merge by each source that wrote it in
+// the run, so the import records and the stop check name only those
+// sources and a merge stays one.
+func (g *importViewGuard) rewrite(path string, data []byte) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return withImportMerge(func() error {
+		for _, s := range g.files[path].sources {
+			if err := writeImportAs(s, path, data, info.Mode().Perm()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// writeImportAs writes through importWriteFile with source recorded as
+// the writer.
+func writeImportAs(source, path string, data []byte, mode os.FileMode) error {
+	if importRecording == nil {
+		return importWriteFile(path, data, mode)
+	}
+	order := importRecording.order
+	importRecording.order = append(slices.Clone(order), source)
+	defer func() { importRecording.order = order }()
+	return importWriteFile(path, data, mode)
 }
 
 // rewrittenSpecs lists the files in a spec directory, other than
@@ -194,7 +229,10 @@ func (g *importViewGuard) withBefore(paths []string, fn func() error) error {
 		errs = append(errs, fn())
 	}
 	for path, data := range now {
-		errs = append(errs, writeKeepingMode(path, data))
+		if err := writeKeepingMode(path, data); err != nil {
+			g.restoreErrs = append(g.restoreErrs, err)
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -414,11 +452,7 @@ func (r *importViewRenderer) keepHidden(path string, f *importViewFile, old spec
 		}
 		merged, err := mergeSpecFrontmatter(f.before, now, specFields{all: true, omitted: omitted})
 		if err == nil && !slices.ContainsFunc(hidden, func(k string) bool { return !slices.Contains(topLevelKeys(yamlPart(path, merged)), k) }) {
-			info, err := os.Stat(path)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", path, err)
-			}
-			if err := importWriteFile(path, merged, info.Mode().Perm()); err != nil {
+			if err := r.guard.rewrite(path, merged); err != nil {
 				return nil, err
 			}
 			now, hidden = merged, nil

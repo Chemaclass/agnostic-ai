@@ -79,6 +79,20 @@ func TestImport_LeavesASpecTheToolShowsUnchanged(t *testing.T) {
 	}
 }
 
+func TestImport_LeavesASpecEveryToolShowsUnchangedInOneRun(t *testing.T) {
+	syncedSharedSkillProject(t)
+
+	for range 2 {
+		if out, err := runCLI(t, "import", "claude", "codex", "cursor"); err != nil {
+			t.Fatalf("import claude codex cursor: %v\n%s", err, out)
+		}
+	}
+
+	if got := readFile(t, ".agnostic-ai/skills/demo/SKILL.md"); got != sharedSkill {
+		t.Errorf("import rewrote the skill:\n%s", got)
+	}
+}
+
 func TestImport_StopsWhenAToolEditWouldDropWhatOtherToolsNeed(t *testing.T) {
 	for _, source := range []string{"claude", "codex", "cursor"} {
 		t.Run(source, func(t *testing.T) {
