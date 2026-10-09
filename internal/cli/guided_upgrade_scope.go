@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func validateGuidedProjectConfigs(root string) error {
@@ -56,7 +57,7 @@ func validateGuidedProjectConfigs(root string) error {
 			return err
 		}
 	}
-	return nil
+	return validateGuidedGlobalEntries(root, resolvedRoot)
 }
 
 func guidedProjectPath(resolvedRoot, path string) (string, error) {
@@ -79,4 +80,82 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 		return "", fmt.Errorf("%s points to %s outside this project; update it separately", path, target)
 	}
 	return target, nil
+}
+
+func validateGuidedGlobalEntries(root, resolvedRoot string) error {
+	source, err := globalSourceRoot()
+	if err != nil {
+		return fmt.Errorf("resolve global source root: %w", err)
+	}
+	home, err := config.ResolveSourceAlias(source)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("resolve global source %s: %w", source, err)
+	}
+	home, err = filepath.Abs(home)
+	if err != nil {
+		return fmt.Errorf("resolve global source root: %w", err)
+	}
+	nested, err := guidedPhysicalPathInside(resolvedRoot, home)
+	if err != nil {
+		return err
+	}
+	if !nested {
+		return nil
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		return err
+	}
+	layers := []spec.Layer{resolveProjectLayer(root, cfg)}
+	if local, present := resolveProjectUserLayer(root); present {
+		layers = append(layers, local)
+	}
+	for _, layer := range layers {
+		bundle, err := spec.LoadLayered([]spec.Layer{layer})
+		if err != nil {
+			return err
+		}
+		for _, entry := range bundle.All() {
+			target, err := config.ResolveSourceAlias(entry.Path)
+			if err != nil {
+				return fmt.Errorf("resolve %s: %w", entry.Path, err)
+			}
+			target, err = filepath.Abs(target)
+			if err != nil {
+				return fmt.Errorf("resolve %s: %w", entry.Path, err)
+			}
+			global, err := guidedPhysicalPathInside(home, target)
+			if err != nil {
+				return err
+			}
+			if global {
+				return fmt.Errorf("%s points to global specs %s; upgrade global specs separately", entry.Path, target)
+			}
+		}
+	}
+	return nil
+}
+
+func guidedPhysicalPathInside(root, path string) (bool, error) {
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", root, err)
+	}
+	for {
+		info, err := os.Stat(path)
+		if err != nil {
+			return false, fmt.Errorf("%s: %w", path, err)
+		}
+		if os.SameFile(rootInfo, info) {
+			return true, nil
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return false, nil
+		}
+		path = parent
+	}
 }
