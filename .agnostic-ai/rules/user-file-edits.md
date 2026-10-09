@@ -11,6 +11,6 @@ targets: [claude, cursor]
 
 - Edit text in place. Never re-encode a user file: formatting, comments, and every key sync does not own stay byte for byte.
 - Prove add-then-remove restores the original bytes, for a file that existed and for one sync created.
-- Own the smallest unit: a key, a server, a hook entry. Record it in `state/global.json`, and adopt a hand-written value that means the same.
-- Keep a private file private, and stop if the file changed after sync read it.
+- Claim ownership of the smallest piece only: a key, a server, or a hook entry. Record it in `state/global.json`. If the user already wrote a value that means the same, take it over.
+- Keep a private file private. Stop if the file changed after sync read it.
 - Get a reviewer pass before merging, even for a small change. Every review of this code so far found a real bug.

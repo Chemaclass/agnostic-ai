@@ -15,9 +15,9 @@ Process every open GitHub issue that is **unassigned** or **assigned to the curr
 
 ## Args
 
-- `--limit N` — process at most N issues this run (default: all).
-- `--label foo` — only issues carrying label `foo`.
-- `--dry-run` — list issues that would be processed; do not invoke `agnostic-ai-gh-issue`.
+- `--limit N`: process at most N issues this run (default: all).
+- `--label foo`: only issues carrying label `foo`.
+- `--dry-run`: list issues that would be processed; do not invoke `agnostic-ai-gh-issue`.
 
 ## Phase 1: Discover
 
@@ -43,10 +43,10 @@ Merge:
 - If either query returns 200 rows, repeat it with a larger `--limit` until the result count falls below that limit.
 - Deduplicate by `number`.
 - Keep only issues whose `assignees` array is empty **or** contains the current user (`gh api user -q .login`).
-- Drop issues assigned to anyone else (defensive).
+- Drop issues assigned to anyone else (a safety check).
 - Apply `--label` filter if given.
 - Apply `--limit` if given.
-- Sort ascending by `createdAt` (FIFO).
+- Sort ascending by `createdAt` (oldest first).
 
 Print the queue: `#<num> <title> [assignee]` per line, where `[assignee]` is `unassigned` or `@me`. If empty, exit cleanly.
 

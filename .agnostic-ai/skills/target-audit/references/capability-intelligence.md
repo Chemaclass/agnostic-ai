@@ -71,7 +71,7 @@ hatch proves an immediate target-specific route, not a portable abstraction.
 ## Dispositions
 
 - `adapter-gap`: the current generic model represents the semantics, but an
-  adapter does not emit or import the target's native surface. This can also
+  adapter does not emit or import the target's native config feature. This can also
   be a normal confirmed drift finding when it meets that stricter contract.
 - `spec-candidate`: at least two targets independently document a shared
   project-scoped user intent, the current generic model cannot preserve it,
@@ -98,10 +98,10 @@ in this order:
 
 1. Current emitted or imported configuration no longer works.
 2. Permissions, code execution, data access, or another safety boundary
-   changed for a surface agnostic-ai emits.
+   changed for a config feature agnostic-ai emits.
 3. Independently verified targets now share an unmodeled project intent that
    could remove a material workflow gap.
-4. A documented native surface removes a workaround or lossy representation
+4. A documented native feature removes a workaround or lossy representation
    users need today.
 
 For each item, state the affected targets, user impact, meaningful semantic

@@ -10,7 +10,7 @@ Start the title with `agnostic-ai vX.Y.Z:` and name the main user-visible
 outcome. Use concrete nouns, commands, or workflows. A maintenance release
 should say what it fixes; do not inflate it into a new feature.
 
-The dek is one or two sentences and at most 220 characters. Name the main
+The dek (the short summary under the title) is one or two sentences and at most 220 characters. Name the main
 new capabilities and their value. Keep migration details in the upgrade steps.
 
 | Layer | Purpose |

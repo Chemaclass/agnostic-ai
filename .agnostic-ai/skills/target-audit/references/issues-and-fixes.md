@@ -21,7 +21,7 @@ For multi-target findings, include one checkbox per target with its native path 
 Include applicable checklist items, marking exclusions with a reason:
 
 - Adapter emission, `caps.Supports`, and package doc comment.
-- Import side when the affected surface is read back.
+- Import side when the affected config is read back.
 - `docs/site/data/capabilities.toml`, the target page, and cross-target notes in `docs/site/content/docs/target-behavior.md`.
 - Configuration/spec docs and schema when their public contract changes; README for visible behavior.
 - `CHANGELOG.md` under Unreleased.

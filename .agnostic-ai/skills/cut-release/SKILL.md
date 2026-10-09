@@ -84,7 +84,7 @@ The user asks to release, tag, ship, or cut a new version.
 
 ## Conventions
 
-- Release notes pipeline reads the latest dated section from `CHANGELOG.md`. Never skip step 4.
+- The release notes tooling reads the latest dated section from `CHANGELOG.md`. Never skip step 4.
 - A release briefing is release material, not a follow-up docs change. It must
   be created after the changelog is finalized and included in the tagged
   release commit.

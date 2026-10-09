@@ -5,7 +5,7 @@ globs: "**/*"
 alwaysApply: true
 ---
 
-When a change is visible to the user, update the matching artifacts in the same PR so they never drift:
+When a change is visible to the user, update the matching docs and files in the same PR so they stay in step:
 
 - New or changed flag, target, or output field: update the target's page at `docs/site/content/docs/targets/<target>.md` (and `target-behavior.md` for cross-target notes) and `docs/site/content/docs/configuration.md`.
 - New or changed spec field: update the matching page under `docs/site/content/docs/spec-format/`.
