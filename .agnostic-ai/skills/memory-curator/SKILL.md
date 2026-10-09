@@ -24,12 +24,12 @@ Qoder CLI reads the first 200 lines or about 25KB of each active `MEMORY.md`. Ev
 
 ## Steps
 
-1. Resolve the store first. Open it through the tool's own `/memory` command rather than a hard-coded path, and confirm `MEMORY.md` exists there. If auto memory is turned off, say so and stop: there is nothing to curate until it is enabled.
+1. Find the store first. Open it through the tool's own `/memory` command rather than a hard-coded path, and confirm `MEMORY.md` exists there. If auto memory is turned off, say so and stop: there is nothing to curate until it is enabled.
 2. Read `MEMORY.md` and list the topic files beside it.
-3. Measure the index in lines and bytes against the load limit above, and report the headroom left.
+3. Measure the index in lines and bytes against the load limit above, and report the space left.
 4. Group entries that state the same fact in different words. Those are merge candidates.
 5. Flag stale entries: a decision later work reversed, a date that has passed, a path or command the repository no longer has, a preference the user has since contradicted. Check each claim against the repository before calling it stale.
-6. Flag entries that belong somewhere else: anything derivable from the code, and anything the instructions files already say. The session already carries those.
+6. Flag entries that belong somewhere else: anything you can work out from the code, and anything the instructions files already say. The session already carries those.
 7. Report one table: file, entry, verdict (keep, merge, delete, move), and one line of evidence.
 8. Propose the edits. Show the replacement line for a merge, and name the file and entry for a deletion.
 9. Stop there. Apply nothing until the user confirms which proposals to take.

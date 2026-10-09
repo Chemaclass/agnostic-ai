@@ -257,6 +257,31 @@ You review code.
 	}
 }
 
+func TestExplain_LeavesNoCoverageNotesBuffered(t *testing.T) {
+	dir := setupExplainFixture(t)
+	mustWriteFile(t, filepath.Join(dir, "skills", "deploy", "SKILL.md"), `---
+name: deploy
+description: Deploys the app.
+argument-hint: "[env]"
+disable-model-invocation: true
+---
+Deploy.
+`)
+	testutil.Chdir(t, dir)
+	silence(t)
+	adapters.DrainNotes()
+
+	root := NewRootCmd("test")
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"explain", "skills/deploy/SKILL.md"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if notes := adapters.DrainNotes(); notes != nil {
+		t.Errorf("explain buffered %d notes it never reports: %+v", len(notes), notes)
+	}
+}
+
 // A rule inlined into an entry-point file (codex AGENTS.md, gemini
 // GEMINI.md, ...) must be credited even though no adapter's Emit writes
 // that file: sync's entry-point distribution does.

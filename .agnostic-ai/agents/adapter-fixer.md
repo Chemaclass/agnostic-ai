@@ -49,8 +49,8 @@ vendor accepts.
    `feat/target-audit-native-surfaces` for a batched additive PR,
    `docs/target-audit-<date>` for the docs-only bucket.
 3. Write the failing test first. For a path change that is the target's
-   golden test under `internal/adapters/<target>/testdata/`; for a new
-   surface it is `capability_parity_test.go`, which fails as soon as you
+   golden test under `internal/adapters/<target>/testdata/`; for a
+   new-surface finding it is `capability_parity_test.go`, which fails as soon as you
    add the kind to `caps.Supports` and before you emit anything for it.
 4. Fix the adapter. Every finding touches some subset of:
    - `internal/adapters/<target>/`: emission plus `caps.Supports`
@@ -81,7 +81,7 @@ the `file:line` it contradicted) and closes the issue with `Closes #N`.
 9. Stop. Report the PR URL and what you changed. Do not merge, do not
    enable auto-merge, do not touch another bucket.
 
-## Conventions that bite
+## Conventions easy to get wrong
 
 - Conventional Commits, `ref:` not `refactor:` in this repo. Never
   mention AI assistance in a commit message.

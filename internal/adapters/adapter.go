@@ -224,6 +224,10 @@ const (
 // ones until the returned func runs (re-exported from the emit layer).
 func SetAsideNotes() (restore func()) { return emit.SetAsideNotes() }
 
+// SkipNotes stops recording coverage notes until the returned func runs
+// (re-exported from the emit layer).
+func SkipNotes() (restore func()) { return emit.SkipNotes() }
+
 // DrainNotes returns and clears every buffered capability warning and
 // coverage note, for callers that attribute them to one spec.
 func DrainNotes() []Note { return emit.DrainNotes() }

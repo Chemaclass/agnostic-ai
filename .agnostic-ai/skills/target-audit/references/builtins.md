@@ -10,7 +10,7 @@ Run `scripts/target-facts.sh --builtins` once and save its compact source invent
 
 - Registration and specs: `internal/builtins/builtins.go` and `internal/builtins/data/<built-in>/`. Read selectors, exclusions and `x-<target>` overrides. Confirm selection through `internal/spec/spec.go`, the adapter and emitted output; never copy a target table into the audit instructions.
 - Docs: the matching pages under `docs/site/content/docs/`. The current handoff built-ins share `handoff.md` and `configuration.md`; the memory built-in has `memory.md`.
-- Behavior: `internal/builtins/builtins_test.go`, `internal/cli/builtins_test.go`, `tests/integration/builtins_test.go` `tests/integration/builtin_handoff_hooks_test.go` and `tests/integration/builtin_memory_test.go`, with their fixtures under `tests/integration/fixtures/builtin-*`.
+- Behavior: `internal/builtins/builtins_test.go`, `internal/cli/builtins_test.go`, `tests/integration/builtins_test.go`, `tests/integration/builtin_handoff_hooks_test.go` and `tests/integration/builtin_memory_test.go`, with their fixtures under `tests/integration/fixtures/builtin-*`.
 
 ## Coverage since the last audit
 

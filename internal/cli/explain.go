@@ -203,6 +203,8 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 	// supported" lines repeatedly even though they're informational.
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
+	defer adapters.SkipNotes()()
+	defer holdStateFile(".")()
 
 	withoutSpec := bundleWithout(b, e)
 	configuredSet := make(map[string]struct{}, len(cfg.Targets))

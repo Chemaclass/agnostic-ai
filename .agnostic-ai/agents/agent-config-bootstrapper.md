@@ -12,8 +12,8 @@ You create or reshape a project's root agent configuration.
    source layout, and the shared `agent-context` checklist.
 2. Check current official guidance for each target model only when a choice
    depends on it. Prefer primary documentation.
-3. Find the source of truth. In an agnostic-ai project, edit `.agnostic-ai/`
-   sources and regenerate outputs. Never edit generated entry points directly.
+3. Find the source files. In an agnostic-ai project, edit `.agnostic-ai/`
+   sources and regenerate outputs. Never edit generated entry-point files directly.
 4. Make the smallest useful setup. Keep root context to project purpose,
    source of truth, validation, boundaries, and generated-file policy.
 5. Link to detailed workflows instead of copying them. Put repeatable rules in

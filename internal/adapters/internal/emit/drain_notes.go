@@ -2,6 +2,7 @@ package emit
 
 import (
 	"io"
+	"sync/atomic"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -112,4 +113,16 @@ func SetAsideNotes() (restore func()) {
 
 		Warner = warner
 	}
+}
+
+var notesSkipped atomic.Bool
+
+// SkipNotes makes the coverage notes, and the skill field checks that
+// raise them, no-ops until the returned func runs, for a caller that
+// renders outputs and never reads the notes. Rendering a skill twice to
+// find dropped fields is a large share of a capture. The record of
+// entries a target left out still updates.
+func SkipNotes() (restore func()) {
+	prev := notesSkipped.Swap(true)
+	return func() { notesSkipped.Store(prev) }
 }

@@ -11,7 +11,7 @@ disable-model-invocation: false
 
 ## Context
 
-Read both the issue body **and every comment** as requirements input. Maintainer follow-ups frequently add scope, edge cases, or override the original description; when a later comment conflicts with the body, prefer the comment.
+Read both the issue body **and every comment** as requirements input. Maintainer follow-ups often add scope or edge cases, or override the original description; when a later comment conflicts with the body, prefer the comment.
 
 ::target claude
 !`gh issue view ${ARGUMENTS#\#} --json number,url,title,body,labels,assignees,state,comments 2>/dev/null || echo "Provide an issue number"`
@@ -77,7 +77,7 @@ Read the issue first: `gh issue view <number> --json number,url,title,body,label
 
 7. **Run the gate**: the pre-push checks in `.agnostic-ai/skills/pr-sweep/SKILL.md` step 5 (`make ci-local` and the rest), each checked by its own exit code, never through `| grep | head`. Fix every failure before continuing.
 
-8. **Regenerate derived artifacts when touched**:
+8. **Regenerate generated files when touched**:
    - Edited `internal/config/config.go` struct tags → `go run ./cmd/schemagen` (see `.agnostic-ai/skills/regen-schema/SKILL.md`).
    - Edited specs under `.agnostic-ai/` or any adapter → `go run ./cmd/agnostic-ai sync` then `go run ./cmd/agnostic-ai sync --check` (see `.agnostic-ai/skills/run-sync-check/SKILL.md`).
    - Changed what a target writes → `.agnostic-ai/rules/capability-fixtures.md`.
@@ -87,7 +87,7 @@ Read the issue first: `gh issue view <number> --json number,url,title,body,label
 
 9. **Docs and changelog** for user-visible changes, per `.agnostic-ai/rules/docs-sync.md` and `.agnostic-ai/agents/changelog-curator.md`.
 
-10. **Review the final diff** for duplication, dead code, debug output, and naming drift. **Commit** per `.agnostic-ai/rules/conventional-commits.md`, GPG-signed, with `Related to #<issue-number>` in the body.
+10. **Review the final diff** for duplication, dead code, debug output, and names that no longer match. **Commit** per `.agnostic-ai/rules/conventional-commits.md`, GPG-signed, with `Related to #<issue-number>` in the body.
 
 11. **Push and open the PR**. Write the body to a file (a short summary, decisions worth challenging, checks run, `Closes #<issue-number>`) and set `body_file` to its path.
     ```bash

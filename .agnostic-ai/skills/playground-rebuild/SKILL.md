@@ -13,7 +13,7 @@ The hosted playground at https://agnostic-ai.org/playground/ runs the same code 
 make playground-build
 ```
 
-Writes `docs/playground/agnostic-ai.wasm` and copies the Go-toolchain `wasm_exec.js` shim. Both are gitignored; CI regenerates them on push to `main`.
+Writes `docs/playground/agnostic-ai.wasm` and copies `wasm_exec.js`, the helper script from the Go toolchain. Both are gitignored; CI regenerates them on push to `main`.
 
 ## Serve locally
 
@@ -21,7 +21,7 @@ Writes `docs/playground/agnostic-ai.wasm` and copies the Go-toolchain `wasm_exec
 make playground-serve
 ```
 
-Builds the Zola site and WebAssembly bundle, assembles the same tree published by GitHub Pages, then serves `_site/` with `python3 -m http.server 8080`. Open http://127.0.0.1:8080/playground/.
+Builds the Zola site and WebAssembly bundle, assembles the same files that GitHub Pages publishes, then serves `_site/` with `python3 -m http.server 8080`. Open http://127.0.0.1:8080/playground/.
 
 `file://` does not work because browsers refuse `WebAssembly.instantiateStreaming` on local files.
 
