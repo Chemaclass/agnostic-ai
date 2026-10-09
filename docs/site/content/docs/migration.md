@@ -21,7 +21,7 @@ agnostic-ai init --from claude   # or --from all to detect every tool
 
 Already using agnostic-ai? Run `agnostic-ai import claude` instead.
 
-Import writes specs only. It does not sync or change your targets. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges frontmatter and multiple sources.
+Import writes specs only. It does not sync or change your targets. Re-running it with no edits leaves every spec as it is. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool and holds nothing the tool's file cannot carry, such as `::target` blocks for other tools. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges frontmatter and multiple sources.
 
 After you import from several tools, replacing a spec that a later tool overwrote needs `--overwrite`. A sync that skips edited or unmanaged files does not count as approval.
 

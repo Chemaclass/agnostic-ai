@@ -40,6 +40,9 @@ type importPreviewEntry struct {
 	// heldBy names, as "<sync|import>:<tools>", where the current bytes
 	// came from, when a record still matches them.
 	heldBy string
+	// drops names what the new bytes lose that the writing tools'
+	// files cannot carry.
+	drops []string
 }
 
 // importPreview is the plan an `import --dry-run --diff` run reports.

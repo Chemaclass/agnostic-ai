@@ -101,11 +101,7 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 			execCLI(t, "import", target)
 
 			got := readFile(t, ".agnostic-ai/agents/reviewer.md")
-			toolsKey := "tools:"
-			if target == "kiro" {
-				toolsKey = "can:"
-			}
-			for _, key := range []string{toolsKey, "effort:"} {
+			for _, key := range []string{"tools:", "effort:"} {
 				if !strings.Contains(got, key) {
 					t.Errorf("%s dropped from the spec after sync and import:\n%s", key, got)
 				}
