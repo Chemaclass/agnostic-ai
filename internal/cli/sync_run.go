@@ -138,10 +138,16 @@ func readStateFile(projectRoot string) syncStateFile {
 	return s
 }
 
-// heldState is the state file copy holdStateFile serves, or nil.
+// A nil frame state masks outer snapshots while history changes directories.
+type priorStateFrame struct {
+	state    *syncStateFile
+	previous *priorStateFrame
+	released bool
+}
+
 var heldState struct {
 	sync.Mutex
-	state *syncStateFile
+	frame *priorStateFrame
 }
 
 // holdStateFile reads the state file under root once and serves the
@@ -166,12 +172,32 @@ func holdPriorState(root string, prev syncStateFile) (release func()) {
 }
 
 func holdState(s syncStateFile) (release func()) {
+	return holdStateFrame(&s, false)
+}
+
+func holdCaptureState(s syncStateFile) (release func()) {
+	return holdStateFrame(&s, true)
+}
+
+func isolatePriorState() (release func()) {
+	return holdStateFrame(nil, false)
+}
+
+func holdStateFrame(state *syncStateFile, borrow bool) (release func()) {
 	heldState.Lock()
-	heldState.state = &s
+	if borrow && heldState.frame != nil && heldState.frame.state != nil {
+		heldState.Unlock()
+		return func() {}
+	}
+	frame := &priorStateFrame{state: state, previous: heldState.frame}
+	heldState.frame = frame
 	heldState.Unlock()
 	return func() {
 		heldState.Lock()
-		heldState.state = nil
+		frame.released = true
+		for heldState.frame != nil && heldState.frame.released {
+			heldState.frame = heldState.frame.previous
+		}
 		heldState.Unlock()
 	}
 }
@@ -180,7 +206,10 @@ func holdState(s syncStateFile) (release func()) {
 // Callers must not modify the result.
 func priorStateFile() syncStateFile {
 	heldState.Lock()
-	held := heldState.state
+	var held *syncStateFile
+	if heldState.frame != nil {
+		held = heldState.frame.state
+	}
 	heldState.Unlock()
 	if held != nil {
 		return *held

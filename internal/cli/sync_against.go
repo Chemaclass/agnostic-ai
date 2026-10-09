@@ -539,7 +539,13 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = os.Chdir(origin) }()
+	var releaseIsolation func()
+	defer func() {
+		_ = os.Chdir(origin)
+		if releaseIsolation != nil {
+			releaseIsolation()
+		}
+	}()
 	if err := os.Mkdir(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -581,6 +587,7 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 		return nil, err
 	}
 	project := filepath.Join(dir, filepath.FromSlash(prefix))
+	releaseIsolation = isolatePriorState()
 	if err := os.Chdir(project); err != nil {
 		return map[string]string{}, nil
 	}
