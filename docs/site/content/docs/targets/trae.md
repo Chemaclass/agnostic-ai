@@ -25,7 +25,7 @@ AGENTS.md                     # pointer body, plus the rules block when another 
 .trae/mcp.json                # MCP server registry
 ```
 
-Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Settings > Rules). So every rule keeps its `.trae/rules/` file. With that switch on and codex or another tool that inlines rules enabled, always-on rules load twice. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Settings > Rules & Memories). So every rule keeps its `.trae/rules/` file. With that switch on and codex or another tool that inlines rules enabled, always-on rules load twice. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 - **Rules**: sync always writes `description`, `globs`, and `alwaysApply` (Cursor's `.mdc` fields for when a rule applies), because Trae documents no default for a file without them.
   - `alwaysApply` is `true`, or `false` when the spec sets `globs` other than a catch-all such as `**/*`. A `true` rule omits `globs`.

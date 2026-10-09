@@ -157,7 +157,7 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 //     ranks it above `.augment/rules/`.
 //
 // trae is absent: it reads AGENTS.md only after "Include AGENTS.md in
-// the context" is switched on under Settings > Rules. windsurf is
+// the context" is switched on under Settings > Rules & Memories. windsurf is
 // absent: Devin caps a workspace rule at 12,000 characters and runs a
 // root AGENTS.md through the same rules engine, and its docs do not
 // exempt AGENTS.md, so one file with every rule could be cut short.

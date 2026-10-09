@@ -40,7 +40,7 @@ Augment (`.augment/rules/`) and Kilo Code (`.kilo/rules/`) have a rules director
 So a rule doesn't load twice, `sync` skips a rule file when its text matches the `## Rules` block of an `AGENTS.md` the tool reads. It keeps path-triggered rules and rules whose text differs for that tool (a `::target` fence or a path variable). This applies to Cline, Kiro, Qoder, Kilo Code, and Augment whenever the root `AGENTS.md` has the block: when codex or another inlining tool is enabled, and always for Kilo Code and Augment.
 
 {% <details summary="When sync keeps every rule file"> %}
-- Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules.
+- Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules & Memories.
 - Windsurf (Devin) keeps rule files for legacy Cascade, which [caps](https://docs.devin.ai/desktop/cascade/memories#rules) each file at 12,000 characters.
 - A tool whose `outputs.<target>.file` moves its entry point off the root `AGENTS.md`.
 - Any tool, when `AGENTS.md` is under `sync.unmanaged`. Sync stops writing `AGENTS.md` for codex and every other reader too.
