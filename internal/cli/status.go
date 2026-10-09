@@ -122,6 +122,8 @@ func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (dri
 			}
 		}
 	}()
+	release := holdCaptureState(readStateFile("."))
+	defer release()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
