@@ -1,67 +1,51 @@
 # Changelog
 
-Each release lists general changes first, then changes by tool, then site work. Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-Entry style, section order, and what belongs here instead of the issue or the docs: `.agnostic-ai/agents/changelog-curator.md`.
+Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### General
 
-- Interactive commands offer daily guided upgrades with release notes, project migrations, and sync checks (#1945).
-
-- Without a sync record, `status` and `doctor` render each commit once when checking native files (#1940).
-
-- Memory docs explain which Cursor sessions load indexes at startup and how hosted cloud agents read project memory.
-- Builds use Go 1.27.2, which fixes an HTTP/2 crash in the standard library (GO-2026-6617).
-- `compare` runs in under a second on large projects, down from 47 s at 500 specs (#1891).
-- `lint` runs in a quarter second at 500 specs, down from 4 s; `doctor` drops from 11 s to 5 s (#1893).
-- `graph` runs in about 2 s at 500 specs, down from 40 s, and `graph --target` only renders that target (#1892).
-- `sync` asks git once, not once per 500 outputs, which files it tracks but ignores: at 500 specs `sync` takes half the time (#1897).
-- `sync`, `sync --check`, and `status` read each skill folder once per run, not once per tool: `status` is about 15% faster at 500 specs (#1896).
-- `explain` on a spec runs in about 0.3 s at 500 specs, down from 2 s (#1899).
-- `doctor` loads the project once for its checks, drift, and migration plans, and scans for unmanaged config while other checks run: it drops from 11 s to about 3 s at 500 specs (#1894).
-- Release binaries no longer embed the build machine's source paths (#1902).
-- A `sync` with nothing to change is about 30% faster at 500 specs: it reads each output once and skips repeated folder, state, and skill-folder reads (#1895).
-- `doctor` lists the installed AI CLIs in name order, so two runs print the same output (#1903).
-- `memory lint`, `lint`, and `doctor` warn (LINT039) when the two memory indexes pass 6,000 bytes. With Codex, Copilot, Cursor, Gemini CLI, Qoder, or Factory enabled, the finding names the facts their session-start hook never loads; otherwise it names the tools that load the whole indexes every session (#1930).
-- A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
-- Turning on `memory.personal: repo` no longer changes the committed `.gitignore` and `.worktreeinclude`, so teammates and CI stay in sync. With the `memory` built-in on, the block now always lists `.codex/config.toml`, `.cursor/cli.json`, `.cursor/.agnostic-ai-permissions.json`, and `.devin/config.json` for their tools; to commit one of them, add it to `gitignore.allow` (#1936).
-- The `shared-memory-policy` rule describes `memory.personal: repo` in one shorter sentence, so every session loads 155 fewer bytes (#1931).
-- Re-import keeps unedited specs, including linked sources and older overlays, and refuses edits that lose text for other tools (#1938, #1941).
+- Interactive commands offer upgrades with release notes, project migrations, and sync checks (#1952).
+- Sync keeps reordered JSON and global hooks; re-import keeps unchanged specs and refuses text loss across tools (#1889, #1923, #1943).
+- Changing `memory.personal` keeps shared ignore files stable; memory instructions shrink and size warnings name affected tools (#1934, #1935, #1937).
+- Commands run faster at 500 specs, `graph --target` shows only that tool, and `doctor` lists tools in name order (#1905, #1913, #1914, #1953).
+- Releases fix an HTTP/2 crash and no longer include the build machine's source paths (#1912, #1926).
 
 ### By tool
 
 #### Claude Code
 
-- `failClosed: true` on a hook now blocks when the hook fails or times out, in project and global sync and in `hook run` (#1916).
-- `import claude` keeps each hook command's own timeout, shell, and other settings, so the next sync no longer adds a duplicate group (#1920).
-- `sync --global` edits each tool's global hooks file in place, so removing a hook gives back the file exactly as you wrote it (#1919).
-- `doctor` names a Claude hook spec an older import merged, which runs each hook twice, and says to delete it, run `sync`, then `import claude` (#1922).
-- `import claude` keeps `onFailure` on an MCP-tool or prompt hook, and any value other than `block`, as `x-claude.onFailure`, and sync writes it back, so the next sync no longer adds a second group that ignores it. Specs an older import gave `failClosed: true` on these handlers keep one group without a re-import (#1922).
+- `failClosed: true` blocks an action when its hook fails or times out, including global hooks and `hook run` (#1918).
+- `import claude` preserves each hook's settings and `onFailure` values, so sync no longer adds duplicate hook groups (#1921, #1929).
+- `doctor` names hook specs that cause duplicate runs; delete the named spec, then run `sync` and `import claude` (#1924, #1925).
 
 #### Codex
 
-- In repo mode, sync names the writable root to add when it leaves a hand-written Codex config in place and Codex cannot save personal memory (#1942).
-- `import codex` skips generated skill assets, so re-importing a manual-only skill keeps its source and the next sync unchanged (#1939).
-- **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).
-
-#### Kilo Code
-
-- The note for a command spec named `goal` now says Kilo offers it as `/goal:command` and warns, instead of rejecting it (#1906).
+- **Breaking:** Codex applies and validates `outputs.codex.config.sandbox`; set `read-only`, `workspace-write`, or `danger-full-access` (#1884).
+- With `memory.personal: repo`, sync shows how to let Codex save memory when you keep a hand-written config (#1949).
+- `import codex` keeps manual skill sources intact when their generated files are imported again (#1948).
 
 #### OpenCode
 
-- In repo mode, OpenCode saves personal memory without asking each time: sync allows its folder under `permission.external_directory` (#1881).
-- In repo mode, moving `AGNOSTIC_AI_HOME` no longer leaves the old personal memory index in `instructions` (#1886).
+- With `memory.personal: repo`, OpenCode saves personal memory without asking each time (#1884).
+- Moving `AGNOSTIC_AI_HOME` removes the old personal memory path from OpenCode's instructions (#1888).
+
+#### Kilo Code
+
+- A command named `goal` is accepted with a warning that Kilo offers it as `/goal:command` (#1917).
 
 #### Trae
 
-- Explicit empty agent tool lists disable all tools, including after import and sync (#1946).
+- Empty agent tool lists disable all tools, including after import and sync (#1954).
 
-#### Windsurf
+#### Windsurf / Devin CLI
 
-- In repo mode, Devin CLI saves personal memory without asking: sync allows writes to its folder in `.devin/config.json` (#1882).
+- With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).
+
+### Site
+
+- Memory and project setup guides use plain words and explain when tools load shared memory (#1933, #1951).
 
 ## v0.81.0 - 2026-10-07
 
