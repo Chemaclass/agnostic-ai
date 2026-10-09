@@ -422,10 +422,9 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
-		// Strip the agnostic-ai provenance header from SKILL.md so a
-		// roundtrip (claude / codex emit -> import) does not bake the
-		// header into the source spec. Sibling assets pass through
-		// byte-for-byte because they are user-authored.
+		if filepath.Base(path) != "SKILL.md" && header.Has(string(data)) {
+			return nil
+		}
 		if filepath.Base(path) == "SKILL.md" {
 			data = []byte(header.Strip(string(data)))
 			if transformSkill != nil {

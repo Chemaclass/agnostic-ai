@@ -226,7 +226,7 @@ An inline policy list (even `exec-policies: []`), `exec-policies-file` (even an 
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) under a rule heading | moved into the rule's `description` |
 | `.codex/agents/*.toml` and `.agents/agents/*.toml` | `<agents>/<name>.md`. When the agent spec already exists, as after `import claude`, the Codex `model` lands as `model: {codex: <name>}` (or a `codex` entry in an existing per-target map), so Claude Code keeps its own default. A differing shared scalar `model` gets `x-codex.model` |
-| `.agents/skills/<name>/SKILL.md` (+ `agents/openai.yaml`, asset folders) | `<skills>/<name>/SKILL.md` (+ nested assets, exec bits preserved) |
+| `.agents/skills/<name>/SKILL.md` (+ hand-written `agents/openai.yaml`, asset folders) | `<skills>/<name>/SKILL.md` (+ nested assets, exec bits preserved). Assets with the generated header are skipped; sync renders its own `agents/openai.yaml` from the skill fields |
 | `.codex/hooks.json` and inline hooks in `.codex/config.toml` | `<hooks>/<event>-<hash8>.yaml` (one spec per handler). A duplicate hook in both files imports once; the JSON definition wins |
 | `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, `[history]`, ...) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped). The [ignored keys](#keys-codex-ignores-in-a-project-config) stay in the overlay but are left out of `.codex/config.toml` on sync |

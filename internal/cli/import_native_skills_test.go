@@ -2,10 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -150,5 +153,59 @@ func TestImportCodex_SyncThenImportKeepsOmittedSkillFields(t *testing.T) {
 		if !strings.Contains(got, field) {
 			t.Errorf("omitted skill field %s missing after import:\n%s", field, got)
 		}
+	}
+}
+
+func TestImportCodex_SyncThenImportSkipsGeneratedSkillAssets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	const path = ".agnostic-ai/skills/demo/SKILL.md"
+	const source = "---\nname: demo\ndescription: Demo skill. Use when testing.\ndisable-model-invocation: true\n---\nBody.\n"
+	writeFile(t, path, source)
+	execCLI(t, "sync")
+	before := snapshotEmitted(t, dir)
+	execCLI(t, "import", "codex")
+	if got := readFile(t, path); got != source {
+		t.Errorf("source changed after import:\n%s", got)
+	}
+	if _, err := os.Stat(".agnostic-ai/skills/demo/agents/openai.yaml"); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("generated asset imported: %v", err)
+	}
+	execCLI(t, "sync")
+	assertEmittedEqual(t, before, snapshotEmitted(t, dir))
+	execCLI(t, "sync", "--check")
+}
+
+func TestImportCodex_SkipsGeneratedAssetsInFreshAndMergedSkills(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		existing bool
+		native   string
+	}{
+		{name: "fresh", native: ".agents/skills/demo"},
+		{name: "merged", existing: true, native: ".agents/skills/demo"},
+		{name: "legacy", existing: true, native: ".codex/skills/demo"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			const skill = "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+			if tc.existing {
+				writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", skill)
+			}
+			writeFile(t, filepath.Join(tc.native, "SKILL.md"), skill)
+			writeFile(t, filepath.Join(tc.native, "agents/openai.yaml"), header.Line(header.FormatYAML)+"policy:\n  allow_implicit_invocation: false\n")
+			writeFile(t, filepath.Join(tc.native, "agents/custom.yaml"), "custom: keep\n")
+			execCLI(t, "import", "codex")
+			if _, err := os.Stat(".agnostic-ai/skills/demo/agents/openai.yaml"); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("generated asset imported: %v", err)
+			}
+			if got := readFile(t, ".agnostic-ai/skills/demo/agents/custom.yaml"); got != "custom: keep\n" {
+				t.Errorf("hand-written asset = %q", got)
+			}
+		})
 	}
 }
