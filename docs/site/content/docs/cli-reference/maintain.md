@@ -187,6 +187,15 @@ Restart your shell or `source` the file. Completing `--target` reads `agnostic-a
 
 Upgrade the running binary to the latest release, using the method you installed it with. `update` is an alias.
 
+Interactive commands check for a newer stable release at most once a day, within five seconds. When one is available, the prompt shows upgrade guidance from the docs for every skipped release, including manual steps. Missing docs are named before confirmation; changelog entries are a fallback. Press Enter or type `y` to accept, or `n` to continue your requested command unchanged.
+
+Acceptance updates through the detected installer and verifies the installed version before changing the project. From the project root, the prompt explicitly includes replacing `requires` (including a range or local override) with the target exact version and updating the schema URL. It then previews and applies built-in migrations with the updated binary, runs `sync`, and runs `sync --check`. Outside a project, it updates the tool only. Review the reported migration skips and release guidance for manual steps. The original command does not run after acceptance; rerun it with the updated binary.
+
+If installation or version verification fails, project changes do not start. A failed migration or sync stops the remaining steps and names how to continue; completed changes stay. Release prose explains the changes, while only built-in migrations run.
+
+Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable automatic checks. Offline checks stay silent. CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds skip them. A declined offer is not repeated that day. Explicit `upgrade` remains available.
+
+
 ```bash
 agnostic-ai upgrade --version v0.56.1
 ```
