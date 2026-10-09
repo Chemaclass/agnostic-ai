@@ -45,6 +45,10 @@ scripts/bench-commands.sh --specs 100 --runs 5
 ```
 
 It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
+The final three rows measure `status`, `doctor`, and `sync --dry-run`
+without `.sync-state`, as in a fresh checkout. A tracked hand-written
+Claude launch configuration exercises the history proof without changing
+which files count as generated.
 
 ## What it covers
 

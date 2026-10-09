@@ -22,6 +22,10 @@ BENCH_COMMANDS_ROOT=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && 
 
 # bench_commands_list prints one command per line, arguments split by spaces.
 bench_commands_list() {
+  if [ "${1:-synced}" = no-ledger ]; then
+    printf '%s\n' status doctor 'sync --dry-run'
+    return
+  fi
   cat <<'EOF'
 list
 validate
@@ -47,7 +51,7 @@ bench_now_ms() {
 
 # bench_commands_run <bin> <project-dir> <runs> times each command in the dir.
 bench_commands_run() {
-  local bin="$1" dir="$2" runs="$3" line best best_code start end took code i
+  local bin="$1" dir="$2" runs="$3" mode="${4:-synced}" line best best_code start end took code i
   local -a args
   while IFS= read -r line; do
     read -r -a args <<<"$line"
@@ -64,8 +68,11 @@ bench_commands_run() {
         best_code=$code
       fi
     done
+    if [ "$mode" = no-ledger ]; then
+      line="$line (no ledger)"
+    fi
     printf '%s\t%s\t%s\n' "$best" "$best_code" "$line"
-  done < <(bench_commands_list)
+  done < <(bench_commands_list "$mode")
 }
 
 bench_commands_main() {
@@ -93,6 +100,12 @@ bench_commands_main() {
     -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m fixture)
   printf '# %s specs, best of %s runs, %s\n' "$specs" "$runs" "$("$bin" --version)"
   bench_commands_run "$bin" "$dir" "$runs"
+  mkdir -p "$dir/.claude"
+  printf '{"version":"0.0.1","configurations":[]}\n' >"$dir/.claude/launch.json"
+  (cd "$dir" && git add -f .claude/launch.json && git -c user.name=bench -c user.email=bench@localhost \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m 'hand-written launch config')
+  mv "$dir/.agnostic-ai/.sync-state" "$dir/.bench-sync-state"
+  bench_commands_run "$bin" "$dir" "$runs" no-ledger
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
