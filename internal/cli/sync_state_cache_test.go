@@ -2,8 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -11,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
