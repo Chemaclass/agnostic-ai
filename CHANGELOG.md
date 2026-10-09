@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - Interactive commands offer daily guided upgrades with release notes, project migrations, and sync checks (#1945).
+- Memory docs explain which Cursor sessions load indexes at startup and how hosted cloud agents read project memory.
 - Builds use Go 1.27.2, which fixes an HTTP/2 crash in the standard library (GO-2026-6617).
 - `compare` runs in under a second on large projects, down from 47 s at 500 specs (#1891).
 - `lint` runs in a quarter second at 500 specs, down from 4 s; `doctor` drops from 11 s to 5 s (#1893).

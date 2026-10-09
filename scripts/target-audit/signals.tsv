@@ -38,7 +38,7 @@ cap-project-provider-policy	2026-09-18	2026-09-18
 cap-prompt-hook-continue-on-block	2026-09-15	2026-09-15						
 cap-rule-activation-policy	2026-09-22	2026-09-24	adapter-gap	1029,1113			2026-09-23	Both legs shipped: Qoder rule activation metadata round-trips (#1032), and Antigravity rules carry trigger frontmatter (#1117).
 cap-scheduled-project-agents	2026-09-15	2026-09-15						
-cap-session-start-prompt-injection	2026-09-15	2026-10-07	watch					Trae and Devin CLI document SessionStart context injection on hook files we emit; memory built-in coverage blocked on Trae sandbox default and Devin launcher/timeout evidence.
+cap-session-start-prompt-injection	2026-09-15	2026-10-09	watch					Trae project SessionStart plain-text context, Bash/PowerShell launchers, cwd, timeout and consent gates are documented; memory built-in remains excluded pending behavior test and scope decision. Devin launcher/timeout evidence not refreshed.
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15						
 cap-factory-permission-rules	2026-09-28	2026-09-28	target-extension	1376			2026-09-28	Factory permissionRules (ID-resolved, test-verified command rules) replaces the deprecated command lists; x-factory.permissionRules reaches it today.
 cap-cursor-security-review	2026-09-28	2026-10-02	watch		2026-09-23			Cursor Security Review has no documented repo rules file; vendor changelog announcement is 2026-09-23, first observed 2026-09-28.
@@ -60,4 +60,5 @@ cap-kilo-project-memory	2026-10-07	2026-10-07	target-extension			changelog		Kilo
 cap-cursor-sandbox-json	2026-10-07	2026-10-07	target-extension			docs		.cursor/sandbox.json project sandbox policy (network allow/deny, extra read/write paths); no x-cursor route to it today.
 cap-windsurf-repo-memory-write-allow	2026-10-07	2026-10-07	adapter-gap	1882		docs		Devin CLI permissions.allow Write(<path>/**) in .devin/config.json lets Windsurf save to the repo-mode personal memory folder without a prompt.
 cap-junie-custom-model-profiles	2026-10-07	2026-10-07	watch			docs		Junie project model profiles in .junie/models/<id>.json (baseUrl, apiKey as ${VAR}); no route writes them today.
-cap-kiro-hook-tool-category-matchers	2026-10-09	2026-10-09	watch		2026-10-05	changelog		Kiro CLI 2.28 V3 tool hooks match by category (shell, read, write, an MCP server or tool); matcher already passes through to .kiro/hooks/*.json, hooks docs do not describe categories yet.
+cap-kiro-hook-tool-category-matchers	2026-10-09	2026-10-09	watch		2026-10-05	changelog		Kiro CLI 2.28 V3 tool category and MCP server/tool matchers are documented in hooks/types.md; portable matcher preserves shell and @git/status in .kiro/hooks/*.json (verified).
+cap-shared-skill-directory-discovery	2026-10-09	2026-10-09	adapter-gap	1947		docs		Trae opt-in .agents/skills discovery gives .trae/skills priority; import reads only the native folder. Existing skill specs/output override represent it; shared-folder import tracked in #1947.
