@@ -17,7 +17,7 @@
 # add-then-remove keeps the user's bytes.
 # #1930 measured 18387104: memory lint checks index size per target and
 # shares the hook's index reader.
-# #1938 measured 18448544 on macOS: import keeps a spec whose tool files
-# still hold what the sync ledger records, and carries back keys and
-# comments the tool never shows.
-18460000
+# #1938 measured 18456736 on macOS (CI's linux build has run 8 KB
+# larger): import keeps a spec whose tool files still hold what the sync
+# ledger records, and carries back keys and comments the tool never shows.
+18475000
