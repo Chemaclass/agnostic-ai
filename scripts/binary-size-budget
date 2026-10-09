@@ -22,4 +22,6 @@
 # ledger records, and carries back keys and comments the tool never shows.
 # #1945 adds guided upgrades, daily caching, release guidance, and
 # project config, linked spec, and package ownership checks.
-18560000
+# #1940 measured 18567328 on Go 1.27.2: conservative history absence
+# checks and owned metadata snapshots add 12 KB to main after #1945.
+18580000

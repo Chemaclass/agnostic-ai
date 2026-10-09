@@ -9,6 +9,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - Interactive commands offer daily guided upgrades with release notes, project migrations, and sync checks (#1945).
+- Checks skip history renders for Claude launch files and root `.gitignore` proven absent from adapter output (#1940).
+- `status` and `doctor` reuse the sync record during inspection and still read native files fresh (#1940).
 
 - Without a sync record, `status` and `doctor` render each commit once when checking native files (#1940).
 

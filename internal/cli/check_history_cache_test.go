@@ -20,7 +20,8 @@ func TestUnledgeredReport_HeadAndFileHistoryShareOneRender(t *testing.T) {
 	}
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	// Explicit output options require the full historical renderer.
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\noutputs:\n  claude:\n    provenance-header: true\n")
 	syncProject(t)
 	mustWriteFile(t, ".claude/launch.json", "{\"configurations\":[{\"name\":\"manual\",\"runtimeExecutable\":\"npm\"}],\"version\":\"0.0.1\"}\n")
 	git("add", "-A")
@@ -175,7 +176,7 @@ func recordHistoryGitRenders(t *testing.T) string {
 	}
 	bin := t.TempDir()
 	log := filepath.Join(bin, "renders")
-	wrapper := "#!/bin/sh\nif [ \"$1\" = read-tree ]; then printf '%s\\n' \"$*\" >> " + adapters.ShellQuote(log) + "; fi\nexec " + adapters.ShellQuote(gitPath) + " \"$@\"\n"
+	wrapper := "#!/bin/sh\nif [ \"$1\" = read-tree ]; then case \"$GIT_INDEX_FILE\" in *agnostic-ai-history-config-*) ;; *) printf '%s\\n' \"$*\" >> " + adapters.ShellQuote(log) + ";; esac; fi\nexec " + adapters.ShellQuote(gitPath) + " \"$@\"\n"
 	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(wrapper), 0755); err != nil {
 		t.Fatal(err)
 	}

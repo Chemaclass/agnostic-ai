@@ -195,12 +195,15 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPoin
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), targets...)); err != nil {
 		return nil, err
 	}
+	state := readStateFile(".")
+	release := holdCaptureState(state)
+	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
 	if err := detectCollisions(readerCfg, b, targets); err != nil {
 		return nil, err
 	}
 	sess := adapters.NewSession()
-	sums := readStateFile(".").OutputSums
+	sums := state.OutputSums
 	emitted := map[string]bool{}
 	outputSums := map[string]string{}
 	resolvedAll := coversAllConfiguredTargets(targets, cfg.Targets)
@@ -270,6 +273,7 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPoin
 			return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
 		})
 	}
+	release()
 	// Another target's files are not in emitted, so only a check that
 	// covers every configured target can tell what sync stopped writing.
 	// The ledger does not record which target wrote a file, so leftovers

@@ -258,13 +258,14 @@ const maxHistoryRenders = 8
 // behind it was deleted in a later commit. Renders are cached per commit
 // and historical admissions are bounded by maxHistoryRenders.
 type historyRenderer struct {
-	sources  []string
-	toplevel string
-	prefix   string
-	ready    bool
-	head     string
-	renders  map[string]map[string]string
-	admitted map[string]bool
+	sources              []string
+	toplevel             string
+	prefix               string
+	ready                bool
+	head                 string
+	renders              map[string]map[string]string
+	admitted             map[string]bool
+	absentDefaultOutputs map[string]bool
 }
 
 func (h *historyRenderer) prepare() bool {
@@ -290,7 +291,7 @@ func (h *historyRenderer) prepare() bool {
 }
 
 func (h *historyRenderer) provesAtHEAD(p string) bool {
-	return h.prepare() && renderedContentMatches(h.rendered(h.head), p)
+	return h.prepare() && h.pathMatches(h.head, p)
 }
 
 func (h *historyRenderer) proves(p string) bool {
@@ -307,7 +308,7 @@ func (h *historyRenderer) proves(p string) bool {
 		}
 		h.admitted[commit] = true
 	}
-	return renderedContentMatches(h.rendered(commit), p)
+	return h.pathMatches(commit, p)
 }
 
 func (h *historyRenderer) rendered(commit string) map[string]string {
