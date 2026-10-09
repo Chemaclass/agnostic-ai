@@ -639,7 +639,7 @@ func (v *importToolView) ownFilesHold(a adapters.Adapter, entries []spec.Entry) 
 // recorded it.
 func (v *importToolView) entryPoint(a adapters.Adapter) []string {
 	p := adapters.EntryPointPath(v.cfg, a.Name())
-	if _, ok := v.sums[filepath.ToSlash(filepath.Clean(p))]; p == "" || !ok {
+	if _, ok := v.sums[p]; p == "" || !ok {
 		return nil
 	}
 	return []string{p}
@@ -676,7 +676,7 @@ func (v *importToolView) toolsUnedited(tools []adapters.Adapter) bool {
 func (v *importToolView) recorded(paths []string, all bool) bool {
 	matched := 0
 	for _, p := range paths {
-		sum, ok := v.sums[filepath.ToSlash(filepath.Clean(p))]
+		sum, ok := v.sums[p]
 		if !ok {
 			if all {
 				return false
@@ -737,7 +737,7 @@ func (v *importToolView) render(a adapters.Adapter, b spec.Bundle) (map[string]s
 	}
 	files := make(map[string]string, len(captured))
 	for _, f := range captured {
-		files[filepath.ToSlash(filepath.Clean(f.Path))] = f.Content
+		files[f.Path] = f.Content
 	}
 	return files, nil
 }

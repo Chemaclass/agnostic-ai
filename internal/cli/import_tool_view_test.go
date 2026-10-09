@@ -110,7 +110,7 @@ func TestImport_KeepsLinkedSkillSpecsAndStopsOnLossyEdits(t *testing.T) {
 			if got := readFile(t, "source.md"); got != sharedSkill {
 				t.Errorf("import changed linked spec:\n%s", got)
 			}
-			if link, err := os.Readlink(path); err != nil || link != "../../../source.md" {
+			if link, err := os.Readlink(path); err != nil || link != filepath.FromSlash("../../../source.md") {
 				t.Errorf("spec link = %q, %v", link, err)
 			}
 		})
