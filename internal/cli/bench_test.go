@@ -18,6 +18,7 @@ package cli
 //     future proposal slots a third subject in.
 //   - BenchmarkCompare:           `compare claude codex`, per-spec emits.
 //   - BenchmarkGraph:             `graph` edges, per-spec emits.
+//   - BenchmarkExplain:           `explain` for one rule, two emits per target.
 //   - BenchmarkLint:              the full project `lint` report.
 //
 // Fixtures are deterministic (content fixed per index) so numbers stay
@@ -216,6 +217,26 @@ func BenchmarkGraph(b *testing.B) {
 					b.Fatal(err)
 				}
 				benchIntSink = len(edges)
+			}
+		})
+	}
+}
+
+// BenchmarkExplain measures `explain` for one rule: every adapter
+// rendered with and without it, against a synced output tree.
+func BenchmarkExplain(b *testing.B) {
+	for _, n := range benchSpecCounts {
+		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
+			cfg, bundle := benchSyncedProject(b, n)
+			rule := bundle.Rules[0]
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				configured, extra, err := computeContributions(rule, bundle, cfg)
+				if err != nil {
+					b.Fatal(err)
+				}
+				benchIntSink = len(configured) + len(extra)
 			}
 		})
 	}

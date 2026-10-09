@@ -111,6 +111,9 @@ type SkillFieldCoverage struct {
 }
 
 func NoteDroppedSkillFields(target string, skills []spec.Entry, coverage ...SkillFieldCoverage) {
+	if notesSkipped.Load() {
+		return
+	}
 	var fields SkillFieldCoverage
 	if len(coverage) > 0 {
 		fields = coverage[0]

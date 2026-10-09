@@ -21,8 +21,8 @@ That expands to:
 go test -timeout 30m -run '^$' -bench . -benchmem ./...
 ```
 
-At 100 and 500 specs, `BenchmarkCompare`, `BenchmarkGraph`, and
-`BenchmarkLint` run once per invocation, and one run can differ from the
+At 100 and 500 specs, `BenchmarkCompare`, `BenchmarkGraph`,
+`BenchmarkExplain`, and `BenchmarkLint` run once per invocation, and one run can differ from the
 next by up to 3x. To compare a change, run each side with `-count=6` and
 read the two outputs with `benchstat`.
 
@@ -57,6 +57,7 @@ It prints `<ms>\t<exit>\t<command>` per command, fastest of the runs.
 | `BenchmarkFolderFingerprint` | Shared-skills folder fingerprint (`folderFingerprint`). |
 | `BenchmarkCompare` | `compare claude codex` against a synced tree: every agent, skill, and rule emitted alone to both targets. |
 | `BenchmarkGraph` | `graph` edges against a synced tree: every spec emitted alone to every target. |
+| `BenchmarkExplain` | `explain` for one rule against a synced tree: every target rendered with and without it. |
 | `BenchmarkLint` | The full project `lint` report, the spec-health pass `doctor` also runs. |
 | `BenchmarkCompareToDisk` | Capture-compare drift verdict: status-quo full read vs the `CompareToDisk` size-precheck fast path, swept by scenario and file size. |
 

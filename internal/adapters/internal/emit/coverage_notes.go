@@ -188,7 +188,7 @@ func pruneFieldNotesLocked() {
 // "source-dir only"). No-op when count is zero so a note never fires for
 // an absent kind. Notes buffer until FlushCoverageNotes renders them.
 func NoteCoverageGap(target string, kind spec.Kind, count int, via string) {
-	if count <= 0 {
+	if count <= 0 || notesSkipped.Load() {
 		return
 	}
 	coverageNoteState.mu.Lock()
@@ -208,7 +208,7 @@ func NoteCoverageGap(target string, kind spec.Kind, count int, via string) {
 // file-based way to pre-disable a project-scoped MCP server". No-op when
 // count is zero. Notes buffer until FlushCoverageNotes renders them.
 func NoteFieldNoOp(target string, kind spec.Kind, field string, count int, reason string) {
-	if count <= 0 {
+	if count <= 0 || notesSkipped.Load() {
 		return
 	}
 	coverageNoteState.mu.Lock()
@@ -226,7 +226,7 @@ func NoteFieldNoOp(target string, kind spec.Kind, field string, count int, reaso
 // honors bash and command entries only". No-op when count is zero.
 // Notes buffer until FlushCoverageNotes renders them.
 func NoteSurfaceGap(target string, kind spec.Kind, count int, surface, reason string) {
-	if count <= 0 {
+	if count <= 0 || notesSkipped.Load() {
 		return
 	}
 	coverageNoteState.mu.Lock()
@@ -242,7 +242,7 @@ func NoteSurfaceGap(target string, kind spec.Kind, count int, surface, reason st
 // printing at the call site, gives it the same unchanged-since-last-sync
 // suppression as every other note. No-op on empty text.
 func NoteProject(text string) {
-	if text == "" {
+	if text == "" || notesSkipped.Load() {
 		return
 	}
 	coverageNoteState.mu.Lock()
