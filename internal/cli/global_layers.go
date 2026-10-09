@@ -19,7 +19,7 @@ func globalSourceHome(home string) string {
 }
 
 func globalLayers(source string, names []string) ([]spec.Layer, error) {
-	layers, err := resolveBuiltinLayers(names, "", builtinOptions(nil))
+	layers, err := resolveBuiltinLayers(names, "")
 	if err != nil {
 		return nil, err
 	}

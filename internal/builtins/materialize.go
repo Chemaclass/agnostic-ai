@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 )
 
-func IsIntact(name string, opts Options, root string) bool {
-	files, err := load(name, opts)
+func IsIntact(name, root string) bool {
+	files, err := load(name)
 	return err == nil && intact(root, files, contentHash(files))
 }
 
-func Materialize(name string, opts Options) (string, func() error, error) {
-	files, err := load(name, opts)
+func Materialize(name string) (string, func() error, error) {
+	files, err := load(name)
 	if err != nil {
 		return "", nil, err
 	}

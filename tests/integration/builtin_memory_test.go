@@ -51,89 +51,56 @@ func TestBuiltinMemory(t *testing.T) {
 		return dir
 	}
 
-	t.Run("golden", func(t *testing.T) {
-		dir := project(t, fixture)
-		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{
-			"CLAUDE.md",
-			"AGENTS.md",
-			"GEMINI.md",
-			".claude/rules/shared-memory-policy.md",
-			".claude/skills/shared-memory/SKILL.md",
-			".agents/skills/shared-memory/SKILL.md",
-			".cursor/rules/shared-memory-policy.mdc",
-		}
-		output := map[string]string{}
-		for _, path := range paths {
-			data, err := os.ReadFile(filepath.Join(dir, path))
-			if err != nil {
-				t.Fatal(err)
+	repoMode, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-repo", "agnostic-ai.local.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// agnostic-ai.local.yaml stays out of Git, so files a team commits
+	// must come out the same whether or not one user turns repo mode on.
+	for _, mode := range []struct {
+		name        string
+		localConfig []byte
+	}{
+		{"golden", nil},
+		{"golden-in-repo-mode", repoMode},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			dir := project(t, fixture)
+			if mode.localConfig != nil {
+				if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+					t.Fatalf("git init: %v\n%s", err, out)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.local.yaml"), mode.localConfig, 0o644); err != nil {
+					t.Fatal(err)
+				}
 			}
-			output[path] = string(data)
-		}
-		expectedDir := filepath.Join(packageDir, "fixtures", "golden", "builtin-memory")
-		if os.Getenv("UPDATE_GOLDEN") == "1" {
-			updateGolden(t, expectedDir, output)
-		} else {
-			compareGolden(t, expectedDir, output, "builtin-memory")
-		}
-		run(t, dir, "sync", "--check", "--gitignore=off")
-	})
-
-	t.Run("repo-mode-golden-follows-the-mode", func(t *testing.T) {
-		dir := project(t, fixture)
-		if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
-			t.Fatalf("git init: %v\n%s", err, out)
-		}
-		localConfig := filepath.Join(dir, "agnostic-ai.local.yaml")
-		repoMode, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-repo", "agnostic-ai.local.yaml"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(localConfig, repoMode, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{
-			"AGENTS.md",
-			"GEMINI.md",
-			".claude/rules/shared-memory-policy.md",
-			".cursor/rules/shared-memory-policy.mdc",
-		}
-		output := map[string]string{}
-		for _, path := range paths {
-			data, err := os.ReadFile(filepath.Join(dir, path))
-			if err != nil {
-				t.Fatal(err)
+			run(t, dir, "sync", "--gitignore=off")
+			paths := []string{
+				"CLAUDE.md",
+				"AGENTS.md",
+				"GEMINI.md",
+				".claude/rules/shared-memory-policy.md",
+				".claude/skills/shared-memory/SKILL.md",
+				".agents/skills/shared-memory/SKILL.md",
+				".cursor/rules/shared-memory-policy.mdc",
 			}
-			output[path] = string(data)
-		}
-		expectedDir := filepath.Join(packageDir, "fixtures", "golden", "builtin-memory-repo")
-		if os.Getenv("UPDATE_GOLDEN") == "1" {
-			updateGolden(t, expectedDir, output)
-		} else {
-			compareGolden(t, expectedDir, output, "builtin-memory-repo")
-		}
-		run(t, dir, "sync", "--check", "--gitignore=off")
-
-		rule := filepath.Join(dir, ".claude", "rules", "shared-memory-policy.md")
-		if err := os.Remove(localConfig); err != nil {
-			t.Fatal(err)
-		}
-		run(t, dir, "sync", "--gitignore=off")
-		run(t, dir, "sync", "--check", "--gitignore=off")
-		if data, _ := os.ReadFile(rule); strings.Contains(string(data), "memory.personal") {
-			t.Errorf("turning repo mode off left its text in the rule:\n%s", data)
-		}
-		if err := os.WriteFile(localConfig, repoMode, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		run(t, dir, "sync", "--gitignore=off")
-		run(t, dir, "sync", "--check", "--gitignore=off")
-		if data, _ := os.ReadFile(rule); !strings.Contains(string(data), "memory.personal: repo") {
-			t.Errorf("turning repo mode back on did not restore its text in the rule:\n%s", data)
-		}
-	})
+			output := map[string]string{}
+			for _, path := range paths {
+				data, err := os.ReadFile(filepath.Join(dir, path))
+				if err != nil {
+					t.Fatal(err)
+				}
+				output[path] = string(data)
+			}
+			expectedDir := filepath.Join(packageDir, "fixtures", "golden", "builtin-memory")
+			if os.Getenv("UPDATE_GOLDEN") == "1" && mode.localConfig == nil {
+				updateGolden(t, expectedDir, output)
+			} else {
+				compareGolden(t, expectedDir, output, "builtin-memory")
+			}
+			run(t, dir, "sync", "--check", "--gitignore=off")
+		})
+	}
 
 	t.Run("saving-a-fact-needs-no-sync", func(t *testing.T) {
 		dir := project(t, fixture)

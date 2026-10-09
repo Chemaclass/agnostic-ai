@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
-	"regexp"
 	"slices"
 	"strings"
 )
@@ -15,23 +14,6 @@ import (
 var sourceFS embed.FS
 
 var names = []string{"handoff", "handoff-hook", "memory"}
-
-// Options picks the text a built-in emits for one project's config.
-type Options struct {
-	RepoPersonalMemory bool
-}
-
-// repoModeText marks text that only a project with memory.personal: repo
-// needs. It is inline so a sentence can sit inside a paragraph.
-var repoModeText = regexp.MustCompile(`(?s)<!-- if memory\.personal: repo -->(.*?)<!-- end if -->`)
-
-func (o Options) apply(body []byte) []byte {
-	keep := ""
-	if o.RepoPersonalMemory {
-		keep = "$1"
-	}
-	return repoModeText.ReplaceAll(body, []byte(keep))
-}
 
 type builtinFile struct {
 	path string
@@ -42,15 +24,15 @@ func Names() []string {
 	return slices.Clone(names)
 }
 
-func Hash(name string, opts Options) string {
-	files, err := load(name, opts)
+func Hash(name string) string {
+	files, err := load(name)
 	if err != nil {
 		return ""
 	}
 	return contentHash(files)
 }
 
-func load(name string, opts Options) ([]builtinFile, error) {
+func load(name string) ([]builtinFile, error) {
 	if !slices.Contains(names, name) {
 		return nil, fmt.Errorf("load builtin %q: unknown name (valid names: %s)", name, strings.Join(names, ", "))
 	}
@@ -67,7 +49,7 @@ func load(name string, opts Options) ([]builtinFile, error) {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		files = append(files, builtinFile{path: strings.TrimPrefix(path, root+"/"), body: opts.apply(body)})
+		files = append(files, builtinFile{path: strings.TrimPrefix(path, root+"/"), body: body})
 		return nil
 	})
 	if err != nil {

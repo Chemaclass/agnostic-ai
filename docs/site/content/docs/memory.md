@@ -108,7 +108,7 @@ memory:
   personal: repo
 ```
 
-Personal memory then lives in `~/.agnostic-ai/local/memory/<repository name>-<hash>/` (under `$AGNOSTIC_AI_HOME` when set). Sync creates it, readable only by you, and it works when `~/.agnostic-ai` is a link to another folder. Moving or recloning the repository starts a new folder. The `shared-memory-policy` rule describes this folder only in this mode. To see it:
+Personal memory then lives in `~/.agnostic-ai/local/memory/<repository name>-<hash>/` (under `$AGNOSTIC_AI_HOME` when set). Sync creates it, readable only by you, and it works when `~/.agnostic-ai` is a link to another folder. Moving or recloning the repository starts a new folder. To see it:
 
 ```
 $ agnostic-ai memory path

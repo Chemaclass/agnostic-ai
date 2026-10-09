@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -48,19 +47,13 @@ func validateBuiltinNames(names []string, source string) error {
 	return nil
 }
 
-// builtinOptions is the built-in text cfg needs. The global scope has no
-// project config, so it passes nil and gets the default text.
-func builtinOptions(cfg *config.Config) builtins.Options {
-	return builtins.Options{RepoPersonalMemory: cfg.RepoPersonalMemory()}
-}
-
-func resolveBuiltinLayers(names []string, projectRoot string, opts builtins.Options) ([]spec.Layer, error) {
+func resolveBuiltinLayers(names []string, projectRoot string) ([]spec.Layer, error) {
 	if err := validateBuiltinNames(names, "builtins"); err != nil {
 		return nil, err
 	}
 	var layers []spec.Layer
 	for _, name := range slices.Compact(slices.Sorted(slices.Values(names))) {
-		root, err := materializeBuiltin(name, opts)
+		root, err := materializeBuiltin(name)
 		if err != nil {
 			return nil, err
 		}
@@ -69,13 +62,13 @@ func resolveBuiltinLayers(names []string, projectRoot string, opts builtins.Opti
 	return layers, nil
 }
 
-func materializeBuiltin(name string, opts builtins.Options) (string, error) {
+func materializeBuiltin(name string) (string, error) {
 	builtinLayersMu.Lock()
 	defer builtinLayersMu.Unlock()
 	cacheDir, _ := os.UserCacheDir()
-	key := fmt.Sprintf("%s\x00%s\x00%+v", cacheDir, name, opts)
+	key := cacheDir + "\x00" + name
 	if m, ok := builtinMaterializations[key]; ok {
-		if builtins.IsIntact(name, opts, m.root) {
+		if builtins.IsIntact(name, m.root) {
 			return m.root, nil
 		}
 		if err := m.cleanup(); err != nil {
@@ -83,7 +76,7 @@ func materializeBuiltin(name string, opts builtins.Options) (string, error) {
 		}
 		delete(builtinMaterializations, key)
 	}
-	root, cleanup, err := builtins.Materialize(name, opts)
+	root, cleanup, err := builtins.Materialize(name)
 	if err != nil {
 		return "", fmt.Errorf("materialize builtin %s: %w", name, err)
 	}

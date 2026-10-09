@@ -63,7 +63,7 @@ func runExplainInputs(cmd *cobra.Command, jsonOut bool) error {
 func projectInputs(cfg *config.Config) ([]string, error) {
 	set := map[string]bool{".gitignore": true, config.ConfigFileName: true, config.LocalOverrideFileName: true}
 	for _, name := range cfg.Builtins {
-		set["builtin:"+name+"@"+builtins.Hash(name, builtinOptions(cfg))] = true
+		set["builtin:"+name+"@"+builtins.Hash(name)] = true
 	}
 	for _, f := range []string{config.LegacyConfigFileName, packsLockfile} {
 		if _, err := os.Stat(f); err == nil {
