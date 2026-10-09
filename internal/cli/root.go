@@ -104,6 +104,7 @@ func NewRootCmd(version string) *cobra.Command {
 	)
 	root.InitDefaultCompletionCmd()
 	profileEachRun(root, &profilePath)
+	guidedUpgradeEachRun(root)
 	return root
 }
 

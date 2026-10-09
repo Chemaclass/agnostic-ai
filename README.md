@@ -44,6 +44,9 @@ Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add yo
 
 ## Daily commands
 
+Interactive runs offer new releases with upgrade guidance and a default Yes prompt. Accept to update, migrate this project, and check its generated files. The prompt includes any project version and schema changes. Local package installations show their package manager's update command. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable the daily check. See [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
+
+
 ```bash
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
 agnostic-ai import claude --overwrite           # replace conflicting specs
@@ -61,6 +64,7 @@ agnostic-ai memory path                          # print the memory folders, inc
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
 
 - **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3. `import trae` also reads shared `.agents/skills/` folders, keeping `.trae/skills/` first for duplicate names.
+- **Trae agents** preserve explicit empty tool allowlists, including after import, so text-only agents keep tools disabled.
 - **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
 - **Model tiers** name roles once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
 - **MCP servers** keep secrets as references, never literal values. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).

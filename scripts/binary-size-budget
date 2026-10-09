@@ -20,4 +20,6 @@
 # #1938 measured 18456736 on macOS (CI's linux build has run 8 KB
 # larger): import keeps a spec whose tool files still hold what the sync
 # ledger records, and carries back keys and comments the tool never shows.
-18475000
+# #1945 adds guided upgrades, daily caching, release guidance, and
+# project config, linked spec, and package ownership checks.
+18560000

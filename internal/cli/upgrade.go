@@ -325,6 +325,19 @@ func brewCollisionHint(path, reason string) string {
 }
 
 func detectUpgrade(currentVersion string) (upgradeInfo, error) {
+	info, err := detectUpgradeInstallation(currentVersion)
+	if err != nil {
+		return upgradeInfo{}, err
+	}
+	if latest, err := fetchLatestRelease(2 * time.Second); err == nil {
+		info.Latest = latest
+	} else {
+		info.LatestError = err
+	}
+	return info, nil
+}
+
+func detectUpgradeInstallation(currentVersion string) (upgradeInfo, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return upgradeInfo{}, fmt.Errorf("locate executable: %w", err)
@@ -342,11 +355,6 @@ func detectUpgrade(currentVersion string) (upgradeInfo, error) {
 	}
 	info.Command = upgradeCommandFor(info.Method)
 	info.Shadows = otherInstancesOnPATH(exe)
-	if latest, err := fetchLatestRelease(2 * time.Second); err == nil {
-		info.Latest = latest
-	} else {
-		info.LatestError = err
-	}
 	if info.Method == installUnknown {
 		info.Notes = append(info.Notes,
 			"install location does not match Homebrew, $GOPATH/bin, or common binary dirs;",
