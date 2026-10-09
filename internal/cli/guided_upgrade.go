@@ -208,7 +208,7 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 	}
 	if root != "" {
 		if err := deps.reconcile(root, offer.Latest); err != nil {
-			return true, err
+			return true, fmt.Errorf("agnostic-ai %s is installed, but this project's requires and schema could not be updated; project migrations did not start. Resolve the reported project or config problem, then run agnostic-ai upgrade --requires, agnostic-ai migrate --dry-run, agnostic-ai migrate, agnostic-ai sync, and agnostic-ai sync --check in %s: %w", offer.Latest, root, err)
 		}
 		for _, args := range [][]string{{"migrate", "--dry-run"}, {"migrate"}, {"sync"}, {"sync", "--check"}} {
 			_, _ = fmt.Fprintf(out, "\nRunning: agnostic-ai %s\n", strings.Join(args, " "))
