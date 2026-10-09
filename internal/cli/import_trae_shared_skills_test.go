@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -76,5 +77,84 @@ func TestImportTrae_SharedSkillRefusesLossyExistingSpecReplacement(t *testing.T)
 	}
 	if got := readFile(t, ".agnostic-ai/skills/demo/SKILL.md"); got != source {
 		t.Errorf("source replaced:\n%s", got)
+	}
+}
+
+func TestImportTrae_NativeSourceLinkWinsOverSharedDuplicate(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		flags []string
+	}{
+		{name: "preview", flags: []string{"--dry-run", "--diff"}},
+		{name: "import"},
+		{name: "overwrite", flags: []string{"--overwrite"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [trae]\n")
+			const native = "---\nname: demo\ndescription: Demo skill.\n---\nNative guidance.\n"
+			writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", native)
+			writeFile(t, ".agnostic-ai/skills/demo/asset.txt", "Native asset.\n")
+			writeFile(t, ".agents/skills/demo/SKILL.md", strings.ReplaceAll(native, "Native", "Shared"))
+			writeFile(t, ".agents/skills/demo/asset.txt", "Shared asset.\n")
+			writeFile(t, ".agents/skills/demo/shared.txt", "Shared-only asset.\n")
+			if err := os.MkdirAll(".trae/skills", 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.FromSlash("../../.agnostic-ai/skills/demo"), ".trae/skills/demo"); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			out, err := runCLI(t, append([]string{"import", "trae"}, tc.flags...)...)
+			if err != nil {
+				t.Errorf("import: %v\n%s", err, out)
+			}
+			for _, path := range []string{".agnostic-ai/skills/demo/SKILL.md", ".trae/skills/demo/SKILL.md"} {
+				if got := readFile(t, path); got != native {
+					t.Errorf("%s = %q, want native skill", path, got)
+				}
+			}
+			if got := readFile(t, ".agnostic-ai/skills/demo/asset.txt"); got != "Native asset.\n" {
+				t.Errorf("native asset = %q", got)
+			}
+			if _, err := os.Stat(".agnostic-ai/skills/demo/shared.txt"); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("shared asset imported: %v", err)
+			}
+		})
+	}
+}
+
+func TestImportTrae_InvalidNativeLinksDoNotHideSharedSkills(t *testing.T) {
+	for _, name := range []string{"no skill", "source holder", "outside"} {
+		t.Run(name, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [trae]\n")
+			const shared = "---\nname: demo\ndescription: Demo skill.\n---\nShared guidance.\n"
+			writeFile(t, ".agents/skills/demo/SKILL.md", shared)
+			target := filepath.Join(root, ".agnostic-ai", "skills", "demo")
+			switch name {
+			case "no skill":
+				if err := os.MkdirAll(target, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			case "source holder":
+				target = root
+				writeFile(t, filepath.Join(target, "SKILL.md"), "Holder guidance.\n")
+			case "outside":
+				target = t.TempDir()
+				writeFile(t, filepath.Join(target, "SKILL.md"), "Outside guidance.\n")
+			}
+			if err := os.MkdirAll(".trae/skills", 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, ".trae/skills/demo"); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			execCLI(t, "import", "trae")
+			if got := readFile(t, ".agnostic-ai/skills/demo/SKILL.md"); got != shared {
+				t.Errorf("shared skill = %q, want %q", got, shared)
+			}
+		})
 	}
 }

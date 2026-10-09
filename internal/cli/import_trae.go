@@ -68,7 +68,7 @@ func importFromTrae(root string, src config.Sources) error {
 	c.agents += nativeAgents
 	seenSkills := map[string]bool{}
 	for _, dir := range []string{traeSkillsDir, ".agents/skills"} {
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, dir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, dir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills, ReserveSourceNames: dir == traeSkillsDir})
 		if err != nil {
 			return err
 		}
