@@ -234,7 +234,7 @@ var lintCodes = map[string]lintCode{
 	"LINT039": {
 		Severity: lintWarn,
 		Title:    "Memory index too long",
-		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines, or the two indexes pass the 6,000 bytes the session-start hook keeps. Claude Code, OpenCode, and Kilo Code load both indexes whole every session. Tools that load memory through the hook never see the facts past the cut; the finding names them.",
+		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines, or the two indexes pass 6,000 bytes. Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory load memory through a session-start hook that keeps the first 6,000 bytes, so they never see the facts past it; the finding names them. Every other target loads both indexes whole every session.",
 		Fix:      "Merge duplicate facts and drop stale ones. The `shared-memory` skill does this when asked to clean up memory.",
 	},
 	"LINT040": {
