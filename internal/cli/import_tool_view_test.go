@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -312,6 +313,71 @@ func TestImport_LeavesARuleTheToolInlinesUnchanged(t *testing.T) {
 
 			if got := readFile(t, ".agnostic-ai/rules/style.md"); got != rule {
 				t.Errorf("import gemini rewrote the rule:\n%s", got)
+			}
+		})
+	}
+}
+
+// An unchanged skill must not vouch for an instructions file the tool
+// inlines rules into.
+func TestImport_BringsBackARuleEditInAnInlinedInstructionsFile(t *testing.T) {
+	for target, entry := range map[string]string{
+		"gemini":   "GEMINI.md",
+		"opencode": "AGENTS.md",
+		"aider":    "CONVENTIONS.md",
+		"junie":    ".junie/AGENTS.md",
+	} {
+		t.Run(target, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\ndescription: Style.\n---\nRule text one.\n")
+			mustWriteFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo. Use when testing.\n---\nSkill body.\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			mustWriteFile(t, entry, strings.Replace(readFile(t, entry), "Rule text one.", "Rule text two.", 1))
+
+			if out, err := runCLI(t, "import", target); err != nil {
+				t.Fatalf("import %s: %v\n%s", target, err, out)
+			}
+
+			if got := readFile(t, ".agnostic-ai/rules/style.md"); !strings.Contains(got, "Rule text two.") {
+				t.Errorf("import %s lost the edit:\n%s", target, got)
+			}
+		})
+	}
+}
+
+// A rename in the tool's file moves the spec's output away from the path
+// the last sync wrote; the edit there still counts.
+func TestImport_BringsBackARenameInAToolFile(t *testing.T) {
+	for kind, files := range map[string][2]string{
+		"agent": {".agnostic-ai/agents/%s.md", ".claude/agents/demo.md"},
+		"skill": {".agnostic-ai/skills/%s/SKILL.md", ".claude/skills/demo/SKILL.md"},
+	} {
+		t.Run(kind, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			for _, name := range []string{"demo", "other"} {
+				mustWriteFile(t, fmt.Sprintf(files[0], name), "---\nname: "+name+"\ndescription: A "+name+". Use when testing.\n---\nBody of "+name+".\n")
+			}
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			native := strings.Replace(readFile(t, files[1]), "name: demo", "name: renamed", 1)
+			mustWriteFile(t, files[1], strings.Replace(native, "Body of demo.", "Edited body.", 1))
+
+			if out, err := runCLI(t, "import", "claude"); err != nil {
+				t.Fatalf("import claude: %v\n%s", err, out)
+			}
+
+			got := readFile(t, fmt.Sprintf(files[0], "demo"))
+			for _, want := range []string{"name: renamed", "Edited body."} {
+				if !strings.Contains(got, want) {
+					t.Errorf("import lost %q:\n%s", want, got)
+				}
 			}
 		})
 	}

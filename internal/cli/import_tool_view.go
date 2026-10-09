@@ -121,6 +121,7 @@ func (g *importViewGuard) settle(root string) error {
 		old   spec.Entry
 	}
 	var specs []candidate
+	var overlays []string
 	for _, path := range paths {
 		f := g.files[path]
 		tools := importingTools(f.sources)
@@ -134,16 +135,26 @@ func (g *importViewGuard) settle(root string) error {
 			if err == nil {
 				specs = append(specs, candidate{path: path, tools: tools, old: old})
 			}
-		case underDir(path, filepath.Join(root, agnosticOverlayDir)) && v.toolsUnedited(tools):
-			if err := g.rewrite(path, f.before); err != nil {
+		case underDir(path, filepath.Join(root, agnosticOverlayDir)):
+			overlays = append(overlays, path)
+		}
+	}
+	olds := make([]spec.Entry, len(specs))
+	for i, c := range specs {
+		olds[i] = c.old
+	}
+	v.before = withEntries(after, olds)
+	for _, path := range overlays {
+		if v.toolsUnedited(importingTools(g.files[path].sources)) {
+			if err := g.rewrite(path, g.files[path].before); err != nil {
 				return err
 			}
 			setImportDrops(path, nil)
 		}
 	}
-	// A spec is kept when every tool that wrote it left its files alone.
-	// When a tool has an edited file somewhere, its specs are checked in
-	// groups, so one edit costs a few renders rather than one per spec.
+	// A spec is kept when every file its old bytes gave each tool that
+	// wrote it holds what the last sync recorded. Specs render in groups,
+	// so a run costs a few renders rather than one per spec.
 	kept := make([]bool, len(specs))
 	byTool := map[string][]int{}
 	tools := map[string]adapters.Adapter{}
@@ -153,10 +164,8 @@ func (g *importViewGuard) settle(root string) error {
 			continue
 		}
 		for _, a := range c.tools {
-			if !v.toolsUnedited([]adapters.Adapter{a}) {
-				byTool[a.Name()] = append(byTool[a.Name()], i)
-				tools[a.Name()] = a
-			}
+			byTool[a.Name()] = append(byTool[a.Name()], i)
+			tools[a.Name()] = a
 		}
 	}
 	for name, idx := range byTool {
@@ -514,6 +523,7 @@ func importViewSpecDirs(root string) []string {
 type importToolView struct {
 	cfg      *config.Config
 	after    spec.Bundle
+	before   spec.Bundle
 	sums     map[string]string
 	specSums map[string]specFileSum
 	entries  map[string]spec.Entry
@@ -574,7 +584,7 @@ func (v *importToolView) uneditedFor(a adapters.Adapter, olds []spec.Entry) []bo
 		case e.Kind == spec.KindSkill || e.Kind == spec.KindAgent || e.Kind == spec.KindCommand:
 			group = append(group, i)
 		default:
-			out[i] = v.ownFilesHold(a, []spec.Entry{e}, true)
+			out[i] = v.ownFilesHold(a, []spec.Entry{e})
 		}
 	}
 	var settle func(idx []int)
@@ -583,7 +593,7 @@ func (v *importToolView) uneditedFor(a adapters.Adapter, olds []spec.Entry) []bo
 		for j, i := range idx {
 			entries[j] = olds[i]
 		}
-		if v.ownFilesHold(a, entries, false) {
+		if v.ownFilesHold(a, entries) {
 			for _, i := range idx {
 				out[i] = true
 			}
@@ -602,9 +612,9 @@ func (v *importToolView) uneditedFor(a adapters.Adapter, olds []spec.Entry) []bo
 
 // ownFilesHold renders entries for the tool and reports whether the
 // files they add or change, at least one, hold what the ledger records.
-// With inline set, a lone rule that gives no file of its own is judged
-// by the instructions file that holds its text.
-func (v *importToolView) ownFilesHold(a adapters.Adapter, entries []spec.Entry, inline bool) bool {
+// Rules also answer for the tool's instructions file, which sync writes
+// on its own and which may inline them.
+func (v *importToolView) ownFilesHold(a adapters.Adapter, entries []spec.Entry) bool {
 	files, err := v.render(a, spec.NewBundle(entries))
 	if err != nil {
 		return false
@@ -619,25 +629,26 @@ func (v *importToolView) ownFilesHold(a adapters.Adapter, entries []spec.Entry, 
 			paths = append(paths, p)
 		}
 	}
-	if len(paths) == 0 && inline && len(entries) == 1 && entries[0].Kind == spec.KindRule {
-		if p := adapters.EntryPointPath(v.cfg, a.Name()); p != "" && inlinesBody(p, entries[0].BodyFor(a.Name())) {
-			paths = []string{p}
-		}
+	if slices.ContainsFunc(entries, func(e spec.Entry) bool { return e.Kind == spec.KindRule }) {
+		paths = append(paths, v.entryPoint(a)...)
 	}
 	return v.recorded(paths, true)
 }
 
-// inlinesBody reports whether the instructions file at path holds body,
-// as a tool that inlines rules writes it.
-func inlinesBody(path, body string) bool {
-	data, err := os.ReadFile(filepath.FromSlash(path))
-	body = strings.TrimSpace(body)
-	return err == nil && body != "" && strings.Contains(string(data), body)
+// entryPoint is the tool's instructions file when the last sync
+// recorded it.
+func (v *importToolView) entryPoint(a adapters.Adapter) []string {
+	p := adapters.EntryPointPath(v.cfg, a.Name())
+	if _, ok := v.sums[filepath.ToSlash(filepath.Clean(p))]; p == "" || !ok {
+		return nil
+	}
+	return []string{p}
 }
 
-// toolsUnedited reports whether every file each tool gets from the whole
-// project still holds what the last sync recorded, so no file of theirs
-// was edited since. It renders each tool once per run.
+// toolsUnedited reports whether every file each tool got from the whole
+// project before the run, its instructions file included, still holds
+// what the last sync recorded, so no file of theirs was edited since. It
+// renders each tool once per run.
 func (v *importToolView) toolsUnedited(tools []adapters.Adapter) bool {
 	for _, a := range tools {
 		if held, ok := v.holds[a.Name()]; ok {
@@ -646,8 +657,8 @@ func (v *importToolView) toolsUnedited(tools []adapters.Adapter) bool {
 			}
 			continue
 		}
-		files, err := v.render(a, v.after)
-		held := err == nil && v.recorded(slices.Collect(maps.Keys(files)), false)
+		files, err := v.render(a, v.before)
+		held := err == nil && v.recorded(append(slices.Collect(maps.Keys(files)), v.entryPoint(a)...), true)
 		if v.holds == nil {
 			v.holds = map[string]bool{}
 		}
@@ -729,6 +740,23 @@ func (v *importToolView) render(a adapters.Adapter, b spec.Bundle) (map[string]s
 		files[filepath.ToSlash(filepath.Clean(f.Path))] = f.Content
 	}
 	return files, nil
+}
+
+// withEntries is b with each of entries in place of the entry at its path.
+func withEntries(b spec.Bundle, entries []spec.Entry) spec.Bundle {
+	byPath := make(map[string]spec.Entry, len(entries))
+	for _, e := range entries {
+		byPath[e.Path] = e
+	}
+	all := b.All()
+	for i, e := range all {
+		if replaced, ok := byPath[e.Path]; ok {
+			all[i] = replaced
+		}
+	}
+	out := spec.NewBundle(all)
+	out.Shadowed = b.Shadowed
+	return out
 }
 
 // entryWithBytes is e as data would load, without writing data to disk.
