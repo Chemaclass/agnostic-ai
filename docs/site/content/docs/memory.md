@@ -117,7 +117,7 @@ project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
 
-That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). If one of those files is already in Git, run `agnostic-ai sync --untrack`.
+That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one of them instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/configuration.md#gitignore).
 
 What each tool does with personal memory in this mode:
 

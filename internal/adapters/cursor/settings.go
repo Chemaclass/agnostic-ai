@@ -129,6 +129,16 @@ func emitCLIConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry
 	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": permissions}, []string{"permissions"}, dryRun)
 }
 
+// RepoMemoryFiles names cli.json, which holds the repo store of personal
+// memory once memory.personal is repo, and the record of the rules sync
+// added there.
+func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
+	if !emit.RepoMemoryFile(cfg, cliConfigFile, []string{"settings"}, target) {
+		return nil
+	}
+	return []string{cliConfigFile, filepath.Join(filepath.Dir(cliConfigFile), OwnedPermissionsFile)}
+}
+
 // memoryWriteRules allows writes to the repo store of personal memory
 // when it lies outside the checkout. Cursor asks before it writes outside
 // the workspace, and a headless run rejects the write.
