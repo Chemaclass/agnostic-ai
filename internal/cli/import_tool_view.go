@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -21,9 +23,6 @@ import (
 type importViewGuard struct {
 	source string
 	files  map[string]*importViewFile
-	// restoreErrs holds each failure to put the run's bytes back after a
-	// render read the old ones, which leaves the old bytes on disk.
-	restoreErrs []error
 }
 
 type importViewFile struct {
@@ -66,12 +65,13 @@ func (g *importViewGuard) note(path string) {
 	}
 }
 
-// withImportViewGuard runs fn, then puts back every existing spec the run
-// rewrote while each importing tool shows nothing new in it: the tool's
-// files are what the old spec renders to, or the old spec renders to
-// what the new one does. The spec then keeps what only other tools
-// read, such as ::target blocks, workspaces, and comments, and a file
-// format an older release wrote.
+// withImportViewGuard runs fn, then settles each existing spec the run
+// rewrote. When the tool files the spec gives each importing tool still
+// hold what the last sync wrote there, nobody edited them, so the spec
+// goes back byte for byte: it keeps what only other tools read, such as
+// ::target blocks, workspaces, comments, and a format an older release
+// wrote. When one was edited, the edit stays, and keys the tool never
+// shows and comments go back into it (see carryBack).
 func withImportViewGuard(root string, fn func() error) error {
 	prior := importView
 	guard := &importViewGuard{files: map[string]*importViewFile{}}
@@ -81,63 +81,106 @@ func withImportViewGuard(root string, fn func() error) error {
 		defer func() { importView = prior }()
 		return fn()
 	}()
-	err := guard.keepUnchanged(root)
-	return errors.Join(runErr, err, errors.Join(guard.restoreErrs...))
+	return errors.Join(runErr, guard.settle(root))
 }
 
-// keepUnchanged puts back the specs the tools show unchanged. Specs that
-// do not load, before or after the run, keep what the run wrote, and
-// replacesSpec decides on them as it did before this guard.
-func (g *importViewGuard) keepUnchanged(root string) error {
+// settle decides on each rewritten spec. Until the ledger and the
+// project show otherwise, a spec counts as losing every ::target block,
+// key, and comment the run left out, so a project that does not load,
+// or a tool file sync never recorded, stops the import instead.
+func (g *importViewGuard) settle(root string) error {
 	paths := g.rewrittenSpecs(root)
 	if len(paths) == 0 {
 		return nil
 	}
-	cfg, after, err := loadProject(root)
+	nows := map[string][]byte{}
+	for _, path := range paths {
+		now, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		nows[path] = now
+		before := g.files[path].before
+		setImportDrops(path, carriedLosses(path, before, now, missingKeys(path, before, now), nil))
+	}
+	cfg, after, err := loadImportProject(root)
 	if err != nil {
 		return nil
-	}
-	var before spec.Bundle
-	var loadErr error
-	if err := g.withBefore(paths, func() error {
-		_, before, loadErr = loadProject(root)
-		return nil
-	}); err != nil || loadErr != nil {
-		return err
 	}
 	adapters.SetWarner(io.Discard)
 	defer func() {
 		adapters.ResetCapabilityWarnings()
 		adapters.SetWarner(os.Stderr)
 	}()
-	r := &importViewRenderer{guard: g, cfg: cfg, after: after, full: map[string]map[string]string{}}
-	var keep, others []string
+	state := readStateFile(root)
+	defer holdPriorState(root, state)()
+	v := &importToolView{cfg: cfg, after: after, sums: state.OutputSums, specSums: state.SpecFileSums, entries: entryIndex(after)}
+	type candidate struct {
+		path  string
+		tools []adapters.Adapter
+		old   spec.Entry
+	}
+	var specs []candidate
 	for _, path := range paths {
 		f := g.files[path]
-		newEntry, newOK := entryAt(after, path)
-		oldEntry, oldOK := entryAt(before, path)
+		tools := importingTools(f.sources)
+		if len(tools) == 0 {
+			continue
+		}
+		entry, ok := v.entryAt(path)
 		switch {
-		case newOK && oldOK:
-			if r.specShowsSame(f, oldEntry, newEntry) {
-				keep = append(keep, path)
-				continue
+		case ok:
+			old, err := entryWithBytes(entry, f.before, cfg)
+			if err == nil {
+				specs = append(specs, candidate{path: path, tools: tools, old: old})
 			}
-			lost, err := r.keepHidden(path, f, oldEntry)
-			if err != nil {
+		case underDir(path, filepath.Join(root, agnosticOverlayDir)) && v.toolsUnedited(tools):
+			if err := g.rewrite(path, f.before); err != nil {
 				return err
 			}
-			if len(lost) > 0 {
-				importDrops[specPathKey(importOriginalSourcePath(path))] = lost
-			}
-		case !newOK && !oldOK && !inSkillFolder(after, path):
-			others = append(others, path)
+			setImportDrops(path, nil)
 		}
 	}
-	keep = append(keep, r.othersShowSame(others)...)
-	for _, path := range keep {
-		if err := g.rewrite(path, g.files[path].before); err != nil {
+	// A spec is kept when every tool that wrote it left its files alone.
+	// When a tool has an edited file somewhere, its specs are checked in
+	// groups, so one edit costs a few renders rather than one per spec.
+	kept := make([]bool, len(specs))
+	byTool := map[string][]int{}
+	tools := map[string]adapters.Adapter{}
+	for i, c := range specs {
+		kept[i] = v.syncedAsIs(c.path, g.files[c.path])
+		if !kept[i] {
+			continue
+		}
+		for _, a := range c.tools {
+			if !v.toolsUnedited([]adapters.Adapter{a}) {
+				byTool[a.Name()] = append(byTool[a.Name()], i)
+				tools[a.Name()] = a
+			}
+		}
+	}
+	for name, idx := range byTool {
+		olds := make([]spec.Entry, len(idx))
+		for j, i := range idx {
+			olds[j] = specs[i].old
+		}
+		for j, ok := range v.uneditedFor(tools[name], olds) {
+			kept[idx[j]] = kept[idx[j]] && ok
+		}
+	}
+	for i, c := range specs {
+		if kept[i] {
+			if err := g.rewrite(c.path, g.files[c.path].before); err != nil {
+				return err
+			}
+			setImportDrops(c.path, nil)
+			continue
+		}
+		lost, err := g.carryBack(v, c.path, c.tools, c.old, nows[c.path])
+		if err != nil {
 			return err
 		}
+		setImportDrops(c.path, lost)
 	}
 	return nil
 }
@@ -172,12 +215,218 @@ func writeImportAs(source, path string, data []byte, mode os.FileMode) error {
 	return importWriteFile(path, data, mode)
 }
 
+// carryBack puts into the run's bytes at path what the old spec holds
+// that the tools never show, so no edit in them removed it: top-level
+// keys their files do not depend on, and the comments of keys still
+// there. It returns what it cannot carry: ::target blocks, since a
+// tool's file holds that tool's view of the body, keys whose effect it
+// could not render, and comments it found no place for.
+func (g *importViewGuard) carryBack(v *importToolView, path string, tools []adapters.Adapter, old spec.Entry, now []byte) ([]string, error) {
+	before := g.files[path].before
+	var hidden, unknown []string
+	for _, key := range missingKeys(path, before, now) {
+		switch hides, known := v.hidesKey(tools, old, key); {
+		case !known:
+			unknown = append(unknown, key)
+		case hides:
+			hidden = append(hidden, key)
+		}
+	}
+	if merged, ok := mergeKeptYAML(path, before, now, hidden); ok {
+		if !bytes.Equal(merged, now) {
+			if err := g.rewrite(path, merged); err != nil {
+				return nil, err
+			}
+		}
+		now = merged
+	} else {
+		unknown = append(unknown, hidden...)
+	}
+	return carriedLosses(path, before, now, unknown, presentKeys(path, now)), nil
+}
+
+// carriedLosses names what now loses from before that no tool file
+// carries: ::target blocks, the given keys, and comments. With present
+// set, only a comment of a key still in now, or of no key, counts.
+func carriedLosses(path string, before, now []byte, keys []string, present []string) []string {
+	var lost []string
+	if filepath.Ext(path) == ".md" {
+		_, beforeBody, _ := splitFrontmatter(before)
+		_, nowBody, _ := splitFrontmatter(now)
+		if len(spec.FenceTargets(beforeBody)) > 0 && nowBody != beforeBody {
+			lost = append(lost, "::target blocks")
+		}
+	}
+	lost = append(lost, keys...)
+	nowComments := map[string]bool{}
+	for _, c := range yamlComments(yamlPart(path, now)) {
+		nowComments[c.text] = true
+	}
+	for _, c := range yamlComments(yamlPart(path, before)) {
+		if nowComments[c.text] || present != nil && c.key != "" && !slices.Contains(present, c.key) {
+			continue
+		}
+		lost = append(lost, "comments")
+		break
+	}
+	return lost
+}
+
+// missingKeys lists the top-level keys of before that now lacks.
+func missingKeys(path string, before, now []byte) []string {
+	nowKeys := presentKeys(path, now)
+	missing := []string{}
+	for _, key := range presentKeys(path, before) {
+		if !slices.Contains(nowKeys, key) {
+			missing = append(missing, key)
+		}
+	}
+	return missing
+}
+
+func presentKeys(path string, data []byte) []string {
+	keys := []string{}
+	m, err := frontmatterMapping(yamlPart(path, data))
+	if err != nil || m == nil {
+		return keys
+	}
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		keys = append(keys, m.Content[i].Value)
+	}
+	return keys
+}
+
+// yamlComment is one comment line of a spec's YAML and the top-level key
+// it belongs to, "" for none.
+type yamlComment struct {
+	text, key string
+}
+
+func yamlComments(yamlBytes []byte) []yamlComment {
+	var doc yaml.Node
+	if len(bytes.TrimSpace(yamlBytes)) == 0 || yaml.Unmarshal(yamlBytes, &doc) != nil {
+		return nil
+	}
+	var out []yamlComment
+	var walk func(n *yaml.Node, key string)
+	walk = func(n *yaml.Node, key string) {
+		for _, c := range []string{n.HeadComment, n.LineComment, n.FootComment} {
+			for _, line := range strings.Split(c, "\n") {
+				if line = strings.TrimSpace(line); line != "" {
+					out = append(out, yamlComment{text: line, key: key})
+				}
+			}
+		}
+		for i, child := range n.Content {
+			k := key
+			if key == "" && n.Kind == yaml.MappingNode && n == topMapping(&doc) {
+				k = n.Content[i-i%2].Value
+			}
+			walk(child, k)
+		}
+	}
+	walk(&doc, "")
+	return out
+}
+
+func topMapping(doc *yaml.Node) *yaml.Node {
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
+		return doc.Content[0]
+	}
+	return nil
+}
+
+// mergeKeptYAML returns now with the hidden keys of before put back in
+// before's order, and each comment of before on a key now still holds
+// put back on it. It reports false when the YAML does not parse.
+func mergeKeptYAML(path string, before, now []byte, hidden []string) ([]byte, bool) {
+	beforeYAML, nowYAML := yamlPart(path, before), yamlPart(path, now)
+	if len(bytes.TrimSpace(beforeYAML)) == 0 {
+		return now, len(hidden) == 0
+	}
+	var beforeDoc, nowDoc yaml.Node
+	if yaml.Unmarshal(beforeYAML, &beforeDoc) != nil || yaml.Unmarshal(nowYAML, &nowDoc) != nil {
+		return nil, false
+	}
+	from, into := topMapping(&beforeDoc), topMapping(&nowDoc)
+	if from == nil || into == nil || from.Kind != yaml.MappingNode || into.Kind != yaml.MappingNode {
+		return nil, false
+	}
+	changed := false
+	for i := 0; i+1 < len(from.Content); i += 2 {
+		key, value := from.Content[i], from.Content[i+1]
+		j := mappingIndex(into, key.Value)
+		if j < 0 {
+			if !slices.Contains(hidden, key.Value) {
+				continue
+			}
+			at := 0
+			if i > 0 {
+				if prev := mappingIndex(into, from.Content[i-2].Value); prev >= 0 {
+					at = prev + 2
+				} else {
+					at = len(into.Content)
+				}
+			}
+			into.Content = slices.Insert(into.Content, at, key, value)
+			changed = true
+			continue
+		}
+		changed = copyComments(into.Content[j], key) || changed
+		changed = copyComments(into.Content[j+1], value) || changed
+	}
+	changed = copyComments(&nowDoc, &beforeDoc) || changed
+	changed = copyComments(into, from) || changed
+	if !changed {
+		return now, true
+	}
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if enc.Encode(&nowDoc) != nil || enc.Close() != nil {
+		return nil, false
+	}
+	if filepath.Ext(path) != ".md" {
+		return buf.Bytes(), true
+	}
+	_, body, _ := splitFrontmatter(now)
+	out := "---\n" + buf.String() + "---\n"
+	if body != "" {
+		out += "\n" + body
+	}
+	return []byte(out), true
+}
+
+func mappingIndex(m *yaml.Node, key string) int {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			return i
+		}
+	}
+	return -1
+}
+
+// copyComments gives to each comment slot of from that to leaves empty,
+// and reports whether it set one.
+func copyComments(to, from *yaml.Node) bool {
+	changed := false
+	for _, slot := range []struct{ to, from *string }{
+		{&to.HeadComment, &from.HeadComment}, {&to.LineComment, &from.LineComment}, {&to.FootComment, &from.FootComment},
+	} {
+		if *slot.to == "" && *slot.from != "" {
+			*slot.to = *slot.from
+			changed = true
+		}
+	}
+	return changed
+}
+
 // rewrittenSpecs lists the files in a spec directory, other than
 // AGNOSTIC_AI.md, that the run changed and that existed before it. A
 // file the run reached through a link or under a second name is left
 // out: its bytes before the run are not known for each name.
 func (g *importViewGuard) rewrittenSpecs(root string) []string {
-	specDirs := importSpecDirs(root)
+	specDirs := importViewSpecDirs(root)
 	infos := map[string]os.FileInfo{}
 	for path := range g.files {
 		if info, err := os.Stat(path); err == nil {
@@ -208,144 +457,270 @@ func (g *importViewGuard) rewrittenSpecs(root string) []string {
 	return paths
 }
 
-// withBefore runs fn with the old bytes of paths on disk, and puts the
-// new bytes back after it, even when it fails.
-func (g *importViewGuard) withBefore(paths []string, fn func() error) error {
-	now := make(map[string][]byte, len(paths))
-	var errs []error
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", path, err))
-			break
-		}
-		now[path] = data
-		if err := writeKeepingMode(path, g.files[path].before); err != nil {
-			errs = append(errs, err)
-			break
-		}
+// setImportDrops records what the run's bytes at path lose, keyed as
+// replacesSpec looks it up, also in a preview of an outside source.
+func setImportDrops(path string, lost []string) {
+	key := specPathKey(importOriginalSourcePath(path))
+	if len(lost) == 0 {
+		delete(importDrops, key)
+		return
 	}
-	if len(errs) == 0 {
-		errs = append(errs, fn())
-	}
-	for path, data := range now {
-		if err := writeKeepingMode(path, data); err != nil {
-			g.restoreErrs = append(g.restoreErrs, err)
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
+	importDrops[key] = lost
 }
 
-func writeKeepingMode(path string, data []byte) error {
-	info, err := os.Stat(path)
+// loadImportProject loads the project as the running import sees it: a
+// preview reads source directories outside the project from their copies.
+func loadImportProject(root string) (*config.Config, spec.Bundle, error) {
+	cfg, b, err := loadProject(root)
+	if err != nil || len(importSourceCopies) == 0 {
+		return cfg, b, err
+	}
+	mapped := *cfg
+	mapped.Sources = importMappedSources(root, cfg.Sources)
+	layers, err := resolveLayers(root, &mapped)
 	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+		return nil, spec.Bundle{}, err
 	}
-	if err := os.WriteFile(path, data, info.Mode().Perm()); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+	if b, err = spec.LoadLayered(layers); err != nil {
+		return nil, spec.Bundle{}, err
 	}
-	return nil
+	b.ApplyModelTiers(cfg.Models)
+	return cfg, b, nil
 }
 
-// importViewRenderer renders specs for the importing tools in memory.
-type importViewRenderer struct {
-	guard *importViewGuard
-	cfg   *config.Config
-	after spec.Bundle
-	// full caches each tool's render of the whole project after the run.
-	full map[string]map[string]string
-}
-
-// specShowsSame reports whether every tool that wrote a spec shows
-// nothing new in it. The spec renders on its own.
-func (r *importViewRenderer) specShowsSame(f *importViewFile, oldEntry, newEntry spec.Entry) bool {
-	tools := importingTools(f.sources)
-	if len(tools) == 0 {
-		return false
+// importViewSpecDirs lists the spec directories the running import
+// writes, a preview's copies of outside source directories included.
+func importViewSpecDirs(root string) []string {
+	dirs := importSpecDirs(root)
+	cfg, err := config.Load(root)
+	if err != nil {
+		return dirs
 	}
-	for _, a := range tools {
-		oldFiles, err := r.render(a, spec.NewBundle([]spec.Entry{oldEntry}))
-		if err != nil {
-			return false
+	for _, d := range sourceDirsByKind(importMappedSources(root, cfg.Sources)) {
+		if d == "" {
+			continue
 		}
-		newFiles, err := r.render(a, spec.NewBundle([]spec.Entry{newEntry}))
-		if err != nil || len(newFiles) == 0 {
-			return false
-		}
-		if !covers(oldFiles, newFiles) && !onDisk(oldFiles, newFiles) {
-			return false
-		}
-	}
-	return true
-}
-
-// othersShowSame returns the files among paths, such as overlays, whose
-// old bytes give each tool that wrote them the files the new bytes do.
-// They render with the whole project, first together, since one overlay
-// can depend on another, then one by one.
-func (r *importViewRenderer) othersShowSame(paths []string) []string {
-	if len(paths) == 0 {
-		return nil
-	}
-	var sources []string
-	for _, path := range paths {
-		for _, s := range r.guard.files[path].sources {
-			if !slices.Contains(sources, s) {
-				sources = append(sources, s)
+		for _, form := range specPathForms(d) {
+			if !slices.Contains(dirs, form) {
+				dirs = append(dirs, form)
 			}
 		}
 	}
-	if r.wholeShowsSame(paths, sources) {
-		return paths
-	}
-	if len(paths) == 1 {
-		return nil
-	}
-	var same []string
-	for _, path := range paths {
-		if r.wholeShowsSame([]string{path}, r.guard.files[path].sources) {
-			same = append(same, path)
-		}
-	}
-	return same
+	return dirs
 }
 
-func (r *importViewRenderer) wholeShowsSame(paths, sources []string) bool {
-	tools := importingTools(sources)
-	if len(tools) == 0 {
+// importToolView answers, from the ledger the last sync wrote, whether a
+// tool's files still hold what sync put there.
+type importToolView struct {
+	cfg      *config.Config
+	after    spec.Bundle
+	sums     map[string]string
+	specSums map[string]specFileSum
+	entries  map[string]spec.Entry
+	real     map[string]spec.Entry
+	empty    map[string]map[string]string
+	holds    map[string]bool
+}
+
+func entryIndex(b spec.Bundle) map[string]spec.Entry {
+	index := map[string]spec.Entry{}
+	for _, e := range b.All() {
+		if e.Path != "" {
+			index[specPathKey(e.Path)] = e
+		}
+	}
+	return index
+}
+
+func (v *importToolView) entryAt(path string) (spec.Entry, bool) {
+	if e, ok := v.entries[specPathKey(path)]; ok {
+		return e, true
+	}
+	// The same file under another spelling, such as /var and /private/var.
+	if v.real == nil {
+		v.real = map[string]spec.Entry{}
+		for _, e := range v.entries {
+			if real := realPath(e.Path); real != "" {
+				v.real[real] = e
+			}
+		}
+	}
+	e, ok := v.real[realPath(path)]
+	return e, ok
+}
+
+// syncedAsIs reports whether the last sync rendered the spec's old bytes
+// for every tool that wrote it, so the tools' files came from them.
+func (v *importToolView) syncedAsIs(path string, f *importViewFile) bool {
+	rec, ok := v.specSums[specPathKey(importOriginalSourcePath(path))]
+	if !ok || rec.By != specSumBySync || rec.Sum != sha256Hex(f.before) {
 		return false
 	}
-	for _, a := range tools {
-		newFiles, err := r.renderWhole(a)
-		if err != nil {
-			return false
+	return !slices.ContainsFunc(f.sources, func(s string) bool { return !slices.Contains(rec.Targets, s) })
+}
+
+// uneditedFor reports, for each of olds, whether every file it gives
+// the tool still holds what the last sync recorded. Skills, agents, and
+// commands render in groups that split only where an edited file shows.
+// A spec that does not reach the tool, or gives it no file of its own,
+// counts as edited, except a rule the tool inlines into its
+// instructions file, which that file decides.
+func (v *importToolView) uneditedFor(a adapters.Adapter, olds []spec.Entry) []bool {
+	out := make([]bool, len(olds))
+	var group []int
+	for i, e := range olds {
+		switch {
+		case !e.EmitsTo(a.Name()):
+		case e.Kind == spec.KindSkill || e.Kind == spec.KindAgent || e.Kind == spec.KindCommand:
+			group = append(group, i)
+		default:
+			out[i] = v.ownFilesHold(a, []spec.Entry{e}, true)
 		}
-		var oldFiles map[string]string
-		var renderErr error
-		if err := r.guard.withBefore(paths, func() error {
-			oldFiles, renderErr = r.render(a, r.after)
-			return nil
-		}); err != nil || renderErr != nil || !covers(oldFiles, newFiles) {
+	}
+	var settle func(idx []int)
+	settle = func(idx []int) {
+		entries := make([]spec.Entry, len(idx))
+		for j, i := range idx {
+			entries[j] = olds[i]
+		}
+		if v.ownFilesHold(a, entries, false) {
+			for _, i := range idx {
+				out[i] = true
+			}
+			return
+		}
+		if len(idx) > 1 {
+			settle(idx[:len(idx)/2])
+			settle(idx[len(idx)/2:])
+		}
+	}
+	if len(group) > 0 {
+		settle(group)
+	}
+	return out
+}
+
+// ownFilesHold renders entries for the tool and reports whether the
+// files they add or change, at least one, hold what the ledger records.
+// With inline set, a lone rule that gives no file of its own is judged
+// by the instructions file that holds its text.
+func (v *importToolView) ownFilesHold(a adapters.Adapter, entries []spec.Entry, inline bool) bool {
+	files, err := v.render(a, spec.NewBundle(entries))
+	if err != nil {
+		return false
+	}
+	base, err := v.renderNothing(a)
+	if err != nil {
+		return false
+	}
+	var paths []string
+	for p, content := range files {
+		if got, ok := base[p]; !ok || got != content {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) == 0 && inline && len(entries) == 1 && entries[0].Kind == spec.KindRule {
+		if p := adapters.EntryPointPath(v.cfg, a.Name()); p != "" && inlinesBody(p, entries[0].BodyFor(a.Name())) {
+			paths = []string{p}
+		}
+	}
+	return v.recorded(paths, true)
+}
+
+// inlinesBody reports whether the instructions file at path holds body,
+// as a tool that inlines rules writes it.
+func inlinesBody(path, body string) bool {
+	data, err := os.ReadFile(filepath.FromSlash(path))
+	body = strings.TrimSpace(body)
+	return err == nil && body != "" && strings.Contains(string(data), body)
+}
+
+// toolsUnedited reports whether every file each tool gets from the whole
+// project still holds what the last sync recorded, so no file of theirs
+// was edited since. It renders each tool once per run.
+func (v *importToolView) toolsUnedited(tools []adapters.Adapter) bool {
+	for _, a := range tools {
+		if held, ok := v.holds[a.Name()]; ok {
+			if !held {
+				return false
+			}
+			continue
+		}
+		files, err := v.render(a, v.after)
+		held := err == nil && v.recorded(slices.Collect(maps.Keys(files)), false)
+		if v.holds == nil {
+			v.holds = map[string]bool{}
+		}
+		v.holds[a.Name()] = held
+		if !held {
 			return false
 		}
 	}
 	return true
 }
 
-func (r *importViewRenderer) renderWhole(a adapters.Adapter) (map[string]string, error) {
-	if files, ok := r.full[a.Name()]; ok {
+// recorded reports whether each of paths holds the bytes the ledger
+// records for it, with at least one recorded. With all set, a path the
+// ledger lacks fails.
+func (v *importToolView) recorded(paths []string, all bool) bool {
+	matched := 0
+	for _, p := range paths {
+		sum, ok := v.sums[filepath.ToSlash(filepath.Clean(p))]
+		if !ok {
+			if all {
+				return false
+			}
+			continue
+		}
+		data, err := os.ReadFile(filepath.FromSlash(p))
+		if err != nil || adapters.ContentSum(string(data)) != sum {
+			return false
+		}
+		matched++
+	}
+	return matched > 0
+}
+
+// hidesKey reports whether each tool renders e the same without key, and
+// whether every render needed to tell succeeded.
+func (v *importToolView) hidesKey(tools []adapters.Adapter, e spec.Entry, key string) (hides, known bool) {
+	without := e
+	without.Meta = maps.Clone(e.Meta)
+	delete(without.Meta, key)
+	without.MetaKeys = slices.DeleteFunc(slices.Clone(e.MetaKeys), func(k string) bool { return k == key })
+	for _, a := range tools {
+		with, err := v.render(a, spec.NewBundle([]spec.Entry{e}))
+		if err != nil {
+			return false, false
+		}
+		got, err := v.render(a, spec.NewBundle([]spec.Entry{without}))
+		if err != nil {
+			return false, false
+		}
+		if !maps.Equal(with, got) {
+			return false, true
+		}
+	}
+	return true, true
+}
+
+// renderNothing is what the tool gets from no spec at all, once per tool.
+func (v *importToolView) renderNothing(a adapters.Adapter) (map[string]string, error) {
+	if files, ok := v.empty[a.Name()]; ok {
 		return files, nil
 	}
-	files, err := r.render(a, r.after)
+	files, err := v.render(a, spec.Bundle{})
 	if err == nil {
-		r.full[a.Name()] = files
+		if v.empty == nil {
+			v.empty = map[string]map[string]string{}
+		}
+		v.empty[a.Name()] = files
 	}
 	return files, err
 }
 
-func (r *importViewRenderer) render(a adapters.Adapter, b spec.Bundle) (map[string]string, error) {
-	captured, err := captureAdapterFiles(adapters.NewSession(), a, b, r.cfg)
+func (v *importToolView) render(a adapters.Adapter, b spec.Bundle) (map[string]string, error) {
+	captured, err := captureAdapterFiles(adapters.NewSession(), a, b, v.cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -354,6 +729,33 @@ func (r *importViewRenderer) render(a adapters.Adapter, b spec.Bundle) (map[stri
 		files[filepath.ToSlash(filepath.Clean(f.Path))] = f.Content
 	}
 	return files, nil
+}
+
+// entryWithBytes is e as data would load, without writing data to disk.
+func entryWithBytes(e spec.Entry, data []byte, cfg *config.Config) (spec.Entry, error) {
+	var parsed spec.Entry
+	var err error
+	switch filepath.Ext(e.Path) {
+	case ".md":
+		parsed, err = spec.ParseMarkdownBytes(e.Kind, data)
+	case ".yaml", ".yml":
+		parsed, err = spec.ParseYAMLBytes(e.Kind, data)
+	default:
+		return spec.Entry{}, fmt.Errorf("%s: not a spec file", e.Path)
+	}
+	if err != nil {
+		return spec.Entry{}, err
+	}
+	old := e
+	old.Meta, old.MetaKeys, old.MetaStyles = parsed.Meta, parsed.MetaKeys, parsed.MetaStyles
+	old.NestedKeys, old.Literals, old.Body, old.BodyLine = parsed.NestedKeys, parsed.Literals, parsed.Body, 0
+	old.ModelTier = ""
+	if parsed.Name != "" {
+		old.Name = parsed.Name
+	}
+	b := spec.NewBundle([]spec.Entry{old})
+	b.ApplyModelTiers(cfg.Models)
+	return b.All()[0], nil
 }
 
 // importingTools resolves each source to its target, or returns nil when
@@ -370,136 +772,6 @@ func importingTools(sources []string) []adapters.Adapter {
 	return tools
 }
 
-// onDisk reports whether the tool's files that the new spec renders to
-// hold exactly what the old spec renders to, so the import read nothing
-// the old spec does not already say.
-func onDisk(old, now map[string]string) bool {
-	for path := range now {
-		if _, ok := old[path]; !ok {
-			return false
-		}
-	}
-	for path, content := range old {
-		data, err := os.ReadFile(filepath.FromSlash(path))
-		if err != nil || string(data) != content {
-			return false
-		}
-	}
-	return true
-}
-
-// covers reports whether old holds every file of now, at least one, with
-// the same content. Old may hold more: a workspace copy the import cannot
-// read back is still what the tool showed. A spec that gives the tool no
-// file did not come from it.
-func covers(old, now map[string]string) bool {
-	if len(now) == 0 {
-		return false
-	}
-	for path, content := range now {
-		if got, ok := old[path]; !ok || got != content {
-			return false
-		}
-	}
-	return true
-}
-
-func entryAt(b spec.Bundle, path string) (spec.Entry, bool) {
-	key := specPathKey(path)
-	for _, e := range b.All() {
-		if e.Path != "" && specPathKey(e.Path) == key {
-			return e, true
-		}
-	}
-	return spec.Entry{}, false
-}
-
-// inSkillFolder reports whether path is an asset of a skill: the tool's
-// own bytes, copied as they are.
-func inSkillFolder(b spec.Bundle, path string) bool {
-	key := specPathKey(path)
-	for _, e := range b.Skills {
-		if dir := e.SkillAssetDir(); dir != "" && strings.HasPrefix(key, specPathKey(dir)+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// keepHidden carries back into a rewritten spec what its old bytes hold
-// that the tools which wrote it never showed, so no edit in them removed
-// it, and returns what it cannot carry. A top-level key those tools'
-// files do not depend on goes back into a markdown spec's frontmatter.
-// ::target blocks and YAML comments cannot: a tool's file holds that
-// tool's view of the body, so no import carries an edit back into a
-// body with blocks for other tools.
-func (r *importViewRenderer) keepHidden(path string, f *importViewFile, old spec.Entry) ([]string, error) {
-	now, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	var hidden []string
-	nowKeys := topLevelKeys(yamlPart(path, now))
-	for _, key := range topLevelKeys(yamlPart(path, f.before)) {
-		if !slices.Contains(nowKeys, key) && r.hidesKey(f.sources, old, key) {
-			hidden = append(hidden, key)
-		}
-	}
-	if len(hidden) > 0 && filepath.Ext(path) == ".md" {
-		omitted := map[string]bool{}
-		for _, key := range hidden {
-			omitted[key] = true
-		}
-		merged, err := mergeSpecFrontmatter(f.before, now, specFields{all: true, omitted: omitted})
-		if err == nil && !slices.ContainsFunc(hidden, func(k string) bool { return !slices.Contains(topLevelKeys(yamlPart(path, merged)), k) }) {
-			if err := r.guard.rewrite(path, merged); err != nil {
-				return nil, err
-			}
-			now, hidden = merged, nil
-		}
-	}
-	var lost []string
-	if filepath.Ext(path) == ".md" {
-		_, beforeBody, _ := splitFrontmatter(f.before)
-		_, nowBody, _ := splitFrontmatter(now)
-		if len(spec.FenceTargets(beforeBody)) > 0 && nowBody != beforeBody {
-			lost = append(lost, "::target blocks")
-		}
-	}
-	lost = append(lost, hidden...)
-	nowYAML := string(yamlPart(path, now))
-	for _, line := range strings.Split(string(yamlPart(path, f.before)), "\n") {
-		if c := strings.TrimSpace(line); strings.HasPrefix(c, "#") && !strings.Contains(nowYAML, c) {
-			lost = append(lost, "comments")
-			break
-		}
-	}
-	return lost, nil
-}
-
-// hidesKey reports whether each tool renders e the same without key.
-func (r *importViewRenderer) hidesKey(sources []string, e spec.Entry, key string) bool {
-	tools := importingTools(sources)
-	if len(tools) == 0 {
-		return false
-	}
-	without := e
-	without.Meta = maps.Clone(e.Meta)
-	delete(without.Meta, key)
-	without.MetaKeys = slices.DeleteFunc(slices.Clone(e.MetaKeys), func(k string) bool { return k == key })
-	for _, a := range tools {
-		with, err := r.render(a, spec.NewBundle([]spec.Entry{e}))
-		if err != nil {
-			return false
-		}
-		got, err := r.render(a, spec.NewBundle([]spec.Entry{without}))
-		if err != nil || !maps.Equal(with, got) {
-			return false
-		}
-	}
-	return true
-}
-
 // yamlPart is the frontmatter of a markdown spec, the whole of a YAML
 // one, and nothing for any other file.
 func yamlPart(path string, data []byte) []byte {
@@ -511,16 +783,4 @@ func yamlPart(path string, data []byte) []byte {
 		return data
 	}
 	return nil
-}
-
-func topLevelKeys(yamlBytes []byte) []string {
-	m, err := frontmatterMapping(yamlBytes)
-	if err != nil || m == nil {
-		return nil
-	}
-	keys := make([]string, 0, len(m.Content)/2)
-	for i := 0; i+1 < len(m.Content); i += 2 {
-		keys = append(keys, m.Content[i].Value)
-	}
-	return keys
 }

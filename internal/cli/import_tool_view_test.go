@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -205,6 +206,139 @@ func TestImport_LeavesOverlaysAnOlderReleaseWrote(t *testing.T) {
 	} {
 		if got := readFile(t, path); got != want {
 			t.Errorf("%s = %q, want it unchanged", path, got)
+		}
+	}
+}
+
+// A spec that does not load must not switch the check off for the rest.
+func TestImport_StopsOnAToolEditWhileAnotherSpecDoesNotLoad(t *testing.T) {
+	syncedSharedSkillProject(t)
+	mustWriteFile(t, ".agnostic-ai/rules/broken.md", "---\ndescription: [unclosed\n---\nBroken.\n")
+	native := sharedSkillNative["claude"]
+	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+
+	_, err := runCLI(t, "import", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace || !strings.Contains(err.Error(), "::target blocks") {
+		t.Fatalf("import claude = %v, want AAI-203 naming the ::target blocks", err)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/demo/SKILL.md"); got != sharedSkill {
+		t.Errorf("import changed the skill:\n%s", got)
+	}
+}
+
+// A preview with skills under an absolute source directory decides as the
+// real import does.
+func TestImport_PreviewMatchesTheRealImportForAnAbsoluteSkillSource(t *testing.T) {
+	for _, edited := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unchanged", true: "edited"}[edited], func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			external := t.TempDir()
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsources:\n  skills: "+filepath.ToSlash(external)+"\n")
+			skill := filepath.Join(external, "demo", "SKILL.md")
+			mustWriteFile(t, skill, sharedSkill)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if edited {
+				native := sharedSkillNative["claude"]
+				mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+			}
+
+			out, previewErr := runAbsoluteImportCLI(t, "import", "claude", "--dry-run", "--diff")
+			_, realErr := runAbsoluteImportCLI(t, "import", "claude")
+
+			if (previewErr == nil) != (realErr == nil) {
+				t.Errorf("preview error %v, real error %v", previewErr, realErr)
+			}
+			if edited && errs.CodeOf(realErr) != errs.CodeImportWouldReplace {
+				t.Errorf("real import = %v, want AAI-203", realErr)
+			}
+			if !edited && !strings.Contains(out, "unchanged "+filepath.ToSlash(skill)) {
+				t.Errorf("preview does not list the skill as unchanged:\n%s", out)
+			}
+			if got := readFile(t, skill); got != sharedSkill {
+				t.Errorf("import changed the skill:\n%s", got)
+			}
+		})
+	}
+}
+
+// A helper script no hook names is still the user's file: an edit to it
+// comes back.
+func TestImport_BringsBackAnEditToAHookHelperScript(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".claude/hooks/fmt.sh", "#!/bin/sh\n. \"$(dirname \"$0\")/common.sh\"\nfmt\n")
+	mustWriteFile(t, ".claude/hooks/common.sh", "fmt() { echo one; }\n")
+	mustWriteFile(t, ".claude/settings.json", `{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":".claude/hooks/fmt.sh"}]}]}}`)
+	for _, args := range [][]string{{"import", "claude"}, {"sync"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	mustWriteFile(t, ".claude/hooks/common.sh", "fmt() { echo two; }\n")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import claude: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".agnostic-ai/scripts/claude/common.sh"); got != "fmt() { echo two; }\n" {
+		t.Errorf("helper script = %q, want the edit", got)
+	}
+}
+
+// Gemini inlines rules into GEMINI.md, so a rule renders to no file of
+// its own; an unedited GEMINI.md still leaves the rule as it is.
+func TestImport_LeavesARuleTheToolInlinesUnchanged(t *testing.T) {
+	for name, rule := range map[string]string{
+		"blocks": "---\ndescription: Style.\n---\nShared rule.\n\n::target claude\n\nClaude-only rule.\n\n::end\n",
+		"plain":  "---\ndescription: Style.\n---\nShared rule.\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini]\n")
+			mustWriteFile(t, ".agnostic-ai/rules/style.md", rule)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			if out, err := runCLI(t, "import", "gemini"); err != nil {
+				t.Fatalf("import gemini: %v\n%s", err, out)
+			}
+
+			if got := readFile(t, ".agnostic-ai/rules/style.md"); got != rule {
+				t.Errorf("import gemini rewrote the rule:\n%s", got)
+			}
+		})
+	}
+}
+
+// Comments on keys the edit keeps go back into the spec, inline ones
+// included, so a body edit comes back without a stop.
+func TestImport_KeepsFrontmatterCommentsWhenBringingBackAnEdit(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	const agent = "---\nname: reviewer\n# Picked by hand.\ndescription: Review the diff. # read-only on purpose\nmodel: sonnet\n---\nReview what changed.\n"
+	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", agent)
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native := ".claude/agents/reviewer.md"
+	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Review what changed.", "Review every change.", 1))
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import claude: %v\n%s", err, out)
+	}
+
+	got := readFile(t, ".agnostic-ai/agents/reviewer.md")
+	for _, want := range []string{"Review every change.", "# Picked by hand.", "# read-only on purpose"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("agent = %q, want %q", got, want)
 		}
 	}
 }

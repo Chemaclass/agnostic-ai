@@ -58,7 +58,7 @@ func newImportCmd() *cobra.Command {
 			"lists the files it would write; the project stays untouched. Add `--diff` to show " +
 			"each proposed change, which sources wrote it, and where sources disagree. " +
 			"A spec the tool shows unchanged stays as it is. An import that would replace an " +
-			"existing spec with different content, or lose `::target` blocks or comments the tool " +
+			"existing spec with different content, or lose `::target` blocks the tool " +
 			"does not show, stops before writing anything and lists each one; `--overwrite` replaces them.",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
@@ -119,7 +119,7 @@ func newImportCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
 	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings and MCP files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
-	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change, losing what the tool does not show, such as ::target blocks for other tools. Without it, an import that would replace a spec with different content stops before writing anything.")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change. Keys the tool never shows and comments on kept keys stay; ::target blocks for other tools are lost. Without it, an import that would replace a spec with different content stops before writing anything.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
 	return cmd
 }

@@ -22,7 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `memory lint`, `lint`, and `doctor` warn (LINT039) when the two memory indexes pass 6,000 bytes. With Codex, Copilot, Cursor, Gemini CLI, Qoder, or Factory enabled, the finding names the facts their session-start hook never loads; otherwise it names the tools that load the whole indexes every session (#1930).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 - The `shared-memory-policy` rule describes `memory.personal: repo` in one shorter sentence, so every session loads 155 fewer bytes (#1931).
-- A re-import with no edits leaves every spec as it is, for every source: `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote stay. A tool edit keeps frontmatter keys the tool never shows, and stops with AAI-203 when it would lose `::target` blocks or comments (#1938, #1941).
+- A re-import with no edits leaves every spec as it is, for every source: `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote stay. A tool edit keeps frontmatter keys the tool never shows and comments on kept keys, and stops with AAI-203 when it would lose `::target` blocks (#1938, #1941).
 
 ### By tool
 
