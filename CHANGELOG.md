@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Without a sync record, `status` and `doctor` reuse a commit's output when checking native files, so the same commit is not rendered twice (#1940).
+- Without a sync record, `status` and `doctor` render each commit once when checking native files (#1940).
 
 - Memory docs explain which Cursor sessions load indexes at startup and how hosted cloud agents read project memory.
 - Builds use Go 1.27.2, which fixes an HTTP/2 crash in the standard library (GO-2026-6617).
