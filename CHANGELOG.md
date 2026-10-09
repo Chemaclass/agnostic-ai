@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Interactive commands offer new releases with a default Yes prompt, release upgrade guidance, and project migrations. Accepted upgrades verify the installed version, update the disclosed project pins and schema, then sync and check; rerun your original command afterward. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable daily checks (#1945).
+- Interactive commands offer guided upgrades with release docs, migrations, sync, and checks. The prompt names project pin and schema changes. Local package installations get their update command. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable daily checks (#1945).
 
 - Builds use Go 1.27.2, which fixes an HTTP/2 crash in the standard library (GO-2026-6617).
 - `compare` runs in under a second on large projects, down from 47 s at 500 specs (#1891).

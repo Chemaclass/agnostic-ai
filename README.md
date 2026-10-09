@@ -44,7 +44,7 @@ Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add yo
 
 ## Daily commands
 
-Interactive runs offer new releases with upgrade guidance and a default Yes prompt. Accept to update, migrate this project, and check its generated files. The prompt includes any project version and schema changes. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable the daily check. See [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
+Interactive runs offer new releases with upgrade guidance and a default Yes prompt. Accept to update, migrate this project, and check its generated files. The prompt includes any project version and schema changes. Local package installations show their package manager's update command. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable the daily check. See [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
 
 ```bash

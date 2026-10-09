@@ -26,11 +26,12 @@ type upgradeOffer struct {
 }
 
 type guidedUpgradeDeps struct {
-	check     func(string) (upgradeOffer, error)
-	project   func() (string, error)
-	install   func(io.Writer, string, string) (string, error)
-	run       func(string, string, []string, io.Writer) (string, error)
-	reconcile func(string, string) error
+	manualInstall func(string, string) string
+	check         func(string) (upgradeOffer, error)
+	project       func() (string, error)
+	install       func(io.Writer, string, string) (string, error)
+	run           func(string, string, []string, io.Writer) (string, error)
+	reconcile     func(string, string) error
 }
 
 func guidedUpgradeEachRun(cmd *cobra.Command) {
@@ -79,7 +80,8 @@ func automaticUpgradeAllowed(cmd *cobra.Command, version string, interactive boo
 
 func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 	return guidedUpgradeDeps{
-		check: cachedUpgradeOffer,
+		check:         cachedUpgradeOffer,
+		manualInstall: guidedNPMUpgradeHint,
 		project: func() (string, error) {
 			if err := refuseGlobalHome(".", "upgrade global specs separately"); err != nil {
 				return "", nil
@@ -88,7 +90,14 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 			if err != nil {
 				return "", nil
 			}
-			return filepath.Abs(filepath.Dir(path))
+			root, err := filepath.Abs(filepath.Dir(path))
+			if err != nil {
+				return "", fmt.Errorf("resolve project root: %w", err)
+			}
+			if err := validateGuidedProjectConfigs(root); err != nil {
+				return "", err
+			}
+			return root, nil
 		},
 		install: func(out io.Writer, current, latest string) (string, error) {
 			info, err := detectUpgradeInstallation(current)
@@ -110,6 +119,9 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 				return err
 			}
 			defer func() { _ = lock.Close() }()
+			if err := validateGuidedProjectConfigs(root); err != nil {
+				return err
+			}
 			_, err = config.PersistRequires(root, version, schemaURL(version))
 			if err != nil {
 				return fmt.Errorf("reconcile requires and schema: %w", err)
@@ -139,10 +151,17 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 		return false, nil
 	}
 	root, err := deps.project()
+	out := cmd.OutOrStdout()
 	if err != nil {
+		_, _ = fmt.Fprintf(out, "Automatic project upgrade skipped: %v. Continuing your requested command.\n", err)
 		return false, nil
 	}
-	out := cmd.OutOrStdout()
+	if deps.manualInstall != nil {
+		if hint := deps.manualInstall(root, offer.Latest); hint != "" {
+			_, _ = fmt.Fprintf(out, "Update available: %s -> %s\n%s\nContinuing your requested command.\n", strings.TrimPrefix(current, "v"), offer.Latest, hint)
+			return false, nil
+		}
+	}
 	_, _ = fmt.Fprintf(out, "Update available: %s -> %s\nRelease guidance: %s/tag/v%s\n", strings.TrimPrefix(current, "v"), offer.Latest, releasesHTMLURL, offer.Latest)
 	if offer.Guidance == "" && offer.GuidanceError == "" {
 		offer.GuidanceError = "release notes could not be loaded"

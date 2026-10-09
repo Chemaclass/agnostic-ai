@@ -191,6 +191,10 @@ Interactive commands check for a newer stable release at most once a day, within
 
 Acceptance updates through the detected installer and verifies the installed version before changing the project. From the project root, the prompt explicitly includes replacing `requires` (including a range or local override) with the target exact version and updating the schema URL. It then previews and applies built-in migrations with the updated binary, runs `sync`, and runs `sync --check`. Outside a project, it updates the tool only. Review the reported migration skips and release guidance for manual steps. The original command does not run after acceptance; rerun it with the updated binary.
 
+A config link that reaches another project or global specs skips the automatic offer and names the target. Links within the current project remain supported. The target is checked again before project version changes.
+
+Project-local npm and pnpm installations show the owning package manager's update command and continue your requested command. An npx cache installation shows the pinned npx command. Automatic npm updates run only for a verified global installation; the ownership check has a two-second limit.
+
 If installation or version verification fails, project changes do not start. A failed migration or sync stops the remaining steps and names how to continue; completed changes stay. Release prose explains the changes, while only built-in migrations run.
 
 Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable automatic checks. Offline checks stay silent. CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds skip them. A declined offer is not repeated that day. Explicit `upgrade` remains available.
