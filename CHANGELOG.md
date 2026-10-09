@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A `sync` with nothing to change is about 30% faster at 500 specs: it reads each output once and skips repeated folder, state, and skill-folder reads (#1895).
 - `doctor` lists the installed AI CLIs in name order, so two runs print the same output (#1903).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
+- The `shared-memory-policy` rule explains `memory.personal: repo` only when the project turns it on, so every session without it loads about 300 fewer bytes (#1931).
 
 ### By tool
 

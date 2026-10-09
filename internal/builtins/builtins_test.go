@@ -44,7 +44,7 @@ func cacheForTest(t *testing.T) string {
 
 func materializeHandoff(t *testing.T) string {
 	t.Helper()
-	root, cleanup, err := builtins.Materialize("handoff")
+	root, cleanup, err := builtins.Materialize("handoff", builtins.Options{})
 	if err != nil {
 		t.Fatalf("materialize handoff: %v", err)
 	}
@@ -76,16 +76,16 @@ func TestNames_ReturnsValidNamesWithoutSharingTheList(t *testing.T) {
 }
 
 func TestHash_IsStableSHA256AndRejectsUnknownNames(t *testing.T) {
-	hash := builtins.Hash("handoff")
+	hash := builtins.Hash("handoff", builtins.Options{})
 	decoded, err := hex.DecodeString(hash)
 	if err != nil || len(decoded) != 32 {
 		t.Errorf("Hash(handoff) = %q, want a SHA256 hex digest", hash)
 	}
-	if got := builtins.Hash("handoff"); got != hash {
+	if got := builtins.Hash("handoff", builtins.Options{}); got != hash {
 		t.Errorf("second hash = %q, want %q", got, hash)
 	}
 	for _, name := range []string{"nope", "", "../handoff"} {
-		if got := builtins.Hash(name); got != "" {
+		if got := builtins.Hash(name, builtins.Options{}); got != "" {
 			t.Errorf("Hash(%q) = %q, want empty", name, got)
 		}
 	}
@@ -93,7 +93,7 @@ func TestHash_IsStableSHA256AndRejectsUnknownNames(t *testing.T) {
 
 func TestMaterialize_RejectsUnknownNames(t *testing.T) {
 	cache := cacheForTest(t)
-	root, cleanup, err := builtins.Materialize("../handoff")
+	root, cleanup, err := builtins.Materialize("../handoff", builtins.Options{})
 	if err == nil || !strings.Contains(err.Error(), "../handoff") {
 		t.Errorf("Materialize unknown error = %v, want the rejected name", err)
 	}
@@ -112,7 +112,7 @@ func TestMaterialize_RejectsUnknownNames(t *testing.T) {
 func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 	cache := cacheForTest(t)
 	root := materializeHandoff(t)
-	wantRoot := filepath.Join(cache, "agnostic-ai", "builtins", builtins.Hash("handoff"))
+	wantRoot := filepath.Join(cache, "agnostic-ai", "builtins", builtins.Hash("handoff", builtins.Options{}))
 	if root != wantRoot {
 		t.Errorf("root = %q, want %q", root, wantRoot)
 	}
@@ -183,7 +183,7 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 
 func TestMaterialize_CachesReadOnlyFilesAndKeepsThemAfterCleanup(t *testing.T) {
 	cacheForTest(t)
-	root, cleanup, err := builtins.Materialize("handoff")
+	root, cleanup, err := builtins.Materialize("handoff", builtins.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestMaterialize_FallsBackWhenCacheCannotBeWrittenAndCleansTemp(t *testing.T
 				t.Setenv("XDG_CACHE_HOME", "")
 				t.Setenv("LocalAppData", "")
 			}
-			root, cleanup, err := builtins.Materialize("handoff")
+			root, cleanup, err := builtins.Materialize("handoff", builtins.Options{})
 			if err != nil {
 				t.Fatalf("fallback: %v", err)
 			}
@@ -327,7 +327,7 @@ func TestMaterialize_FallsBackWhenCacheCannotBeWrittenAndCleansTemp(t *testing.T
 
 func TestMaterialize_ConcurrentProcessesUseOneCompleteCache(t *testing.T) {
 	cache := cacheForTest(t)
-	wantRoot := filepath.Join(cache, "agnostic-ai", "builtins", builtins.Hash("handoff"))
+	wantRoot := filepath.Join(cache, "agnostic-ai", "builtins", builtins.Hash("handoff", builtins.Options{}))
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -352,7 +352,7 @@ func TestMaterialize_ProcessHelper(t *testing.T) {
 	if os.Getenv("AGNOSTIC_AI_BUILTINS_TEST_PROCESS") != "1" {
 		return
 	}
-	root, cleanup, err := builtins.Materialize("handoff")
+	root, cleanup, err := builtins.Materialize("handoff", builtins.Options{})
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestMaterialize_ProcessHelper(t *testing.T) {
 
 func TestMaterialize_LoadsHandoffHooksAsAnOrdinaryLayer(t *testing.T) {
 	cacheForTest(t)
-	root, cleanup, err := builtins.Materialize("handoff-hook")
+	root, cleanup, err := builtins.Materialize("handoff-hook", builtins.Options{})
 	if err != nil {
 		t.Fatalf("materialize handoff-hook: %v", err)
 	}
@@ -406,5 +406,50 @@ func TestMaterialize_LoadsHandoffHooksAsAnOrdinaryLayer(t *testing.T) {
 		if _, exists := hook.Meta["matcher"]; exists {
 			t.Errorf("hook %s filters lifecycle sources", hook.Name)
 		}
+	}
+}
+
+func materializeMemoryPolicy(t *testing.T, opts builtins.Options) string {
+	t.Helper()
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("memory", opts)
+	if err != nil {
+		t.Fatalf("materialize memory: %v", err)
+	}
+	t.Cleanup(func() { _ = cleanup() })
+	body, err := os.ReadFile(filepath.Join(root, "rules", "shared-memory-policy.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
+func TestMaterialize_MemoryPolicyLeavesRepoModeOutByDefault(t *testing.T) {
+	body := materializeMemoryPolicy(t, builtins.Options{})
+	for _, unwanted := range []string{"memory.personal", "$AGNOSTIC_AI_HOME", "memory path", "<!--"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("policy without repo mode mentions %q:\n%s", unwanted, body)
+		}
+	}
+	if !strings.Contains(body, "kept out of Git. Each folder has a `MEMORY.md` index") {
+		t.Errorf("policy without repo mode lost the text around the repo-mode sentence:\n%s", body)
+	}
+}
+
+func TestMaterialize_MemoryPolicyNamesTheRepoStoreInRepoMode(t *testing.T) {
+	body := materializeMemoryPolicy(t, builtins.Options{RepoPersonalMemory: true})
+	want := "kept out of Git. When `agnostic-ai.local.yaml` sets `memory.personal: repo`, personal memory is instead the folder under `$AGNOSTIC_AI_HOME/local/memory/` (default `~/.agnostic-ai/local/memory/`) that your session context names, or that `agnostic-ai memory path` prints when none does, shared by every worktree of the repository. Each folder"
+	if !strings.Contains(body, want) || strings.Contains(body, "<!--") {
+		t.Errorf("policy in repo mode =\n%s\nwant it to contain\n%s", body, want)
+	}
+}
+
+func TestHash_DiffersOnlyForBuiltinsWithRepoModeText(t *testing.T) {
+	off, on := builtins.Options{}, builtins.Options{RepoPersonalMemory: true}
+	if builtins.Hash("memory", off) == builtins.Hash("memory", on) {
+		t.Error("both memory modes share one hash, so they would share one cache folder")
+	}
+	if builtins.Hash("handoff", off) != builtins.Hash("handoff", on) {
+		t.Error("handoff has no repo-mode text, so its hash must not change with the mode")
 	}
 }

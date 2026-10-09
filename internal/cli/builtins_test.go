@@ -356,14 +356,14 @@ func TestBuiltins_WatchReloadRepairsDamagedCache(t *testing.T) {
 func TestBuiltins_ReplacedFallbackIsCleaned(t *testing.T) {
 	builtinProject(t, "handoff")
 	builtinCache(t, false)
-	first, err := materializeBuiltin("handoff")
+	first, err := materializeBuiltin("handoff", builtinOptions(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(first, ".complete")); err != nil {
 		t.Fatal(err)
 	}
-	second, err := materializeBuiltin("handoff")
+	second, err := materializeBuiltin("handoff", builtinOptions(nil))
 	if err != nil {
 		t.Fatal(err)
 	}

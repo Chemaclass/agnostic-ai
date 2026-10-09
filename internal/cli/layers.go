@@ -42,7 +42,7 @@ func defaultLayerSources() config.Sources {
 // high-precedence. Optional layers are skipped when their root does
 // not exist.
 func resolveLayers(projectRoot string, cfg *config.Config) ([]spec.Layer, error) {
-	layers, err := resolveBuiltinLayers(cfg.Builtins, projectRoot)
+	layers, err := resolveBuiltinLayers(cfg.Builtins, projectRoot, builtinOptions(cfg))
 	if err != nil {
 		return nil, err
 	}

@@ -80,6 +80,61 @@ func TestBuiltinMemory(t *testing.T) {
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})
 
+	t.Run("repo-mode-golden-follows-the-mode", func(t *testing.T) {
+		dir := project(t, fixture)
+		if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v\n%s", err, out)
+		}
+		localConfig := filepath.Join(dir, "agnostic-ai.local.yaml")
+		repoMode, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-repo", "agnostic-ai.local.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(localConfig, repoMode, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run(t, dir, "sync", "--gitignore=off")
+		paths := []string{
+			"AGENTS.md",
+			"GEMINI.md",
+			".claude/rules/shared-memory-policy.md",
+			".cursor/rules/shared-memory-policy.mdc",
+		}
+		output := map[string]string{}
+		for _, path := range paths {
+			data, err := os.ReadFile(filepath.Join(dir, path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			output[path] = string(data)
+		}
+		expectedDir := filepath.Join(packageDir, "fixtures", "golden", "builtin-memory-repo")
+		if os.Getenv("UPDATE_GOLDEN") == "1" {
+			updateGolden(t, expectedDir, output)
+		} else {
+			compareGolden(t, expectedDir, output, "builtin-memory-repo")
+		}
+		run(t, dir, "sync", "--check", "--gitignore=off")
+
+		rule := filepath.Join(dir, ".claude", "rules", "shared-memory-policy.md")
+		if err := os.Remove(localConfig); err != nil {
+			t.Fatal(err)
+		}
+		run(t, dir, "sync", "--gitignore=off")
+		run(t, dir, "sync", "--check", "--gitignore=off")
+		if data, _ := os.ReadFile(rule); strings.Contains(string(data), "memory.personal") {
+			t.Errorf("turning repo mode off left its text in the rule:\n%s", data)
+		}
+		if err := os.WriteFile(localConfig, repoMode, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run(t, dir, "sync", "--gitignore=off")
+		run(t, dir, "sync", "--check", "--gitignore=off")
+		if data, _ := os.ReadFile(rule); !strings.Contains(string(data), "memory.personal: repo") {
+			t.Errorf("turning repo mode back on did not restore its text in the rule:\n%s", data)
+		}
+	})
+
 	t.Run("saving-a-fact-needs-no-sync", func(t *testing.T) {
 		dir := project(t, fixture)
 		run(t, dir, "sync", "--gitignore=off")
