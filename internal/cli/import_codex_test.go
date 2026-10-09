@@ -395,7 +395,7 @@ func TestImportFromCodex_CopiesSkillAssets(t *testing.T) {
 	writeFile(t, filepath.Join(skillRoot, "SKILL.md"),
 		"---\nname: validator\n---\nbody\n")
 	writeFile(t, filepath.Join(skillRoot, "scripts", "run.py"), "print('ok')\n")
-	writeFile(t, filepath.Join(skillRoot, "agents", "openai.yaml"), "interface: cli\n")
+	writeFile(t, filepath.Join(skillRoot, "agents", "openai.yaml"), "interface: cli\ncustom_key: keep\n")
 
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
