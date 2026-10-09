@@ -56,6 +56,8 @@ agnostic-ai memory lint                          # check the shared memory index
 agnostic-ai memory path                          # print the memory folders, including the repo store
 ```
 
+Without a sync record, checks skip historical rendering for a handwritten Claude launch file when the committed sources prove it has no generated counterpart. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for how ownership is checked.
+
 ## What you can share
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.

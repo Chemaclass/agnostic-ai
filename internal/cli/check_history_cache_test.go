@@ -175,7 +175,7 @@ func recordHistoryGitRenders(t *testing.T) string {
 	}
 	bin := t.TempDir()
 	log := filepath.Join(bin, "renders")
-	wrapper := "#!/bin/sh\nif [ \"$1\" = read-tree ]; then printf '%s\\n' \"$*\" >> " + adapters.ShellQuote(log) + "; fi\nexec " + adapters.ShellQuote(gitPath) + " \"$@\"\n"
+	wrapper := "#!/bin/sh\nif [ \"$1\" = read-tree ]; then case \"$GIT_INDEX_FILE\" in *agnostic-ai-history-config-*) ;; *) printf '%s\\n' \"$*\" >> " + adapters.ShellQuote(log) + ";; esac; fi\nexec " + adapters.ShellQuote(gitPath) + " \"$@\"\n"
 	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(wrapper), 0755); err != nil {
 		t.Fatal(err)
 	}
