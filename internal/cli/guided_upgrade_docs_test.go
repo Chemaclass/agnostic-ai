@@ -14,13 +14,13 @@ func TestFetchReleaseDocs_ShowsEverySkippedReleaseUpgradeSection(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/releases":
-			fmt.Fprint(w, `[{"tag_name":"v0.82.0"},{"tag_name":"v0.81.0"},{"tag_name":"v0.80.0"}]`)
+			_, _ = fmt.Fprint(w, `[{"tag_name":"v0.82.0"},{"tag_name":"v0.81.0"},{"tag_name":"v0.80.0"}]`)
 		case "/tree":
-			fmt.Fprint(w, `{"tree":[{"path":"docs/site/content/updates/2026-10-06-v0.80.0.md"},{"path":"docs/site/content/updates/2026-10-07-v0.81.0.md"},{"path":"docs/site/content/updates/2026-10-09-v0.82.0.md"}]}`)
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"docs/site/content/updates/2026-10-06-v0.80.0.md"},{"path":"docs/site/content/updates/2026-10-07-v0.81.0.md"},{"path":"docs/site/content/updates/2026-10-09-v0.82.0.md"}]}`)
 		case "/docs/site/content/updates/2026-10-07-v0.81.0.md":
-			fmt.Fprint(w, "+++\ntitle=\"test\"\n+++\n## Upgrading from v0.80.0\nRename invalid Claude agent names by hand.\nRun agnostic-ai migrate --only secrets.\n## What changed\nOther content\n")
+			_, _ = fmt.Fprint(w, "+++\ntitle=\"test\"\n+++\n## Upgrading from v0.80.0\nRename invalid Claude agent names by hand.\nRun agnostic-ai migrate --only secrets.\n## What changed\nOther content\n")
 		case "/docs/site/content/updates/2026-10-09-v0.82.0.md":
-			fmt.Fprint(w, "## Upgrading from v0.81.0\nKeep your requires range if you use one.\n## Features\nFeatures\n")
+			_, _ = fmt.Fprint(w, "## Upgrading from v0.81.0\nKeep your requires range if you use one.\n## Features\nFeatures\n")
 		default:
 			t.Errorf("unexpected fetch %s", r.URL)
 			http.NotFound(w, r)
@@ -48,11 +48,11 @@ func TestFetchReleaseDocs_ShowsEverySkippedReleaseUpgradeSection(t *testing.T) {
 func TestFetchReleaseDocs_ReportsMissingGuidanceBeforePrompt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/releases" {
-			fmt.Fprint(w, `[{"tag_name":"v0.82.0"},{"tag_name":"v0.81.0"}]`)
+			_, _ = fmt.Fprint(w, `[{"tag_name":"v0.82.0"},{"tag_name":"v0.81.0"}]`)
 			return
 		}
 		if r.URL.Path == "/tree" {
-			fmt.Fprint(w, `{"tree":[{"path":"docs/site/content/updates/2026-10-09-v0.82.0.md"}]}`)
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"docs/site/content/updates/2026-10-09-v0.82.0.md"}]}`)
 			return
 		}
 		http.NotFound(w, r)
