@@ -503,3 +503,37 @@ func TestEmit_IgnoreFile_SkippedWhenNoSpecs(t *testing.T) {
 		t.Errorf("expected no .trae/.ignore for a bundle with no ignore specs, err=%v", err)
 	}
 }
+
+func TestEmit_AgentToolsPreserveExplicitEmptyAllowlist(t *testing.T) {
+	cases := []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"omitted", nil, ""},
+		{"generic-string", map[string]any{"tools": ""}, "tools: \"\"\n"},
+		{"generic-list", map[string]any{"tools": []any{}}, "tools: \"\"\n"},
+		{"override-string", map[string]any{"tools": []any{"Read"}, "x-trae": map[string]any{"tools": ""}}, "tools: \"\"\n"},
+		{"override-list", map[string]any{"tools": []any{"Read"}, "x-trae": map[string]any{"tools": []any{}}}, "tools: \"\"\n"},
+		{"override-deletion", map[string]any{"tools": []any{"Read"}, "x-trae": map[string]any{"tools": nil}}, ""},
+		{"native-nonempty", map[string]any{"tools": "Read, Grep"}, "tools: Read, Grep\n"},
+		{"generic-null", map[string]any{"tools": nil}, ""},
+		{"generic-nonempty", map[string]any{"tools": []any{"Read"}}, "tools: Read\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{{Kind: spec.KindAgent, Name: "plain", Meta: tc.meta}}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, ".trae/agents/plain.md"))
+			if tc.want == "" {
+				if strings.Contains(got, "tools:") {
+					t.Errorf("tools must stay omitted:\n%s", got)
+				}
+			} else if !strings.Contains(got, tc.want) {
+				t.Errorf("missing %q:\n%s", tc.want, got)
+			}
+		})
+	}
+}

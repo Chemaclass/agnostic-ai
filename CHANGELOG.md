@@ -53,6 +53,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - In repo mode, OpenCode saves personal memory without asking each time: sync allows its folder under `permission.external_directory` (#1881).
 - In repo mode, moving `AGNOSTIC_AI_HOME` no longer leaves the old personal memory index in `instructions` (#1886).
 
+#### Trae
+
+- Explicit empty agent tool lists disable all tools, including after import and sync (#1946).
+
 #### Windsurf
 
 - In repo mode, Devin CLI saves personal memory without asking: sync allows writes to its folder in `.devin/config.json` (#1882).
