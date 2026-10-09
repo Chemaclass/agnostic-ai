@@ -19,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Release binaries no longer embed the build machine's source paths (#1902).
 - A `sync` with nothing to change is about 30% faster at 500 specs: it reads each output once and skips repeated folder, state, and skill-folder reads (#1895).
 - `doctor` lists the installed AI CLIs in name order, so two runs print the same output (#1903).
+- `memory lint`, `lint`, and `doctor` warn (LINT039) when the two memory indexes pass 6,000 bytes. With Codex, Copilot, Cursor, Gemini CLI, Qoder, or Factory enabled, the finding names the facts their session-start hook never loads; otherwise it names the tools that load the whole indexes every session (#1930).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
 - The `shared-memory-policy` rule describes `memory.personal: repo` in one shorter sentence, so every session loads 155 fewer bytes (#1931).
 

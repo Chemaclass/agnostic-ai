@@ -40,28 +40,7 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
-			personal, configErr := personalMemoryIndex(root)
-			scopes := []memoryIndex{
-				// Personal first: it is short, and a long project index must
-				// not push the user's own corrections out of the limit.
-				personal,
-				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
-			}
-			if configErr != nil {
-				// The folder is unknown, and the checkout one may be wrong.
-				scopes = scopes[1:]
-			}
-			var indexes []memoryIndex
-			for _, scope := range scopes {
-				if text, ok := readMemoryIndex(root, scope.path); ok {
-					scope.text = text
-				} else if filepath.IsAbs(scope.path) {
-					scope.text = "Save personal facts in this folder and list them in this index."
-				} else {
-					continue
-				}
-				indexes = append(indexes, scope)
-			}
+			indexes, scopes, configErr := memoryHookIndexes(root)
 			text := ""
 			if len(indexes) > 0 {
 				text = memoryContext(indexes, scopes)
@@ -84,9 +63,42 @@ func newHookMemoryCmd() *cobra.Command {
 	return cmd
 }
 
+// memoryHookIndexes returns the indexes the hook prints for the project
+// at root, and every scope its cut note names. A config that does not
+// load is returned as the error, with only the project scope: the
+// personal folder is then unknown, and the checkout one may be wrong.
+func memoryHookIndexes(root string) (indexes, scopes []memoryIndex, err error) {
+	personal, err := personalMemoryIndex(root)
+	scopes = []memoryIndex{
+		// Personal first: it is short, and a long project index must
+		// not push the user's own corrections out of the limit.
+		personal,
+		{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
+	}
+	if err != nil {
+		scopes = scopes[1:]
+	}
+	for _, scope := range scopes {
+		if text, ok := readMemoryIndex(root, scope.path); ok {
+			scope.text = text
+		} else if filepath.IsAbs(scope.path) {
+			scope.text = "Save personal facts in this folder and list them in this index."
+		} else {
+			continue
+		}
+		indexes = append(indexes, scope)
+	}
+	return indexes, scopes, err
+}
+
 // memoryIndex is one scope's index as the hook prints it. path is
 // relative to the project root, or absolute for the repo store.
 type memoryIndex struct{ name, path, text string }
+
+// header introduces the index in the context the hook prints.
+func (m memoryIndex) header() string {
+	return "\n" + m.name + ", `" + m.path + "`:\n\n"
+}
 
 // personalMemoryIndex returns the personal index of the project at root,
 // in the checkout unless its config sets memory.personal: repo. A config
@@ -115,7 +127,7 @@ func memoryContext(indexes, scopes []memoryIndex) string {
 	text := "## Shared memory\n\nOpen a fact's file, in the folder of its index, when its line is relevant.\n"
 	head := 0
 	for i, index := range indexes {
-		text += "\n" + index.name + ", `" + index.path + "`:\n\n"
+		text += index.header()
 		if i == 0 {
 			head = len(text)
 		}

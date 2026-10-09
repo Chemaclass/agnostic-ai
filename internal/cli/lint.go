@@ -273,7 +273,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		findings = append(findings, protected...)
 		findings = append(findings, lintKiroAgentResources(scope.cfg, scope.targets, scope.bundle)...)
 		findings = append(findings, lintPortableHookForms(scope.migrationScope(), scope.cfg, scope.bundle)...)
-		memory, err := lintMemory()
+		memory, err := lintMemory(projectMemoryReaders(scope.cfg, scope.bundle))
 		if err != nil {
 			return nil, 0, err
 		}

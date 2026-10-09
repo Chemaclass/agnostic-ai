@@ -92,6 +92,7 @@ On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, sync adds a hook that
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash.
 - Hooks you wrote yourself stay.
+- It keeps the first 6,000 bytes, personal memory first, then project memory. Facts past that never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, so `memory lint` also warns there once they pass 6,000 bytes.
 
 ### Claude Code's own memory {#claude-code-s-own-memory}
 
@@ -143,7 +144,7 @@ Cloud agents start from a fresh clone, so they never see personal memory.
 
 ## Check and repair
 
-`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, a broken link, a fact the list leaves out, and text that looks like a secret. They skip personal memory when its folder is missing, so CI never checks it.
+`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, and text that looks like a secret. They skip personal memory when its folder is missing, so CI never checks it.
 
 ```bash
 agnostic-ai memory lint     # run only the memory checks
