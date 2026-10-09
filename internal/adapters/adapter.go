@@ -913,6 +913,12 @@ func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (s
 	return emit.PersonalMemoryDirFor(cfg, path, targets...)
 }
 
+// ExcludeOutputFromGit adds the file at path to the repository's
+// info/exclude (re-exported from the emit layer).
+func ExcludeOutputFromGit(path string) error {
+	return emit.ExcludeOutputFromGit(path)
+}
+
 // AppendMemoryBlock appends the memory block to body, replacing any
 // earlier one (re-exported from the emit layer).
 func AppendMemoryBlock(body, block string) string {

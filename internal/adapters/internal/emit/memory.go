@@ -60,15 +60,32 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 
 // CreateRepoMemoryStore creates the repo store dir, private to the user,
 // so a tool setting that names it never points at a missing folder. The
-// checkout store, a dry run, and a capture write nothing.
+// checkout store, a dry run, and a capture write nothing. Every emit that
+// writes the repo store into a file calls it, which NamedRepoStore
+// reports.
 func (s *Session) CreateRepoMemoryStore(cfg *config.Config, dir string, dryRun bool) error {
-	if !cfg.RepoPersonalMemory() || !filepath.IsAbs(dir) || dryRun || s.IsCapturing() {
+	if !cfg.RepoPersonalMemory() || !filepath.IsAbs(dir) {
+		return nil
+	}
+	s.mu.Lock()
+	s.namedRepoStore = true
+	s.mu.Unlock()
+	if dryRun || s.IsCapturing() {
 		return nil
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("%s: %w", dir, err)
 	}
 	return nil
+}
+
+// NamedRepoStore reports whether an emit through s wrote the repo store
+// of personal memory into a file. Sync then finds which of the files exist
+// only for that store.
+func (s *Session) NamedRepoStore() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.namedRepoStore
 }
 
 // repoMemoryStores returns the folder that holds every repo store, with
@@ -144,7 +161,8 @@ func WithoutStalePersonalIndexes(path string, list, current []string) []string {
 
 // PersonalMemoryDirFor returns the personal store the project files of
 // targets may name. The repo store is an absolute path, so it lands only
-// in files the managed .gitignore block keeps out of Git; otherwise the
+// in files sync keeps out of Git, through the managed .gitignore block or,
+// for a file that exists only for the store, info/exclude; otherwise the
 // files keep the checkout store, as a project without repo mode has.
 func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (string, error) {
 	if !PersonalMemoryLeavesCheckout(cfg, path, targets...) {

@@ -14,10 +14,49 @@ import (
 // personal ignore list Git never commits, unless a line already holds it.
 // It does nothing outside a Git checkout.
 func ExcludeFromGit(pattern string) error {
-	path, ok := gitExcludePath()
+	path, _, ok := gitExcludePath()
 	if !ok {
 		return nil
 	}
+	return addExcludeLine(path, pattern)
+}
+
+// ExcludeOutputFromGit adds the file at path, relative to the working
+// directory, to the repository's info/exclude, anchored at the root of
+// the checkout so it matches that file alone. It does nothing outside a
+// Git checkout or for a path outside it.
+func ExcludeOutputFromGit(path string) error {
+	exclude, root, ok := gitExcludePath()
+	if !ok {
+		return nil
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", path, err)
+	}
+	rel, err := filepath.Rel(root, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil
+	}
+	return addExcludeLine(exclude, "/"+escapeIgnorePattern(filepath.ToSlash(rel)))
+}
+
+// escapeIgnorePattern escapes the characters gitignore reads as a glob,
+// and trailing spaces, which it would drop, so path matches itself alone.
+func escapeIgnorePattern(path string) string {
+	var sb strings.Builder
+	for _, r := range path {
+		if strings.ContainsRune(`\*?[`, r) {
+			sb.WriteByte('\\')
+		}
+		sb.WriteRune(r)
+	}
+	escaped := sb.String()
+	trimmed := strings.TrimRight(escaped, " ")
+	return trimmed + strings.Repeat(`\ `, len(escaped)-len(trimmed))
+}
+
+func addExcludeLine(path, pattern string) error {
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
@@ -40,11 +79,11 @@ func ExcludeFromGit(pattern string) error {
 
 // gitExcludePath finds info/exclude in the common Git directory of the
 // checkout holding the working directory, so a linked worktree shares
-// its main checkout's list.
-func gitExcludePath() (string, bool) {
+// its main checkout's list, and the root of that checkout.
+func gitExcludePath() (exclude, root string, ok bool) {
 	dir, err := os.Getwd()
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 	for {
 		dotGit := filepath.Join(dir, ".git")
@@ -54,11 +93,11 @@ func gitExcludePath() (string, bool) {
 			if !info.IsDir() {
 				data, err := os.ReadFile(dotGit)
 				if err != nil {
-					return "", false
+					return "", "", false
 				}
 				ref, found := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir: ")
 				if !found {
-					return "", false
+					return "", "", false
 				}
 				if !filepath.IsAbs(ref) {
 					ref = filepath.Join(dir, ref)
@@ -72,11 +111,11 @@ func gitExcludePath() (string, bool) {
 				}
 				gitDir = ref
 			}
-			return filepath.Join(gitDir, "info", "exclude"), true
+			return filepath.Join(gitDir, "info", "exclude"), dir, true
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", false
+			return "", "", false
 		}
 		dir = parent
 	}

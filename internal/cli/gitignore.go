@@ -363,7 +363,8 @@ func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, r
 	scopes := specScopes(b, blockTargets)
 	block := buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	if len(leftOut) > 0 && (ledgerMissing(root) || dropsListedEntries(root, cfg, block)) {
-		entries = append(entries, renderedOutputs(cfg, b, leftOut)...)
+		// The block a team commits never lists a file of the repo store.
+		entries = append(entries, renderedOutputs(withCheckoutMemory(cfg), b, leftOut)...)
 		block = buildManagedBlockCommitting(cfg, entries, scopes, committed)
 	}
 	return block, nil

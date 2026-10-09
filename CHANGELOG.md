@@ -55,7 +55,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** `lint` and `sync` stop on a plain MCP `env` or `headers` value not marked `!literal`; run `agnostic-ai migrate --only secrets` (#1794).
 - New `memory` built-in: one memory every tool loads at session start and saves to, for the team and for you (#1844, #1845, #1850, #1851, #1852).
-- `memory.personal: repo` shares one personal memory across every worktree, also when `~/.agnostic-ai` is a link (#1859, #1869, #1877).
+- `memory.personal: repo` shares one personal memory across every worktree, also when `~/.agnostic-ai` is a link. It leaves the committed `.gitignore` and `.worktreeinclude` as they are without it (#1859, #1869, #1877, #1936).
 - New `memory lint`, `index`, `list`, and `path` commands check, rebuild, list, and locate memory; `doctor` flags broken links and secrets (#1847, #1877).
 - Sync keeps hooks you wrote by hand when it adds its own, on Claude Code, Codex, Cursor, Gemini CLI, Qoder, and Factory (#1858).
 
