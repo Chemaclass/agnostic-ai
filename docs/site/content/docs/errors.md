@@ -107,9 +107,9 @@ The argument to `agnostic-ai import` matches no registered source.
 
 ### AAI-203: Import would replace an existing spec
 
-`import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. The import writes no spec. The message lists each spec, the tool its current content came from, and the tool that wanted it. `import --dry-run` fails the same way.
+`import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec. The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose. `import --dry-run` fails the same way.
 
-**Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it.
+**Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it. When the message names what the spec would lose, make the tool's edit in the spec instead to keep it.
 
 ### AAI-301: Unknown sync target
 

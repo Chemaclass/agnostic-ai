@@ -42,3 +42,12 @@ function test_refuses_a_run_count_below_one() {
   assert_exit_code 2
   assert_contains "positive integers" "$out"
 }
+
+function test_no_ledger_reports_read_only_commands() {
+  local out
+  out="$(bench_commands_run "$dir/bin" "$dir" 1 no-ledger)"
+  assert_equals 3 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+  assert_matches $'^[0-9]+\t0\tstatus \(no ledger\)$' "$(printf '%s\n' "$out" | grep status)"
+  assert_matches $'^[0-9]+\t1\tdoctor \(no ledger\)$' "$(printf '%s\n' "$out" | grep doctor)"
+  assert_matches $'^[0-9]+\t0\tsync --dry-run \(no ledger\)$' "$(printf '%s\n' "$out" | grep sync)"
+}

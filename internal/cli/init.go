@@ -171,8 +171,10 @@ func newInitCmd() *cobra.Command {
 			}
 			run := func() error {
 				return withImportTree(".", func() error {
-					return withLocalImportGuard(".", cfg, func() error {
-						return runImport(".", fromCLI, cfg)
+					return withImportViewGuard(".", func() error {
+						return withLocalImportGuard(".", cfg, func() error {
+							return runImport(".", fromCLI, cfg)
+						})
 					})
 				})
 			}

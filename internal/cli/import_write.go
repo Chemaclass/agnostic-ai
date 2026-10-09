@@ -86,7 +86,8 @@ func (r *importRecorder) record(path string, data []byte) {
 var importMerging bool
 
 // withImportMerge runs fn with its writes marked as merges, which do not
-// count as replacing an existing spec (see importOverwrites).
+// count as replacing an existing spec unless they lose what the spec
+// held for other tools (see replacesSpec).
 func withImportMerge(fn func() error) error {
 	prior := importMerging
 	importMerging = true
@@ -115,6 +116,9 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 		if err := importTxn.saveFile(path); err != nil {
 			return err
 		}
+	}
+	if inImportSandbox(path) {
+		importView.note(path)
 	}
 	if importRecording != nil {
 		importRecording.record(path, data)
