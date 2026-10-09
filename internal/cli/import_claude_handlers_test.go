@@ -137,6 +137,23 @@ func TestImportClaude_KeepsAgreeingCommandHandlersInOneSpec(t *testing.T) {
 	}
 }
 
+func TestImportClaude_KeepsOnFailureOnMcpToolAndPromptHandlersAsWritten(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	const native = `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"mcp_tool","server":"checks","tool":"verify","onFailure":"block"},
+{"type":"prompt","prompt":"Allow read-only commands.","onFailure":"block"}
+]}]}}`
+	writeFile(t, ".claude/settings.json", native)
+	execCLI(t, "import", "claude")
+	execCLI(t, "sync", "-t", "claude")
+	want, got := claudePreToolUseGroups(t, native), claudePreToolUseGroups(t, readFile(t, ".claude/settings.json"))
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("PreToolUse groups = %#v, want %#v", got, want)
+	}
+}
+
 func claudePreToolUseGroups(t *testing.T, data string) []any {
 	t.Helper()
 	var doc struct {

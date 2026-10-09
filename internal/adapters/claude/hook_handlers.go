@@ -64,6 +64,10 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 		emit.NoteFieldNoOp(target, spec.KindHook, "type", 1, "supported hook handlers are command, http, mcp_tool, and prompt")
 		return nil
 	}
+	if kind != "http" {
+		native, _ := emit.CustomTargetMeta(meta, target)
+		base.OnFailure, _ = native["onFailure"].(string)
+	}
 	return []claudehooks.CommandEntry{base}
 }
 

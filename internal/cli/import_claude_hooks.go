@@ -194,9 +194,15 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 	}
 	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)},
 		map[string]any{"type": h.Type, "url": h.URL, "server": h.Server, "tool": h.Tool, "prompt": h.Prompt})
-	if doc["onFailure"] == "block" {
+	// Claude Code documents onFailure for command and HTTP hooks only
+	// (2.1.295), so other handlers keep the native key as written.
+	if native, ok := doc["onFailure"]; ok && (h.Type != "http" || native == "block") {
 		delete(doc, "onFailure")
-		doc["failClosed"] = true
+		if h.Type == "http" {
+			doc["failClosed"] = true
+		} else {
+			doc["x-claude"] = map[string]any{"onFailure": native}
+		}
 	}
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
 	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
