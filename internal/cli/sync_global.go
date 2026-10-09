@@ -32,8 +32,8 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
-	// Version 5 records a content sum per owned file to catch hand edits.
-	globalStateVersion = 5
+	// Version 6 records the hooks file containers sync created.
+	globalStateVersion = 6
 )
 
 type globalSyncOptions struct {
@@ -80,6 +80,14 @@ type globalState struct {
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
 	Hooks map[string]map[string][]any `json:"hooks,omitempty"`
+	// HookContainers records per target what of its hooks file sync
+	// created: "<file>", "hooks", "hooks.<event>", "env", "version", or
+	// "<key>=null" for a null it filled. Sync removes only these once
+	// they are empty, so a container the user wrote stays.
+	HookContainers map[string][]string `json:"hookContainers,omitempty"`
+	// legacyHookContainers marks state from before HookContainers, when
+	// sync treated every empty container in a hooks file as its own.
+	legacyHookContainers bool
 	// ClaudeHooks and CursorHooks are the version-1 layout, read for
 	// migration only.
 	ClaudeHooks map[string][]any `json:"claudeHooks,omitempty"`
@@ -684,6 +692,7 @@ func loadGlobalState(path string) (globalState, error) {
 		}
 	}
 	state.ClaudeHooks, state.CursorHooks = nil, nil
+	state.legacyHookContainers = state.Version < 6
 	state.Version = globalStateVersion
 	return state, nil
 }
@@ -743,6 +752,12 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	for target, hooks := range old.Hooks {
 		next.Hooks[target] = cloneHookState(hooks)
+	}
+	for target, created := range old.HookContainers {
+		if next.HookContainers == nil {
+			next.HookContainers = map[string][]string{}
+		}
+		next.HookContainers[target] = slices.Clone(created)
 	}
 	// Drop every surface the synced targets own before emitting any of
 	// them, so a file the sources no longer produce is swept rather
@@ -956,7 +971,15 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 			hooks = append(append([]spec.Entry{}, hooks...), spec.Entry{Meta: map[string]any{"event": g.bridgeEvent, "command": command}})
 		}
-		doc, err := mergeGlobalHooks(path, g.hooksFormat, hookTarget, hooks, old.Hooks[target], next.Hooks[target], warn)
+		merge, err := mergeGlobalHooks(path, g.hooksFormat, hookTarget, hooks, old.Hooks[target], next.Hooks[target], old.HookContainers[target], old.legacyHookContainers, warn)
+		if next.HookContainers == nil {
+			next.HookContainers = map[string][]string{}
+		}
+		next.HookContainers[target] = merge.created
+		if len(merge.created) == 0 {
+			delete(next.HookContainers, target)
+		}
+		doc := merge.data
 		if errors.Is(err, errGlobalFileUnchanged) {
 			if slices.Contains(old.Files, path) {
 				next.Files = append(next.Files, path)
@@ -968,6 +991,12 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		if doc == nil {
 			emptied[path] = true
+			if merge.read != nil && !merge.read.absent {
+				if next.removalGuards == nil {
+					next.removalGuards = map[string]*diskSnapshot{}
+				}
+				next.removalGuards[path] = merge.read
+			}
 		}
 		if doc != nil {
 			if target == "codex" {
@@ -980,6 +1009,10 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 			if placed {
 				next.Files = append(next.Files, path)
+			}
+			// The write stops if the file changed after the merge read it.
+			if w := &writes[seen[path]]; w.planned == nil {
+				w.planned = merge.read
 			}
 		}
 	}
@@ -1343,12 +1376,54 @@ var errGlobalFileUnchanged = errors.New("global file unchanged")
 // An unrecorded entry exactly as sync would write it satisfies the
 // source and stays the user's, since nothing in it shows sync wrote it.
 // One with the same matcher and command but other fields stops the run.
-func mergeGlobalHooks(path, format string, target globalHookTarget, entries []spec.Entry, previous map[string][]any, next map[string][]any, warn io.Writer) ([]byte, error) {
+// An empty container goes only when created, the state's record of what
+// sync made, lists it, so one the user wrote stays.
+func mergeGlobalHooks(path, format string, target globalHookTarget, entries []spec.Entry, previous, next map[string][]any, created []string, legacy bool, warn io.Writer) (globalHooksMerge, error) {
+	var merge globalHooksMerge
+	data, err := mergeGlobalHooksData(path, format, target, entries, previous, next, created, legacy, &merge, warn)
+	merge.data = data
+	return merge, err
+}
+
+// globalHooksMerge is a hooks file as one sync run leaves it.
+type globalHooksMerge struct {
+	// data is the new file, or nil when the file should not exist.
+	data []byte
+	// read is the file as the merge read it.
+	read *diskSnapshot
+	// created is what of the file sync created, as
+	// globalState.HookContainers records it.
+	created []string
+}
+
+func mergeGlobalHooksData(path, format string, target globalHookTarget, entries []spec.Entry, previous, next map[string][]any, created []string, legacy bool, merge *globalHooksMerge, warn io.Writer) ([]byte, error) {
 	doc := map[string]any{}
 	before := map[string]any{}
 	ordered := adapters.NewOrderedJSON()
 	data, err := os.ReadFile(path)
 	absent := os.IsNotExist(err)
+	merge.read = &diskSnapshot{data: data, absent: absent}
+	owns := func(token string) bool { return legacy || slices.Contains(created, token) }
+	made := slices.Clone(created)
+	mark := func(token string) {
+		if !slices.Contains(made, token) {
+			made = append(made, token)
+		}
+	}
+	// Version 5 state treated every empty container as sync's, which
+	// holds only for a file that already carried its hooks.
+	legacy = legacy && len(previous) > 0
+	if legacy {
+		for _, token := range []string{"<file>", "hooks", "env", "version"} {
+			mark(token)
+		}
+		for event := range previous {
+			mark("hooks." + event)
+		}
+	}
+	if absent {
+		mark("<file>")
+	}
 	if err == nil {
 		if err := json.Unmarshal(data, &doc); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
@@ -1367,7 +1442,8 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 	if absent && len(entries) == 0 && len(previous) == 0 {
 		return nil, nil
 	}
-	hooks, _ := doc["hooks"].(map[string]any)
+	rawHooks, hadHooks := doc["hooks"]
+	hooks, _ := rawHooks.(map[string]any)
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
@@ -1504,10 +1580,17 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				return nil, fmt.Errorf("write global hook warning: %w", err)
 			}
 		}
-		if len(current) == 0 {
-			delete(hooks, event)
-		} else {
+		switch {
+		case len(current) > 0:
 			hooks[event] = current
+		case owns("hooks." + event):
+			delete(hooks, event)
+		case owns("hooks." + event + "=null"):
+			hooks[event] = nil
+		default:
+			if _, isList := hooks[event].([]any); isList {
+				hooks[event] = []any{}
+			}
 		}
 	}
 	unrecorded := map[string][]any{}
@@ -1528,6 +1611,11 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		}
 		if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) }) {
 			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
+		}
+		if value, ok := hooks[event]; !ok {
+			mark("hooks." + event)
+		} else if value == nil {
+			mark("hooks." + event + "=null")
 		}
 		current, _ := hooks[event].([]any)
 		hooks[event] = append(current, item)
@@ -1551,28 +1639,71 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			return nil, err
 		}
 	}
-	if len(hooks) > 0 {
-		doc["hooks"] = hooks
-	} else {
-		delete(doc, "hooks")
-	}
+	keepGlobalContainer(doc, "hooks", rawHooks, hadHooks, hooks, owns, mark)
 	if target.mode == hookTargetSettingsEnv {
-		target.setSettingsEnv(doc, told)
+		target.setSettingsEnv(doc, told, owns, mark)
 	}
-	// Nothing of ours left and nothing of the user's either: drop the
-	// file rather than leave a shell behind. Cursor's schema version is
-	// ours as well, so an earlier run's copy of it is not user content.
-	remaining := len(doc)
+	// Cursor's schema version goes with the last managed hook when sync
+	// added it.
 	if format == "cursor" {
-		if version, ok := doc["version"]; ok && version == float64(1) {
-			remaining--
+		_, hasVersion := doc["version"]
+		switch {
+		case len(next) > 0:
+			if !hasVersion {
+				mark("version")
+			}
+			doc["version"] = float64(1)
+		case hasVersion && owns("version"):
+			delete(doc, "version")
 		}
 	}
-	if remaining == 0 {
-		return nil, nil
+	// An empty container the user wrote gets back its own inside, such
+	// as a line break, once sync's entries leave it: the text alone
+	// cannot tell that break from the one an insert adds.
+	for _, key := range globalHookContainerKeys(before) {
+		was, _ := globalHookContainer(before, key)
+		now, _ := globalHookContainer(doc, key)
+		if emptyJSONContainer(was) && !emptyJSONContainer(now) && now != nil {
+			if inner, ok := jsonContainerInner(string(data), key); ok {
+				mark(globalInnerToken(key, inner))
+			}
+		}
 	}
-	if format == "cursor" {
-		doc["version"] = float64(1)
+	restore := map[string]string{}
+	for _, token := range made {
+		key, inner, ok := parseGlobalInnerToken(token)
+		if now, present := globalHookContainer(doc, key); ok && present && emptyJSONContainer(now) {
+			restore[key] = inner
+		}
+	}
+	merge.created = slices.DeleteFunc(made, func(token string) bool {
+		if key, _, ok := parseGlobalInnerToken(token); ok {
+			now, present := globalHookContainer(doc, key)
+			return !present || emptyJSONContainer(now)
+		}
+		key, null := strings.CutSuffix(token, "=null")
+		if token == "<file>" {
+			return false
+		}
+		if event, ok := strings.CutPrefix(key, "hooks."); ok {
+			value, kept := hooks[event]
+			_, isObject := doc["hooks"].(map[string]any)
+			return !kept || !isObject || (null && value == nil)
+		}
+		value, kept := doc[key]
+		return !kept || (null && value == nil)
+	})
+	slices.Sort(merge.created)
+	// With no managed hook and no container of sync's left, what remains
+	// is the user's, file included.
+	if len(next) == 0 && slices.Equal(merge.created, []string{"<file>"}) {
+		merge.created = nil
+	}
+	// Nothing of ours left and nothing of the user's either: drop a file
+	// sync created rather than leave a shell behind.
+	if len(doc) == 0 && (absent || owns("<file>")) {
+		merge.created = nil
+		return nil, nil
 	}
 	if !absent {
 		// Round-trip so spec integers compare equal to decoded JSON numbers.
@@ -1587,6 +1718,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		if reflect.DeepEqual(merged, before) {
 			return nil, errGlobalFileUnchanged
 		}
+		return editGlobalHooksText(path, data, before, merged, restore)
 	}
 	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
@@ -1617,6 +1749,153 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		return nil, fmt.Errorf("marshal %s: %w", path, err)
 	}
 	return append(out, '\n'), nil
+}
+
+// editGlobalHooksText turns the existing file's text from before into
+// after by editing only what sync owns: the schema version, the target
+// variable in env, each changed hooks event, and within an event each
+// entry. Every other byte stays as written, so removing what an earlier
+// run added gives back the original file.
+func editGlobalHooksText(path string, data []byte, before, after map[string]any, restore map[string]string) ([]byte, error) {
+	var order, remove []string
+	set := map[string]any{}
+	edit := func(key string, was, now any, had, has bool) {
+		switch {
+		case !has && had:
+			remove = append(remove, key)
+		case has && (!had || !reflect.DeepEqual(was, now)):
+			order = append(order, key)
+			set[key] = now
+		}
+	}
+	version, hadVersion := before["version"]
+	newVersion, hasVersion := after["version"]
+	edit("version", version, newVersion, hadVersion, hasVersion)
+
+	// A dot would split an event name into a key path.
+	dotted := func(events map[string]any) bool {
+		return slices.ContainsFunc(slices.Collect(maps.Keys(events)), func(event string) bool { return strings.Contains(event, ".") })
+	}
+	oldHooks, hadHooks := before["hooks"].(map[string]any)
+	newHooks, hasHooks := after["hooks"].(map[string]any)
+	var events []string
+	switch {
+	case hadHooks && hasHooks && !dotted(oldHooks) && !dotted(newHooks):
+		for _, event := range slices.Sorted(maps.Keys(oldHooks)) {
+			if _, ok := newHooks[event]; !ok {
+				remove = append(remove, "hooks."+event)
+			}
+		}
+		for _, event := range slices.Sorted(maps.Keys(newHooks)) {
+			was, had := oldHooks[event]
+			now := newHooks[event]
+			_, wasList := was.([]any)
+			_, isList := now.([]any)
+			if had && wasList && isList {
+				if !reflect.DeepEqual(was, now) {
+					events = append(events, event)
+				}
+				continue
+			}
+			edit("hooks."+event, was, now, had, true)
+		}
+	default:
+		_, hadKey := before["hooks"]
+		_, hasKey := after["hooks"]
+		edit("hooks", before["hooks"], after["hooks"], hadKey, hasKey)
+	}
+
+	oldEnv, oldIsObject := before["env"].(map[string]any)
+	newEnv, newIsObject := after["env"].(map[string]any)
+	_, hadEnv := before["env"]
+	_, hasEnv := after["env"]
+	if hasEnv && (oldIsObject || !hadEnv) && newIsObject {
+		was, had := oldEnv[adapters.HookTargetEnv]
+		now, has := newEnv[adapters.HookTargetEnv]
+		edit("env."+adapters.HookTargetEnv, was, now, had, has)
+	} else {
+		edit("env", before["env"], after["env"], hadEnv, hasEnv)
+	}
+
+	// Sets go first, so a parent such as hooks that loses its last old
+	// member while gaining a new one keeps its place. A removal keeps the
+	// parent: merge already dropped every container sync created.
+	out, err := editJSONRootIndent(path, data, "  ", order, set, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range remove {
+		if out, err = removeJSONKey(path, out, key); err != nil {
+			return nil, err
+		}
+	}
+	for _, event := range events {
+		items, _ := newHooks[event].([]any)
+		if out, err = editJSONArray(path, out, "hooks."+event, items); err != nil {
+			return nil, err
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(restore)) {
+		if out, err = setJSONContainerInner(path, out, key, restore[key]); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// globalHookContainerKeys lists the containers of a hooks file whose
+// inside sync may change: the root (""), hooks, env, and each event.
+func globalHookContainerKeys(doc map[string]any) []string {
+	keys := []string{"", "hooks", "env"}
+	hooks, _ := doc["hooks"].(map[string]any)
+	for _, event := range slices.Sorted(maps.Keys(hooks)) {
+		if !strings.Contains(event, ".") {
+			keys = append(keys, "hooks."+event)
+		}
+	}
+	return keys
+}
+
+// globalHookContainer is the value at a globalHookContainerKeys key.
+func globalHookContainer(doc map[string]any, key string) (any, bool) {
+	if key == "" {
+		return doc, true
+	}
+	if event, ok := strings.CutPrefix(key, "hooks."); ok {
+		hooks, _ := doc["hooks"].(map[string]any)
+		value, ok := hooks[event]
+		return value, ok
+	}
+	value, ok := doc[key]
+	return value, ok
+}
+
+func emptyJSONContainer(v any) bool {
+	switch v := v.(type) {
+	case map[string]any:
+		return len(v) == 0
+	case []any:
+		return len(v) == 0
+	}
+	return false
+}
+
+// globalInnerToken records in globalState.HookContainers what the empty
+// container at key held between its brackets.
+func globalInnerToken(key, inner string) string {
+	return "inner:" + key + "=" + jsonString(inner)
+}
+
+func parseGlobalInnerToken(token string) (key, inner string, ok bool) {
+	rest, ok := strings.CutPrefix(token, "inner:")
+	if !ok {
+		return "", "", false
+	}
+	key, quoted, ok := strings.Cut(rest, "=")
+	if !ok || json.Unmarshal([]byte(quoted), &inner) != nil {
+		return "", "", false
+	}
+	return key, inner, true
 }
 
 // mergeGlobalAgentEfforts sets subagents.agents.<name>.effortLevel for
@@ -1869,17 +2148,39 @@ func (t globalHookTarget) tell(handler, meta map[string]any) {
 
 // setSettingsEnv keeps the target in the settings `env` while managed
 // hooks exist, and drops the value sync wrote once none are left.
-func (t globalHookTarget) setSettingsEnv(doc map[string]any, want bool) {
-	env, _ := doc["env"].(map[string]any)
+func (t globalHookTarget) setSettingsEnv(doc map[string]any, want bool, owns func(string) bool, mark func(string)) {
+	raw, had := doc["env"]
+	env, _ := raw.(map[string]any)
 	next := adapters.WithoutHookTarget(env, any(t.name))
 	if want {
 		next = adapters.WithHookTarget(env, any(t.name))
 	}
-	if len(next) == 0 {
-		delete(doc, "env")
-		return
+	keepGlobalContainer(doc, "env", raw, had, next, owns, mark)
+}
+
+// keepGlobalContainer stores value under key in doc. Once value is empty
+// it removes the key only when sync created it, and otherwise gives back
+// the user's own empty value, such as {} or null. mark records a
+// container sync creates or fills in place of a null.
+func keepGlobalContainer(doc map[string]any, key string, raw any, had bool, value map[string]any, owns func(string) bool, mark func(string)) {
+	_, wasObject := raw.(map[string]any)
+	switch {
+	case len(value) > 0:
+		if !had {
+			mark(key)
+		} else if raw == nil {
+			mark(key + "=null")
+		}
+		doc[key] = value
+	case !had || owns(key):
+		delete(doc, key)
+	case owns(key + "=null"):
+		doc[key] = nil
+	case wasObject:
+		doc[key] = map[string]any{}
+	default:
+		doc[key] = raw
 	}
-	doc["env"] = next
 }
 
 // carriesHookTarget reports whether a native hook entry holds the target
