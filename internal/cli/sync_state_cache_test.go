@@ -114,6 +114,10 @@ func TestHoldState_NestedOwnersReleaseOnlyTheirOwnFrames(t *testing.T) {
 func TestRenderRef_DoesNotBorrowLiveMergedLedger(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
+	originalDirectory, err := os.Stat(".")
+	if err != nil {
+		t.Fatal(err)
+	}
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs: {claude: {dir: .agnostic-ai/native}}\n")
 	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "name: model\nmodel: sonnet\n")
 	mustWriteFile(t, ".agnostic-ai/native/settings.json", "{\"statusLine\":\"old\"}\n")
@@ -136,16 +140,12 @@ func TestRenderRef_DoesNotBorrowLiveMergedLedger(t *testing.T) {
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("live ledger changed historical bytes:\nwant %v\ngot %v", expected, got)
 	}
-	cwd, err := os.Getwd()
+	currentDirectory, err := os.Stat(".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	physical, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cwd != physical {
-		t.Errorf("CWD=%s, want %s", cwd, physical)
+	if !os.SameFile(currentDirectory, originalDirectory) {
+		t.Error("historical capture did not restore the original directory")
 	}
 	if priorStateFile().OutputSums["probe"] != "outer" {
 		t.Error("historical render lost live owner")
@@ -159,8 +159,12 @@ func TestRenderRef_DoesNotBorrowLiveMergedLedger(t *testing.T) {
 	if priorStateFile().OutputSums["probe"] != "outer" {
 		t.Error("failed historical render lost live owner")
 	}
-	if after, err := os.Getwd(); err != nil || after != physical {
-		t.Errorf("failed historical capture did not restore CWD: %s, %v", after, err)
+	currentDirectory, err = os.Stat(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(currentDirectory, originalDirectory) {
+		t.Error("failed historical capture did not restore the original directory")
 	}
 }
 
