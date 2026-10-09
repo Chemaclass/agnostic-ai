@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -72,11 +71,11 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 	if err := refuseGlobalHome(target, "upgrade global specs separately"); err != nil {
 		return "", fmt.Errorf("%s points to global specs %s: %w", path, target, err)
 	}
-	rel, err := filepath.Rel(resolvedRoot, target)
+	inside, err := guidedPhysicalPathInside(resolvedRoot, target)
 	if err != nil {
 		return "", fmt.Errorf("check project path %s: %w", path, err)
 	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if !inside {
 		return "", fmt.Errorf("%s points to %s outside this project; update it separately", path, target)
 	}
 	return target, nil

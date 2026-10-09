@@ -429,3 +429,36 @@ func TestGuidedUpgrade_ShadowedGlobalMCPRemainsWritableToRawPlanner(t *testing.T
 		t.Errorf("global MCP changed: %s", data)
 	}
 }
+
+func TestGuidedUpgrade_InternalDirectoryAliasUsesPhysicalProjectIdentity(t *testing.T) {
+	root := testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
+	inside := filepath.Join(root, "sources")
+	if err := os.Mkdir(inside, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alternate := filepath.Join(strings.ToUpper(root), "sources")
+	info, err := os.Stat(alternate)
+	originalInfo, originalErr := os.Stat(inside)
+	if err != nil || originalErr != nil || !os.SameFile(info, originalInfo) {
+		t.Skip("filesystem does not resolve alternate directory case")
+	}
+	if err := os.Symlink(alternate, filepath.Join(root, ".agnostic-ai")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	deps := defaultGuidedUpgradeDeps()
+	if project, err := deps.project(); err != nil || project == "" {
+		t.Fatalf("physical internal alias rejected: %s, %v", project, err)
+	}
+	if err := deps.reconcile(root, "0.82.0"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("agnostic-ai.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "requires: 0.82.0") {
+		t.Errorf("internal alias not reconciled: %s", data)
+	}
+}
