@@ -17,4 +17,6 @@
 # add-then-remove keeps the user's bytes.
 # #1930 measured 18387104: memory lint checks index size per target and
 # shares the hook's index reader.
-18400000
+# #1938 measured 18436256: import renders each rewritten spec for the
+# importing tool and keeps it when the tool shows nothing new.
+18440000
