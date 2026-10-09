@@ -36,6 +36,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- `import codex` skips generated skill assets, so re-importing a manual-only skill keeps its source and the next sync unchanged (#1939).
 - **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).
 
 #### Kilo Code

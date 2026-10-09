@@ -14,6 +14,10 @@ import (
 func TestImportAll_AgainAfterSyncLeavesSourcesUnchanged(t *testing.T) {
 	cases := map[string]map[string]string{
 		"no tool config": {},
+		"manual-only codex skill": {
+			".codex/config.toml":           "",
+			".agents/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo skill.\ndisable-model-invocation: true\n---\n\nBody.\n",
+		},
 		// With .codex/ detected, codex imports the nested AGENTS.md as a
 		// scoped rule that claude writes under .claude/rules/services/api/.
 		"scoped rule": {".codex/config.toml": ""},
