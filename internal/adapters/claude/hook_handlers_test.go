@@ -65,7 +65,7 @@ func TestHookHandlers_PromptContinueOnBlockFalseKeepsNativeDefault(t *testing.T)
 	}
 }
 
-func TestHookHandlers_FailClosedBlocksOnCommandAndHTTPFailure(t *testing.T) {
+func TestHookHandlers_WritesOnFailure(t *testing.T) {
 	cases := []struct {
 		name string
 		meta map[string]any
@@ -73,7 +73,11 @@ func TestHookHandlers_FailClosedBlocksOnCommandAndHTTPFailure(t *testing.T) {
 	}{
 		{"command", map[string]any{"command": "guard.sh", "failClosed": true}, "block"},
 		{"http", map[string]any{"type": "http", "url": "https://example.test/check", "failClosed": true}, "block"},
-		{"prompt has no onFailure", map[string]any{"type": "prompt", "prompt": "Check it.", "failClosed": true}, ""},
+		{"mcp_tool failClosed from an older import", map[string]any{"type": "mcp_tool", "server": "s", "tool": "t", "failClosed": true}, "block"},
+		{"prompt failClosed from an older import", map[string]any{"type": "prompt", "prompt": "Check it.", "failClosed": true}, "block"},
+		{"http keeps x-claude value", map[string]any{"type": "http", "url": "https://example.test/check", "x-claude": map[string]any{"onFailure": "allow"}}, "allow"},
+		{"command keeps x-claude value", map[string]any{"command": "guard.sh", "x-claude": map[string]any{"onFailure": "allow"}}, "allow"},
+		{"failClosed wins over x-claude value", map[string]any{"command": "guard.sh", "failClosed": true, "x-claude": map[string]any{"onFailure": "allow"}}, "block"},
 		{"unset keeps the native default", map[string]any{"command": "guard.sh"}, ""},
 		{"false keeps the native default", map[string]any{"command": "guard.sh", "failClosed": false}, ""},
 	}

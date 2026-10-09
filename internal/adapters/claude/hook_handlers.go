@@ -20,9 +20,9 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 	base := claudehooks.CommandEntry{Type: kind, Timeout: hookIntMeta(meta, "timeout"), Once: hookBoolMeta(meta, "once")}
 	base.StatusMessage, _ = meta["statusMessage"].(string)
 	base.If, _ = meta["if"].(string)
+	base.OnFailure = onFailure(meta)
 	switch kind {
 	case "command":
-		base.OnFailure = onFailure(meta)
 		base.Args = emit.StringSlice(meta["args"])
 		base.Async = hookBoolMeta(meta, "async")
 		base.AsyncRewake = hookBoolMeta(meta, "asyncRewake")
@@ -45,7 +45,6 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 		}
 		base.Headers = emit.StringMap(meta["headers"])
 		base.AllowedEnvVars = emit.StringSlice(meta["allowedEnvVars"])
-		base.OnFailure = onFailure(meta)
 	case "mcp_tool":
 		base.Server, _ = meta["server"].(string)
 		base.Tool, _ = meta["tool"].(string)
@@ -82,10 +81,14 @@ func SettingsFilePath(cfg *config.Config) string {
 
 // onFailure is "block" when the spec sets failClosed, Claude Code's way to
 // block the action when a command or HTTP hook cannot start, times out,
-// or exits unexpectedly (2.1.295). Unset keeps the native fail-open default.
+// or exits unexpectedly (2.1.295). Older imports set failClosed on MCP-tool
+// and prompt handlers too, so every handler type writes it. Otherwise
+// x-claude.onFailure is written as is; unset keeps the fail-open default.
 func onFailure(meta map[string]any) string {
 	if hookBoolMeta(meta, "failClosed") {
 		return "block"
 	}
-	return ""
+	native, _ := emit.CustomTargetMeta(meta, target)
+	value, _ := native["onFailure"].(string)
+	return value
 }
