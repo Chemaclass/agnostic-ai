@@ -57,6 +57,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Trae
 
+- `import trae` reads shared `.agents/skills/` folders and assets, with `.trae/skills/` winning duplicates (#1947).
 - Explicit empty agent tool lists disable all tools, including after import and sync (#1946).
 
 #### Windsurf
