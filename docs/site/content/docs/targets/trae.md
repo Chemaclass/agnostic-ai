@@ -33,6 +33,7 @@ Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Set
   - `x-trae.scene: git_message` marks a rule for AI-written commit messages.
 - **Agents** ([subagents docs](https://docs.trae.ai/ide/subagents)): frontmatter carries `name` and `description` (required), plus optional `model`, `tools`, `disallowedTools`, and `mcpServers`. The body is the system prompt.
   - `tools` is written as is, as a string joined with commas, because Trae uses Claude-style names (`Bash`, `Edit`, `Glob`, `Grep`, `Read`, `Write`, `WebFetch`, `WebSearch`, plus `Skill`, `LSP`, `TodoWrite`, and `mcp__<server>__<tool>`).
+  - Omit `tools` to load every available tool. An explicit empty `can: []`, `tools: []`, `tools: ""`, or `x-trae.tools` allowlist emits `tools: ""`, which disables all tools. Import preserves this restriction through later syncs.
   - Trae accepts only its built-in model IDs (`gpt-5.4`, `minimax-m3`, ...). A generic `model` drops with a coverage note. Use `model: {trae: <id>}` or `x-trae.model`.
   - `disallowedTools` and `mcpServers` come from `x-trae`. `x-trae.disallowedTools` is a denylist joined with commas, and it wins over `tools`.
   - Names start with an ASCII letter, end with a letter or digit, use only letters, digits, or hyphens, and run at most 50 characters. Sync rejects any other name.

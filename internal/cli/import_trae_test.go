@@ -160,3 +160,26 @@ func TestImportTrae_KnownSourceWiredIn(t *testing.T) {
 		t.Errorf("importSources() missing %q: %s", "trae", sources)
 	}
 }
+
+func TestImportTrae_NoToolsRestrictionSurvivesSync(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae]\n")
+	writeFile(t, filepath.Join(dir, ".trae/agents/plain.md"), "---\nname: plain\ndescription: Text only\ntools: \"\"\n---\n\nRespond from supplied text.\n")
+	execCLI(t, "import", "trae")
+	imported := readFile(t, filepath.Join(dir, ".agnostic-ai/agents/plain.md"))
+	if !strings.Contains(imported, "tools: \"\"") {
+		t.Errorf("import lost empty tools:\n%s", imported)
+	}
+	execCLI(t, "sync", "-t", "trae")
+	first := readFile(t, filepath.Join(dir, ".trae/agents/plain.md"))
+	if !strings.Contains(first, "tools: \"\"\n") {
+		t.Errorf("sync widened tools:\n%s", first)
+	}
+	execCLI(t, "import", "trae")
+	execCLI(t, "sync", "-t", "trae")
+	if second := readFile(t, filepath.Join(dir, ".trae/agents/plain.md")); second != first {
+		t.Errorf("round trip changed agent:\n%s", second)
+	}
+	execCLI(t, "sync", "--check", "-t", "trae")
+}

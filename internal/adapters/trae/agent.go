@@ -91,8 +91,12 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 		meta["model"] = model
 		keys = append(keys, "model")
 	}
-	if tools := emit.StringSlice(resolved["tools"]); len(tools) > 0 {
-		meta["tools"] = strings.Join(tools, ", ")
+	switch tools := resolved["tools"].(type) {
+	case string:
+		meta["tools"] = tools
+		keys = append(keys, "tools")
+	case []any:
+		meta["tools"] = strings.Join(emit.StringSlice(tools), ", ")
 		keys = append(keys, "tools")
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, "name", "description", "model", "tools")
