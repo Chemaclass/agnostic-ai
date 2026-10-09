@@ -87,7 +87,7 @@ type claudeCommandSettings struct {
 	async         bool
 	asyncRewake   bool
 	once          bool
-	failClosed    bool
+	onFailure     string
 }
 
 type claudeCommandGroup struct {
@@ -106,7 +106,7 @@ func addClaudeCommand(groups []*claudeCommandGroup, h claudehooks.CommandEntry) 
 		async:         h.Async,
 		asyncRewake:   h.AsyncRewake,
 		once:          h.Once,
-		failClosed:    h.OnFailure == "block",
+		onFailure:     h.OnFailure,
 	}
 	for _, g := range groups {
 		if g.settings == settings {
@@ -155,11 +155,22 @@ func writeClaudeCommandGroup(root, dstDir, event, matcher string, g *claudeComma
 	if set.ifRule != "" {
 		doc["if"] = set.ifRule
 	}
-	if set.failClosed {
-		doc["failClosed"] = true
-	}
+	setClaudeOnFailure(doc, set.onFailure, true)
 	pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
 	return writeHookSpecFile(dstDir, name, doc)
+}
+
+// Claude Code documents onFailure for command and HTTP hooks only
+// (2.1.295), so only there does "block" become the portable failClosed.
+// Any other value or handler keeps the native key as written.
+func setClaudeOnFailure(doc map[string]any, value string, documented bool) {
+	switch {
+	case value == "":
+	case value == "block" && documented:
+		doc["failClosed"] = true
+	default:
+		doc["x-claude"] = map[string]any{"onFailure": value}
+	}
 }
 
 // Non-command handlers need separate specs because each has a distinct
@@ -194,16 +205,8 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 	}
 	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)},
 		map[string]any{"type": h.Type, "url": h.URL, "server": h.Server, "tool": h.Tool, "prompt": h.Prompt})
-	// Claude Code documents onFailure for command and HTTP hooks only
-	// (2.1.295), so other handlers keep the native key as written.
-	if native, ok := doc["onFailure"]; ok && (h.Type != "http" || native == "block") {
-		delete(doc, "onFailure")
-		if h.Type == "http" {
-			doc["failClosed"] = true
-		} else {
-			doc["x-claude"] = map[string]any{"onFailure": native}
-		}
-	}
+	delete(doc, "onFailure")
+	setClaudeOnFailure(doc, h.OnFailure, h.Type == "http")
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
 	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
 	pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))

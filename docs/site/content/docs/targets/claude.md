@@ -73,8 +73,8 @@ Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 - MCP: `server`, `tool`, and optional `input`.
 - Prompt: `prompt`, optional `model`, and `continueOnBlock`. With `continueOnBlock: true`, a blocking result returns its reason to Claude and the turn continues.
 - All handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` are command-only.
-- Command and HTTP handlers write `onFailure: "block"` when the spec sets `failClosed: true`: a hook that cannot start, times out, or exits with an unexpected code then blocks the action instead of letting it through. Import reads it back as `failClosed: true`.
-- Claude Code documents `onFailure` for command and HTTP hooks only. On an MCP-tool or prompt handler, import keeps it as `x-claude.onFailure`, and sync writes it back as written.
+- `failClosed: true` writes `onFailure: "block"`: a command or HTTP hook that cannot start, times out, or exits with an unexpected code then blocks the action instead of letting it through. Import reads it back as `failClosed: true`.
+- Claude Code documents `onFailure` for command and HTTP hooks only. Import keeps any other value, or the key on an MCP-tool or prompt handler, as `x-claude.onFailure`, and sync writes it back as written. `failClosed: true` wins over it.
 - A `command` list gives one handler per entry. `args` switches to exec form, with the executable in `command`.
 
 With a command hook present, sync adds `AGNOSTIC_AI_TARGET: claude` to the settings `env`. Every hook and other session process sees it. `outputs.claude.settings.env` or `x-claude.env` wins. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).

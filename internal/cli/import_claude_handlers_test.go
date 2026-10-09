@@ -154,6 +154,45 @@ func TestImportClaude_KeepsOnFailureOnMcpToolAndPromptHandlersAsWritten(t *testi
 	}
 }
 
+func TestImportClaude_KeepsNonBlockOnFailureAsWritten(t *testing.T) {
+	cases := map[string]string{
+		"command":  `{"type":"command","command":"guard.sh","onFailure":"allow"}`,
+		"http":     `{"type":"http","url":"https://example.test/check","onFailure":"allow"}`,
+		"mcp_tool": `{"type":"mcp_tool","server":"checks","tool":"verify","onFailure":"allow"}`,
+	}
+	for name, handler := range cases {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			native := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[` + handler + `]}]}}`
+			writeFile(t, ".claude/settings.json", native)
+			execCLI(t, "import", "claude")
+			execCLI(t, "sync", "-t", "claude")
+			want, got := claudePreToolUseGroups(t, native), claudePreToolUseGroups(t, readFile(t, ".claude/settings.json"))
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("PreToolUse groups = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
+func TestSyncClaude_McpToolSpecWithFailClosedFromAnOlderImportKeepsOneGroup(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	const native = `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[
+{"type":"mcp_tool","server":"checks","tool":"verify","onFailure":"block"}
+]}]}}`
+	writeFile(t, ".claude/settings.json", native)
+	writeFile(t, ".agnostic-ai/hooks/pretooluse-bash-checks-verify.yaml", "name: pretooluse-bash-checks-verify\ndescription: Calls checks/verify.\nevent: PreToolUse\nmatcher: Bash\ntarget: claude\ntype: mcp_tool\nserver: checks\ntool: verify\nfailClosed: true\n")
+	execCLI(t, "sync", "-t", "claude")
+	want, got := claudePreToolUseGroups(t, native), claudePreToolUseGroups(t, readFile(t, ".claude/settings.json"))
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("PreToolUse groups = %#v, want %#v", got, want)
+	}
+}
+
 func claudePreToolUseGroups(t *testing.T, data string) []any {
 	t.Helper()
 	var doc struct {

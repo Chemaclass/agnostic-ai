@@ -29,7 +29,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import claude` keeps each hook command's own timeout, shell, and other settings, so the next sync no longer adds a duplicate group (#1920).
 - `sync --global` edits each tool's global hooks file in place, so removing a hook gives back the file exactly as you wrote it (#1919).
 - `doctor` names a Claude hook spec an older import merged, which runs each hook twice, and says to delete it, run `sync`, then `import claude` (#1922).
-- `import claude` keeps `onFailure` on an MCP-tool or prompt hook as `x-claude.onFailure`, and sync writes it back, so the next sync no longer adds a second group that ignores it (#1922).
+- `import claude` keeps `onFailure` on an MCP-tool or prompt hook, and any value other than `block`, as `x-claude.onFailure`, and sync writes it back, so the next sync no longer adds a second group that ignores it. Specs an older import gave `failClosed: true` on these handlers keep one group without a re-import (#1922).
 
 #### Codex
 
