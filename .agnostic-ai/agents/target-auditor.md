@@ -21,8 +21,8 @@ code or site content. The orchestrator triages your report and files issues.
 The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, published signals and built-in evidence described in `.agnostic-ai/skills/target-audit/references/builtins.md`. Reuse those inputs; do not fetch the full issue index again. Read matching issue bodies and comments only when a candidate overlaps.
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
-  capabilities, default output paths, adapter package doc, and the
-  `docs/site/content/docs/target-behavior.md` lines and the target's own docs page. One call per target, no
+  capabilities, default output paths, the adapter package doc, the lines of
+  `docs/site/content/docs/target-behavior.md` that name the target, and the target's own docs page. One call per target, no
   grepping.
 - Their side: the run directory's `docfetch.tsv` holds one row per vendor URL, already fetched this run, with its mode, content hash, status against the committed lock, and the saved body under `pages/<target>/`. Read your targets' rows. Run `scripts/target-facts.sh --sources <target>...` for the per-target notes that go with them, and do not load unrelated vendor sections.
 
@@ -55,7 +55,7 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    type, enum value, or required key, so each `{+...+}` is a setting the
    vendor added and each `[-...-]` one it dropped. A reworded description
    never moves it. A changed `code` row is a vendor source file that
-   defines a surface, such as the hook event enum: a new enum value, path,
+   defines a config feature, such as the hook event enum: a new enum value, path,
    or field in its delta is a lead the docs may not show yet. Then read
    the saved changelog delta, or the body when
    there is no delta, newest entry first. It names what moved since the
@@ -78,7 +78,7 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 
    A URL that 404s is a finding (`docs-moved`). Search for the
    replacement and report the new URL. A URL that resolves to content
-   about a different topic is also `docs-moved`, not an absent surface.
+   about a different topic is also `docs-moved`, not an absent feature.
 
    When a corpus of real config files is the only evidence available,
    separate files the vendor's own tool produced from files another tool
@@ -199,7 +199,7 @@ Use the first row for a target you audited deeply and the second for one
 whose rows were all `unchanged`. The orchestrator copies the marker into
 the report so a human can see which targets got a hash-only sweep.
 
-Severity means: `breaking` is we emit to a path the tool no longer reads.
-`degraded` is it still works, but a documented better surface exists.
-`missing-feature` is a native surface we skip with a warning. `cosmetic`
-is docs only.
+Severity: `breaking` means we emit to a path the tool no longer reads.
+`degraded` means it still works, but a documented better native feature exists.
+`missing-feature` means a native feature exists that we skip with a warning. `cosmetic`
+means docs only.

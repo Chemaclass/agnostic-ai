@@ -52,16 +52,16 @@ Before every push, all green. Check each command by its own exit code; a pipe su
 
 - `make ci-local`; use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable, report the skip, and check JetBrains CI when its inputs changed
 - `make site-test` when site content changes, counting skips, not the exit code
-- `./agnostic-ai sync --check`. Drift only in gitignored generated files after a fresh checkout is a stale ledger: run `sync`, confirm 0 tracked files change.
+- `./agnostic-ai sync --check`. Drift only in gitignored generated files after a fresh checkout means sync's ledger is stale: run `sync`, confirm 0 tracked files change.
 - CHANGELOG bullets pass the length check in `.agnostic-ai/agents/changelog-curator.md`.
 
 Commit with conventional commits, GPG-signed, no AI attribution or session links. Push.
 
-PR checks run Go tests on Linux only. When the PR touches paths, renames, permissions, file watching, or import, dispatch the full matrix on the branch (`gh workflow run ci.yml --ref <branch>`) and wait for it on the head SHA before merging.
+PR checks run Go tests on Linux only. When the PR touches paths, renames, permissions, file watching, or import, run the full OS matrix on the branch (`gh workflow run ci.yml --ref <branch>`) and wait for it on the head SHA before merging.
 
 ## 6. Merge
 
-For each PR, oldest first, or the one that moves shared files (`sources.lock`, `signals.tsv`, `CHANGELOG.md`) first:
+For each PR, oldest first, or the one that changes shared files (`sources.lock`, `signals.tsv`, `CHANGELOG.md`) first:
 
 1. Wait for checks on the current head SHA: `gh pr checks <N>`. Missing or pending checks are not green.
 2. If `mergeStateStatus` is not `CLEAN`, merge `origin/main` into the branch (never rewrite pushed history), keep both sides of shared docs, rerun the gate, push, and wait again.

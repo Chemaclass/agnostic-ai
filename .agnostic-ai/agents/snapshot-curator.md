@@ -15,5 +15,5 @@ Steps:
    - If the source spec was just edited and the emitted file lags, the fix is `agnostic-ai sync`. State this and stop.
    - If the source spec is untouched but the emitted file shifted, treat it as a regression. Open the adapter under `internal/adapters/<target>/` and find what changed.
    - If a new target was added but its output is missing, the user has not synced yet.
-3. Never edit emitted files by hand. They are derived state. Always fix the spec or the adapter, then re-sync.
+3. Never edit emitted files by hand. They are generated from the specs. Always fix the spec or the adapter, then re-sync.
 4. Report findings as: `<target>: <one-line cause> -> <suggested action>`.

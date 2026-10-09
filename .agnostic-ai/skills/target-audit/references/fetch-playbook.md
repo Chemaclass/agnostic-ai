@@ -6,7 +6,7 @@ Read this when a `docfetch.tsv` row is `failed`, or when its mode is `app-shell`
 
 ## What each mode means
 
-`html` is a normal page; the hash covers its visible text only, so a nonce or a rebuilt script bundle does not read as a documentation change. `markdown-mirror`, `llms-txt`, `raw-github`, and `text` are raw sources, hashed as fetched. `json` is hashed with its object keys sorted, so an API that reorders a map between fetches does not read as a change. `github-api` hashes only the release tags and dates, so download counters do not churn. `meta-refresh` and `reader-proxy` are successful recoveries, and the row's `final_url` says where the content actually came from.
+`html` is a normal page; the hash covers its visible text only, so a nonce or a rebuilt script bundle does not read as a documentation change. `markdown-mirror`, `llms-txt`, `raw-github`, and `text` are raw sources, hashed as fetched. `json` is hashed with its object keys sorted, so an API that reorders a map between fetches does not read as a change. `github-api` hashes only the release tags and dates, so download counts do not register as changes. `meta-refresh` and `reader-proxy` are successful recoveries, and the row's `final_url` says where the content actually came from.
 
 `app-shell` means the page served 200 with almost no visible text and every automatic fallback failed. `soft-404` means the body announces a missing page behind a 200. `redirected` means the fetch landed somewhere other than the path requested. `failed` means no usable bytes at all. None of these are clean checks.
 
@@ -38,11 +38,11 @@ Only after all of these fail is `unconfirmed` the honest answer. Report it as a 
 
 A byte count is not proof of a successful fetch. Grep the body for a string you expect before trusting it. `ampcode.com/manual` returns 25 KB of app shell carrying none of the manual's text.
 
-A soft 404 passes a status check. `cursor.com/docs/commands` serves 200 with the full docs chrome and a not-found graphic in the body. Grep for the page's own heading before recording it as live.
+A soft 404 passes a status check. `cursor.com/docs/commands` serves 200 with the full docs page layout and a not-found graphic in the body. Grep for the page's own heading before recording it as live.
 
-A blanket redirect proves nothing about a specific page. When `cursor.com` was unreachable from an audit sandbox, both fallback hosts 308ed every path to the bare `/docs` index, which is exactly the setup for concluding that live pages are gone.
+A blanket redirect proves nothing about a specific page. When `cursor.com` was unreachable from an audit sandbox, both fallback hosts 308ed every path to the bare `/docs` index, which makes it easy to conclude that live pages are gone.
 
-A moved URL can also land on something unrelated. When a fetch succeeds but the content does not match the topic, that is a `docs-moved` finding, not an absent surface.
+A moved URL can also land on something unrelated. When a fetch succeeds but the content does not match the topic, that is a `docs-moved` finding, not an absent feature.
 
 Re-check every negative with `curl -sL` before reporting it. A fetch that contradicts a prior audit is more often a fetch failure than a vendor change.
 
