@@ -36,7 +36,7 @@ func (h *historyRenderer) launchDefinitelyAbsent(commit string) bool {
 }
 
 func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
-	if !historyCanonicalSources(h.sources) || !historyASCII(h.prefix) {
+	if !historyCanonicalSources(h.sources) || !historyLaunchPath(h.prefix) {
 		return false
 	}
 	// Checkout filters can create sources beyond the committed environment tree.
@@ -63,7 +63,7 @@ func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
 			continue
 		}
 		fields := strings.Fields(meta)
-		if len(fields) != 3 || fields[1] != "blob" || fields[0] != "100644" && fields[0] != "100755" || !historyASCII(rel) {
+		if len(fields) != 3 || fields[1] != "blob" || fields[0] != "100644" && fields[0] != "100755" || !historyLaunchPath(rel) {
 			return false
 		}
 		lower := strings.ToLower(rel)
@@ -73,6 +73,9 @@ func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
 			}
 		}
 		if lower == config.LocalOverrideFileName || lower == packsLockfile || lower == ".agnostic-ai/overlays/claude/launch.json" || strings.HasPrefix(lower, ".agnostic-ai/overlays/claude/launch.json/") {
+			return false
+		}
+		if lower == config.ConfigFileName && rel != config.ConfigFileName {
 			return false
 		}
 		if rel == config.ConfigFileName {
@@ -131,7 +134,16 @@ func historyCanonicalSources(sources []string) bool {
 	return true
 }
 
-func historyASCII(s string) bool {
+func historyLaunchPath(s string) bool {
+	if strings.ContainsAny(s, "\\:~") {
+		return false
+	}
+	for _, part := range strings.Split(s, "/") {
+		if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
+			return false
+		}
+	}
+
 	for _, r := range s {
 		if r >= utf8.RuneSelf {
 			return false
