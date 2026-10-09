@@ -21,6 +21,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `doctor` lists the installed AI CLIs in name order, so two runs print the same output (#1903).
 - `memory lint`, `lint`, and `doctor` warn (LINT039) when the two memory indexes pass 6,000 bytes. With Codex, Copilot, Cursor, Gemini CLI, Qoder, or Factory enabled, the finding names the facts their session-start hook never loads; otherwise it names the tools that load the whole indexes every session (#1930).
 - A value you only reordered in a merged JSON file now counts as your edit, so it stays when the spec that wrote it is removed. OpenCode applies the last matching rule, so order changes what it allows (#1885).
+- Turning on `memory.personal: repo` no longer changes the committed `.gitignore` and `.worktreeinclude`, so teammates and CI stay in sync. With the `memory` built-in on, the block now always lists `.codex/config.toml`, `.cursor/cli.json`, `.cursor/.agnostic-ai-permissions.json`, and `.devin/config.json` for their tools; to commit one of them, add it to `gitignore.allow` (#1936).
 - The `shared-memory-policy` rule describes `memory.personal: repo` in one shorter sentence, so every session loads 155 fewer bytes (#1931).
 
 ### By tool
@@ -56,7 +57,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** `lint` and `sync` stop on a plain MCP `env` or `headers` value not marked `!literal`; run `agnostic-ai migrate --only secrets` (#1794).
 - New `memory` built-in: one memory every tool loads at session start and saves to, for the team and for you (#1844, #1845, #1850, #1851, #1852).
-- `memory.personal: repo` shares one personal memory across every worktree, also when `~/.agnostic-ai` is a link. It leaves the committed `.gitignore` and `.worktreeinclude` as they are without it (#1859, #1869, #1877, #1936).
+- `memory.personal: repo` shares one personal memory across every worktree, also when `~/.agnostic-ai` is a link (#1859, #1869, #1877).
 - New `memory lint`, `index`, `list`, and `path` commands check, rebuild, list, and locate memory; `doctor` flags broken links and secrets (#1847, #1877).
 - Sync keeps hooks you wrote by hand when it adds its own, on Claude Code, Codex, Cursor, Gemini CLI, Qoder, and Factory (#1858).
 
