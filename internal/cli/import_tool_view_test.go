@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -78,6 +79,89 @@ func TestImport_LeavesASpecTheToolShowsUnchanged(t *testing.T) {
 				t.Errorf("sync --check after import %s: %v\n%s", source, err, out)
 			}
 		})
+	}
+}
+
+func TestImport_KeepsLinkedSkillSpecsAndStopsOnLossyEdits(t *testing.T) {
+	for _, edited := range []bool{false, true} {
+		t.Run(fmt.Sprint(edited), func(t *testing.T) {
+			syncedSharedSkillProject(t)
+			const path = ".agnostic-ai/skills/demo/SKILL.md"
+			if err := os.Rename(path, "source.md"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink("../../../source.md", path); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			if edited {
+				native := sharedSkillNative["claude"]
+				mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+			}
+
+			for _, args := range [][]string{{"import", "claude", "--dry-run", "--diff"}, {"import", "claude"}} {
+				_, err := runCLI(t, args...)
+				if edited && errs.CodeOf(err) != errs.CodeImportWouldReplace {
+					t.Errorf("%v = %v, want AAI-203", args, err)
+				}
+				if !edited && err != nil {
+					t.Errorf("%v: %v", args, err)
+				}
+			}
+			if got := readFile(t, "source.md"); got != sharedSkill {
+				t.Errorf("import changed linked spec:\n%s", got)
+			}
+			if link, err := os.Readlink(path); err != nil || link != "../../../source.md" {
+				t.Errorf("spec link = %q, %v", link, err)
+			}
+		})
+	}
+}
+
+func TestImport_KeepsAliasedRuleSpecsAndStopsOnLossyEdits(t *testing.T) {
+	for _, link := range []string{"symlink", "hardlink"} {
+		for _, edited := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/%t", link, edited), func(t *testing.T) {
+				testutil.Chdir(t, t.TempDir())
+				silence(t)
+				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+				const rule = "---\ndescription: Shared rule.\n---\nShared body.\n\n::target codex\n\nCodex-only rule.\n\n::end\n"
+				const first = ".agnostic-ai/rules/a.md"
+				const second = ".agnostic-ai/rules/b.md"
+				mustWriteFile(t, first, rule)
+				var err error
+				if link == "symlink" {
+					err = os.Symlink("a.md", second)
+				} else {
+					err = os.Link(first, second)
+				}
+				if err != nil {
+					t.Skipf("links unavailable: %v", err)
+				}
+				if out, err := runCLI(t, "sync"); err != nil {
+					t.Fatalf("sync: %v\n%s", err, out)
+				}
+				if edited {
+					for _, native := range []string{".claude/rules/a.md", ".claude/rules/b.md"} {
+						mustWriteFile(t, native, strings.Replace(readFile(t, native), "Shared body.", "Edited body.", 1))
+					}
+				}
+
+				for _, args := range [][]string{{"import", "claude", "--dry-run", "--diff"}, {"import", "claude"}} {
+					_, err = runCLI(t, args...)
+					if edited && errs.CodeOf(err) != errs.CodeImportWouldReplace {
+						t.Errorf("%v = %v, want AAI-203", args, err)
+					}
+					if !edited && err != nil {
+						t.Errorf("%v: %v", args, err)
+					}
+				}
+				for _, path := range []string{first, second} {
+					if got := readFile(t, path); got != rule {
+						t.Errorf("import changed aliased spec %s:\n%s", path, got)
+					}
+				}
+			})
+		}
 	}
 }
 

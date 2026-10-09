@@ -29,6 +29,7 @@ type importViewFile struct {
 	before  []byte
 	existed bool
 	sources []string
+	info    os.FileInfo
 }
 
 // importView is the active guard, or nil outside an import run.
@@ -54,9 +55,18 @@ func (g *importViewGuard) note(path string) {
 	path = filepath.Clean(path)
 	f, ok := g.files[path]
 	if !ok {
-		f = &importViewFile{}
-		if data, err := os.ReadFile(path); err == nil {
-			f.before, f.existed = data, true
+		info, _ := os.Stat(path)
+		for _, prior := range g.files {
+			if info != nil && prior.info != nil && os.SameFile(info, prior.info) {
+				f = prior
+				break
+			}
+		}
+		if f == nil {
+			f = &importViewFile{info: info}
+			if data, err := os.ReadFile(path); err == nil {
+				f.before, f.existed = data, true
+			}
 		}
 		g.files[path] = f
 	}
@@ -176,6 +186,16 @@ func (g *importViewGuard) settle(root string) error {
 		for j, ok := range v.uneditedFor(tools[name], olds) {
 			kept[idx[j]] = kept[idx[j]] && ok
 		}
+	}
+	// Restoring one alias also restores every other name for that file.
+	byFile := map[*importViewFile]bool{}
+	for i, c := range specs {
+		f := g.files[c.path]
+		held, seen := byFile[f]
+		byFile[f] = kept[i] && (!seen || held)
+	}
+	for i, c := range specs {
+		kept[i] = byFile[g.files[c.path]]
 	}
 	for i, c := range specs {
 		if kept[i] {
@@ -430,32 +450,12 @@ func copyComments(to, from *yaml.Node) bool {
 	return changed
 }
 
-// rewrittenSpecs lists the files in a spec directory, other than
-// AGNOSTIC_AI.md, that the run changed and that existed before it. A
-// file the run reached through a link or under a second name is left
-// out: its bytes before the run are not known for each name.
+// rewrittenSpecs lists existing spec files changed by the run, except AGNOSTIC_AI.md.
 func (g *importViewGuard) rewrittenSpecs(root string) []string {
 	specDirs := importViewSpecDirs(root)
-	infos := map[string]os.FileInfo{}
-	for path := range g.files {
-		if info, err := os.Stat(path); err == nil {
-			infos[path] = info
-		}
-	}
-	shared := func(path string) bool {
-		if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink != 0 {
-			return true
-		}
-		for other, info := range infos {
-			if other != path && os.SameFile(info, infos[path]) {
-				return true
-			}
-		}
-		return false
-	}
 	var paths []string
 	for path, f := range g.files {
-		if !f.existed || infos[path] == nil || specPathKey(path) == agnosticMainFile || !inSpecDir(path, specDirs) || shared(path) {
+		if !f.existed || specPathKey(path) == agnosticMainFile || !inSpecDir(path, specDirs) {
 			continue
 		}
 		if now, err := os.ReadFile(path); err == nil && !bytes.Equal(now, f.before) {
