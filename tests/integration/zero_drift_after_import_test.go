@@ -144,9 +144,10 @@ func TestZeroDrift_AfterClaudeAndCodexImportSync(t *testing.T) {
 		[]byte(claudeAndCodexConfig), 0o644))
 
 	runCmd(t, "import", "claude")
-	// Codex gets the same fs server from the spec the claude import
-	// wrote, so the codex import leaves that spec as it is (#1938).
-	runCmd(t, "import", "codex")
+	// Both define the fs server differently: codex may not replace what
+	// the claude import wrote unless asked to (#1620).
+	runCmdExpectErr(t, "import", "codex")
+	runCmd(t, "import", "codex", "--overwrite")
 	runCmd(t, "sync")
 
 	runCmd(t, "sync", "--check")
