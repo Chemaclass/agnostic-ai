@@ -34,3 +34,4 @@ cursor-sandbox-json	cursor	`<workspace>/.cursor/sandbox.json` | Single workspace
 windsurf-write-allow	windsurf	In **Accept Edits mode**, file edits within the workspace are auto-approved, but shell commands and writes outside the workspace still prompt.	yes	signal:cap-windsurf-repo-memory-write-allow
 junie-model-profiles	junie	Project-scope: .junie/models/*.json.	yes	signal:cap-junie-custom-model-profiles
 claude-hook-onfailure-block	claude	Added `onFailure: "block"` for command and HTTP hooks: a hook that can't start, times out, or exits with an unexpected code blocks the action instead of letting it through	yes	signal:cap-fail-closed-hook-policy
+kiro-hook-tool-category-matchers	kiro	In V3 sessions, Hooks that run before or after a tool can now match by category, such as shell, read, write, or a specific MCP server or tool, instead of only by internal tool ID.	yes	signal:cap-kiro-hook-tool-category-matchers

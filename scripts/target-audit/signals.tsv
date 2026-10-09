@@ -60,3 +60,4 @@ cap-kilo-project-memory	2026-10-07	2026-10-07	target-extension			changelog		Kilo
 cap-cursor-sandbox-json	2026-10-07	2026-10-07	target-extension			docs		.cursor/sandbox.json project sandbox policy (network allow/deny, extra read/write paths); no x-cursor route to it today.
 cap-windsurf-repo-memory-write-allow	2026-10-07	2026-10-07	adapter-gap	1882		docs		Devin CLI permissions.allow Write(<path>/**) in .devin/config.json lets Windsurf save to the repo-mode personal memory folder without a prompt.
 cap-junie-custom-model-profiles	2026-10-07	2026-10-07	watch			docs		Junie project model profiles in .junie/models/<id>.json (baseUrl, apiKey as ${VAR}); no route writes them today.
+cap-kiro-hook-tool-category-matchers	2026-10-09	2026-10-09	watch		2026-10-05	changelog		Kiro CLI 2.28 V3 tool hooks match by category (shell, read, write, an MCP server or tool); matcher already passes through to .kiro/hooks/*.json, hooks docs do not describe categories yet.
