@@ -21,5 +21,5 @@
 # larger): import keeps a spec whose tool files still hold what the sync
 # ledger records, and carries back keys and comments the tool never shows.
 # #1945 adds guided upgrades, daily caching, release guidance, and
-# project config and package ownership checks, reusing the existing updater.
-18550000
+# project config, linked spec, and package ownership checks.
+18560000
