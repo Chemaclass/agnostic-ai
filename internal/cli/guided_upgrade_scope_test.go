@@ -14,6 +14,7 @@ import (
 )
 
 func TestGuidedUpgrade_RejectsLinkedWritableSpecLayersBeforeOfferAndLock(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	for _, name := range []string{"external local", "global local", "external source", "global source", "nested global local", "nested global source"} {
 		t.Run(name, func(t *testing.T) {
 			root := testutil.TempCwd(t)
@@ -97,6 +98,7 @@ func TestGuidedUpgrade_RejectsLinkedWritableSpecLayersBeforeOfferAndLock(t *test
 }
 
 func TestGuidedUpgrade_InternalSpecDirectoryAliasesCanReconcile(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
@@ -130,6 +132,7 @@ func TestGuidedUpgrade_InternalSpecDirectoryAliasesCanReconcile(t *testing.T) {
 }
 
 func TestGuidedUpgrade_RechecksRetargetedSpecDirectoryBeforeLock(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")
@@ -161,6 +164,7 @@ func TestGuidedUpgrade_RechecksRetargetedSpecDirectoryBeforeLock(t *testing.T) {
 }
 
 func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedGlobalHome(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	for _, name := range []string{"project file", "project kind", "local file", "local kind"} {
 		t.Run(name, func(t *testing.T) {
 			root := testutil.TempCwd(t)
@@ -232,6 +236,7 @@ func TestGuidedUpgrade_RejectsEntriesAliasedIntoNestedGlobalHome(t *testing.T) {
 }
 
 func TestGuidedUpgrade_NestedGlobalHomeKeepsBenignSourceAliases(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	for _, name := range []string{"internal file", "internal kind", "external custom source"} {
 		t.Run(name, func(t *testing.T) {
 			root := testutil.TempCwd(t)
@@ -294,6 +299,7 @@ func TestGuidedUpgrade_NestedGlobalHomeKeepsBenignSourceAliases(t *testing.T) {
 }
 
 func TestGuidedUpgrade_RechecksEntryAliasIntoNestedGlobalBeforeLock(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	home := filepath.Join(root, "global")
 	t.Setenv("AGNOSTIC_AI_HOME", home)
@@ -431,6 +437,7 @@ func TestGuidedUpgrade_ShadowedGlobalMCPRemainsWritableToRawPlanner(t *testing.T
 }
 
 func TestGuidedUpgrade_InternalDirectoryAliasUsesPhysicalProjectIdentity(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	root := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\nrequires: 0.81.0\n")

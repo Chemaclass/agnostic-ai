@@ -14,6 +14,7 @@ import (
 )
 
 func TestGuidedUpgrade_SyncPlanRunsWithoutUpgradeSideEffects(t *testing.T) {
+	setRunningVersion(t, "v0.81.0")
 	for _, args := range [][]string{{"--plan"}, {"--against", "HEAD", "--plan"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			for _, name := range []string{envNoUpdateCheck, envUpgradeInProgress, "CI", "AGNOSTIC_AI_TARGET"} {
