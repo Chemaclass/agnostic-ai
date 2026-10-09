@@ -17,6 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -441,13 +442,6 @@ func splitCodexAgentFrontmatter(doc string) (string, string, bool) {
 	return front, body, true
 }
 
-// importCodexSkills walks root and nested native skill directories and
-// mirrors each `<dir>/<name>/` folder into its canonical source scope.
-// Every file under the skill directory, including SKILL.md,
-// `agents/openai.yaml`, helper scripts, fixtures, nested subdirectories
-// is preserved so an import then `sync` keeps the full skill payload
-// intact across all targets. When the same skill name appears under
-// both layouts the first one wins (codex-native path comes first).
 func importCodexSkills(root, dstDir string) (int, error) {
 	count := 0
 	seen := map[string]bool{}
@@ -519,19 +513,6 @@ func importCodexSkills(root, dstDir string) (int, error) {
 	return count, folders.recordWorkspaces()
 }
 
-// mergeCodexSkillIntoExisting layers a codex skill folder on top of an
-// already-imported skill (claude origin). Claude frontmatter survives
-// (argument-hint, disable-model-invocation, allowed-tools — Claude
-// reads these to wire the skill correctly). When the codex SKILL.md
-// body diverges from claude's the unique sections get wrapped in
-// `::target` fences so both tools' authored prose survives the
-// round-trip (#300). Codex-only assets (agents/openai.yaml, scripts/,
-// helper files) copy across.
-//
-// Codex-only top-level entries (anything in `src` not already present
-// in `dst`) get recorded in the merged SKILL.md frontmatter under
-// `x-codex.assets` so the claude adapter knows to skip them on emit
-// (#305).
 func mergeCodexSkillIntoExisting(src, dst string) error {
 	codexOnlyTopLevel, err := codexOnlyTopLevelEntries(src, dst)
 	if err != nil {
@@ -557,8 +538,8 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 			return nil
 		}
 		target := filepath.Join(dst, rel)
-		if info.IsDir() {
-			return importMkdirAll(target, info.Mode().Perm()|0o700)
+		if info.IsDir() || !info.Mode().IsRegular() || isSyncBackup(path) {
+			return nil
 		}
 		if _, err := os.Stat(target); err == nil {
 			// File already imported from claude; keep it.
@@ -568,6 +549,9 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 		if err != nil {
 			return err
 		}
+		if header.Leads(path, string(body)) {
+			return nil
+		}
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
@@ -575,29 +559,44 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 	})
 }
 
-// codexOnlyTopLevelEntries lists the top-level names (excluding
-// SKILL.md) that exist under src but not under dst. The claude side
-// (dst) was imported first, so anything codex adds top-level is by
-// definition codex-only.
 func codexOnlyTopLevelEntries(src, dst string) ([]string, error) {
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", src, err)
-	}
+	seen := map[string]bool{}
 	var out []string
-	for _, e := range entries {
-		name := e.Name()
-		if name == "SKILL.md" {
-			continue
+	err := filepath.WalkDir(src, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		if !entry.Type().IsRegular() || isSyncBackup(path) {
+			return nil
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("resolve %s: %w", path, err)
+		}
+		if rel == "SKILL.md" {
+			return nil
+		}
+		name := strings.Split(filepath.ToSlash(rel), "/")[0]
+		if seen[name] {
+			return nil
 		}
 		if _, err := os.Stat(filepath.Join(dst, name)); err == nil {
-			continue
+			seen[name] = true
+			return nil
 		} else if !errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("stat %s: %w", filepath.Join(dst, name), err)
+			return fmt.Errorf("stat %s: %w", filepath.Join(dst, name), err)
 		}
-		out = append(out, name)
-	}
-	return out, nil
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		if !header.Leads(path, string(data)) {
+			seen[name] = true
+			out = append(out, name)
+		}
+		return nil
+	})
+	return out, err
 }
 
 // recordCodexSkillAssets appends or merges the given names into
