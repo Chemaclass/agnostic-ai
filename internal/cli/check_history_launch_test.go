@@ -31,7 +31,7 @@ func TestHistoryLaunch_HandwrittenFileSkipsRenderWithoutChangingClassification(t
 		t.Errorf("manual launch classified as generated: %+v", got)
 	}
 	h := &historyRenderer{sources: configuredSources(cfg)}
-	if h.provesAtHEAD(".claude/launch.json") || h.proves(".claude/launch.json") {
+	if h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) || h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("manual launch proved owned")
 	}
 	if len(h.renders) != 0 {
@@ -76,7 +76,7 @@ func TestHistoryLaunch_UnknownInputsKeepFullRender(t *testing.T) {
 			git("add", "-A")
 			git("commit", "-q", "-m", "guard")
 			h := &historyRenderer{}
-			h.provesAtHEAD(".claude/launch.json")
+			h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
 			if len(h.renders) != 1 {
 				t.Errorf("full renders=%d, want one", len(h.renders))
 			}
@@ -98,10 +98,10 @@ func TestHistoryLaunch_DeletedEnvironmentKeepsHistoricalOwnership(t *testing.T) 
 	git("add", "-A")
 	git("commit", "-q", "-m", "delete environment")
 	h := &historyRenderer{}
-	if h.provesAtHEAD(".claude/launch.json") {
+	if h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("HEAD still owns deleted environment")
 	}
-	if !h.proves(".claude/launch.json") {
+	if !h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("old environment no longer proves launch")
 	}
 	if len(h.renders) != 1 {
@@ -114,12 +114,12 @@ func TestHistoryLaunch_DeletedEnvironmentKeepsHistoricalOwnership(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return p == ".claude/launch.json" })
-	if !reflect.DeepEqual(rep.Orphaned, []string{".claude/launch.json"}) || len(rep.Leftover) != 0 {
+	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return filepath.ToSlash(p) == ".claude/launch.json" })
+	if !reflect.DeepEqual(rep.Orphaned, []string{filepath.FromSlash(".claude/launch.json")}) || len(rep.Leftover) != 0 {
 		t.Errorf("deleted environment classification: %+v", rep)
 	}
 	mustWriteFile(t, ".claude/launch.json", "{}\n")
-	if h.proves(".claude/launch.json") {
+	if h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("edited launch remains owned")
 	}
 }
@@ -162,7 +162,7 @@ func TestHistoryLaunch_NestedProjectIgnoresSiblingEnvironment(t *testing.T) {
 	git("commit", "-q", "-m", "nested manual")
 	testutil.Chdir(t, filepath.Join(dir, "nested"))
 	h := &historyRenderer{}
-	h.provesAtHEAD(".claude/launch.json")
+	h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
 	if !reflect.DeepEqual(h.renders, map[string]map[string]string{}) {
 		t.Errorf("nested project rendered: %v", h.renders)
 	}
@@ -189,7 +189,7 @@ func TestHistoryLaunch_NegativeProofStillConsumesHistoricalAdmission(t *testing.
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual")
 	h := &historyRenderer{}
-	if h.proves(".claude/launch.json") {
+	if h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("manual file owned")
 	}
 	if len(h.renders) != 0 || len(h.admitted) != 1 {
@@ -212,7 +212,7 @@ func TestHistoryLaunch_NegativeProofStillConsumesHistoricalAdmission(t *testing.
 	if len(h.admitted) != maxHistoryRenders {
 		t.Errorf("admissions=%d", len(h.admitted))
 	}
-	if h.provesAtHEAD(".claude/launch.json") || len(h.renders) != maxHistoryRenders {
+	if h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) || len(h.renders) != maxHistoryRenders {
 		t.Error("pinned negative proof changed")
 	}
 }
@@ -240,7 +240,7 @@ func TestHistoryLaunch_LegacyAndSourceAliasKeepFullRender(t *testing.T) {
 			git("add", "-A")
 			git("commit", "-q", "-m", "fallback")
 			h := &historyRenderer{}
-			h.provesAtHEAD(".claude/launch.json")
+			h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
 			if len(h.renders) != 1 {
 				t.Errorf("full renders=%d, want one", len(h.renders))
 			}
@@ -257,7 +257,7 @@ func TestHistoryLaunch_CustomGitFilterKeepsFullRender(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "filter")
 	h := &historyRenderer{}
-	h.provesAtHEAD(".claude/launch.json")
+	h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
 	if len(h.renders) != 1 {
 		t.Errorf("full renders=%d, want one", len(h.renders))
 	}
@@ -272,7 +272,7 @@ func TestHistoryLaunch_RestoredHelperRetainsOwnership(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "helper")
 	h := &historyRenderer{}
-	if !h.provesAtHEAD(".claude/launch.json") {
+	if !h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("restored helper ownership lost")
 	}
 }
@@ -286,7 +286,7 @@ func TestHistoryLaunch_UnrelatedHelperDoesNotDefeatAbsence(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual")
 	h := &historyRenderer{}
-	h.provesAtHEAD(".claude/launch.json")
+	h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
 	if len(h.renders) != 0 {
 		t.Errorf("full renders=%d, want zero", len(h.renders))
 	}
@@ -305,7 +305,7 @@ func TestHistoryLaunch_EscapingSkillNameCannotProduceLaunchAsset(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "invalid skill")
 	h := &historyRenderer{}
-	if h.provesAtHEAD(".claude/launch.json") || h.proves(".claude/launch.json") {
+	if h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) || h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("invalid skill established ownership")
 	}
 }
@@ -330,7 +330,7 @@ func TestHistoryLaunch_ValidScopedSkillAssetDoesNotOwnRootLaunch(t *testing.T) {
 	if _, present := full[".claude/launch.json"]; present {
 		t.Error("scoped skill asset owns root launch")
 	}
-	if h.provesAtHEAD(".claude/launch.json") || len(h.renders) != 0 {
+	if h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) || len(h.renders) != 0 {
 		t.Error("scoped skill asset defeated exact-key absence proof")
 	}
 }
@@ -343,7 +343,7 @@ func TestHistoryLaunch_CurrentCustomSourceKeepsFullRender(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual")
 	h := &historyRenderer{sources: []string{"custom"}}
-	h.provesAtHEAD(".claude/launch.json")
+	h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
 	if len(h.renders) != 1 {
 		t.Errorf("full renders=%d, want one", len(h.renders))
 	}

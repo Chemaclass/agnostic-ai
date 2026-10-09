@@ -17,7 +17,7 @@ func (h *historyRenderer) pathMatches(commit, p string) bool {
 	if rendered, seen := h.renders[commit]; seen {
 		return renderedContentMatches(rendered, p)
 	}
-	if p == ".claude/launch.json" && h.launchDefinitelyAbsent(commit) {
+	if filepath.ToSlash(p) == ".claude/launch.json" && h.launchDefinitelyAbsent(commit) {
 		return false
 	}
 	return renderedContentMatches(h.rendered(commit), p)
