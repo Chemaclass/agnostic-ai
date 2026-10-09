@@ -88,6 +88,11 @@ func newHookMemoryCmd() *cobra.Command {
 // relative to the project root, or absolute for the repo store.
 type memoryIndex struct{ name, path, text string }
 
+// header introduces the index in the context the hook prints.
+func (m memoryIndex) header() string {
+	return "\n" + m.name + ", `" + m.path + "`:\n\n"
+}
+
 // personalMemoryIndex returns the personal index of the project at root,
 // in the checkout unless its config sets memory.personal: repo. A config
 // that does not load is returned as the error, since it may set repo mode.
@@ -115,7 +120,7 @@ func memoryContext(indexes, scopes []memoryIndex) string {
 	text := "## Shared memory\n\nOpen a fact's file, in the folder of its index, when its line is relevant.\n"
 	head := 0
 	for i, index := range indexes {
-		text += "\n" + index.name + ", `" + index.path + "`:\n\n"
+		text += index.header()
 		if i == 0 {
 			head = len(text)
 		}

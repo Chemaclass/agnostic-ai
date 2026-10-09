@@ -185,7 +185,10 @@ func lintMemory() ([]lintFinding, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []lintFinding
+	var (
+		out    []lintFinding
+		loaded []memoryContents
+	)
 	for _, s := range stores {
 		c, ok, err := loadMemoryStore(s)
 		if err != nil {
@@ -193,9 +196,72 @@ func lintMemory() ([]lintFinding, error) {
 		}
 		if ok {
 			out = append(out, c.lint()...)
+			loaded = append(loaded, c)
 		}
 	}
-	return out, nil
+	return append(out, lintMemoryHookCut(stores, loaded)...), nil
+}
+
+// lintMemoryHookCut builds the context `hook memory` prints and warns
+// on each index that loses facts past memoryContextLimit (LINT039).
+// Targets that import or list the indexes load them whole, so only the
+// hook targets drop facts.
+func lintMemoryHookCut(stores []memoryStore, loaded []memoryContents) []lintFinding {
+	var (
+		scopes, indexes []memoryIndex
+		cut             []memoryContents
+	)
+	// The hook loads personal memory first, so stores runs backwards.
+	for i := len(stores) - 1; i >= 0; i-- {
+		s := stores[i]
+		index := memoryIndex{name: strings.ToUpper(s.scope[:1]) + s.scope[1:] + " memory", path: filepath.ToSlash(s.indexPath())}
+		scopes = append(scopes, index)
+		for _, c := range loaded {
+			if c.dir == s.dir && strings.TrimSpace(strings.Join(c.index, "")) != "" {
+				index.text = strings.Join(c.index, "\n") + "\n"
+				indexes = append(indexes, index)
+				cut = append(cut, c)
+			}
+		}
+	}
+	if len(indexes) == 0 {
+		return nil
+	}
+	context := memoryContext(indexes, scopes)
+	var out []lintFinding
+	for i, c := range cut {
+		dropped := c.droppedFrom(context, indexes[i])
+		if len(dropped) == 0 {
+			continue
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT039",
+			Severity: lintWarn,
+			Path:     c.indexPath(),
+			Message: fmt.Sprintf("the session-start hook keeps the first %d bytes of the memory indexes, so tools that load memory through it never see these %s facts: %s; merge or shorten facts",
+				memoryContextLimit, c.scope, strings.Join(dropped, ", ")),
+		})
+	}
+	return out
+}
+
+// droppedFrom returns the files of the facts whose index line context,
+// the hook output, cuts.
+func (c memoryContents) droppedFrom(context string, index memoryIndex) []string {
+	kept := 0
+	if at := strings.Index(context, index.header()); at >= 0 {
+		lines := strings.Split(context[at+len(index.header()):], "\n")
+		for kept < len(c.index) && kept < len(lines) && lines[kept] == c.index[kept] {
+			kept++
+		}
+	}
+	var dropped []string
+	for _, e := range c.entries {
+		if e.line > kept {
+			dropped = append(dropped, filepath.ToSlash(e.target))
+		}
+	}
+	return dropped
 }
 
 func (c memoryContents) lint() []lintFinding {
@@ -365,7 +431,7 @@ func newMemoryLintCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Run only the memory lint checks",
-		Long: "Reports an index over 100 lines (LINT039), an index line whose file is missing (LINT040), " +
+		Long: "Reports an index over 100 lines, or indexes past the 6,000 bytes the session-start hook keeps (LINT039), an index line whose file is missing (LINT040), " +
 			"a fact no index line links (LINT041), and a line that looks like a secret (LINT042). " +
 			"`lint` and `doctor` report the same findings. Exit code 1 on error findings, or on " +
 			"warnings with --strict. --json prints the findings in the `lint --json` format.",

@@ -233,8 +233,8 @@ var lintCodes = map[string]lintCode{
 	"LINT038": {Severity: lintWarn, Title: "Bare capability covers every operation", Cause: "A bare capability in permissions.allow or permissions.ask now becomes a native permission for every operation it covers. Before permission capabilities, the lowercase spelling matched no tool.", Fix: "Scope shell, read, or edit, name one MCP tool, or restrict web access through a target-native permission field. write takes no path; edit(path) also covers edits."},
 	"LINT039": {
 		Severity: lintWarn,
-		Title:    "Memory index over 100 lines",
-		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines. Tools load the whole index every session, and some cut it.",
+		Title:    "Memory index too long",
+		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines, or the two indexes pass the 6,000 bytes the session-start hook keeps. Claude Code, OpenCode, and Kilo Code load both indexes whole every session. Tools that load memory through the hook never see the facts past the cut; the finding names them.",
 		Fix:      "Merge duplicate facts and drop stale ones. The `shared-memory` skill does this when asked to clean up memory.",
 	},
 	"LINT040": {
