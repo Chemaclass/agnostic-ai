@@ -622,39 +622,6 @@ func checkoutPaths(toplevel string, env []string, dir string, paths []string) er
 	return gitInput(toplevel, env, strings.Join(paths, "\x00")+"\x00", "checkout-index", "--force", "-z", "--stdin", "--prefix="+dir+string(filepath.Separator))
 }
 
-// renderedAtHEAD renders the last commit's specs for the project in the
-// working directory, or returns nil outside a repository with a commit.
-// A tracked file still holding what HEAD rendered is one sync wrote,
-// with or without a provenance header.
-func renderedAtHEAD(sources []string) map[string]string {
-	origin, err := os.Getwd()
-	if err != nil {
-		return nil
-	}
-	toplevel, err := gitOutput(origin, nil, "rev-parse", "--show-toplevel")
-	if err != nil {
-		return nil
-	}
-	prefix, err := gitOutput(origin, nil, "rev-parse", "--show-prefix")
-	if err != nil {
-		return nil
-	}
-	toplevel = strings.TrimSpace(toplevel)
-	if _, err := gitOutput(toplevel, nil, "rev-parse", "--verify", "--quiet", "HEAD^{tree}"); err != nil {
-		return nil
-	}
-	scratch, err := os.MkdirTemp("", "agnostic-ai-head-")
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = os.RemoveAll(scratch) }()
-	out, err := renderRef(toplevel, strings.TrimSpace(prefix), "HEAD", filepath.Join(scratch, "tree"), sources)
-	if err != nil {
-		return nil
-	}
-	return out
-}
-
 // plannedOutputs renders the specs in the working directory for every
 // configured target and returns each path sync would write with its
 // content. Its warnings, notes, and verbose lines stay quiet: the checked

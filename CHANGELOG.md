@@ -9,6 +9,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - Interactive commands offer daily guided upgrades with release notes, project migrations, and sync checks (#1945).
+
+- Without a sync record, `status` and `doctor` render each commit once when checking native files (#1940).
+
 - Memory docs explain which Cursor sessions load indexes at startup and how hosted cloud agents read project memory.
 - Builds use Go 1.27.2, which fixes an HTTP/2 crash in the standard library (GO-2026-6617).
 - `compare` runs in under a second on large projects, down from 47 s at 500 specs (#1891).
