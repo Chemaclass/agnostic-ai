@@ -86,11 +86,15 @@ func stripLooseFixedDuplicates(text string) string {
 // never emits but that must stay out of version control. Riding inside
 // the managed block, they survive each sync refresh instead of needing
 // hand maintenance (#469). Hints are target-scoped, so a project that
-// does not enable the target never sees them.
+// does not enable the target never sees them. They also cover each file
+// that holds the repo store of personal memory once agnostic-ai.local.yaml
+// asks for it, listed from the shared config alone, so the block a team
+// commits is the same with and without that file (#1936).
 func gitignoreHintsForTargets(cfg *config.Config, targets []string) []string {
 	var out []string
 	for _, t := range targets {
 		out = append(out, adapters.GitignoreHintsFor(t, cfg)...)
+		out = append(out, adapters.RepoMemoryFiles(cfg, t)...)
 	}
 	return out
 }

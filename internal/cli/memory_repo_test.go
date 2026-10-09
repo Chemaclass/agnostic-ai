@@ -716,3 +716,181 @@ func TestSync_CursorCLIConfigHasBothListsAndLeavesWithRepoMode(t *testing.T) {
 		t.Errorf("sync --check: %v", err)
 	}
 }
+
+const sharedIgnoreTargets = "version: 1\ntargets: [claude, codex, cursor, gemini, opencode, qoder, windsurf]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n"
+
+// commitAll commits every change in the working directory.
+func commitAll(t *testing.T, message string) {
+	t.Helper()
+	git(t, ".", "add", "-A")
+	git(t, ".", "commit", "-q", "-m", message)
+}
+
+// Repo mode is one developer's choice, so the shared ignore files stay
+// as a checkout without agnostic-ai.local.yaml writes them, either way
+// round, and the machine-specific files stay out of git status.
+func TestSync_RepoPersonalMemoryLeavesTheSharedIgnoreFilesAlone(t *testing.T) {
+	for _, startInRepoMode := range []bool{false, true} {
+		name := "turning repo mode on"
+		if startInRepoMode {
+			name = "turning repo mode off"
+		}
+		t.Run(name, func(t *testing.T) {
+			repoMemoryProject(t, true)
+			isolateGit(t)
+			writeFile(t, "agnostic-ai.yaml", sharedIgnoreTargets)
+			if !startInRepoMode {
+				if err := os.Remove("agnostic-ai.local.yaml"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			commitAll(t, "base")
+
+			if startInRepoMode {
+				if err := os.Remove("agnostic-ai.local.yaml"); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+			}
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if status := git(t, ".", "status", "--porcelain", "--untracked-files=all"); status != "" {
+				t.Errorf("git status after the switch:\n%s", status)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after the switch: %v", err)
+			}
+		})
+	}
+}
+
+// The files that may name the repo store are in the shared block whenever
+// their target and the memory built-in are on, so a checkout without
+// repo mode already ignores them and the local exclude list stays as is.
+func TestSync_RepoMemoryFilesAreInTheSharedBlockWithoutRepoMode(t *testing.T) {
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", sharedIgnoreTargets)
+	if err := os.Remove("agnostic-ai.local.yaml"); err != nil {
+		t.Fatal(err)
+	}
+	before := readText(t, filepath.Join(".git", "info", "exclude"))
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range []string{
+		filepath.Join(".codex", "config.toml"),
+		filepath.Join(".cursor", "cli.json"),
+		filepath.Join(".cursor", ".agnostic-ai-permissions.json"),
+		filepath.Join(".devin", "config.json"),
+		filepath.Join(".gemini", "settings.json"),
+		filepath.Join(".qoder", "settings.json"),
+		"opencode.json",
+	} {
+		if !gitIgnored(t, ".", file) {
+			t.Errorf("the managed block does not ignore %s", file)
+		}
+	}
+	if include := readText(t, ".worktreeinclude"); !strings.Contains(include, "/.codex/config.toml") && !strings.Contains(include, "/.codex/\n") {
+		t.Errorf(".worktreeinclude leaves out the Codex config:\n%s", include)
+	}
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if after := readText(t, filepath.Join(".git", "info", "exclude")); strings.Contains(after, "codex") || strings.Contains(after, "cursor") || strings.Contains(after, "devin") {
+		t.Errorf("info/exclude gained repo-mode files:\n%s\nwas:\n%s", after, before)
+	}
+}
+
+// A team that commits Cursor settings gets .cursor/cli.json out of the
+// block, also on a machine that used repo mode before.
+func TestSync_CommittedCursorSettingsLeaveTheBlockAfterRepoMode(t *testing.T) {
+	repoMemoryProject(t, true)
+	isolateGit(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n  commit: [cursor:settings]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "settings", "security.yaml"), "name: security\npermissions:\n  deny: [\"Bash(curl:*)\"]\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(".cursor", "cli.json")); err != nil {
+		t.Fatalf("sync wrote no cli.json: %v", err)
+	}
+	commitAll(t, "commit cursor settings")
+	if listed := git(t, ".", "ls-files", ".cursor/cli.json"); listed != ".cursor/cli.json" {
+		t.Errorf("git ls-files .cursor/cli.json = %q", listed)
+	}
+}
+
+// The first sync in repo mode writes the shared block a second one keeps,
+// even for a file that names the store in both modes.
+func TestSync_RepoPersonalMemoryFirstSyncWritesTheSettledBlock(t *testing.T) {
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", sharedIgnoreTargets)
+	writeFile(t, filepath.Join(".agnostic-ai", "mcps", "fs.yaml"), "name: fs\ncommand: fs-server\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	first := readText(t, ".gitignore")
+	if !strings.Contains(first, "/.claude/settings.local.json") && !strings.Contains(first, "/.claude/\n") {
+		t.Errorf(".gitignore leaves out the Claude local settings:\n%s", first)
+	}
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if second := readText(t, ".gitignore"); second != first {
+		t.Errorf(".gitignore after a second sync:\n%s\nwant:\n%s", second, first)
+	}
+}
+
+// A sync of some targets keeps the files of the others that exist only
+// for the repo store out of the managed block too.
+func TestSync_RepoPersonalMemorySubsetSyncKeepsTheSharedBlock(t *testing.T) {
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", sharedIgnoreTargets)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	before := readText(t, ".gitignore")
+	if err := runSync(t, "--target", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if after := readText(t, ".gitignore"); after != before {
+		t.Errorf(".gitignore after a claude-only sync:\n%s\nwant:\n%s", after, before)
+	}
+}
+
+// A block an earlier build wrote without the repo-store files gets them
+// back on the next sync, also one that covers only some targets.
+func TestSync_RepoMemoryFilesReturnToAnOlderBlock(t *testing.T) {
+	for _, args := range [][]string{nil, {"--target", "claude"}} {
+		t.Run(strings.Join(append([]string{"sync"}, args...), " "), func(t *testing.T) {
+			repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]string{}
+			for _, file := range []string{".gitignore", ".worktreeinclude"} {
+				want[file] = readText(t, file)
+				writeFile(t, file, strings.Replace(want[file], "/.codex/config.toml\n", "", 1))
+			}
+			if err := runSync(t, args...); err != nil {
+				t.Fatal(err)
+			}
+			for file, text := range want {
+				if got := readText(t, file); got != text {
+					t.Errorf("%s:\n%s\nwant:\n%s", file, got, text)
+				}
+			}
+		})
+	}
+}

@@ -124,6 +124,16 @@ func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overla
 	return wrote
 }
 
+// RepoMemoryFiles names config.toml, whose writable_roots holds the repo
+// store of personal memory once memory.personal is repo.
+func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
+	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
+	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+		return nil
+	}
+	return []string{path}
+}
+
 // memoryWritableRoots returns the repo store of personal memory when it
 // lies outside the checkout, so Codex's workspace-write sandbox lets the
 // session save there.
