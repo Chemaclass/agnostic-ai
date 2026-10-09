@@ -70,3 +70,35 @@ func TestDrainNotes_EmptyBuffersReturnNil(t *testing.T) {
 		t.Errorf("DrainNotes() = %#v, want nil", got)
 	}
 }
+
+func TestSkipNotes_RecordsNothingUntilRestored(t *testing.T) {
+	swapWarnerForNotes(t)
+	ResetCapabilityWarnings()
+	t.Cleanup(ResetCapabilityWarnings)
+	skill := spec.Entry{Kind: spec.KindSkill, Name: "s", Meta: map[string]any{"name": "s", "description": "d", "license": "MIT"}}
+	plain := SkillFieldCoverage{Markdown: func(spec.Entry) string { return "---\nname: s\ndescription: d\n---\nbody\n" }}
+	raise := func() {
+		NoteCoverageGap("aider", spec.KindAgent, 1, "outputs.aider.rules-file")
+		NoteFieldNoOp("cursor", spec.KindAgent, "tools", 1, "no tools field")
+		NoteSurfaceGap("cline", spec.KindAgent, 1, "the Cline VS Code extension", "CLI only")
+		NoteProject("project-wide text")
+		NoteDroppedSkillFields("cursor", []spec.Entry{skill}, plain)
+		NoteEntryOmitted("aider", spec.KindAgent, "a")
+	}
+
+	restore := SkipNotes()
+	raise()
+	if got := DrainNotes(); got != nil {
+		t.Errorf("skipped notes must not buffer, got %#v", got)
+	}
+	if !OmittedEntry("aider", spec.KindAgent, "a") {
+		t.Error("the record of omitted entries must still update while notes are skipped")
+	}
+
+	restore()
+	raise()
+	got := DrainNotes()
+	if len(got) != 4 || got[2].Field != "license" {
+		t.Errorf("notes after restore = %#v, want the gap, both field no-ops, and the surface gap", got)
+	}
+}
