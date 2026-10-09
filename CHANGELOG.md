@@ -46,6 +46,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- An experimental guide explains project setup with RTK and Caveman, including removal and local test limits.
 - Memory and project setup guides use plain words and explain when tools load shared memory (#1933, #1951).
 
 ## v0.81.0 - 2026-10-07
