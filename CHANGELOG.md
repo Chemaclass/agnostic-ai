@@ -36,6 +36,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- In repo mode, sync names the writable root to add when it leaves a hand-written Codex config in place and Codex cannot save personal memory (#1942).
 - **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).
 
 #### Kilo Code

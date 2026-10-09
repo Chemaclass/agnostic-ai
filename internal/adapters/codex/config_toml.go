@@ -1,9 +1,13 @@
 package codex
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -524,4 +528,39 @@ func (Adapter) UserMCPServerTables(mcps []spec.Entry) map[string]string {
 		out[m.Name] = sb.String()
 	}
 	return out
+}
+
+func notePreservedMemoryRoot(cfg *config.Config, path string) error {
+	if !cfg.RepoPersonalMemory() || !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if emit.IsAbsent(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if strings.Contains(string(data), emit.ProvenanceMarker) {
+		return nil
+	}
+	dir, err := emit.PersonalMemoryDir(cfg, ".")
+	if err != nil {
+		return err
+	}
+	var doc struct {
+		SandboxWorkspaceWrite struct {
+			WritableRoots []string `toml:"writable_roots"`
+		} `toml:"sandbox_workspace_write"`
+	}
+	if _, err := toml.Decode(string(data), &doc); err == nil {
+		for _, root := range doc.SandboxWorkspaceWrite.WritableRoots {
+			rel, err := filepath.Rel(root, dir)
+			if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return nil
+			}
+		}
+	}
+	emit.NoteProject(fmt.Sprintf("codex: %s stays as you wrote it; to let Codex save personal memory, add %q to sandbox_workspace_write.writable_roots, keeping its other entries", filepath.ToSlash(path), filepath.ToSlash(dir)))
+	return nil
 }

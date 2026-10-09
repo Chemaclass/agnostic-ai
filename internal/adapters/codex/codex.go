@@ -394,6 +394,11 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 		return err
 	}
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, roots, overlay, overlayKeys)
+	if body == "" || sess.IsUnmanaged(path) {
+		if err := notePreservedMemoryRoot(cfg, path); err != nil {
+			return err
+		}
+	}
 	if body == "" {
 		// Nothing to render this sync: a prior sync may have left a stale
 		// agnostic-ai-managed config.toml on disk (e.g. the user removed
