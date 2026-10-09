@@ -11,13 +11,13 @@ group = "Reference"
 
 ## revert
 
-Undo a `sync --backup`. For every generated file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes it. It also restores a nested `CLAUDE.md` that sync deleted. Files without a `.bak` stay unless you pass `--force`.
+Undo a `sync --backup`. For every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes it. It also restores a nested `CLAUDE.md` that sync deleted. Files without a `.bak` stay unless you pass `--force`.
 
 | Flag | Description |
 |------|-------------|
 | `-t`, `--only`, `--except` | Select targets, as in [`sync`](@/docs/cli-reference/sync.md#sync). |
 | `--dry-run` | Show what it would do and change nothing. |
-| `--force` | Also delete generated files that have no `.bak`, including generated entry-point files and your own files at the same paths. |
+| `--force` | Also delete generated files that have no `.bak`, including generated tool instruction files and your own files at the same paths. |
 | `--json` | Same format as `sync --json`. Actions: `"restore"`, `"remove"`, `"preserve"` (no `.bak`, no `--force`), `"skip"` (already gone). |
 
 Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never restored or removed.
@@ -33,7 +33,7 @@ agnostic-ai cleanup --dry-run   # preview deletions
 
 ## packs
 
-Manage shareable spec packs. A project spec wins over a pack spec with the same name. See the [packs](@/docs/packs.md) guide.
+Add, update, and remove collections of shared specs. A project spec wins over a pack spec with the same name. See the [packs](@/docs/packs.md) guide.
 
 ```bash
 agnostic-ai packs add github.com/obra/superpowers@v6.4.2
@@ -45,7 +45,7 @@ agnostic-ai packs remove superpowers
 
 ## memory
 
-Check, list, locate, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`, or in the [repository store](@/docs/memory.md#one-store-per-repository) with `memory.personal: repo`. A store whose folder is missing is skipped.
+Check, list, locate, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`, or in the [personal folder shared across worktrees](@/docs/memory.md#one-store-per-repository) with `memory.personal: repo`. Missing memory folders are skipped.
 
 ```bash
 agnostic-ai memory lint     # run only the memory checks
@@ -55,11 +55,11 @@ agnostic-ai memory path     # print each memory folder's absolute path
 ```
 
 - `memory lint` reports [LINT039 to LINT042](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same format as `lint --json`, with `command` set to `memory lint`.
-- `memory index` drops merge conflict markers, links to missing files, and repeated links. Every other line stays in place, headings and notes included. It then adds a `- [name](file.md): description` line from the frontmatter of each fact without one. Run it after two tools edit the index at once.
+- `memory index` drops merge conflict markers, links to missing files, and repeated links. Every other line stays in place, headings and notes included. It then adds a `- [name](file.md): description` line from the YAML fields at the top of each fact without one. Run it after two tools edit the index at once.
 - The type comes from `metadata.type`, or from a top-level `type` as Claude Code's auto memory writes it.
-- With no store, `memory lint` says so and exits 0.
+- With no memory folder, `memory lint` says so and exits 0.
 - `memory list` prints facts in index order. The title is the index line's link text, or the fact's `name` when no line links it.
-- `memory path` prints one `scope  folder` line per store, project first, as absolute paths. It works from any folder inside the project and from a linked worktree, and prints a folder that does not exist yet. With `memory.personal: repo`, every worktree of the repository gets the same personal folder. The [`shared-memory-policy` rule](@/docs/memory.md#how-each-tool-loads-it) has tools without a session-start hook run it.
+- `memory path` prints one `scope  folder` line per memory folder, project first, as absolute paths. It works from any folder inside the project and from a linked worktree, and prints a folder that does not exist yet. With `memory.personal: repo`, every worktree of the repository gets the same personal folder. The [`shared-memory-policy` rule](@/docs/memory.md#how-each-tool-loads-it) has tools without a session-start hook run it.
 
 | Flag | Description |
 |------|-------------|
@@ -112,7 +112,7 @@ agnostic-ai hook memory --target codex
 
 - Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}`, Copilot `{"additionalContext": ...}`, and Gemini CLI `{"hookSpecificOutput": {"additionalContext": ...}}`.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
-- With no project, it prints nothing. With `memory.personal: repo`, it names the personal store even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
+- With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
 
 | Flag | Description |
 |------|-------------|
@@ -158,16 +158,16 @@ Install git hooks. By default it installs a pre-commit hook that runs `sync --ch
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
-agnostic-ai install-hook --global   # gates commits to a global home kept in git
+agnostic-ai install-hook --global   # checks global specs before committing
 
 agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout and post-merge
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
-An existing hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. A hook stops early when it has no `sh` or `bash` shebang, an `exec`, or an unindented `exit`.
+An existing hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. A hook stops early when its first line does not select `sh` or `bash`, or it contains an `exec` or an unindented `exit`.
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
-- `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree), and the commit fails if any fails. It cannot combine with `--shared` or `--post-checkout`, and it stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
+- `--global` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree), and the commit fails if any fails. It cannot combine with `--shared` or `--post-checkout`, and it stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
 - `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (not a single-file checkout) or a merge, including a pull. Both skip if the binary or `agnostic-ai.yaml` is missing.
 
 ## completion
@@ -185,30 +185,57 @@ Restart your shell or `source` the file. Completing `--target` reads `agnostic-a
 
 ## upgrade
 
-Upgrade the running binary to the latest release, using the method you installed it with. `update` is an alias.
+Update agnostic-ai using the method you installed it with. `update` is an alias.
 
 ```bash
-agnostic-ai upgrade --version v0.56.1
+agnostic-ai upgrade
+agnostic-ai upgrade --check              # show install details without updating
+agnostic-ai upgrade --version v0.81.0    # install a specific release
 ```
+
+### Automatic upgrade offers
+
+When you run a command in a terminal, a stable release build checks for updates at most once a day. Release checks have a five-second network limit. The offer shows release notes and manual steps for each version you skipped. If docs are missing, it names them and shows changelog entries when available.
+
+Press Enter or type `y` to accept. Type `n` to continue your original command; the offer will not repeat that day.
+
+Before asking, the offer explains what it will change. In a project, accepting it:
+
+1. Installs the new release and checks that the new executable has the expected version.
+2. Sets the project's required version (`requires`) to that exact release and updates the editor schema link. This replaces a minimum or range too, including an existing value in `agnostic-ai.local.yaml`.
+3. Previews and applies the built-in changes to old spec files.
+4. Runs `sync`, then `sync --check`.
+
+Outside a project, it updates the tool only. After accepting, rerun your original command with the updated tool. Review any skipped changes and release notes for steps you must do yourself. Release notes are shown for guidance; they are not run as commands.
+
+If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the global specs folder, the offer is skipped and names that location. Links within the project are supported.
+
+For project-local npm or pnpm installs, the offer prints the package manager's update command. For npx, it prints a command with the new version. Run that command yourself. Automatic npm updates are limited to confirmed global installs; that check has a two-second limit.
+
+If installation or version checking fails, project changes do not start. If a later step fails, the tool stops and prints how to continue. Changes already completed stay in place.
+
+Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable these checks. Offline checks stay silent. Checks also skip CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds. You can still run `upgrade` yourself.
+
+### Upgrade options
 
 | Flag | Description |
 |------|-------------|
-| `--check` | Print install details and change nothing. With `--version`, adds a `Requested:` line. |
-| `--version <tag>` | Install one release, including an older one. The leading `v` is optional. Standalone binaries only: for a package-manager install, pin the version through that manager. |
-| `--requires` | Set this project's `requires` and schema tag to the installed release, then sync. |
-| `--run` | Accepted for compatibility; upgrading is the default. |
+| `--check` | Show install details without changing anything. With `--version`, also show `Requested:`. |
+| `--version <tag>` | Install a specific release, including an older one. The leading `v` is optional. For package-manager installs, choose the version through that manager instead. |
+| `--requires` | Set this project's required version and editor schema link to the installed release, then sync. |
+| `--run` | Accepted for compatibility; upgrading is already the default. |
 
-After a package-manager upgrade, run its installed CLI from the project root:
+After updating through a package manager, run its installed CLI from the project root:
 
 ```bash
 pnpm exec agnostic-ai upgrade --requires
 ```
 
-`--requires` replaces a minimum, range, or older pin with the installed exact release. It updates the base config and any existing local `requires` override, including a null override. Comments and other settings stay. If sync fails, the new pins stay: fix the problem it reports and run `sync` again.
+`--requires` replaces a minimum, range, or older version with the exact installed release. It updates the base config and any existing local `requires` value, including `null`. Comments and other settings stay. If sync fails, the version changes stay: fix the reported problem and run `sync` again.
 
-This mode needs a stable release build. It works with `agnostic.config.yaml` too. It cannot combine with `--check`, `--version`, or `--run`, and it does not update the global home config. Your package manager owns install and dependency files.
+This option needs a stable release build and also supports `agnostic.config.yaml`. It cannot combine with `--check`, `--version`, or `--run`. It leaves the global config, package-manager files, and dependency files to their own update commands.
 
-Before you run it, rewrite flow-style root mappings, merged root keys, and anchored or multiline `requires` values as a plain block mapping and a single-line value.
+The config must have one root setting per line and a single-line `requires` value. If it uses `{...}` at the root, YAML `<<` merges, or a `requires` value shared through `&`/`*` or spread across several lines, rewrite those parts first.
 
 | Binary location | Upgrade |
 |-----------------|---------|
@@ -220,11 +247,11 @@ Before you run it, rewrite flow-style root mappings, merged root keys, and ancho
 | Standalone binary on macOS or Linux | `upgrade` downloads the release, checks it, and replaces the binary. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md). Windows cannot replace a running program. |
 
-The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also lists any other `agnostic-ai` on `PATH` that hides the one it found.
+The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.
 
 ## migrate
 
-Rewrite old spec forms into their current replacements, such as a renamed field or file. Sync writes the same files afterward, so `sync --check` stays clean. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
+Update spec files that use old field names or formats. Sync writes the same files afterward, so `sync --check` stays clean. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
 
 ```bash
 agnostic-ai migrate --list      # which migrations apply here
@@ -240,10 +267,11 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
 | `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
 
-- A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
+- A migration rewrites only what it can replace without changing its meaning. Anything else stays as written, and the output says why.
 - When `secrets-mcp-literals` turns a credential into a reference, its output names each variable to set, never the value.
 - A symlinked spec keeps its symlink; the file it points to gets the rewrite.
-- It never rewrites a pack. A spec in a pack, or a symlink into one, is skipped, and the output names the pack. So is any file outside the project, or outside the global home with `--global`.
+- It never rewrites a pack or a spec linked into one. The output names the pack.
+- Migrations stay within the project and its local specs folder. With `--global`, they stay within the global specs folder and its local folder. A linked local folder is included too.
 - A migration that cannot plan, for example on a spec that does not parse, prints `cannot plan` with the reason. The others still run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs your action, such as a spec that sets both the old and the new form. `--dry-run` and `--list` show every skip.
 
@@ -251,9 +279,9 @@ agnostic-ai migrate --global    # rewrite the global specs
 |-----------|---------|----------|
 | `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file. Skipped when they differ, and when Git ignores `agnostic-ai.yaml`. |
 | `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a tool another event or matcher (such as `matcher: Read` on Codex, or `matcher: Edit\|Write` on Claude Code, since `match: edit` also covers `MultiEdit` and `NotebookEdit`), when a `local/` spec extends the hook, and for a pack's hook. |
-| `capabilities-agent-tools`, `capabilities-settings-permissions` | 0.79.0 | Agent `tools` to `can`, and Claude Code aliases in settings permissions to neutral capabilities. An adjacent `WebFetch, WebSearch` pair becomes `web`. Names with no neutral form stay as aliases. Run with `--only capabilities`. |
-| `capabilities-skill-tools` | 0.79.0 | Claude Code aliases in skill `allowed-tools` to neutral capabilities, with the same `web` pair rule. Run with `--only capabilities`. |
-| `secrets-mcp-literals` | 0.79.0 | Each MCP `env` and `headers` value that is neither a reference nor marked. A value import reads as a credential becomes a `${NAME}` reference, named as import names it. Every other value gets [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Skipped for a key with a credential name whose value has no credential shape, a credential around a reference, and a pack's spec. Run with `--only secrets`. |
+| `capabilities-agent-tools`, `capabilities-settings-permissions` | 0.79.0 | Agent `tools` to `can`, and Claude Code permission names to names shared across tools. An adjacent `WebFetch, WebSearch` pair becomes `web`. Names without a shared form stay as written. Run with `--only capabilities`. |
+| `capabilities-skill-tools` | 0.79.0 | Claude Code names in skill `allowed-tools` to names shared across tools, with the same `web` pair rule. Run with `--only capabilities`. |
+| `secrets-mcp-literals` | 0.79.0 | Plain MCP `env` and `headers` values. Values recognized as credentials become `${NAME}` references, using the same variable names as `import`. Other plain values get [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Existing references and marked values stay. Skips keys with credential names whose values do not look like credentials, credentials mixed with a reference, and specs in packs. Run with `--only secrets`. |
 
 ## lsp
 

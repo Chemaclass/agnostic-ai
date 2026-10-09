@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Interactive commands offer daily guided upgrades with release notes, project migrations, and sync checks (#1945).
+
 - Without a sync record, `status` and `doctor` render each commit once when checking native files (#1940).
 
 - Memory docs explain which Cursor sessions load indexes at startup and how hosted cloud agents read project memory.
