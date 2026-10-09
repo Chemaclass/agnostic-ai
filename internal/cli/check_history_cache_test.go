@@ -20,7 +20,8 @@ func TestUnledgeredReport_HeadAndFileHistoryShareOneRender(t *testing.T) {
 	}
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	// Explicit output options require the full historical renderer.
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\noutputs:\n  claude:\n    provenance-header: true\n")
 	syncProject(t)
 	mustWriteFile(t, ".claude/launch.json", "{\"configurations\":[{\"name\":\"manual\",\"runtimeExecutable\":\"npm\"}],\"version\":\"0.0.1\"}\n")
 	git("add", "-A")
