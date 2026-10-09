@@ -233,6 +233,17 @@ func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }
 
+// RepoMemoryFiles names the settings file, whose
+// permissions.additionalDirectories holds the repo store of personal
+// memory once memory.personal is repo.
+func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+		return nil
+	}
+	return []string{path}
+}
+
 // mergeAdditionalDirectories owns permissions.additionalDirectories item by
 // item, so the user's own entries and any other list in the same file stay
 // across syncs. It adds the repo store of personal memory when that store

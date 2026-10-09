@@ -8,6 +8,16 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
+// RepoMemoryFiles names the Devin config, whose permissions.allow holds
+// the repo store of personal memory once memory.personal is repo.
+func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
+	path := emit.OutputConfFile(cfg, target, defaultConfigFile)
+	if !emit.RepoMemoryFile(cfg, path, []string{"settings"}, target) {
+		return nil
+	}
+	return []string{path}
+}
+
 // memoryWriteRules allows writes to the repo store of personal memory
 // when it lies outside the checkout. Devin asks before a write outside
 // the workspace, even in Accept Edits mode

@@ -913,10 +913,25 @@ func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (s
 	return emit.PersonalMemoryDirFor(cfg, path, targets...)
 }
 
-// ExcludeOutputFromGit adds the file at path to the repository's
-// info/exclude (re-exported from the emit layer).
-func ExcludeOutputFromGit(path string) error {
-	return emit.ExcludeOutputFromGit(path)
+// RepoMemoryFiler is an adapter whose project files can hold the repo
+// store of personal memory, an absolute path on one machine.
+type RepoMemoryFiler interface {
+	// RepoMemoryFiles names those files, from the shared config alone.
+	RepoMemoryFiles(cfg *config.Config) []string
+}
+
+// RepoMemoryFiles returns the files of target that can hold the repo
+// store of personal memory, which the managed block always ignores.
+func RepoMemoryFiles(cfg *config.Config, target string) []string {
+	adapter, err := Resolve(target)
+	if err != nil {
+		return nil
+	}
+	filer, ok := adapter.(RepoMemoryFiler)
+	if !ok {
+		return nil
+	}
+	return filer.RepoMemoryFiles(cfg)
 }
 
 // AppendMemoryBlock appends the memory block to body, replacing any

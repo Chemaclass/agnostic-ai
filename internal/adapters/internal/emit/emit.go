@@ -155,9 +155,6 @@ type Session struct {
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
-	// namedRepoStore is set once an emit put the repo store of personal
-	// memory in a file (see CreateRepoMemoryStore).
-	namedRepoStore bool
 }
 
 // SetUserTier marks a session that writes a tool's user-level

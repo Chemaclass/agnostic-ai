@@ -15,6 +15,16 @@ import (
 // (opencode.ai/docs/permissions).
 const externalDirectoryKey = "external_directory"
 
+// RepoMemoryFiles names opencode.json, which holds the repo store of
+// personal memory once memory.personal is repo.
+func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+		return nil
+	}
+	return []string{path}
+}
+
 // memoryDirectoryRules returns the external_directory pattern for the
 // repo store of personal memory when instructions name that store, so
 // OpenCode saves there without asking each time.

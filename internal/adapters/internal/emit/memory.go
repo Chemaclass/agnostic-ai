@@ -60,32 +60,15 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 
 // CreateRepoMemoryStore creates the repo store dir, private to the user,
 // so a tool setting that names it never points at a missing folder. The
-// checkout store, a dry run, and a capture write nothing. Every emit that
-// writes the repo store into a file calls it, which NamedRepoStore
-// reports.
+// checkout store, a dry run, and a capture write nothing.
 func (s *Session) CreateRepoMemoryStore(cfg *config.Config, dir string, dryRun bool) error {
-	if !cfg.RepoPersonalMemory() || !filepath.IsAbs(dir) {
-		return nil
-	}
-	s.mu.Lock()
-	s.namedRepoStore = true
-	s.mu.Unlock()
-	if dryRun || s.IsCapturing() {
+	if !cfg.RepoPersonalMemory() || !filepath.IsAbs(dir) || dryRun || s.IsCapturing() {
 		return nil
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("%s: %w", dir, err)
 	}
 	return nil
-}
-
-// NamedRepoStore reports whether an emit through s wrote the repo store
-// of personal memory into a file. Sync then finds which of the files exist
-// only for that store.
-func (s *Session) NamedRepoStore() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.namedRepoStore
 }
 
 // repoMemoryStores returns the folder that holds every repo store, with
@@ -161,8 +144,7 @@ func WithoutStalePersonalIndexes(path string, list, current []string) []string {
 
 // PersonalMemoryDirFor returns the personal store the project files of
 // targets may name. The repo store is an absolute path, so it lands only
-// in files sync keeps out of Git, through the managed .gitignore block or,
-// for a file that exists only for the store, info/exclude; otherwise the
+// in files the managed .gitignore block keeps out of Git; otherwise the
 // files keep the checkout store, as a project without repo mode has.
 func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (string, error) {
 	if !PersonalMemoryLeavesCheckout(cfg, path, targets...) {
@@ -186,8 +168,21 @@ func PersonalMemoryLeavesCheckoutIn(cfg *config.Config, path string, kinds []str
 	return personalMemoryLeavesCheckout(cfg, path, kinds, targets)
 }
 
+// RepoMemoryFile reports whether the file at path, which only the given
+// gitignore.commit kinds write (nil for any kind), names the repo store
+// once memory.personal is repo. It reads the shared config alone, never
+// that local setting, so the managed block that lists the file stays the
+// same with and without agnostic-ai.local.yaml.
+func RepoMemoryFile(cfg *config.Config, path string, kinds []string, target string) bool {
+	return cfg != nil && slices.Contains(cfg.Builtins, MemoryBuiltin) && mayNameRepoStore(cfg, path, kinds, []string{target})
+}
+
 func personalMemoryLeavesCheckout(cfg *config.Config, path string, kinds, targets []string) bool {
-	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled || filepath.IsAbs(path) {
+	return cfg.RepoPersonalMemory() && mayNameRepoStore(cfg, path, kinds, targets)
+}
+
+func mayNameRepoStore(cfg *config.Config, path string, kinds, targets []string) bool {
+	if !cfg.Gitignore.Enabled || filepath.IsAbs(path) {
 		return false
 	}
 	if cfg.Gitignore.Path != "" && filepath.Clean(cfg.Gitignore.Path) != ".gitignore" {

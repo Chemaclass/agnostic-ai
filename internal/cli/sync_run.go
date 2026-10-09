@@ -96,10 +96,6 @@ type syncStateFile struct {
 	// own config was imported. A sync waits until `use` finishes them, so
 	// it never writes over native config nothing has imported.
 	PendingImports []string `json:"pending_imports,omitempty"`
-	// Personal lists the ledgered outputs that exist only because
-	// personal memory lives in the repo store (personalOutputs). A sync
-	// that leaves their target out keeps them out of the managed block.
-	Personal []string `json:"personal,omitempty"`
 }
 
 // showRepeatedDrops lets -v print capability warnings and coverage notes
@@ -121,7 +117,6 @@ type syncLedger struct {
 	modelAliases map[string]map[string]string
 	backups      map[string]string
 	listed       []string
-	personal     []string
 }
 
 func stateFilePath(projectRoot string) string {
@@ -232,7 +227,6 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		ModelAliases:   ledger.modelAliases,
 		Backups:        ledger.backups,
 		Listed:         ledger.listed,
-		Personal:       ledger.personal,
 	})
 	if err != nil {
 		return err
@@ -637,10 +631,6 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		}()
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
-	var checkout *checkoutRender
-	if gitignoreOn {
-		checkout = renderWithCheckoutMemory(cfg, b, effectiveTargets)
-	}
 
 	reconciled, err := shared.reconcile(prev.Outputs, dryRun)
 	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
@@ -748,12 +738,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		personal, err := personalOutputs(checkout, emits, targetSessions, prev.Personal, ledgerWritten)
-		if err != nil {
-			return err
-		}
-		ledger.personal = keepLedgered(personal, ledger.outputs)
-		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, withoutPersonal(gitignoreEntries, personal))
+		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return err
 		}
@@ -1145,10 +1130,6 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	edits.apply(mainSess)
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
-	var checkout *checkoutRender
-	if gitignoreOn {
-		checkout = renderWithCheckoutMemory(cfg, b, effectiveTargets)
-	}
 	reconciled, err := shared.reconcile(prev.Outputs, false)
 	if err != nil {
 		return err
@@ -1245,12 +1226,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		personal, err := personalOutputs(checkout, emits, sessions, prev.Personal, ledgerWritten)
-		if err != nil {
-			return undoSweep(mainSess, nil, err)
-		}
-		ledger.personal = keepLedgered(personal, ledger.outputs)
-		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, withoutPersonal(gitignoreEntries, personal))
+		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return undoSweep(mainSess, nil, err)
 		}

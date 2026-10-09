@@ -310,6 +310,16 @@ func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, hooks [
 	return sess.MergeJSONFileNested(path, keys, []string{"model", "hooks", "context"}, dryRun)
 }
 
+// RepoMemoryFiles names settings.json, whose context.includeDirectories
+// holds the repo store of personal memory once memory.personal is repo.
+func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
+	path := SettingsFilePath(cfg)
+	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+		return nil
+	}
+	return []string{path}
+}
+
 // includeMemoryDirectory adds the repo store of personal memory to
 // context.includeDirectories when it lies outside the checkout, so Gemini
 // CLI's file tools can save there. The user's own entries stay.
