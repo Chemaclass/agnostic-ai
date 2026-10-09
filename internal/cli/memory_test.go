@@ -90,7 +90,7 @@ func TestLintMemory_Findings(t *testing.T) {
 			testutil.Chdir(t, dir)
 			writeMemory(t, dir, ".agnostic-ai/memory", tc.files)
 
-			findings, err := lintMemory()
+			findings, err := lintMemory(memoryReaders{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -112,7 +112,7 @@ func TestLintMemory_Findings(t *testing.T) {
 func TestLintMemory_CleanAndMissingStoresHaveNoFindings(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	if got, err := lintMemory(); err != nil || len(got) != 0 {
+	if got, err := lintMemory(memoryReaders{}); err != nil || len(got) != 0 {
 		t.Fatalf("no store should give no findings, got %v", got)
 	}
 	writeMemory(t, dir, ".agnostic-ai/local/memory", map[string]string{
@@ -120,7 +120,7 @@ func TestLintMemory_CleanAndMissingStoresHaveNoFindings(t *testing.T) {
 		"tabs.md": memoryFact("tabs", "user", "Prefers tabs") +
 			"The `##KEY=value##` writer and `['config-key'=>'config-value']` are prose, and so is bearer authentication.\n",
 	})
-	if got, err := lintMemory(); err != nil || len(got) != 0 {
+	if got, err := lintMemory(memoryReaders{}); err != nil || len(got) != 0 {
 		t.Fatalf("a clean store should give no findings, got %v", got)
 	}
 }
@@ -253,7 +253,7 @@ func TestMemoryIndex_RepairsConflictedIndexKeepingOrder(t *testing.T) {
 	if string(data) != want {
 		t.Errorf("index:\n%s\nwant:\n%s", data, want)
 	}
-	if got, err := lintMemory(); err != nil || len(got) != 0 {
+	if got, err := lintMemory(memoryReaders{}); err != nil || len(got) != 0 {
 		t.Errorf("a rebuilt index should lint clean, got %v", got)
 	}
 }

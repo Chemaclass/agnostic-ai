@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // memoryIndexLineCap matches the cap the shared-memory skill keeps the
@@ -179,13 +181,58 @@ func (c memoryContents) linked() map[string]bool {
 	return out
 }
 
-// lintMemory checks every memory store that exists (LINT039 to LINT042).
-func lintMemory() ([]lintFinding, error) {
+// memoryHookName is the built-in hook that runs `hook memory`.
+const memoryHookName = "memory-session-start"
+
+// memoryDroppedShown caps the fact files a hook finding lists.
+const memoryDroppedShown = 10
+
+// memoryReaders splits the targets that load the memory indexes: hook
+// targets get them through `hook memory`, cut at memoryContextLimit;
+// whole targets import, list, or read them in full.
+type memoryReaders struct{ hook, whole []string }
+
+// projectMemoryReaders returns how each target of cfg loads memory. With
+// the memory built-in off no target loads it.
+func projectMemoryReaders(cfg *config.Config, bundle spec.Bundle) memoryReaders {
+	var r memoryReaders
+	if cfg == nil || !slices.Contains(cfg.Builtins, memoryBuiltin) {
+		return r
+	}
+	for _, target := range cfg.Targets {
+		if slices.ContainsFunc(bundle.HooksFor(target), func(e spec.Entry) bool { return e.Name == memoryHookName }) {
+			r.hook = append(r.hook, target)
+		} else {
+			r.whole = append(r.whole, target)
+		}
+	}
+	return r
+}
+
+// memoryLintReaders returns the readers of the project in the working
+// directory, or none when it has no config.
+func memoryLintReaders() (memoryReaders, error) {
+	if _, _, missing := config.ResolveConfigPath("."); missing != nil {
+		return memoryReaders{}, nil
+	}
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		return memoryReaders{}, err
+	}
+	return projectMemoryReaders(cfg, bundle), nil
+}
+
+// lintMemory checks every memory store that exists (LINT039 to LINT042),
+// and the indexes' size for the targets that load them.
+func lintMemory(readers memoryReaders) ([]lintFinding, error) {
 	stores, err := memoryStores()
 	if err != nil {
 		return nil, err
 	}
-	var out []lintFinding
+	var (
+		out    []lintFinding
+		loaded []memoryContents
+	)
 	for _, s := range stores {
 		c, ok, err := loadMemoryStore(s)
 		if err != nil {
@@ -193,9 +240,118 @@ func lintMemory() ([]lintFinding, error) {
 		}
 		if ok {
 			out = append(out, c.lint()...)
+			loaded = append(loaded, c)
 		}
 	}
+	size, err := lintMemorySize(readers, loaded)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, size...), nil
+}
+
+// lintMemorySize warns when the indexes pass memoryContextLimit
+// (LINT039). With a hook target it names, on each index, the facts the
+// hook cuts; otherwise every reader loads them whole, so it warns on size.
+func lintMemorySize(readers memoryReaders, loaded []memoryContents) ([]lintFinding, error) {
+	if len(readers.hook)+len(readers.whole) == 0 {
+		return nil, nil
+	}
+	indexes, scopes, err := memoryHookIndexes(".")
+	if err != nil {
+		return nil, err
+	}
+	var (
+		files []memoryIndex
+		of    []memoryContents
+	)
+	for _, index := range indexes {
+		for _, c := range loaded {
+			if filepath.ToSlash(c.indexPath()) == index.path {
+				files, of = append(files, index), append(of, c)
+			}
+		}
+	}
+	if len(readers.hook) == 0 {
+		return lintMemoryWholeSize(readers.whole, files, of), nil
+	}
+	context := memoryContext(indexes, scopes)
+	var out []lintFinding
+	for i, c := range of {
+		dropped := c.droppedFrom(context, files[i])
+		if len(dropped) == 0 {
+			continue
+		}
+		list := strings.Join(dropped[:min(len(dropped), memoryDroppedShown)], ", ")
+		if more := len(dropped) - memoryDroppedShown; more > 0 {
+			list += fmt.Sprintf(", and %d more", more)
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT039",
+			Severity: lintWarn,
+			Path:     c.indexPath(),
+			Message: fmt.Sprintf("the session-start hook keeps the first %d bytes of the memory indexes, so these %s facts never load on %s: %s; merge or shorten facts",
+				memoryContextLimit, c.scope, strings.Join(readers.hook, ", "), list),
+		})
+	}
 	return out, nil
+}
+
+// lintMemoryWholeSize warns on the largest index when the indexes
+// together pass memoryContextLimit.
+func lintMemoryWholeSize(whole []string, files []memoryIndex, of []memoryContents) []lintFinding {
+	total, largest := 0, -1
+	for i, index := range files {
+		total += len(index.text)
+		if largest < 0 || len(index.text) > len(files[largest].text) {
+			largest = i
+		}
+	}
+	if total <= memoryContextLimit {
+		return nil
+	}
+	return []lintFinding{{
+		Code:     "LINT039",
+		Severity: lintWarn,
+		Path:     of[largest].indexPath(),
+		Message: fmt.Sprintf("the memory indexes are %d bytes, over %d, and %s load them in full every session; merge or shorten facts",
+			total, memoryContextLimit, strings.Join(whole, ", ")),
+	}}
+}
+
+// droppedFrom returns, once each, the files of the facts whose every
+// index line context, the hook output, cuts. A line cut partway still
+// shows its link, so it counts as kept.
+func (c memoryContents) droppedFrom(context string, index memoryIndex) []string {
+	lines := strings.Split(strings.TrimRight(index.text, "\n"), "\n")
+	kept := 0
+	if at := strings.Index(context, index.header()); at >= 0 {
+		shown := strings.Split(context[at+len(index.header()):], "\n")
+		for kept < len(lines) && kept < len(shown) {
+			if shown[kept] == lines[kept] {
+				kept++
+				continue
+			}
+			if shown[kept] != "" && strings.HasPrefix(lines[kept], shown[kept]) && memoryIndexEntry.MatchString(shown[kept]) {
+				kept++
+			}
+			break
+		}
+	}
+	keptFiles := map[string]bool{}
+	for _, e := range c.entries {
+		if e.line <= kept {
+			keptFiles[e.target] = true
+		}
+	}
+	var dropped []string
+	for _, e := range c.entries {
+		if !keptFiles[e.target] {
+			keptFiles[e.target] = true
+			dropped = append(dropped, filepath.ToSlash(e.target))
+		}
+	}
+	return dropped
 }
 
 func (c memoryContents) lint() []lintFinding {
@@ -365,7 +521,7 @@ func newMemoryLintCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Run only the memory lint checks",
-		Long: "Reports an index over 100 lines (LINT039), an index line whose file is missing (LINT040), " +
+		Long: "Reports an index over 100 lines, or indexes over 6,000 bytes together, naming the facts the session-start hook drops (LINT039), an index line whose file is missing (LINT040), " +
 			"a fact no index line links (LINT041), and a line that looks like a secret (LINT042). " +
 			"`lint` and `doctor` report the same findings. Exit code 1 on error findings, or on " +
 			"warnings with --strict. --json prints the findings in the `lint --json` format.",
@@ -373,7 +529,11 @@ func newMemoryLintCmd() *cobra.Command {
   agnostic-ai memory lint --json | jq -r '.findings[].code'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			findings, err := lintMemory()
+			readers, err := memoryLintReaders()
+			if err != nil {
+				return err
+			}
+			findings, err := lintMemory(readers)
 			if err != nil {
 				return err
 			}
