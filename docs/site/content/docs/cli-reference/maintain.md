@@ -195,7 +195,7 @@ agnostic-ai upgrade --version v0.81.0    # install a specific release
 
 ### Automatic upgrade offers
 
-When you run a command in a terminal, a stable release build checks for updates at most once a day. Release checks have a five-second network limit. The offer shows release notes and manual steps for each version you skipped. If docs are missing, it says so and links to the changelog.
+When you run a command in a terminal, a stable release build checks for updates at most once a day. Release checks have a five-second network limit. The offer shows release notes and manual steps for each version you skipped. If docs are missing, it names them and shows changelog entries when available.
 
 Press Enter or type `y` to accept. Type `n` to continue your original command; the offer will not repeat that day.
 
