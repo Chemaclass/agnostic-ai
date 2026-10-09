@@ -38,6 +38,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Trae
 
 - Empty agent tool lists disable all tools, including after import and sync (#1954).
+- `import trae` reads shared `.agents/skills/` folders and assets; `.trae/skills/` takes priority for matching names (#1955).
 
 #### Windsurf / Devin CLI
 

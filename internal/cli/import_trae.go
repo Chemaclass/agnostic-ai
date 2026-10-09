@@ -41,8 +41,8 @@ const (
 //     `tools`, and any `x-trae` key round-trip untouched. The generic
 //     spec spells `tools` as a list and Trae as a comma-separated
 //     string, so that one field re-imports in Trae's spelling.
-//   - `.trae/skills/<name>/SKILL.md` folders reconstruct skills
-//     natively, with bundled sibling assets copied byte-for-byte.
+//   - `.trae/skills/` then `.agents/skills/` reconstruct skills with
+//     bundled assets. Trae's own folder wins for duplicate names.
 //   - `.trae/commands/*.md` copies byte-for-byte into the commands
 //     source dir.
 //   - `.trae/hooks.json` reconstructs one hook spec per matcher group,
@@ -66,11 +66,14 @@ func importFromTrae(root string, src config.Sources) error {
 		return err
 	}
 	c.agents += nativeAgents
-	folderSkills, err := importSkillFolders(root, filepath.Join(root, traeSkillsDir), importSourcePath(root, src.Skills))
-	if err != nil {
-		return err
+	seenSkills := map[string]bool{}
+	for _, dir := range []string{traeSkillsDir, ".agents/skills"} {
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, dir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills, ReserveSourceNames: dir == traeSkillsDir})
+		if err != nil {
+			return err
+		}
+		c.skills += folderSkills
 	}
-	c.skills += folderSkills
 	commands, err := importTraeCommands(root, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err

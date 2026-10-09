@@ -73,6 +73,8 @@ While a spec still writes the file, the next sync removes a key it set that no s
 The [spec format guide](@/docs/spec-format/_index.md) defines every portable kind. The [target matrix](@/docs/targets/_index.md#capability-matrix) shows where each is native, mapped, opt-in, source-only, or has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step. See [coverage notes](@/docs/configuration.md#coverage-notes).
 
 - **Skills** are written as native skill folders (`SKILL.md` plus assets). Most tools read `.agents/skills/`; codex, windsurf, amp, zed, warp, antigravity, crush, augment, goose, openhands, factory, and kilo write it by default, so identical folders are written once. The rest read their own folder. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) replaces byte-identical folders with one copy plus symlinks. Aider flattens skills to rule files.
+
+  Trae can also read `.agents/skills/` when **Enable .agents Skills Directory** is on under Settings > Skills & Commands > Import Settings. Its default is not documented. [`import trae`](@/docs/targets/trae.md#import) reads both paths without changing that switch; sync keeps `.trae/skills/` as its default.
 - **Agents** are written as native subagent profiles. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads that shared folder plus `.devin/agents/`.
 
   **Syncing `windsurf` with `antigravity`, `goose`, or `openhands` gives Devin two profiles with one name.** Only the `.devin/agents/<name>.md` copy carries translated `allowed-tools`. Devin gives the shared copy every tool. Give the agent spec one `target:`. `sync` names every conflicting file.

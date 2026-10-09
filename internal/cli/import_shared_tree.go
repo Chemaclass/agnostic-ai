@@ -199,8 +199,9 @@ func importSkillFolders(root, srcDir, dstDir string) (int, error) {
 }
 
 type skillFolderImportOpts struct {
-	SkipNames      map[string]bool
-	TransformSkill func([]byte) ([]byte, error)
+	SkipNames          map[string]bool
+	ReserveSourceNames bool
+	TransformSkill     func([]byte) ([]byte, error)
 	// Fields overrides what the target's SKILL.md can hold. Nil means
 	// the Agent Skills baseline every target but Claude and Cursor writes.
 	Fields *specFields
@@ -227,7 +228,11 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 		if opts.SkipNames[e.Name()] {
 			continue
 		}
-		skillSrc, ok := skillFolderSource(root, srcDir, dstDir, e)
+		var sourceNames map[string]bool
+		if opts.ReserveSourceNames {
+			sourceNames = opts.SkipNames
+		}
+		skillSrc, ok := skillFolderSourceWithClaims(root, srcDir, dstDir, e, sourceNames)
 		if !ok {
 			continue
 		}
@@ -264,6 +269,10 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 // holding them, imports nothing: the skill is already a spec, and
 // copying a folder into itself never ends.
 func skillFolderSource(root, dir, dstDir string, e fs.DirEntry) (string, bool) {
+	return skillFolderSourceWithClaims(root, dir, dstDir, e, nil)
+}
+
+func skillFolderSourceWithClaims(root, dir, dstDir string, e fs.DirEntry, sourceNames map[string]bool) (string, bool) {
 	link := filepath.Join(dir, e.Name())
 	abs, err := filepath.Abs(link)
 	if err != nil {
@@ -296,6 +305,12 @@ func skillFolderSource(root, dir, dstDir string, e fs.DirEntry) (string, bool) {
 			return "", false
 		}
 		if _, overlaps := resolvedInside(dst, resolved); overlaps {
+			if sourceNames != nil {
+				skillMD, err := os.ReadFile(filepath.Join(resolved, "SKILL.md"))
+				if err == nil && !adapters.WrittenFromAgent(string(skillMD)) {
+					sourceNames[e.Name()] = true
+				}
+			}
 			return "", false
 		}
 	}
