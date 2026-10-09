@@ -15,4 +15,6 @@
 # #1919 measured 18370720 on Go 1.27.2: global hooks files are edited in
 # place as text, and sync records the containers it created, so
 # add-then-remove keeps the user's bytes.
-18380000
+# #1930 measured 18387104: memory lint checks index size per target and
+# shares the hook's index reader.
+18400000
