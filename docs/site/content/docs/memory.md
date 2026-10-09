@@ -75,7 +75,8 @@ To recall what the project knows about a topic, or to clean memory up (merge dup
 | Tool | How |
 | --- | --- |
 | Claude Code | `CLAUDE.md` imports both lists |
-| Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
+| Codex, Copilot, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
+| Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
@@ -87,6 +88,8 @@ Aider and Kiro get only the rule, because a missing file shows an error. Once bo
 ### When a session starts {#load-at-session-start}
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts.
+
+Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the shared memory policy and skill to read the project index before a task. Local sessions and self-hosted workers run the hook; user-level hooks are unavailable in cloud agents. See [Cursor's cloud hook support](https://cursor.com/docs/hooks#cloud-agent-support).
 
 - It runs the `agnostic-ai` on your PATH. Keep that one at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/maintain.md#upgrade); an older one loads no memory, and with none on PATH nothing loads.
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
