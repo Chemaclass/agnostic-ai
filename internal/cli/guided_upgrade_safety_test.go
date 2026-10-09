@@ -8,8 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chemaclass/agnostic-ai/internal/testutil"
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestGuidedUpgrade_RejectsExternalOrGlobalConfigAliases(t *testing.T) {
