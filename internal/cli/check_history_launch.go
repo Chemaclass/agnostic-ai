@@ -17,26 +17,27 @@ func (h *historyRenderer) pathMatches(commit, p string) bool {
 	if rendered, seen := h.renders[commit]; seen {
 		return renderedContentMatches(rendered, p)
 	}
-	if filepath.ToSlash(p) == ".claude/launch.json" && h.launchDefinitelyAbsent(commit) {
+	key := filepath.ToSlash(p)
+	if (key == ".claude/launch.json" || key == ".gitignore") && h.defaultOutputsDefinitelyAbsent(commit) {
 		return false
 	}
 	return renderedContentMatches(h.rendered(commit), p)
 }
 
-func (h *historyRenderer) launchDefinitelyAbsent(commit string) bool {
-	if absent, seen := h.absentLaunch[commit]; seen {
+func (h *historyRenderer) defaultOutputsDefinitelyAbsent(commit string) bool {
+	if absent, seen := h.absentDefaultOutputs[commit]; seen {
 		return absent
 	}
-	if h.absentLaunch == nil {
-		h.absentLaunch = map[string]bool{}
+	if h.absentDefaultOutputs == nil {
+		h.absentDefaultOutputs = map[string]bool{}
 	}
-	absent := h.inspectLaunchAbsence(commit)
-	h.absentLaunch[commit] = absent
+	absent := h.inspectDefaultOutputAbsence(commit)
+	h.absentDefaultOutputs[commit] = absent
 	return absent
 }
 
-func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
-	if !historyCanonicalSources(h.sources) || !historyLaunchPath(h.prefix) {
+func (h *historyRenderer) inspectDefaultOutputAbsence(commit string) bool {
+	if !historyCanonicalSources(h.sources) || !historyUnambiguousPath(h.prefix) {
 		return false
 	}
 	// Checkout filters can create sources beyond the committed environment tree.
@@ -63,7 +64,7 @@ func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
 			continue
 		}
 		fields := strings.Fields(meta)
-		if len(fields) != 3 || fields[1] != "blob" || fields[0] != "100644" && fields[0] != "100755" || !historyLaunchPath(rel) {
+		if len(fields) != 3 || fields[1] != "blob" || fields[0] != "100644" && fields[0] != "100755" || !historyUnambiguousPath(rel) {
 			return false
 		}
 		lower := strings.ToLower(rel)
@@ -85,7 +86,7 @@ func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
 	if !canonicalConfig {
 		return false
 	}
-	cfg, err := h.launchHistoryConfig(commit)
+	cfg, err := h.historicalConfig(commit)
 	if err != nil || len(cfg.Outputs) != 0 || len(cfg.Builtins) != 0 || !historyCanonicalSources(configuredSources(cfg)) {
 		return false
 	}
@@ -97,7 +98,7 @@ func (h *historyRenderer) inspectLaunchAbsence(commit string) bool {
 	return true
 }
 
-func (h *historyRenderer) launchHistoryConfig(commit string) (*config.Config, error) {
+func (h *historyRenderer) historicalConfig(commit string) (*config.Config, error) {
 	scratch, err := os.MkdirTemp("", "agnostic-ai-history-config-")
 	if err != nil {
 		return nil, fmt.Errorf("create historical config directory: %w", err)
@@ -134,7 +135,7 @@ func historyCanonicalSources(sources []string) bool {
 	return true
 }
 
-func historyLaunchPath(s string) bool {
+func historyUnambiguousPath(s string) bool {
 	if strings.ContainsAny(s, "\\:~") {
 		return false
 	}

@@ -258,14 +258,14 @@ const maxHistoryRenders = 8
 // behind it was deleted in a later commit. Renders are cached per commit
 // and historical admissions are bounded by maxHistoryRenders.
 type historyRenderer struct {
-	sources      []string
-	toplevel     string
-	prefix       string
-	ready        bool
-	head         string
-	renders      map[string]map[string]string
-	admitted     map[string]bool
-	absentLaunch map[string]bool
+	sources              []string
+	toplevel             string
+	prefix               string
+	ready                bool
+	head                 string
+	renders              map[string]map[string]string
+	admitted             map[string]bool
+	absentDefaultOutputs map[string]bool
 }
 
 func (h *historyRenderer) prepare() bool {

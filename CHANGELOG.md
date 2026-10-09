@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Checks skip history renders for handwritten Claude launch files proven absent from generated output (#1940).
+- Checks skip history renders for Claude launch files and root `.gitignore` proven absent from adapter output (#1940).
 - Without a sync record, `status` and `doctor` render each commit once when checking native files (#1940).
 
 - Memory docs explain which Cursor sessions load indexes at startup and how hosted cloud agents read project memory.

@@ -14,11 +14,12 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestHistoryLaunch_HandwrittenFileSkipsRenderWithoutChangingClassification(t *testing.T) {
+func TestHistoryDefaultAbsence_HandwrittenFilesSkipRenderWithoutChangingClassification(t *testing.T) {
 	dir, git := launchGitRepo(t)
 	testutil.Chdir(t, dir)
 	writeBenchProject(t, dir, 3)
 	mustWriteFile(t, ".claude/launch.json", "{}\n")
+	mustWriteFile(t, ".gitignore", "# >>> agnostic-ai (managed) >>>\n.claude/settings.json\n# <<< agnostic-ai (managed) <<<\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "manual launch")
 	cfg, err := config.Load(".")
@@ -34,21 +35,57 @@ func TestHistoryLaunch_HandwrittenFileSkipsRenderWithoutChangingClassification(t
 	if h.provesAtHEAD(filepath.FromSlash(".claude/launch.json")) || h.proves(filepath.FromSlash(".claude/launch.json")) {
 		t.Error("manual launch proved owned")
 	}
+	if h.provesAtHEAD(filepath.FromSlash(".gitignore")) || h.proves(filepath.FromSlash(".gitignore")) {
+		t.Error("managed ignore block proved captured output")
+	}
 	if len(h.renders) != 0 {
 		t.Errorf("full renders=%d, want zero", len(h.renders))
+	}
+	if len(h.absentDefaultOutputs) != 1 {
+		t.Errorf("absence cache commits=%d, want one", len(h.absentDefaultOutputs))
 	}
 	if len(h.admitted) != 1 {
 		t.Errorf("history admissions=%d, want one", len(h.admitted))
 	}
-	if h.provesAtHEAD(".claude/other.json") {
-		t.Error("missing other JSON proved owned")
+	full, err := plannedOutputs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{".claude/launch.json", ".gitignore"} {
+		if _, present := full[key]; present {
+			t.Errorf("full renderer emits %s", key)
+		}
+	}
+	const other = ".claude/settings.json"
+	content, present := full[other]
+	if !present {
+		t.Fatal("full renderer has no settings output")
+	}
+	mustWriteFile(t, other, content)
+	if !h.provesAtHEAD(filepath.FromSlash(other)) {
+		t.Error("other JSON no longer proved owned after negative results")
 	}
 	if len(h.renders) != 1 {
 		t.Errorf("other JSON full renders=%d, want one", len(h.renders))
 	}
+	if h.renders[h.head][other] != content {
+		t.Error("historical settings bytes differ from ordinary renderer")
+	}
+	ignore, err := os.ReadFile(".gitignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.renders[h.head][".gitignore"] = string(ignore)
+	if !h.provesAtHEAD(filepath.FromSlash(".gitignore")) {
+		t.Error("cached full map did not take precedence over cached absence")
+	}
+	lexical := &historyRenderer{sources: configuredSources(cfg)}
+	if lexical.provesAtHEAD("./.gitignore") || len(lexical.renders) != 1 || len(lexical.absentDefaultOutputs) != 0 {
+		t.Error("non-exact path used absence proof or changed ownership")
+	}
 }
 
-func TestHistoryLaunch_UnknownInputsKeepFullRender(t *testing.T) {
+func TestHistoryDefaultAbsence_UnknownInputsKeepFullRender(t *testing.T) {
 	for _, tc := range []struct{ name, config, path, body string }{
 		{"environment", "", ".agnostic-ai/environments/dev.yaml", "name: dev\n"},
 		{"local environment", "", ".agnostic-ai/local/environments/dev.yaml", "name: dev\n"},
@@ -75,10 +112,12 @@ func TestHistoryLaunch_UnknownInputsKeepFullRender(t *testing.T) {
 			}
 			git("add", "-A")
 			git("commit", "-q", "-m", "guard")
-			h := &historyRenderer{}
-			h.provesAtHEAD(filepath.FromSlash(".claude/launch.json"))
-			if len(h.renders) != 1 {
-				t.Errorf("full renders=%d, want one", len(h.renders))
+			for _, key := range []string{".claude/launch.json", ".gitignore"} {
+				h := &historyRenderer{}
+				h.provesAtHEAD(filepath.FromSlash(key))
+				if len(h.renders) != 1 {
+					t.Errorf("%s full renders=%d, want one", key, len(h.renders))
+				}
 			}
 		})
 	}
@@ -124,10 +163,13 @@ func TestHistoryLaunch_DeletedEnvironmentKeepsHistoricalOwnership(t *testing.T) 
 	}
 }
 
-func TestHistoryLaunch_DefaultAdaptersHaveNoOtherLaunchProducer(t *testing.T) {
+func TestHistoryDefaultAbsence_DefaultProducersCannotEmitEitherPath(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	writeBenchProject(t, dir, 1)
+	mustWriteFile(t, ".agnostic-ai/ignore/secrets.md", "---\nname: secrets\n---\n\n*.env\n")
+	mustWriteFile(t, ".agnostic-ai/reviews/review.md", "---\nname: review\n---\n\nCheck changes.\n")
+	mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [read]\n")
 	cfg, loaded, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -145,10 +187,23 @@ func TestHistoryLaunch_DefaultAdaptersHaveNoOtherLaunchProducer(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		for _, f := range files {
-			if filepath.ToSlash(f.Path) == ".claude/launch.json" {
-				t.Errorf("%s emitted launch without environments", name)
+			key := filepath.ToSlash(f.Path)
+			if key == ".claude/launch.json" || key == ".gitignore" {
+				t.Errorf("%s emitted %s under default configuration", name, key)
 			}
 		}
+	}
+	files, err := plannedOutputs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{".claude/launch.json", ".gitignore"} {
+		if _, present := files[key]; present {
+			t.Errorf("planned output includes %s", key)
+		}
+	}
+	if _, present := files[".aiderignore"]; !present {
+		t.Error("native ignore output missing")
 	}
 }
 
@@ -355,4 +410,41 @@ func launchGitRepo(t *testing.T) (string, func(...string)) {
 	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(t.TempDir(), "config"))
 	t.Setenv("GIT_CONFIG_COUNT", "0")
 	return gitRepo(t)
+}
+
+func TestHistoryDefaultAbsence_ConfiguredIgnoreOutputKeepsOwnership(t *testing.T) {
+	dir, git := launchGitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\ngitignore: {enabled: false}\noutputs:\n  aider:\n    ignore-file: .gitignore\n    provenance-header: false\n")
+	mustWriteFile(t, ".agnostic-ai/ignore/secrets.md", "---\nname: secrets\n---\n\n*.env\n")
+	syncProject(t)
+	git("add", "-A")
+	git("commit", "-q", "-m", "configured ignore output")
+	if err := os.Remove(stateFilePath(".")); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [aider]\ngitignore: {enabled: false}\n")
+	cfg, err := config.Load(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &historyRenderer{sources: configuredSources(cfg)}
+	if !h.provesAtHEAD(filepath.FromSlash(".gitignore")) {
+		t.Error("configured ignore not owned by HEAD")
+	}
+	if len(h.renders) != 1 {
+		t.Errorf("full renders=%d, want one", len(h.renders))
+	}
+	rep := unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return filepath.ToSlash(p) == ".gitignore" })
+	if !reflect.DeepEqual(rep.Leftover, []string{filepath.FromSlash(".gitignore")}) || len(rep.Orphaned) != 0 {
+		t.Errorf("configured ignore classification: %+v", rep)
+	}
+	mustWriteFile(t, ".gitignore", "my own patterns\n")
+	if h.provesAtHEAD(filepath.FromSlash(".gitignore")) {
+		t.Error("edited ignore remains owned")
+	}
+	rep = unledgeredReport(cfg, map[string]bool{}, syncStateFile{}, func(p string) bool { return filepath.ToSlash(p) == ".gitignore" })
+	if rep.hasDrift() {
+		t.Errorf("edited ignore classified as generated: %+v", rep)
+	}
 }
