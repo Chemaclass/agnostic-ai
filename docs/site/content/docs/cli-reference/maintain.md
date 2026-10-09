@@ -251,7 +251,7 @@ The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` 
 
 ## migrate
 
-Rewrite old spec forms into their current replacements, such as a renamed field or file. Sync writes the same files afterward, so `sync --check` stays clean. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
+Update spec files that use old field names or formats. Sync writes the same files afterward, so `sync --check` stays clean. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
 
 ```bash
 agnostic-ai migrate --list      # which migrations apply here
@@ -267,10 +267,11 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
 | `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
 
-- A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
+- A migration rewrites only what it can replace without changing its meaning. Anything else stays as written, and the output says why.
 - When `secrets-mcp-literals` turns a credential into a reference, its output names each variable to set, never the value.
 - A symlinked spec keeps its symlink; the file it points to gets the rewrite.
-- It never rewrites a pack. A spec in a pack, or a symlink into one, is skipped, and the output names the pack. So is any file outside the project, or outside the global specs folder with `--global`.
+- It never rewrites a pack or a spec linked into one. The output names the pack.
+- Migrations stay within the project and its local specs folder. With `--global`, they stay within the global specs folder and its local folder. A linked local folder is included too.
 - A migration that cannot plan, for example on a spec that does not parse, prints `cannot plan` with the reason. The others still run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs your action, such as a spec that sets both the old and the new form. `--dry-run` and `--list` show every skip.
 
@@ -280,7 +281,7 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a tool another event or matcher (such as `matcher: Read` on Codex, or `matcher: Edit\|Write` on Claude Code, since `match: edit` also covers `MultiEdit` and `NotebookEdit`), when a `local/` spec extends the hook, and for a pack's hook. |
 | `capabilities-agent-tools`, `capabilities-settings-permissions` | 0.79.0 | Agent `tools` to `can`, and Claude Code permission names to names shared across tools. An adjacent `WebFetch, WebSearch` pair becomes `web`. Names without a shared form stay as written. Run with `--only capabilities`. |
 | `capabilities-skill-tools` | 0.79.0 | Claude Code names in skill `allowed-tools` to names shared across tools, with the same `web` pair rule. Run with `--only capabilities`. |
-| `secrets-mcp-literals` | 0.79.0 | Each MCP `env` and `headers` value that is neither a reference nor marked. A value import reads as a credential becomes a `${NAME}` reference, named as import names it. Every other value gets [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Skipped for a key with a credential name whose value has no credential shape, a credential around a reference, and a pack's spec. Run with `--only secrets`. |
+| `secrets-mcp-literals` | 0.79.0 | Plain MCP `env` and `headers` values. Values recognized as credentials become `${NAME}` references, using the same variable names as `import`. Other plain values get [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Existing references and marked values stay. Skips keys with credential names whose values do not look like credentials, credentials mixed with a reference, and specs in packs. Run with `--only secrets`. |
 
 ## lsp
 
