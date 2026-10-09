@@ -114,6 +114,9 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 		},
 		run: runUpdatedBinary,
 		reconcile: func(root, version string) error {
+			if err := validateGuidedProjectConfigs(root); err != nil {
+				return err
+			}
 			lock, err := acquireProjectLock(root, "guided upgrade")
 			if err != nil {
 				return err
