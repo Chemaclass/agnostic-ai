@@ -290,8 +290,8 @@ func lintMemorySize(readers memoryReaders, loaded []memoryContents) ([]lintFindi
 			Code:     "LINT039",
 			Severity: lintWarn,
 			Path:     c.indexPath(),
-			Message: fmt.Sprintf("the session-start hook keeps the first %d bytes of the memory indexes, so %s never see these %s facts: %s; merge or shorten facts",
-				memoryContextLimit, strings.Join(readers.hook, ", "), c.scope, list),
+			Message: fmt.Sprintf("the session-start hook keeps the first %d bytes of the memory indexes, so these %s facts never load on %s: %s; merge or shorten facts",
+				memoryContextLimit, c.scope, strings.Join(readers.hook, ", "), list),
 		})
 	}
 	return out, nil

@@ -189,7 +189,7 @@ func TestProjectMemoryReaders_SplitsHookTargetsFromWholeReaders(t *testing.T) {
 	}
 }
 
-var droppedList = regexp.MustCompile(`facts: (.*?)(?:, and (\d+) more)?; merge`)
+var droppedList = regexp.MustCompile(`facts never load on [^:]+: (.*?)(?:, and (\d+) more)?; merge`)
 
 // droppedInFinding returns the fact files a hook finding names and how
 // many it says are dropped.
