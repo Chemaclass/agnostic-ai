@@ -422,7 +422,7 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if filepath.Base(path) != "SKILL.md" && header.Has(string(data)) {
+		if filepath.Base(path) != "SKILL.md" && header.Leads(path, string(data)) {
 			return nil
 		}
 		if filepath.Base(path) == "SKILL.md" {

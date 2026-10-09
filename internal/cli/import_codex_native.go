@@ -549,7 +549,7 @@ func mergeCodexSkillIntoExisting(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if header.Has(string(body)) {
+		if header.Leads(path, string(body)) {
 			return nil
 		}
 		if err := importMkdirAll(filepath.Dir(target), 0o755); err != nil {
@@ -590,7 +590,7 @@ func codexOnlyTopLevelEntries(src, dst string) ([]string, error) {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if !header.Has(string(data)) {
+		if !header.Leads(path, string(data)) {
 			seen[name] = true
 			out = append(out, name)
 		}
