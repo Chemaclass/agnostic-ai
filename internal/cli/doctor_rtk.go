@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ func newDoctorRTKCmd() *cobra.Command {
 		Use:   "rtk",
 		Short: "Preview RTK rewrites and declared Claude approval rules",
 		Long: "Calls the installed RTK version and rewrite processor, but does not execute the supplied command. " +
-			"Compares simple declared Bash rules in planned project, local, and user Claude settings. " +
+			"Compares simple declared Bash rules in planned project settings, or native project settings when no settings file is planned, plus local and user Claude settings. " +
 			"Managed settings, plugins, session flags, and live approval outcomes remain unknown. No permissions are changed.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -132,7 +133,16 @@ func collectRTKReport(command string) (rtkReport, error) {
 		}
 		userDir = filepath.Join(home, ".claude")
 	}
-	for _, path := range []string{filepath.Join(filepath.Dir(settingsPath), "settings.local.json"), filepath.Join(userDir, "settings.json")} {
+	settingsPaths := []string{filepath.Join(filepath.Dir(settingsPath), "settings.local.json"), filepath.Join(userDir, "settings.json")}
+	if len(sources) == 0 {
+		settingsPaths = append([]string{settingsPath}, settingsPaths...)
+	}
+	for _, path := range settingsPaths {
+		if slices.ContainsFunc(sources, func(source rtkSettings) bool {
+			return samePath(source.Path, path) || sameFile(source.Path, path)
+		}) {
+			continue
+		}
 		body, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			continue
@@ -247,19 +257,40 @@ func runRTKDiagnostic(path string, args ...string) ([]byte, error) {
 	cmd.Stdout = &output
 	cmd.Stderr = io.Discard
 	err := cmd.Run()
-	if err != nil {
-		return output.Bytes(), fmt.Errorf("RTK diagnostic %s: %w", args[0], err)
+	if output.err != nil {
+		return output.buffer.Bytes(), fmt.Errorf("RTK diagnostic %s: %w", args[0], output.err)
 	}
-	return output.Bytes(), nil
+	if err != nil {
+		return output.buffer.Bytes(), fmt.Errorf("RTK diagnostic %s: %w", args[0], err)
+	}
+	return output.buffer.Bytes(), nil
 }
 
-type rtkDiagnosticOutput struct{ bytes.Buffer }
+type rtkDiagnosticOutput struct {
+	buffer bytes.Buffer
+	err    error
+}
+
+func (out *rtkDiagnosticOutput) ReadFrom(reader io.Reader) (int64, error) {
+	if out.err != nil {
+		return 0, out.err
+	}
+	n, err := io.Copy(struct{ io.Writer }{out}, struct{ io.Reader }{reader})
+	if err != nil {
+		out.err = err
+	}
+	return n, err
+}
 
 func (out *rtkDiagnosticOutput) Write(data []byte) (int, error) {
-	if len(data) > 65536-out.Len() {
-		return 0, errors.New("RTK diagnostic output exceeds 64 KiB")
+	if out.err != nil {
+		return 0, out.err
 	}
-	return out.Buffer.Write(data)
+	if len(data) > 65536-out.buffer.Len() {
+		out.err = errors.New("RTK diagnostic output exceeds 64 KiB")
+		return 0, out.err
+	}
+	return out.buffer.Write(data)
 }
 
 var rtkPlainCommand = regexp.MustCompile(`^[a-zA-Z0-9_./:-]+( [a-zA-Z0-9_./:-]+)*$`)

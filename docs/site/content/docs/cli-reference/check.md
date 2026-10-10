@@ -218,7 +218,7 @@ Subcommands run one check:
 
 RTK can return a replacement with exit 3 when its own permission inspection requests approval, or exit 2 without a replacement when it finds a deny rule. Both are diagnostic outcomes, not processor failures. The JSON report includes `processor_exit`; this inspection remains separate from the live host's approval decision. Other processor failures stop the diagnostic.
 
-The report compares simple declared Bash rules from planned project settings, project-local settings, and user settings (`CLAUDE_CONFIG_DIR` or `~/.claude`). Exact rules, bare `Bash`, and simple trailing command prefixes are supported. Shell wrappers, parameter rules, other shell syntax, and ambiguous Bash patterns report `unknown`. Deny takes precedence over ask and allow. A rewrite from a known ask decision to a known allow decision produces a warning.
+The report compares simple declared Bash rules from planned project settings, project-local settings, and user settings (`CLAUDE_CONFIG_DIR` or `~/.claude`). When no project settings file is planned, it reads native project settings instead. Exact rules, bare `Bash`, and simple trailing command prefixes are supported. Shell wrappers, parameter rules, other shell syntax, and ambiguous Bash patterns report `unknown`. Deny takes precedence over ask and allow. A rewrite from a known ask decision to a known allow decision produces a warning.
 
 Known RTK PreToolUse handlers are listed by settings path. More than one produces an ownership warning. This inspection recognizes direct Bash handlers using RTK rewrite or its Claude processor; plugins, indirect scripts, and other matcher expressions can remain undiscovered.
 
