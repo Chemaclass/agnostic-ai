@@ -85,6 +85,25 @@ It exits 1 on invalid JSON, a `tool_input` that is not an object for an edit too
 | `--action` | Print every change as `<action><TAB><path>`: `add`, `update`, `delete`, or `move`. Deleted files and move sources appear only here and in `--json`. |
 | `--json` | Print every change as a JSON array of `{action, path, from}`; `from` is a move's source. Not with `--action`. |
 
+## hook worktree-remove
+
+Remove one clean Git worktree from a Claude Code `WorktreeRemove` event on stdin. Both flags are required: `--repo` selects a surviving checkout of the repository, and `--allowed-root` selects the directory whose descendants you permit the helper to remove. Quote paths that contain spaces.
+
+```bash
+agnostic-ai hook worktree-remove --repo "/path/to/repository" --allowed-root "/path/to/disposable worktrees"
+```
+
+The helper verifies Git's worktree registration and the checkout's repository metadata before running `git worktree remove` without force. It refuses the main checkout, the allowed root itself, other repositories, unregistered directories, traversal, symlinks below the allowed root, locked worktrees, and worktrees with changed, untracked, or ignored files. Ignored dependencies also prevent removal; remove them deliberately before retrying. It keeps the branch.
+
+According to [Claude Code's WorktreeRemove contract](https://code.claude.com/docs/en/hooks#worktreeremove), this event replaces cleanup for hook-created worktrees and runs while the directory still exists. Exit 0 means cleanup succeeded; a nonzero exit preserves an existing directory without a Git fallback. Pair this helper with your `WorktreeCreate` hook, and keep `--repo` outside the disposable checkout. It does not change cleanup for worktrees the host creates without a custom creation hook.
+
+Success prints `removed: <path>` and exits 0. A path already absent below the allowed root prints `already absent: <path>` and exits 0, including repeated calls after successful removal. Absence alone cannot prove prior ownership; this result performs no deletion or registration pruning. Unsafe inputs and failed Git operations exit 1.
+
+| Flag | Description |
+|------|-------------|
+| `--repo <path>` | Required. A surviving checkout whose registered worktree may be removed. |
+| `--allowed-root <path>` | Required. Only descendants of this directory may be removed. |
+
 ## hook guard
 
 Run inside an `after-edit` or `stop` hook. It exits 2 with a short report for the agent on a problem, and 0 with no output otherwise. See the [spec guard hook](@/docs/spec-format/hooks.md#spec-guard).
