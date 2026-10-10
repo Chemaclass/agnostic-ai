@@ -140,6 +140,9 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "disabled-server",
 			Meta: map[string]any{"command": "x", "disabled": true},
 		},
+		{Kind: spec.KindHook, Name: "portable-shell", Meta: map[string]any{"on": "before-tool", "match": "shell", "command": "echo check"}},
+		{Kind: spec.KindHook, Name: "portable-edit", Meta: map[string]any{"on": "before-tool", "match": "edit", "command": "echo check"}},
+		{Kind: spec.KindHook, Name: "portable-mcp", Meta: map[string]any{"on": "before-tool", "match": "mcp:git", "command": "echo check"}},
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 	}
 	return spec.NewBundle(entries)

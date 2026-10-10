@@ -54,6 +54,7 @@ A tool gets only the events where exit codes work as in Claude Code: exit 0 goes
 | Cursor | `session-start`, `prompt-submit`, `before-tool`, `session-end` | `shell` `^Shell$`, `edit` `^Write$`, `read` `^Read$` |
 | Copilot | `session-start`, `before-tool`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `read` `Read`, `web` `WebFetch\|WebSearch` |
 | Cline | `before-tool` | `shell` `run_commands\|execute_command`, `edit` `editor\|apply_patch\|replace_in_file\|write_to_file`, `read` `read_files\|read_file`, `web` `fetch_web_content\|web_fetch\|web_search` |
+| Kiro | `before-tool` | `shell` `^(execute_bash\|execute_pwsh)$`, `edit` `^(fs_write\|fs_append\|str_replace\|delete_file)$`, `read` `^(read_file\|list_directory\|file_search\|grep_search\|code\|tool_search\|introspect)$`, `web` `^(web_fetch\|remote_web_search)$`, `mcp:<server>` `@<server>/*` |
 
 Cursor, Copilot, and Cline signal a block in their own way. For them, sync runs each portable `before-tool` command (on Cursor, each `prompt-submit` command too) through a wrapper that turns exit 2 into the tool's deny reply, with stderr as the reason:
 
@@ -111,7 +112,7 @@ A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` w
 - an event that a tool the hook reaches reads differently, such as `on: stop` on Crush
 - a tool kind that a tool the hook reaches lacks, such as `match: read` on Codex
 
-A portable hook does not reach Kiro or Trae yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run. Write `event` for those tools, or limit the hook with `targets`.
+Kiro maps only `before-tool`. Built-in kinds use anchored lists of the documented tool IDs. Native category selectors also match ID substrings, so a `read` selector could otherwise run on an MCP tool with `read` in its name. New built-in IDs need an updated mapping. Its `edit` matcher excludes `code`, which the native `write` category includes. Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`, and `stop` uses exit 1 to continue, so those portable events stay unmapped. The MCP matcher `@<server>/*` names one server, even when it is called `mcp`, `builtin`, or `powers`. Kiro also leaves `decision: stdout` unmapped. Use a command that exits 2 to block a tool. A portable hook does not reach Trae yet. Sync reports missing mappings; write `event` for them, or limit the hook with `targets`.
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`. `lint` warns on each hook the migration would rewrite (LINT034). `agnostic-ai import` follows the same rule.
 

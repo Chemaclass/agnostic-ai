@@ -60,7 +60,10 @@ func TestNativeHook_ReportsWhatATargetCannotExpress(t *testing.T) {
 	}{
 		{"codex", map[string]any{"on": "before-tool", "match": "read"}, "codex has no read tool"},
 		{"codex", map[string]any{"on": "after-tool", "match": "web"}, "codex has no web tool"},
-		{"kiro", map[string]any{"on": "before-tool", "match": "shell"}, "write event: for kiro"},
+		{"kiro", map[string]any{"on": "prompt-submit"}, "kiro has no prompt-submit event"},
+		{"kiro", map[string]any{"on": "stop"}, "kiro has no stop event"},
+		{"kiro", map[string]any{"on": "after-tool"}, "kiro has no after-tool event"},
+		{"kiro", map[string]any{"on": "before-tool", "decision": "stdout"}, "kiro does not support the portable decision: stdout wrapper"},
 		{"cursor", map[string]any{"on": "stop"}, "cursor has no stop event"},
 		{"cline", map[string]any{"on": "before-tool", "match": "mcp:github"}, "cline has no MCP tool name"},
 		{"claude", map[string]any{"on": "before-tol"}, "did you mean before-tool"},
@@ -201,8 +204,8 @@ func TestBundleFor_TranslatesPortableHooksAndDropsTheRest(t *testing.T) {
 	if got := b.For("codex").Hooks; len(got) != 1 || got[0].Name != "status" || got[0].Meta["event"] != "SessionStart" {
 		t.Errorf("codex hooks = %+v, want only status", got)
 	}
-	if got := b.HooksFor("kiro"); len(got) != 0 {
-		t.Errorf("kiro hooks = %+v, want none until it translates", got)
+	if got := b.HooksFor("kiro"); len(got) != 1 || got[0].Name != "guard" || got[0].Meta["matcher"] != "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$" {
+		t.Errorf("kiro hooks = %+v, want only guard", got)
 	}
 	if got := b.HooksFor("cursor"); len(got) != 2 || got[0].PortableOn != "before-tool" || !got[0].WrapsCommand("cursor") || got[1].WrapsCommand("cursor") {
 		t.Errorf("cursor hooks = %+v, want guard wrapped and status as written", got)
@@ -256,6 +259,7 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		"codex":     {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|Write", "-", "-", "mcp__s__.*"},
 		"gemini":    {"SessionStart BeforeAgent BeforeTool AfterTool AfterTool AfterAgent SessionEnd", "^run_shell_command$", "^(write_file|replace)$", "^(read_file|read_many_files)$", "^(web_fetch|google_web_search)$", "-"},
 		"factory":   {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^Execute$", "^(Create|Edit|ApplyPatch)$", "^Read$", "^(FetchUrl|WebSearch)$", "-"},
+		"kiro":      {"- - PreToolUse - - - -", "^(execute_bash|execute_pwsh)$", "^(fs_write|fs_append|str_replace|delete_file)$", "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$", "^(web_fetch|remote_web_search)$", "@s/*"},
 		"qoder":     {"SessionStart UserPromptSubmit PreToolUse - - Stop SessionEnd", "Bash", "Edit|Write|NotebookEdit", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
 		"openhands": {"SessionStart UserPromptSubmit PreToolUse - - Stop SessionEnd", "terminal", "-", "-", "-", "-"},
 		"goose":     {"SessionStart - PreToolUse - - Stop SessionEnd", "^shell$", "^(write|edit)$", "-", "-", "-"},
@@ -287,6 +291,23 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		}
 		if m, ok := HookToolMatcher(target, "any"); !ok || m != "" {
 			t.Errorf("%s: any must write no matcher", target)
+		}
+	}
+}
+
+func TestNativeHook_KiroPortableToolKinds(t *testing.T) {
+	for _, tc := range []struct{ kind, matcher string }{
+		{"shell", "^(execute_bash|execute_pwsh)$"}, {"read", "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$"}, {"web", "^(web_fetch|remote_web_search)$"},
+		{"edit", "^(fs_write|fs_append|str_replace|delete_file)$"}, {"mcp:git", "@git/*"}, {"mcp:mcp", "@mcp/*"}, {"mcp:builtin", "@builtin/*"}, {"mcp:powers", "@powers/*"}, {"any", ""}, {"", ""},
+	} {
+		h := portableHook(map[string]any{"on": "before-tool"})
+		if tc.kind != "" {
+			h.Meta["match"] = tc.kind
+		}
+		got, reason := h.NativeHook("kiro")
+		matcher, _ := got.Meta["matcher"].(string)
+		if reason != "" || got.Meta["event"] != "PreToolUse" || matcher != tc.matcher {
+			t.Errorf("kiro %q = %+v, %q; want PreToolUse %q", tc.kind, got.Meta, reason, tc.matcher)
 		}
 	}
 }

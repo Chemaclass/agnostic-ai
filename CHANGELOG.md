@@ -49,6 +49,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `sync --global` writes Kiro CLI V3 hooks to `~/.kiro/hooks/`; `import --global kiro` adopts hook files a spec can preserve (#1976).
 - `hook run` follows CLI V3 prompt and Stop exit codes, category tags, wildcards, and MCP selectors (#1974).
 - Kiro docs use the current tool categories and mark `keyboardShortcut` as CLI 2.x only (#1979).
+- Portable `on: before-tool` hooks now reach Kiro with built-in tool IDs and MCP server selectors; `edit` selects file write tools (#1980).
 
 #### Antigravity
 
