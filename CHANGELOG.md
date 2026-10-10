@@ -40,6 +40,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Empty agent tool lists disable all tools, including after import and sync (#1954).
 - `import trae` reads shared `.agents/skills/` folders and assets; `.trae/skills/` takes priority for matching names (#1955).
 
+#### Warp
+
+- `sync --global` writes MCP servers to `~/.warp/.mcp.json`; `import --global warp` reads them back (#1978).
+
 #### Windsurf / Devin CLI
 
 - With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).
