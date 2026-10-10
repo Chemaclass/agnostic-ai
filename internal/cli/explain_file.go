@@ -64,7 +64,7 @@ type explainFileOutput struct {
 
 // fileContextTargets lists the targets whose discovery semantics
 // `explain --file` models. Each one is verified against vendor docs.
-var fileContextTargets = []string{"cursor"}
+var fileContextTargets = []string{"cursor", "claude"}
 
 // sourceMarkerRE captures the spec path from the `<!-- source: ... -->`
 // marker WriteSection stamps before each section of a merged document.
@@ -110,7 +110,14 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 	if err := adapters.ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
 		return explainFileOutput{}, err
 	}
-	docs, err := plannedAgentsDocs(cfg, b)
+	docs, err := plannedInstructionDocs(cfg, b, func(p string) bool {
+		if target == "claude" {
+			return filepath.Ext(p) == ".md" ||
+				p == filepath.ToSlash(adapters.EntryPointPath(cfg, "claude")) ||
+				p == filepath.ToSlash(cfg.Outputs["claude"].RulesFile)
+		}
+		return path.Base(p) == "AGENTS.md"
+	})
 	if err != nil {
 		return explainFileOutput{}, err
 	}
@@ -118,33 +125,16 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 	if err != nil {
 		return explainFileOutput{}, err
 	}
-	files, err := captureEmit(adapter, b, cfg)
-	if err != nil {
-		return explainFileOutput{}, fmt.Errorf("%s: %w", target, err)
-	}
-
 	included := b.For(target).Rules
-	byName := make(map[string]spec.Entry, len(included))
-	for _, r := range included {
-		byName[r.Name] = r
-	}
 	reached := map[string]bool{}
 	var items []fileContextItem
-	for _, f := range files {
-		if filepath.Ext(f.Path) != ".mdc" {
-			continue
-		}
-		name := strings.TrimSuffix(filepath.Base(f.Path), ".mdc")
-		item := classifyMDC(f.Content, rel)
-		item.Output = filepath.ToSlash(f.Path)
-		if r, ok := byName[name]; ok {
-			item.Source = filepath.ToSlash(adapters.EntrySourcePath(r))
-			reached[item.Source] = true
-		}
-		items = append(items, item)
+	if target == "claude" {
+		items, err = claudeFileItems(cfg, b, adapter, docs, rel, projectRoot, reached)
+	} else {
+		items, err = cursorFileItems(cfg, b, adapter, docs, rel, reached)
 	}
-	for _, d := range docs {
-		items = append(items, agentsDocItems(d, rel, reached)...)
+	if err != nil {
+		return explainFileOutput{}, err
 	}
 	items = append(items, unreachedRuleItems(b.Rules, included, reached, target)...)
 
@@ -167,27 +157,54 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 	}, nil
 }
 
-// agentsDoc is one planned AGENTS.md file and the targets writing it.
-type agentsDoc struct {
-	Path    string
-	Content string
-	Writers []string
+func cursorFileItems(cfg *config.Config, b spec.Bundle, adapter adapters.Adapter, docs []instructionDoc, rel string, reached map[string]bool) ([]fileContextItem, error) {
+	files, err := captureEmit(adapter, b, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cursor: %w", err)
+	}
+	byName := make(map[string]spec.Entry)
+	for _, r := range b.For("cursor").Rules {
+		byName[r.Name] = r
+	}
+	var items []fileContextItem
+	for _, f := range files {
+		if filepath.Ext(f.Path) != ".mdc" {
+			continue
+		}
+		name := strings.TrimSuffix(filepath.Base(f.Path), ".mdc")
+		item := classifyMDC(f.Content, rel)
+		item.Output = filepath.ToSlash(f.Path)
+		if r, ok := byName[name]; ok {
+			item.Source = filepath.ToSlash(adapters.EntrySourcePath(r))
+			reached[item.Source] = true
+		}
+		items = append(items, item)
+	}
+	for _, d := range docs {
+		items = append(items, agentsDocItems(d, rel, reached)...)
+	}
+	return items, nil
 }
 
-// plannedAgentsDocs collects every AGENTS.md sync would write for the
-// configured targets: root entry points and nested scope documents.
-// Cursor reads AGENTS.md in the project root and in subdirectories, so
-// a peer target's file reaches Cursor too.
-func plannedAgentsDocs(cfg *config.Config, b spec.Bundle) ([]agentsDoc, error) {
-	byPath := map[string]*agentsDoc{}
+// instructionDoc holds a planned instruction document and its writers.
+type instructionDoc struct {
+	Path          string
+	Content       string
+	Writers       []string
+	CanonicalBody bool
+}
+
+// plannedInstructionDocs captures entry points and adapter documents without writing them.
+func plannedInstructionDocs(cfg *config.Config, b spec.Bundle, accept func(string) bool) ([]instructionDoc, error) {
+	byPath := map[string]*instructionDoc{}
 	add := func(p, content, writer string) {
 		p = filepath.ToSlash(p)
-		if path.Base(p) != "AGENTS.md" || cfg.IsUnmanaged(p) {
+		if !accept(p) || cfg.IsUnmanaged(p) {
 			return
 		}
 		d, ok := byPath[p]
 		if !ok {
-			d = &agentsDoc{Path: p, Content: content}
+			d = &instructionDoc{Path: p, Content: content}
 			byPath[p] = d
 		}
 		d.Writers = append(d.Writers, writer)
@@ -208,6 +225,9 @@ func plannedAgentsDocs(cfg *config.Config, b spec.Bundle) ([]agentsDoc, error) {
 		for _, t := range cfg.Targets {
 			if !adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) && adapters.EntryPointPath(cfg, t) == f.Path {
 				add(f.Path, f.Content, t)
+				if d := byPath[filepath.ToSlash(f.Path)]; d != nil {
+					d.CanonicalBody = true
+				}
 			}
 		}
 	}
@@ -224,7 +244,7 @@ func plannedAgentsDocs(cfg *config.Config, b spec.Bundle) ([]agentsDoc, error) {
 			add(f.Path, f.Content, t)
 		}
 	}
-	docs := make([]agentsDoc, 0, len(byPath))
+	docs := make([]instructionDoc, 0, len(byPath))
 	for _, d := range byPath {
 		docs = append(docs, *d)
 	}
@@ -235,7 +255,7 @@ func plannedAgentsDocs(cfg *config.Config, b spec.Bundle) ([]agentsDoc, error) {
 // agentsDocItems reports one AGENTS.md: the canonical entry-point body
 // for a root file, then every spec section it carries. A root file has
 // no activation metadata; a nested one covers its directory subtree.
-func agentsDocItems(d agentsDoc, rel string, reached map[string]bool) []fileContextItem {
+func agentsDocItems(d instructionDoc, rel string, reached map[string]bool) []fileContextItem {
 	dir := path.Dir(d.Path)
 	writers := strings.Join(d.Writers, ", ")
 	var status, selector, reason string

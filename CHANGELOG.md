@@ -12,6 +12,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The VS Code status bar shows failed checks and their reason instead of reporting in sync (#1981).
 - The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).
 
+### By tool
+
+#### Claude Code
+
+- Explain Claude Code instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).
+
 ## v0.82.0 - 2026-10-10
 
 ### General
