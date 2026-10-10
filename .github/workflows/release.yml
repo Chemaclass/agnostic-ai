@@ -199,9 +199,21 @@ jobs:
     needs: [goreleaser, npm]
     if: always() && github.repository == 'Chemaclass/agnostic-ai' && needs.goreleaser.result == 'success'
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node for npm provenance verification
+        if: env.NPM_TOKEN_CONFIGURED == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+
+      - name: Pin the npm verifier
+        if: env.NPM_TOKEN_CONFIGURED == 'true'
+        run: npm install -g npm@11.5.1
 
       # Both checks below read a replica that can lag the write they verify.
       # A red check that is sometimes wrong trains you to dismiss it, so each
@@ -299,6 +311,11 @@ jobs:
                 [ "$delay" -le "$max_delay" ] || delay="$max_delay"
               fi
             done
+            if [ -n "$found" ]; then
+              if ! verify_npm_provenance "$pkg" "$want"; then
+                missing=1
+              fi
+            fi
             if [ -z "$found" ]; then
               if [ "$got" = "$want" ]; then
                 echo "::error::npm serves ${pkg}@${want} but its ${dist_tag} dist-tag points at ${tagged:-<absent>}"
