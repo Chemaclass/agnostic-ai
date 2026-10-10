@@ -13,6 +13,7 @@ Build and run the CLI first using the contributor setup guide. Then choose the a
 | Add a starter template for a language or framework | [Contributing a preset](contributing-presets.md) |
 | Publish reusable specs | [Pack authors](pack-authors.md) |
 | Measure or improve sync performance | [Benchmarks](benchmarks.md) |
+| Assess optional navigation and context tools | [CodeGraph, Ponytail, and Headroom](experiments/navigation-tool-assessment.md) |
 | Work on the browser playground | [Playground development](../playground/README.md) |
 | Ship a version | [Release process](release-process.md) |
 | Understand past choices or planned work | [Decisions](decisions.md) and [Roadmap](roadmap.md) |
