@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -182,119 +182,20 @@ func (v *mcpURLValue) set(i int, text string) {
 
 func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 
-// mcpStrongCredentialWords are the last words of a name that make
-// import treat its value as a credential, so `api_token` counts and
-// `token_id` does not.
-var mcpStrongCredentialWords = map[string]bool{
-	"token": true, "secret": true, "password": true, "passwd": true, "pwd": true, "pass": true,
-	"accesstoken": true, "authtoken": true, "credential": true, "credentials": true, "cookie": true, "bearer": true,
-}
-
-// mcpWeakCredentialWords count too, but a short value after one in a
-// separate argument may be a mode or a name, as in `--require-api-key
-// run`. `cred` and `auth` count only in a key, such as `X_AUTH`, since a
-// flag such as `--auth oauth` picks a method.
-var mcpWeakCredentialWords = map[string]bool{
-	"apikey": true, "authentication": true, "authorization": true,
-}
-
-// mcpPublicKeyWords are the words before a final `key` that make it no
-// credential, so `sort_key` and `public_key` do not count and
-// `openai_key` does.
-var mcpPublicKeyWords = map[string]bool{
-	"sort": true, "cache": true, "public": true, "partition": true, "primary": true, "foreign": true,
-	"idempotency": true, "routing": true, "object": true, "row": true, "hash": true, "map": true,
-	"lookup": true, "group": true, "dedup": true, "shard": true, "index": true, "unique": true,
-	"composite": true, "natural": true, "surrogate": true, "ssh": true, "gpg": true, "pgp": true,
-	"s3": true, "id": true,
-}
-
-// mcpCredentialQueryNames count only as a whole query or fragment
-// parameter name, where `code` or `sig` is a signed or one-time value,
-// so `country_code` does not.
-var mcpCredentialQueryNames = map[string]bool{
-	"auth": true, "sig": true, "signature": true, "code": true, "session": true, "jwt": true, "bearer": true,
-}
-
-var mcpGluedCredentialWord = regexp.MustCompile(`(password|passwd|secret|token)$`)
-
-type mcpCredentialStrength int
+type mcpCredentialStrength = preview.CredentialStrength
 
 const (
-	mcpNoCredential mcpCredentialStrength = iota
-	mcpWeakCredential
-	mcpStrongCredential
+	mcpNoCredential     = preview.NoCredential
+	mcpWeakCredential   = preview.WeakCredential
+	mcpStrongCredential = preview.StrongCredential
 )
 
-// mcpNameStrength reports whether name holds a credential by its last
-// word, and how surely. A one-word name that ends in a strong word
-// counts too, as `PGPASSWORD` does. key marks an env, header, or block
-// key, where `cred` and `auth` count as well.
 func mcpNameStrength(name string, key bool) mcpCredentialStrength {
-	words := mcpNameWords(name)
-	n := len(words)
-	switch {
-	case n == 0:
-		return mcpNoCredential
-	case mcpStrongCredentialWords[words[n-1]]:
-		return mcpStrongCredential
-	case mcpWeakCredentialWords[words[n-1]], key && (words[n-1] == "cred" || words[n-1] == "auth"):
-		return mcpWeakCredential
-	case words[n-1] == "key":
-		if n == 1 || !mcpPublicKeyWords[words[n-2]] {
-			return mcpWeakCredential
-		}
-		return mcpNoCredential
-	case n == 1 && mcpGluedCredentialWord.MatchString(words[0]):
-		return mcpStrongCredential
-	}
-	return mcpNoCredential
+	return preview.NameStrength(name, key)
 }
-
-// mcpCredentialName reports whether a flag or parameter name holds a
-// credential.
-func mcpCredentialName(name string) bool { return mcpNameStrength(name, false) != mcpNoCredential }
-
-// mcpCredentialKey reports whether an env, header, or block key holds a
-// credential.
-func mcpCredentialKey(name string) bool { return mcpNameStrength(name, true) != mcpNoCredential }
-
-func mcpCredentialParam(name string) bool {
-	if unescaped, err := url.QueryUnescape(name); err == nil {
-		name = unescaped
-	}
-	return mcpCredentialName(name) || mcpCredentialQueryNames[strings.ToLower(name)]
-}
-
-// mcpNameWords splits a name into lower-case words at punctuation and at
-// camelCase boundaries, so `clientSecret` and `APIKey` both end in a
-// credential word.
-func mcpNameWords(name string) []string {
-	runes := []rune(name)
-	var words []string
-	var word []rune
-	flush := func() {
-		if len(word) > 0 {
-			words = append(words, strings.ToLower(string(word)))
-			word = nil
-		}
-	}
-	for i, r := range runes {
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
-			flush()
-			continue
-		}
-		if unicode.IsUpper(r) && len(word) > 0 {
-			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
-			if !unicode.IsUpper(runes[i-1]) || nextLower {
-				flush()
-			}
-		}
-		word = append(word, r)
-	}
-	flush()
-	return words
-}
+func mcpCredentialName(name string) bool  { return preview.CredentialName(name) }
+func mcpCredentialKey(name string) bool   { return preview.CredentialKey(name) }
+func mcpCredentialParam(name string) bool { return preview.CredentialParam(name) }
 
 func mcpCredentialValue(value string) bool {
 	return value != "" && !spec.OnlyEscapedEnvRefs(value)
