@@ -17,12 +17,13 @@
 // package.json -> contributes.yamlValidation, so that part requires no
 // runtime code here.
 
-import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
 import { updateDriftStatus } from "./drift";
+import { DriftChecks } from "./driftChecks";
+import { execCommand } from "./process";
 
 import {
   NavigationPlan,
@@ -42,7 +43,7 @@ import {
 } from "./project";
 
 let statusBar: vscode.StatusBarItem | undefined;
-let driftTimer: NodeJS.Timeout | undefined;
+let driftChecks: DriftChecks | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const out = vscode.window.createOutputChannel("agnostic-ai");
@@ -89,7 +90,8 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  if (driftTimer) clearInterval(driftTimer);
+  driftChecks?.dispose();
+  driftChecks = undefined;
   statusBar?.dispose();
 }
 
@@ -130,31 +132,7 @@ function runInTerminal(args: string): void {
 }
 
 function exec(args: string[], cwd: string): Promise<ProcessResult> {
-  return new Promise((resolve) => {
-    cp.execFile(
-      binary(),
-      args,
-      // PWD matches cwd so the CLI's working directory is the one given
-      // here, never an inherited symlinked alias of it.
-      { cwd, env: { ...process.env, PWD: cwd }, maxBuffer: 4 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        let code = 0;
-        if (err) {
-          const errno = err as NodeJS.ErrnoException;
-          if (errno.code === "ENOENT") {
-            code = -1;
-          } else {
-            code = typeof err.code === "number" ? err.code : 1;
-          }
-        }
-        resolve({
-          stdout: stdout.toString(),
-          stderr: stderr.toString(),
-          code,
-        });
-      },
-    );
-  });
+  return execCommand(binary(), args, cwd);
 }
 
 // ---------------------------------------------------------------------------
@@ -369,27 +347,32 @@ function initStatusBar(context: vscode.ExtensionContext): void {
   statusBar.command = "agnostic-ai.syncCheck";
   statusBar.tooltip = "Checking generated files with agnostic-ai sync --check.";
   context.subscriptions.push(statusBar);
-  refreshDrift();
-
   const seconds =
     vscode.workspace
       .getConfiguration("agnostic-ai")
       .get<number>("driftPollSeconds") || 30;
-  driftTimer = setInterval(refreshDrift, Math.max(5, seconds) * 1000);
+  const checks = new DriftChecks({
+    context: () => {
+      const cwd = projectRoot();
+      return cwd ? { cwd, binary: binary() } : undefined;
+    },
+    run: (context, signal) => execCommand(context.binary, ["sync", "--check", "--json"], context.cwd, signal),
+    publish: result => { if (statusBar) updateDriftStatus(statusBar, result); },
+    pollMilliseconds: Math.max(5, seconds) * 1000,
+  });
+  driftChecks = checks;
+  checks.request();
   context.subscriptions.push(
-    new vscode.Disposable(() => {
-      if (driftTimer) clearInterval(driftTimer);
+    new vscode.Disposable(() => checks.dispose()),
+    vscode.workspace.onDidSaveTextDocument(() => checks.request()),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      checks.request();
+      if (!projectRoot()) statusBar?.hide();
     }),
-    vscode.workspace.onDidSaveTextDocument(refreshDrift),
+    vscode.workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration("agnostic-ai.binaryPath")) checks.request();
+    }),
   );
-}
-
-async function refreshDrift(): Promise<void> {
-  if (!statusBar) return;
-  const cwd = projectRoot();
-  if (!cwd) return;
-  const res = await exec(["sync", "--check", "--json"], cwd);
-  updateDriftStatus(statusBar, res);
 }
 
 function showBinaryMissingError(): void {
