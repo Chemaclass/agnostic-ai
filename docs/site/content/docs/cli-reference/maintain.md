@@ -285,4 +285,6 @@ agnostic-ai migrate --global    # rewrite the global specs
 
 ## lsp
 
-Start the language server on stdin and stdout. Point your editor at `agnostic-ai lsp` for spec files (`.agnostic-ai/**/*.md`, `*.mdc`). It reports lint problems when you open or save a file.
+Start the language server on stdin and stdout. Point your editor at `agnostic-ai lsp` for spec files (`.agnostic-ai/**/*.md`, `*.mdc`). It reads saved files and reports lint problems when you open or save a file. Config and spec load failures appear on the source file, with the parser location when available. A failure with no known source appears as a workspace error.
+
+After a successful check, resolved diagnostics clear from every affected file, including deleted sources. If loading fails, earlier diagnostics stay until a successful check replaces them. Fix the reported problem and save a project file to retry.

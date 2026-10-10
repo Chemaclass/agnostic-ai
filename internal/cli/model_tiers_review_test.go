@@ -110,7 +110,10 @@ func TestSync_TierEffortSkipsTargetsWhoseModelTheSpecSets(t *testing.T) {
 func TestLSPLinter_ReportsModelFindings(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude, codex]\nmodels:\n  balanced: {claude: sonnet}\n")
 	writeTierAgent(t, dir, "reviewer", "balanced")
-	diags := lspLinter(dir)
+	diags, err := lspLinter(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var codes []string
 	for _, d := range diags[filepath.Join(dir, config.ConfigFileName)] {
 		codes = append(codes, d.Code)
