@@ -1,0 +1,6 @@
+name: rtk-shell-output
+description: Rewrite supported shell commands with the installed RTK processor.
+target: claude
+event: PreToolUse
+matcher: Bash
+command: 'command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude'
