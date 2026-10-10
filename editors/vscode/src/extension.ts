@@ -22,6 +22,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
+import { updateDriftStatus } from "./drift";
+
 import {
   NavigationPlan,
   ProcessResult,
@@ -359,19 +361,13 @@ function isInsideSpecSources(root: string, file: string): boolean {
 // Status bar drift indicator
 // ---------------------------------------------------------------------------
 
-interface SyncCheckJSON {
-  writes: { path: string; action: string }[];
-  errors: { target: string; message: string }[];
-}
-
 function initStatusBar(context: vscode.ExtensionContext): void {
   statusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
   );
   statusBar.command = "agnostic-ai.syncCheck";
-  statusBar.tooltip =
-    "agnostic-ai drift count (click to run `sync --check`).";
+  statusBar.tooltip = "Checking generated files with agnostic-ai sync --check.";
   context.subscriptions.push(statusBar);
   refreshDrift();
 
@@ -393,25 +389,7 @@ async function refreshDrift(): Promise<void> {
   const cwd = projectRoot();
   if (!cwd) return;
   const res = await exec(["sync", "--check", "--json"], cwd);
-  if (res.code === -1) {
-    statusBar.text = "$(alert) agnostic-ai not found";
-    statusBar.show();
-    return;
-  }
-  let parsed: SyncCheckJSON;
-  try {
-    parsed = JSON.parse(res.stdout);
-  } catch {
-    statusBar.text = "$(alert) agnostic-ai parse error";
-    statusBar.show();
-    return;
-  }
-  const drift = parsed.writes ? parsed.writes.length : 0;
-  statusBar.text =
-    drift === 0
-      ? "$(check) agnostic-ai: in sync"
-      : `$(warning) agnostic-ai: ${drift} drifted`;
-  statusBar.show();
+  updateDriftStatus(statusBar, res);
 }
 
 function showBinaryMissingError(): void {

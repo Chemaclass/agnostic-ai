@@ -15,8 +15,19 @@ review surface as `agnostic-ai sync --check`.
 | YAML schema | `agnostic-ai.yaml` (or the legacy `agnostic.config.yaml`) validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
 | Command palette | `agnostic-ai: Sync`, `Sync — check for drift`, `Doctor — auto-fix`, `Status`, `Render current spec to a target`. Each command opens a terminal in the project root. |
 | Codelens | Above each spec in `<base>/agents/`, `<base>/skills/`, `<base>/rules/`, `<base>/hooks/`, `<base>/mcps/`: one **Render to <target>** button per configured target. Output streams to the agnostic-ai output channel. |
-| Status bar | Polls `sync --check --json` and shows the current drift count. Click to run sync --check in a terminal. |
+| Status bar | Shows in sync, a drift count, or a failed check. Hover to read the result or failure reason. Click to run `sync --check` in a terminal. |
 | Open canonical source | From a generated file (`.claude/rules/x.md`, `AGENTS.md`, ...), run `agnostic-ai: Open canonical source` from the command palette or the editor context menu. One source opens directly. A merged file lists every contributing spec by name and path. |
+
+### Drift status
+
+The status bar checks generated files on save and every `driftPollSeconds`:
+
+- **In sync:** the check succeeded and found no drift.
+- **N drifted:** the check found files that differ from the specs. Click to run the check in a terminal for repair instructions.
+- **Check failed:** the check reported an error, failed without a drift result, or returned invalid output. Hover to read the reason, then click to check in a terminal.
+- **Not found:** install the CLI on `PATH` or set `agnostic-ai.binaryPath`.
+
+A later successful check clears the previous failure reason.
 
 ### Open canonical source
 
@@ -58,7 +69,7 @@ npm run watch           # incremental compile while iterating
 npm test                # compile, then run node --test on out/test/
 ```
 
-Tests cover the pure helpers in `src/project.ts` and `src/provenance.ts`. Their fixtures in
+Tests cover project and source navigation helpers, plus the production status presentation in `src/drift.ts`. The navigation fixtures in
 `test/fixtures/why/` are real `agnostic-ai why --format json` output
 from a synced project with configured source paths containing spaces.
 Recapture them when the `why` JSON envelope changes.

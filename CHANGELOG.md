@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- The VS Code status bar shows failed checks and their reason instead of reporting in sync (#1981).
+
 ## v0.82.0 - 2026-10-10
 
 ### General
