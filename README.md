@@ -62,6 +62,7 @@ agnostic-ai explain --file src/main.go --target claude # show configured instruc
 agnostic-ai explain --context --target claude         # rank estimated startup sources and on-demand bodies
 agnostic-ai project --check                      # check the installed project binary and generated output
 agnostic-ai sync --check                         # find generated files that differ from the sources
+agnostic-ai doctor --scope project               # check project files without local hook trust
 agnostic-ai doctor --fix                         # repair generated files, choose which leftover files to remove
 agnostic-ai doctor rtk --command 'git status'    # preview rewrites and declared approval differences
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
