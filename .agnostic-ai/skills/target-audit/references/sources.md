@@ -147,7 +147,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 ## amp
 
 - docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/the-dial · /docs/orbs/customizing · /docs/orbs/portals
-- changelog: https://ampcode.com/chronicle (`ampcode.com/news` 307s here; individual posts keep `/news/<slug>`)
+- changelog: https://ampcode.com/chronicle (`ampcode.com/news` 307s here; individual posts keep `/news/<slug>`; the page is an app shell, so read entries from `ampcode.com/news.rss`)
 - schema: https://ampcode.com/cli-settings.schema.json (the authoritative `.amp/settings.json` key list; `/docs/cli/settings` prose lists a subset)
 - trap: `ampcode.com/manual` returns 200 but serves an empty SvelteKit shell. Do not cite it.
 - blocker: `/docs/tools` lists no tool names; it defers to `amp tools list`. A tool table there would unblock mapping portable `deny` onto `amp.tools.disable` (written today via `x-amp`, #950). Portable `allow` and `ask` stay blocked: "By default, Amp does not ask for approval before running tools."
@@ -229,7 +229,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://kiro.dev/docs/steering.md · /docs/mcp.md · /docs/mcp/configuration.md · /docs/hooks.md · /docs/hooks/types.md · /docs/hooks/actions.md · /docs/skills.md · /docs/custom-agents.md · /docs/custom-agents/configuration-reference.md · /docs/workflows.md · /docs/workflows/authoring.md · /docs/cli/chat/manage-prompts.md (where CLI V3 reads workspace prompts it exposes as slash commands) · /docs/tools.md · /docs/powers.md · /docs/powers/installation.md · https://kiro.dev/docs/kiroignore.md · https://kiro.dev/docs/cli/v3/hooks-migration.md (the vendor's own current link for the 2.x-to-3.0 hook migration page; the `/docs/cli/v3/hooks/` form recorded below still resolves to the same page, both 200 through the proxy on 2026-09-20)
 - changelog: https://kiro.dev/changelog/ (the slashless form 301s here)
-- watch: steering `inclusion:` values (`always` / `fileMatch`); the agent `tools` category vocabulary (`read`/`write`/`shell`/`web`/`subagent`/`knowledge`/`todo_list`, plus `@server_name`/`@mcp`/`@builtin`/`*`), which `kiroToolCategory` in kiro.go maps onto; a new row in the `/docs/hooks/types/` triggers table; a `type` discriminant on remote MCP entries (none documented, we emit `"type": "http"`); the `/docs/kiroignore/` Capability table, since enforcement differs by surface; a project-level powers directory.
+- watch: steering `inclusion:` values (`always` / `fileMatch`); the agent `tools` category vocabulary (`read`/`write`/`shell`/`web`/`subagent`, `knowledge` by direct ID, plus `@server_name`/`@mcp`/`@builtin`/`*`), which `kiroToolCategory` in kiro.go maps onto; a new row in the `/docs/hooks/types/` triggers table; a `type` discriminant on remote MCP entries (none documented, we emit `"type": "http"`); the `/docs/kiroignore/` Capability table, since enforcement differs by surface; a project-level powers directory.
 - fetch: reader-proxy
 - quirk: kiro.dev 403s some clients. The `.md` mirrors answer curl; the changelog has none, so it uses the proxy.
 - quirk: the old `/docs/cli/custom-agents/configuration-reference/` path is an HTTP 200 meta-refresh stub, not a 3xx. Inspect with `curl -D -` before calling a page gone.
