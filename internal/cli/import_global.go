@@ -419,6 +419,10 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 			server = normalizeAntigravityMCPEntry(server)
 			servers[name] = server
 		}
+		if target == "warp" {
+			server = normalizeWarpMCPEntry(server)
+			servers[name] = server
+		}
 		// Gemini's httpUrl becomes url first, so the literal escaping
 		// below sees it.
 		if target == "gemini" {

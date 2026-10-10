@@ -797,6 +797,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | copilot | `~/.copilot/mcp-config.json` | `mcpServers.<name>`, with `tools: ["*"]` when the spec sets none |
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
 | qoder | `~/.qoder/settings.json` | `mcpServers.<name>` |
+| warp | `~/.warp/.mcp.json` | `mcpServers.<name>`: `{command, args, env, working_directory}` or `{url, headers}` |
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 | openhands | `~/.openhands/mcp.json` (`$OPENHANDS_PERSISTENCE_DIR/mcp.json` when set) | `mcpServers.<name>`: `{command, args, env}` or `{url, transport, headers, auth}` |
@@ -806,7 +807,7 @@ Each server follows the per-key rules above:
 - A hand-written server that means the same as the spec is adopted. A different one with the same name stops the run, and `--backup` overwrites it.
 - A server sync wrote is removed when its spec goes. Servers you add under other names stay.
 - In `~/.claude.json`, sync edits only its own `mcpServers` entries and creates a missing file at `0600`. If the file changed after sync read it, sync stops without writing. Run it again.
-- A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, and OpenHands user files, where a listed server is live in every project.
+- A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, OpenHands, and Warp user files, where a listed server is live in every project.
 - Antigravity keeps disabled servers with `disabled: true` in its user file.
 - When `CLAUDE_CONFIG_DIR` or another root variable moves a file, the next sync removes its entries from the old one.
 

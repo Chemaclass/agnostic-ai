@@ -40,6 +40,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Empty agent tool lists disable all tools, including after import and sync (#1954).
 - `import trae` reads shared `.agents/skills/` folders and assets; `.trae/skills/` takes priority for matching names (#1955).
 
+#### Warp
+
+- `sync --global` writes MCP servers to `~/.warp/.mcp.json`; `import --global warp` reads them back (#1978).
+
 #### Kiro
 
 - `sync --global` writes Kiro CLI V3 hooks to `~/.kiro/hooks/`; `import --global kiro` adopts hook files a spec can preserve (#1976).

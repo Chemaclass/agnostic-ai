@@ -472,6 +472,140 @@ func TestSyncGlobal_AugmentAdoptsEmptyMatcherSessionHook(t *testing.T) {
 	}
 }
 
+func TestSyncGlobal_WarpMCPPreservesUserServersAndRemovesOwnedEntries(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	stdio := filepath.Join(source, "mcps", "docs.yaml")
+	remote := filepath.Join(source, "mcps", "api.yaml")
+	mustWriteGlobalTest(t, stdio, globalDocsMCP+"cwd: /src\nenv:\n  DEBUG: !literal true\n")
+	mustWriteGlobalTest(t, remote, "name: api\ntype: http\nurl: https://api.test/mcp\nheaders:\n  X-Test: !literal example\n")
+	path := filepath.Join(home, ".warp", ".mcp.json")
+	before := "{\n  \"mcpServers\": {\n    \"mine\": {\"command\": \"mine\", \"args\": []}\n  }\n}\n"
+	mustWriteGlobalTest(t, path, before)
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	got := readGlobalTest(t, path)
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal([]byte(got), &doc); err != nil {
+		t.Fatal(err)
+	}
+	docs, api := doc["mcpServers"]["docs"], doc["mcpServers"]["api"]
+	if docs["command"] != "docs-mcp" || docs["working_directory"] != "/src" || docs["args"] == nil || docs["env"] == nil || docs["type"] != nil || docs["cwd"] != nil {
+		t.Errorf("stdio = %v", docs)
+	}
+	if api["url"] != "https://api.test/mcp" || api["headers"] == nil || api["type"] != nil || api["working_directory"] != nil {
+		t.Errorf("remote = %v", api)
+	}
+	if doc["mcpServers"]["mine"]["command"] != "mine" {
+		t.Errorf("user server changed: %s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "warp", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("second sync: %v\n%s", err, w)
+	}
+	if next := readGlobalTest(t, path); next != got {
+		t.Errorf("second sync changed output: %s", next)
+	}
+	for _, p := range []string{stdio, remote} {
+		if err := os.Remove(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("removal changed user file: %s", got)
+	}
+}
+
+func TestSyncGlobal_WarpMCPConflictsAndAdoptsEqualServer(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	path := filepath.Join(home, ".warp", ".mcp.json")
+	before := `{ "mcpServers": {"docs": {"command": "other", "args": []}} }` + "\n"
+	mustWriteGlobalTest(t, path, before)
+	if _, _, err := runGlobalAgentTest("--only", "warp"); err == nil || !strings.Contains(err.Error(), "mcpServers.docs") || !strings.Contains(err.Error(), "--backup") {
+		t.Fatalf("expected conflict: %v", err)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("conflict changed file: %s", got)
+	}
+	equal := `{ "mcpServers": {"docs": {"command": "docs-mcp", "args": ["--stdio"]}} }` + "\n"
+	mustWriteGlobalTest(t, path, equal)
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("adopt: %v\n%s", err, w)
+	} else if !strings.Contains(w, "adopted "+path) {
+		t.Errorf("adoption not named: %s", w)
+	}
+}
+
+func TestSyncGlobal_WarpMCPPreviewAndTargetFilters(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "other.yaml"), "name: other\ncommand: other\ntargets: [codex]\n")
+	path := filepath.Join(home, ".warp", ".mcp.json")
+	out, w, err := runGlobalAgentTest("--only", "warp", "--dry-run")
+	if err != nil {
+		t.Fatalf("preview: %v\n%s", err, w)
+	}
+	if !strings.Contains(out, "dry-run: write "+path) {
+		t.Errorf("preview missing file: %s", out)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("preview wrote file: %v", err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("cursor sync: %v\n%s", err, w)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("excluded target wrote file: %v", err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("warp sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); strings.Contains(got, "other") || !strings.Contains(got, "docs-mcp") {
+		t.Errorf("target filtering: %s", got)
+	}
+}
+
+func TestSyncGlobal_WarpDisabledMCPIsNotStartedGlobally(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP+"disabled: true\n")
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	} else if !strings.Contains(w, "disabled") {
+		t.Errorf("disabled warning missing: %s", w)
+	}
+	if got, err := os.ReadFile(filepath.Join(home, ".warp", ".mcp.json")); err == nil && strings.Contains(string(got), "docs") {
+		t.Errorf("disabled server emitted: %s", got)
+	}
+}
+
+func TestImportGlobal_WarpMCPRoundTrip(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".warp", ".mcp.json")
+	before := `{ "mcpServers": {"docs": {"command": "docs-mcp", "args": [], "working_directory": "/src"}, "api": {"url": "https://api.test/mcp"}} }` + "\n"
+	mustWriteGlobalTest(t, path, before)
+	if _, w, err := runImportGlobalTest("warp"); err != nil {
+		t.Fatalf("import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml")); !strings.Contains(got, "cwd: /src") || strings.Contains(got, "working_directory") {
+		t.Errorf("stdio import: %s", got)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "warp"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("round trip changed file: %s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "warp", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+}
+
 func TestSyncGlobal_AntigravityMCPPreservesUserServersAndRemovesOwnedEntries(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	stdio := filepath.Join(source, "mcps", "docs.yaml")

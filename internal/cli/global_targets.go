@@ -250,6 +250,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".agents/skills",
 	},
 	"warp": {
+		mcp:          globalMCPFile{path: globalPathHome + ".warp/.mcp.json", format: "json", key: "mcpServers"},
 		instructions: globalPathHome + ".agents/AGENTS.md",
 		skills:       globalPathHome + ".agents/skills",
 	},
