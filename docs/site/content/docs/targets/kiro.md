@@ -48,9 +48,9 @@ Listing `AGENTS.md` under `sync.unmanaged` also keeps every steering file. But s
 Older versions flattened skills into `.kiro/steering/skill-<name>.md` and agents into `.kiro/steering/agent-<name>.md`, which never reached the pickers. `sync` removes them.
 {% </details> %}
 
-Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` is translated from the portable `can` or `tools` field. Kiro's `mcpServers` holds inline definitions, not names, so set `x-kiro.mcpServers`. Set the rest, and any other key, under `x-kiro`.
+Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut` (CLI 2.x only), `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` is translated from the portable `can` or `tools` field. Kiro's `mcpServers` holds inline definitions, not names, so set `x-kiro.mcpServers`. Set the rest, and any other key, under `x-kiro`.
 
-Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) disagree on some categories (`knowledge`, `todo_list`, `spec`, `context`), so sync uses only the four they agree on:
+Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) list five category tags (`read`, `write`, `shell`, `web`, `subagent`); built-ins such as `knowledge` take a direct tool ID. Sync uses four of the tags:
 
 | Spec `can` values | Spec `tools` values | Kiro category |
 | --- | --- | --- |

@@ -72,6 +72,12 @@ Antigravity reads per-rule files under `.agents/rules/` and custom subagents und
 | `outputs.antigravity.hooks-file` | `.agents/hooks.json` | |
 | `outputs.antigravity.rules-file` | unset | writes one legacy merged file and skips the pointer body |
 
+## Global configuration
+
+`agnostic-ai sync --global --only antigravity` merges home MCP specs into `~/.gemini/config/mcp_config.json`, using the same server fields as project output. Disabled servers keep `disabled: true`. Servers you add under other names stay; a different server with the same name stops sync.
+
+`agnostic-ai import --global antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP servers](@/docs/configuration.md#global-mcp-servers).
+
 ## Import
 
 `agnostic-ai import antigravity` reads `.agents/rules`, `.agents/skills/` (with bundled assets), and `.agents/AGENTS.md`. It falls back to `.agent/rules`, `.agent/skills/`, and `.agent/AGENTS.md` only when the preferred path is absent. It also looks for `<dir>/.agents/rules/` copies to rebuild scoped rules.

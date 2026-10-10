@@ -412,6 +412,10 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if !ok {
 			continue
 		}
+		if target == "antigravity" {
+			server = normalizeAntigravityMCPEntry(server)
+			servers[name] = server
+		}
 		if target == "warp" {
 			server = normalizeWarpMCPEntry(server)
 			servers[name] = server

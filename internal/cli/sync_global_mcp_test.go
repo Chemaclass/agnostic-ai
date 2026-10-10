@@ -605,3 +605,143 @@ func TestImportGlobal_WarpMCPRoundTrip(t *testing.T) {
 		t.Fatalf("check: %v", err)
 	}
 }
+
+func TestSyncGlobal_AntigravityMCPPreservesUserServersAndRemovesOwnedEntries(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	stdio := filepath.Join(source, "mcps", "docs.yaml")
+	remote := filepath.Join(source, "mcps", "api.yaml")
+	mustWriteGlobalTest(t, stdio, globalDocsMCP+"cwd: /src\nenv:\n  DEBUG: !literal true\n")
+	mustWriteGlobalTest(t, remote, "name: api\ntype: http\nurl: https://api.test/mcp\nheaders:\n  X-Test: !literal example\n")
+	path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+	before := "{\n  \"mcpServers\": {\n    \"mine\": {\"command\": \"mine\", \"args\": []}\n  }\n}\n"
+	mustWriteGlobalTest(t, path, before)
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	got := readGlobalTest(t, path)
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal([]byte(got), &doc); err != nil {
+		t.Fatal(err)
+	}
+	docs, api := doc["mcpServers"]["docs"], doc["mcpServers"]["api"]
+	if docs["command"] != "docs-mcp" || docs["cwd"] != "/src" || docs["args"] == nil || docs["env"] == nil || docs["type"] != nil || docs["working_directory"] != nil {
+		t.Errorf("stdio = %v", docs)
+	}
+	if api["serverUrl"] != "https://api.test/mcp" || api["headers"] == nil || api["type"] != nil || api["cwd"] != nil {
+		t.Errorf("remote = %v", api)
+	}
+	if doc["mcpServers"]["mine"]["command"] != "mine" {
+		t.Errorf("user server changed: %s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "antigravity", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("second sync: %v\n%s", err, w)
+	}
+	if next := readGlobalTest(t, path); next != got {
+		t.Errorf("second sync changed output: %s", next)
+	}
+	for _, p := range []string{stdio, remote} {
+		if err := os.Remove(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("removal changed user file: %s", got)
+	}
+}
+
+func TestSyncGlobal_AntigravityMCPConflictsAndAdoptsEqualServer(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+	before := `{ "mcpServers": {"docs": {"command": "other", "args": []}} }` + "\n"
+	mustWriteGlobalTest(t, path, before)
+	if _, _, err := runGlobalAgentTest("--only", "antigravity"); err == nil || !strings.Contains(err.Error(), "mcpServers.docs") || !strings.Contains(err.Error(), "--backup") {
+		t.Fatalf("expected conflict: %v", err)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("conflict changed file: %s", got)
+	}
+	equal := `{ "mcpServers": {"docs": {"command": "docs-mcp", "args": ["--stdio"]}} }` + "\n"
+	mustWriteGlobalTest(t, path, equal)
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("adopt: %v\n%s", err, w)
+	} else if !strings.Contains(w, "adopted "+path) {
+		t.Errorf("adoption not named: %s", w)
+	}
+}
+
+func TestSyncGlobal_AntigravityMCPPreviewAndTargetFilters(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "other.yaml"), "name: other\ncommand: other\ntargets: [codex]\n")
+	path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+	out, w, err := runGlobalAgentTest("--only", "antigravity", "--dry-run")
+	if err != nil {
+		t.Fatalf("preview: %v\n%s", err, w)
+	}
+	if !strings.Contains(out, "dry-run: write "+path) {
+		t.Errorf("preview missing file: %s", out)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("preview wrote file: %v", err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("cursor sync: %v\n%s", err, w)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("excluded target wrote file: %v", err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("antigravity sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); strings.Contains(got, "other") || !strings.Contains(got, "docs-mcp") {
+		t.Errorf("target filtering: %s", got)
+	}
+}
+
+func TestSyncGlobal_AntigravityDisabledMCPKeepsNativeDisableFlag(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP+"disabled: true\n")
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if server := doc["mcpServers"]["docs"]; server["disabled"] != true || server["command"] != "docs-mcp" {
+		t.Errorf("disabled server = %v", server)
+	}
+}
+
+func TestImportGlobal_AntigravityMCPRoundTrip(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+	before := `{ "mcpServers": {"docs": {"command": "docs-mcp", "args": [], "cwd": "/src", "disabled": false}, "api": {"serverUrl": "https://api.test/mcp", "authProviderType": "google_credentials"}} }` + "\n"
+	mustWriteGlobalTest(t, path, before)
+	if _, w, err := runImportGlobalTest("antigravity"); err != nil {
+		t.Fatalf("import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml")); !strings.Contains(got, "cwd: /src") || strings.Contains(got, "serverUrl") {
+		t.Errorf("stdio import: %s", got)
+	}
+	if got := readGlobalTest(t, filepath.Join(source, "mcps", "api.yaml")); !strings.Contains(got, "url: https://api.test/mcp") || !strings.Contains(got, "authProviderType: google_credentials") || !strings.Contains(got, "x-antigravity:") || strings.Contains(got, "serverUrl") {
+		t.Errorf("remote import: %s", got)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "antigravity"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("round trip changed file: %s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "antigravity", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+}
