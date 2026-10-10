@@ -34,7 +34,7 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("agnostic-ai.yaml", "version: 1\nrequires: '0.82.0'\ntargets: [codex]\nbuiltins: [memory]\n", 0o644)
+	write("agnostic-ai.yaml", "version: 1\nrequires: '0.82.0'\ntargets: [codex, cursor]\nbuiltins: [memory]\n", 0o644)
 	write("package.json", `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0","scripts":{"postinstall":"agnostic-ai project --bootstrap"}}`, 0o644)
 	write("pnpm-lock.yaml", "lockfileVersion: '9.0'\n", 0o644)
 	write(".agnostic-ai/AGNOSTIC_AI.md", "Project guidance.\n", 0o644)
@@ -119,6 +119,35 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 	if out, err := memory.CombinedOutput(); err != nil || !strings.Contains(string(out), "Local-memory-marker") {
 		t.Errorf("local memory hook: %v %s", err, out)
 	}
+	cursorData, err := os.ReadFile(filepath.Join(dir, ".cursor", "hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cursorHooks struct {
+		Hooks map[string][]struct {
+			Command string `json:"command"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(cursorData, &cursorHooks); err != nil {
+		t.Fatal(err)
+	}
+	cursorCommand := ""
+	for _, handler := range cursorHooks.Hooks["sessionStart"] {
+		if strings.Contains(handler.Command, "project -- hook memory") {
+			cursorCommand = handler.Command
+		}
+	}
+	if cursorCommand == "" {
+		t.Fatal("generated Cursor memory handler is missing")
+	}
+	t.Setenv("CURSOR_PROJECT_DIR", dir)
+	t.Setenv("AGNOSTIC_AI_HOOK_TARGET", "")
+	unrelated := t.TempDir()
+	cursorMemory := exec.Command("sh", "-c", cursorCommand)
+	cursorMemory.Dir = unrelated
+	if out, err := cursorMemory.CombinedOutput(); err != nil || !strings.Contains(string(out), "Local-memory-marker") {
+		t.Errorf("native host memory from unrelated directory: %v %s", err, out)
+	}
 	agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -131,10 +160,23 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 	if err != nil || !strings.Contains(string(kept), "Manual-edit-marker") {
 		t.Errorf("manual edit was not preserved: %v %s", err, kept)
 	}
-	write("agnostic-ai.yaml", "version: 1\nrequires: '0.83.0'\ntargets: [codex]\nbuiltins: [memory]\n", 0o644)
+	write("agnostic-ai.yaml", "version: 1\nrequires: '0.83.0'\ntargets: [codex, cursor]\nbuiltins: [memory]\n", 0o644)
 	memory = exec.Command("sh", "-c", command)
 	memory.Dir = dir
 	if out, err := memory.CombinedOutput(); err == nil || !strings.Contains(string(out), "requires 0.83.0") || !strings.Contains(string(out), "project --bootstrap") {
 		t.Errorf("memory version contract: %v %s", err, out)
+	}
+	cursorMemory = exec.Command("sh", "-c", cursorCommand)
+	cursorMemory.Dir = unrelated
+	if out, err := cursorMemory.CombinedOutput(); err == nil || !strings.Contains(string(out), "requires 0.83.0") {
+		t.Errorf("native host version contract: %v %s", err, out)
+	}
+	if err := os.Remove(filepath.Join(dir, "agnostic-ai.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	memory = exec.Command("sh", "-c", command)
+	memory.Dir = filepath.Join(dir, ".agnostic-ai", "memory")
+	if out, err := memory.CombinedOutput(); err != nil || !strings.Contains(string(out), "Local-memory-marker") {
+		t.Errorf("configless nested local memory: %v %s", err, out)
 	}
 }

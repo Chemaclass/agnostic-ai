@@ -61,7 +61,7 @@ func newProjectCmd() *cobra.Command {
 }
 
 func runProject(cmd *cobra.Command, args []string, check, bootstrap bool, against string) error {
-	root, err := projectRoot()
+	root, err := projectCommandRoot(args)
 	if err != nil {
 		return fmt.Errorf("project root: %w", err)
 	}
@@ -109,6 +109,26 @@ func runProject(cmd *cobra.Command, args []string, check, bootstrap bool, agains
 		return fmt.Errorf("project binary %s: %w", binary.path, err)
 	}
 	return nil
+}
+
+func projectCommandRoot(args []string) (string, error) {
+	if len(args) >= 2 && args[0] == "hook" && args[1] == "memory" {
+		hook := newHookMemoryCmd()
+		if err := hook.ParseFlags(args[2:]); err != nil {
+			return "", fmt.Errorf("project memory arguments: %w", err)
+		}
+		target, err := hook.Flags().GetString("target")
+		if err != nil {
+			return "", fmt.Errorf("project memory target: %w", err)
+		}
+		if target == "" {
+			target = os.Getenv(adapters.HookTargetEnv)
+		}
+		if root := memoryProjectRoot(target); root != "" {
+			return root, nil
+		}
+	}
+	return projectRoot()
 }
 
 func projectRoot() (string, error) {

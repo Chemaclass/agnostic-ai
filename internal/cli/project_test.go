@@ -6,6 +6,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestProject_PrefersLocalAndCheckNeverInstalls(t *testing.T) {
@@ -64,6 +67,55 @@ func TestProject_InstallUsesFrozenManagerContract(t *testing.T) {
 	}
 	if _, err := projectInstallCommand(t.TempDir(), projectPackage{DevDependencies: map[string]string{"agnostic-ai": "0.82.0"}}); err == nil {
 		t.Error("bootstrap without lockfile accepted")
+	}
+}
+
+func TestProjectMemory_UsesNativeHostDirectoryForVersionContract(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX local launcher fixture")
+	}
+	for target, variable := range hookProjectDirEnv {
+		t.Run(target, func(t *testing.T) {
+			project := budgetProject(t, "requires: '0.83.0'\ntargets: ["+target+"]\n")
+			local := filepath.Join(project, "node_modules", ".bin", "agnostic-ai")
+			mustWriteFile(t, local, "#!/bin/sh\necho 'agnostic-ai version 0.82.0'\n")
+			if err := os.Chmod(local, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv(variable, project)
+			t.Setenv(adapters.HookTargetEnv, "")
+			t.Setenv("PATH", t.TempDir())
+			testutil.Chdir(t, t.TempDir())
+			_, err := runCLI(t, "project", "--", "hook", "memory", "--target="+target)
+			if err == nil || !strings.Contains(err.Error(), "0.82.0") || !strings.Contains(err.Error(), "0.83.0") {
+				t.Fatalf("host project contract was not checked: %v", err)
+			}
+		})
+	}
+}
+
+func TestProjectMemory_UsesConfiglessGitRootFromNestedDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX local launcher fixture")
+	}
+	project := setupGitRepo(t)
+	local := filepath.Join(project, "node_modules", ".bin", "agnostic-ai")
+	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; else printf '%s\\n' \"$*\"; fi\n")
+	if err := os.Chmod(local, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	child := filepath.Join(project, "src")
+	if err := os.Mkdir(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, child)
+	silence(t)
+	for _, variable := range hookProjectDirEnv {
+		t.Setenv(variable, "")
+	}
+	got, err := runCLI(t, "project", "--", "hook", "memory", "-t", "codex")
+	if err != nil || !strings.Contains(got, "hook memory -t codex") {
+		t.Fatalf("configless local binary was not used: output=%q error=%v", got, err)
 	}
 }
 
