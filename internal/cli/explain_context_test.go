@@ -156,3 +156,91 @@ func TestExplainContext_AttributesInlineImportsAndSharedSectionsOnce(t *testing.
 		t.Error("unconfigured target accepted")
 	}
 }
+
+func TestExplainContext_UsesNormalizedRenderedBytes(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "hello"+strings.Repeat("\n", 2000))
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range cfg.Targets {
+		report, err := explainContext(cfg, bundle, target, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range report.Contributions {
+			if c.Bytes < 0 || c.Words < 0 {
+				t.Errorf("%s negative contribution: %+v", target, c)
+			}
+		}
+		loads, err := projectSessionLoads(cfg, projectKindSupport(cfg), bundle)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, load := range loads {
+			if load.target == target && report.Startup.Words != load.total() {
+				t.Errorf("%s lint parity: %d != %d", target, report.Startup.Words, load.total())
+			}
+		}
+	}
+}
+
+func TestExplainContext_LeavesAuthoredMarkersWithTheirSource(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex]\n")
+	fake := "<!-- source: fake.md -->\n"
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root notes.\n```md\n"+fake+"```\n"+fake+"Root body.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "real.md"), "---\nname: real\n---\nRule text.\n```md\n"+fake+"```\n"+fake+"Rule body.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "review.md"), "---\nname: review\n---\nReview text.\n"+fake+"Review body.\n")
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := explainContext(cfg, bundle, "codex", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, c := range report.Contributions {
+		seen[c.Source] = true
+		if c.Source == "fake.md" {
+			t.Errorf("authored marker became provenance: %+v", c)
+		}
+	}
+	for _, source := range []string{".agnostic-ai/AGNOSTIC_AI.md", ".agnostic-ai/rules/real.md", ".agnostic-ai/reviews/review.md"} {
+		if !seen[source] {
+			t.Errorf("real source missing: %s", source)
+		}
+	}
+}
+
+func TestExplainContext_PreservesCompanionLocalProvenance(t *testing.T) {
+	for _, targets := range []string{"claude, codex", "claude"} {
+		t.Run(targets, func(t *testing.T) {
+			dir := budgetProject(t, "targets: ["+targets+"]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Shared instructions.\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), "Shared personal guidance.\n::target claude\nPersonal exclusive instructions.\n::end\n")
+			if targets == "claude" {
+				mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
+				mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "Existing.\n")
+			}
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			report, err := explainContext(cfg, bundle, "claude", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var localWords int
+			for _, c := range report.Contributions {
+				if c.Source == ".agnostic-ai/local/AGNOSTIC_AI.md" {
+					localWords += c.Words
+				}
+			}
+			if localWords != 6 {
+				t.Errorf("local instructions attributed %d words, want 6: %+v", localWords, report.Contributions)
+			}
+		})
+	}
+}

@@ -55,40 +55,51 @@ func (l *sessionLoad) addEntryContext(entries []spec.Entry, kind string) {
 	}
 }
 
-// addFileContext assigns marked sections to their canonical sources and keeps
-// generated headers and separators visible so the total remains identical to lint.
+// addFileContext counts disjoint spans from the rendered document. Source
+// identities come from the renderer, never comments in an authored body.
 func (l *sessionLoad) addFileContext(output, text string, layers []instructionLayer) {
 	remaining := contextSize{Words: wordsIn(text), Bytes: len(text)}
+	cursor := 0
 	for _, layer := range layers {
-		source := filepath.Join(".agnostic-ai", strings.TrimSuffix(layer.Name, " (Claude Code only)"))
-		category := "entry-point layer"
-		for _, m := range contextInlineImportRE.FindAllStringSubmatchIndex(layer.Text, -1) {
-			c := measuredContext("inline import", "startup", layer.Text[m[2]:m[3]], layer.Text[m[0]:m[1]])
-			l.context = append(l.context, c)
-			remaining.Words -= c.Words
-			remaining.Bytes -= c.Bytes
-		}
-		layer.Text = contextInlineImportRE.ReplaceAllString(layer.Text, "")
-		if layer.Text == "" {
-			continue
-		}
-		matches := sourceMarkerRE.FindAllStringSubmatchIndex(layer.Text, -1)
-		if len(matches) == 0 {
+		sources := layer.Sources
+		if sources == nil {
+			source := filepath.Join(".agnostic-ai", strings.TrimSuffix(layer.Name, " (Claude Code only)"))
 			if layer.Name == "shared memory" {
 				source = ".agnostic-ai/memory"
 			}
-			c := measuredContext(category, "startup", source, layer.Text)
-			l.context = append(l.context, c)
-			remaining.Words -= c.Words
-			remaining.Bytes -= c.Bytes
-			continue
+			sources = []instructionSource{{Path: source, Text: layer.Text}}
 		}
-		for i, m := range matches {
-			end := len(layer.Text)
-			if i+1 < len(matches) {
-				end = matches[i+1][0]
+		category := "entry-point layer"
+		if layer.Name == "rules" || layer.Name == "reviews" {
+			category = layer.Name + " section"
+		}
+		for _, source := range sources {
+			span := strings.TrimRight(source.Text, "\n")
+			if span == "" {
+				continue
 			}
-			c := measuredContext(layer.Name+" section", "startup", layer.Text[m[2]:m[3]], layer.Text[m[0]:end])
+			at := strings.Index(text[cursor:], span)
+			if at < 0 {
+				span = strings.TrimSpace(span)
+				if span == "" {
+					continue
+				}
+				at = strings.Index(text[cursor:], span)
+			}
+			if at < 0 {
+				continue
+			}
+			cursor += at + len(span)
+			if category == "entry-point layer" {
+				for _, m := range contextInlineImportRE.FindAllStringSubmatchIndex(span, -1) {
+					c := measuredContext("inline import", "startup", span[m[2]:m[3]], span[m[0]:m[1]])
+					l.context = append(l.context, c)
+					remaining.Words -= c.Words
+					remaining.Bytes -= c.Bytes
+				}
+				span = contextInlineImportRE.ReplaceAllString(span, "")
+			}
+			c := measuredContext(category, "startup", source.Path, span)
 			l.context = append(l.context, c)
 			remaining.Words -= c.Words
 			remaining.Bytes -= c.Bytes
