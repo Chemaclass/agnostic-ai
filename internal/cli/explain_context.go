@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -41,8 +41,6 @@ type explainContextOutput struct {
 const contextEstimateNote = "Estimates from generated instruction layers and spec text, using lint's word accounting, not model tokens or live context. " +
 	"On-demand bodies are excluded from startup totals. Runtime context, user-owned files, external imports, and host truncation are unknown."
 
-var contextInlineImportRE = regexp.MustCompile(`(?s)<!-- agnostic-ai:import:start (\S+) -->\n.*?\n<!-- agnostic-ai:import:end -->`)
-
 func measuredContext(category, load, source, text string) contextContribution {
 	return contextContribution{Source: filepath.ToSlash(source), Category: category, Load: load, contextSize: contextSize{Words: wordsIn(text), Bytes: len(text)}}
 }
@@ -60,6 +58,24 @@ func (l *sessionLoad) addEntryContext(entries []spec.Entry, kind string) {
 func (l *sessionLoad) addFileContext(output, text string, layers []instructionLayer) {
 	remaining := contextSize{Words: wordsIn(text), Bytes: len(text)}
 	cursor := 0
+	original := text
+	copied := []header.CopiedRange{{Length: len(text)}}
+	if len(layers) > 0 && layers[0].Rendering != nil {
+		original = layers[0].Rendering.Text
+		copied = layers[0].Rendering.Copied
+	}
+	renderedSpan := func(start, end int) string {
+		var out strings.Builder
+		for _, r := range copied {
+			left, right := max(start, r.Input), min(end, r.Input+r.Length)
+			stop := min(r.Output+right-r.Input, len(text))
+			begin := r.Output + left - r.Input
+			if left < right && begin < stop {
+				out.WriteString(text[begin:stop])
+			}
+		}
+		return out.String()
+	}
 	for _, layer := range layers {
 		sources := layer.Sources
 		if sources == nil {
@@ -78,26 +94,41 @@ func (l *sessionLoad) addFileContext(output, text string, layers []instructionLa
 			if span == "" {
 				continue
 			}
-			at := strings.Index(text[cursor:], span)
+			prefixTrim := 0
+			at := strings.Index(original[cursor:], span)
 			if at < 0 {
-				span = strings.TrimSpace(span)
+				trimmed := strings.TrimSpace(span)
+				prefixTrim = strings.Index(span, trimmed)
+				span = trimmed
 				if span == "" {
 					continue
 				}
-				at = strings.Index(text[cursor:], span)
+				at = strings.Index(original[cursor:], span)
 			}
 			if at < 0 {
 				continue
 			}
-			cursor += at + len(span)
+			sourceStart := cursor + at
+			cursor = sourceStart + len(span)
 			if category == "entry-point layer" {
-				for _, m := range contextInlineImportRE.FindAllStringSubmatchIndex(span, -1) {
-					c := measuredContext("inline import", "startup", span[m[2]:m[3]], span[m[0]:m[1]])
+				var parent strings.Builder
+				end := 0
+				for _, imported := range source.Imports {
+					start, stop := imported.Start-prefixTrim, imported.End-prefixTrim
+					if start < end || stop > len(span) {
+						continue
+					}
+					parent.WriteString(renderedSpan(sourceStart+end, sourceStart+start))
+					c := measuredContext("inline import", "startup", imported.Path, renderedSpan(sourceStart+start, sourceStart+stop))
 					l.context = append(l.context, c)
 					remaining.Words -= c.Words
 					remaining.Bytes -= c.Bytes
+					end = stop
 				}
-				span = contextInlineImportRE.ReplaceAllString(span, "")
+				parent.WriteString(renderedSpan(sourceStart+end, sourceStart+len(span)))
+				span = parent.String()
+			} else {
+				span = renderedSpan(sourceStart, sourceStart+len(span))
 			}
 			c := measuredContext(category, "startup", source.Path, span)
 			l.context = append(l.context, c)
@@ -130,21 +161,31 @@ func explainContext(cfg *config.Config, b spec.Bundle, target, file string) (exp
 			startupRules[c.Source] = true
 		}
 	}
+	outputs, err := contextRuleOutputs(cfg, b, target, startupRules)
+	if err != nil {
+		return explainContextOutput{}, err
+	}
+	var scope explainFileOutput
+	if file != "" {
+		scope, err = explainFile(file, target, cfg, b, ".")
+		if err != nil {
+			return explainContextOutput{}, err
+		}
+	}
 	for _, r := range b.For(target).Rules {
 		source := filepath.ToSlash(adapters.EntrySourcePath(r))
-		if !startupRules[source] {
+		if !startupRules[source] && len(outputs[source]) > 0 {
 			report.Contributions = append(report.Contributions, measuredContext("conditional rule body", "on-demand", source, r.Body))
 		}
 	}
 	if file != "" {
-		scope, err := explainFile(file, target, cfg, b, ".")
-		if err != nil {
-			return explainContextOutput{}, err
+		if !slices.Contains(fileContextTargets, target) {
+			return explainContextOutput{}, fmt.Errorf("explain --file: target %q is unsupported", target)
 		}
 		report.File = scope.File
 		matched := map[string]bool{}
 		for _, item := range scope.Instructions {
-			if item.Status == contextMatch {
+			if item.Status == contextMatch && slices.Contains(outputs[item.Source], filepath.ToSlash(item.Output)) {
 				matched[item.Source] = true
 			}
 		}

@@ -80,4 +80,7 @@
 # measured 18858144. Keep the established 8 KB allowance for CI.
 # After combining reviewed context reporting with lifecycle, source
 # reconciliation and RTK, measured 18911392. Keep CI's 8 KB allowance.
-18920000
+# After trusted import spans, frontmatter mapping and native rule output
+# attribution, measured 18923680, up 65536 from main f535cae3.
+# Keep the established 8 KB allowance for CI.
+18932680

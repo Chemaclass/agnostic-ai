@@ -140,11 +140,11 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
-		content, err := entryPointView(cfg, path, consumers[path], body)
+		content, imports, err := entryPointViewWithImports(cfg, path, consumers[path], body)
 		if err != nil {
 			return nil, err
 		}
-		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content, Sources: []instructionSource{{Path: adapters.AgnosticEntryPointPath, Text: content}}}}
+		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content, Sources: []instructionSource{{Path: adapters.AgnosticEntryPointPath, Text: content, Imports: imports}}}}
 		plain := !cfg.Sync.TargetOverview
 		unchanged := content
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
@@ -173,12 +173,12 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			}
 		}
 		if local != "" {
-			localView, err := entryPointView(cfg, path, consumers[path], local)
+			localView, imports, err := entryPointViewWithImports(cfg, path, consumers[path], local)
 			if err != nil {
 				return nil, err
 			}
 			content = adapters.AppendLocalInstructions(content, localView)
-			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView, Sources: []instructionSource{{Path: adapters.ProjectLocalEntryPointPath, Text: strings.TrimSpace(localView)}}})
+			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView, Sources: []instructionSource{{Path: adapters.ProjectLocalEntryPointPath, Text: localView, Imports: imports}}})
 		}
 		memory, err := memoryBlockFor(cfg, path, consumers[path])
 		if err != nil {
@@ -201,7 +201,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		// Mirror sess.WriteFile's trailing-newline normalization so Content
 		// equals the bytes on disk and the drift check never false-positives
 		// (an AGNOSTIC_AI.md ending in several newlines, fenced or not).
-		rendered := header.With(content, header.FormatMarkdown)
+		rendered := renderContextInstructions(content, layers)
 		if rendered != "" {
 			rendered = strings.TrimRight(rendered, "\n") + "\n"
 		}
@@ -274,7 +274,7 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 	if err != nil {
 		return nil, err
 	}
-	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
+	companion := renderContextInstructions(strings.Join(parts, "\n\n")+"\n", companionLayers)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = companionLayers
 	return files, nil
@@ -293,7 +293,7 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 			continue
 		}
 		rest, only := spec.SplitReaderOnly(text, "claude", nil)
-		view, err := entryPointView(cfg, "AGENTS.md", nil, rest)
+		view, imports, err := entryPointViewWithImports(cfg, "AGENTS.md", nil, rest)
 		if err != nil {
 			return nil, err
 		}
@@ -302,7 +302,7 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 		if i == 1 {
 			name, source = "local/AGNOSTIC_AI.md", adapters.ProjectLocalEntryPointPath
 		}
-		sharedSources = append(sharedSources, instructionSource{Path: source, Text: view})
+		sharedSources = append(sharedSources, instructionSource{Path: source, Text: view, Imports: imports})
 		if only != "" {
 			parts = append(parts, only)
 			companionLayers = append(companionLayers, instructionLayer{Name: name + " (Claude Code only)", Text: only, Sources: []instructionSource{{Path: source, Text: only}}})
@@ -315,19 +315,20 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 	if len(shared) > 1 {
 		agentsText = adapters.AppendLocalInstructions(agentsText, shared[1])
 	}
-	rendered := strings.TrimRight(header.With(agentsText, header.FormatMarkdown), "\n") + "\n"
+	sharedLayers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText, Sources: sharedSources}}
+	rendered := strings.TrimRight(renderContextInstructions(agentsText, sharedLayers), "\n") + "\n"
 	parts, err := appendMemoryPart(cfg, parts, files[claudeAt].Path)
 	if err != nil {
 		return nil, err
 	}
-	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
+	companion := renderContextInstructions(strings.Join(parts, "\n\n")+"\n", companionLayers)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = companionLayers
 	return append(files, entryPointFile{
 		Path:    "AGENTS.md",
 		Content: rendered,
 		Readers: []string{"claude"},
-		Layers:  []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText, Sources: sharedSources}},
+		Layers:  sharedLayers,
 		plain:   true,
 	}), nil
 }
@@ -380,15 +381,20 @@ func claudeImportsAgentsOnDisk() bool {
 // fences resolved for those readers, and `@path` imports rewritten per
 // sync.resolve-imports when a reader cannot follow them.
 func entryPointView(cfg *config.Config, path string, readers []string, text string) (string, error) {
+	view, _, err := entryPointViewWithImports(cfg, path, readers, text)
+	return view, err
+}
+
+func entryPointViewWithImports(cfg *config.Config, path string, readers []string, text string) (string, []adapters.ImportSpan, error) {
 	view := spec.FilterFences(text, readers)
 	if pathSupportsFileImports(readers) {
-		return view, nil
+		return view, nil, nil
 	}
-	resolved, err := adapters.ApplyImportMode(view, cfg.Sync.ResolveImports)
+	resolved, spans, err := adapters.ApplyImportModeWithSpans(view, cfg.Sync.ResolveImports)
 	if err != nil {
-		return "", fmt.Errorf("resolve imports for %s: %w", path, err)
+		return "", nil, fmt.Errorf("resolve imports for %s: %w", path, err)
 	}
-	return resolved, nil
+	return resolved, spans, nil
 }
 
 // pathRuleInliners returns the targets consuming an entry-point path
@@ -544,4 +550,12 @@ func appendMemoryPart(cfg *config.Config, parts []string, path string) ([]string
 		return parts, err
 	}
 	return append(parts, strings.TrimRight(memory, "\n")), nil
+}
+
+func renderContextInstructions(text string, layers []instructionLayer) string {
+	rendered, copied := header.WithCopiedRanges(text, header.FormatMarkdown)
+	if len(layers) > 0 {
+		layers[0].Rendering = &instructionRendering{Text: text, Copied: copied}
+	}
+	return rendered
 }
