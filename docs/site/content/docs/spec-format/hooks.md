@@ -180,7 +180,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
-- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Claude Code (command and HTTP handlers), Cursor. Both block when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output, which Claude Code allows. `loop_limit`: Cursor, Trae.
+- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Claude Code (command and HTTP handlers; no effect on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, or `async` and `asyncRewake` command hooks, and it denies on `PermissionRequest`), Cursor. Both block when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output, which Claude Code allows. `loop_limit`: Cursor, Trae.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.
@@ -795,7 +795,7 @@ Each command reports one decision.
 - `error`: any other non-zero exit.
 - `timeout`: the command ran past its timeout.
 
-With `failClosed: true`, Claude Code reads an `error` or `timeout` as `block` on every event that can block.
+With `failClosed: true`, Claude Code reads an `error` or `timeout` as `block`, except that it has no effect on `Stop`, `SubagentStop`, `TaskCompleted`, and `TeammateIdle`, or on command hooks that set `async` or `asyncRewake`; sync notes these and still writes `onFailure: "block"`. On `PermissionRequest` a failure denies the request.
 
 Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the tool adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 

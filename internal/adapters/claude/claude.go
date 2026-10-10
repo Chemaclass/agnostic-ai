@@ -837,7 +837,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	keyOrder := []matcherKey{}
-	onceNoOp := 0
+	onceNoOp, failClosedEvents, failClosedAsync := 0, 0, 0
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		matcher, _ := h.Meta["matcher"].(string)
@@ -851,6 +851,12 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		if hookBoolMeta(h.Meta, "once") {
 			onceNoOp++
 		}
+		switch failClosedNoEffect(h) {
+		case "events":
+			failClosedEvents++
+		case "async":
+			failClosedAsync++
+		}
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
@@ -859,6 +865,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "once", onceNoOp,
 		"Claude Code only honors once for hooks declared in skill frontmatter; a settings.json or agent-frontmatter hook keeps running every time")
+	noteFailClosedNoEffect(failClosedEvents, failClosedAsync)
 	byEvent := map[string][]claudehooks.Group{}
 	eventOrder := []string{}
 	for _, k := range keyOrder {

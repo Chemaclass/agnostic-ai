@@ -79,6 +79,36 @@ func SettingsFilePath(cfg *config.Config) string {
 	return filepath.Join(emit.OutputDir(cfg, target, defaultDir), "settings.json")
 }
 
+// Claude Code ignores onFailure on these events: exit code 2 there sends
+// Claude back to work, so a failing hook cannot block anything.
+var failClosedNoEffectEvents = map[string]bool{"Stop": true, "SubagentStop": true, "TaskCompleted": true, "TeammateIdle": true}
+
+// failClosedNoEffect reports which kind of hook h is when it sets failClosed
+// where Claude Code ignores the resulting onFailure: "events" for the four
+// events above, "async" for a background command handler. Empty otherwise.
+// sync still writes the key, so imports round-trip.
+func failClosedNoEffect(h spec.Entry) string {
+	if !hookBoolMeta(h.Meta, "failClosed") {
+		return ""
+	}
+	if event, _ := h.Meta["event"].(string); failClosedNoEffectEvents[event] {
+		return "events"
+	}
+	if kind, _ := h.Meta["type"].(string); kind == "" || kind == "command" {
+		if hookBoolMeta(h.Meta, "async") || hookBoolMeta(h.Meta, "asyncRewake") {
+			return "async"
+		}
+	}
+	return ""
+}
+
+func noteFailClosedNoEffect(events, async int) {
+	emit.NoteFieldNoOp(target, spec.KindHook, "failClosed", events,
+		"Claude Code ignores onFailure on Stop, SubagentStop, TaskCompleted, and TeammateIdle; a failing hook there does not block")
+	emit.NoteFieldNoOp(target, spec.KindHook, "failClosed", async,
+		"Claude Code ignores onFailure on command hooks that set async or asyncRewake; a failing background hook does not block")
+}
+
 // onFailure is "block" when the spec sets failClosed, Claude Code's way to
 // block the action when a command or HTTP hook cannot start, times out,
 // or exits unexpectedly (2.1.295). Older imports set failClosed on MCP-tool

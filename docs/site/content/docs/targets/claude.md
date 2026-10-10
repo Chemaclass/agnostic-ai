@@ -73,7 +73,7 @@ Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 - MCP: `server`, `tool`, and optional `input`.
 - Prompt: `prompt`, optional `model`, and `continueOnBlock`. With `continueOnBlock: true`, a blocking result returns its reason to Claude and the turn continues.
 - All handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` are command-only.
-- `failClosed: true` writes `onFailure: "block"`: a command or HTTP hook that cannot start, times out, or exits with an unexpected code then blocks the action instead of letting it through. Import reads it back as `failClosed: true`.
+- `failClosed: true` writes `onFailure: "block"`: a command or HTTP hook that cannot start, times out, or exits with an unexpected code then blocks the action instead of letting it through. It has no effect on `Stop`, `SubagentStop`, `TaskCompleted`, and `TeammateIdle`, or on command hooks that set `async` or `asyncRewake`; sync prints a note and still writes the key. On `PermissionRequest` a failure denies the request. Import reads it back as `failClosed: true`.
 - Claude Code documents `onFailure` for command and HTTP hooks only. Import keeps any other value, or the key on an MCP-tool or prompt handler, as `x-claude.onFailure`, and sync writes it back as written. `failClosed: true` wins over it.
 - A `command` list gives one handler per entry. `args` switches to exec form, with the executable in `command`.
 
