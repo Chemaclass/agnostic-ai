@@ -71,7 +71,9 @@ The packs are an alternative to the built-ins. Choose one source for each compon
 
 ## Caveman runtime is a separate choice
 
-Caveman also provides a CLI and runtime compression. This recipe enables its response skill only. Adding the runtime requires checking command failures, recovery, and whether it processes output RTK already filtered. Recovering Caveman's input cannot restore information RTK removed before Caveman received it.
+Keep Caveman runtime compression off for the initial setup. In a Linux test, RTK reduced an ordinary failing transcript from 23,865 bytes to 240 bytes; Caveman made no further reduction. A constructed repetitive failure tail did shrink further, from 4,248 bytes to 2,215 bytes. These are synthetic output measurements, not provider savings.
+
+Combining the runtimes adds two recovery stores. Caveman retrieves the RTK summary; RTK separately retrieves the original command output. Both stores must remain available. The tested command wrapper preserved exit status 7 and passed the RTK summary through when Caveman's store was unavailable. See the [runtime results and reproduction steps](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/rtk-caveman-runtime.md) before enabling this separate runtime feature.
 
 Measure a complete task with and without the enabled components. Count prompt overhead, retries, recovery reads, and task correctness alongside provider usage. Smaller command output is useful evidence, but it is not a measured reduction in the cost of completing the task. See Caveman's [measurement notes](https://github.com/JuliusBrussee/caveman/blob/main/docs/HONEST-NUMBERS.md).
 
