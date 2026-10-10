@@ -78,4 +78,6 @@
 # measured 18813088. Keep the established 8 KB allowance for CI.
 # After combining reviewed lifecycle, source reconciliation and RTK,
 # measured 18858144. Keep the established 8 KB allowance for CI.
-18867000
+# After combining reviewed context reporting with lifecycle, source
+# reconciliation and RTK, measured 18911392. Keep CI's 8 KB allowance.
+18920000
