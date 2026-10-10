@@ -242,7 +242,7 @@ func TestCompare_OrdersSpecsAndFieldsStablyAndStatesCoverage(t *testing.T) {
 		t.Fatalf("output is not deterministic:\n%s\n---\n%s", first, second)
 	}
 	for _, want := range []string{
-		"coverage: agent and skill fields and rule scope/activation only",
+		"coverage: agent and skill fields, rule scope/activation, and hook configuration",
 		"agent claude-only  .agnostic-ai/agents/claude-only.md",
 		"tools (differs)",
 	} {
