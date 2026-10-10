@@ -42,4 +42,6 @@
 # #2014 measured 18739360, up 16384 from main 7df02fd1: registered
 # worktree ownership, complete payloads, and hidden index flags are checked
 # before cleanup. Keep the same 8 KB allowance for CI's Linux build.
-18788000
+# After merging #2014, measured 18772128, up 32768 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+18781000
