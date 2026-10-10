@@ -91,6 +91,7 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 		}
 	}
 	seen := map[string]bool{}
+	canonicalFiles := map[string]bool{}
 	for _, mapping := range mappings {
 		old, canonical, ok := strings.Cut(mapping, "=")
 		if !ok || !reconciliationPath(old) || !reconciliationPath(canonical) || old == canonical || strings.HasPrefix(old, canonical+"/") || strings.HasPrefix(canonical, old+"/") {
@@ -112,10 +113,13 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 		}
 		trees := make([]map[string]string, 4)
 		for i, tree := range []struct{ revision, dir string }{{plan.Base, old}, {plan.Upstream, old}, {plan.Migrated, canonical}, {plan.Current, canonical}} {
-			trees[i], err = reconciliationTree(tree.revision, tree.dir)
+			trees[i], err = reconciliationTree(tree.revision, tree.dir, i < 2)
 			if err != nil {
 				return plan, err
 			}
+		}
+		for file := range trees[3] {
+			canonicalFiles[canonical+"/"+file] = true
 		}
 		files := map[string]bool{}
 		for _, tree := range trees {
@@ -152,8 +156,38 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 			plan.Entries[i].Action = "conflict"
 		}
 	}
+	reconciliationHierarchyConflicts(plan.Entries, canonicalFiles)
 	sort.Slice(plan.Entries, func(i, j int) bool { return plan.Entries[i].Source < plan.Entries[j].Source })
 	return plan, nil
+}
+
+func reconciliationHierarchyConflicts(entries []reconciliationEntry, canonicalFiles map[string]bool) {
+	for _, entry := range entries {
+		if entry.Action == "remove" {
+			delete(canonicalFiles, entry.Destination)
+		}
+	}
+	survivors := make(map[string][]int)
+	for file := range canonicalFiles {
+		survivors[file] = nil
+	}
+	for i, entry := range entries {
+		if entry.Action != "remove" {
+			survivors[entry.Destination] = append(survivors[entry.Destination], i)
+		}
+	}
+	for file, descendants := range survivors {
+		for parent := path.Dir(file); parent != "."; parent = path.Dir(parent) {
+			if ancestors, ok := survivors[parent]; ok {
+				for _, i := range descendants {
+					entries[i].Action = "conflict"
+				}
+				for _, i := range ancestors {
+					entries[i].Action = "conflict"
+				}
+			}
+		}
+	}
 }
 
 func reconciliationPath(value string) bool {
@@ -161,7 +195,7 @@ func reconciliationPath(value string) bool {
 }
 
 // Blob IDs include content; the mode also detects changes to executable assets.
-func reconciliationTree(revision, dir string) (map[string]string, error) {
+func reconciliationTree(revision, dir string, skillsOnly bool) (map[string]string, error) {
 	data, err := reconciliationGit("ls-tree", "-rz", "--full-tree", revision, "--", ":(literal)"+dir)
 	if err != nil {
 		return nil, fmt.Errorf("read tree %s:%s: %w", revision, dir, err)
@@ -193,10 +227,12 @@ func reconciliationTree(revision, dir string) (map[string]string, error) {
 			skills[parts[0]] = true
 		}
 	}
-	for file := range files {
-		name, _, _ := strings.Cut(file, "/")
-		if !skills[name] {
-			delete(files, file)
+	if skillsOnly {
+		for file := range files {
+			name, _, _ := strings.Cut(file, "/")
+			if !skills[name] {
+				delete(files, file)
+			}
 		}
 	}
 	return files, nil

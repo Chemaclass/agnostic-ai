@@ -36,4 +36,7 @@
 # new creates and previews every spec kind in its configured source folder.
 # After merging #1990, measured 18722976, up 24576 from main b64322dc.
 # Keep room for the 8 KB difference seen in CI's Linux build.
-18740000
+# #2013 measured 18747552, up 24576 from main 7df02fd1: committed
+# native and canonical skill trees produce a deterministic reconciliation
+# plan with explicit migration baselines. Keep CI's 8 KB build allowance.
+18764000

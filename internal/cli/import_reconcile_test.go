@@ -126,6 +126,77 @@ func TestImportReconcile_UpstreamAdditionsConflictWithMigrationFiles(t *testing.
 	}
 }
 
+func TestImportReconcile_DestinationHierarchy(t *testing.T) {
+	cases := []struct {
+		name, canonical, nativeBase, upstream, second string
+		want                                          string
+	}{
+		{"canonical ancestor", "skill/assets", "", "skill/assets/data", "", "conflict"},
+		{"canonical descendant", "skill/assets/data", "", "skill/assets", "", "conflict"},
+		{"canonical non-skill file", "new", "", "new/SKILL.md", "", "conflict"},
+		{"proposed ancestor", "", "", "skill/assets", "skill/assets/data", "conflict"},
+		{"replace file with directory", "skill/assets", "skill/assets", "skill/assets/data", "", "add"},
+		{"replace directory with file", "skill/assets/data", "skill/assets/data", "skill/assets", "", "add"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := setupGitRepo(t)
+			testutil.Chdir(t, dir)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+			writeFile(t, "native/skill/SKILL.md", "base")
+			if c.nativeBase != "" {
+				writeFile(t, "native/"+c.nativeBase, "asset")
+			}
+			if c.second != "" {
+				writeFile(t, "other/skill/SKILL.md", "base")
+			}
+			git(t, dir, "add", ".")
+			git(t, dir, "commit", "-qm", "base")
+			base := git(t, dir, "rev-parse", "HEAD")
+			writeFile(t, ".agnostic-ai/skills/skill/SKILL.md", "base")
+			if c.canonical != "" {
+				writeFile(t, ".agnostic-ai/skills/"+c.canonical, "asset")
+			}
+			git(t, dir, "add", ".")
+			git(t, dir, "commit", "-qm", "migration")
+			migrated := git(t, dir, "rev-parse", "HEAD")
+			git(t, dir, "checkout", "-q", base)
+			if c.nativeBase != "" {
+				git(t, dir, "rm", "-q", "native/"+c.nativeBase)
+			}
+			writeFile(t, "native/"+c.upstream, "upstream")
+			mappings := []string{"native=.agnostic-ai/skills"}
+			if c.second != "" {
+				writeFile(t, "other/"+c.second, "upstream")
+				mappings = append(mappings, "other=.agnostic-ai/skills")
+			}
+			git(t, dir, "add", ".")
+			git(t, dir, "commit", "-qm", "upstream")
+			upstream := git(t, dir, "rev-parse", "HEAD")
+			git(t, dir, "checkout", "-q", migrated)
+			plan, err := planSkillReconciliation(base, migrated, upstream, mappings)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, entry := range plan.Entries {
+				if entry.Source == "native/"+c.upstream {
+					found = true
+					if entry.Action != c.want {
+						t.Errorf("hierarchy: %+v, want %s", entry, c.want)
+					}
+				}
+				if c.second != "" && entry.Action != "conflict" {
+					t.Errorf("competing destinations: %+v", entry)
+				}
+			}
+			if !found {
+				t.Fatalf("upstream addition absent: %+v", plan.Entries)
+			}
+		})
+	}
+}
+
 func TestImportReconcile_PreservesCanonicalDeletionAndRecognizesConvergence(t *testing.T) {
 	dir := setupGitRepo(t)
 	testutil.Chdir(t, dir)
@@ -217,7 +288,7 @@ func TestImportReconcile_TreeIncludesExecutableAssetsAndRejectsLinks(t *testing.
 	git(t, dir, "add", ".")
 	git(t, dir, "update-index", "--chmod=+x", "native/space name/run.sh")
 	git(t, dir, "commit", "-qm", "base")
-	tree, err := reconciliationTree("HEAD", "native")
+	tree, err := reconciliationTree("HEAD", "native", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +298,7 @@ func TestImportReconcile_TreeIncludesExecutableAssetsAndRejectsLinks(t *testing.
 	// Build a symlink Git entry without requiring OS symlink privileges.
 	git(t, dir, "update-index", "--add", "--cacheinfo", "120000,"+strings.Fields(tree["space name/run.sh"])[2]+",native/space name/link")
 	git(t, dir, "commit", "-qm", "link")
-	if _, err := reconciliationTree("HEAD", "native"); err == nil || !strings.Contains(err.Error(), "unsupported linked") {
+	if _, err := reconciliationTree("HEAD", "native", true); err == nil || !strings.Contains(err.Error(), "unsupported linked") {
 		t.Errorf("linked tree: %v", err)
 	}
 }
