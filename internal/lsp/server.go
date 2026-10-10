@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -50,21 +51,23 @@ type ServerInfo struct {
 }
 
 // Linter is the callback the server calls to produce diagnostics for a
-// project rooted at root. Returns a map of absolute file path → diagnostics.
-type Linter func(root string) map[string][]Diagnostic
+// project rooted at root. An error means the result is incomplete.
+type Linter func(root string) (map[string][]Diagnostic, error)
 
 // Server runs the LSP main loop reading from r and writing to w.
 type Server struct {
-	r      *Reader
-	w      *Writer
-	linter Linter
-	root   string
+	r          *Reader
+	w          *Writer
+	linter     Linter
+	root       string
+	published  map[string]bool
+	clientURIs map[string]string
 }
 
 // New returns a Server that reads from r, writes to w, and delegates
 // diagnostics to linter.
 func New(r io.Reader, w io.Writer, linter Linter) *Server {
-	return &Server{r: NewReader(r), w: NewWriter(w), linter: linter}
+	return &Server{r: NewReader(r), w: NewWriter(w), linter: linter, published: map[string]bool{}, clientURIs: map[string]string{}}
 }
 
 // Run reads messages until the stream closes or exit is received.
@@ -174,6 +177,8 @@ func (s *Server) handleDidClose(msg *Message) {
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return
 	}
+	delete(s.clientURIs, pathToURI(uriToPath(params.TextDocument.URI)))
+	delete(s.published, params.TextDocument.URI)
 	// Clear diagnostics for the closed file.
 	s.notify("textDocument/publishDiagnostics", map[string]any{
 		"uri":         params.TextDocument.URI,
@@ -186,24 +191,60 @@ func (s *Server) publishDiagnostics(triggerURI string) {
 	if s.linter == nil {
 		return
 	}
-	byPath := s.linter(s.root)
-	// Send results for every file the linter reported, plus clear the trigger
-	// file if the linter produced no findings for it.
-	triggerPath := uriToPath(triggerURI)
-	seen := map[string]bool{}
-	for path, diags := range byPath {
+	triggerIdentity := pathToURI(uriToPath(triggerURI))
+	for uri := range s.published {
+		if uri != triggerURI && pathToURI(uriToPath(uri)) == triggerIdentity {
+			delete(s.published, uri)
+			s.published[triggerURI] = true
+		}
+	}
+	s.clientURIs[triggerIdentity] = triggerURI
+	byPath, err := s.linter(s.root)
+	byURI := map[string][]Diagnostic{}
+	for path, diagnostics := range byPath {
+		if err != nil && len(diagnostics) == 0 {
+			continue
+		}
 		uri := pathToURI(path)
+		if clientURI, ok := s.clientURIs[uri]; ok {
+			uri = clientURI
+		}
+		byURI[uri] = diagnostics
+	}
+	if err == nil {
+		for uri := range s.published {
+			if _, ok := byURI[uri]; !ok {
+				byURI[uri] = []Diagnostic{}
+			}
+		}
+		if _, ok := byURI[triggerURI]; !ok {
+			byURI[triggerURI] = []Diagnostic{}
+		}
+	} else if len(byURI) == 0 {
+		s.notify("window/showMessage", map[string]any{
+			"type":    1,
+			"message": fmt.Sprintf("agnostic-ai could not analyze this workspace: %v. Fix the reported problem and save a project file to retry.", err),
+		})
+	}
+	uris := make([]string, 0, len(byURI))
+	for uri := range byURI {
+		uris = append(uris, uri)
+	}
+	sort.Strings(uris)
+	for _, uri := range uris {
+		diagnostics := byURI[uri]
+		if diagnostics == nil {
+			diagnostics = []Diagnostic{}
+		}
 		s.notify("textDocument/publishDiagnostics", map[string]any{
 			"uri":         uri,
-			"diagnostics": diags,
+			"diagnostics": diagnostics,
 		})
-		seen[path] = true
-	}
-	if !seen[triggerPath] {
-		s.notify("textDocument/publishDiagnostics", map[string]any{
-			"uri":         triggerURI,
-			"diagnostics": []Diagnostic{},
-		})
+		if len(diagnostics) == 0 {
+			delete(s.published, uri)
+		} else {
+			s.published[uri] = true
+		}
 	}
 }
 
@@ -238,16 +279,24 @@ func uriToPath(uri string) string {
 		return uri
 	}
 	p := u.Path
+	if u.Host != "" && u.Host != "localhost" {
+		p = "//" + u.Host + p
+	}
 	// On Windows, /C:/... → C:\...
 	if len(p) > 2 && p[0] == '/' && p[2] == ':' {
 		p = p[1:]
 		p = strings.ReplaceAll(p, "/", string(filepath.Separator))
 	}
-	return p
+	return filepath.FromSlash(p)
 }
 
 // pathToURI converts an OS path to a file:// URI.
 func pathToURI(path string) string {
+	slashPath := filepath.ToSlash(path)
+	if strings.HasPrefix(slashPath, "//") {
+		host, rest, _ := strings.Cut(strings.TrimPrefix(slashPath, "//"), "/")
+		return (&url.URL{Scheme: "file", Host: host, Path: "/" + rest}).String()
+	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		abs = path
@@ -256,5 +305,5 @@ func pathToURI(path string) string {
 	if !strings.HasPrefix(abs, "/") {
 		abs = "/" + abs
 	}
-	return "file://" + abs
+	return (&url.URL{Scheme: "file", Path: abs}).String()
 }

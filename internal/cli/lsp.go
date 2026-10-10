@@ -39,21 +39,24 @@ func newLSPCmd() *cobra.Command {
 	}
 }
 
-// lspLinter runs the full lint suite rooted at root and returns a map of
-// absolute file path → LSP diagnostics. Files with no findings are omitted
-// so the server can push empty diagnostics to clear stale markers.
-func lspLinter(root string) map[string][]lsp.Diagnostic {
+// A load failure leaves the lint results incomplete, even with source diagnostics.
+func lspLinter(root string) (map[string][]lsp.Diagnostic, error) {
+	var err error
+	root, err = filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolve diagnostics project root: %w", err)
+	}
 	cfg, err := config.Load(root)
 	if err != nil {
-		return nil
+		return lspLoadFailure(root, err)
 	}
 	layers, err := resolveLayers(root, cfg)
 	if err != nil {
-		return nil
+		return lspLoadFailure(root, err)
 	}
 	b, err := spec.LoadLayered(layers)
 	if err != nil {
-		return nil
+		return lspLoadFailure(root, err)
 	}
 	b.ApplyModelTiers(cfg.Models)
 	findings := collectLintFindings(cfg.Targets, projectKindSupport(cfg), b)
@@ -68,7 +71,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 		}
 		out[abs] = append(out[abs], lintFindingToDiagnostic(f))
 	}
-	return out
+	return out, nil
 }
 
 func lintFindingToDiagnostic(f lintFinding) lsp.Diagnostic {
