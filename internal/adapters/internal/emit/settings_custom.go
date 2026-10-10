@@ -202,7 +202,7 @@ func MergeSettingsCustomRecordMap(keys map[string]any, settings []spec.Entry, ta
 		keys[key] = custom
 		return
 	}
-	out := make(map[string]any, len(managedMap)+len(customMap))
+	out := make(map[string]any)
 	for name, record := range managedMap {
 		out[name] = record
 	}
@@ -378,7 +378,7 @@ func marshalSettingsValue(v any) ([]byte, error) {
 // merges the keys they share. The inputs are never mutated: the
 // managed map can be a value an adapter still holds a reference to.
 func mergeSettingsMaps(managed, custom map[string]any) (map[string]any, bool) {
-	out := make(map[string]any, len(managed)+len(custom))
+	out := make(map[string]any)
 	for k, v := range managed {
 		out[k] = v
 	}
@@ -403,8 +403,8 @@ func mergeSettingsMaps(managed, custom map[string]any) (map[string]any, bool) {
 // the same specs produces the same file. Entries compare on their JSON
 // form, so a string, a number, and an object all de-duplicate.
 func unionSettingsLists(managed, custom []any) []any {
-	out := make([]any, 0, len(managed)+len(custom))
-	seen := make(map[string]bool, len(managed)+len(custom))
+	out := []any{}
+	seen := make(map[string]bool)
 	for _, list := range [][]any{managed, custom} {
 		for _, v := range list {
 			key := settingsValueKey(v)
