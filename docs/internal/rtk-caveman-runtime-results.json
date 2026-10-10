@@ -1,0 +1,72 @@
+{
+  "failure_cases": {
+    "disabled_rtk_command_runs": 1,
+    "disabled_rtk_filtered_bytes": 201,
+    "disabled_rtk_store_has_no_recall_hint": true,
+    "long_nested_wrapper_bytes_including_status": 2367,
+    "long_nested_wrapper_command_runs": 1,
+    "long_nested_wrapper_exit": 7,
+    "long_nested_wrapper_includes_direct_transform": true,
+    "long_nested_wrapper_recovers_rtk_summary": true,
+    "missing_engine_passes_original_rtk_summary": true,
+    "missing_rtk_command_not_run": true,
+    "missing_rtk_wrapper_exit": 127,
+    "nested_wrapper_command_runs": 1,
+    "nested_wrapper_error_and_path_visible": true,
+    "nested_wrapper_exit": 7,
+    "short_input_noop": true,
+    "unavailable_caveman_store_emits_no_compact_output": true,
+    "unavailable_caveman_store_error_identifies_store": true,
+    "unavailable_caveman_store_exit": 1,
+    "unavailable_store_wrapper_command_runs": 1,
+    "unavailable_store_wrapper_error_and_path_visible": true,
+    "unavailable_store_wrapper_exit": 7,
+    "wrong_caveman_store_fails": true,
+    "wrong_rtk_store_fails": true
+  },
+  "long_summary": {
+    "caveman_bytes": 2215,
+    "caveman_recall_exact_rtk_summary": true,
+    "caveman_recall_is_not_original": true,
+    "caveman_report_basis": "inferred",
+    "caveman_sha256": "7177ee0348b4239d0863b68c70c1a75158993c8e73bffc38eca13fc1a3a1f5e2",
+    "command_exit": 7,
+    "command_runs": 1,
+    "command_runs_after_all_recovery": 1,
+    "error_and_path_visible": true,
+    "original_bytes": 27975,
+    "original_sha256": "3dfe838d24fef236eddd42c73fd4a863f4b4a63d0df552ac17b20c833bb1a907",
+    "rtk_bytes": 4248,
+    "rtk_recall_exact_original": true,
+    "rtk_recall_hint_survives_caveman": true,
+    "rtk_sha256": "484f6d8c7266330b5febe3c64840dc6639271bcc1e7d0a8ecd1dca92ed6d41b9"
+  },
+  "normal": {
+    "caveman_bytes": 240,
+    "caveman_noop": true,
+    "command_exit": 7,
+    "command_runs": 1,
+    "error_and_path_visible": true,
+    "original_bytes": 23865,
+    "original_sha256": "b8d421a50aa81e8075dd6f4674ce8e325b4f371c6b617fba95f55d3f762cf1e2",
+    "rtk_bytes": 240,
+    "rtk_recall_exact_original": true,
+    "rtk_sha256": "7a0a16937a9c006ebcbdde49b2b7e09458becb5ce7a98ef8035410e8e95e0961"
+  },
+  "platform": "darwin",
+  "recall_mode": "isolated sqlite",
+  "stdin_filter": {
+    "error_path_visible": true,
+    "input_bytes": 21219,
+    "output_bytes": 239,
+    "pipe_exit": 0,
+    "rtk_recall_hint": false
+  },
+  "versions": {
+    "caveman_cli": "2.1.0",
+    "caveman_cli_entry_sha256": "2864f44410cd8a6b508be530cbcb2e4f8b7c93380dba9190f3977e21a7c98806",
+    "caveman_engine_sha256": "dca7792b510817a9e0965a9a0c3a36779882c3924c4b597baf47cc9dfad07e08",
+    "rtk": "rtk 0.51.0",
+    "rtk_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f"
+  }
+}
