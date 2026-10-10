@@ -20,7 +20,7 @@ review surface as `agnostic-ai sync --check`.
 
 ### Drift status
 
-The status bar checks generated files on save and every `driftPollSeconds`:
+The status bar checks generated files on save and every `driftPollSeconds`. It runs one check at a time. Saves and poll ticks during a check queue one follow-up check. A result from before the latest save does not replace the status.
 
 - **In sync:** the check succeeded and found no drift.
 - **N drifted:** the check found files that differ from the specs. Click to run the check in a terminal for repair instructions.
@@ -28,6 +28,8 @@ The status bar checks generated files on save and every `driftPollSeconds`:
 - **Not found:** install the CLI on `PATH` or set `agnostic-ai.binaryPath`.
 
 A later successful check clears the previous failure reason.
+
+Closing the workspace or disabling the extension stops its background check. Changing the selected project or the configured binary cancels the old check before starting another.
 
 ### Open canonical source
 

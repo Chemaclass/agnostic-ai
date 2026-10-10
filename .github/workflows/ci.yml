@@ -275,10 +275,14 @@ jobs:
           done
 
   vscode:
-    name: VS Code extension
+    name: VS Code extension (${{ matrix.os }})
     needs: editor_changes
     if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.vscode == 'true') }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     defaults:
       run:
         working-directory: editors/vscode
