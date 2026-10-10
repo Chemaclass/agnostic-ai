@@ -161,7 +161,7 @@ agnostic-ai graph --format mermaid --target claude
 
 | Flag | Description |
 |------|-------------|
-| `--format` | `text` (default, aligned matrix), `mermaid`, `dot`, `json`. |
+| `--format` | `text` (default, aligned table), `mermaid`, `dot`, `json`. |
 | `--target` | Restrict to one target. |
 | `--spec` | Restrict to one spec name. |
 | `--kind` | Restrict to one kind: agent, skill, rule, hook, mcp, command. |

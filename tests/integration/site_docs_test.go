@@ -892,7 +892,7 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	for _, required := range []string{
 		"# Set up agnostic-ai with a coding agent",
 		"## What the agent does",
-		"### Safety contract",
+		"### Setup rules",
 		"agnostic-ai init --from all",
 		"agnostic-ai sync --check",
 		"https://agnostic-ai.org/docs/installation/",

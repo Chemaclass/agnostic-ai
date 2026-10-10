@@ -1,6 +1,6 @@
 +++
 title = "Cursor"
-description = "How agnostic-ai writes Cursor configuration: native paths, what Cursor cannot hold, and output options."
+description = "How agnostic-ai writes Cursor configuration: file paths, what Cursor cannot hold, and output options."
 weight = 40
 
 [extra]
@@ -153,7 +153,7 @@ Both skill directories are project-level, at the root and in nested subdirectori
 Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block becomes `Write(<path>)` and `Write(<path>/**)` rules in `permissions.deny` of `.cursor/cli.json`, the project CLI config ([configuration](https://cursor.com/docs/cli/reference/configuration)). A path that already ends in `**` gets the first rule only. The rules carry no leading `/`: Cursor scopes a relative path to the workspace and reads a leading `/` as an absolute path ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)).
 
 - **IDE agent**: not covered ([permissions](https://cursor.com/docs/reference/permissions.md)). State the paths in a rule if the IDE agent should know about them.
-- **`decision: ask`**: advisory, with a coverage note. The CLI has no ask list and already prompts before a write no `allow` rule covers. Use `decision: deny` to block.
+- **`decision: ask`**: not enforced, with a coverage note. The CLI has no ask list and already prompts before a write no `allow` rule covers. Use `decision: deny` to block.
 - **`reason`**: not written. A CLI permission rule has no message field.
 - **Other settings fields**: `model`, `effort`, and `x-cursor` raise a coverage note, since a project `cli.json` takes `permissions` only.
 

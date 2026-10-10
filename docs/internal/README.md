@@ -10,11 +10,11 @@ Build and run the CLI first using the contributor setup guide. Then choose the a
 | Choose checks and prepare a change | [Development workflow](contributing.md) |
 | Support another coding tool | [Adding an adapter](adding-adapters.md) |
 | Build an adapter outside this repository | [Plugin protocol](plugin-protocol.md) |
-| Add a starter template for a stack | [Contributing a preset](contributing-presets.md) |
+| Add a starter template for a language or framework | [Contributing a preset](contributing-presets.md) |
 | Publish reusable specs | [Pack authors](pack-authors.md) |
 | Measure or improve sync performance | [Benchmarks](benchmarks.md) |
 | Work on the browser playground | [Playground development](../playground/README.md) |
 | Ship a version | [Release process](release-process.md) |
 | Understand past choices or planned work | [Decisions](decisions.md) and [Roadmap](roadmap.md) |
 | Check adapters against vendor documentation | [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md) |
-| Speed up target audits with Jev, or measure it | [Jev triage](jev-triage.md) |
+| Use Jev to decide which vendor changes need review | [Jev triage](jev-triage.md) |

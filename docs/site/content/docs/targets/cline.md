@@ -91,7 +91,7 @@ Cline still reads a single-file `.clinerules`. It imports as one rule, `clinerul
 
 ## Protected paths
 
-Advisory. Cline takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Cline takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

@@ -19,7 +19,7 @@ group = "Reference"
 
 ## Write one
 
-`agnostic-ai new agent code-reviewer` creates `agents/code-reviewer.md`. The frontmatter configures the agent. The body is its system prompt.
+`agnostic-ai new agent code-reviewer` creates `agents/code-reviewer.md`. YAML settings between `---` lines at the top, called frontmatter, configure the agent. The body is its system prompt.
 
 ```markdown
 ---
@@ -259,7 +259,7 @@ Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list
 | [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md), [Kilo Code](@/docs/targets/kilo.md) | Changed to the tool's own names or a permission map |
 | [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md) | Dropped with a note |
 
-On Trae, an explicit empty `can: []` or `tools` allowlist disables all tools. Use `x-trae: {tools: ""}` to restrict only Trae. Leaving the field unset lets Trae load every available tool.
+On Trae, an explicitly empty list (`can: []` or `tools`) disables all tools. Use `x-trae: {tools: ""}` to restrict only Trae. Leaving the field unset lets Trae load every available tool.
 
 The change can widen access: on Kiro, `edit` also permits `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each tool's own names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
 
@@ -281,7 +281,7 @@ Every other tool drops the list with a coverage note. On the three inline tools,
 
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
-`permissionMode` sets how much one agent may do without approval. `hooks` sets lifecycle hooks for that agent only. Without either, the agent uses the main session's setting.
+`permissionMode` sets how much one agent may do without approval. `hooks` sets commands to run at events for that agent only. Without either, the agent uses the main session's setting.
 
 | Target | `permissionMode` | Agent `hooks` |
 |--------|------------------|---------------|

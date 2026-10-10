@@ -73,7 +73,7 @@ The portable `allow`, `deny`, and `ask` lists merge into the `permission` key of
 - `x-kilo.permission` writes Kilo's own map. It wins for the tool keys it names, and that spec's portable lists are skipped.
 - Your entries for tools agnostic-ai does not set stay.
 
-This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the root `kilo.jsonc` ([config order](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/getting-started/settings/index.md#config-file-precedence)), so its `mcp` or `instructions` shadow the generated ones.
+This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the root `kilo.jsonc` ([config order](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/getting-started/settings/index.md#config-file-precedence)), so its `mcp` or `instructions` replace the generated ones.
 
 **Ignore** specs write `.kilocodeignore` in the project root. Kilo's [migrator](https://kilo.ai/docs/customize/context/kilocodeignore), not this adapter, turns it into read and edit denials.
 
@@ -101,7 +101,7 @@ Generated rule sections in `AGENTS.md` are recovered when their source specs are
 
 ## Protected paths
 
-Advisory. Sync writes no edit guard for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

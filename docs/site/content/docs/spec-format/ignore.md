@@ -19,7 +19,7 @@ Tools apply an ignore file to their own reads and indexing. Whether it also stop
 
 ## Write one
 
-Markdown with optional YAML frontmatter, one file per group. The body holds gitignore-syntax patterns.
+Markdown with optional YAML settings between `---` lines at the top, one file per group. The body holds gitignore-syntax patterns.
 
 ````markdown
 Secrets and build artifacts the agent should never read.
@@ -35,11 +35,11 @@ With fenced code blocks, only the lines inside them are patterns. The text aroun
 
 ## Output
 
-Specs are joined into each tool's ignore file under a `#` provenance header, with a blank line between them. Order and whitespace are kept, and CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Tools without an ignore file report the spec as unsupported.
+Specs are joined into each tool's ignore file under a `#` header naming the source, with a blank line between them. Order and whitespace are kept, and CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Tools without an ignore file report the spec as unsupported.
 
 ## Overwrite behaviour
 
-Sync replaces an ignore file that has no agnostic-ai provenance header only when every existing pattern stays, unchanged and in order.
+Sync replaces an ignore file that has no agnostic-ai generated-file header only when every existing pattern stays, unchanged and in order.
 
 - Extra patterns are allowed.
 - Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched.

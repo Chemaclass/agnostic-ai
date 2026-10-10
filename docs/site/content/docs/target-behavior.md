@@ -9,11 +9,11 @@ group = "Reference"
 
 # Cross-target behavior
 
-These behaviors apply to several tools. For one tool's output files and settings, open its name in the [target matrix](@/docs/targets/_index.md#capability-matrix).
+These behaviors apply to several tools. For one tool's output files and settings, open its name in the [tool support table](@/docs/targets/_index.md#capability-matrix).
 
 ## Directory-specific instructions
 
-Rules with `scope` work on 20 tools, through native file conditions or nested instruction files. Five tools skip them. See the [scope matrix](@/docs/scoped-context.md#native-support) before combining tools.
+Rules with `scope` work on 20 tools, through each tool's file conditions or instruction files in subdirectories. Five tools skip them. See the [directory support table](@/docs/scoped-context.md#native-support) before combining tools.
 
 ## Entry-point files
 
@@ -70,9 +70,9 @@ While a spec still writes the file, the next sync removes a key it set that no s
 
 ## Spec kind behavior
 
-The [spec format guide](@/docs/spec-format/_index.md) defines every portable kind. The [target matrix](@/docs/targets/_index.md#capability-matrix) shows where each is native, mapped, opt-in, source-only, or has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step. See [coverage notes](@/docs/configuration.md#coverage-notes).
+The [spec format guide](@/docs/spec-format/_index.md) defines every portable kind. The [tool support table](@/docs/targets/_index.md#capability-matrix) shows where each is native, mapped, opt-in, source-only, or has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step. See [coverage notes](@/docs/configuration.md#coverage-notes).
 
-- **Skills** are written as native skill folders (`SKILL.md` plus assets). Most tools read `.agents/skills/`; codex, windsurf, amp, zed, warp, antigravity, crush, augment, goose, openhands, factory, and kilo write it by default, so identical folders are written once. The rest read their own folder. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) replaces byte-identical folders with one copy plus symlinks. Aider flattens skills to rule files.
+- **Skills** are written as native skill folders (`SKILL.md` plus assets). Most tools read `.agents/skills/`; codex, windsurf, amp, zed, warp, antigravity, crush, augment, goose, openhands, factory, and kilo write it by default, so identical folders are written once. The rest read their own folder. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) replaces byte-identical folders with one copy plus symlinks. Aider writes skill text as rule files.
 
   Trae can also read `.agents/skills/` when **Enable .agents Skills Directory** is on under Settings > Skills & Commands > Import Settings. Its default is not documented. [`import trae`](@/docs/targets/trae.md#import) reads both paths without changing that switch; sync keeps `.trae/skills/` as its default.
 - **Agents** are written as native subagent profiles. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads that shared folder plus `.devin/agents/`.
@@ -84,7 +84,7 @@ The [spec format guide](@/docs/spec-format/_index.md) defines every portable kin
 
   **Cursor may drop a Claude hook's `args`.** An exec-form hook (`command: node`, `args: [guard.js]`) may run as a bare `node`. `sync` notes this when both are configured. Write a shell-form `command`, or turn off Cursor's third-party hooks.
 - **MCP servers** reach every tool with a project-level MCP file. OpenHands reads them only from `~/.openhands/mcp.json`, which `sync --global` writes. Aider, Jules, and Goose have no MCP support. Cline reads MCP servers only from a user file (`~/.cline/data/settings/cline_mcp_settings.json`), so it has no project MCP file. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
-- **Settings** map portable fields into the tool's native settings. Gemini maps the default model to `model.name`, keeps sibling options, and accepts `x-gemini` keys. [Protected paths](@/docs/spec-format/settings.md#protected-paths) are enforced on Claude Code (permission rules), Codex and Gemini CLI (a generated hook), and the Cursor CLI (deny rules for `decision: deny`). Everywhere else they are advisory.
+- **Settings** translate shared fields into each tool's own settings. Gemini maps the default model to `model.name`, keeps sibling options, and accepts `x-gemini` keys. [Protected paths](@/docs/spec-format/settings.md#protected-paths) are enforced on Claude Code (permission rules), Codex and Gemini CLI (a generated hook), and the Cursor CLI (deny rules for `decision: deny`). For other tools, sync does not enforce them.
 - **Commands** are written as native slash-prompt files where supported. Kiro uses `.kiro/prompts/`. Codex project prompts need the legacy opt-in `outputs.codex.commands-dir`. Amp has no file output.
 - **Ignore** specs merge into each supported tool's ignore file. Before it replaces a hand-written file, `sync` checks that every existing pattern survives in order. If it can't, `AAI-103` leaves the file untouched, so import existing patterns first. See [overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 

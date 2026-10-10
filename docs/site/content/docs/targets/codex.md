@@ -1,6 +1,6 @@
 +++
 title = "Codex"
-description = "How agnostic-ai writes Codex configuration: native paths, what Codex cannot hold, and output options."
+description = "How agnostic-ai writes Codex configuration: file paths, what Codex cannot hold, and output options."
 weight = 20
 
 [extra]
@@ -89,7 +89,7 @@ AGENTS.md                                    # entry-point pointer body (written
   {% <details summary="Server names with special characters"> %}
   Server names that are not bare TOML keys are quoted, such as `npm:@modelcontextprotocol/server-sequential.thinking` (Codex CLI 0.152.0 and later).
   {% </details> %}
-- **Settings**: the last portable `model` and `effort` write `model` and `model_reasoning_effort`. They lose to `outputs.codex.config.model` or `outputs.codex.config.model-reasoning-effort` and to the captured `.agnostic-ai/overlays/codex.config.toml` (see [Codex config](#codex-config)). Codex has no `x-<target>` settings passthrough: an `x-codex` block on a settings spec raises a coverage note naming the overlay and `outputs.codex.config`.
+- **Settings**: the last portable `model` and `effort` write `model` and `model_reasoning_effort`. They lose to `outputs.codex.config.model` or `outputs.codex.config.model-reasoning-effort` and to the captured `.agnostic-ai/overlays/codex.config.toml` (see [Codex config](#codex-config)). Codex does not copy settings from `x-<target>` blocks: an `x-codex` block on a settings spec raises a coverage note naming the overlay and `outputs.codex.config`.
 - **Commands**: off by default. Codex reads custom prompts only from `~/.codex/prompts/` and [deprecates them in favor of skills](https://learn.chatgpt.com/docs/custom-prompts). `sync` prints a coverage note and removes a stale managed `.codex/prompts/` tree.
 
 ## Config keys

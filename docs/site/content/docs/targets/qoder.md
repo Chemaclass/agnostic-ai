@@ -109,7 +109,7 @@ Auto memory is off by default. agnostic-ai never reads or writes that store. See
 
 ## Protected paths
 
-Advisory. Sync has no native edit guard to write for this tool, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

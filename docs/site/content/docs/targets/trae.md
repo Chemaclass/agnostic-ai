@@ -33,9 +33,9 @@ Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Set
   - `x-trae.scene: git_message` marks a rule for AI-written commit messages.
 - **Agents** ([subagents docs](https://docs.trae.ai/ide/subagents)): frontmatter carries `name` and `description` (required), plus optional `model`, `tools`, `disallowedTools`, and `mcpServers`. The body is the system prompt.
   - `tools` is written as is, as a string joined with commas, because Trae uses Claude-style names (`Bash`, `Edit`, `Glob`, `Grep`, `Read`, `Write`, `WebFetch`, `WebSearch`, plus `Skill`, `LSP`, `TodoWrite`, and `mcp__<server>__<tool>`).
-  - Omit `tools` to load every available tool. An explicit empty `can: []`, `tools: []`, `tools: ""`, or `x-trae.tools` allowlist emits `tools: ""`, which disables all tools. Import preserves this restriction through later syncs.
+  - Omit `tools` to load every available tool. An explicitly empty tool list (`can: []`, `tools: []`, `tools: ""`, or `x-trae.tools`) writes `tools: ""`, which disables all tools. Import preserves this restriction through later syncs.
   - Trae accepts only its built-in model IDs (`gpt-5.4`, `minimax-m3`, ...). A generic `model` drops with a coverage note. Use `model: {trae: <id>}` or `x-trae.model`.
-  - `disallowedTools` and `mcpServers` come from `x-trae`. `x-trae.disallowedTools` is a denylist joined with commas, and it wins over `tools`.
+  - `disallowedTools` and `mcpServers` come from `x-trae`. `x-trae.disallowedTools` is a comma-separated list of blocked tools, and it wins over `tools`.
   - Names start with an ASCII letter, end with a letter or digit, use only letters, digits, or hyphens, and run at most 50 characters. Sync rejects any other name.
   - Subagents need Settings > Beta > Subagents > Enable Subagents Directory. Trae does not say whether it is on by default.
 - **Skills** ([skills docs](https://docs.trae.ai/ide/skills)): `.trae/skills/<name>/SKILL.md` with `name` and `description`. Sibling assets (`examples/`, `templates/`, `resources/`) are copied as they are. A flat file under `.trae/rules/` never loads as a skill.
@@ -89,7 +89,7 @@ Hook commands that share an event and matcher become one spec with a `command:` 
 
 ## Protected paths
 
-Advisory. Trae takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Trae takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

@@ -10,7 +10,7 @@ group = "Reference"
 
 # Why agnostic-ai
 
-Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each has its own path, format, and keys. Use two tools and you keep two copies, which drift apart.
+Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each has its own path, format, and keys. Use two tools and you keep two copies, which grow different over time.
 
 ## The same server, four formats
 
@@ -37,14 +37,14 @@ Hooks differ the same way. The event before a tool call is `PreToolUse` in Claud
 
 - **A symlink** shares bytes. It cannot turn YAML into TOML or rename a key. On Windows it needs admin rights or Developer Mode, and Git for Windows checks it out as a text file by default.
 - **Copy and paste** works until someone edits one copy.
-- **One `AGENTS.md`** is read by many tools and carries plain instructions well. It cannot carry skills, hooks, MCP servers, agents, rules scoped to some files, or per-tool frontmatter such as a model name.
+- **One `AGENTS.md`** is read by many tools and carries plain instructions well. It cannot carry skills, hooks, MCP servers, agents, rules scoped to some files, or tool-specific YAML settings such as a model name.
 - **Your own script** works for the formats you know today. Tools change their formats often, and you fix the script each time.
 
 ## What agnostic-ai does
 
 - **One source.** Plain Markdown and YAML in `.agnostic-ai/`, committed with your code.
-- **Native output.** `sync` writes each tool's own files for [25 targets](@/docs/targets/_index.md), `AGENTS.md` included.
-- **A CI gate.** [`sync --check`](@/docs/ci.md) fails the build when a generated file drifts from its spec.
+- **Each tool's own format.** `sync` writes each tool's own files for [25 targets](@/docs/targets/_index.md), `AGENTS.md` included.
+- **An automated check.** [`sync --check`](@/docs/ci.md) fails the build when a generated file differs from its spec.
 - **Easy to adopt.** [`init --from all`](@/docs/migration.md) imports the config you already have and keeps its behavior.
 - **Safe on shared files.** Sync keeps your hand-written keys in files such as `.claude/settings.json`, and [`revert`](@/docs/cli-reference/maintain.md#revert) undoes a `sync --backup`.
 - **Easy to leave.** The generated files are yours and keep working without agnostic-ai.

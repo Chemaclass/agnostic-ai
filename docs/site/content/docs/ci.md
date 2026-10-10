@@ -115,7 +115,7 @@ steps:
   - run: agnostic-ai sync --check --diff
 ```
 
-`AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [build provenance](@/docs/verify-a-release.md#build-provenance). This needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
+`AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [where the archive was built](@/docs/verify-a-release.md#build-provenance). This needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
 
 ## Diagnose drift
 
@@ -139,4 +139,4 @@ Add the gate after installing the AI CLI it needs:
   run: agnostic-ai verify --target codex
 ```
 
-`verify` first checks that generated files are current, then sends JSON to the script on stdin. The script runs the checks and scores them. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.
+`verify` first checks that generated files are current, then sends JSON to the script on stdin. The script runs the checks and scores them. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON format.

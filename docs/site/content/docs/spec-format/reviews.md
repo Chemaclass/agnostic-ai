@@ -25,7 +25,7 @@ Other tools report review specs as unsupported.
 
 ## Write one
 
-Write Markdown with optional YAML frontmatter, one file per group of guidance.
+Write Markdown with optional YAML settings between `---` lines at the top, one file per group of guidance.
 
 ```markdown
 ---

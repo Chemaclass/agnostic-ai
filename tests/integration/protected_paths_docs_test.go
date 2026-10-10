@@ -30,7 +30,7 @@ func TestDocs_TargetPagesStateProtectedPathEnforcement(t *testing.T) {
 			t.Errorf("%s page has no Protected paths section", target)
 			continue
 		}
-		want := "Advisory."
+		want := "Not enforced."
 		if enforcement := adapters.ProtectedPathsEnforcement(target); enforcement != "" {
 			want = "Enforced (" + enforcement + ")."
 		}

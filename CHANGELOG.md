@@ -46,6 +46,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- Guides use simpler words, and RTK and Caveman recommendations separate cost, speed and response style.
 - RTK and Caveman docs cover setup, approvals, recovery and measured session costs; raw evidence preserves failed checks (#1963, #1959, #1960, #1961).
 - Memory and project setup guides use plain words and explain when tools load shared memory (#1933, #1951).
 

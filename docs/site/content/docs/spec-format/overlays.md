@@ -1,6 +1,6 @@
 +++
 title = "Overlays"
-description = "overlays/: native settings and helper files that import captured, so sync keeps writing them."
+description = "overlays/: tool-specific settings and helper files that import captured, so sync keeps writing them."
 weight = 110
 
 [extra]
@@ -9,13 +9,13 @@ group = "Reference"
 
 # Overlays
 
-`overlays/` keeps the parts of a tool's configuration that no portable spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files. Nothing is lost when you adopt agnostic-ai. Sync also restores a deleted `.claude/` or `.codex/` directory with those keys.
+`overlays/` keeps the parts of a tool's configuration that no shared spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files. Nothing is lost when you adopt agnostic-ai. Sync also restores a deleted `.claude/` or `.codex/` directory with those keys.
 
-- **Safe adoption.** Import moves what it can into specs and keeps the rest verbatim.
+- **Safe adoption.** Import moves what it can into specs and keeps the rest unchanged.
 - **Still editable.** An overlay is tracked source. Edit it and sync, like any spec.
 - **Clear order.** On Claude Code, specs and `outputs.claude.settings` win over the overlay. On Codex, the overlay wins over `outputs.codex.config`.
 
-An overlay reaches one tool only. When a portable spec kind covers a setting, move it into that spec so every tool gets it.
+An overlay reaches one tool only. When a shared spec kind covers a setting, move it into that spec so every tool gets it.
 
 ## Files
 

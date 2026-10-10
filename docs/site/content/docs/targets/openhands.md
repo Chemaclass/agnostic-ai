@@ -38,7 +38,7 @@ AGENTS.md                          # pointer body + inlined always-on rules (sha
   - A remote `api_key` becomes an `Authorization: Bearer <key>` header, as [OpenHands sends](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) it. An `Authorization` entry in `headers` wins.
   - `timeout` gets a coverage note, because `mcp.json` has no per-server timeout.
 - **Environments**: `install` writes `.openhands/setup.sh`, the [repository setup script](https://docs.openhands.dev/openhands/usage/customization/repository) OpenHands runs each time it opens the repo.
-  - The file has a `#!/bin/bash` line, the provenance header, then `install` as written. OpenHands runs `chmod +x` itself, so sync does not set the executable bit.
+  - The file has a `#!/bin/bash` line, the generated-file header, then `install` as written. OpenHands runs `chmod +x` itself, so sync does not set the executable bit.
   - `terminals` (Cursor's long-running dev processes) gets a coverage note, because the script runs once when the repo starts.
   - With several environment specs, the last `install` wins, as for Cursor.
 
@@ -84,7 +84,7 @@ Import loses these details (none change what OpenHands loads):
 
 ## Protected paths
 
-Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

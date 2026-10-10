@@ -14,7 +14,7 @@ make build
 ./agnostic-ai sync  # this repository's own tool config
 ```
 
-Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked for bootstrap. Edit the specs, then sync.
+Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
 
 ## Make a change
 
@@ -23,7 +23,7 @@ Branch, keep the change to one outcome, and add tests for behavior you change.
 | Area | Start here |
 |---|---|
 | Commands, config, or spec loading | [Architecture](docs/internal/architecture.md) |
-| A target adapter | [Adding an adapter](docs/internal/adding-adapters.md) |
+| Code that writes a tool's configuration (an adapter) | [Adding an adapter](docs/internal/adding-adapters.md) |
 | Starter specs | [Contributing a preset](docs/internal/contributing-presets.md) |
 | Docs site | [Docs site](docs/internal/contributing.md#docs-site) |
 | Browser playground | [Playground development](docs/playground/README.md) |
@@ -35,7 +35,7 @@ Branch, keep the change to one outcome, and add tests for behavior you change.
 make preflight
 ```
 
-It runs formatting, lint (including `govet`), and the Go tests. CI adds race, shell, schema, WASM, and editor jobs. [Checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) says which of those your change needs. `make hooks` installs quick formatting and commit-message checks.
+It runs formatting, lint (including `govet`), and the Go tests. Continuous integration (CI) also checks concurrent Go code, shell scripts, configuration schemas (the allowed fields and values), browser WebAssembly builds, and editor extensions. [Checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) says which of those your change needs. `make hooks` installs quick formatting and commit-message checks.
 
 ## Submit
 
