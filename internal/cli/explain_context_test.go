@@ -111,6 +111,7 @@ func TestExplainContext_AttributesInlineImportsAndSharedSectionsOnce(t *testing.
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n@docs/extra.md\n")
 	mustWriteFile(t, filepath.Join(dir, "docs", "extra.md"), words(30)+"\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "shared.md"), "---\nname: shared\n---\n"+words(20)+"\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "nested.md"), "---\nname: nested\nglobs: [src/api/**]\n---\n"+words(40)+"\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -149,8 +150,43 @@ func TestExplainContext_AttributesInlineImportsAndSharedSectionsOnce(t *testing.
 	if out != again {
 		t.Error("JSON ordering changed between runs")
 	}
-	if _, err := runCLI(t, "explain", "--context", "--target", "codex", "--file", "main.go"); err == nil {
-		t.Error("unsupported file target accepted")
+	scopedJSON, err := runCLI(t, "explain", "--context", "--target", "codex", "--file", "src/api/main.go", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scoped explainContextOutput
+	if err := json.Unmarshal([]byte(scopedJSON), &scoped); err != nil {
+		t.Fatal(err)
+	}
+	if scoped.Target != "codex" || scoped.File != "src/api/main.go" || scoped.Startup != report.Startup || scoped.FileScope != (contextSize{}) {
+		t.Errorf("Codex file changed startup or claimed known file scope: %+v", scoped)
+	}
+	var nestedBody bool
+	for _, c := range scoped.Contributions {
+		if c.Source == ".agnostic-ai/rules/nested.md" && c.Category == "conditional rule body" {
+			nestedBody = true
+			if c.Load != "on-demand" || c.Words != 40 {
+				t.Errorf("uncertain Codex nested body was promoted: %+v", c)
+			}
+		}
+	}
+	if !nestedBody {
+		t.Error("Codex nested body was omitted")
+	}
+	fileJSON, err := runCLI(t, "explain", "--file", "src/api/main.go", "--target", "codex", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fileReport explainFileOutput
+	if err := json.Unmarshal([]byte(fileJSON), &fileReport); err != nil {
+		t.Fatal(err)
+	}
+	nested := findItem(t, fileReport.Instructions, ".agnostic-ai/rules/nested.md", "src/api/AGENTS.md")
+	if nested.Status != contextUnknown || !strings.Contains(nested.Reason, "session launch directory") {
+		t.Errorf("Codex nested discovery should remain unknown: %+v", nested)
+	}
+	if _, err := runCLI(t, "explain", "--context", "--target", "amp", "--file", "src/api/main.go"); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Errorf("unsupported configured file target accepted: %v", err)
 	}
 	if _, err := runCLI(t, "explain", "--context", "--target", "cursor"); err == nil {
 		t.Error("unconfigured target accepted")
