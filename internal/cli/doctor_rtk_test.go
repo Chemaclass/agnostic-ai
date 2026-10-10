@@ -82,7 +82,7 @@ func TestRTKDeclaredPermissions_UnsupportedDenyPreventsAllowClaim(t *testing.T) 
 }
 
 func TestRTKDeclaredPermissions_WrappersAndParameterRulesStayUnknown(t *testing.T) {
-	for _, command := range []string{"timeout 3 git status", "time git status", "nice git status", "nohup git status", "stdbuf -oL git status", "command git status", "builtin git status", "noglob git status", "xargs git status"} {
+	for _, command := range []string{"timeout 3 git status", "/usr/bin/timeout 3 git status", "time git status", "nice git status", "nohup git status", "stdbuf -oL git status", "command git status", "builtin git status", "noglob git status", "xargs git status"} {
 		got := rtkDeclaredDecision(command, []rtkSettings{{Permissions: rtkPermissionRules{
 			"allow": {"Bash(*)"}, "deny": {"Bash(git status)"},
 		}}})

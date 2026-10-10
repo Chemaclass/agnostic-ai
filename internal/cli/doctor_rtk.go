@@ -269,7 +269,7 @@ func rtkDeclaredDecision(command string, sources []rtkSettings) rtkDecision {
 		return result
 	}
 	executable, _, _ := strings.Cut(command, " ")
-	switch executable {
+	switch path.Base(executable) {
 	case "timeout", "time", "nice", "nohup", "stdbuf", "command", "builtin", "noglob", "xargs":
 		return result
 	}
