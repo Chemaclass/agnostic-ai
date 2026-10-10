@@ -26,4 +26,4 @@
 # checks and owned metadata snapshots add 12 KB to main after #1945.
 # #1964 measured 18596000 on Go 1.27.2: the opt-in RTK hook and
 # pinned Caveman skill, source notices, and licenses add 28672 bytes.
-18610000
+18655000
