@@ -1,0 +1,60 @@
+# Assess CodeGraph, Ponytail, and Headroom for repository work
+
+Keep CodeGraph as a limited navigation pilot. Skip Ponytail and Headroom until there is a concrete gap to test. This assessment adds no default install, dependency, builtin, adapter, or host configuration. Related to #2024.
+
+## Decisions
+
+| Tool | Decision | Evidence and next action |
+|---|---|---|
+| CodeGraph | Pilot | The pinned release works through stdio MCP, indexes the public source, and notices edited and deleted symbols. Source reads remain necessary to verify the answer. Before adopting a contributor recipe, repeat the comparison with host usage accounting and a task whose positive permission-comparison path exists. |
+| Ponytail | Skip | Its reuse and small-change guidance overlaps the project's focused changes and review requirements. No additional review defect was identified that needs another instruction layer. Revisit only with two known-defect diffs and a shared review rubric. |
+| Headroom | Skip | Its explicit compressor does not intercept other MCP results. No measured noisy-output failure here justifies a new runtime and retrieval store. Revisit with compression before the consuming model receives the original, plus exact retrieval and expiration checks. |
+
+## Pinned sources and ownership
+
+CodeGraph release [v1.6.2](https://github.com/colbymchenry/codegraph/releases/tag/v1.6.2) resolves to source commit `6560052a6f856855d3f71eee838fd66ccfa4285d`. Its macOS arm64 standalone archive was checked against the GitHub asset digest: `d74d1bfb4060db63ec3c2b72c4e17f76c31978af3bad6ace4370d1501ac0662e`. The executed CLI reported `1.6.2`, and its bundled Node reported `v24.16.0`. The system's Node `v26.3.0` served only as the small stdio client; it was not used to run CodeGraph, whose [package](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/package.json) requires Node below 25.
+
+CodeGraph is [MIT licensed](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/LICENSE). Its [language table](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/site/src/content/docs/reference/languages.md) includes Go, TypeScript, and Kotlin, but not Markdown or YAML. Ordinary source and text search remains available. Its [Codex installer](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/src/installer/targets/codex.ts) writes native configuration and instructions, so it was not run. A temporary release bundle and disposable public-source fixtures kept those writes outside the repository's generated files.
+
+Every CodeGraph process received `DO_NOT_TRACK=1`, `CODEGRAPH_NO_UPDATE_CHECK=1`, and `CODEGRAPH_NO_DAEMON=1`. The release's [telemetry contract](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/TELEMETRY.md) and [update-check source](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/src/upgrade/update-check.ts) establish these opt-outs. This was not a packet-capture audit. No installer, upgrade, global activation, or provider account setup ran.
+
+Ponytail was inspected at [commit 9b58c1f](https://github.com/DietrichGebert/ponytail/tree/9b58c1ffb790c075ca32e70a89cf1d80588f4abf), whose package identifies version `5.1.0` and MIT. Its [skill](https://github.com/DietrichGebert/ponytail/blob/9b58c1ffb790c075ca32e70a89cf1d80588f4abf/skills/ponytail/SKILL.md) prefers existing code and minimal complete changes, while adding session activation, a required closing note, and a prescribed shortcut-comment form. Existing [Go guidance](../../../.agnostic-ai/rules/go-style.md) and [review workflow](../../../.agnostic-ai/skills/pr-sweep/SKILL.md) already require focused changes, justified dependencies, and independent review. No prompt adaptation or plugin hook was installed, and no incremental review benefit is claimed.
+
+Headroom was inspected at [commit 976aa714](https://github.com/headroomlabs-ai/headroom/tree/976aa714ef3e19174dc0cb586cee7b20d064e4ef). Its [package](https://github.com/headroomlabs-ai/headroom/blob/976aa714ef3e19174dc0cb586cee7b20d064e4ef/pyproject.toml) identifies `0.40.0`, Beta, Python 3.10 or newer, and a Rust/maturin build backend; its license is [Apache-2.0](https://github.com/headroomlabs-ai/headroom/blob/976aa714ef3e19174dc0cb586cee7b20d064e4ef/LICENSE). Its [MCP implementation](https://github.com/headroomlabs-ai/headroom/blob/976aa714ef3e19174dc0cb586cee7b20d064e4ef/headroom/ccr/mcp_server.py) offers explicit compression, original-content retrieval, and statistics, with a 3,600-second session lifetime. Installing that server alone does not compress other servers' replies. Compressing text after a model has read it cannot recover that input cost. No runtime was installed or compression/retrieval behavior tested.
+
+## Navigation task and source answer
+
+The repository fixture came from public revision [`7df02fd17788652b1198ae4256adc96e769aad5d`](https://github.com/Chemaclass/agnostic-ai/tree/7df02fd17788652b1198ae4256adc96e769aad5d). Both arms received this task:
+
+> Establish a source-verified answer to how `compare` turns a portable settings permission entry into target output evidence at this revision, including an output opt-in and target override. If the premise is unsupported, state that with evidence and explain the actual permission emission path instead. Verify claimed relationships against source.
+
+The premise is unsupported at this revision. [`compareEntries`](https://github.com/Chemaclass/agnostic-ai/blob/7df02fd17788652b1198ae4256adc96e769aad5d/internal/cli/compare.go#L211) selects agents, skills, rules, hooks, and MCPs, excluding settings. The comparison's emitted-field evidence therefore says nothing about a settings permission entry. This finding changes the useful question, rather than inventing a permission-comparison call path.
+
+Actual sync passes target-filtered settings through [`EmitWithProvenance`](https://github.com/Chemaclass/agnostic-ai/blob/7df02fd17788652b1198ae4256adc96e769aad5d/internal/adapters/adapter.go#L744). [`Bundle.For`](https://github.com/Chemaclass/agnostic-ai/blob/7df02fd17788652b1198ae4256adc96e769aad5d/internal/spec/spec.go#L640) materializes portable permission capabilities into native rules before adapter emission. Codex's [`resolveExecPolicies`](https://github.com/Chemaclass/agnostic-ai/blob/7df02fd17788652b1198ae4256adc96e769aad5d/internal/adapters/codex/permission_policies.go#L123) translates supported Bash prefixes only with `outputs.codex.exec-policies-from-permissions: true`; explicit native policies take precedence. The adapter writes those policies to `.codex/rules/default.rules`. OpenCode's [`buildPermissions`](https://github.com/Chemaclass/agnostic-ai/blob/7df02fd17788652b1198ae4256adc96e769aad5d/internal/adapters/opencode/permission.go#L62) overlays `x-opencode.permission` last, so a native tool decision can replace its translated portable rules. These source relationships were checked independently of graph suggestions; native enforcement was not tested.
+
+## Bounded trial
+
+The host was the existing Codex collaboration harness on macOS arm64. Fresh child sessions used the same inherited model configuration; the harness exposes no exact model build identifier or session token/cost counters. Neither RTK nor Caveman was activated or changed for the experiment. Their presence in checked-in configuration does not establish personal activation. No separate provider API or CLI requests were made.
+
+Four fresh sessions ran sequentially in baseline, graph, graph, baseline order. The first three had a 100-second instruction budget; the last had 90 seconds to stay within the ten-minute pilot ceiling. Initialization began at 18:16:49.715 UTC on 2026-10-10; all four reports had been received and their main source claims checked by 18:26:20 UTC, a 9-minute-30-second observation window including coordination pauses. Individual complete-task time remains unknown. Ordinary-navigation sessions had no registered CodeGraph tool, no CodeGraph binary on PATH, and explicit restrictions against discovering or executing it through the shell. This was a workflow restriction, not an OS sandbox. Graph sessions had the same source-read tools plus a stdio bridge limited to two `codegraph_explore` calls with at most eight files. Source verification remained required. The bridge initialized a fresh server for each query, which prevents a claim about persistent-session deduplication.
+
+Full fixture initialization took 4.031 seconds separately from navigation. The tool reported 1,504 indexed files, 23,696 nodes, and 76,094 edges. A preceding `index` invocation failed because initialization was required; that retry took 0.153 seconds. The config excluded tracked integration fixtures, adapter testdata, the documentation site, and editor test-fixtures. Download and source-audit time were not timed.
+
+The first graph navigation query returned 49 symbols from eight files, with 27,161 bytes in the serialized MCP result (25,063 bytes of text). The required resolver was absent from that response, and source reads filled the gap. A graph reply's size and a tool-call count are diagnostics, not token or cost savings.
+
+| Session | Source-reviewed result | Self-reported command calls, including report write | Independently logged graph calls |
+|---|---|---|---|
+| Baseline 1 | Correct exclusion, emission path, Codex opt-in, and Claude override | 9 | 0 |
+| Graph 1 | Correct exclusion, emission path, Codex opt-in, and OpenCode override | 10 | 1 |
+| Graph 2 | Correct exclusion, emission path, Codex opt-in, and Claude override | 11 | 2 |
+| Baseline 2 | Correct exclusion, Codex opt-in, and Claude override; sync orchestration caller left untraced | 8 | 0 |
+
+Both graph sessions still used eight ordinary verification commands. Graph 1's bridge call took 0.680 seconds; Graph 2's two calls took 0.734 and 0.619 seconds, including MCP startup. Those durations exclude the rest of each task. A generic freshness probe was briefly indexed during the first arm's preparation, then removed; subsequent freshness checks used a separate fixture. None of the navigation answers relied on it.
+
+Missing session elapsed time, tokens, provider retries, retrieval, and billing stay unknown. This harness could not establish a currency spend ceiling or exact host model build, and ordinary command counts come from the agents' reports rather than an independent transcript export. The [existing measurement method](trio-evaluation.md) requires complete-task usage, startup context, retries, retrieval, and independent answer checks before any performance recommendation. The CodeGraph [context-occupancy analysis](https://github.com/colbymchenry/codegraph/blob/6560052a6f856855d3f71eee838fd66ccfa4285d/docs/benchmarks/residual-context-occupancy.md) also explains why fewer calls need not reduce remaining context. This pilot cannot establish a speed, cost, or context advantage.
+
+## Freshness and next gate
+
+A separate disposable public-source fixture included one generic Go probe function. After indexing, a stdio MCP search found it. Renaming the function on disk made the new name searchable, and deleting the source file produced no results. Watchers were disabled, and each check opened a fresh MCP connection. This verifies startup/query freshness for these changes, not long-running watcher behavior, branch switching, or every language.
+
+Before adoption, use a checked-in runner landed before measurements, a pinned host/model with complete usage counters, two fresh sessions per arm, enforced baseline tool isolation, and independent source checks on the now-supported task. Include MCP schema/instruction startup cost and any source-verification reads. Keep the index local, disable telemetry/update checks, preserve generated-file ownership, and document index cleanup. A contributor integration remains a separate follow-up after that evidence.
