@@ -24,3 +24,7 @@ The [scoped-context walkthrough](../user/scoped-context.md#start-with-one-direct
 Start with the config created by `init`. [agnostic-ai.yaml](agnostic-ai.yaml) is a small, commented starter for Claude Code and Cursor. The [configuration reference](https://agnostic-ai.org/docs/configuration/) describes every field.
 
 See [Configuration](../user/configuration.md) for defaults and [Targets](../user/targets.md) for supported fields per tool.
+
+## Add RTK or Caveman independently
+
+[Project packs for RTK and Caveman](rtk-and-caveman/README.md) supplies two local packs for POSIX Claude Code, explicit ownership transfer, removal commands, and a reproducible configuration check. The RTK hook and default Caveman response skill remain separate choices.
