@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -74,8 +75,9 @@ func newRenderCmd() *cobra.Command {
 				anyOutput = true
 				for _, f := range captured {
 					_, _ = fmt.Fprintf(out, "# target: %s — %s\n", t, filepath.ToSlash(f.Path))
-					_, _ = fmt.Fprint(out, f.Content)
-					if !strings.HasSuffix(f.Content, "\n") {
+					content := preview.Display(f.Path, f.Content).Text
+					_, _ = fmt.Fprint(out, content)
+					if !strings.HasSuffix(content, "\n") {
 						_, _ = fmt.Fprintln(out)
 					}
 					_, _ = fmt.Fprintln(out)
