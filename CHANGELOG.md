@@ -9,9 +9,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Compare MCP connection fields and reference omissions from actual target output, without printing connection values or starting servers (#1986).
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
 - Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
-- VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
+- Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
 - Compare hook events, matchers, commands, timeouts, and failure policies with current output and ignored-field reasons (#1985).
-- The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).
 
 ### By tool
 
