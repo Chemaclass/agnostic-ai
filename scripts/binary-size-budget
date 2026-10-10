@@ -76,4 +76,6 @@
 # Keep the established 8 KB allowance for CI's Linux build.
 # After combining reviewed source reconciliation and RTK diagnostics,
 # measured 18813088. Keep the established 8 KB allowance for CI.
-18822000
+# After combining reviewed lifecycle, source reconciliation and RTK,
+# measured 18858144. Keep the established 8 KB allowance for CI.
+18867000
