@@ -59,23 +59,24 @@ The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, a
 
 ### Explain a source file
 
-Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its source, output path, selector, and reason. Claude Code and Cursor are supported.
+Start from a project file instead of a spec. The report lists configured instructions from the planned sync output, with their source, output path, selector, and reason. Claude Code, Codex, and Cursor are supported.
 
 ```bash
 agnostic-ai explain --file services/payments/handler.go --target cursor
 agnostic-ai explain --file services/payments/handler.go --target claude
+agnostic-ai explain --file services/payments/handler.go --target codex
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot combine with a spec or error code argument. |
-| `--target <name>` | Required with `--file`. Must be a configured target. Supported: `cursor`, `claude`. |
+| `--target <name>` | Required with `--file`. Must be a configured target. Supported: `cursor`, `claude`, `codex`. |
 
 | Status | Meaning |
 |--------|---------|
-| `always` | No file condition: Cursor's `alwaysApply: true` or root `AGENTS.md`; Claude Code's project `CLAUDE.md` or rules without `paths`. |
+| `always` | No file condition: Cursor's `alwaysApply: true` or root `AGENTS.md`; Claude Code's project `CLAUDE.md` or rules without `paths`; Codex's root native instruction file. |
 | `match` | A file pattern or a nested instruction directory covers the file. |
-| `no-match` | A selector exists and misses the file. |
+| `no-match` | A selector misses the file, or a planned instruction filename takes priority over this output. |
 | `model-selected` | `alwaysApply: false` with a description and no globs. Cursor's agent decides. |
 | `manual` | `alwaysApply: false` with neither. Loads only when `@`-mentioned. |
 | `unknown` | The command cannot establish discovery or evaluate the selector. The reason names the missing information. |
@@ -83,6 +84,8 @@ agnostic-ai explain --file services/payments/handler.go --target claude
 | `not-emitted` | The rule selects the target but sync writes no instruction for it. |
 
 A root `AGENTS.md` written for another tool such as Codex reaches Cursor too. Cursor reports `unknown` for braces, character classes, negation, or unreadable frontmatter.
+
+For Codex, root `AGENTS.md` and `AGENTS.override.md` instructions have no file condition. When both are planned in one directory, the override takes priority. Nested instructions report `unknown` and state whether the file is under their directory. Codex discovers instructions from the project root to its session launch directory, which this command cannot establish. Custom filenames also report `unknown` because their discovery needs a fallback filename or session setting. See [Codex's instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 
 For Claude Code, the report reads the emitted `paths` values, including native overrides, and discovers Markdown rules recursively under `.claude/rules/`. Nested `CLAUDE.md` files cover files beneath their directory. For other files, their loading depends on the session launch directory, so the result is `unknown`. Imported instructions and outputs outside native discovery also report `unknown` when session approval or settings are needed. Complex path patterns the command cannot evaluate, including brace expansion and character classes, name that limit in their reason. See [Claude Code's instruction discovery](https://code.claude.com/docs/en/memory).
 

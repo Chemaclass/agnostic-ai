@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -66,7 +67,7 @@ func newExplainCmd() *cobra.Command {
 			"each configured instruction the target would read, its canonical " +
 			"source, output path, selector, and why it matches or not. This is " +
 			"configured applicability, not a record of the model's active context. " +
-			"Cursor and Claude Code are supported. Writes nothing.",
+			"Cursor, Claude Code, and Codex are supported. Writes nothing.",
 		Example: `  # Human-readable
   agnostic-ai explain rules/conventional-commits.md
 
@@ -87,6 +88,9 @@ func newExplainCmd() *cobra.Command {
 
   # Which Claude Code instructions are configured for a source file
   agnostic-ai explain --file services/payments/handler.go --target claude
+
+  # Which Codex instructions are configured for a source file
+  agnostic-ai explain --file services/payments/handler.go --target codex
 
   # Every file whose change can change an output, for a hook's trigger list
   agnostic-ai explain --inputs`,
@@ -169,7 +173,7 @@ func newExplainCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
 	cmd.Flags().BoolVar(&global, "global", false, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --global writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
-	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: cursor, claude.")
+	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: "+strings.Join(fileContextTargets, ", ")+".")
 	cmd.Flags().BoolVar(&inputs, "inputs", false, "List every file and directory whose change can change a generated output, one per line, for a git hook's trigger list.")
 	return cmd
 }
