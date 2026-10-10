@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,7 +33,15 @@ func newHookWorktreeRemoveCmd() *cobra.Command {
 				Event string `json:"hook_event_name"`
 				Path  string `json:"worktree_path"`
 			}
-			dec := json.NewDecoder(io.LimitReader(cmd.InOrStdin(), 1<<20))
+			const maxPayloadBytes = 1 << 20
+			raw, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), maxPayloadBytes+1))
+			if err != nil {
+				return fmt.Errorf("read worktree removal payload: %w", err)
+			}
+			if len(raw) > maxPayloadBytes {
+				return fmt.Errorf("worktree removal payload exceeds %d bytes", maxPayloadBytes)
+			}
+			dec := json.NewDecoder(bytes.NewReader(raw))
 			if err := dec.Decode(&payload); err != nil {
 				return fmt.Errorf("parse worktree removal payload: %w", err)
 			}
@@ -186,17 +195,23 @@ func sameWorktreePath(a, b string) bool {
 
 func worktreeGit(repo string, args ...string) ([]byte, error) {
 	cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
-	for _, value := range os.Environ() {
-		key, _, _ := strings.Cut(value, "=")
-		switch key {
-		case "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE":
-			continue
-		}
-		cmd.Env = append(cmd.Env, value)
-	}
+	cmd.Env = worktreeGitEnvironment(os.Environ())
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
 	return out, nil
+}
+
+func worktreeGitEnvironment(environ []string) []string {
+	env := make([]string, 0, len(environ))
+	for _, value := range environ {
+		key, _, _ := strings.Cut(value, "=")
+		switch strings.ToUpper(key) {
+		case "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE":
+			continue
+		}
+		env = append(env, value)
+	}
+	return env
 }

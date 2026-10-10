@@ -205,3 +205,43 @@ func TestHookWorktreeRemove_IgnoresInheritedRepositoryRedirects(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHookWorktreeRemove_RejectsOversizedPayloadWithoutCleanup(t *testing.T) {
+	main, allowed, linked := disposableWorktree(t)
+	raw, err := json.Marshal(map[string]string{"hook_event_name": "WorktreeRemove", "worktree_path": linked})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := string(raw) + strings.Repeat(" ", 1<<20) + `{}`
+	if _, err := executeWorktreeRemoval(payload, "--repo", main, "--allowed-root", allowed); err == nil {
+		t.Error("oversized payload accepted")
+	}
+	if _, err := os.Stat(linked); err != nil {
+		t.Errorf("worktree was not preserved: %v", err)
+	}
+}
+
+func TestWorktreeGitEnvironment_FiltersMixedCaseRedirects(t *testing.T) {
+	input := []string{"PATH=/bin", "Git_Dir=foreign", "git_work_tree=foreign", "Git_Common_Dir=foreign", "git_INDEX_FILE=foreign", "GIT_AUTHOR_NAME=Name"}
+	got := worktreeGitEnvironment(input)
+	want := []string{"PATH=/bin", "GIT_AUTHOR_NAME=Name"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("environment = %v, want %v", got, want)
+	}
+}
+
+func TestHookWorktreeRemove_IgnoresMixedCaseRepositoryRedirects(t *testing.T) {
+	main, allowed, linked := disposableWorktree(t)
+	foreign, _, foreignLinked := disposableWorktree(t)
+	t.Setenv("Git_Dir", filepath.Join(foreign, ".git"))
+	t.Setenv("git_work_tree", foreign)
+	if _, err := runWorktreeRemoval(t, main, allowed, linked); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(foreign); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(foreignLinked); err != nil {
+		t.Fatal(err)
+	}
+}

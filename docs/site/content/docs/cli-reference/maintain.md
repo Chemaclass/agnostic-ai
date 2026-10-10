@@ -97,7 +97,7 @@ The helper verifies Git's worktree registration and the checkout's repository me
 
 According to [Claude Code's WorktreeRemove contract](https://code.claude.com/docs/en/hooks#worktreeremove), this event replaces cleanup for hook-created worktrees and runs while the directory still exists. Exit 0 means cleanup succeeded; a nonzero exit preserves an existing directory without a Git fallback. Pair this helper with your `WorktreeCreate` hook, and keep `--repo` outside the disposable checkout. It does not change cleanup for worktrees the host creates without a custom creation hook.
 
-Success prints `removed: <path>` and exits 0. A path already absent below the allowed root prints `already absent: <path>` and exits 0, including repeated calls after successful removal. Absence alone cannot prove prior ownership; this result performs no deletion or registration pruning. Unsafe inputs and failed Git operations exit 1.
+Success prints `removed: <path>` and exits 0. A path already absent below the allowed root prints `already absent: <path>` and exits 0, including repeated calls after successful removal. Absence alone cannot prove prior ownership; this result performs no deletion or registration pruning. Unsafe inputs, payloads larger than 1 MiB, and failed Git operations exit 1.
 
 | Flag | Description |
 |------|-------------|
