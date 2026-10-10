@@ -459,9 +459,7 @@ func CoverageNotesDigest() string {
 		return ""
 	}
 	seen := map[string]bool{}
-	keys := make([]string, 0, len(coverageNoteState.pending)+
-		len(coverageNoteState.pendingField)+len(coverageNoteState.pendingSurface)+
-		len(coverageNoteState.pendingText))
+	keys := []string{}
 	for _, p := range coverageNoteState.pending {
 		k := fmt.Sprintf("gap\x00%s\x00%s\x00%d\x00%s", p.target, p.kind, p.count, p.via)
 		if seen[k] {

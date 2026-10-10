@@ -81,7 +81,7 @@ func (r *syncReport) addWrites(target string, writes []adapters.WrittenFile) {
 }
 
 func (r *syncReport) changedPaths() []string {
-	out := make([]string, 0, len(r.created)+len(r.updated)+len(r.removed))
+	out := []string{}
 	out = append(out, r.created...)
 	out = append(out, r.updated...)
 	out = append(out, r.removed...)
