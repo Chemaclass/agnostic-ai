@@ -43,6 +43,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Kiro
 
 - `hook run` follows CLI V3 prompt and Stop exit codes, category tags, wildcards, and MCP selectors (#1974).
+- Kiro docs use the current tool categories and mark `keyboardShortcut` as CLI 2.x only (#1979).
 
 #### Windsurf / Devin CLI
 

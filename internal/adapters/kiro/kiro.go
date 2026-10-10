@@ -38,26 +38,19 @@
 // frontmatter, your system prompt is the document body"). `description`
 // (falls back to the agent's name) and `model` pass through; the full
 // documented field set also includes `tools`, `mcpServers`,
-// `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`,
+// `permissions`, `hooks`, `keyboardShortcut` (CLI 2.x only), `welcomeMessage`,
 // `excludedTools`, `includeMcpJson`, and `includePowers`
 // (kiro.dev/docs/custom-agents/configuration-reference/), of which only
 // `tools` has an agnostic-ai spec equivalent.
 //
-// That page documents Kiro's own `tools` vocabulary in full: category
-// tags (`read`, `write`, `shell`, `web`, `subagent`, `knowledge`,
-// `todo_list`), `@server_name` / `@server_name/tool_name` for one or
-// all tools from a specific MCP server, `@mcp` for every MCP tool
-// across servers, `@builtin` for every built-in tool, and `*` for
-// everything. A second page (kiro.dev/docs/tools/, updated 2026-08-21,
-// seventeen days after configuration-reference's own 2026-08-04 date)
-// tables the same field differently: `read`, `write`, `shell`, `web`,
-// `subagent`, `spec`, `context`, where `context` bundles
-// `disclose_context`, `introspect`, and `knowledge`; `todo_list` is
-// gone and `knowledge` no longer stands alone. The two pages disagree
-// and neither states which one the shipping product follows, so this
-// adapter keeps citing configuration-reference rather than guessing;
-// it does not matter functionally, since both pages agree on the four
-// categories this adapter actually emits. This adapter translates
+// That page documents Kiro's own `tools` vocabulary: the category
+// tags `read`, `write`, `shell`, `web`, and `subagent`,
+// `@server_name` / `@server_name/tool_name` for one or all tools from a
+// specific MCP server, `@mcp` for every MCP tool across servers,
+// `@builtin` for every built-in tool, and `*` for everything. Built-ins
+// such as `knowledge` and `invoke_sub_agent` are selected by direct tool
+// ID. The tools page (kiro.dev/docs/tools/) lists the same five tags;
+// `spec` and `context` are hook-matcher tags only. This adapter translates
 // agnostic-ai's Claude-style names onto that vocabulary
 // (toolCapabilities): `Read`, `Grep`, and `Glob` collapse onto `read`;
 // `Write` and `Edit` onto `write`; `Bash` onto `shell`; `WebFetch` and
