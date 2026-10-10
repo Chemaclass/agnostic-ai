@@ -4,19 +4,24 @@
 > detection, and one-click sync from inside VS Code.
 
 This extension wraps the [agnostic-ai](https://github.com/Chemaclass/agnostic-ai)
-CLI. It does **not** ship a bundled binary — it shells out to the
-`agnostic-ai` you already have on `PATH`. Same outputs as the CLI; same
-review surface as `agnostic-ai sync --check`.
+CLI. Install `agnostic-ai` on `PATH`, or set `agnostic-ai.binaryPath` to its location.
 
 ## Features
 
 | Surface | What you get |
 |---------|--------------|
+| Problems | Lint findings for saved Markdown and YAML specs and project configuration. Open a source or save it to check; fix and save to clear. |
 | YAML schema | `agnostic-ai.yaml` (or the legacy `agnostic.config.yaml`) validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
-| Command palette | `agnostic-ai: Sync`, `Sync — check for drift`, `Doctor — auto-fix`, `Status`, `Render current spec to a target`. Each command opens a terminal in the project root. |
+| Command palette | Run sync, check generated files, fix setup with Doctor, show status, or preview a spec. The first four open a terminal in the project root; previews use the output panel. |
 | Codelens | Above each spec in `<base>/agents/`, `<base>/skills/`, `<base>/rules/`, `<base>/hooks/`, `<base>/mcps/`: one **Render to <target>** button per configured target. Output streams to the agnostic-ai output channel. |
 | Status bar | Shows in sync, a drift count, or a failed check. Hover to read the result or failure reason. Click to run `sync --check` in a terminal. |
 | Open canonical source | From a generated file (`.claude/rules/x.md`, `AGENTS.md`, ...), run `agnostic-ai: Open canonical source` from the command palette or the editor context menu. One source opens directly. A merged file lists every contributing spec by name and path. |
+
+### Problems
+
+The extension starts `agnostic-ai lsp` from the first configured workspace folder, using `agnostic-ai.binaryPath`. It checks saved project configuration and every configured source directory, including custom and absolute paths. Files keep their Markdown or YAML language mode. Unsaved edits are checked after you save.
+
+Changing the selected project or binary stops the old service before starting another. Closing the workspace or disabling the extension stops the service and clears its diagnostics. Startup failures name the command and show how to fix the install or binary path.
 
 ### Drift status
 
@@ -54,11 +59,11 @@ or the CLI is too old, it says what to run instead.
 
 ## Settings
 
-- `agnostic-ai.binaryPath` (string, default `agnostic-ai`) — point at a
+- `agnostic-ai.binaryPath` (string, default `agnostic-ai`); point at a
   specific install if multiple coexist.
-- `agnostic-ai.driftPollSeconds` (number, default `30`) — how often the
+- `agnostic-ai.driftPollSeconds` (number, default `30`); how often the
   status bar refreshes the drift count.
-- `agnostic-ai.codeLens.enabled` (boolean, default `true`) — toggle the
+- `agnostic-ai.codeLens.enabled` (boolean, default `true`); toggle the
   per-spec render codelens.
 
 ## Develop
@@ -68,7 +73,8 @@ cd editors/vscode
 npm install
 npm run compile         # one-shot tsc
 npm run watch           # incremental compile while iterating
-npm test                # compile, then run node --test on out/test/
+npm test                # compile, then run unit tests
+AGNOSTIC_AI_TEST_BINARY=/path/to/agnostic-ai npm run test:integration
 ```
 
 Tests cover project and source navigation helpers, plus the production status presentation in `src/drift.ts`. The navigation fixtures in
@@ -92,12 +98,9 @@ npm run publish          # requires a Personal Access Token from
 
 The publisher id is `Chemaclass`; talk to the maintainer for token
 access. Publishing is intentionally a manual step rather than tied to
-the agnostic-ai release tag — extension marketplaces have their own
-review SLAs.
+the agnostic-ai release tag. Marketplace releases follow their own
+review schedules.
 
 ## Limits in v1
 
 - No live hover preview yet (codelens covers the iteration loop).
-- No JetBrains plugin yet; tracked separately.
-- Drift status updates on save and every `driftPollSeconds`. Watching
-  the config file for changes is on the follow-up list.

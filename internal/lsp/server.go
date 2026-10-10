@@ -41,7 +41,17 @@ type Diagnostic struct {
 
 // ServerCapabilities declares what the server supports.
 type ServerCapabilities struct {
-	TextDocumentSync int `json:"textDocumentSync"`
+	TextDocumentSync TextDocumentSyncOptions `json:"textDocumentSync"`
+}
+
+type TextDocumentSyncOptions struct {
+	OpenClose bool        `json:"openClose"`
+	Change    int         `json:"change"`
+	Save      SaveOptions `json:"save"`
+}
+
+type SaveOptions struct {
+	IncludeText bool `json:"includeText"`
 }
 
 // ServerInfo identifies the server in the initialize response.
@@ -95,8 +105,6 @@ func (s *Server) dispatch(msg *Message) {
 		// no-op notification
 	case "textDocument/didOpen":
 		s.handleDidOpen(msg)
-	case "textDocument/didChange":
-		s.handleDidChange(msg)
 	case "textDocument/didSave":
 		s.handleDidSave(msg)
 	case "textDocument/didClose":
@@ -123,7 +131,7 @@ func (s *Server) handleInitialize(msg *Message) {
 	}
 	s.reply(msg.ID, map[string]any{
 		"capabilities": ServerCapabilities{
-			TextDocumentSync: 1, // full sync
+			TextDocumentSync: TextDocumentSyncOptions{OpenClose: true},
 		},
 		"serverInfo": ServerInfo{
 			Name:    "agnostic-ai",
@@ -133,18 +141,6 @@ func (s *Server) handleInitialize(msg *Message) {
 }
 
 func (s *Server) handleDidOpen(msg *Message) {
-	var params struct {
-		TextDocument struct {
-			URI string `json:"uri"`
-		} `json:"textDocument"`
-	}
-	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return
-	}
-	s.publishDiagnostics(params.TextDocument.URI)
-}
-
-func (s *Server) handleDidChange(msg *Message) {
 	var params struct {
 		TextDocument struct {
 			URI string `json:"uri"`

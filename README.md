@@ -42,6 +42,8 @@ From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.
 
 After installing a newer release, run `agnostic-ai upgrade --requires` from the project root to update an exact version pin and sync again. To keep a deliberate minimum or range, follow [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
+The [VS Code extension](editors/vscode/) shows lint findings for saved specs and project configuration in Problems. Open or save a source to check it, then fix and save to clear the finding.
+
 Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [Installation](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 ## Daily commands
