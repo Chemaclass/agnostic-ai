@@ -88,6 +88,44 @@ func TestImportReconcile_MapsConcurrentSkillChangesWithoutWriting(t *testing.T) 
 	}
 }
 
+func TestImportReconcile_UpstreamAdditionsConflictWithMigrationFiles(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, "native/base/SKILL.md", "base")
+	writeFile(t, ".agnostic-ai/skills/new/SKILL.md", "independent canonical skill")
+	writeFile(t, ".agnostic-ai/skills/base/assets/data.txt", "independent canonical asset")
+	writeFile(t, ".agnostic-ai/skills/same/SKILL.md", "convergent")
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-qm", "base")
+	base := git(t, dir, "rev-parse", "HEAD")
+	writeFile(t, ".agnostic-ai/skills/base/SKILL.md", "base")
+	git(t, dir, "rm", "-qr", "native")
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-qm", "migration")
+	migrated := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "checkout", "-q", base)
+	writeFile(t, "native/new/SKILL.md", "upstream skill")
+	writeFile(t, "native/base/assets/data.txt", "upstream asset")
+	writeFile(t, "native/same/SKILL.md", "convergent")
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-qm", "upstream additions")
+	upstream := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "checkout", "-q", migrated)
+	plan, err := planSkillReconciliation(base, migrated, upstream, []string{"native=.agnostic-ai/skills"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Entries) != 2 {
+		t.Fatalf("expected two conflicts with convergence omitted: %+v", plan.Entries)
+	}
+	for _, entry := range plan.Entries {
+		if entry.Action != "conflict" {
+			t.Errorf("existing canonical destination reported as %+v", entry)
+		}
+	}
+}
+
 func TestImportReconcile_PreservesCanonicalDeletionAndRecognizesConvergence(t *testing.T) {
 	dir := setupGitRepo(t)
 	testutil.Chdir(t, dir)

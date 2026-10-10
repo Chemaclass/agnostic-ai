@@ -137,7 +137,7 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 			} else if after == "" {
 				action = "remove"
 			}
-			if initial != current {
+			if initial != current || (before == "" && current != "") {
 				action = "conflict"
 			}
 			plan.Entries = append(plan.Entries, reconciliationEntry{action, old + "/" + file, canonical + "/" + file})
