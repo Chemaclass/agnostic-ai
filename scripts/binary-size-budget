@@ -52,4 +52,6 @@
 # After #1986, measured 18735264, up 12288 from main 7df02fd1.
 # Keep room for the 8 KB difference seen in CI's Linux build.
 # After #2014, measured 18751648, up 12288 from main badb5ae3.
-18785000
+# After merging Codex file context, measured 18784416.
+# Keep the established 8 KB allowance for CI's Linux build.
+18793000
