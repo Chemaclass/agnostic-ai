@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *testing.T) {
@@ -34,6 +36,8 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	t.Setenv("CODEX_HOME", t.TempDir())
 	t.Setenv("AGNOSTIC_AI_NO_UPDATE_CHECK", "1")
+	t.Setenv("AGNOSTIC_AI_TARGET", "")
+	t.Setenv("AGNOSTIC_AI_PROJECT_BOOTSTRAP", "")
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("GIT_CONFIG_COUNT", "0")
 	gitConfig := filepath.Join(t.TempDir(), "gitconfig")
@@ -174,6 +178,85 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	assertLifecycleOutputs(t, linked, initial)
 	status(linked, "")
 
+	t.Run("project doctor checks clone and linked worktree without repairs or trust", func(t *testing.T) {
+		const driftPath = ".cursor/hooks.json"
+		for _, dir := range []string{clone, linked} {
+			for _, drift := range []bool{false, true} {
+				if drift {
+					mustWrite(t, filepath.Join(dir, driftPath), "{\"edited\":true}\n")
+				}
+				beforeFiles := lifecycleFiles(t, dir)
+				beforeOutputs := lifecycleOutputs(t, dir)
+				beforeStatus := git(dir, "status", "--porcelain=v1", "--untracked-files=all")
+				index := strings.TrimSpace(git(dir, "rev-parse", "--git-path", "index"))
+				if !filepath.IsAbs(index) {
+					index = filepath.Join(dir, index)
+				}
+				beforeIndex, err := os.ReadFile(index)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, asJSON := range []bool{false, true} {
+					args := []string{"doctor", "--scope", "project"}
+					if asJSON {
+						args = append(args, "--json")
+					}
+					cmd := exec.Command(binary, args...)
+					cmd.Dir = dir
+					raw, err := cmd.Output()
+					if (err != nil) != drift {
+						t.Errorf("project doctor with drift=%t: %v\n%s", drift, err, raw)
+					}
+					if asJSON {
+						var report struct {
+							HookTrustCheck struct{ Status, Reason string } `json:"hook_trust_check"`
+							HookTrust      []json.RawMessage               `json:"hook_trust"`
+							Writes         []struct{ Path, Action string } `json:"writes"`
+						}
+						if err := json.Unmarshal(raw, &report); err != nil {
+							t.Fatalf("decode project doctor: %v\n%s", err, raw)
+						}
+						if report.HookTrustCheck.Status != "skipped" || !strings.Contains(report.HookTrustCheck.Reason, "project scope") || report.HookTrust == nil || len(report.HookTrust) != 0 {
+							t.Errorf("project doctor must explicitly skip local trust: %s", raw)
+						}
+						if !drift && (report.Writes == nil || len(report.Writes) != 0) {
+							t.Errorf("clean project doctor reports writes: %s", raw)
+						}
+						if drift {
+							found := false
+							for _, write := range report.Writes {
+								if write.Path == driftPath && write.Action == "edited" {
+									found = true
+								}
+							}
+							if !found {
+								t.Errorf("project doctor misses generated drift: %s", raw)
+							}
+						}
+					} else if !strings.Contains(string(raw), "SKIPPED") || !strings.Contains(string(raw), "Codex hook trust") || !strings.Contains(string(raw), "project scope") || (drift && !strings.Contains(string(raw), driftPath)) {
+						t.Errorf("project doctor lacks skipped trust or drift details: %s", raw)
+					}
+					afterIndex, err := os.ReadFile(index)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !bytes.Equal(beforeIndex, afterIndex) || !reflect.DeepEqual(beforeFiles, lifecycleFiles(t, dir)) {
+						t.Error("project doctor changed project files or the index")
+					}
+					assertLifecycleOutputs(t, dir, beforeOutputs)
+					status(dir, beforeStatus)
+					entries, err := os.ReadDir(os.Getenv("CODEX_HOME"))
+					if err != nil || len(entries) != 0 {
+						t.Errorf("project doctor populated local hook trust: %v, entries=%v", err, entries)
+					}
+				}
+			}
+			mustWrite(t, filepath.Join(dir, driftPath), string(initial[driftPath]))
+			assertLifecycleOutputs(t, dir, initial)
+			status(dir, "")
+		}
+	})
+
 	t.Run("exact package pin changes across clone and linked worktree", func(t *testing.T) {
 		matching := filepath.Join(t.TempDir(), name)
 		build := exec.Command("go", "build", "-ldflags", "-X main.version=99.2.0 -X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=99.2.0", "-o", matching, "./cmd/agnostic-ai")
@@ -181,24 +264,63 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 		if out, err := build.CombinedOutput(); err != nil {
 			t.Fatalf("build matching fixture candidate: %v\n%s", err, out)
 		}
-		install := func(dir, candidate string) {
+		helper, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		installerDir := t.TempDir()
+		installer := filepath.Join(installerDir, "pnpm")
+		launcher := "#!/bin/sh\nexec \"$AGNOSTIC_LIFECYCLE_TEST_EXECUTABLE\" -test.run=^TestProjectLifecycleInstallerProcess$ -- \"$@\"\n"
+		if runtime.GOOS == "windows" {
+			installer += ".cmd"
+			launcher = "@echo off\r\n\"%AGNOSTIC_LIFECYCLE_TEST_EXECUTABLE%\" -test.run=^TestProjectLifecycleInstallerProcess$ -- %*\r\nexit /b %errorlevel%\r\n"
+		}
+		if err := os.WriteFile(installer, []byte(launcher), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("PATH", installerDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		t.Setenv("AGNOSTIC_LIFECYCLE_INSTALLER", "1")
+		t.Setenv("AGNOSTIC_LIFECYCLE_TEST_EXECUTABLE", helper)
+		t.Setenv("AGNOSTIC_LIFECYCLE_OLD_BINARY", binary)
+		t.Setenv("AGNOSTIC_LIFECYCLE_NEW_BINARY", matching)
+		bootstrap := func(dir string) {
 			t.Helper()
-			local := filepath.Join(dir, "node_modules", ".bin", "agnostic-ai")
-			if runtime.GOOS == "windows" {
-				local = filepath.Join(dir, "node_modules", "agnostic-ai", "bin", "fixture.exe")
-			}
-			data, err := os.ReadFile(candidate)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := os.MkdirAll(filepath.Dir(local), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(local, data, 0o755); err != nil {
-				t.Fatal(err)
+			out, err := run(dir, binary, "project", "--bootstrap")
+			if err == nil {
+				return
 			}
 			if runtime.GOOS == "windows" {
-				mustWrite(t, filepath.Join(dir, "node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), "const { spawnSync } = require('node:child_process');\nconst path = require('node:path');\nconst result = spawnSync(path.join(__dirname, 'fixture.exe'), process.argv.slice(2), { stdio: 'inherit' });\nif (result.error) throw result.error;\nprocess.exit(result.status === null ? 1 : result.status);\n")
+				probe := func(command string, args ...string) (string, error) {
+					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+					defer cancel()
+					cmd := exec.CommandContext(ctx, command, args...)
+					cmd.Dir = dir
+					cmd.WaitDelay = 250 * time.Millisecond
+					output, err := cmd.CombinedOutput()
+					return string(output), err
+				}
+				installed := filepath.Join(dir, "node_modules", "agnostic-ai", "bin")
+				launcher := filepath.Join(installed, "agnostic-ai.js")
+				node, lookupErr := exec.LookPath("node")
+				t.Logf("installed launcher Node path: %q, lookup: %v", node, lookupErr)
+				if lookupErr == nil {
+					nodeOut, nodeErr := probe(node, launcher, "--version")
+					t.Logf("%s %s --version: %v\n%s", node, launcher, nodeErr, nodeOut)
+				}
+				candidate := filepath.Join(installed, "fixture.exe")
+				candidateOut, candidateErr := probe(candidate, "--version")
+				t.Logf("%s --version: %v\n%s", candidate, candidateErr, candidateOut)
+			}
+			t.Fatalf("project --bootstrap in %s: %v\n%s", dir, err, out)
+		}
+		installs := func(dir, want string) {
+			t.Helper()
+			data, err := os.ReadFile(filepath.Join(dir, "node_modules", "lifecycle-installs.log"))
+			if os.IsNotExist(err) && want == "" {
+				return
+			}
+			if err != nil || string(data) != want {
+				t.Errorf("locked install calls: %v\n%s\nwant:\n%s", err, data, want)
 			}
 		}
 		unchanged := func(dir string, check func()) {
@@ -236,24 +358,36 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 		if err != nil {
 			t.Fatal(err)
 		}
-		mustWrite(t, ignorePath, string(ignore)+"\nnode_modules/\n")
+		mustWrite(t, ignorePath, string(ignore)+"node_modules/\n")
 		contractOutputs := cloneLifecycleOutputs(initial)
-		contractOutputs[".gitignore"] = []byte(string(ignore) + "\nnode_modules/\n")
+		contractOutputs[".gitignore"] = []byte(string(ignore) + "node_modules/\n")
 		packagePath := filepath.Join(clone, "package.json")
-		mustWrite(t, packagePath, `{ "private": true, "devDependencies": { "agnostic-ai": "99.1.0" } }`+"\n")
-		git(clone, "add", "agnostic-ai.yaml", ".gitignore", "package.json")
+		mustWrite(t, packagePath, `{ "private": true, "packageManager": "pnpm@10.0.0", "devDependencies": { "agnostic-ai": "99.1.0" } }`+"\n")
+		mustWrite(t, filepath.Join(clone, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\nfixtureVersion: 99.1.0\n")
+		git(clone, "add", "agnostic-ai.yaml", ".gitignore", "package.json", "pnpm-lock.yaml")
 		git(clone, "commit", "-qm", "fixture candidate package contract")
 		oldCommit := strings.TrimSpace(git(clone, "rev-parse", "HEAD"))
 		git(linked, "checkout", "--detach", "-q", oldCommit)
 		for _, dir := range []string{clone, linked} {
-			install(dir, binary)
+			unchanged(dir, func() {
+				out, err := run(dir, binary, "project", "--check")
+				if err == nil || !strings.Contains(out, "missing") || !strings.Contains(out, "agnostic-ai project --bootstrap") {
+					t.Errorf("missing local package must explain recovery: %v\n%s", err, out)
+				}
+			})
+			installs(dir, "")
+			for i := 0; i < 2; i++ {
+				unchanged(dir, func() { bootstrap(dir) })
+				installs(dir, "99.1.0 install --frozen-lockfile marker=1\n")
+			}
 			assertLifecycleOutputs(t, dir, contractOutputs)
 			status(dir, "")
 			unchanged(dir, func() { cli(dir, "project", "--check") })
 		}
 		git(clone, "checkout", "-qb", "dependency-new")
-		mustWrite(t, packagePath, `{ "private": true, "devDependencies": { "agnostic-ai": "99.2.0" } }`+"\n")
-		git(clone, "add", "package.json")
+		mustWrite(t, packagePath, `{ "private": true, "packageManager": "pnpm@10.0.0", "devDependencies": { "agnostic-ai": "99.2.0" } }`+"\n")
+		mustWrite(t, filepath.Join(clone, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\nfixtureVersion: 99.2.0\n")
+		git(clone, "add", "package.json", "pnpm-lock.yaml")
 		git(clone, "commit", "-qm", "change fixture candidate package pin")
 		newCommit := strings.TrimSpace(git(clone, "rev-parse", "HEAD"))
 		git(linked, "checkout", "--detach", "-q", newCommit)
@@ -269,9 +403,14 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 					t.Errorf("check installed dependencies: %v", err)
 				}
 			})
-			install(dir, matching)
+			installs(dir, "99.1.0 install --frozen-lockfile marker=1\n")
 			for i := 0; i < 2; i++ {
+				unchanged(dir, func() { bootstrap(dir) })
+				installs(dir, "99.1.0 install --frozen-lockfile marker=1\n99.2.0 install --frozen-lockfile marker=1\n")
 				unchanged(dir, func() { cli(dir, "project", "--check") })
+			}
+			if out := cli(dir, "project", "--", "--version"); !strings.Contains(out, "99.2.0") {
+				t.Errorf("project did not select the installed candidate: %s", out)
 			}
 			// Keep the installed fixture ignored when returning to the original branch.
 			exclude := strings.TrimSpace(git(dir, "rev-parse", "--git-path", "info/exclude"))
@@ -642,4 +781,57 @@ func lifecycleFiles(t *testing.T, root string) map[string][]byte {
 		t.Fatalf("read project files in %s: %v", root, err)
 	}
 	return files
+}
+
+func TestProjectLifecycleInstallerProcess(t *testing.T) {
+	if os.Getenv("AGNOSTIC_LIFECYCLE_INSTALLER") != "1" {
+		return
+	}
+	args := os.Args
+	for len(args) > 0 && args[0] != "--" {
+		args = args[1:]
+	}
+	if len(args) == 0 || !reflect.DeepEqual(args[1:], []string{"install", "--frozen-lockfile"}) || os.Getenv("AGNOSTIC_AI_PROJECT_BOOTSTRAP") != "1" {
+		t.Fatalf("unexpected bootstrap installer invocation: %v", args)
+	}
+	data, err := os.ReadFile("package.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pkg struct{ DevDependencies map[string]string }
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		t.Fatal(err)
+	}
+	version := pkg.DevDependencies["agnostic-ai"]
+	candidate := map[string]string{"99.1.0": os.Getenv("AGNOSTIC_LIFECYCLE_OLD_BINARY"), "99.2.0": os.Getenv("AGNOSTIC_LIFECYCLE_NEW_BINARY")}[version]
+	lock, err := os.ReadFile("pnpm-lock.yaml")
+	if err != nil || candidate == "" || string(lock) != "lockfileVersion: '9.0'\nfixtureVersion: "+version+"\n" {
+		t.Fatalf("fixture package pin and lock disagree: %v, version %q, lock %q", err, version, lock)
+	}
+	data, err = os.ReadFile(candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := filepath.Join("node_modules", ".bin", "agnostic-ai")
+	if runtime.GOOS == "windows" {
+		local = filepath.Join("node_modules", "agnostic-ai", "bin", "fixture.exe")
+	}
+	if err := os.MkdirAll(filepath.Dir(local), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(local, data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		mustWrite(t, filepath.Join("node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), "const { spawnSync } = require('node:child_process');\nconst path = require('node:path');\nconst result = spawnSync(path.join(__dirname, 'fixture.exe'), process.argv.slice(2), { stdio: 'inherit' });\nif (result.error) throw result.error;\nprocess.exit(result.status === null ? 1 : result.status);\n")
+	}
+	log, err := os.OpenFile(filepath.Join("node_modules", "lifecycle-installs.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, writeErr := fmt.Fprintf(log, "%s install --frozen-lockfile marker=1\n", version)
+	closeErr := log.Close()
+	if writeErr != nil || closeErr != nil {
+		t.Fatalf("record install: %v, close: %v", writeErr, closeErr)
+	}
 }
