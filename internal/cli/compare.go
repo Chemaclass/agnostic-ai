@@ -20,8 +20,8 @@ import (
 
 // compareCoverage states what `compare` inspects, so a clean report is
 // never read as "the whole project ports".
-const compareCoverage = "agent and skill fields, rule scope/activation, hook configuration, and MCP connection fields; " +
-	"commands, settings, reviews, environments, and ignore files are not compared"
+const compareCoverage = "agent and skill fields, rule scope/activation, hook configuration, MCP connection fields, and portable permissions; " +
+	"commands, other settings, reviews, environments, and ignore files are not compared"
 
 // compareCaveat keeps "preserved" from reading as a behavior guarantee.
 const compareCaveat = "preserved means the field is written under the same key; it does not prove the tools behave the same or that a hook ran or an MCP server connects"
@@ -54,11 +54,13 @@ var compareSkippedFields = map[string]bool{
 }
 
 type compareResult struct {
-	Target string        `json:"target"`
-	Status compareStatus `json:"status"`
-	Paths  []string      `json:"paths,omitempty"`
-	Reason string        `json:"reason,omitempty"`
-	Next   string        `json:"next,omitempty"`
+	Target             string        `json:"target"`
+	Status             compareStatus `json:"status"`
+	Paths              []string      `json:"paths,omitempty"`
+	Reason             string        `json:"reason,omitempty"`
+	Next               string        `json:"next,omitempty"`
+	permissionMeaning  string
+	permissionComplete bool
 }
 
 type compareField struct {
@@ -96,13 +98,13 @@ func newCompareCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "compare <target> <target>",
-		Short: "Compare fields, rule activation, hooks, and MCP connections.",
-		Long: "Emits agents, skills, rules with scope or activation fields, hooks, and MCP servers " +
+		Short: "Compare fields, rule activation, hooks, MCP connections, and permissions.",
+		Long: "Emits agents, skills, rules with scope or activation fields, hooks, MCP servers, and portable permissions " +
 			"to both targets in memory, then reports per field whether each " +
 			"target preserves, translates, drops, or never receives it. " +
 			"Uses the project's specs, output options, and x-<target> " +
 			"overrides. Writes nothing.\n\n" +
-			"Coverage includes agent and skill fields, rule scope/activation, hook configuration, and MCP connection fields. " +
+			"Coverage includes agent and skill fields, rule scope/activation, hook configuration, MCP connection fields, and portable permissions. " +
 			"A preserved field is written under the same key; that does not " +
 			"prove both tools behave the same, that a hook ran, or that an MCP server connects. " +
 			"MCP values are not printed.",
@@ -175,6 +177,7 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 		Version: "1", Command: "compare", Targets: targets,
 		Coverage: compareCoverage, Caveat: compareCaveat, Specs: []compareSpec{},
 	}
+	permissionBaselines := map[string]permissionCapture{}
 	for _, e := range compareEntries(b) {
 		fields := comparedFields(e, targets)
 		if len(fields) == 0 {
@@ -183,7 +186,14 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 		s := compareSpec{Kind: string(e.Kind), Name: e.Name, Path: filepath.ToSlash(e.Path)}
 		perTarget := make([]map[string]compareResult, len(targets))
 		for i, t := range targets {
-			results, notes, err := classifyEntry(&view, e, fields, t)
+			var results map[string]compareResult
+			var notes []compareNote
+			var err error
+			if e.Kind == spec.KindSettings {
+				results, err = classifyPermissions(&view, b.Settings, e, fields, t, permissionBaselines)
+			} else {
+				results, notes, err = classifyEntry(&view, e, fields, t)
+			}
 			if err != nil {
 				return compareOutput{}, fmt.Errorf("%s: %w", t, err)
 			}
@@ -196,6 +206,10 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 				cf.Results = append(cf.Results, perTarget[i][f])
 			}
 			cf.Differs = cf.Results[0].Status != cf.Results[1].Status
+			if e.Kind == spec.KindSettings {
+				cf.Differs = cf.Differs || cf.Results[0].permissionMeaning != cf.Results[1].permissionMeaning ||
+					cf.Results[0].permissionComplete != cf.Results[1].permissionComplete
+			}
 			if cf.Differs {
 				out.Differences++
 			}
@@ -217,12 +231,16 @@ func compareEntries(b spec.Bundle) []spec.Entry {
 	out := append(byPath(b.Agents), byPath(b.Skills)...)
 	out = append(out, byPath(b.Rules)...)
 	out = append(out, byPath(b.Hooks)...)
-	return append(out, byPath(b.MCPs)...)
+	out = append(out, byPath(b.MCPs)...)
+	return append(out, byPath(b.Settings)...)
 }
 
 // comparedFields lists the fields to report for e in source order. A
 // rule's directory-derived scope counts as its `scope` field.
 func comparedFields(e spec.Entry, targets []string) []string {
+	if e.Kind == spec.KindSettings {
+		return comparedPermissionFields(e)
+	}
 	keys := append([]string(nil), e.MetaKeys...)
 	var extra []string
 	for k := range e.Meta {
@@ -544,7 +562,7 @@ func writeCompareReport(w io.Writer, out compareOutput) {
 	_, _ = fmt.Fprintf(w, "coverage: %s\n", compareCoverage)
 	_, _ = fmt.Fprintf(w, "note: %s\n", compareCaveat)
 	if len(out.Specs) == 0 {
-		_, _ = fmt.Fprintln(w, "\nno agents, skills, scoped rules, hooks, or MCP servers to compare")
+		_, _ = fmt.Fprintln(w, "\nno agents, skills, scoped rules, hooks, MCP servers, or portable permissions to compare")
 		return
 	}
 	width := max(len(a), len(b))

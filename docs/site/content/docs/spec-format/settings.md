@@ -143,6 +143,8 @@ Several files merge. Permission lists are joined in source order with duplicates
 
 Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude.md#claude-settings)).
 
+`agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, and output prerequisites. It also reports the global-only scope of `permissions.default-mode`. Other settings fields remain outside comparison. Written policy does not prove runtime enforcement.
+
 `sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, and `permissions.default-mode`. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 ## Effort by target
