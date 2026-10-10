@@ -93,12 +93,14 @@ Each list shows three paths. `-v` lists all. `config` in the spec line means `ag
 **Remove leftover files.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer writes and removes empty directories. It removes only what it can prove it wrote (generated-file header or recorded hash). A headerless file is kept as `~ kept orphan <path>`, with the reason, when it was edited since sync or written by a sync that recorded no checksum. Kept orphans stay in the managed `.gitignore` block, including during partial syncs. They count as drift until you remove them or list them under `sync.unmanaged`. In a terminal, `doctor --fix` offers to remove them, defaulting to no.
 
 {% <details summary="Find leftover files without .sync-state (fresh checkout)"> %}
-A fresh checkout of a repo that commits generated files has no `.sync-state`. Then `sync --check` and `doctor` scan git-tracked files instead. The scan reuses each commit's rendered output when it checks the last commit and a file's history. A tracked file is a leftover in either of these cases:
+A fresh checkout of a repo that commits generated files has no `.sync-state`. Then `sync --check` and `doctor` scan Git-tracked files instead. The scan reuses the expected files for each commit when it checks the last commit and a file's history. A tracked file is a leftover in either of these cases:
 
 - It sits where a configured target writes, and its first line carries the generated-file header.
 - It still holds exactly what the last commit's specs would write. This covers a headerless JSON output such as `.claude/launch.json` whose spec you deleted but have not committed.
 
-Once the deletion is committed, a headerless JSON file is checked against the commit that last changed it. When it still holds exactly what that commit's specs would write, it is listed for you to delete by hand. Up to eight past commits are checked per run. For a handwritten `.claude/launch.json` or root `.gitignore`, the scan skips a commit's full render when its sources prove neither path is an adapter output. The managed root ignore block is separate from these adapter outputs. Custom sources, output paths, imported launch helpers, and uncertain Git snapshots keep the full check.
+Once the deletion is committed, a headerless JSON file is checked against the commit that last changed it. When it still holds exactly what that commit's specs would write, it is listed for you to delete by hand. Up to eight past commits are checked per run.
+
+For a hand-written `.claude/launch.json` or root `.gitignore`, the scan does not rebuild the expected files for a commit when its sources prove neither path is a generated tool file. The managed root ignore block is checked separately. Custom sources, output paths, imported launch helpers, and uncertain Git snapshots keep the full check.
 
 A plain full `sync` removes none of these files. It records them under target `unledgered` and lists each as `~ kept leftover <path>`. `--only` and `--except` record them without naming them. An empty `.sync-state` still counts as a record and turns this scan off.
 

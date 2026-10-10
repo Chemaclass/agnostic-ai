@@ -112,16 +112,25 @@ See [Claude import](@/docs/targets/claude.md#import) for what `import claude` le
 | `--overwrite` | Replace existing specs the import would change, with what the tool's files hold. Keys the tool never shows and comments on kept keys stay; `::target` blocks for other tools are lost. Without it, see below. |
 
 - Writes only spec files under `sources:`. Run it after `init`.
+
+### Keep existing specs
+
 - An import that would replace an existing spec with content the tool never read stops with [AAI-203](@/docs/errors.md) and writes no spec. It lists each spec and the source that wanted it. Rename one to keep both, or pass `--overwrite`. `--dry-run` and `init --from` stop the same way.
 - A spec the tool already reads may be replaced. That is how a native edit comes back. It covers a spec the last sync wrote for that tool, or one an earlier import of that tool wrote, while it has not changed since. A spec another tool's import wrote stops the import, and the message names both tools. `.agnostic-ai/AGNOSTIC_AI.md` never stops it, since import adds sections to it. In `import claude codex` a later source still replaces what an earlier one wrote.
 - An identical spec keeps its content and modification time. After several sources import one file, only sources whose final content matches the file may re-import it without `--overwrite`.
-- A spec stays byte for byte as it is when the last sync wrote the tool's files from it and they still hold what that sync recorded. So a re-import with no edits keeps `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote. This holds for every source.
-- When the tool's file was edited, the edit comes back. Frontmatter keys the tool never shows (such as `workspaces` for Claude) and comments on the keys that stay go back into the spec, with `--overwrite` too. A spec with `::target` blocks stops with AAI-203 instead, since the tool's file holds one tool's view of the body. Make the edit in the spec, or pass `--overwrite` to take the tool's view and lose the blocks.
 - A sync that keeps edited or unmanaged outputs preserves earlier records for unchanged specs. It does not make changed specs safe to replace from that tool. An output that is not enabled, a skill asset left out, or settings with no translated fields do not count as read by that tool.
+
+### Bring tool edits back
+
+- Re-importing unchanged tool files keeps the original spec exactly as written. This applies when the last sync wrote those files from the spec and they still match that sync's record. A re-import with no edits keeps `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote. This holds for every source.
+- Import brings edits from a tool's file back into the spec. Frontmatter keys the tool never shows (such as `workspaces` for Claude) and comments on the keys that stay go back into the spec, with `--overwrite` too. A spec with `::target` blocks stops with AAI-203 instead, since the tool's file holds one tool's view of the body. Make the edit in the spec, or pass `--overwrite` to take the tool's view and lose the blocks.
+- An existing skill or agent spec keeps frontmatter keys that the source tool has no place for, such as Cursor's `argument-hint`. Deleting a key the tool does write counts as deliberate and reaches the spec. Removing `model` from a Qoder agent removes it from the spec. Rules are rebuilt from the native file.
+
+### Files and source order
+
 - Links at the destination are kept. A dangling link fails with its path. A conflict or interrupt restores import writes through symlinks and hard links. Dry-run keeps those links in its preview.
 - The search for nested config skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
 - A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
-- An existing skill or agent spec keeps frontmatter keys that the source tool has no place for, such as Cursor's `argument-hint`. Deleting a key the tool does write counts as deliberate and reaches the spec. Removing `model` from a Qoder agent removes it from the spec. Rules are rebuilt from the native file.
 - Each source copies its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches what sync would write from it. Otherwise import overwrites it and warns.
 - If another entry point holds different hand-written content (a separate `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` first. `import all` merges a root `AGENTS.md` itself instead of warning.
 - `all` cannot combine with other sources.

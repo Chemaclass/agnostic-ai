@@ -50,7 +50,9 @@ Older versions flattened skills into `.kiro/steering/skill-<name>.md` and agents
 
 Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut` (CLI 2.x only), `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` is translated from the portable `can` or `tools` field. Kiro's `mcpServers` holds inline definitions, not names, so set `x-kiro.mcpServers`. Set the rest, and any other key, under `x-kiro`.
 
-Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) list five category tags (`read`, `write`, `shell`, `web`, `subagent`); built-ins such as `knowledge` take a direct tool ID. Sync uses four of the tags:
+Kiro groups agent tools into `read`, `write`, `shell`, `web`, and `subagent`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) list the same categories. It also accepts `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`.
+
+Built-in tools such as `knowledge` use their exact tool IDs. Sync translates four of the categories, plus named MCP servers and tools:
 
 | Spec `can` values | Spec `tools` values | Kiro category |
 | --- | --- | --- |
@@ -75,9 +77,19 @@ Duplicates are merged. A Kiro category covers more than one tool, so access wide
 - `.agnostic-ai/scripts/<name>` references are copied to `.kiro/scripts/<name>`, outside `.kiro/hooks/` where Kiro reads hook files, and the command is rewritten. See [shared hook scripts](@/docs/spec-format/hooks.md#shared-hook-scripts).
 - [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs a `UserPromptSubmit` or `Stop` hook, or a tool hook with `--payload`, on an assumed `sh -c`, before a session does.
 
-`agnostic-ai sync --global --only kiro` writes home hook specs to `~/.kiro/hooks/<name>.json` for [Kiro CLI V3](https://kiro.dev/docs/hooks/#file-naming-and-location). Global and workspace hooks run alongside each other. `KIRO_HOME` moves the directory with Kiro's other global folders. Shared scripts go to `~/.kiro/scripts/`. Preview with `--dry-run` and check with `--check`. Sync removes only recorded files when their specs go away and stops on conflicting or edited files.
+Use your home hook specs in every workspace with [Kiro CLI V3](https://kiro.dev/docs/hooks/#file-naming-and-location):
 
-`agnostic-ai import --global kiro` imports hook files that one spec can reproduce at the same filename. Files with mixed triggers, names that differ from their filename, or other content the spec cannot preserve are skipped with a warning. Existing specs stay. Run `sync --global --only kiro --check` after syncing to confirm the result.
+```bash
+agnostic-ai sync --global --only kiro --dry-run
+agnostic-ai sync --global --only kiro
+agnostic-ai sync --global --only kiro --check
+```
+
+Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to change where agnostic-ai writes these folders and Kiro's other global files. Global hooks and workspace hooks both run.
+
+Sync removes only recorded files after their specs are removed. A conflicting or edited file stops sync.
+
+`agnostic-ai import --global kiro` imports hook files that one spec can reproduce at the same filename. Files with mixed triggers, names that differ from their filename, or other content the spec cannot preserve are skipped with a warning. Existing specs stay. After importing, run the sync and check commands above.
 
 **MCP** servers go to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). Local servers have `command` plus optional `args` and `env`. Remote ones have `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings. See [environment references](@/docs/spec-format/mcps.md#environment-references). `disabled` is copied as written (default `false`). Kiro also accepts `autoApprove` (tools approved without prompting, `"*"` for all) and `disabledTools` (tools hidden from the agent). A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`) and a top-level `oauthScopes` fallback; `oauth.oauthScopes` wins. An empty `oauthScopes: []` is written as is, which is Kiro's documented fix for scope errors. Kiro's `oauth` differs from Claude Code's, so each tool maps only its own sub-keys. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 

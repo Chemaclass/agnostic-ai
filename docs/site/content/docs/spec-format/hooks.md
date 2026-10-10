@@ -112,7 +112,13 @@ A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` w
 - an event that a tool the hook reaches reads differently, such as `on: stop` on Crush
 - a tool kind that a tool the hook reaches lacks, such as `match: read` on Codex
 
-Kiro maps only `before-tool`. Built-in kinds use anchored lists of the documented tool IDs. Native category selectors also match ID substrings, so a `read` selector could otherwise run on an MCP tool with `read` in its name. New built-in IDs need an updated mapping. Its `edit` matcher excludes `code`, which the native `write` category includes. Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`, and `stop` uses exit 1 to continue, so those portable events stay unmapped. The MCP matcher `@<server>/*` names one server, even when it is called `mcp`, `builtin`, or `powers`. Kiro also leaves `decision: stdout` unmapped. Use a command that exits 2 to block a tool. A portable hook does not reach Trae yet. Sync reports missing mappings; write `event` for them, or limit the hook with `targets`.
+Kiro supports `on: before-tool`. Use a command that exits 2 to block the tool call. Other portable events and `decision: stdout` have no Kiro mapping.
+
+For built-in tools, sync matches the documented tool IDs from start to end. Native category selectors also match parts of tool IDs, so a `read` selector could otherwise run on an MCP tool with `read` in its name. The portable mapping avoids that match. New built-in IDs need an updated mapping. The `edit` matcher excludes `code`, which Kiro's own `write` category includes.
+
+`match: mcp:<server>` becomes `@<server>/*` and matches that server only, even when its name is `mcp`, `builtin`, or `powers`.
+
+Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event uses exit 1 to keep the agent running, so it has no portable mapping. Trae has no portable hook mapping yet. Sync reports missing mappings. Write `event` for those hooks, or limit them with `targets`.
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`. `lint` warns on each hook the migration would rewrite (LINT034). `agnostic-ai import` follows the same rule.
 
@@ -182,7 +188,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
 - `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `loop_limit`: Cursor, Trae.
-- `failClosed`: Claude Code (command and HTTP handlers), Cursor. Both block when the hook cannot start, times out, or exits with a code other than 0 or 2. Claude Code ignores it on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, and command handlers with `async: true` or `asyncRewake: true`; on `PermissionRequest`, a failure denies the request. Sync notes the ignored cases and keeps the key for import round trips. Cursor also blocks on exit 0 with no output, which Claude Code allows.
+- `failClosed`: Claude Code (command and HTTP handlers), Cursor. Set it to `true` to block when the hook cannot start, times out, or exits with a code other than 0 or 2. For Claude Code, use a synchronous `PreToolUse` or `UserPromptSubmit` hook. See [Claude Code failure behavior](@/docs/targets/claude.md) for ignored events, background hooks, `PermissionRequest` denial, and preserved imports. Cursor also blocks on exit 0 with no output, which Claude Code allows.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.
@@ -895,15 +901,21 @@ A tool that lacks the input a flag needs is listed as not run, and the other too
 | Copilot | `--bash` builds `preToolUse` and `postToolUse` on `bash`, and `PreToolUse` on `Bash`. `--prompt` builds `userPromptSubmitted` or `UserPromptSubmit`. `--edit` is refused, and so is `--bash` on `PostToolUse`. A camelCase matcher is a regex anchored as `^(?:PATTERN)$`. Copilot runs JavaScript regexes, so a matcher with inline flags, lookaround, backreferences, `(?P<name>)`, POSIX classes, or Go-only escapes such as `\A` is listed as not run. |
 | Qoder | `--bash` calls `Bash`. `--edit` calls `Write`; when the matcher picks `Edit`, Qoder is listed as not run. Empty or `*` matches everything, letters and `\|` list exact names, and anything else is a regular expression. |
 | Cline | `--bash` calls `run_commands`; `--edit` calls `editor` (a model whose id holds `gpt` or `codex` calls `apply_patch` instead, which a note says). `--prompt` builds `UserPromptSubmit`, with a note that the CLI may not send that event. Cline has no matcher, so every hook fires; a portable `match` kind runs the script's tool name check, which allows a call to another tool. `PreCompact` is listed as not run. |
-| Kiro | `--prompt` builds `UserPromptSubmit`, and `Stop` needs no input. `--bash` and `--edit` are refused, so tool events take `--payload`. CLI V3 ignores prompt and Stop matchers. Tool matchers without regex metacharacters select IDs or documented `read`, `write`, `shell`, and `web` categories and source tags, with `*` and `?` wildcards. Selectors also fall back to an unanchored regex on the tool ID; matchers with regex metacharacters use only that regex. `@mcp`, `@builtin`, `@server`, and `@server/tool` select MCP or built-in tools. `execute_bash` and `execute_pwsh` selectors match each other. CLI 2.x aliases are not expanded. `@powers`, `spec`, `subagent`, and `context` are listed as not run because their complete tool membership is undocumented. |
+| Kiro | `--prompt` supplies `UserPromptSubmit`; `Stop` needs no input. Tool events require `--payload`; `--bash` and `--edit` are refused. CLI V3 ignores prompt and Stop matchers. See [Kiro matchers](#kiro-hook-run-matchers). |
 | Windsurf | `--bash` builds `PreToolUse`, `PostToolUse`, and `PermissionRequest` on `exec`. `--prompt` builds `UserPromptSubmit`; `Stop` and `PostCompaction` need no input. `--edit` is refused. `SessionStart` and `SessionEnd` take `--payload`. The matcher is an unanchored regular expression on `tool_name`, so a Claude-style `Bash` matcher does not fire; a matcher on another event is listed as not run. |
 | Augment | `--bash` calls `launch-process`; `--edit` calls the first of `str-replace-editor` and `save-file` the matcher matches. Augment has no prompt event. The matcher is an unanchored regular expression. |
-
-For Kiro, a named MCP selector is not run when underscores make its server/tool boundary ambiguous. Use an anchored regex against the internal tool ID.
 
 Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead. Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
 
 OpenCode and Kilo run hooks as plugins and Zed as tasks, with no event data on stdin, so `hook run` lists them as not run.
+
+### Kiro matchers {#kiro-hook-run-matchers}
+
+Kiro tool matchers without regular-expression syntax select tool IDs, the documented `read`, `write`, `shell`, and `web` categories, or source tags. They support `*` and `?` wildcards and also try an unanchored regular expression against the tool ID. A matcher with regular-expression syntax uses that expression only.
+
+`@mcp`, `@builtin`, `@server`, and `@server/tool` select MCP or built-in tools. `execute_bash` and `execute_pwsh` selectors match each other. CLI 2.x aliases are not expanded.
+
+`@powers`, `spec`, `subagent`, and `context` are listed as not run because their complete tool membership is undocumented. A named MCP selector is also not run when underscores make its server/tool boundary ambiguous. Use an anchored regular expression against the internal tool ID.
 
 ## Sources
 

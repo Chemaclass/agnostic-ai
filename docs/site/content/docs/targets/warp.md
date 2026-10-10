@@ -52,7 +52,9 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 
 ## Global configuration
 
-`agnostic-ai sync --global --only warp` merges home MCP specs into `~/.warp/.mcp.json`, using the same server fields as project output. Global Warp servers auto-spawn by default. A spec with `disabled: true` is left out, with a note. Servers you add under other names stay; a different server with the same name stops sync.
+`agnostic-ai sync --global --only warp` adds your home MCP specs to `~/.warp/.mcp.json`, using the same fields as project output. Warp starts these global servers automatically. Sync leaves out a spec with `disabled: true` and explains why.
+
+Servers you add under other names stay. A different server with the same name stops sync. See [global MCP servers](@/docs/configuration.md#global-mcp-servers) for how to resolve a conflict.
 
 `agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP servers](@/docs/configuration.md#global-mcp-servers).
 

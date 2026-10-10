@@ -36,18 +36,17 @@ agnostic-ai sync
 
 `init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
 
-Use `agnostic-ai sync --global` for shared home specs, including Kiro CLI V3 hooks that run in every workspace.
+Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It also writes [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
 
 From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
-After installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets the project to require that exact release and syncs again.
+After installing a newer release, run `agnostic-ai upgrade --requires` from the project root to update an exact version pin and sync again. To keep a deliberate minimum or range, follow [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
 Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [Installation](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 ## Daily commands
 
 Interactive runs offer new releases with upgrade guidance and a default Yes prompt. Accept to update, migrate this project, and check its generated files. The prompt includes any project version and schema changes. Local package installations show their package manager's update command. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable the daily check. See [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
-
 
 ```bash
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
@@ -61,7 +60,7 @@ agnostic-ai memory lint                          # check the shared memory index
 agnostic-ai memory path                          # print the memory folders, including the repo store
 ```
 
-Without a sync record, checks skip recreating older output for a handwritten Claude launch file or root `.gitignore` when the committed sources prove agnostic-ai did not generate them. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for how ownership is checked.
+On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
 
 ## What you can share
 
@@ -70,12 +69,12 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](
 - **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3. `import trae` also reads shared `.agents/skills/` folders, keeping `.trae/skills/` first for duplicate names.
 - **Trae agents** preserve an explicitly empty list of allowed tools, including after import, so text-only agents keep tools disabled.
 - **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
-- **Hooks** use shared `on` and `match` values where tools read exit codes alike. Kiro maps `before-tool` with documented built-in tools and MCP server selectors. See [Portable hooks](https://agnostic-ai.org/docs/spec-format/hooks/#portable-events).
+- **Hooks** run checks before or after a tool acts. Shared `on` and `match` values work where tools handle results the same way. Kiro supports `on: before-tool` for its built-in tools and named MCP servers. See [Portable hooks](https://agnostic-ai.org/docs/spec-format/hooks/#portable-events).
 - **Model roles** name a choice once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
-- **MCP servers** keep secrets as references, never literal values. `sync --global --only antigravity,warp` also writes Antigravity's and Warp's user MCP files. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
+- **MCP servers** use environment references for credentials. Mark plain settings with `!literal`. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
 - **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
 - **Shared memory** keeps one project memory that every tool reads and writes. `builtins: [memory]` adds it. Personal memory can share one store across worktrees with `memory.personal: repo` in the local config. See [Shared memory](https://agnostic-ai.org/docs/memory/).
-- **RTK and Caveman** are separate opt-ins: `builtins: [rtk]` adds a Claude hook that rewrites commands using an installed RTK; `builtins: [caveman]` adds the response skill from a fixed Caveman revision, invoked with `/caveman`, with no executable needed. Both stay off in existing projects and `init`. Remove a name and sync to remove its owned output. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/) for supported coding tools and how to avoid duplicate installations.
+- **RTK and Caveman** are separate opt-ins: `builtins: [rtk]` adds a Claude hook that rewrites commands using an installed RTK; `builtins: [caveman]` adds the response skill from a fixed Caveman revision, invoked with `/caveman`, with no executable needed. Keep existing `builtins` names when adding either one. Both stay off in existing projects and `init`. Remove a name and sync to remove its owned output. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/) for supported coding tools and how to avoid duplicate installations.
 
 ## Develop agnostic-ai
 

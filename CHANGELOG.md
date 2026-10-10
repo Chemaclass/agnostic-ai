@@ -4,66 +4,67 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## v0.82.0 - 2026-10-10
+
 ### General
 
-- Enable RTK and Caveman independently with `builtins` in YAML. Both stay off by default, and neither tool is installed automatically (#1964).
-- Interactive commands offer upgrades with release notes, project migrations, and sync checks (#1952).
+- Interactive commands offer upgrades with Yes as the default, release notes, project migrations, and sync checks (#1952).
+- Enable RTK and Caveman independently with `builtins`; both stay off by default and no programs are installed (#1964).
 - Sync preserves JSON, hooks and ignore files; import avoids text loss; memory notes shrink and warnings name tools (#1889, #1923, #1943, #1934, #1935, #1937).
 - Commands run faster at 500 specs, `graph --target` shows only that tool, and `doctor` lists tools in name order (#1905, #1913, #1914, #1953, #1956).
-- Releases fix an HTTP/2 crash and no longer include the build machine's source paths (#1912, #1926).
+- Release builds avoid an HTTP/2 crash and omit the build machine's source paths (#1912, #1926).
 
 ### By tool
 
 #### Claude Code
 
-- `failClosed: true` handles hook failures; sync warns when Claude Code ignores it on stop, completion, or background hooks (#1918, #1975).
+- Block supported hook failures with `failClosed: true`; sync names stop, completion, and background hooks where it has no effect (#1918, #1975).
 - `import claude` preserves each hook's settings and `onFailure` values, so sync no longer adds duplicate hook groups (#1921, #1929).
 - `doctor` names hook specs that cause duplicate runs; delete the named spec, then run `sync` and `import claude` (#1924, #1925).
 
 #### Codex
 
 - **Breaking:** Codex applies and validates `outputs.codex.config.sandbox`; set `read-only`, `workspace-write`, or `danger-full-access` (#1884).
-- With `memory.personal: repo`, sync shows how to let Codex save memory when you keep a hand-written config (#1949).
+- Sync shows how to give Codex access to repo memory when you keep a hand-written config (#1949).
 - `import codex` keeps manual skill sources intact when their generated files are imported again (#1948).
+
+#### Kiro
+
+- `sync --global` writes CLI V3 hooks to `~/.kiro/hooks/`; `import --global kiro` adopts hook files a spec can preserve (#1976).
+- Portable `on: before-tool` hooks select built-in tool IDs or one MCP server; other portable events remain unmapped (#1980).
+- Test CLI V3 prompt and Stop exits, category tags, wildcards, and supported MCP selectors with `hook run` (#1974).
 
 #### OpenCode
 
-- With `memory.personal: repo`, OpenCode saves personal memory without asking each time (#1884).
+- OpenCode saves personal memory without asking each time with `memory.personal: repo` (#1884).
 - Moving `AGNOSTIC_AI_HOME` removes the old personal memory path from OpenCode's instructions (#1888).
-
-#### Kilo Code
-
-- A command named `goal` is accepted with a warning that Kilo offers it as `/goal:command` (#1917).
 
 #### Trae
 
 - Empty agent tool lists disable all tools, including after import and sync (#1954).
 - `import trae` reads shared `.agents/skills/` folders and assets; `.trae/skills/` takes priority for matching names (#1955).
 
+#### Windsurf / Devin CLI
+
+- Let Devin CLI save personal memory without asking each time with `memory.personal: repo` (#1884).
+
+#### Kilo Code
+
+- A command named `goal` is accepted with a warning that Kilo offers it as `/goal:command` (#1917).
+
 #### Warp
 
 - `sync --global` writes MCP servers to `~/.warp/.mcp.json`; `import --global warp` reads them back (#1978).
-
-#### Kiro
-
-- `sync --global` writes Kiro CLI V3 hooks to `~/.kiro/hooks/`; `import --global kiro` adopts hook files a spec can preserve (#1976).
-- `hook run` follows CLI V3 prompt and Stop exit codes, category tags, wildcards, and MCP selectors (#1974).
-- Kiro docs use the current tool categories and mark `keyboardShortcut` as CLI 2.x only (#1979).
-- Portable `on: before-tool` hooks now reach Kiro with built-in tool IDs and MCP server selectors; `edit` selects file write tools (#1980).
 
 #### Antigravity
 
 - `sync --global` writes MCP servers to `~/.gemini/config/mcp_config.json`; `import --global antigravity` reads them back (#1977).
 
-#### Windsurf / Devin CLI
-
-- With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).
-
 ### Site
 
-- Guides use simpler words, and RTK and Caveman recommendations separate cost, speed and response style.
-- RTK and Caveman docs cover setup, approvals, recovery and measured session costs; raw evidence preserves failed checks (#1963, #1959, #1960, #1961).
+- RTK and Caveman guides separate cost, speed and style; setup, approvals and measured results retain failed checks (#1963, #1959, #1960, #1961).
 - Memory and project setup guides use plain words and explain when tools load shared memory (#1933, #1951).
+- Kiro docs name current tool categories and mark `keyboardShortcut` as CLI 2.x only (#1979).
 
 ## v0.81.0 - 2026-10-07
 
