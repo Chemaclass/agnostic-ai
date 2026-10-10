@@ -24,7 +24,7 @@ Each announcement has two parts:
 
 Breaking changes, changed defaults, removals, and deprecations come first. Safety changes and large additions follow. A feature a tool has may not be supported by agnostic-ai yet.
 
-The same name does not mean the same behavior. Before the audit calls two features equivalent, it compares each tool's project scope, lifecycle, defaults, and file format.
+The same name does not mean the same behavior. Before calling two features equivalent, the audit compares which project files each feature affects, when it runs, its defaults, and its file format.
 
 ## How observations are classified
 
@@ -54,7 +54,7 @@ The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article right before 
 To prepare a release announcement:
 
 1. Finalize the dated release section in `CHANGELOG.md`.
-2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` from the release announcement contract in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
+2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` using the release announcement instructions in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
 3. Summarize the two or three effects a reader needs and link the full GitHub release notes. Put only verified news from the tools in its own section.
 4. Set `extra.targets` to the registered IDs the article covers in substance. Use `[]` for a general edition. A target that was checked and found nothing to report does not count.
 5. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.23.6 and Node 22.

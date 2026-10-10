@@ -19,7 +19,7 @@ Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick t
 
 ## Write one
 
-Markdown with optional YAML frontmatter. Each spec becomes one slash command in the tool's own format.
+Markdown with optional YAML settings between `---` lines at the top. Each spec becomes one slash command in the tool's own format.
 
 ```markdown
 ---

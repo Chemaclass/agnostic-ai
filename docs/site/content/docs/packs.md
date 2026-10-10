@@ -1,6 +1,6 @@
 +++
 title = "Spec packs"
-description = "Install, update, and share reusable bundles of agnostic-ai specs."
+description = "Install, update, and share collections of agnostic-ai specs you can reuse."
 weight = 70
 
 [extra]

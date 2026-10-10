@@ -53,7 +53,7 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
 
 - `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each with a `type` (`stdio`, `http`, or `sse`). VS Code passes it to the Agent Host, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)). Sync owns `servers` and keeps other top-level keys, such as `inputs` and `sandbox`. It strips JSONC comments and reformats the file. Invalid JSONC stops the write.
 - `.github/mcp.json` carries the same servers under `mcpServers`, since Copilot CLI rejects the `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). Sync owns the whole file, and the whole root copy.
-- A per-server `tools` allowlist (default `*`) goes only to `.github/mcp.json` and the root copy. VS Code documents no such key, and Codex's `tools` means something else.
+- A per-server `tools` list of allowed tools (default `*`) goes only to `.github/mcp.json` and the root copy. VS Code documents no such key, and Codex's `tools` means something else.
 - A `roots` list is copied as written. Neither VS Code nor GitHub documents it per server.
 - Only `.vscode/mcp.json` gets the VS Code fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)):
   - stdio servers: `cwd`, `envFile` (for example `${workspaceFolder}/.env`), and `sandboxEnabled` (macOS and Linux only).
@@ -68,7 +68,7 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
         root-mcp-file: .mcp.json
     ```
 
-    Sync then also writes the servers there, with the `tools` allowlist and without the VS Code fields.
+    Sync then also writes the servers there, with the `tools` list of allowed tools and without the VS Code fields.
 
 {% <details summary="Why root .mcp.json is opt-in"> %}
 VS Code always reads a root `.mcp.json`. In a trusted workspace it starts those servers, along with the ones from `.vscode/mcp.json`, with no prompt. VS Code does not say which file wins when both define the same server name.
@@ -131,7 +131,7 @@ All three skill directories are [documented](https://docs.github.com/en/copilot/
 
 ## Protected paths
 
-Advisory. Copilot takes deny and ask rules only from device-level MDM settings, not from a repository file, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Copilot takes deny and ask rules only from device settings managed by your organization, not from a repository file, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

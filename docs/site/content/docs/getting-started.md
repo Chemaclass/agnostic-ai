@@ -26,7 +26,7 @@ agnostic-ai sync --plan
 agnostic-ai sync
 ```
 
-`init --from all` creates `agnostic-ai.yaml` and imports any existing tool files into `.agnostic-ai/`. Pick the tools you use when prompted. Without a terminal, init selects the tools it detects, or its default set when it finds none. `sync --plan` previews the changes. `sync` writes the native files.
+`init --from all` creates `agnostic-ai.yaml` and imports any existing tool files into `.agnostic-ai/`. Pick the tools you use when prompted. Without a terminal, init selects the tools it detects, or its default set when it finds none. `sync --plan` previews the changes. `sync` writes each tool's own files.
 
 For other installers, see [Installation](@/docs/installation.md). To review an existing setup before generating files, see [Migration](@/docs/migration.md). Already use one tool and want another? Run `agnostic-ai use codex` (see [use](@/docs/cli-reference/start.md#use)).
 

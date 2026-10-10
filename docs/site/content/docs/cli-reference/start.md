@@ -125,7 +125,7 @@ See [Claude import](@/docs/targets/claude.md#import) for what `import claude` le
 - Each source copies its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches what sync would write from it. Otherwise import overwrites it and warns.
 - If another entry point holds different hand-written content (a separate `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` first. `import all` merges a root `AGENTS.md` itself instead of warning.
 - `all` cannot combine with other sources.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, plus `all`. `jules` is emit-only.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, plus `all`. `jules` supports sync but not import.
 
 Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads under its Import section.
 

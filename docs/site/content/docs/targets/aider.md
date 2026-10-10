@@ -42,12 +42,12 @@ With [`builtins: [handoff]`](@/docs/handoff.md), a configured `rules-file` inclu
 
 ## Protected paths
 
-Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 
 1. Install: `python -m pip install -U aider-chat` (or `pipx install aider-chat`).
-2. Check the files: `ls CONVENTIONS.md .aider.conf.yml`, and `head -1 .aider.conf.yml` shows the provenance header.
+2. Check the files: `ls CONVENTIONS.md .aider.conf.yml`, and `head -1 .aider.conf.yml` shows the generated-file header.
 3. Validate YAML: `python -c "import yaml,sys; yaml.safe_load(open('.aider.conf.yml'))"`.
 4. Run `aider --config .aider.conf.yml --no-stream --message "list the rules you were told to follow"`. The banner lists the `read:` paths, including `CONVENTIONS.md`, and the reply reflects the rules.
 5. Check that no `Warning:` line mentions `CONVENTIONS.md` or `.aider.conf.yml`.

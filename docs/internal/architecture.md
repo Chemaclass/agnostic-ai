@@ -14,18 +14,18 @@ agnostic-ai/
 │   └── adapters/
 │       ├── adapter.go              # Adapter interface + registry
 │       ├── internal/emit/          # shared write helpers (capture/recording/backup, MCP, output paths)
-│       ├── header/                 # provenance-header helper shared across adapters
+│       ├── header/                 # source-header helper shared across adapters
 │       ├── claudehooks/            # Claude settings.json hook schema (shared by emit + import)
-│       ├── external/               # plugin-protocol passthrough adapter
+│       ├── external/               # adapter for external plugin programs
 │       └── <target>/              # one package per built-in target
-├── .agnostic-ai/                   # dogfood source specs
+├── .agnostic-ai/                   # source specs used by this repository
 ├── docs/                           # user docs, internal docs, examples
 └── Makefile
 ```
 
 ## Data flow
 
-The CLI loads config and source specs, selects targets, and orchestrates emission. Project specs combine pack defaults, project sources, and personal project overrides. Native global sync is a separate path. See [layered specs](../site/content/docs/configuration.md#layered-specs).
+The CLI loads configuration and source specs, selects targets, and calls each adapter to write files. Project specs combine pack defaults, project sources, and personal project overrides. Native global sync is a separate path. See [layered specs](../site/content/docs/configuration.md#layered-specs).
 
 ### Config layer
 
@@ -37,7 +37,7 @@ agnostic-ai.yaml          (committed; team defaults)
    config.Load ──► *config.Config (defaults applied)
 ```
 
-Legacy `agnostic.config.yaml` still loads, with a one-shot stderr rename warning.
+Legacy `agnostic.config.yaml` still loads, with one rename warning on stderr.
 
 ### Spec layer
 
@@ -52,24 +52,24 @@ mcps/*.yaml   ─┘
 ### Emit layer
 
 ```
-(Config, spec.Bundle) ──► adapter.Emit(bundle, config, dryRun)
+(Session, Config, spec.Bundle) ──► adapter.Emit(session, bundle, config, dryRun)
 ```
 
-Per-target outputs documented in [docs/site/content/docs/targets/](../site/content/docs/targets/_index.md), one page per target.
+Outputs for each target are documented in [docs/site/content/docs/targets/](../site/content/docs/targets/_index.md), one page per target.
 
 ## Emit modes
 
-The shared `emit` package keeps mode flags and buffers in a mutex-protected `Session` owned by each emission pass. Common modes include:
+The shared `emit` package keeps mode flags and buffers in a `Session` for each output run. A mutex protects the session when multiple operations use it at once. Common modes include:
 
 | Mode | Effect | Used by |
 |------|--------|---------|
-| capture | suppresses IO; records `(path, content)` pairs | `sync --check`, `doctor`, `revert` |
-| recording | does NOT suppress IO; records paths only | `sync` with gitignore enabled |
+| capture | skips file writes; records `(path, content)` pairs | `sync --check`, `doctor`, `revert` |
+| recording | still writes files; records paths only | `sync` with gitignore enabled |
 | backup | copies `<path>` → `<path>.bak` before overwrite | `sync --backup` |
 
-Modes stack independently (e.g. recording + backup during gitignore-managed sync).
+Modes can run together, for example recording and backup during a sync that updates `.gitignore`.
 
-`sync --watch` wraps these. Default backend: fsnotify with 50 ms debounce, watching every source dir plus `agnostic-ai.yaml` / `agnostic-ai.local.yaml`. `--watch-poll` forces a 200 ms mtime poll for filesystems where fsnotify is unreliable.
+`sync --watch` wraps these. By default, fsnotify watches every source directory plus `agnostic-ai.yaml` / `agnostic-ai.local.yaml`, grouping changes received within 50 ms. `--watch-poll` checks modification times every 200 ms for filesystems where fsnotify is unreliable.
 
 ## Core types
 
@@ -90,18 +90,19 @@ type Entry struct {
 // and YAML scalar styles) so a round-trip keeps the author's formatting.
 ```
 
-One spec file = one Entry. Adapters consume `spec.Bundle` (Entries bucketed by Kind).
+One spec file = one Entry. Adapters consume `spec.Bundle` (entries grouped by `Kind`).
 
 ### `Adapter` interface
 
 ```go
 type Adapter interface {
     Name() string
-    Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error
+    Capabilities() []spec.Kind
+    Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error
 }
 ```
 
-Stateless. `New()` once, `Emit` per sync.
+Adapters store no mutable state. Call `New()` once and `Emit` for each sync.
 
 ### `config.Config`
 
@@ -116,9 +117,9 @@ Mirrors `agnostic-ai.yaml`. See [internal/config/config.go](../../internal/confi
 | Package | Responsibility |
 |---------|---------------|
 | `cmd/` | entry point, no logic |
-| `internal/cli/` | flag parsing, orchestration |
+| `internal/cli/` | read flags and coordinate commands |
 | `internal/spec/`, `internal/config/` | parsing, no adapter knowledge |
-| `internal/adapters/<target>/` | file emit, no spec parsing |
+| `internal/adapters/<target>/` | write files without parsing source specs |
 | `internal/adapters/internal/emit/` | shared write helpers |
 
-No cross-adapter logic. Each target independent.
+Adapter packages do not import each other. Each target works independently.

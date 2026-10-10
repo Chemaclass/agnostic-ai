@@ -14,9 +14,9 @@ You can check every release yourself. Each check answers a different question. P
 | Check | Proves | Command |
 |---|---|---|
 | Checksum | The archive matches the release's `checksums.txt`. | `sha256sum -c` |
-| Build provenance | This repository's release workflow built the archive from the tagged commit. | `gh attestation verify` |
-| SBOM | Which Go modules and versions are in the binary. | `<archive>.sbom.json` |
-| npm provenance | The npm package came from this repository's release workflow. | `npm audit signatures` |
+| Proof of where the archive was built | This repository's release workflow built the archive from the tagged commit. | `gh attestation verify` |
+| List of included modules (SBOM) | Which Go modules and versions are in the binary. | `<archive>.sbom.json` |
+| Proof of where the npm package was built | The npm package came from this repository's release workflow. | `npm audit signatures` |
 | Signed tag | The maintainer signed the release commit and tag. | `git verify-tag` |
 
 ## Checksums
@@ -31,9 +31,9 @@ grep ' agnostic-ai_linux_amd64.tar.gz$' checksums.txt | sha256sum -c    # macOS:
 
 The checksum comes from the same release page. It catches a corrupted download, not a compromised release.
 
-## Build provenance
+## Check where the archive was built {#build-provenance}
 
-Releases after 0.74.0 carry a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) for every archive and SBOM. The release workflow signs it through Sigstore, with no long-lived key. Verify it with the [GitHub CLI](https://cli.github.com/):
+Releases after 0.74.0 include a signed record of where every archive and module list was built. This record is called a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The release workflow signs it through Sigstore, with no long-lived key. Verify it with the [GitHub CLI](https://cli.github.com/):
 
 ```bash
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai
@@ -47,19 +47,19 @@ gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-
 
 To make the installers run this check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh` or pass `-VerifyAttestation` to `install.ps1`. Both stop if `gh` is missing or the check fails.
 
-## SBOM
+## List of included modules {#sbom}
 
-Each archive has an SPDX SBOM next to it, such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`. It lists every Go module in the binary. It is in `checksums.txt` and has its own provenance. Scan it with a tool such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json`.
+Each archive has a list of included modules in SPDX format, called a software bill of materials (SBOM), such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`. It lists every Go module in the binary. Its checksum is in `checksums.txt`, and it has its own signed record of where it was built. Scan it with a tool such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json`.
 
 ## npm
 
-The `agnostic-ai` package and its six `@agnostic-ai/*` platform packages are published with [npm provenance](https://docs.npmjs.com/generating-provenance-statements). In a project that installs them:
+The `agnostic-ai` package and its six `@agnostic-ai/*` platform packages are published with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), a signed record of where they were built. In a project that installs them:
 
 ```bash
 npm audit signatures
 ```
 
-It checks each package's registry signature and provenance. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
+It checks each package's registry signature and signed build record. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
 
 ## Signed tags and commits
 

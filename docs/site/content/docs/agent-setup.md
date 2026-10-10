@@ -13,9 +13,9 @@ group = "Start"
 
 ## What the agent does
 
-Follow this when a user asks you to install or set up agnostic-ai in a repository. The goal: keep the existing AI tool setup, make `.agnostic-ai/` the source of truth, and finish with a passing `sync --check`.
+Follow this when a user asks you to install or set up agnostic-ai in a repository. The goal: keep the existing AI tool setup, keep the source instructions in `.agnostic-ai/`, and finish with a passing `sync --check`.
 
-### Safety contract
+### Setup rules {#safety-contract}
 
 - Work from the repository root. Read its contributor and agent instructions first.
 - Run `git status --short`. Never discard user changes.

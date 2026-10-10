@@ -185,14 +185,14 @@ Then doctor prints:
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor. A warning does not. | No |
 | **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -v` lists them. | No |
-| **Packaging ignores** | Generated paths that an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover, with the ignore file and paths. | No, advisory only |
+| **Packaging ignores** | Generated paths that an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover, with the ignore file and paths. | No, reported only |
 | **Tracked despite ignored** | A generated path that git tracks and ignores, with the `git rm --cached` fix. | No |
 | **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails. Disabled does not. | Never grants trust |
 | **MCP** | Whether each stdio `command:` is on PATH, with install hints. Then each `${NAME}` a server reads in `env`, `headers`, `url`, or `args` that is unset in this shell, by name only. A reference with a default is skipped. | No |
 | **Claude hook specs** | With `claude` enabled: a hook spec with several commands that `.claude/settings.json` already runs in one group with different settings, as an older `import claude` wrote it. Each command runs twice. The fix is to delete the spec, run `sync`, then run `import claude`. | No |
 | **Nested CLAUDE.md** | With `claude` enabled: a hand-written `<dir>/CLAUDE.md` whose text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code would load it beside the synced rule. | Yes, `--fix` removes it |
 | **Script divergence** | Scripts under `.agnostic-ai/scripts/<tool>/` with the same name but different bodies across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, no automatic fix |
-| **Unmanaged config** | Markdown and TOML config files with no provenance marker, grouped by the `import` source that adopts each. | No |
+| **Unmanaged config** | Markdown and TOML config files with no generated-file marker, grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
 | **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`. Per tool, it shows which wins. A name in [`sync.allow-global-names`](@/docs/configuration.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/configuration.md#global-shared-names). | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. Replace it with your own instructions. | Never |

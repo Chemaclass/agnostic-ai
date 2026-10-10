@@ -2,11 +2,11 @@
 
 [Contributor docs](README.md)
 
-External adapters live outside this repo as standalone binaries. The host (`agnostic-ai`) discovers them by name on `PATH` and drives them through a JSON-over-stdin/stdout protocol. Language-agnostic: any binary that reads stdin and writes stdout can implement an adapter.
+External adapters are programs maintained outside this repository. agnostic-ai finds them by name on `PATH`, sends JSON through standard input, and reads JSON from standard output. You can write an adapter in any language.
 
 ## Discovery
 
-Any binary on `PATH` named `agnostic-ai-adapter-<target>` is a candidate for target `<target>`. Opt in via `agnostic-ai.yaml`:
+Any binary on `PATH` named `agnostic-ai-adapter-<target>` is a candidate for target `<target>`. Enable it in `agnostic-ai.yaml`:
 
 ```yaml
 targets:
@@ -14,11 +14,11 @@ targets:
   - my-tool   # resolves to agnostic-ai-adapter-my-tool on PATH
 ```
 
-The host calls the binary once per target on each `sync` (or `doctor` / `revert` capture pass).
+agnostic-ai runs the program once per target on each `sync`, or when `doctor` / `revert` renders output for comparison.
 
 ## Wire format
 
-Host writes one JSON document to stdin and reads one JSON document from stdout. Stderr is reserved for adapter diagnostics, surfaced verbatim on non-zero exit.
+agnostic-ai writes one JSON document to standard input and reads one from standard output. Use standard error for diagnostic messages; agnostic-ai shows them unchanged when the adapter exits with a nonzero status.
 
 ### Input
 
@@ -57,9 +57,9 @@ Host writes one JSON document to stdin and reads one JSON document from stdout. 
 | Field | Meaning |
 |---|---|
 | `protocol_version` | Always `1`. Other values mean the host bumped the protocol; the adapter should refuse via `errors`. |
-| `command` | `emit` (only supported op). Future commands use distinct names. |
-| `target` | Exact name from `agnostic-ai.yaml`. Multiplex via symlinks at multiple target names. |
-| `dry_run` | Lets the adapter skip side effects an in-tree adapter wouldn't normally do. Host honors dry-run on its own when writing `files`. |
+| `command` | `emit` (only supported command). Future commands use distinct names. |
+| `target` | Exact name from `agnostic-ai.yaml`. One program can handle multiple targets through symbolic links with different target names. |
+| `dry_run` | Lets the adapter skip actions that a built-in adapter would not perform. Host honors dry-run on its own when writing `files`. |
 | `config.sources` / `config.outputs` | Mirror `agnostic-ai.yaml` after defaults. Adapters honoring per-target output paths read `outputs[target]`. |
 | `specs.*[].asset_dir` | Folder whose sibling files ship with a skill; `path`'s folder for any folder skill. Absent for flat files. |
 | `specs.*[].source_path` | The file the author edits, set only when it differs from `path`. A local skill that edits fields of a shared skill keeps the shared `SKILL.md` as `path`, so an adapter reading assets from `path`'s folder still ships them. |
@@ -80,20 +80,20 @@ Host writes one JSON document to stdin and reads one JSON document from stdout. 
 | Field | Meaning |
 |---|---|
 | `protocol_version` | Must echo `1`. Host rejects other values. |
-| `files` | The only side-effect surface. Project-relative paths + full content. Host writes through its own emit layer (capture/backup/dry-run preserved). |
-| `warnings` | Surfaced on stderr, prefixed with the target name. |
+| `files` | Files to write, each with a project-relative path and full content. agnostic-ai writes them through its shared helpers, preserving comparison, backup, and dry-run behavior. |
+| `warnings` | Shown on standard error, prefixed with the target name. |
 | `errors` | Non-empty (or non-zero exit) fails the run. Adapter stderr included verbatim. |
 
 ## Process model
 
-- Adapter runs as a subprocess, not in-process. Sandboxed by whatever the host OS enforces for children.
+- Adapter runs as a subprocess, not in-process. Only the operating system's restrictions for child processes apply.
 - Host pipes stdin once, reads stdout to EOF, waits for exit. No interactive terminal.
-- Adapter must not write to disk. Host owns all on-disk state so capture/backup/dry-run stays consistent.
+- Adapter must not write to disk. agnostic-ai handles all file writes so comparison, backup, and dry-run behavior stays consistent.
 
 ## Versioning
 
-- `protocol_version` integer is the sole compatibility signal. Wire-incompatible changes bump it.
-- Backwards-compatible additions (new optional fields) don't bump it. Adapters ignore unknown fields rather than fail.
+- `protocol_version` integer is the sole compatibility signal. Changes that break the input or output format increase this number.
+- Compatible additions, such as optional fields, keep the same number. Adapters ignore unknown fields rather than fail.
 - Frontmatter under `meta` is stable. Adapter-specific keys (`x-my-tool.<key>`) belong to the adapter; ignore the rest.
 
 ## Reference helpers
@@ -134,4 +134,4 @@ func render(rules []external.SpecEntry) string {
 }
 ```
 
-Build as `agnostic-ai-adapter-my-tool`, drop on `PATH`, list `my-tool` in `agnostic-ai.yaml`. The next `agnostic-ai sync` picks it up.
+Build as `agnostic-ai-adapter-my-tool`, put it on `PATH`, list `my-tool` in `agnostic-ai.yaml`. The next `agnostic-ai sync` picks it up.

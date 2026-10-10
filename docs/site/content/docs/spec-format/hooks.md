@@ -1,6 +1,6 @@
 +++
 title = "Hooks"
-description = "hooks/: commands the tool runs on lifecycle events, such as before a shell command or when a session starts."
+description = "hooks/: commands the tool runs at events such as before a shell command or when a session starts."
 weight = 50
 
 [extra]

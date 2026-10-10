@@ -89,7 +89,7 @@ Plugin hooks in `.opencode/plugins/` are not imported.
 
 ## Protected paths
 
-Advisory. Sync writes no edit guard for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 

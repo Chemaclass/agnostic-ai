@@ -18,9 +18,9 @@ Pick two tools to see what `agnostic-ai sync` writes for each spec kind, and whe
 
 ## Where the data comes from
 
-- Support states come from the [capability matrix](@/docs/targets/_index.md#capability-matrix).
-- Paths come from a real sync of one sample spec per kind. CI fails when either drifts from the adapters.
+- Support states come from the [tool support table](@/docs/targets/_index.md#capability-matrix).
+- Paths come from a real sync of one sample spec per kind. Automated checks fail when these states or paths differ from what sync writes.
 - File formats come from each path's extension.
 - A file that holds several kinds, such as `.claude/settings.json`, appears under each kind that writes to it.
 
-This page compares output files, not how each tool behaves once it reads them. Each target page lists field-level caveats and the config keys an Opt-in kind needs.
+This page compares output files, not how each tool behaves once it reads them. Each target page lists limits for individual fields and the config keys needed to enable an optional kind.

@@ -1,8 +1,10 @@
-# Issue #1959: live Claude Code hook evidence
+<a id="issue-1959-live-claude-code-hook-evidence"></a>
 
-Claude Code 2.1.295 applied RTK 0.51.0's native rewrite, but the original approval requirement did not survive one exact-rule combination: `ask: Bash(git status)` plus an explicit CLI allow for `Bash(rtk git status)` denied the raw command and executed the rewritten one. No broad permission grant was used. With no rules, the direction reversed: plain `git status` ran, while its RTK spelling required approval.
+# Issue #1959: live Claude Code hook results
 
-This is live host evidence, not only a synthetic processor probe. Twenty-one original live cases cover the paired permission matrix, missing/unsupported/already-prefixed commands, duplicate registration, failure details, and execution sentinels. A six-call dedicated-profile suite repeated the critical permission pairs and proved actual user/project hook loading and removal. The final eight-call suite repeats those cases with explicit RTK database and tee paths and adds a paired automatically rewritten command failure. Its results are authoritative for storage-isolated permission, scope, and rewritten-failure claims. Claude CLI list-price estimates were **$0.01499958** for the original phase, including its recorded exploratory runs, **$0.00188751** for the first dedicated-profile suite, and **$0.00246653** for the final eight-call suite, including **$0.00062830** for the added failure pair. Exploratory isolation probes are outside the public matrices and have individual costs where recorded; there is no complete combined historical ledger. These are CLI list-cost estimates, not invoices. The final runner enforces its $3 output-root budget prospectively.
+Claude Code 2.1.295 applied RTK 0.51.0's command replacement, but the original approval requirement did not survive one exact-rule combination: `ask: Bash(git status)` plus an explicit CLI allow for `Bash(rtk git status)` denied the raw command and executed the rewritten one. No broad permission grant was used. With no rules, the direction reversed: plain `git status` ran, while its RTK spelling required approval.
+
+This is live host evidence, not only a test of the hook processor alone. Twenty-one original live cases cover the paired permission comparisons, missing/unsupported/already-prefixed commands, duplicate hook settings, failure details, and marker files showing whether commands ran. A six-call dedicated-profile suite repeated the critical permission pairs and proved actual user/project hook loading and removal. The final eight-call suite repeats those cases with explicit RTK database and tee paths and adds a paired automatically rewritten command failure. Its results are authoritative for permission, settings-source and rewritten-command failure claims with separate test stores. Claude cost estimates reported by the CLI using published prices were **$0.01499958** for the original phase, including its recorded exploratory runs, **$0.00188751** for the first dedicated-profile suite, and **$0.00246653** for the final eight-call suite, including **$0.00062830** for the added failure pair. Exploratory isolation probes are outside the public matrices and have individual costs where recorded; there is no complete combined historical ledger. These are CLI list-cost estimates, not invoices. The final runner enforces its $3 output-root budget before starting each request.
 
 ## Environment and method
 
@@ -18,9 +20,11 @@ This is live host evidence, not only a synthetic processor probe. Twenty-one ori
 
 The pinned model name is documented in [Claude model configuration](https://code.claude.com/docs/en/model-config#haiku-5-5-context-window-and-pricing). Current [hook documentation](https://code.claude.com/docs/en/hooks#pretooluse-decision-control) says input replacement changes the object used for permission evaluation and must preserve other fields. Current [CLI documentation](https://code.claude.com/docs/en/cli-reference) documents setting-source selection and explicit settings. RTK's [versioned platform directory code](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/core/user_dirs.rs) explains the macOS directory behavior.
 
-## Observed permission matrix
+<a id="observed-permission-matrix"></a>
 
-Every row requested the exact command `git status` once. RTK rows use the native processor through a logging wrapper; raw rows log without changing the request.
+## Observed permission comparisons
+
+Every row requested the exact command `git status` once. RTK rows use the hook processor through a logging wrapper; raw rows log without changing the request.
 
 | Policy | Raw command | With RTK native hook |
 |---|---|---|
@@ -28,12 +32,12 @@ Every row requested the exact command `git status` once. RTK rows use the native
 | Exact original-command ask | Denied; command not executed | Rewritten to `rtk git status`, then denied; command not executed |
 | Exact original-command deny | Denied; command not executed | RTK returned no replacement; host denied original command |
 | No configured rule | Executed `git status` | Rewritten to `rtk git status`, then denied because approval was required |
-| Exact original ask plus exact rewritten allow | Denied; command not executed | Executed `rtk git status`, sentinel written |
+| Exact original ask plus exact rewritten allow | Denied; command not executed | Executed `rtk git status`, execution marker written |
 | Exact original deny plus exact rewritten allow | Denied; command not executed | RTK returned no replacement; denied, no sentinel |
 
-The conflict pair used identical original ask and narrow rewritten allow policies. The native RTK reply replaced the input but omitted `permissionDecision`; the host allowed the rewritten spelling. The original ask requirement therefore did not stop execution in this tested configuration. Raw control remained denied and left its sentinel absent. The corresponding original-deny/exact-wrapper-allow pair denied both forms: RTK preserved the original command and neither sentinel appeared. This is a concrete configuration limit to document before claiming preserved approval semantics. It follows the host's documented evaluation of replacement input; it does not by itself establish a host bug. Interactive approval dialogs, other permission modes, and other hosts were not exercised.
+The conflict pair used identical original ask and narrow rewritten allow policies. The native RTK reply replaced the input but omitted `permissionDecision`; the host allowed the rewritten spelling. The original ask requirement therefore did not stop execution in this tested configuration. Raw control remained denied and left its sentinel absent. The corresponding original-deny/exact-wrapper-allow pair denied both forms: RTK preserved the original command and neither sentinel appeared. This is a concrete configuration limit to document before claiming preserved approval behavior. It follows the host's documented evaluation of replacement input; it does not by itself establish a host bug. Interactive approval dialogs, other permission modes, and other hosts were not exercised.
 
-RTK's [versioned native processor](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/hook_cmd.rs#L632) maps an ask rewrite to a replacement without a permission decision. The live case demonstrates the resulting interaction with Claude's permission evaluation; it does not establish behavior for other RTK versions.
+RTK's [versioned hook processor](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/hook_cmd.rs#L632) maps an ask rewrite to a replacement without a permission decision. The live case demonstrates the resulting interaction with Claude's permission evaluation; it does not establish behavior for other RTK versions.
 
 ## Evidence that the replacement actually ran
 
@@ -60,12 +64,12 @@ Claude's [hook configuration reference](https://code.claude.com/docs/en/hooks#co
 | Explicit allow, ask, deny, and unconfigured outcomes | Recorded in noninteractive manual mode; original ask weakened by exact rewritten allow | `v2_{allow,ask,deny,none}_{raw,rtk}/`, `v4_*` |
 | No broad RTK grant | Passed | Exact CLI arguments and settings in each case |
 | Denied command not executed; failure not confused with success | Passed | Final permission pairs and `automatic_rewrite_failure_cases` |
-| Metadata, status, and essential error preserved | Passed through an automatic native rewrite and a failing subprocess | Final `automatic_failure_{raw,rtk}` records: pre-hook input, native reply, actual argv, and PostToolUseFailure |
+| Metadata, status, and essential error preserved | Passed through an automatic command replacement and a failing subprocess | Final `automatic_failure_{raw,rtk}` records: pre-hook input, native reply, actual argv, and PostToolUseFailure |
 | Missing, malformed, unsupported, already-prefixed outcomes | Passed at named layers | `v2_missing`, `processor-only.json`, `v2_unsupported`, `v2_already_rtk` |
-| Project/global duplicate registrations | Passed in a dedicated authenticated profile: actual user and project PreToolUse both ran; removing only user registration left project active | `authenticated_profile_cases.actual_global`, `actual_pretooluse_scopes` in the redacted matrix |
+| Project/global duplicate hook settings | Passed in a dedicated authenticated profile: actual user and project PreToolUse both ran; removing only user registration left project active | `authenticated_profile_cases.actual_global`, `actual_pretooluse_scopes` in the redacted matrix |
 | Explain approval changes | Passed | Unconfigured raw allowed, rewritten form denied; original ask plus rewritten allow executed only after rewrite |
 
-Do not claim universal approval parity or tested interactive behavior. The narrowly supported statement is: **Claude Code 2.1.295 on macOS accepted RTK 0.51.0 native rewrites, retained tested metadata and failures, and evaluated the rewritten spelling through its permission flow.**
+Do not claim universal approval parity or tested interactive behavior. The narrowly supported statement is: **Claude Code 2.1.295 on macOS accepted RTK 0.51.0 command replacements, retained tested metadata and failures, and evaluated the rewritten spelling through its permission flow.**
 
 ## Artifacts and reproduction
 
@@ -96,11 +100,11 @@ The actual scope case registered one `PreToolUse` entry in the isolated profile'
 
 A separate `--restricted` pilot retained Bash when explicitly named through `--tools Bash` and reproduced the ask-rule result, but it also retained plugins. Neither that flag nor disabled plugin entries in project settings provided the isolation needed by itself. Dedicated-profile results are recorded separately from the initial project-only dataset.
 
-Private historical dedicated-profile artifacts remain under `/tmp/agnostic-ai-1959-isolated/`; final artifacts are under `/tmp/agnostic-ai-1959-final/`. The final matrix includes five permission/scope case records, the removal replay, and two failing-command records, with usage, explicit store paths, and the settled cost ledger. Scope execution evidence records one Git invocation before user-hook removal and one after, separately. The rewritten-command cases created tracking databases in their fixture directories. Removing the temporary user registration was the only configuration change between the two scope calls. The final eight-call CLI list-price estimate is $0.00246653. To repeat the failing-command pair in new case directories, use `TRIO_ISOLATED_PROFILE=1` and run `trio-live-hooks.py failure-raw raw allow 'cargo test --test fixture'`, then `trio-live-hooks.py failure-rtk rtk allow 'cargo test --test fixture'` with the same private authentication setup and output-root ledger.
+Private historical dedicated-profile artifacts remain under `/tmp/agnostic-ai-1959-isolated/`; final artifacts are under `/tmp/agnostic-ai-1959-final/`. The final matrix includes five permission/scope case records, the removal replay, and two failing-command records, with usage, explicit store paths, and the settled cost ledger. Scope execution evidence records one Git invocation before user-hook removal and one after, separately. The rewritten-command cases created tracking databases in their fixture directories. Removing the temporary user registration was the only configuration change between the two scope calls. The final eight-call cost estimate reported by the CLI using published prices is $0.00246653. To repeat the failing-command pair in new case directories, use `TRIO_ISOLATED_PROFILE=1` and run `trio-live-hooks.py failure-raw raw allow 'cargo test --test fixture'`, then `trio-live-hooks.py failure-rtk rtk allow 'cargo test --test fixture'` with the same private authentication setup and output-root ledger.
 
 ## Configuration finding
 
-Claude documents that `updatedInput` changes the input evaluated by its permission rules. The observed original-ask/exact-wrapper-allow result follows that contract: the replacement matches the allow rule, while the original spelling matched ask. RTK 0.51.0's native processor leaves the decision unspecified for this ask rewrite. The paired original-deny test remained denied because RTK declined the rewrite.
+Claude documents that `updatedInput` changes the input evaluated by its permission rules. The observed original-ask/exact-wrapper-allow result follows that contract: the replacement matches the allow rule, while the original spelling matched ask. RTK 0.51.0's hook processor leaves the decision unspecified for this ask rewrite. The paired original-deny test remained denied because RTK declined the rewrite.
 
 Keep approval rules aligned with the commands that actually run. Do not add automatic wrapper allow rules while claiming they preserve an original ask requirement. This finding needs documentation and a regression fixture for the integration; it does not justify an agnostic-ai permission override, a broad wrapper allowlist, or a new upstream bug report without evidence that RTK promises a stronger contract. [Claude's PreToolUse reference](https://code.claude.com/docs/en/hooks#pretooluse-decision-control) defines the replacement-input behavior.
 

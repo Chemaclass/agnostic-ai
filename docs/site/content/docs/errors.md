@@ -83,7 +83,7 @@ The config's `requires` key names the agnostic-ai releases your specs work with:
 - **Global home config:** edit `requires` in the named file to adopt the installed release. `upgrade --requires` changes project config only.
 - **The version does not change:** `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
 
-### AAI-102: Targets emit to the same output path
+### AAI-102: Tools write to the same file {#aai-102-targets-emit-to-the-same-output-path}
 
 Two or more enabled targets would write different content to the same path. Sync stops instead of letting the last one win.
 

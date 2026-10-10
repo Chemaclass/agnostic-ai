@@ -5,8 +5,7 @@
 In-browser playground for agnostic-ai. Edit a spec and see what five
 well-known targets receive as you type. A target that does not support the
 spec kind shows as a disabled tab, and a link leads to the rest.
-Runs entirely client-side via WebAssembly,
-so the page costs zero server resources and works on any static host.
+Runs entirely in your browser using WebAssembly, which lets the browser run the compiled Go code. No server computes the output, so any static website host can serve the page.
 
 ## Try it
 
@@ -27,29 +26,29 @@ http://127.0.0.1:8080/playground/.
 
 | File | Purpose |
 |------|---------|
-| `index.html` | Two-pane UI: spec input on the left, emitted outputs on the right. |
+| `index.html` | Two panels: spec input on the left, generated files on the right. |
 | `style.css` | Layout + dark/light theme. |
-| `playground.js` | Wires up seven spec kinds, five demo targets with a link to the rest, capability-aware output tabs, and debounced rendering. |
-| `wasm_exec.js` | Go toolchain shim. Generated; gitignored. |
-| `agnostic-ai.wasm` | Built from `cmd/agnostic-ai-wasm`. Generated; gitignored. |
+| `playground.js` | Connects seven spec kinds and five demo targets, links to the rest, disables tabs for unsupported kinds, and waits briefly after typing before generating output. |
+| `wasm_exec.js` | JavaScript helper for Go's browser code. Generated and ignored by Git. |
+| `agnostic-ai.wasm` | Built from `cmd/agnostic-ai-wasm`. Generated and ignored by Git. |
 
 ## How it works
 
-`cmd/agnostic-ai-wasm/main.go` exposes three globals to JavaScript:
+`cmd/agnostic-ai-wasm/main.go` makes three functions available to JavaScript:
 
 - `agnosticAIRender(kind, body, targets)` returns
   `{ files: [{target, path, content}], errors: [{target, message}] }`.
-- `agnosticAITargets()` returns the list of every adapter linked into
-  the binary, so the UI can build the target picker dynamically.
+- `agnosticAITargets()` returns the list of every adapter included in
+  the executable, so the page can build the target picker from that list.
 - `agnosticAICapabilities()` returns each target's supported spec kinds
   from its adapter declaration. The Pages build therefore picks up a
   `caps.Supports` change without a separate playground data edit.
 
-Adapters use an emission session in capture mode, recording output in memory for the browser.
+The code that writes each tool's configuration records output in memory for the browser instead of writing files.
 
 ## Build size
 
-Measure the artifact after building:
+Measure the generated file after building:
 
 ```bash
 ls -lh docs/playground/agnostic-ai.wasm

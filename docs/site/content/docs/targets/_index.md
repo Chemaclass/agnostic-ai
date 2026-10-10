@@ -16,11 +16,11 @@ scripts = ["assets/scripts/capability-matrix.js"]
 # Targets
 
 
-See what `agnostic-ai sync` writes for each supported tool. Filter the matrix, then open a tool's name for its exact paths and settings.
+See what `agnostic-ai sync` writes for each supported tool. Filter the table, then open a tool's name for its exact paths and settings.
 
 [Compare targets](@/docs/compare.md) puts two or three tools side by side, with the paths each one gets.
 
-## Capability matrix
+## Tool support {#capability-matrix}
 
 {{ <capability_matrix /> }}
 
@@ -38,5 +38,5 @@ To ask for full support, [open an issue](https://github.com/Chemaclass/agnostic-
 - [Select project targets](@/docs/configuration.md#targets)
 - [Understand cross-target behavior](@/docs/target-behavior.md)
 - [Use directory-specific instructions](@/docs/scoped-context.md)
-- [Define portable spec kinds](@/docs/spec-format/_index.md)
+- [Define specs shared across tools](@/docs/spec-format/_index.md)
 - [Add a new adapter](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md)

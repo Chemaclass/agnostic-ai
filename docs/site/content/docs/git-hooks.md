@@ -19,7 +19,7 @@ If outputs are ignored, run `sync` once in each checkout before you enable the h
 
 - You see the problem when you cause it, not in the next CI run.
 - Every contributor gets the same check.
-- It is opt-in per checkout, so a fresh clone works without setup.
+- Enable it for each checkout. A fresh clone works without this setup.
 
 ## pre-commit (Python)
 

@@ -21,7 +21,7 @@ mcp-servers = "@/docs/spec-format/mcps.md"
 Each AI coding tool keeps its configuration in its own place and format: `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, `.gemini/settings.json`. A spec is one file under `.agnostic-ai/` that says what you want, once. `agnostic-ai sync` writes it for every tool you enable, in that tool's own format.
 
 - **One source to review.** A new rule or permission is one diff, not one per tool.
-- **No drift.** `sync --check` fails when a tool's file no longer matches its spec.
+- **Files stay in sync.** `sync --check` fails when a tool's file no longer matches its spec.
 - **Easy to add tools.** Adding a tool is one entry in `targets:`.
 - **Visible gaps.** When a tool cannot hold a field, sync prints a coverage note.
 
@@ -35,7 +35,7 @@ Each folder holds one kind of spec. Pick the one that fits what you want the age
 | [`skills/`](@/docs/spec-format/skills.md) | Procedures loaded on demand, with bundled files | a workflow is long, occasional, or needs scripts |
 | [`rules/`](@/docs/spec-format/rules.md) | Standing conventions, for the project, a directory, or a file pattern | the agent must follow it every time |
 | [`commands/`](@/docs/spec-format/commands.md) | Slash commands | a person starts the workflow by name |
-| [`hooks/`](@/docs/spec-format/hooks.md) | Commands the tool runs on lifecycle events | something must happen every time, not when the model remembers |
+| [`hooks/`](@/docs/spec-format/hooks.md) | Commands the tool runs at events such as session start | something must happen every time, not when the model remembers |
 | [`mcps/`](@/docs/spec-format/mcps.md) | MCP server connections | the agent needs an outside tool or data source |
 | [`settings/`](@/docs/spec-format/settings.md) | Permissions, default model, and effort | one policy should decide what agents may run |
 | [`reviews/`](@/docs/spec-format/reviews.md) | Guidance for code-review bots | a review bot should check project rules |
@@ -48,11 +48,11 @@ Two more entries sit next to them:
 - `AGNOSTIC_AI.md` is the instruction text every entry-point file carries, such as `AGENTS.md` and `CLAUDE.md`. See [entry-point files](@/docs/configuration.md#entry-point-files).
 - `local/` holds personal specs that stay out of Git. See [local overrides](@/docs/local-overrides.md).
 
-Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which tools get each kind. Each tool's page shows how it renders the kind.
+Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [tool support table](@/docs/targets/_index.md#capability-matrix) shows which tools get each kind. Each tool's page shows how it writes that kind.
 
-`agnostic-ai new <kind> <name>` scaffolds an agent, skill, rule, hook, or MCP server. [Getting started](@/docs/getting-started.md) walks through a first rule.
+`agnostic-ai new <kind> <name>` creates a starter spec for an agent, skill, rule, hook, or MCP server. [Getting started](@/docs/getting-started.md) walks through a first rule.
 
-Discovery is recursive:
+Specs also load from subfolders:
 
 - Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads.
 - Every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/` loads.
@@ -71,7 +71,7 @@ rules/
 
 For rules, scope decides where the rule applies. A rule can set `scope: services/payments`, which wins over its folder under `rules/`. A folder scopes a rule only when it names a project directory. `agnostic-ai new rule payments-context --scope services/payments` creates one.
 
-Scoped rules stay out of the root instruction file. Supported tools get a path condition or a nested instruction file. Other tools skip the rule with a warning, or fail under `on-unsupported: error`. [Directory-specific instructions](@/docs/scoped-context.md) has the tool matrix and selector limits.
+Scoped rules stay out of the root instruction file. Supported tools get a path condition or a nested instruction file. Other tools skip the rule with a warning, or fail under `on-unsupported: error`. [Directory-specific instructions](@/docs/scoped-context.md) lists supported tools and limits on file patterns.
 
 ## Target scoping
 
@@ -92,7 +92,7 @@ A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini
 
 `import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays unscoped. So does every spec in a single-tool project, so an import and a sync give identical files.
 
-## Frontmatter rules
+## YAML headers (frontmatter) {#frontmatter-rules}
 
 - YAML between two `---` lines at the top of the file.
 - Empty frontmatter (`---\n---\n`) means no metadata.

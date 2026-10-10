@@ -57,7 +57,7 @@ A skills directory inside a plugin folder but outside its `skills/` folder is no
 |--------|---------|
 | `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.goosehints` | the same, read only when `AGENTS.md` carried no rules |
-| `.agents/agents/<name>.md` | `<agents>/<name>.md`, unchanged except for the provenance header |
+| `.agents/agents/<name>.md` | `<agents>/<name>.md`, unchanged except for the generated-file header |
 | `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
 | `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every plugin in the project |
 | `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group, `on_failure` under `x-goose` |
@@ -80,7 +80,7 @@ See [scoped context](@/docs/scoped-context.md).
 
 ## Protected paths
 
-Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 
