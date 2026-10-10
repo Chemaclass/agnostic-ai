@@ -44,4 +44,6 @@
 # before cleanup. Keep the same 8 KB allowance for CI's Linux build.
 # After merging #2014, measured 18772128, up 32768 from main badb5ae3.
 # Keep the established 8 KB allowance for CI.
-18781000
+# After bounded diagnostic reads and settings identity checks, measured
+# 18776224. Keep the established 8 KB allowance for CI's Linux build.
+18785000
