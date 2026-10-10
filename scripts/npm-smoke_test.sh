@@ -42,7 +42,8 @@ const { execFileSync } = require('node:child_process')
 const root = process.argv[2]
 const { verifyTarballs, verifyInstalled } = require(path.join(root, 'npm-smoke-verify'))
 const { PLATFORMS, packageName, binaryName, platformFor, optionalDependencies } = require(path.join(root, '../npm/lib/platforms'))
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-smoke-fixture-'))
+const prefix = process.platform === 'win32' ? 'npm smoke fixture-' : 'npm smoke: fixture-'
+const work = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
 const version = '1.2.3'
 function pack(name, changes = {}) {
   const directory = path.join(work, 'packed', 'package')
@@ -51,7 +52,7 @@ function pack(name, changes = {}) {
   if (name === 'agnostic-ai' && !manifest.optionalDependencies) manifest.optionalDependencies = optionalDependencies(version)
   fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify(manifest))
   const filename = path.join(work, `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`)
-  execFileSync('tar', ['-czf', filename, '-C', path.dirname(directory), 'package'])
+  execFileSync('tar', ['-czf', path.basename(filename), '-C', path.dirname(directory), 'package'], { cwd: work })
   return filename
 }
 try {

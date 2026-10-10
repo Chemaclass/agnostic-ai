@@ -11,7 +11,7 @@ function verifyTarballs(work, version) {
     const filename = `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`
     const file = path.join(work, filename)
     if (!fs.existsSync(file)) throw new Error(`missing local tarball: ${filename}`)
-    const manifest = JSON.parse(execFileSync('tar', ['-xOf', file, 'package/package.json'], { encoding: 'utf8' }))
+    const manifest = JSON.parse(execFileSync('tar', ['-xzOf', '-', 'package/package.json'], { input: fs.readFileSync(file), encoding: 'utf8' }))
     if (manifest.name !== name || manifest.version !== version) throw new Error(`${filename}: package identity mismatch`)
     if (name === 'agnostic-ai') {
       const pins = manifest.optionalDependencies || {}
