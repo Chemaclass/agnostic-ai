@@ -355,7 +355,7 @@ func TestNew_AddedKindsKeepSafeDefaultsAndPlaceholderLint(t *testing.T) {
 		}
 	}
 	for _, entry := range bundle.All() {
-		if !found[entry.Path] {
+		if !found[filepath.ToSlash(entry.Path)] {
 			t.Errorf("placeholder description not reported for %s", entry.Path)
 		}
 	}
