@@ -59,6 +59,7 @@ agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai explain --file src/main.go --target claude # show configured instructions for a file
 agnostic-ai sync --check                         # find generated files that differ from the sources
 agnostic-ai doctor --fix                         # repair generated files, choose which leftover files to remove
+agnostic-ai doctor rtk --command 'git status'    # preview rewrites and declared approval differences
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store

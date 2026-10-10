@@ -15,6 +15,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- Preview RTK rewrites and declared approval changes with `doctor rtk --command`; live approval remains unknown (#2015).
 - Explain Claude Code instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).
 
 ## v0.82.0 - 2026-10-10

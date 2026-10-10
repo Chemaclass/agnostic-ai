@@ -1,0 +1,297 @@
+package cli
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+func TestRTKDeclaredPermissions_ReportsChangedAskRule(t *testing.T) {
+	sources := []rtkSettings{{Path: "project", Permissions: map[string][]string{
+		"ask": {"Bash(git status)"}, "allow": {"Bash(rtk git status)"},
+	}}}
+	original := rtkDeclaredDecision("git status", sources)
+	rewritten := rtkDeclaredDecision("rtk git status", sources)
+	if original.Decision != "ask" || rewritten.Decision != "allow" {
+		t.Fatalf("decisions: original=%+v rewritten=%+v", original, rewritten)
+	}
+}
+
+func TestRTKDeclaredPermissions_KeepsUnknownAndDeny(t *testing.T) {
+	cases := []struct{ command, rule, list, want string }{
+		{"git status", "Bash(git:*)", "deny", "deny"},
+		{"rtk git status", "Bash(rtk git:*)", "ask", "ask"},
+		{"git status", "Bash(git * status)", "allow", "unknown"},
+		{"git status && touch marker", "Bash(git:*)", "allow", "unknown"},
+		{"git status", "Bash(rtk git:*)", "allow", "unknown"},
+		{"git status", "Bash(git status *)", "deny", "deny"},
+	}
+	for _, c := range cases {
+		t.Run(c.rule+"/"+c.command, func(t *testing.T) {
+			got := rtkDeclaredDecision(c.command, []rtkSettings{{Permissions: map[string][]string{c.list: {c.rule}}}})
+			if got.Decision != c.want {
+				t.Errorf("got %s, want %s", got.Decision, c.want)
+			}
+		})
+	}
+}
+
+func TestRTKDeclaredPermissions_UnsupportedToolGlobPreventsAllow(t *testing.T) {
+	for _, rule := range []string{"*", "B*"} {
+		got := rtkDeclaredDecision("git status", []rtkSettings{{Permissions: map[string][]string{
+			"allow": {"Bash(git status)"}, "deny": {rule},
+		}}})
+		if got.Decision == "allow" {
+			t.Errorf("deny %q hidden by allow: %+v", rule, got)
+		}
+	}
+}
+
+func TestRTKSettings_DecodesPermissionModesAndSiblingFields(t *testing.T) {
+	got, err := decodeRTKSettings("settings.json", []byte(`{"permissions":{"defaultMode":"acceptEdits","disableBypassPermissionsMode":"disable","allow":["Bash(git status)"],"blockReadsOutsideWorkingDirectories":true}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Permissions["allow"][0] != "Bash(git status)" {
+		t.Fatalf("lost rule: %+v", got)
+	}
+}
+
+func TestRTKDeclaredPermissions_EquivalentDecisions(t *testing.T) {
+	for _, decision := range []string{"deny", "ask", "allow"} {
+		sources := []rtkSettings{{Permissions: map[string][]string{decision: {"Bash(git status)", "Bash(rtk git status)"}}}}
+		if original, rewritten := rtkDeclaredDecision("git status", sources), rtkDeclaredDecision("rtk git status", sources); original.Decision != decision || rewritten.Decision != decision {
+			t.Fatalf("equivalent %s decisions: %+v / %+v", decision, original, rewritten)
+		}
+	}
+}
+
+func TestRTKDeclaredPermissions_UnsupportedDenyPreventsAllowClaim(t *testing.T) {
+	got := rtkDeclaredDecision("git status", []rtkSettings{{Permissions: map[string][]string{
+		"allow": {"Bash(git status)"}, "deny": {"Bash(git * status)"},
+	}}})
+	if got.Decision != "unknown" {
+		t.Fatalf("unknown deny reported as %+v", got)
+	}
+}
+
+func TestRTKDeclaredPermissions_WrappersAndParameterRulesStayUnknown(t *testing.T) {
+	for _, command := range []string{"timeout 3 git status", "time git status", "nice git status", "nohup git status", "stdbuf -oL git status", "command git status", "builtin git status", "noglob git status", "xargs git status"} {
+		got := rtkDeclaredDecision(command, []rtkSettings{{Permissions: rtkPermissionRules{
+			"allow": {"Bash(*)"}, "deny": {"Bash(git status)"},
+		}}})
+		if got.Decision != "unknown" {
+			t.Errorf("wrapper %q reported as %+v", command, got)
+		}
+	}
+	got := rtkDeclaredDecision("git status", []rtkSettings{{Permissions: rtkPermissionRules{
+		"allow": {"Bash(git status)"}, "deny": {"Bash(run_in_background:true)"},
+	}}})
+	if got.Decision != "unknown" {
+		t.Errorf("parameter rule reported as %+v", got)
+	}
+}
+
+func TestDoctorRTK_HelpDocumentsReadOnlyScope(t *testing.T) {
+	var out bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"doctor", "rtk", "--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"--command", "--json", "does not execute", "declared"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("help missing %q: %s", want, out.String())
+		}
+	}
+}
+
+func TestRTKReport_TextAndJSONPreserveUnknown(t *testing.T) {
+	report := rtkReport{Command: "git status", Status: "missing", Runtime: "unknown", Original: rtkDecision{Decision: "unknown"}, Rewritten: rtkDecision{Decision: "unknown"}, Warnings: []string{"RTK is not installed"}}
+	var text, data bytes.Buffer
+	if err := printRTKReport(&text, report, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := printRTKReport(&data, report, true); err != nil {
+		t.Fatal(err)
+	}
+	var decoded rtkReport
+	if err := json.Unmarshal(data.Bytes(), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Status != report.Status || decoded.Runtime != "unknown" || !strings.Contains(text.String(), "unknown") || strings.Contains(text.String(), "safe") {
+		t.Fatalf("reports disagree: %s / %s", text.String(), data.String())
+	}
+}
+
+func TestDoctorRTK_MissingProcessorKeepsApprovalUnknown(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+	var out bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"doctor", "rtk", "--command", "git status", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got rtkReport
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "missing" || got.Runtime != "unknown" || got.Rewritten.Decision != "unknown" {
+		t.Fatalf("missing processor: %+v", got)
+	}
+}
+
+func TestDoctorRTK_ProcessesDataWithoutExecutingPayload(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX fake processor; matching/report tests run on every OS")
+	}
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	bin := t.TempDir()
+	processor := filepath.Join(bin, "rtk")
+	if err := os.WriteFile(processor, []byte("#!/bin/sh\ncase \"$1\" in\n--version) printf 'rtk fixture\\n';;\nrewrite) printf '%s\\n' \"$2\";;\nesac\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+	var out bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"doctor", "rtk", "--command", "git status; touch marker", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("marker"); !os.IsNotExist(err) {
+		t.Fatalf("payload executed: %v", err)
+	}
+	var got rtkReport
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Original.Decision != "unknown" || got.Rewritten.Decision != "unknown" || got.Runtime != "unknown" {
+		t.Fatalf("compound command reported known: %+v", got)
+	}
+	if got.Status != "unchanged" {
+		t.Fatalf("unchanged processor output classified as %s", got.Status)
+	}
+	out.Reset()
+	cmd = NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"doctor", "rtk", "--command", "rtk git status", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "unchanged" || got.Changed {
+		t.Fatalf("already-prefixed: %+v", got)
+	}
+}
+
+func TestDoctorRTK_HandlesProcessorAskAndDeny(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX fake processor; classification tests run on every OS")
+	}
+	for _, code := range []string{"2", "3"} {
+		t.Run(code, func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+			bin := t.TempDir()
+			script := "#!/bin/sh\nif [ \"$1\" = --version ]; then printf 'rtk fixture\\n'; exit 0; fi\n"
+			if code == "3" {
+				script += "printf 'rtk git status\\n'\n"
+			}
+			script += "exit " + code + "\n"
+			if err := os.WriteFile(filepath.Join(bin, "rtk"), []byte(script), 0755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", bin)
+			mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\n")
+			var out bytes.Buffer
+			cmd := NewRootCmd("test")
+			cmd.SetOut(&out)
+			cmd.SetArgs([]string{"doctor", "rtk", "--command", "git status", "--json"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var got rtkReport
+			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Runtime != "unknown" {
+				t.Fatalf("processor claimed host outcome: %+v", got)
+			}
+			if code == "2" && (got.Status != "processor-denied" || got.Replacement != "") {
+				t.Fatalf("deny: %+v", got)
+			}
+			if code == "3" && (got.Status != "rewritten" || got.Replacement != "rtk git status") {
+				t.Fatalf("ask: %+v", got)
+			}
+		})
+	}
+}
+
+func TestRTKHandlers_DoNotClassifyEchoAsProcessor(t *testing.T) {
+	for _, command := range []string{"echo rtk rewrite", "printf '%s' 'rtk hook claude'"} {
+		if rtkDirectHandler(command) {
+			t.Fatalf("data classified as RTK processor: %s", command)
+		}
+	}
+}
+
+func TestDoctorRTK_ReportsDeclaredChangeAndDuplicateOwners(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX fake processor; matching/report tests run on every OS")
+	}
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	user := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", user)
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "rtk"), []byte("#!/bin/sh\ncase \"$1\" in\n--version) printf 'rtk fixture\\n';;\nrewrite) printf 'rtk git status\\n';;\nesac\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	mustWrite(t, "agnostic-ai.yaml", "targets: [claude]\nbuiltins: [rtk]\n")
+	mustWrite(t, ".agnostic-ai/settings/approval.yaml", "permissions:\n  ask: ['Bash(git status)']\n  allow: ['Bash(rtk git status)']\n")
+	mustWrite(t, filepath.Join(user, "settings.json"), `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"rtk hook claude"}]}]}}`)
+	var out bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"doctor", "rtk", "--command", "git status", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var report rtkReport
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if !report.Changed || report.Original.Decision != "ask" || report.Rewritten.Decision != "allow" || len(report.Hooks) != 2 {
+		t.Fatalf("wrong diagnosis: %+v", report)
+	}
+	if report.Runtime != "unknown" || len(report.Warnings) != 2 {
+		t.Fatalf("missing warning or runtime limit: %+v", report)
+	}
+	if _, err := os.Stat(".claude/settings.json"); !os.IsNotExist(err) {
+		t.Fatalf("diagnostic wrote settings: %v", err)
+	}
+}
