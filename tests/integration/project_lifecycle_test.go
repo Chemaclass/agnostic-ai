@@ -163,7 +163,7 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 	write("agnostic-ai.yaml", "version: 1\nrequires: '0.83.0'\ntargets: [codex, cursor]\nbuiltins: [memory]\n", 0o644)
 	memory = exec.Command("sh", "-c", command)
 	memory.Dir = dir
-	if out, err := memory.CombinedOutput(); err == nil || !strings.Contains(string(out), "requires 0.83.0") || !strings.Contains(string(out), "project --bootstrap") {
+	if out, err := memory.CombinedOutput(); err == nil || !strings.Contains(string(out), "requires 0.83.0") || !strings.Contains(string(out), "conflicts") || !strings.Contains(string(out), "explicitly") {
 		t.Errorf("memory version contract: %v %s", err, out)
 	}
 	cursorMemory = exec.Command("sh", "-c", cursorCommand)

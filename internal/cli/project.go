@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,7 +40,7 @@ func newProjectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "project [--check | --bootstrap] [-- <command>...]",
 		Short: "Run the installed project binary with its configured version contract.",
-		Long: "Prefers node_modules/.bin/agnostic-ai to PATH and checks the project's requires. " +
+		Long: "Prefers node_modules/.bin/agnostic-ai to PATH and checks exact stable package.json pins and the project's requires. " +
 			"By default syncs with --keep-edits --quiet. --check checks output without installing " +
 			"or writing files. --bootstrap installs missing or mismatched npm/pnpm dependencies " +
 			"from the lockfile, then syncs. Package scripts run normally; recursive bootstrap " +
@@ -62,21 +65,27 @@ func newProjectCmd() *cobra.Command {
 
 func runProject(cmd *cobra.Command, args []string, check, bootstrap bool, against string) error {
 	root, err := projectCommandRoot(args)
+	if against != "" {
+		root, err = os.Getwd()
+	}
 	if err != nil {
 		return fmt.Errorf("project root: %w", err)
 	}
-	cfg, _, err := config.LoadWithSources(root)
+	root, cfg, pkg, err := readProjectContract(root, against)
 	if errs.CodeOf(err) == errs.CodeConfigMissing && len(args) > 1 && args[0] == "hook" {
 		cfg, err = &config.Config{}, nil
 	}
 	if err != nil {
 		return err
 	}
-	pkg, err := readProjectPackage(root)
-	if err != nil {
+	if _, err := projectExactPackagePin(pkg, cfg.Requires); err != nil {
 		return err
 	}
 	binary, resolveErr := resolveProjectBinary(root, pkg, cfg.Requires)
+	var capabilityErr *projectCapabilityError
+	if errors.As(resolveErr, &capabilityErr) {
+		return resolveErr
+	}
 	if resolveErr != nil && bootstrap && os.Getenv(projectBootstrapEnv) == "" {
 		install, err := projectInstallCommand(root, pkg)
 		if err != nil {
@@ -109,6 +118,66 @@ func runProject(cmd *cobra.Command, args []string, check, bootstrap bool, agains
 		return fmt.Errorf("project binary %s: %w", binary.path, err)
 	}
 	return nil
+}
+
+func readProjectContract(root, against string) (string, *config.Config, projectPackage, error) {
+	contractRoot := root
+	if against != "" {
+		if err := validateAgainst(against, true, false, false, false); err != nil {
+			return root, nil, projectPackage{}, err
+		}
+		origin, err := os.Getwd()
+		if err != nil {
+			return root, nil, projectPackage{}, err
+		}
+		top, err := gitOutput(root, nil, "rev-parse", "--show-toplevel")
+		if err != nil {
+			return root, nil, projectPackage{}, fmt.Errorf("project --against %s: %w", against, err)
+		}
+		top = canonicalDir(strings.TrimSpace(top))
+		root = canonicalDir(root)
+		relative, err := filepath.Rel(top, root)
+		if err != nil {
+			return root, nil, projectPackage{}, err
+		}
+		if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return root, nil, projectPackage{}, fmt.Errorf("project contract %s is outside Git root %s", root, top)
+		}
+		if err := os.Chdir(top); err != nil {
+			return root, nil, projectPackage{}, fmt.Errorf("project contract %s: %w", root, err)
+		}
+		defer func() { _ = os.Chdir(origin) }()
+		tree, err := enterAgainstTree(against)
+		if err != nil {
+			return root, nil, projectPackage{}, err
+		}
+		defer tree.leave()
+		contractRoot = filepath.Join(tree.root, relative)
+		for {
+			if _, _, err := config.ResolveConfigPath(contractRoot); err == nil || contractRoot == tree.root {
+				break
+			}
+			contractRoot = filepath.Dir(contractRoot)
+		}
+		relative, err = filepath.Rel(tree.root, contractRoot)
+		if err != nil {
+			return root, nil, projectPackage{}, err
+		}
+		manifest := filepath.ToSlash(filepath.Join(relative, "package.json"))
+		if err := tree.export(tree.trackedOf([]string{manifest})); err != nil {
+			return root, nil, projectPackage{}, fmt.Errorf("project --against %s package.json: %w", against, err)
+		}
+		root = filepath.Join(top, relative)
+	}
+	cfg, _, configErr := config.LoadWithSources(contractRoot)
+	if configErr != nil && errs.CodeOf(configErr) != errs.CodeConfigMissing {
+		return root, cfg, projectPackage{}, configErr
+	}
+	pkg, err := readProjectPackage(contractRoot)
+	if err == nil {
+		err = configErr
+	}
+	return root, cfg, pkg, err
 }
 
 func projectCommandRoot(args []string) (string, error) {
@@ -169,6 +238,10 @@ func readProjectPackage(root string) (projectPackage, error) {
 }
 
 func resolveProjectBinary(root string, pkg projectPackage, requires string) (projectBinary, error) {
+	pin, err := projectExactPackagePin(pkg, requires)
+	if err != nil {
+		return projectBinary{}, err
+	}
 	local := filepath.Join(root, "node_modules", ".bin", "agnostic-ai")
 	binary := projectBinary{path: local}
 	if runtime.GOOS == "windows" {
@@ -203,15 +276,25 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 	defer cancel()
 	probe := exec.CommandContext(ctx, binary.path, append(binary.prefix, "--version")...)
 	probe.Dir = root
-	out, err := probe.Output()
+	probe.Env = append(os.Environ(), envNoUpdateCheck+"=1")
+	probe.WaitDelay = 250 * time.Millisecond
+	var output projectProbeOutput
+	probe.Stdout, probe.Stderr = &output, io.Discard
+	err = probe.Run()
 	if err != nil {
 		return projectBinary{}, fmt.Errorf("project binary %s cannot report its version; run `agnostic-ai project --bootstrap`: %w", selected, err)
 	}
-	fields := strings.Fields(string(out))
+	if output.overflow {
+		return projectBinary{}, fmt.Errorf("project binary %s version output exceeds 64 KiB", selected)
+	}
+	fields := strings.Fields(output.buffer.String())
 	if len(fields) == 0 {
 		return projectBinary{}, fmt.Errorf("project binary %s reports no version; run `agnostic-ai project --bootstrap`", selected)
 	}
 	version := fields[len(fields)-1]
+	if pin != "" && !versionsEqual(pin, version) {
+		return projectBinary{}, fmt.Errorf("project binary %s is %s, but package.json pins agnostic-ai to %s; run `agnostic-ai project --bootstrap` (the lockfile must match the declared pin)", selected, version, pin)
+	}
 	if requires != "" {
 		requirement, err := config.ParseRequirement(requires)
 		if err != nil {
@@ -221,7 +304,65 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 			return projectBinary{}, fmt.Errorf("project binary %s is %s, but requires %s; run `agnostic-ai project --bootstrap` (the lockfile must satisfy requires)", selected, version, requires)
 		}
 	}
+	capability := exec.CommandContext(ctx, binary.path, append(binary.prefix, "project", "--help")...)
+	capability.Dir, capability.Stdout, capability.Stderr = root, io.Discard, io.Discard
+	capability.Env = append(os.Environ(), envNoUpdateCheck+"=1")
+	capability.WaitDelay = 250 * time.Millisecond
+	if err := capability.Run(); err != nil {
+		return projectBinary{}, &projectCapabilityError{selected: selected, err: err}
+	}
 	return binary, nil
+}
+
+type projectCapabilityError struct {
+	selected string
+	err      error
+}
+
+func (e *projectCapabilityError) Error() string {
+	return fmt.Sprintf("project binary %s does not support the project command; upgrade its owning package to a supporting release and update package.json and requires explicitly, then rerun (no global fallback): %v", e.selected, e.err)
+}
+
+func (e *projectCapabilityError) Unwrap() error { return e.err }
+
+type projectProbeOutput struct {
+	buffer   bytes.Buffer
+	overflow bool
+}
+
+func (o *projectProbeOutput) Write(p []byte) (int, error) {
+	remaining := (64 << 10) - o.buffer.Len()
+	if len(p) > remaining {
+		o.overflow = true
+		_, _ = o.buffer.Write(p[:remaining])
+	} else {
+		_, _ = o.buffer.Write(p)
+	}
+	return len(p), nil
+}
+
+func projectExactPackagePin(pkg projectPackage, requires string) (string, error) {
+	var pin string
+	for _, declaration := range []string{pkg.Dependencies["agnostic-ai"], pkg.DevDependencies["agnostic-ai"]} {
+		declaration = strings.TrimSpace(declaration)
+		if !stableRelease(declaration) {
+			continue
+		}
+		if pin != "" && !versionsEqual(pin, declaration) {
+			return "", fmt.Errorf("package.json declares conflicting exact agnostic-ai versions %s and %s; update the declarations explicitly", pin, declaration)
+		}
+		pin = declaration
+	}
+	if pin != "" && requires != "" {
+		requirement, err := config.ParseRequirement(requires)
+		if err != nil {
+			return "", err
+		}
+		if allowed, _ := requirement.Allows(pin); !allowed {
+			return "", fmt.Errorf("package.json pins agnostic-ai to %s, which conflicts with requires %s; update the declared pin, lockfile, or requires explicitly before bootstrap", pin, requires)
+		}
+	}
+	return pin, nil
 }
 
 func projectInstallCommand(root string, pkg projectPackage) (*exec.Cmd, error) {

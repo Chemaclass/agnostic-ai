@@ -39,4 +39,9 @@
 # #2014 measured 18739360, up 16384 from main 7df02fd1: registered
 # worktree ownership, complete payloads, and hidden index flags are checked
 # before cleanup. Keep the same 8 KB allowance for CI's Linux build.
-18756000
+# #2012 measured 18763936, up 24576 from main badb5ae3: pinned project
+# binaries, locked bootstrap and portable lifecycle launchers.
+# Keep the established 8 KB allowance for CI.
+# After contract fixes, measured 18784416, up 45056 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+18794000

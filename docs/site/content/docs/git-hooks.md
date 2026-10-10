@@ -228,7 +228,11 @@ agnostic-ai project --check
 agnostic-ai project --bootstrap
 ```
 
-Bootstrap uses one locked npm or pnpm install only when the local binary is missing or does not satisfy `requires`. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
+Bootstrap uses one locked npm or pnpm install only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
+
+Only stable exact npm versions are checked against the installed version. Ranges, tags, aliases, prereleases, and file dependencies are not interpreted as npm version contracts; set `requires` to enforce the accepted releases. `--against index` and `--against HEAD` read both the config and package declarations from that Git view while using the installed binary in the working checkout.
+
+Generated hooks first check that the selected binary supports `project`. Released v0.82.0 does not support it. An unsupported selected package produces an upgrade instruction; update its declared version and `requires` explicitly before using the new lifecycle. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
 
 A hook manager can call `agnostic-ai project --check --against index` for a read-only pre-commit gate. Use `agnostic-ai project` after checkout or merge to regenerate without installing. The helper prefers the local package even when an older global binary is on `PATH`; call the local helper or use a global version supporting this command. A missing helper must first be installed through your package manager. The command does not rewrite hook-manager configuration or widen an exact requirement.
 

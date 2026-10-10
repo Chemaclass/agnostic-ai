@@ -16,10 +16,10 @@ func TestProject_PrefersLocalAndCheckNeverInstalls(t *testing.T) {
 		t.Skip("POSIX launcher fixture")
 	}
 	dir := budgetProject(t, "requires: '0.82.0'\ntargets: [codex]\n")
-	mustWriteFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0"}`)
+	mustWriteFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"^0.82.0"},"packageManager":"pnpm@10.0.0"}`)
 	log := filepath.Join(dir, "calls")
 	local := filepath.Join(dir, "node_modules", ".bin", "agnostic-ai")
-	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; else printf '%s\\n' \"$*\" >> '"+log+"'; fi\n")
+	mustWriteFile(t, local, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'agnostic-ai version 0.82.0'; elif [ \"$2\" = --help ]; then exit 0; else printf '%s\\n' \"$*\" >> '"+log+"'; fi\n")
 	if err := os.Chmod(local, 0o755); err != nil {
 		t.Fatal(err)
 	}

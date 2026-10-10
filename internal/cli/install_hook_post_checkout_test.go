@@ -33,7 +33,7 @@ func TestInstallHookPostCheckout_CreatesHook(t *testing.T) {
 		"# agnostic-ai install-hook --post-checkout\n",
 		`[ "$3" = "1" ] || exit 0`,
 		"agnostic-ai.yaml",
-		"agnostic-ai project",
+		"\"$agnostic_ai_bin\" project",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("hook missing %q, got:\n%s", want, got)
@@ -55,7 +55,7 @@ func TestInstallHookPostCheckout_UpgradesLegacyChecks(t *testing.T) {
 		}
 	}
 	got := readHook(t, path)
-	if !strings.Contains(got, "echo manual") || strings.Contains(got, "agnostic-ai sync -q") || strings.Count(got, "\nagnostic-ai project\n") != 1 {
+	if !strings.Contains(got, "echo manual") || strings.Contains(got, "agnostic-ai sync -q") || strings.Count(got, "\n\"$agnostic_ai_bin\" project\n") != 1 {
 		t.Errorf("legacy upgrade: %s", got)
 	}
 }
@@ -69,7 +69,7 @@ func TestInstallHookPostCheckout_Shared(t *testing.T) {
 	}
 
 	got := readHook(t, filepath.Join(dir, sharedHooksPath, "post-checkout"))
-	if !strings.Contains(got, "agnostic-ai project") {
+	if !strings.Contains(got, "\"$agnostic_ai_bin\" project") {
 		t.Errorf("shared hook missing the sync call, got:\n%s", got)
 	}
 	if value := git(t, dir, "config", "core.hooksPath"); value != sharedHooksPath {
@@ -97,7 +97,7 @@ func fakeAgnosticAI(t *testing.T) (bin, log string) {
 	}
 	bin = t.TempDir()
 	log = filepath.Join(t.TempDir(), "calls.log")
-	fake := "#!/bin/sh\n" + `echo "$* cwd=$(pwd -P)" >> "` + log + "\"\nexit 0\n"
+	fake := "#!/bin/sh\nif [ \"$2\" = --help ]; then exit 0; fi\n" + `echo "$* cwd=$(pwd -P)" >> "` + log + "\"\nexit 0\n"
 	if err := os.WriteFile(filepath.Join(bin, "agnostic-ai"), []byte(fake), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestInstallHookPostCheckout_KeepsManualHooksAndInstallsBothOnce(t *testing.
 			}
 			for _, name := range []string{"post-checkout", "post-merge"} {
 				got := readHook(t, filepath.Join(hooks, name))
-				if !strings.Contains(got, "echo manual-"+name) || strings.Count(got, "\nagnostic-ai project\n") != 1 {
+				if !strings.Contains(got, "echo manual-"+name) || strings.Count(got, "\n\"$agnostic_ai_bin\" project\n") != 1 {
 					t.Errorf("%s lost manual content or lacks one sync: %s", name, got)
 				}
 			}

@@ -48,11 +48,11 @@ var projectHook = hookBlock{
 	legacy:   "agnostic-ai sync --check",
 	// The staged state is what the commit holds: checking the working
 	// tree passed a commit that left regenerated outputs unstaged.
-	checks: projectHookResolver + "\nagnostic-ai project --check --against index || exit 1",
+	checks: projectPreCommitHookChecks,
 	upgrades: map[string]string{
-		"agnostic-ai sync --check || exit 1":                 projectHookResolver + "\nagnostic-ai project --check --against index || exit 1",
-		"agnostic-ai sync --check":                           projectHookResolver + "\nagnostic-ai project --check --against index || exit 1",
-		"agnostic-ai sync --check --against index || exit 1": projectHookResolver + "\nagnostic-ai project --check --against index || exit 1",
+		"agnostic-ai sync --check || exit 1":                 projectPreCommitHookChecks,
+		"agnostic-ai sync --check":                           projectPreCommitHookChecks,
+		"agnostic-ai sync --check --against index || exit 1": projectPreCommitHookChecks,
 	},
 }
 
@@ -81,15 +81,19 @@ cd "$root" && agnostic-ai sync -q`
 
 const projectHookResolver = `root="$(git rev-parse --show-toplevel)" || exit 1
 cd "$root" || exit 1
+agnostic_ai_bin=agnostic-ai
 if [ -x "$root/node_modules/.bin/agnostic-ai" ]; then
-	PATH="$root/node_modules/.bin:$PATH"
-	export PATH
+	agnostic_ai_bin="$root/node_modules/.bin/agnostic-ai"
 fi`
+
+const projectHookCapability = `command -v "$agnostic_ai_bin" >/dev/null 2>&1 || { echo 'agnostic-ai is missing; install it, then run agnostic-ai project --bootstrap' >&2; exit 1; }
+AGNOSTIC_AI_NO_UPDATE_CHECK=1 "$agnostic_ai_bin" project --help >/dev/null 2>&1 || { echo 'agnostic-ai: upgrade the selected package to a release supporting project; update its declared version and requires explicitly' >&2; exit 1; }`
+
+const projectPreCommitHookChecks = projectHookResolver + "\n" + projectHookCapability + "\n\"$agnostic_ai_bin\" project --check --against index || exit 1"
 
 const projectSyncHookChecks = projectHookResolver + `
 [ -f "$root/agnostic-ai.yaml" ] || exit 0
-command -v agnostic-ai >/dev/null 2>&1 || { echo 'agnostic-ai is missing; install it, then run agnostic-ai project --bootstrap' >&2; exit 1; }
-agnostic-ai project`
+` + projectHookCapability + "\n\"$agnostic_ai_bin\" project"
 
 var postCheckoutHook = hookBlock{
 	file:         "post-checkout",
@@ -246,7 +250,7 @@ func parseConfigOrigin(line string) (string, string) {
 // place in the global home's hook.
 func hasProjectCheck(content string) bool {
 	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) || strings.HasPrefix(strings.TrimSpace(line), "agnostic-ai project --check") {
+		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) || strings.HasPrefix(strings.TrimSpace(line), "agnostic-ai project --check") || strings.HasPrefix(strings.TrimSpace(line), `"$agnostic_ai_bin" project --check`) {
 			return true
 		}
 	}
