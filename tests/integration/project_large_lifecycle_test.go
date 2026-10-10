@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *testing.T) {
@@ -281,6 +283,36 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 		t.Setenv("AGNOSTIC_LIFECYCLE_TEST_EXECUTABLE", helper)
 		t.Setenv("AGNOSTIC_LIFECYCLE_OLD_BINARY", binary)
 		t.Setenv("AGNOSTIC_LIFECYCLE_NEW_BINARY", matching)
+		bootstrap := func(dir string) {
+			t.Helper()
+			out, err := run(dir, binary, "project", "--bootstrap")
+			if err == nil {
+				return
+			}
+			if runtime.GOOS == "windows" {
+				probe := func(command string, args ...string) (string, error) {
+					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+					defer cancel()
+					cmd := exec.CommandContext(ctx, command, args...)
+					cmd.Dir = dir
+					cmd.WaitDelay = 250 * time.Millisecond
+					output, err := cmd.CombinedOutput()
+					return string(output), err
+				}
+				installed := filepath.Join(dir, "node_modules", "agnostic-ai", "bin")
+				launcher := filepath.Join(installed, "agnostic-ai.js")
+				node, lookupErr := exec.LookPath("node")
+				t.Logf("installed launcher Node path: %q, lookup: %v", node, lookupErr)
+				if lookupErr == nil {
+					nodeOut, nodeErr := probe(node, launcher, "--version")
+					t.Logf("%s %s --version: %v\n%s", node, launcher, nodeErr, nodeOut)
+				}
+				candidate := filepath.Join(installed, "fixture.exe")
+				candidateOut, candidateErr := probe(candidate, "--version")
+				t.Logf("%s --version: %v\n%s", candidate, candidateErr, candidateOut)
+			}
+			t.Fatalf("project --bootstrap in %s: %v\n%s", dir, err, out)
+		}
 		installs := func(dir, want string) {
 			t.Helper()
 			data, err := os.ReadFile(filepath.Join(dir, "node_modules", "lifecycle-installs.log"))
@@ -345,7 +377,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 			})
 			installs(dir, "")
 			for i := 0; i < 2; i++ {
-				unchanged(dir, func() { cli(dir, "project", "--bootstrap") })
+				unchanged(dir, func() { bootstrap(dir) })
 				installs(dir, "99.1.0 install --frozen-lockfile marker=1\n")
 			}
 			assertLifecycleOutputs(t, dir, contractOutputs)
@@ -373,7 +405,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 			})
 			installs(dir, "99.1.0 install --frozen-lockfile marker=1\n")
 			for i := 0; i < 2; i++ {
-				unchanged(dir, func() { cli(dir, "project", "--bootstrap") })
+				unchanged(dir, func() { bootstrap(dir) })
 				installs(dir, "99.1.0 install --frozen-lockfile marker=1\n99.2.0 install --frozen-lockfile marker=1\n")
 				unchanged(dir, func() { cli(dir, "project", "--check") })
 			}
