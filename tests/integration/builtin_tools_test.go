@@ -97,6 +97,7 @@ func TestBuiltinTools_EnableAndRemoveIndependently(t *testing.T) {
 		if err != nil {
 			t.Skip("optional native RTK protocol probe requires an existing RTK installation")
 		}
+		stores := t.TempDir()
 		for _, command := range []string{"git status", "printf unsupported", "rtk git status"} {
 			request, err := json.Marshal(map[string]any{
 				"hook_event_name": "PreToolUse", "tool_name": "Bash", "permission_mode": "default",
@@ -107,7 +108,13 @@ func TestBuiltinTools_EnableAndRemoveIndependently(t *testing.T) {
 			}
 			hook := exec.Command("/bin/sh", "-c", emittedHook)
 			hook.Dir = dir
-			hook.Env = append(os.Environ(), "PATH="+filepath.Dir(rtk))
+			hook.Env = append(os.Environ(),
+				"PATH="+filepath.Dir(rtk),
+				"CLAUDE_CONFIG_DIR="+stores,
+				"RTK_DB_PATH="+filepath.Join(stores, "tracking.db"),
+				"RTK_RECALL_DB="+filepath.Join(stores, "recall.db"),
+				"RTK_TEE_DIR="+filepath.Join(stores, "tee"),
+			)
 			hook.Stdin = bytes.NewReader(request)
 			out, err := hook.Output()
 			if err != nil {

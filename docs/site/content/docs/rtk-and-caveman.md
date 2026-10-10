@@ -11,60 +11,25 @@ group = "Workflows"
 
 agnostic-ai keeps your project instructions and hooks in one place. [RTK](https://github.com/rtk-ai/rtk) reduces supported terminal output. [Caveman's response skill](https://github.com/JuliusBrussee/caveman/tree/main/skills/caveman) asks the coding agent to write concise answers. Each tool keeps its own job.
 
-**Experimental project recipe.** Tested on macOS with agnostic-ai 0.81.0, RTK 0.51.0, and the Caveman skill revision below. Local checks cover generated files, direct RTK hook replies, and removal. Live Claude execution and approvals are still being investigated. Linux has not been tested.
+**Experimental setup.** The earlier manual recipe was tested on macOS with agnostic-ai 0.81.0 and RTK 0.51.0. The built-in skill retains Caveman revision [`2e08b917`](https://github.com/JuliusBrussee/caveman/tree/2e08b9177c07bb7249a8a2d1a6758e5db281d002/skills/caveman). Local checks cover the YAML opt-ins, generated files, missing RTK, and removal. Live Claude hook and approval tests are tracked separately in the [investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957).
 
-## Add the project sources
+## Enable either feature
 
-Keep `claude` among the targets in your existing `agnostic-ai.yaml`:
+Add the names you want to the `builtins` list in `agnostic-ai.yaml`. Keep any built-ins you already use:
 
 ```yaml
 version: 1
 targets: [claude]
+builtins: [rtk, caveman]
 ```
 
-Add `.agnostic-ai/hooks/rtk-shell-output.yaml`:
+Use `[rtk]` or `[caveman]` to enable one. Both are off by default, including in projects created by `init`. A personal `agnostic-ai.local.yaml` can replace the shared list for one machine. These names require a build that includes this feature; agnostic-ai 0.81.0 does not support them.
 
-```yaml
-name: rtk-shell-output
-description: Use RTK for supported shell commands.
-target: claude
-event: PreToolUse
-matcher: Bash
-command: 'command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude'
-```
+Install RTK separately using its [installation guide](https://github.com/rtk-ai/rtk#installation). RTK must be on the hook process's `PATH`. If it is absent, the generated hook returns no replacement and leaves command handling to Claude. Sync does not run or install either third-party tool.
 
-RTK must be available on the host hook's PATH. The hook passes the request to RTK's own Claude processor. When RTK is absent, it returns no replacement and leaves the command to Claude's normal handling. The hook does not install RTK or run the requested command itself.
+The `rtk` built-in adds RTK's native Claude command hook for Bash and requires a POSIX shell. It does not handle Claude's PowerShell tool. See Claude's [hook shell requirements](https://code.claude.com/docs/en/hooks#command-hook-fields). Other targets receive no RTK hook. The `caveman` built-in adds the pinned default response skill to hosts that support skills. It needs no Caveman executable. Runtime compression and the `ultracave` and `megacave` companion modes are separate choices.
 
-Install RTK separately using its [installation guide](https://github.com/rtk-ai/rtk#installation). Review the pinned Caveman source before fetching it:
-
-```sh
-(
-set -eu
-caveman_revision=2e08b9177c07bb7249a8a2d1a6758e5db281d002
-caveman_source="https://raw.githubusercontent.com/JuliusBrussee/caveman/$caveman_revision"
-mkdir -p .agnostic-ai/skills/caveman
-curl -fL "$caveman_source/skills/caveman/SKILL.md" -o .agnostic-ai/skills/caveman/SKILL.md
-curl -fL "$caveman_source/skills/caveman/README.md" -o .agnostic-ai/skills/caveman/README.md
-for caveman_notice in LICENSE LICENSE-MIT NOTICE; do
-  curl -fL "$caveman_source/$caveman_notice" -o ".agnostic-ai/skills/caveman/$caveman_notice"
-done
-)
-```
-
-Keep the revision with the sources you commit. This recipe uses the default `/caveman` response skill. Its `ultracave` and `megacave` companion modes are not included. The response skill needs no Caveman CLI.
-
-Your project sources now look like this:
-
-```text
-.agnostic-ai/
-├── hooks/
-│   └── rtk-shell-output.yaml
-└── skills/
-    └── caveman/
-        └── SKILL.md
-```
-
-If RTK or Caveman is already active through a global hook or plugin, choose which installation owns it before adding a project copy. Two RTK registrations can run for the same command even when their command strings differ. Keep the existing installation or explicitly move ownership to the project sources.
+If RTK or Caveman is already active through a global hook or plugin, choose which installation owns it before adding a project copy. Two RTK registrations can run for the same command even when their command strings differ. Keep the existing installation or explicitly move ownership to the project sources. If an existing project handler exactly matches the generated RTK handler, sync adopts it. Removing `rtk` then removes that handler. Leave the built-in off to keep the existing owner, or save the handler before transferring ownership.
 
 ## Sync and inspect
 
@@ -73,7 +38,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Review the generated RTK entry in `.claude/settings.json` and the generated Caveman skill in `.claude/skills/caveman/`. Edit the source files when changing the setup.
+Review the generated RTK entry in `.claude/settings.json` and the generated Caveman skill in `.claude/skills/caveman/`. Change the `builtins` list to enable or remove either feature. A project spec with the same kind and name overrides the bundled spec.
 
 For a supported shell command, the intended flow is:
 
@@ -92,7 +57,7 @@ RTK replies contain a replacement tool input. Do not add `decision: stdout` to t
 
 Say `stop caveman` to return to normal prose in the current session.
 
-To remove the project integration, delete the RTK hook source and the Caveman skill source, then run `agnostic-ai sync`. Check the resulting diff. A separately installed global hook or plugin remains owned by that installation and needs its own removal step. Do not use `disabled: true` to turn off this Claude hook; that field does not disable it on this target.
+To remove either feature, remove its name from `builtins` and run `agnostic-ai sync`. Use `builtins: []` to turn off every built-in for that config. Check the resulting diff. A separately installed global hook or plugin remains owned by that installation and needs its own removal step. Do not use `disabled: true` to turn off this Claude hook; that field does not disable it on this target.
 
 ## Share the setup
 
@@ -100,7 +65,7 @@ The [project example](https://github.com/Chemaclass/agnostic-ai/tree/main/docs/e
 
 A local verifier checks generated files, independent removal, missing tools, and failed writes. The packs include pinned source and license files. Pack removal is followed by sync so generated entries are removed too.
 
-No new `integrations` key is required. A convenience setting is an open design question only if hooks, skills, and packs leave a concrete setup problem unsolved.
+The packs are an alternative to the built-ins. Choose one source for each component so the same hook or skill has one owner.
 
 ## Caveman runtime is a separate choice
 

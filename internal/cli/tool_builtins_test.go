@@ -98,6 +98,30 @@ func boolCount(value bool) int {
 	return 0
 }
 
+func TestToolBuiltins_AdoptsAnIdenticalNativeHook(t *testing.T) {
+	dir := builtinProject(t, "rtk")
+	settings := filepath.Join(dir, ".claude", "settings.json")
+	writeFile(t, settings, `{"env":{"KEEP":"sentinel"},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"`+nativeRTKHook+`"}]}]}}`)
+	toolBuiltinSync(t)
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := bytes.Count(data, []byte(nativeRTKHook)); got != 1 {
+		t.Errorf("identical handler count %d: %s", got, data)
+	}
+	toolBuiltinConfig(t, dir, "")
+	toolBuiltinSync(t)
+	data, err = os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(data, []byte(nativeRTKHook)) || !bytes.Contains(data, []byte("sentinel")) {
+		t.Errorf("adopted hook removal changed unrelated settings: %s", data)
+	}
+	toolBuiltinSync(t, "--check")
+}
+
 func TestToolBuiltins_ProvenanceAndNativeKinds(t *testing.T) {
 	builtinProject(t, "rtk, caveman")
 	toolBuiltinSync(t)

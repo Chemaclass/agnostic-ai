@@ -24,4 +24,6 @@
 # project config, linked spec, and package ownership checks.
 # #1940 measured 18567328 on Go 1.27.2: conservative history absence
 # checks and owned metadata snapshots add 12 KB to main after #1945.
-18580000
+# #1964 measured 18596000 on Go 1.27.2: the opt-in RTK hook and
+# pinned Caveman skill, source notices, and licenses add 28672 bytes.
+18610000
