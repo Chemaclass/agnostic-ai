@@ -1,0 +1,2120 @@
+{
+  "date": "2026-10-10",
+  "claude_version": "2.1.295",
+  "rtk_version": "0.51.0",
+  "model": "claude-haiku-5-5",
+  "preliminary_plugin_count": 4,
+  "live_scope": "21 original project-setting cases, 4 authenticated dedicated-profile permission repeats, actual user/project PreToolUse and removal replay",
+  "cases": [
+    {
+      "case": "v2_allow_raw",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00035119000000000003,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [
+        {
+          "session_id": "1475c6fb-c382-4801-811c-1abbcccd5400",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-allow-raw/1475c6fb-c382-4801-811c-1abbcccd5400.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_allow_raw",
+          "prompt_id": "b44058cb-221f-428d-8164-48d8a06431d3",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "On branch main\n\nNo commits yet\n\nUntracked files:\n  (use \"git add <file>...\" to include in what will be committed)\n\t.claude/\n\tbin/\n\texecuted.jsonl\n\tfail-fixture.sh\n\tfixture.txt\n\thook.py\n\thooks.jsonl\n\tinvocation.json\n\tpost.py\n\nnothing added to commit but untracked files present (use \"git add\" to track)",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_01DPwDbk9dX1xwsLG6GCYUuw",
+          "duration_ms": 603
+        }
+      ],
+      "rtk_argv": [],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 741,
+        "cache_read_input_tokens": 4509,
+        "output_tokens": 315,
+        "output_tokens_details": {
+          "thinking_tokens": 87
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 741,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 125,
+            "cache_read_input_tokens": 2436,
+            "cache_creation_input_tokens": 378,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 378
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_allow_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00038500000000000003,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "33d1a44a-1768-455a-ab17-ecf6e8be6fcb",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-allow-rtk/33d1a44a-1768-455a-ab17-ecf6e8be6fcb.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_allow_rtk",
+          "prompt_id": "efce7270-36fe-4016-8405-80bc206cad6d",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? invocation.json\n?? post.py",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_01XgEx6BH1ZmoQsTnfZ9fftw",
+          "duration_ms": 708
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 770,
+        "cache_read_input_tokens": 4510,
+        "output_tokens": 371,
+        "output_tokens_details": {
+          "thinking_tokens": 145
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 770,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 123,
+            "cache_read_input_tokens": 2437,
+            "cache_creation_input_tokens": 406,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 406
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_already_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00041597000000000004,
+      "denied": false,
+      "hook_commands": [
+        "rtk git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "bb595547-0ab4-40c2-bf10-2a2ef9213436",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-already-rtk/bb595547-0ab4-40c2-bf10-2a2ef9213436.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_already_rtk",
+          "prompt_id": "a953a1f0-8b10-498a-ac18-e0c526f0b11a",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? invocation.json\n?? post.py",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_01GLmovz9BkJwfY9EbDvJtKp",
+          "duration_ms": 650
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 1153,
+        "cache_read_input_tokens": 4047,
+        "output_tokens": 289,
+        "output_tokens_details": {
+          "thinking_tokens": 58
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1153,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 125,
+            "cache_read_input_tokens": 2439,
+            "cache_creation_input_tokens": 322,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 322
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_ask_raw",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00032469,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 781,
+        "cache_read_input_tokens": 4509,
+        "output_tokens": 246,
+        "output_tokens_details": {
+          "thinking_tokens": 80
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 781,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 63,
+            "cache_read_input_tokens": 2436,
+            "cache_creation_input_tokens": 418,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 418
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_ask_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00033160000000000004,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"}}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 773,
+        "cache_read_input_tokens": 4510,
+        "output_tokens": 263,
+        "output_tokens_details": {
+          "thinking_tokens": 93
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 773,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 67,
+            "cache_read_input_tokens": 2437,
+            "cache_creation_input_tokens": 409,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 409
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_deny_raw",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00031289,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 687,
+        "cache_read_input_tokens": 4509,
+        "output_tokens": 260,
+        "output_tokens_details": {
+          "thinking_tokens": 138
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 687,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 19,
+            "cache_read_input_tokens": 2436,
+            "cache_creation_input_tokens": 324,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 324
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_deny_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00030040000000000004,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 662,
+        "cache_read_input_tokens": 4510,
+        "output_tokens": 245,
+        "output_tokens_details": {
+          "thinking_tokens": 111
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 662,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 30,
+            "cache_read_input_tokens": 2437,
+            "cache_creation_input_tokens": 298,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 298
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_duplicate",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00029288000000000003,
+      "denied": false,
+      "hook_commands": [
+        "git status",
+        "git status"
+      ],
+      "registrations": [
+        [
+          "simulated-global"
+        ],
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        },
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "014fd49e-5927-4a53-871b-512522d80ff1",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-duplicate/014fd49e-5927-4a53-871b-512522d80ff1.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_duplicate",
+          "prompt_id": "bf82eb12-ddd0-4689-b92e-4571e336e440",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? invocation.json\n?? post.py\n?? simulated-global.json",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_01GikdPxUC7p5jjm3NfhAnoV",
+          "duration_ms": 708
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 632,
+        "cache_read_input_tokens": 4508,
+        "output_tokens": 242,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 632,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 140,
+            "cache_read_input_tokens": 2435,
+            "cache_creation_input_tokens": 270,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 270
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_failure_raw",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00039529,
+      "denied": false,
+      "hook_commands": [
+        "/bin/sh ./fail-fixture.sh"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [
+        {
+          "session_id": "3b881380-b8b4-4395-b4b2-be10a111ea37",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-failure-raw/3b881380-b8b4-4395-b4b2-be10a111ea37.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_failure_raw",
+          "prompt_id": "8858084c-5d05-404b-aee9-ebbb81ebf153",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "/bin/sh ./fail-fixture.sh",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_use_id": "toolu_014AzhV7Axe1cxdNKnwJ7Dac",
+          "error": "Exit code 7\nFAIL tests/payment.rs:42 expected 200 got 503",
+          "is_interrupt": false,
+          "duration_ms": 579
+        }
+      ],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 1144,
+        "cache_read_input_tokens": 4059,
+        "output_tokens": 251,
+        "output_tokens_details": {
+          "thinking_tokens": 87
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1144,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 46,
+            "cache_read_input_tokens": 2451,
+            "cache_creation_input_tokens": 301,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 301
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_failure_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00033684000000000003,
+      "denied": false,
+      "hook_commands": [
+        "rtk test /bin/sh ./fail-fixture.sh"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "097fd2af-0741-4dc6-b4e1-e2640718f2a5",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-failure-rtk/097fd2af-0741-4dc6-b4e1-e2640718f2a5.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_failure_rtk",
+          "prompt_id": "26d72abe-2fab-4967-bb0b-f1c7611c2914",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk test /bin/sh ./fail-fixture.sh",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_use_id": "toolu_015Nc8BB8YFEZ9D1E1dGXqXh",
+          "error": "Exit code 7\nFAIL tests/payment.rs:42 expected 200 got 503",
+          "is_interrupt": false,
+          "duration_ms": 646
+        }
+      ],
+      "rtk_argv": [
+        [
+          "test",
+          "/bin/sh",
+          "./fail-fixture.sh"
+        ]
+      ],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 1069,
+        "cache_read_input_tokens": 4064,
+        "output_tokens": 164,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1069,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 43,
+            "cache_read_input_tokens": 2456,
+            "cache_creation_input_tokens": 221,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 221
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_missing",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00033676,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "8a8ac811-f3fa-4cd2-a12c-b9173495416e",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-missing/8a8ac811-f3fa-4cd2-a12c-b9173495416e.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_missing",
+          "prompt_id": "32beadd7-f4e6-4d5e-8c4d-e980b3fc4207",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "On branch main\n\nNo commits yet\n\nUntracked files:\n  (use \"git add <file>...\" to include in what will be committed)\n\t.claude/\n\tbin/\n\texecuted.jsonl\n\tfail-fixture.sh\n\tfixture.txt\n\thook-replies.jsonl\n\thook.py\n\thooks.jsonl\n\tinvocation.json\n\tpost.py\n\nnothing added to commit but untracked files present (use \"git add\" to track)",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_019qkufkc8Sr4BxjzTejMpWU",
+          "duration_ms": 601
+        }
+      ],
+      "rtk_argv": [],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 724,
+        "cache_read_input_tokens": 4506,
+        "output_tokens": 293,
+        "output_tokens_details": {
+          "thinking_tokens": 61
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 724,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 129,
+            "cache_read_input_tokens": 2433,
+            "cache_creation_input_tokens": 364,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 364
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_none_raw",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00038418,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [
+        {
+          "session_id": "89005f01-1a94-49c5-966f-d83926b6d57d",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-none-raw/89005f01-1a94-49c5-966f-d83926b6d57d.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_none_raw",
+          "prompt_id": "aaffbc9a-1fba-4d45-8288-261b10f45329",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "On branch main\n\nNo commits yet\n\nUntracked files:\n  (use \"git add <file>...\" to include in what will be committed)\n\t.claude/\n\tbin/\n\texecuted.jsonl\n\tfail-fixture.sh\n\tfixture.txt\n\thook.py\n\thooks.jsonl\n\tinvocation.json\n\tpost.py\n\nnothing added to commit but untracked files present (use \"git add\" to track)",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_011F8uA7EP7fYFRziCNij7tt",
+          "duration_ms": 616
+        }
+      ],
+      "rtk_argv": [],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 796,
+        "cache_read_input_tokens": 4508,
+        "output_tokens": 359,
+        "output_tokens_details": {
+          "thinking_tokens": 142
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 796,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 114,
+            "cache_read_input_tokens": 2435,
+            "cache_creation_input_tokens": 434,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 434
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_none_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00030839,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"}}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 757,
+        "cache_read_input_tokens": 4509,
+        "output_tokens": 223,
+        "output_tokens_details": {
+          "thinking_tokens": 74
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 757,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 46,
+            "cache_read_input_tokens": 2436,
+            "cache_creation_input_tokens": 394,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 394
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v2_unsupported",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00038534,
+      "denied": false,
+      "hook_commands": [
+        "printf fixture-unsupported-1959"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "7da4c6a8-cc4e-4c70-86f1-26a0e5470128",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v2-unsupported/7da4c6a8-cc4e-4c70-86f1-26a0e5470128.jsonl",
+          "cwd": "$FIXTURE_ROOT/v2_unsupported",
+          "prompt_id": "0c1b0a1a-2b1f-423b-b947-b21bc79167ca",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "printf fixture-unsupported-1959",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "fixture-unsupported-1959",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_016gtsPNM4wr7Nm3H3jnNEBY",
+          "duration_ms": 518
+        }
+      ],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 1122,
+        "cache_read_input_tokens": 4054,
+        "output_tokens": 240,
+        "output_tokens_details": {
+          "thinking_tokens": 102
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1122,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 24,
+            "cache_read_input_tokens": 2446,
+            "cache_creation_input_tokens": 284,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 284
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v3_sentinel_allow",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00038291,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "8ef09be0-f1b7-4aaa-9fbf-2878f94e0863",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v3-sentinel-allow/8ef09be0-f1b7-4aaa-9fbf-2878f94e0863.jsonl",
+          "cwd": "$FIXTURE_ROOT/v3_sentinel_allow",
+          "prompt_id": "cfc45774-3134-43a6-834b-59aa988aae6a",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed-command.sentinel\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? invocation.json\n?? post.py",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_01L7jFYdBScNY6hgqzrxE8vc",
+          "duration_ms": 790
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": true,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 762,
+        "cache_read_input_tokens": 4511,
+        "output_tokens": 370,
+        "output_tokens_details": {
+          "thinking_tokens": 124
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 762,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 143,
+            "cache_read_input_tokens": 2438,
+            "cache_creation_input_tokens": 397,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 397
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v3_sentinel_deny_raw",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00031604,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 705,
+        "cache_read_input_tokens": 4514,
+        "output_tokens": 259,
+        "output_tokens_details": {
+          "thinking_tokens": 150
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 705,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 6,
+            "cache_read_input_tokens": 2441,
+            "cache_creation_input_tokens": 337,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 337
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v3_sentinel_deny_rtk",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00026385000000000004,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 614,
+        "cache_read_input_tokens": 4515,
+        "output_tokens": 191,
+        "output_tokens_details": {
+          "thinking_tokens": 62
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 614,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 26,
+            "cache_read_input_tokens": 2442,
+            "cache_creation_input_tokens": 245,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 245
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v4_ask_original_allow_wrapper",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00036126,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"}}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "e19eedaa-6eaa-45b0-847d-42a6d77c4b61",
+          "transcript_path": "<USER_HOME>/.claude/projects/-private-tmp-agnostic-ai-1959-live-v4-ask-original-allow-wrapper/e19eedaa-6eaa-45b0-847d-42a6d77c4b61.jsonl",
+          "cwd": "$FIXTURE_ROOT/v4_ask_original_allow_wrapper",
+          "prompt_id": "f6ce399f-2e40-4947-b2f8-013ea272c9f5",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed-command.sentinel\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? invocation.json\n?? post.py",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_0114JbzWEJPB6K73TEvaqVyh",
+          "duration_ms": 696
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": true,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 736,
+        "cache_read_input_tokens": 4516,
+        "output_tokens": 337,
+        "output_tokens_details": {
+          "thinking_tokens": 90
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 736,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 144,
+            "cache_read_input_tokens": 2443,
+            "cache_creation_input_tokens": 366,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 366
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v4_raw_ask_original_allow_wrapper",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00037728999999999996,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 856,
+        "cache_read_input_tokens": 4519,
+        "output_tokens": 321,
+        "output_tokens_details": {
+          "thinking_tokens": 148
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 856,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 70,
+            "cache_read_input_tokens": 2446,
+            "cache_creation_input_tokens": 483,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 483
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v5_deny_original_allow_wrapper",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00030966,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 683,
+        "cache_read_input_tokens": 4516,
+        "output_tokens": 255,
+        "output_tokens_details": {
+          "thinking_tokens": 126
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 683,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 26,
+            "cache_read_input_tokens": 2443,
+            "cache_creation_input_tokens": 313,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 313
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "v5_raw_deny_original_allow_wrapper",
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00027559000000000004,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 635,
+        "cache_read_input_tokens": 4519,
+        "output_tokens": 206,
+        "output_tokens_details": {
+          "thinking_tokens": 75
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 635,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 28,
+            "cache_read_input_tokens": 2446,
+            "cache_creation_input_tokens": 262,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 262
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    }
+  ],
+  "actual_scope_setup": {
+    "event": "Setup",
+    "first_owners": [
+      "project",
+      "user"
+    ],
+    "after_user_removal_owners": [
+      "project"
+    ],
+    "remove_exit": 0,
+    "provider_calls": 0,
+    "profile_has_credentials": false
+  },
+  "isolated_profile_auth_probe": {
+    "loggedIn": false,
+    "authMethod": "none",
+    "scope": "Initial profile without child OAuth; later dedicated-profile live cases authenticated through existing OAuth in child environment"
+  },
+  "authenticated_profile_cases": [
+    {
+      "case": "isolated_ask_raw",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00037518,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 1085,
+        "cache_read_input_tokens": 3878,
+        "output_tokens": 238,
+        "output_tokens_details": {
+          "thinking_tokens": 84
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1085,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 51,
+            "cache_read_input_tokens": 2270,
+            "cache_creation_input_tokens": 423,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 423
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "isolated_ask_rtk",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00030635000000000005,
+      "denied": false,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"}}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "c87459d1-f7af-4af4-b4d3-bd6d56589e2d",
+          "transcript_path": "$AUTH_FIXTURE_ROOT/isolated_ask_rtk/host-profile/projects/-private-tmp-agnostic-ai-1959-isolated-isolated-ask-rtk/c87459d1-f7af-4af4-b4d3-bd6d56589e2d.jsonl",
+          "cwd": "/private$AUTH_FIXTURE_ROOT/isolated_ask_rtk",
+          "prompt_id": "71fe6fb2-c6cf-452b-836f-eab83484388e",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed-command.sentinel\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? host-profile/\n?? invocation.json\n?? post.py",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_01Sj1re1LWSq9e5MWBo3BH7A",
+          "duration_ms": 697
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
+      "sentinel": true,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 706,
+        "cache_read_input_tokens": 4175,
+        "output_tokens": 246,
+        "output_tokens_details": {
+          "thinking_tokens": 59
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 706,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 84,
+            "cache_read_input_tokens": 2271,
+            "cache_creation_input_tokens": 339,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 339
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "isolated_deny_raw",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00032844000000000005,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 714,
+        "cache_read_input_tokens": 4174,
+        "output_tokens": 287,
+        "output_tokens_details": {
+          "thinking_tokens": 158
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 714,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 26,
+            "cache_read_input_tokens": 2270,
+            "cache_creation_input_tokens": 348,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 348
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "isolated_deny_rtk",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00029825,
+      "denied": true,
+      "hook_commands": [
+        "git status"
+      ],
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "post": [],
+      "rtk_argv": [],
+      "git_status_argv": [],
+      "sentinel": false,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 668,
+        "cache_read_input_tokens": 4175,
+        "output_tokens": 245,
+        "output_tokens_details": {
+          "thinking_tokens": 115
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 668,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 27,
+            "cache_read_input_tokens": 2271,
+            "cache_creation_input_tokens": 301,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 301
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "case": "actual_global",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "model": [
+        "claude-haiku-5-5"
+      ],
+      "cost_usd": 0.00032989,
+      "denied": false,
+      "hook_commands": [
+        "git status",
+        "git status"
+      ],
+      "registrations": [
+        [
+          "user"
+        ],
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        },
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk git status\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "35fcfabb-aa6d-487f-8385-7c7eaa0662ef",
+          "transcript_path": "$AUTH_FIXTURE_ROOT/actual_global/host-profile/projects/-private-tmp-agnostic-ai-1959-isolated-actual-global/35fcfabb-aa6d-487f-8385-7c7eaa0662ef.jsonl",
+          "cwd": "/private$AUTH_FIXTURE_ROOT/actual_global",
+          "prompt_id": "71bf8631-63b7-465c-a3f0-6f2f9dc81215",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk git status",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_response": {
+            "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? executed-command.sentinel\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? host-profile/\n?? invocation.json\n?? post.py",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          },
+          "tool_use_id": "toolu_018vrHpMiECX9BiCgrGHKzk9",
+          "duration_ms": 657
+        }
+      ],
+      "rtk_argv": [
+        [
+          "git",
+          "status"
+        ]
+      ],
+      "git_status_argv": [],
+      "sentinel": true,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 734,
+        "cache_read_input_tokens": 4169,
+        "output_tokens": 282,
+        "output_tokens_details": {
+          "thinking_tokens": 96
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 734,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 83,
+            "cache_read_input_tokens": 2265,
+            "cache_creation_input_tokens": 373,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 373
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    }
+  ],
+  "actual_pretooluse_scopes": {
+    "before_owners": [
+      "project",
+      "user"
+    ],
+    "after_owners": [
+      "project"
+    ],
+    "after_startup": {
+      "plugin_count": 3,
+      "skill_count": 0,
+      "tools": [
+        "Bash"
+      ]
+    },
+    "after_cli_exit": 0,
+    "after_denied": false,
+    "after_cost_usd": 0.0002494,
+    "after_usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 381,
+      "cache_read_input_tokens": 4530,
+      "output_tokens": 255,
+      "output_tokens_details": {
+        "thinking_tokens": 70
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 381,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 82,
+          "cache_read_input_tokens": 2265,
+          "cache_creation_input_tokens": 381,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 381
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "after_post": [
+      {
+        "session_id": "dc6519c4-703f-4361-b17c-b3e5d0dc775b",
+        "transcript_path": "$AUTH_FIXTURE_ROOT/actual_global/host-profile/projects/-private-tmp-agnostic-ai-1959-isolated-actual-global/dc6519c4-703f-4361-b17c-b3e5d0dc775b.jsonl",
+        "cwd": "/private$AUTH_FIXTURE_ROOT/actual_global",
+        "prompt_id": "503f445d-df4b-448c-b838-5182faec0760",
+        "permission_mode": "default",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rtk git status",
+          "timeout": 10000,
+          "description": "fixture-metadata-1959"
+        },
+        "tool_response": {
+          "stdout": "* No commits yet on main\n?? .claude/\n?? bin/\n?? events.jsonl\n?? executed-command.sentinel\n?? executed.jsonl\n?? fail-fixture.sh\n?? fixture.txt\n?? hook-replies.jsonl\n?? hook.py\n?? hooks.jsonl\n?? host-profile/\n?? invocation.json\n?? post.jsonl\n?? post.py\n?? stderr.txt\n?? summary.json",
+          "stderr": "",
+          "interrupted": false,
+          "isImage": false,
+          "noOutputExpected": false
+        },
+        "tool_use_id": "toolu_01WyQBpDtCb8Wf62XF8sktDY",
+        "duration_ms": 707
+      }
+    ]
+  },
+  "authenticated_profile_cost_usd": 0.0018875100000000002,
+  "plugin_inventory_probe": {
+    "dedicated_profile_count": 3,
+    "path_nonabsolute": true,
+    "path_has_builtin_or_bunfs": true,
+    "outside_home_and_fixture": true,
+    "policy_skills_disabled_count": 3,
+    "identities_redacted": true,
+    "all_sources_end_with": "@builtin",
+    "all_paths_equal": "builtin",
+    "confirmation_probe_cost_usd": 0.00052995
+  }
+}
