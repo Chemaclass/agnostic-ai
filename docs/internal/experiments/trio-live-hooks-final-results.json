@@ -399,7 +399,11 @@
           "status"
         ]
       ],
-      "git_status_argv": [],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
       "sentinel": true,
       "usage": {
         "input_tokens": 4,
@@ -522,6 +526,17 @@
         "tool_use_id": "toolu_01DyuxktQ76FfeH231Lc6RYj",
         "duration_ms": 690
       }
+    ],
+    "after_git_status_argv": [
+      [
+        "status"
+      ]
+    ],
+    "after_rtk_argv": [
+      [
+        "git",
+        "status"
+      ]
     ]
   },
   "authenticated_profile_cost_usd": 0.00183823,
@@ -569,7 +584,251 @@
         "label": "actual_global_after_user_removal",
         "state": "settled",
         "cost": 0.00027216
+      },
+      {
+        "label": "automatic_failure_raw",
+        "state": "settled",
+        "cost": 0.00037043000000000004
+      },
+      {
+        "label": "automatic_failure_rtk",
+        "state": "settled",
+        "cost": 0.00025787
       }
     ]
-  }
+  },
+  "automatic_rewrite_failure_cases": [
+    {
+      "case": "automatic_failure_raw",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "cli_exit": 0,
+      "cost_usd": 0.00037043000000000004,
+      "denied": false,
+      "pretooluse": {
+        "session_id": "455664b3-c961-4256-99c1-40b3d17c6466",
+        "transcript_path": "$AUTH_FIXTURE_ROOT/automatic_failure_raw/host-profile/projects/-private-tmp-agnostic-ai-1959-final-automatic-failure-raw/455664b3-c961-4256-99c1-40b3d17c6466.jsonl",
+        "cwd": "$AUTH_FIXTURE_ROOT/automatic_failure_raw",
+        "prompt_id": "c08bb0be-0632-459c-b360-942f4850805e",
+        "permission_mode": "default",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cargo test --test fixture",
+          "timeout": 10000,
+          "description": "fixture-metadata-1959"
+        },
+        "tool_use_id": "toolu_01RGzm3y3MD6eFpE2RyattnU"
+      },
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [],
+      "post": [
+        {
+          "session_id": "455664b3-c961-4256-99c1-40b3d17c6466",
+          "transcript_path": "$AUTH_FIXTURE_ROOT/automatic_failure_raw/host-profile/projects/-private-tmp-agnostic-ai-1959-final-automatic-failure-raw/455664b3-c961-4256-99c1-40b3d17c6466.jsonl",
+          "cwd": "$AUTH_FIXTURE_ROOT/automatic_failure_raw",
+          "prompt_id": "c08bb0be-0632-459c-b360-942f4850805e",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "cargo test --test fixture",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_use_id": "toolu_01RGzm3y3MD6eFpE2RyattnU",
+          "error": "Exit code 7\nrunning 3 tests\ntest tests::healthy_one ... ok\ntest tests::healthy_two ... ok\ntest tests::payment ... FAILED\n\nfailures:\n---- tests::payment stdout ----\nthread panicked at tests/payment.rs:42: expected 200, got 503\n\nfailures:\n    tests::payment\ntest result: FAILED. 2 passed; 1 failed; 0 ignored",
+          "is_interrupt": false,
+          "duration_ms": 754
+        }
+      ],
+      "rtk_argv": [],
+      "cargo_argv": [
+        [
+          "test",
+          "--test",
+          "fixture"
+        ]
+      ],
+      "cargo_execution_count": 1,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 1036,
+        "cache_read_input_tokens": 3883,
+        "output_tokens": 248,
+        "output_tokens_details": {
+          "thinking_tokens": 61
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1036,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 77,
+            "cache_read_input_tokens": 2275,
+            "cache_creation_input_tokens": 369,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 369
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "rtk_stores": {
+        "RTK_DB_PATH": "$AUTH_FIXTURE_ROOT/automatic_failure_raw/rtk-data/tracking.db",
+        "RTK_RECALL_DB": "$AUTH_FIXTURE_ROOT/automatic_failure_raw/rtk-data/recall.db",
+        "RTK_TEE_DIR": "$AUTH_FIXTURE_ROOT/automatic_failure_raw/rtk-tee"
+      }
+    },
+    {
+      "case": "automatic_failure_rtk",
+      "startup": {
+        "plugin_count": 3,
+        "skill_count": 0,
+        "tools": [
+          "Bash"
+        ]
+      },
+      "cli_exit": 0,
+      "cost_usd": 0.00025787,
+      "denied": false,
+      "pretooluse": {
+        "session_id": "0639ef42-6893-4ee8-8e76-a33bb44eed93",
+        "transcript_path": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk/host-profile/projects/-private-tmp-agnostic-ai-1959-final-automatic-failure-rtk/0639ef42-6893-4ee8-8e76-a33bb44eed93.jsonl",
+        "cwd": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk",
+        "prompt_id": "e4d8f0c9-3709-4dea-a1a6-f596989724a6",
+        "permission_mode": "default",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cargo test --test fixture",
+          "timeout": 10000,
+          "description": "fixture-metadata-1959"
+        },
+        "tool_use_id": "toolu_015uQXXhnzYfsnuEqVFoGjvJ"
+      },
+      "registrations": [
+        [
+          "project"
+        ]
+      ],
+      "replies": [
+        {
+          "exit": 0,
+          "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecisionReason\":\"RTK auto-rewrite\",\"updatedInput\":{\"command\":\"rtk cargo test --test fixture\",\"timeout\":10000,\"description\":\"fixture-metadata-1959\"},\"permissionDecision\":\"allow\"}}\n",
+          "stderr": ""
+        }
+      ],
+      "post": [
+        {
+          "session_id": "0639ef42-6893-4ee8-8e76-a33bb44eed93",
+          "transcript_path": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk/host-profile/projects/-private-tmp-agnostic-ai-1959-final-automatic-failure-rtk/0639ef42-6893-4ee8-8e76-a33bb44eed93.jsonl",
+          "cwd": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk",
+          "prompt_id": "e4d8f0c9-3709-4dea-a1a6-f596989724a6",
+          "permission_mode": "default",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "rtk cargo test --test fixture",
+            "timeout": 10000,
+            "description": "fixture-metadata-1959"
+          },
+          "tool_use_id": "toolu_015uQXXhnzYfsnuEqVFoGjvJ",
+          "error": "Exit code 7\n---- tests::payment stdout ----\nthread panicked at tests/payment.rs:42: expected 200, got 503\n\ntest result: FAILED. 2 passed; 1 failed; 0 ignored",
+          "is_interrupt": false,
+          "duration_ms": 768
+        }
+      ],
+      "rtk_argv": [
+        [
+          "cargo",
+          "test",
+          "--test",
+          "fixture"
+        ]
+      ],
+      "cargo_argv": [
+        [
+          "test",
+          "--test",
+          "fixture"
+        ]
+      ],
+      "cargo_execution_count": 1,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 613,
+        "cache_read_input_tokens": 4187,
+        "output_tokens": 186,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 613,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 77,
+            "cache_read_input_tokens": 2276,
+            "cache_creation_input_tokens": 248,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 248
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "rtk_stores": {
+        "RTK_DB_PATH": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk/rtk-data/tracking.db",
+        "RTK_RECALL_DB": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk/rtk-data/recall.db",
+        "RTK_TEE_DIR": "$AUTH_FIXTURE_ROOT/automatic_failure_rtk/rtk-tee"
+      }
+    }
+  ],
+  "automatic_rewrite_failure_cost_usd": 0.0006283,
+  "total_final_cost_usd": 0.0024665299999999998,
+  "cost_basis": "Claude CLI list-price estimate, not billed account cost"
 }

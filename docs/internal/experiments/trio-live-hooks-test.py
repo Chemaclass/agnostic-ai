@@ -28,8 +28,8 @@ class LiveHooksRunnerTest(unittest.TestCase):
         path.write_text('#!' + sys.executable + '\n' + body + '\n')
         path.chmod(0o755)
 
-    def run_case(self, name):
-        return subprocess.run([sys.executable, str(RUNNER), name], env=self.env,
+    def run_case(self, name, *args):
+        return subprocess.run([sys.executable, str(RUNNER), name, *args], env=self.env,
                               capture_output=True, text=True, timeout=15)
 
     def test_paths_and_storage_are_valid_in_generated_hooks(self):
@@ -55,6 +55,19 @@ print(json.dumps({'type':'result','total_cost_usd':0,'is_error':False}))''')
         self.assertEqual(json.loads((case / 'summary.json').read_text())['exit'], 0, (case / 'stderr.txt').read_text())
         self.assertTrue((case / 'post.jsonl').exists())
         self.assertEqual(json.loads((self.root / 'runs/budget.json').read_text())['calls'][0]['state'], 'settled')
+
+    def test_cargo_fixture_records_exact_command_and_exits_seven(self):
+        self.script(self.claude, "print('{\"type\":\"result\",\"total_cost_usd\":0}')")
+        result = self.run_case('cargo-case', 'raw', 'allow', 'cargo test --test fixture')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        case = self.root / 'runs/cargo-case'
+        cargo = subprocess.run([str(case / 'bin/cargo'), 'test', '--test', 'fixture'],
+                               capture_output=True, text=True, timeout=5)
+        self.assertEqual(cargo.returncode, 7)
+        self.assertIn('tests/payment.rs:42: expected 200, got 503', cargo.stdout)
+        self.assertIn('2 passed; 1 failed', cargo.stdout)
+        self.assertEqual(json.loads((case / 'cargo-runs.jsonl').read_text()),
+                         ['test', '--test', 'fixture'])
 
     def test_missing_final_cost_blocks_another_call(self):
         self.script(self.claude, "print('{}')")

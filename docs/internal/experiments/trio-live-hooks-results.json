@@ -1986,7 +1986,11 @@
           "status"
         ]
       ],
-      "git_status_argv": [],
+      "git_status_argv": [
+        [
+          "status"
+        ]
+      ],
       "sentinel": true,
       "usage": {
         "input_tokens": 4,
@@ -2103,6 +2107,17 @@
         "tool_use_id": "toolu_01WyQBpDtCb8Wf62XF8sktDY",
         "duration_ms": 707
       }
+    ],
+    "after_git_status_argv": [
+      [
+        "status"
+      ]
+    ],
+    "after_rtk_argv": [
+      [
+        "git",
+        "status"
+      ]
     ]
   },
   "authenticated_profile_cost_usd": 0.0018875100000000002,
@@ -2116,5 +2131,6 @@
     "all_sources_end_with": "@builtin",
     "all_paths_equal": "builtin",
     "confirmation_probe_cost_usd": 0.00052995
-  }
+  },
+  "cost_basis": "Claude CLI list-price estimate, not billed account cost"
 }

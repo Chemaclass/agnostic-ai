@@ -81,6 +81,22 @@ sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr);sys.exit(r.r
     for binary,real in [('rtk',RTK),('git','/usr/bin/git')]:
         f=p/'bin'/binary
         f.write_text('#!/usr/bin/python3\nimport os,sys,json,pathlib\np=pathlib.Path(__file__).resolve().parent.parent\nwith (p/"executed.jsonl").open("a") as out:out.write(json.dumps({"binary":'+repr(binary)+',"argv":sys.argv[1:]})+"\\n")\nif '+repr(binary)+'=="git" and sys.argv[1:]==["status"]:(p/"executed-command.sentinel").write_text("git status executed\\n")\nos.execv('+repr(real)+',["'+binary+'"]+sys.argv[1:])\n');f.chmod(0o755)
+    if command=='cargo test --test fixture':
+        cargo=p/'bin/cargo'
+        transcript=('running 3 tests\n'
+                    'test tests::healthy_one ... ok\n'
+                    'test tests::healthy_two ... ok\n'
+                    'test tests::payment ... FAILED\n\n'
+                    'failures:\n---- tests::payment stdout ----\n'
+                    'thread panicked at tests/payment.rs:42: expected 200, got 503\n\n'
+                    'failures:\n    tests::payment\n'
+                    'test result: FAILED. 2 passed; 1 failed; 0 ignored\n')
+        cargo.write_text('#!/usr/bin/python3\nimport json,pathlib,sys\n'
+                         'p=pathlib.Path(__file__).resolve().parent.parent\n'
+                         'with (p/"cargo-runs.jsonl").open("a") as out:out.write(json.dumps(sys.argv[1:])+"\\n")\n'
+                         'if sys.argv[1:] != ["test","--test","fixture"]:sys.exit(64)\n'
+                         'sys.stdout.write('+repr(transcript)+')\nsys.exit(7)\n')
+        cargo.chmod(0o755)
     perms={'allow':[],'ask':[],'deny':[]}
     if policy in ('ask-wrapper-allow','deny-wrapper-allow'):
         perms[policy.split('-')[0]]=['Bash('+command+')'];perms['allow']=['Bash(rtk '+command+')']
