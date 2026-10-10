@@ -24,7 +24,7 @@ Each announcement has two parts:
 
 Breaking changes, changed defaults, removals, and deprecations come first. Safety changes and large additions follow. A feature a tool has may not be supported by agnostic-ai yet.
 
-The same name does not mean the same behavior. Before the audit calls two features equivalent, it compares each tool's which project files it affects, when it runs, its defaults, and its file format.
+The same name does not mean the same behavior. Before calling two features equivalent, the audit compares which project files each feature affects, when it runs, its defaults, and its file format.
 
 ## How observations are classified
 

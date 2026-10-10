@@ -71,6 +71,8 @@ A local check script tests generated files, removing each feature separately, mi
 
 The packs are an alternative to the built-ins. Choose either a pack or a built-in for each tool so the same hook or skill is managed in one place.
 
+<a id="caveman-runtime-is-a-separate-choice"></a>
+
 ## Shrinking output with Caveman is a separate choice
 
 Leave Caveman's command-output compression off when starting. In a Linux test, RTK reduced an ordinary failing transcript from 23,865 bytes to 240 bytes; Caveman made no further reduction. A constructed repetitive failure tail did shrink further, from 4,248 bytes to 2,215 bytes. These measurements use generated test output. They do not measure the cost of a coding session.

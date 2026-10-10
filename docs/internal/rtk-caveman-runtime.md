@@ -1,3 +1,5 @@
+<a id="rtk-and-caveman-runtime-composition-issue-1960"></a>
+
 # Running RTK and Caveman together, issue #1960
 
 This local experiment tested RTK 0.51.0 with Caveman CLI 2.1.0 and its signed `bin-v2.1.0` engine in a Linux arm64 Debian trixie container. The [runner](../../scripts/rtk-caveman-runtime.py) generates fixed test output, runs each command once, and writes [machine-readable results](rtk-caveman-runtime-results.json). The [Linux installation records](rtk-caveman-runtime-linux-provenance.json) list the pinned image, release checksums, signed installer result, and unchanged inherited home. The runner uses temporary stores for command history and retrieving saved output, passes no provider credentials to either tool, and never starts a proxy or coding agent.
@@ -10,6 +12,8 @@ If a user deliberately combines the tools for a supported command, use RTK's com
 
 The runner also sent a 21,219-byte Rust test transcript to `rtk pipe --filter cargo-test`. It returned 239 bytes with the failure path, no recall hint, and exit 0 because it filtered stdin rather than running the failing test command. A shell pipeline must preserve the original command's exit status separately. This input-filter path is useful for a known disposable transcript; it does not provide the two-store requirement for retrieving removed output above.
 
+<a id="data-flow-and-exact-recovery"></a>
+
 ## Output at each step and retrieving the original
 
 | Case | Output seen by the model | Output returned by each retrieval | Failure and exit |
@@ -18,6 +22,8 @@ The runner also sent a 21,219-byte Rust test transcript to `rtk pipe --filter ca
 | Repeated tail | Original 27,975 bytes → RTK 4,248 bytes → Caveman 2,215 bytes | `caveman tools retrieve` returned the exact 4,248-byte RTK summary; `rtk recall --full` separately returned the exact 27,975-byte original | RTK exit 7; error, path, and RTK recall hint visible after both steps |
 
 Each command wrote a counter once. Retrievals, including attempts against the wrong stores, left the counter at one. The Caveman retrieval reference identifies only the bytes Caveman received. It did not recreate the original output before RTK filtered it. The runner records SHA-256 digests for originals and transformed outputs so a repeat can compare bytes without storing a large fixture in Git.
+
+<a id="failure-and-no-op-cases"></a>
 
 ## Failures and unchanged output
 

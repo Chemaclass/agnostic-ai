@@ -1,3 +1,5 @@
+<a id="issue-1959-live-claude-code-hook-evidence"></a>
+
 # Issue #1959: live Claude Code hook results
 
 Claude Code 2.1.295 applied RTK 0.51.0's command replacement, but the original approval requirement did not survive one exact-rule combination: `ask: Bash(git status)` plus an explicit CLI allow for `Bash(rtk git status)` denied the raw command and executed the rewritten one. No broad permission grant was used. With no rules, the direction reversed: plain `git status` ran, while its RTK spelling required approval.
@@ -17,6 +19,8 @@ This is live host evidence, not only a test of the hook processor alone. Twenty-
 - RTK reads Claude permission files independently of Claude's setting-source selection. In the original phase, only the RTK hook subprocess receives `CLAUDE_CONFIG_DIR` pointing to an empty temporary profile. This isolates RTK's reads of Claude permission files. On macOS, RTK 0.51.0 ignores the original XDG overrides for its own configuration and data; the historical runs could read user RTK configuration and write user tracking, recall, or tee state. The final suite sets `RTK_DB_PATH`, `RTK_RECALL_DB`, and `RTK_TEE_DIR` in both hook and host environments, and retains the read-only inherited RTK configuration. RTK configuration itself is not redirected.
 
 The pinned model name is documented in [Claude model configuration](https://code.claude.com/docs/en/model-config#haiku-5-5-context-window-and-pricing). Current [hook documentation](https://code.claude.com/docs/en/hooks#pretooluse-decision-control) says input replacement changes the object used for permission evaluation and must preserve other fields. Current [CLI documentation](https://code.claude.com/docs/en/cli-reference) documents setting-source selection and explicit settings. RTK's [versioned platform directory code](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/core/user_dirs.rs) explains the macOS directory behavior.
+
+<a id="observed-permission-matrix"></a>
 
 ## Observed permission comparisons
 
@@ -62,7 +66,7 @@ Claude's [hook configuration reference](https://code.claude.com/docs/en/hooks#co
 | Denied command not executed; failure not confused with success | Passed | Final permission pairs and `automatic_rewrite_failure_cases` |
 | Metadata, status, and essential error preserved | Passed through an automatic command replacement and a failing subprocess | Final `automatic_failure_{raw,rtk}` records: pre-hook input, native reply, actual argv, and PostToolUseFailure |
 | Missing, malformed, unsupported, already-prefixed outcomes | Passed at named layers | `v2_missing`, `processor-only.json`, `v2_unsupported`, `v2_already_rtk` |
-| Project/global duplicate hook settingss | Passed in a dedicated authenticated profile: actual user and project PreToolUse both ran; removing only user registration left project active | `authenticated_profile_cases.actual_global`, `actual_pretooluse_scopes` in the redacted matrix |
+| Project/global duplicate hook settings | Passed in a dedicated authenticated profile: actual user and project PreToolUse both ran; removing only user registration left project active | `authenticated_profile_cases.actual_global`, `actual_pretooluse_scopes` in the redacted matrix |
 | Explain approval changes | Passed | Unconfigured raw allowed, rewritten form denied; original ask plus rewritten allow executed only after rewrite |
 
 Do not claim universal approval parity or tested interactive behavior. The narrowly supported statement is: **Claude Code 2.1.295 on macOS accepted RTK 0.51.0 command replacements, retained tested metadata and failures, and evaluated the rewritten spelling through its permission flow.**
