@@ -10,7 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Hooks prefer the project binary; Git checks use staged config; bootstrap installs locked npm/pnpm dependencies once (#2012).
 - Create ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile`; keep permission and setup choices explicit (#1990, #2013).
 - Hide credentials in previews and diffs; keep writes/drift checks unchanged; require verified npm provenance for seven release/retry packages (#2021, #2016).
-- Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
+- Validate every project target with `doctor --scope project`, report local hook trust as skipped, and keep the default trust checks (#2011).
 
 ### By tool
 
@@ -23,6 +23,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Codex
 
 - Explain Codex instructions for a file with `explain --file <path> --target codex`, including planned outputs and launch directory limits (#1989).
+
+#### VS Code
+
+- Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
 
 ## v0.82.0 - 2026-10-10
 
