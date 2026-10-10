@@ -49,6 +49,8 @@ agnostic-ai sync --all
 agnostic-ai sync --check
 ```
 
+The helper refuses a symlinked settings file or `.claude` directory. It replaces settings atomically and preserves their permissions. The snapshot is readable only by its owner.
+
 The backup records only the selected handler, its group metadata, event, and position. Keep it until you decide which integration will own the hook. Review the resulting `PreToolUse` list and verify that only one RTK integration remains.
 
 To transfer an upstream-owned project skill, move its entire directory outside `.claude/skills/` before installing the Caveman pack. Preserve this directory; it can contain assets besides `SKILL.md`.

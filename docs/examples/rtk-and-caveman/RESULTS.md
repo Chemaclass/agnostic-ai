@@ -1,6 +1,6 @@
 # Recorded configuration and protocol checks
 
-Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. All 48 assertions passed. 4 sync checks exited 0. The verifier ran four isolated Claude-only project fixtures.
+Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The final verifier passed 56 assertions. 4 sync checks exited 0. The verifier ran seven isolated Claude-only project fixtures.
 
 ## Captured sync output
 
@@ -122,3 +122,9 @@ The first skill-restoration fixture omitted the parent directory that sync prune
 These are local configuration and native JSON protocol checks. They do not establish that a running Claude session applied a replacement or activated Caveman, that global ownership changed, that a Caveman runtime compressed requests, or that provider tokens or costs fell. The fixture restores local selected configuration records; it does not validate an external recovery system.
 
 Run the [verifier](README.md#reproduce-the-checks) to capture the complete command and assertion transcript for your machine.
+
+## Failed-write and no-execution checks
+
+The final run included a controlled file-size limit in a child process. The old helper truncated the native settings file when its write failed. The fixed helper left all original bytes and permissions intact, removed its temporary file, and kept the selected-handler snapshot private. Symlinked settings files and directories were refused without changing their targets.
+
+The missing-RTK payload uses shell builtins and redirection, so it can execute even with an empty PATH. A negative control first created its marker; the hook probe then returned no reply and left the marker absent. These checks supplement the captured lifecycle output above.

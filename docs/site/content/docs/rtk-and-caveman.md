@@ -96,7 +96,9 @@ To remove the project integration, delete the RTK hook source and the Caveman sk
 
 ## Share the setup
 
-The same inline hook and default response skill can be packaged through [spec packs](../packs/). A narrow pack lets a team review the source and revision together. Pack removal is followed by sync so generated entries are removed too.
+The [project example](https://github.com/Chemaclass/agnostic-ai/tree/main/docs/examples/rtk-and-caveman) provides separate RTK and Caveman [spec packs](../packs/). Add either component independently. Its instructions cover keeping an existing installation, transferring one selected hook, and restoring that handler after pack removal.
+
+A local verifier checks generated files, independent removal, missing tools, and failed writes. The packs include pinned source and license files. Pack removal is followed by sync so generated entries are removed too.
 
 No new `integrations` key is required. A convenience setting is an open design question only if hooks, skills, and packs leave a concrete setup problem unsolved.
 
@@ -108,7 +110,7 @@ Measure a complete task with and without the enabled components. Count prompt ov
 
 ## What the local experiments show
 
-A temporary Claude-only pack passed 19 checks. Pack addition, repeated sync, missing RTK, and pack removal behaved as expected. Unrelated handwritten hooks and settings survived. The skill, license, and notice files were preserved. These checks used a synthetic Claude-shaped request, rather than a launched coding session.
+The project example passed 56 checks across seven fixtures. It covers independent pack selection, repeated sync, missing RTK, ownership transfer, removal, and failed writes. Unrelated handwritten hooks and settings survived. The skill, license, and notice files were preserved. These checks used a synthetic Claude-shaped request, rather than a launched coding session.
 
 Standalone Caveman CLI 2.1.0 with runtime `bin-v2.1.0` compressed a repetitive 37,874-byte test transcript to 271 bytes and recovered the exact original. A failing command retained exit code 7. Missing-engine and short-input cases returned the original bytes.
 
