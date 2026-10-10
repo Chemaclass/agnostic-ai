@@ -6,11 +6,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Run pinned project binaries with `project`, check without installing, or bootstrap locked npm/pnpm dependencies without recursive installs; Git and memory hooks prefer the local binary (#2012).
-
+- Git and memory hooks prefer the pinned binary; `project --bootstrap` installs locked npm/pnpm dependencies once (#2012).
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
 - VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
-- Compare hook events, matchers, commands, timeouts, and failure policies with current output and ignored-field reasons (#1985).
+- Compare hook settings and MCP connections from target output, with ignored-field reasons and hidden connection values (#1985, #1986).
 - The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).
 
 ### By tool

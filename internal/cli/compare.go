@@ -20,11 +20,11 @@ import (
 
 // compareCoverage states what `compare` inspects, so a clean report is
 // never read as "the whole project ports".
-const compareCoverage = "agent and skill fields, rule scope/activation, and hook configuration; " +
-	"MCP servers, commands, settings, reviews, environments, and ignore files are not compared"
+const compareCoverage = "agent and skill fields, rule scope/activation, hook configuration, and MCP connection fields; " +
+	"commands, settings, reviews, environments, and ignore files are not compared"
 
 // compareCaveat keeps "preserved" from reading as a behavior guarantee.
-const compareCaveat = "preserved means the field is written under the same key; it does not prove the tools behave the same or that a hook ran"
+const compareCaveat = "preserved means the field is written under the same key; it does not prove the tools behave the same or that a hook ran or an MCP server connects"
 
 type compareStatus string
 
@@ -96,15 +96,16 @@ func newCompareCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "compare <target> <target>",
-		Short: "Compare agent and skill fields, rule activation, and hook configuration.",
-		Long: "Emits agents, skills, rules with scope or activation fields, and hooks " +
+		Short: "Compare fields, rule activation, hooks, and MCP connections.",
+		Long: "Emits agents, skills, rules with scope or activation fields, hooks, and MCP servers " +
 			"to both targets in memory, then reports per field whether each " +
 			"target preserves, translates, drops, or never receives it. " +
 			"Uses the project's specs, output options, and x-<target> " +
 			"overrides. Writes nothing.\n\n" +
-			"Coverage includes agent and skill fields, rule scope/activation, and hook configuration. " +
+			"Coverage includes agent and skill fields, rule scope/activation, hook configuration, and MCP connection fields. " +
 			"A preserved field is written under the same key; that does not " +
-			"prove both tools behave the same or that a hook ran.",
+			"prove both tools behave the same, that a hook ran, or that an MCP server connects. " +
+			"MCP values are not printed.",
 		Example: `  # Before switching from Claude Code to Cursor
   agnostic-ai compare claude cursor
 
@@ -175,7 +176,7 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 		Coverage: compareCoverage, Caveat: compareCaveat, Specs: []compareSpec{},
 	}
 	for _, e := range compareEntries(b) {
-		fields := comparedFields(e)
+		fields := comparedFields(e, targets)
 		if len(fields) == 0 {
 			continue
 		}
@@ -215,12 +216,13 @@ func compareEntries(b spec.Bundle) []spec.Entry {
 	}
 	out := append(byPath(b.Agents), byPath(b.Skills)...)
 	out = append(out, byPath(b.Rules)...)
-	return append(out, byPath(b.Hooks)...)
+	out = append(out, byPath(b.Hooks)...)
+	return append(out, byPath(b.MCPs)...)
 }
 
 // comparedFields lists the fields to report for e in source order. A
 // rule's directory-derived scope counts as its `scope` field.
-func comparedFields(e spec.Entry) []string {
+func comparedFields(e spec.Entry, targets []string) []string {
 	keys := append([]string(nil), e.MetaKeys...)
 	var extra []string
 	for k := range e.Meta {
@@ -231,6 +233,9 @@ func comparedFields(e spec.Entry) []string {
 	sort.Strings(extra)
 	keys = append(keys, extra...)
 
+	if e.Kind == spec.KindMCP {
+		return comparedMCPFields(e, keys, targets)
+	}
 	var out []string
 	if e.Kind == spec.KindRule && e.Scope != "" {
 		out = append(out, "scope")
@@ -279,9 +284,18 @@ func classifyEntry(cfg *config.Config, e spec.Entry, fields []string, target str
 		return results, nil, nil
 	}
 	adapter, _ := adapters.Get(target)
+	if e.Kind == spec.KindMCP {
+		adapters.ResetCoverageNotes()
+	}
 	base, notes, err := captureEntry(adapter, cfg, target, e)
 	if err != nil {
+		if e.Kind == spec.KindMCP {
+			return nil, nil, compareMCPError{path: src, err: err}
+		}
 		return nil, nil, err
+	}
+	if e.Kind == spec.KindMCP {
+		return classifyMCPEntry(cfg, e, fields, target, adapter, base, notes)
 	}
 	if e.Kind == spec.KindHook {
 		if _, reason := e.NativeHook(target); reason != "" {
@@ -530,7 +544,7 @@ func writeCompareReport(w io.Writer, out compareOutput) {
 	_, _ = fmt.Fprintf(w, "coverage: %s\n", compareCoverage)
 	_, _ = fmt.Fprintf(w, "note: %s\n", compareCaveat)
 	if len(out.Specs) == 0 {
-		_, _ = fmt.Fprintln(w, "\nno agents, skills, scoped rules, or hooks to compare")
+		_, _ = fmt.Fprintln(w, "\nno agents, skills, scoped rules, hooks, or MCP servers to compare")
 		return
 	}
 	width := max(len(a), len(b))

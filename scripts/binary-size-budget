@@ -30,7 +30,10 @@
 # hook comparison traces written event groups and required command fields.
 # #1988 measured 18677920 on Go 1.27.2, up 28672 from main a500a503:
 # Claude file explanations classify planned instructions and import routes.
+# #1986 measured 18714784 on Go 1.27.2, up 24576 from main 5b4990b7:
+# MCP comparison traces written connection fields without exposing values.
 # #1990 measured 18698400 on Go 1.27.2, up 8192 from main 5b4990b7:
 # new creates and previews every spec kind in its configured source folder.
+# After merging #1990, measured 18722976, up 24576 from main b64322dc.
 # Keep room for the 8 KB difference seen in CI's Linux build.
-18710000
+18740000
