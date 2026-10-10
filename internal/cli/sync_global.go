@@ -51,6 +51,8 @@ type globalState struct {
 	// directory. Several targets share ~/.agents/skills/, so a sync of
 	// one must keep what the others placed there.
 	Skills map[string][]string `json:"skills,omitempty"`
+	// HookFiles tracks standalone definitions and scripts across configuration root moves.
+	HookFiles map[string][]string `json:"hookFiles,omitempty"`
 	// Sums maps each owned file to the sum of what sync last wrote there,
 	// covering only the managed block of an instructions file.
 	Sums map[string]string `json:"sums,omitempty"`
@@ -717,7 +719,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -726,6 +728,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, paths := range old.Skills {
 		if !slices.Contains(targets, target) {
 			next.Skills[target] = append([]string(nil), paths...)
+		}
+	}
+	for target, paths := range old.HookFiles {
+		if !slices.Contains(targets, target) {
+			next.HookFiles[target] = slices.Clone(paths)
 		}
 	}
 	for target, efforts := range old.AgentEfforts {
@@ -768,6 +775,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		g := globalTargets[target]
 		next.Files = removePaths(next.Files, old.Agents[target])
 		next.Files = removePaths(next.Files, old.Skills[target])
+		next.Files = removePaths(next.Files, old.HookFiles[target])
 		for _, tree := range g.trees(home) {
 			// A state without per-target skill records predates them,
 			// so its skills tree is swept whole, as before.
@@ -911,6 +919,20 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill, target, sharedGlobalSkillsDir(home, dir), overlays, addSkill); err != nil {
 					return nil, next, err
 				}
+			}
+		}
+		if g.hooksDir != "" {
+			hooks := adapters.TargetHooks(target, b.HooksFor(target))
+			adapters.NotePortableHookGaps(target, b.Hooks)
+			addHookFile := func(path string, data []byte, mode fs.FileMode) error {
+				if err := add(path, data, mode); err != nil {
+					return err
+				}
+				next.HookFiles[target] = append(next.HookFiles[target], path)
+				return nil
+			}
+			if err := addGlobalHookFiles(home, source, target, g, hooks, onUnsupported, addHookFile); err != nil {
+				return nil, next, err
 			}
 		}
 		if g.hooks == "" {

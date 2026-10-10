@@ -148,7 +148,7 @@ A new adapter is about 50 lines plus one registry entry. See [adding adapters](h
 | **opencode** | `~/.config/opencode/AGENTS.md` | inlined | - | `~/.config/opencode/skills/<name>/` | `~/.config/opencode/agents/<name>.md` |
 | **antigravity** | `~/.gemini/GEMINI.md` | inlined | - | `~/.gemini/config/skills/<name>/` | `~/.gemini/config/agents/<name>/agent.md` |
 | **junie** | `~/.junie/AGENTS.md` | inlined | - | `~/.junie/skills/<name>/` | `~/.junie/agents/<name>.md` |
-| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | - | `~/.kiro/skills/<name>/` | `~/.kiro/agents/<name>.md` |
+| **kiro** | `~/.kiro/steering/AGENTS.md` | inlined | `~/.kiro/hooks/<name>.json` | `~/.kiro/skills/<name>/` | `~/.kiro/agents/<name>.md` |
 | **crush** | `~/.config/crush/CRUSH.md` | inlined | - | `~/.config/crush/skills/<name>/` | - |
 | **factory** | `~/.factory/AGENTS.md` | inlined | - | `~/.factory/skills/<name>/` | `~/.factory/droids/<name>.md` |
 | **kilo** | `~/.config/kilo/AGENTS.md` | inlined | - | `~/.kilo/skills/<name>/` | `~/.config/kilo/agents/<name>.md` |
@@ -180,9 +180,9 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - Continue's one documented home setting is the `rules:` list in the `config.yaml` it rewrites itself.
 - Jules documents nothing at user level.
 
-Hooks reach six tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, and Augment. The other tools have no user-level hook output:
+Hooks reach seven tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, and Kiro CLI V3. The other tools have no user-level hook output:
 
-- Factory, Devin CLI, Antigravity, Kiro, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
+- Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
 - Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones.
 - Cline and Copilot hooks are project-level only.
 

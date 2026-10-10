@@ -47,23 +47,35 @@ type commandHookAction struct {
 // `targets:` (b.HooksFor filters those out before this function sees them).
 func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
 	for _, h := range hooks {
-		entries, err := buildHookEntries(h)
+		raw, err := HookFile(h)
 		if err != nil {
-			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
+			return err
 		}
-		if len(entries) == 0 {
+		if len(raw) == 0 {
 			continue
 		}
-		raw, err := emit.MarshalJSONIndent(hooksFile{Version: "v1", Hooks: entries})
-		if err != nil {
-			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
-		}
 		path := filepath.Join(dir, h.Name+".json")
-		if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
+		if err := sess.WriteFile(path, string(raw), dryRun); err != nil {
 			return err
 		}
 	}
 	return sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun)
+}
+
+// HookFile renders the native hook definition shared by project and global sync.
+func HookFile(h spec.Entry) ([]byte, error) {
+	entries, err := buildHookEntries(h)
+	if err != nil {
+		return nil, fmt.Errorf("kiro hook %s: %w", h.Name, err)
+	}
+	if len(entries) == 0 {
+		return nil, nil
+	}
+	raw, err := emit.MarshalJSONIndent(hooksFile{Version: "v1", Hooks: entries})
+	if err != nil {
+		return nil, fmt.Errorf("kiro hook %s: %w", h.Name, err)
+	}
+	return append(raw, '\n'), nil
 }
 
 // buildHookEntries renders one hooks[] entry per action on h as a
