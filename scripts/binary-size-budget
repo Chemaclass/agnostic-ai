@@ -39,4 +39,7 @@
 # #2015 measured 18755744, up 32768 from main 7df02fd1: bounded RTK
 # diagnostics compare declared Bash rules while keeping unsupported
 # syntax and live host decisions unknown. Keep CI's 8 KB allowance.
-18772000
+# #2014 measured 18739360, up 16384 from main 7df02fd1: registered
+# worktree ownership, complete payloads, and hidden index flags are checked
+# before cleanup. Keep the same 8 KB allowance for CI's Linux build.
+18788000
