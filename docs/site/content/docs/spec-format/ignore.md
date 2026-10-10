@@ -19,6 +19,12 @@ Tools apply an ignore file to their own reads and indexing. Whether it also stop
 
 ## Write one
 
+```bash
+agnostic-ai new ignore generated-files
+```
+
+Replace the description and comment inside the gitignore fence with your path patterns. The template excludes no paths by default. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+
 Markdown with optional YAML settings between `---` lines at the top, one file per group. The body holds gitignore-syntax patterns.
 
 ````markdown

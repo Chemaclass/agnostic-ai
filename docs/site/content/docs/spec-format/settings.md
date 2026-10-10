@@ -25,6 +25,12 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 
 ## Write one
 
+```bash
+agnostic-ai new settings project-defaults
+```
+
+Replace the description and add the policy or model settings you need. The template sets no permissions or model by default. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+
 Settings specs are plain YAML, one file per group of settings, such as `settings/permissions.yaml`.
 
 ```yaml

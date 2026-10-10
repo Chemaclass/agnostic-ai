@@ -52,6 +52,7 @@ Interactive runs offer new releases with upgrade guidance and a default Yes prom
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
 agnostic-ai import claude --overwrite           # replace conflicting specs
 agnostic-ai compare claude cursor                # compare fields, rule activation, and hook configuration
+agnostic-ai new settings project-defaults --dry-run # preview a settings spec
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai sync --check                         # find generated files that differ from the sources
 agnostic-ai doctor --fix                         # repair generated files, choose which leftover files to remove
@@ -59,6 +60,8 @@ agnostic-ai migrate --dry-run                    # preview rewrites of old spec 
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store
 ```
+
+`agnostic-ai new` creates all ten spec kinds in their configured source directories. Edit the marked placeholders before rendering or syncing. See [new](https://agnostic-ai.org/docs/cli-reference/start/#new).
 
 On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
 

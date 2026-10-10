@@ -19,6 +19,12 @@ Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick t
 
 ## Write one
 
+```bash
+agnostic-ai new command review-changes
+```
+
+Replace the description and prompt body before rendering. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+
 Markdown with optional YAML settings between `---` lines at the top. Each spec becomes one slash command in the tool's own format.
 
 ```markdown

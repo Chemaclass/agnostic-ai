@@ -18,6 +18,12 @@ group = "Reference"
 
 ## Write one
 
+```bash
+agnostic-ai new environment development
+```
+
+Replace the description and add the reviewed commands you need. The template has no executable setup, install, or cleanup command. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+
 Plain YAML, one file per environment group.
 
 ```yaml
