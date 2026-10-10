@@ -17,7 +17,7 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		if !known[name] {
 			t.Errorf("%s: global target is not a known adapter", name)
 		}
-		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks, "agents": g.agents}
+		surfaces := map[string]string{"instructions": g.instructions, "rules": g.rules, "skills": g.skills, "hooks": g.hooks, "hook files": g.hookFiles, "hook scripts": g.hookScripts, "agents": g.agents}
 		var declared int
 		for kind, path := range surfaces {
 			if path == "" {
@@ -46,6 +46,12 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		}
 		if g.hooks != "" && g.hooksFormat != "claude" && g.hooksFormat != "cursor" && g.hooksFormat != "augment" {
 			t.Errorf("%s: hooks file %q has no native schema", name, g.hooks)
+		}
+		if (g.hookFiles == "") != (g.hookScripts == "") {
+			t.Errorf("%s: hook files and their scripts directory go together", name)
+		}
+		if g.hookFiles != "" && g.hooks != "" {
+			t.Errorf("%s: hooks are either one file or one file per hook", name)
 		}
 		if g.hooksFormat != "" && g.hooks == "" {
 			t.Errorf("%s: hooks schema without a hooks file", name)

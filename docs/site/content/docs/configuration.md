@@ -680,6 +680,7 @@ targets: [claude, codex, cursor]
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
 - Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [Codex skills](@/docs/targets/codex.md) for `disable-model-invocation`.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events per target. Sync does not translate event names.
+- Kiro takes each hook as its own file, `~/.kiro/hooks/<name>.json`, in the project hook format. Shared scripts go to `~/.kiro/scripts/`. `KIRO_HOME` moves both.
 - Targets without global agent output warn and skip agents.
 - Output is real files, never symlinks. A user file that is itself a symlink, such as a dotfiles-managed `CLAUDE.md`, is written through. A symlink inside a skills, agents, or rules directory stops the run.
 - Sync records what it wrote in `$AGNOSTIC_AI_HOME/state/global.json` and removes only those artifacts for the targets in the run, so `--only` never sweeps another target.
@@ -790,6 +791,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 
 | Target | File | Where |
 |---|---|---|
+| antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}` |
 | claude | `~/.claude.json` (`$CLAUDE_CONFIG_DIR/.claude.json` when set) | top-level `mcpServers.<name>` |
 | codex | `~/.codex/config.toml` | `[mcp_servers.<name>]` table |
 | cursor | `~/.cursor/mcp.json` | `mcpServers.<name>` |
@@ -798,13 +800,14 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | qoder | `~/.qoder/settings.json` | `mcpServers.<name>` |
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | openhands | `~/.openhands/mcp.json` (`$OPENHANDS_PERSISTENCE_DIR/mcp.json` when set) | `mcpServers.<name>`: `{command, args, env}` or `{url, transport, headers, auth}` |
+| warp | `~/.warp/.mcp.json` | `mcpServers.<name>`: `{command, args, env, working_directory}` or `{url, headers}` |
 
 Each server follows the per-key rules above:
 
 - A hand-written server that means the same as the spec is adopted. A different one with the same name stops the run, and `--backup` overwrites it.
 - A server sync wrote is removed when its spec goes. Servers you add under other names stay.
 - In `~/.claude.json`, sync edits only its own `mcpServers` entries and creates a missing file at `0600`. If the file changed after sync read it, sync stops without writing. Run it again.
-- A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, and OpenHands user files, where a listed server is live in every project.
+- A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, OpenHands, and Warp user files, where a listed server is live in every project.
 - When `CLAUDE_CONFIG_DIR` or another root variable moves a file, the next sync removes its entries from the old one.
 
 A personal agent such as `~/.agnostic-ai/agents/reviewer.md` with `targets: [claude, codex]` installs with:

@@ -35,6 +35,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
   - Remote (HTTP/SSE/WS): `url`/`headers`, with no `type`, because Warp has no transport field.
   - `description`, `disabled`, and `roots` are not written. `disabled` raises a coverage note (Warp never starts project servers on its own). Set `description` and `roots` through `x-warp`.
   - Warp also loads Claude Code's `.mcp.json`, Codex's `.codex/config.toml`, and `.agents/.mcp.json`, each after explicit approval ([provider table](https://docs.warp.dev/agents/capabilities/mcp)). With `claude` or `codex` synced too, one server can appear in up to three files, and Warp documents no handling of same-name servers. Approve only one copy.
+  - `sync --global` writes the same entries to `~/.warp/.mcp.json`, which Warp loads for every project and turns on by default. A `disabled` server stays out of that file. Servers you added by hand stay. `import --global warp` reads it back.
   - `import warp` renames `working_directory` back to `cwd`. An entry missing `command` (stdio) or `url` (remote) is skipped, as in trae, antigravity, and windsurf.
 
 {% <details summary="Upgrading from WARP.md"> %}

@@ -44,6 +44,18 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).
 
+#### Kiro
+
+- `sync --global` writes each hook to `~/.kiro/hooks/<name>.json` and its scripts to `~/.kiro/scripts/` (#1976).
+
+#### Antigravity
+
+- `sync --global` writes MCP servers to `~/.gemini/config/mcp_config.json` and keeps the ones you added (#1977).
+
+#### Warp
+
+- `sync --global` writes MCP servers to `~/.warp/.mcp.json` and keeps the ones you added (#1978).
+
 ### Site
 
 - Guides use simpler words, and RTK and Caveman recommendations separate cost, speed and response style.

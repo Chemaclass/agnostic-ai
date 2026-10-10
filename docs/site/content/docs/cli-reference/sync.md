@@ -53,7 +53,7 @@ agnostic-ai sync --only claude,cursor
 - Loads overrides from `local/` in the source root. Reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there. See [global configuration](@/docs/configuration.md#global-configuration) and [global output](@/docs/target-behavior.md#global-output).
 - Works outside a project. It never loads project config or packs.
 - Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
-- MCP specs install servers in the user MCP files of Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+- MCP specs install servers in the user MCP files of Antigravity, Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 - Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
 
 Sync skips paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) and reports them as `~ skip (unmanaged) <path>`.

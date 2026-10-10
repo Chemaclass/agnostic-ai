@@ -18,7 +18,7 @@ func HookFilePath(cfg *config.Config, name string) string {
 // HookDoc renders the hook file sync writes for h, or nil when h
 // produces no entry.
 func HookDoc(h spec.Entry) ([]byte, error) {
-	entries, err := buildHookEntries(h)
+	entries, err := buildHookEntries(h, projectCommands)
 	if err != nil {
 		return nil, fmt.Errorf("hook %s: %w", h.Name, err)
 	}

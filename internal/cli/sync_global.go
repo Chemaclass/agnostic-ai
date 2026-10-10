@@ -913,6 +913,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				}
 			}
 		}
+		if g.hookFiles != "" {
+			if err := addGlobalHookFiles(home, source, target, g, b, onUnsupported, add); err != nil {
+				return nil, next, err
+			}
+		}
 		if g.hooks == "" {
 			continue
 		}

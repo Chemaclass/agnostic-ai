@@ -107,6 +107,9 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 		if g.hooks != "" && entry.EmitsTo(target) && event != "" {
 			out = append(out, contribution{Target: target, Path: g.path(home, g.hooks), Section: event, Mode: "section"})
 		}
+		if g.hookFiles != "" && entry.EmitsTo(target) && event != "" {
+			out = append(out, contribution{Target: target, Path: filepath.Join(g.path(home, g.hookFiles), entry.Name+".json"), Mode: "full"})
+		}
 	case spec.KindMCP:
 		if g.mcp.path == "" || !entry.EmitsTo(target) {
 			return nil, nil

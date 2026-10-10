@@ -414,8 +414,13 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		}
 		// Gemini's httpUrl becomes url first, so the literal escaping
 		// below sees it.
-		if target == "gemini" {
+		switch target {
+		case "gemini":
 			normalizeGeminiTransport(server)
+		case "antigravity":
+			replaceMCPEntry(server, normalizeAntigravityMCPEntry(server))
+		case "warp":
+			replaceMCPEntry(server, normalizeWarpMCPEntry(server))
 		}
 		adapters.EscapeMCPLiterals(target, server)
 		adapters.ReadMCPEnvRefs(target, server)
@@ -438,6 +443,12 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 			continue
 		}
 	}
+}
+
+// replaceMCPEntry swaps the contents of server for next, in place.
+func replaceMCPEntry(server, next map[string]any) {
+	clear(server)
+	maps.Copy(server, next)
 }
 
 // normalizeGeminiTransport spells a Gemini server's transport the

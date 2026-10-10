@@ -121,3 +121,18 @@ var mcpBuiltKeys = []string{
 func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }
+
+// UserMCPServers renders mcps as the `mcpServers` map of
+// ~/.gemini/config/mcp_config.json, with the builder the project file uses.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	servers := map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		if entry := buildMCPServer(e); len(entry) > 0 {
+			servers[e.Name] = entry
+		}
+	}
+	return servers
+}

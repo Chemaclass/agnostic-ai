@@ -150,3 +150,23 @@ var mcpBuiltKeys = []string{
 func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }
+
+// userMCPDisabledReason explains a server left out under sync --global:
+// ~/.warp/.mcp.json is on by default and has no per-server disable key.
+const userMCPDisabledReason = "a disabled server is left out of ~/.warp/.mcp.json, which has no per-server disable key"
+
+// UserMCPServers renders mcps as the `mcpServers` map of ~/.warp/.mcp.json,
+// with the builder the project file uses.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.DropMCPDisabled(target, mcps, userMCPDisabledReason)
+	servers := map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		if entry := buildMCPServer(e); len(entry) > 0 {
+			servers[e.Name] = entry
+		}
+	}
+	return servers
+}

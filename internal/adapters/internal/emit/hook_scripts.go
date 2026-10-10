@@ -110,6 +110,31 @@ func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outp
 	return nil
 }
 
+// HookScriptsFor reads every shared script the hooks of target run from
+// sourceDir, placed under outputDir, for a user-level install that has no
+// session to write them.
+func HookScriptsFor(hooks []spec.Entry, target, sourceDir, outputDir string) ([]HookScript, error) {
+	var scripts []HookScript
+	for _, hook := range hooks {
+		if event, _ := hook.Meta["event"].(string); event == "" {
+			continue
+		}
+		commands, literal := hookSourceCommands(hook, target)
+		for _, command := range commands {
+			found, err := NeutralHookScripts(command, target, sourceDir, outputDir, literal)
+			if err != nil {
+				path := hook.Path
+				if path == "" {
+					path = hook.Name
+				}
+				return nil, fmt.Errorf("%s: %w", path, err)
+			}
+			scripts = append(scripts, found...)
+		}
+	}
+	return scripts, nil
+}
+
 type neutralHookReference struct {
 	start, end int
 	rootStart  int

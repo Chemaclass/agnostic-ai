@@ -64,6 +64,10 @@ type globalTarget struct {
 	agentsWindows string
 	// hooks is the hooks file.
 	hooks string
+	// hookFiles is the directory a target reads one hook file per hook
+	// from, instead of a shared hooks file. hookScripts is where the
+	// scripts those hooks run are copied.
+	hookFiles, hookScripts string
 	// hooksFormat selects the native hooks schema: "claude", "cursor",
 	// or "augment", Claude's grouping with Augment's narrower fields.
 	hooksFormat string
@@ -248,6 +252,8 @@ var globalTargets = map[string]globalTarget{
 	"warp": {
 		instructions: globalPathHome + ".agents/AGENTS.md",
 		skills:       globalPathHome + ".agents/skills",
+		// docs.warp.dev/agents/capabilities/mcp: "Global: ~/.warp/.mcp.json".
+		mcp: globalMCPFile{path: globalPathHome + ".warp/.mcp.json", format: "json", key: "mcpServers"},
 	},
 	"opencode": {
 		agents:       globalPathXDG + "opencode/agents",
@@ -266,6 +272,9 @@ var globalTargets = map[string]globalTarget{
 		// 2.0 on the same machine reads only the config path
 		// (target-audit 2026-09-19, #896).
 		skills: globalPathHome + ".gemini/config/skills",
+		// antigravity.google/docs/mcp?tab=ide: "The configuration file is
+		// located globally at ~/.gemini/config/mcp_config.json".
+		mcp: globalMCPFile{path: globalPathHome + ".gemini/config/mcp_config.json", format: "json", key: "mcpServers"},
 	},
 	"junie": {
 		rootEnv:      "JUNIE_HOME",
@@ -280,6 +289,10 @@ var globalTargets = map[string]globalTarget{
 		agents:       globalPathHome + ".kiro/agents",
 		instructions: globalPathHome + ".kiro/steering/AGENTS.md",
 		skills:       globalPathHome + ".kiro/skills",
+		// kiro.dev/docs/hooks.md: "Kiro CLI V3 also loads global Hooks
+		// from ~/.kiro/hooks/". One file per hook, in the project envelope.
+		hookFiles:   globalPathHome + ".kiro/hooks",
+		hookScripts: globalPathHome + ".kiro/scripts",
 	},
 	"crush": {
 		instructions: globalPathXDG + "crush/CRUSH.md",
@@ -361,7 +374,7 @@ func globalKindSupport() kindSupport {
 			spec.KindAgent:    g.agents != "",
 			spec.KindSkill:    g.skills != "",
 			spec.KindRule:     g.instructions != "" || g.rules != "",
-			spec.KindHook:     g.hooks != "",
+			spec.KindHook:     g.hooks != "" || g.hookFiles != "",
 			spec.KindSettings: g.settings.path != "",
 			spec.KindMCP:      g.mcp.path != "",
 		} {
@@ -378,7 +391,7 @@ func globalKindSupport() kindSupport {
 func globalHookTargets(targets []string) []string {
 	var out []string
 	for _, name := range slices.Sorted(slices.Values(targets)) {
-		if globalTargets[name].hooks != "" {
+		if g := globalTargets[name]; g.hooks != "" || g.hookFiles != "" {
 			out = append(out, name)
 		}
 	}
@@ -423,7 +436,7 @@ func (g globalTarget) trees(home string) []string {
 	if g.hooks != "" {
 		out = append(out, filepath.Join(filepath.Dir(g.path(home, g.hooks)), "hooks"))
 	}
-	for _, p := range []string{g.skills, g.rules} {
+	for _, p := range []string{g.skills, g.rules, g.hookFiles, g.hookScripts} {
 		if p != "" {
 			out = append(out, g.path(home, p))
 		}

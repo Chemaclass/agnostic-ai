@@ -47,23 +47,84 @@ type commandHookAction struct {
 // `targets:` (b.HooksFor filters those out before this function sees them).
 func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
 	for _, h := range hooks {
-		entries, err := buildHookEntries(h)
+		doc, err := renderHookFile(h, projectCommands)
 		if err != nil {
-			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
+			return err
 		}
-		if len(entries) == 0 {
+		if doc == "" {
 			continue
 		}
-		raw, err := emit.MarshalJSONIndent(hooksFile{Version: "v1", Hooks: entries})
-		if err != nil {
-			return fmt.Errorf("kiro hook %s: %w", h.Name, err)
-		}
 		path := filepath.Join(dir, h.Name+".json")
-		if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
+		if err := sess.WriteFile(path, doc, dryRun); err != nil {
 			return err
 		}
 	}
 	return sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun)
+}
+
+// renderHookFile is one hook spec as the text of its `<name>.json` file,
+// or "" when the spec has nothing to write.
+func renderHookFile(h spec.Entry, commands hookCommandForm) (string, error) {
+	entries, err := buildHookEntries(h, commands)
+	if err != nil {
+		return "", fmt.Errorf("kiro hook %s: %w", h.Name, err)
+	}
+	if len(entries) == 0 {
+		return "", nil
+	}
+	raw, err := emit.MarshalJSONIndent(hooksFile{Version: "v1", Hooks: entries})
+	if err != nil {
+		return "", fmt.Errorf("kiro hook %s: %w", h.Name, err)
+	}
+	return string(raw) + "\n", nil
+}
+
+// hookCommandForm spells the commands of a hook the way one install
+// location needs them: a project file keeps paths relative to the
+// workspace, a user file points at the user's own script directory.
+type hookCommandForm struct {
+	// shell renders one portable `command:` entry with its args folded in.
+	shell func(command string, meta map[string]any) string
+	// native rewrites the command of an `x-kiro.action`.
+	native func(command string) string
+}
+
+var projectCommands = hookCommandForm{
+	shell: func(command string, meta map[string]any) string {
+		return emit.ShellHookCommand(command, target, meta)
+	},
+	native: func(command string) string {
+		return emit.RewriteNeutralHookPath(command, emit.HookScriptsDir(target))
+	},
+}
+
+// UserHookFiles renders hooks as the files of the user hooks directory,
+// keyed by file name, with commands that run the scripts copied into
+// scriptsDir from sourceDir. A hook with nothing to write has no file.
+func (Adapter) UserHookFiles(hooks []spec.Entry, sourceDir, scriptsDir string) (map[string]string, []emit.HookScript, error) {
+	scripts, err := emit.HookScriptsFor(hooks, target, sourceDir, scriptsDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	commands := hookCommandForm{
+		shell: func(command string, meta map[string]any) string {
+			return emit.ExecFormCommand(emit.RewriteGlobalHookPath(command, target, scriptsDir, meta), emit.HookArgs(target, meta))
+		},
+		native: func(command string) string {
+			return emit.RewriteNeutralHookPath(command, scriptsDir)
+		},
+	}
+	files := map[string]string{}
+	for _, h := range hooks {
+		doc, err := renderHookFile(h, commands)
+		if err != nil {
+			return nil, nil, err
+		}
+		if doc != "" {
+			files[h.Name+".json"] = doc
+		}
+	}
+	return files, scripts, nil
 }
 
 // buildHookEntries renders one hooks[] entry per action on h as a
@@ -76,12 +137,12 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 // `x-kiro` passthrough, since both live on the spec, not per-command.
 // A native action needs no generic command and replaces the command
 // list. Returns no entries when h has no event or no usable action.
-func buildHookEntries(h spec.Entry) ([]map[string]any, error) {
+func buildHookEntries(h spec.Entry, commands hookCommandForm) ([]map[string]any, error) {
 	trigger, _ := h.Meta["event"].(string)
 	if trigger == "" {
 		return nil, nil
 	}
-	actions, err := hookActions(h)
+	actions, err := hookActions(h, commands)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +198,7 @@ func hookTimeout(meta map[string]any) (int, bool) {
 	return emit.IntField(meta, "timeout")
 }
 
-func hookActions(h spec.Entry) ([]any, error) {
+func hookActions(h spec.Entry, form hookCommandForm) ([]any, error) {
 	if native, ok := h.Meta["x-kiro"].(map[string]any); ok {
 		if raw, exists := native["action"]; exists {
 			action, ok := raw.(map[string]any)
@@ -163,7 +224,7 @@ func hookActions(h spec.Entry) ([]any, error) {
 				for key, value := range action {
 					copy[key] = value
 				}
-				copy["command"] = emit.RewriteNeutralHookPath(value, emit.HookScriptsDir(target))
+				copy["command"] = form.native(value)
 				return []any{copy}, nil
 			}
 			return []any{action}, nil
@@ -172,7 +233,7 @@ func hookActions(h spec.Entry) ([]any, error) {
 	commands := hookCommands(h.Meta["command"])
 	actions := make([]any, 0, len(commands))
 	for _, command := range commands {
-		actions = append(actions, commandHookAction{Type: "command", Command: emit.ShellHookCommand(command, target, h.Meta)})
+		actions = append(actions, commandHookAction{Type: "command", Command: form.shell(command, h.Meta)})
 	}
 	return actions, nil
 }
