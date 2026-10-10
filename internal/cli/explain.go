@@ -53,9 +53,10 @@ func newExplainCmd() *cobra.Command {
 		file    string
 		target  string
 		inputs  bool
+		context bool
 	)
 	cmd := &cobra.Command{
-		Use:   "explain <spec | AAI-NNN | LINTNNN> | --file <path> --target <name>",
+		Use:   "explain <spec | AAI-NNN | LINTNNN> | --file <path> --target <name> | --context --target <name>",
 		Short: "List every output file and section a spec contributes to, describe an error code, or show the instructions configured for a source file.",
 		Long: "Reverse provenance: takes one spec and shows where it lands in " +
 			"each target's emission. Pairs with the `<!-- source: ... -->` " +
@@ -66,7 +67,10 @@ func newExplainCmd() *cobra.Command {
 			"each configured instruction the target would read, its canonical " +
 			"source, output path, selector, and why it matches or not. This is " +
 			"configured applicability, not a record of the model's active context. " +
-			"Cursor and Claude Code are supported. Writes nothing.",
+			"Cursor and Claude Code are supported. Writes nothing.\n\n" +
+			"With --context and --target, ranks estimated words and bytes by " +
+			"canonical source, separating startup text from on-demand bodies. " +
+			"Add --file for Cursor or Claude Code to measure matching scoped rules.",
 		Example: `  # Human-readable
   agnostic-ai explain rules/conventional-commits.md
 
@@ -89,9 +93,18 @@ func newExplainCmd() *cobra.Command {
   agnostic-ai explain --file services/payments/handler.go --target claude
 
   # Every file whose change can change an output, for a hook's trigger list
-  agnostic-ai explain --inputs`,
+  agnostic-ai explain --inputs
+
+  # Rank startup sources separately from on-demand bodies
+  agnostic-ai explain --context --target codex --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if context {
+				if len(args) > 0 || global || inputs || target == "" {
+					return errs.Coded(errs.CodeFlagConflict, "--context requires --target and cannot be combined with a spec, --global, or --inputs")
+				}
+				return runExplainContext(cmd, target, file, jsonOut)
+			}
 			if inputs {
 				if len(args) > 0 || file != "" || target != "" || global {
 					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file, --target, or --global")
@@ -169,8 +182,9 @@ func newExplainCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
 	cmd.Flags().BoolVar(&global, "global", false, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --global writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
-	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: cursor, claude.")
+	cmd.Flags().StringVar(&target, "target", "", "Configured target for --context, or instructions --file reports (cursor, claude).")
 	cmd.Flags().BoolVar(&inputs, "inputs", false, "List every file and directory whose change can change a generated output, one per line, for a git hook's trigger list.")
+	cmd.Flags().BoolVar(&context, "context", false, "Rank estimated words and bytes by canonical source; separate startup context from on-demand bodies. Requires --target; optional --file for cursor or claude.")
 	return cmd
 }
 

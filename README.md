@@ -57,6 +57,7 @@ agnostic-ai compare claude cursor                # compare fields, rule activati
 agnostic-ai new settings project-defaults --dry-run # preview a settings spec
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai explain --file src/main.go --target claude # show configured instructions for a file
+agnostic-ai explain --context --target claude         # rank estimated startup sources and on-demand bodies
 agnostic-ai sync --check                         # find generated files that differ from the sources
 agnostic-ai doctor --fix                         # repair generated files, choose which leftover files to remove
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms

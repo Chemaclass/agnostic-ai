@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Rank estimated startup context by source with `explain --context --target`, separating discovery descriptions from on-demand bodies (#2017).
+
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
 - VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
 - Compare hook events, matchers, commands, timeouts, and failure policies with current output and ignored-field reasons (#1985).

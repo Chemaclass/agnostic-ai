@@ -57,6 +57,7 @@ type sessionLoad struct {
 	fileBytes  int
 	fileLayers []wordCount
 	parts      []wordCount
+	context    []contextContribution
 }
 
 func (l sessionLoad) total() int {
@@ -72,6 +73,7 @@ func (l *sessionLoad) setFile(label, text string, layers []instructionLayer) {
 	for _, layer := range layers {
 		l.fileLayers = append(l.fileLayers, wordCount{layer.Name, wordsIn(layer.Text)})
 	}
+	l.addFileContext(label, text, layers)
 }
 
 func (l *sessionLoad) add(name string, words int) {
@@ -171,9 +173,13 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 			// `@AGENTS.md` in the entry point loads that file whole too.
 			if agentsFile != nil && f.Path != agentsFile.Path && adapters.SupportsFileImports(t) && importsAgents(f.Content) {
 				load.add("AGENTS.md import", wordsIn(agentsFile.Content))
+				load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
 			}
 		}
 		load.add("always-on rule files", alwaysOnRuleWords(cfg, b, t))
+		for _, r := range alwaysOnRules(cfg, b, t) {
+			load.context = append(load.context, measuredContext("always-on rule", "startup", adapters.EntrySourcePath(r), r.Body))
+		}
 		addDescriptions(&load, support, b.For(t))
 		loads = append(loads, load)
 	}
@@ -227,9 +233,11 @@ func importsAgents(content string) bool {
 func addDescriptions(load *sessionLoad, support kindSupport, b spec.Bundle) {
 	if _, ok := support[spec.KindSkill][load.target]; ok {
 		load.add("skill descriptions", descriptionWords(b.Skills, load.target))
+		load.addEntryContext(b.Skills, "skill")
 	}
 	if _, ok := support[spec.KindAgent][load.target]; ok {
 		load.add("agent descriptions", descriptionWords(b.Agents, load.target))
+		load.addEntryContext(b.Agents, "agent")
 	}
 }
 
@@ -252,16 +260,24 @@ var legacyRulesFileScoped = map[string]bool{"copilot": true}
 // adapter that renders each rule's activation decides. A rule the
 // entry point already carries has no rule file.
 func alwaysOnRuleWords(cfg *config.Config, b spec.Bundle, target string) int {
+	n := 0
+	for _, r := range alwaysOnRules(cfg, b, target) {
+		n += wordsIn(r.Body)
+	}
+	return n
+}
+
+func alwaysOnRules(cfg *config.Config, b spec.Bundle, target string) []spec.Entry {
 	legacyWhole := adapters.HasLegacyRulesFile(cfg, target) && !legacyRulesFileScoped[target]
 	whole := legacyWhole || adapters.ImportsRulesIntoEntryPoint(cfg, target)
 	inEntryPoint := adapters.RulesInEntryPoint(cfg, b, target)
-	n := 0
+	var rules []spec.Entry
 	for _, r := range adapters.EntryPointRules(b, target, cfg).Rules {
 		if whole || adapters.AlwaysOnRule(target, r) && !inEntryPoint[r.Name] {
-			n += wordsIn(r.Body)
+			rules = append(rules, r)
 		}
 	}
-	return n
+	return rules
 }
 
 // lintInstructionBudget reports the targets whose always-loaded text
