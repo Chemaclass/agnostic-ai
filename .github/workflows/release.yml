@@ -126,14 +126,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
-      # npm documents 9.5.0 as the floor for --provenance, which Node 22's
-      # bundled npm 10.x already clears. Pin anyway so the version that signs
-      # a release is the one we chose, not whatever setup-node happens to
-      # bundle, and pick 11.5.1 because that is npm's floor for trusted
-      # publishing, the next step on this package.
-      NPM_CLI_VERSION: '11.5.1'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -144,16 +137,9 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Pin the npm CLI that publishes
-        # Only the publish needs it, and setup-node leaves a placeholder auth
-        # token in .npmrc when NPM_TOKEN is absent, which a registry read can
-        # reject. Gate the step the same way the publish is gated so a fork
-        # never fails here over a credential it does not have.
+      - name: Verify and install the npm publishing toolchain
         if: env.NPM_TOKEN_CONFIGURED == 'true'
-        run: |
-          set -euo pipefail
-          npm install -g "npm@${NPM_CLI_VERSION}"
-          npm --version
+        run: bash scripts/npm-toolchain.sh
 
       # Both steps run without NPM_TOKEN too. A fork then proves the generator
       # still works, which is the part of this job nothing else exercises.
@@ -180,6 +166,8 @@ jobs:
         # setup-node replaces an empty NODE_AUTH_TOKEN with a placeholder, so
         # test the secret-presence flag captured before setup instead.
         if: env.NPM_TOKEN_CONFIGURED == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: scripts/npm-publish.sh "${GITHUB_REF_NAME#v}"
 
       - name: Report skipped publish
@@ -211,9 +199,9 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Pin the npm verifier
+      - name: Verify and install the npm verifier
         if: env.NPM_TOKEN_CONFIGURED == 'true'
-        run: npm install -g npm@11.5.1
+        run: bash scripts/npm-toolchain.sh
 
       # Both checks below read a replica that can lag the write they verify.
       # A red check that is sometimes wrong trains you to dismiss it, so each

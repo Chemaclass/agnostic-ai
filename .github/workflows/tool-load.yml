@@ -45,7 +45,17 @@ jobs:
       - name: Ask each tool what it loaded
         id: load
         continue-on-error: true
+        env:
+          TOOL_LOAD_REPORT_DIR: ${{ runner.temp }}/tool-load-dependencies
         run: scripts/tool-load.sh --bin "$RUNNER_TEMP/agnostic-ai" | tee "$RUNNER_TEMP/tool-load.tsv"
+
+      - name: Save exact vendor dependency inventory
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: tool-load-dependencies
+          path: ${{ runner.temp }}/tool-load-dependencies
+          if-no-files-found: warn
 
       - name: Report on the tool-load issue
         env:
