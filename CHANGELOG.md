@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Enable RTK and Caveman independently with `builtins` in YAML. Both stay off by default, and neither tool is installed automatically (#1964).
+
 - Interactive commands offer upgrades with release notes, project migrations, and sync checks (#1952).
 - Sync keeps reordered JSON and global hooks; re-import keeps unchanged specs and refuses text loss across tools (#1889, #1923, #1943).
 - Changing `memory.personal` keeps shared ignore files stable; memory instructions shrink and size warnings name affected tools (#1934, #1935, #1937).
