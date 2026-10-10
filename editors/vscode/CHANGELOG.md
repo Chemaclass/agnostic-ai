@@ -5,6 +5,8 @@ in this file.
 
 ## 0.2.0 (unreleased)
 
+- The status bar shows failed checks with their reason in the tooltip. Invalid output and missing binaries get a useful message. A successful check clears the failure; ordinary drift keeps its file count (#1981).
+
 - `agnostic-ai: Open canonical source` opens the spec behind a
   generated file. Run it from the command palette, the editor context
   menu, or the editor tab context menu. A file with one source opens
