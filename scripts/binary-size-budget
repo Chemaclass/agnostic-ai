@@ -45,4 +45,9 @@
 # After #1986, measured 18735264, up 12288 from main 7df02fd1.
 # Keep room for the 8 KB difference seen in CI's Linux build.
 # After #2014, measured 18751648, up 12288 from main badb5ae3.
-18770000
+# #1987 measured 18768032, up 28672 from main eec372ab: permission
+# comparison checks emitted fields, target overrides, and partial translations.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #1989, measured 18784416, up 32768 from main cc7eb45c.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+18801000

@@ -6,7 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Compare hooks and MCP connections from planned tool output, showing omissions and ignored fields without printing connection values (#1985, #1986).
+- Compare hooks, MCP connections, and portable permissions from tool output, with ignored fields and required options shown (#1985, #1986, #1987).
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
 - Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
 - VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).

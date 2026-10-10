@@ -114,7 +114,7 @@ agnostic-ai explain --inputs
 
 ## compare
 
-Compare how two built-in targets handle the project's agent and skill fields, rule activation, hook configuration, and MCP connections, before you switch or add a tool.
+Compare how two built-in targets handle the project's agent and skill fields, rule activation, hook configuration, MCP connections, and portable permissions, before you switch or add a tool.
 
 ```bash
 agnostic-ai compare claude cursor
@@ -124,7 +124,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Other spec kinds and fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
+It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Portable settings permissions are compared one source rule at a time, including allow, ask, deny, and default-mode. Other settings, spec kinds, and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|
@@ -137,6 +137,8 @@ It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApp
 `preserved` describes the written file. It does not prove the tools behave the same, that a hook ran, or that an MCP server connects. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
 
 MCP entries name affected fields and output paths without printing command, argument, URL, environment, or header values. Default values and unrecognized reference text stay out of reasons too. An unwritable launch reference can leave the whole server out. A native file that omits an explicit transport is reported as `unknown`.
+
+Permission rows use the source list index, such as `permissions.deny[0]`, and name the rule in the result. Native overrides and partial mappings stay visible. Shell permission output on Codex requires `outputs.codex.exec-policies-from-permissions: true`. The portable default-mode mapping belongs to global sync, so project comparison reports it as unsupported. Permission differences include effective native decisions and partial support, even when both results are translated.
 
 The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
