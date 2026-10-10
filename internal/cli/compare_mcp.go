@@ -87,11 +87,22 @@ func classifyMCPEntry(cfg *config.Config, e spec.Entry, fields []string, target 
 				continue
 			}
 			paths, verbatim := mcpChangedKeyPaths(base, absent, field, value, e.Name)
+			renamed := false
+			if len(paths) == 0 {
+				for _, expected := range []any{value, mcpCompareValue(e, field, "")} {
+					if aliasPaths, literal := mcpChangedKeyPaths(base, absent, "transport", expected, e.Name); len(aliasPaths) > 0 && literal {
+						paths, renamed = aliasPaths, true
+						break
+					}
+				}
+			}
 			switch {
 			case len(paths) == 0:
 				r.Status, r.Reason = statusUnknown, "the native output does not state an explicit transport"
-			case verbatim:
+			case verbatim && !renamed:
 				r.Status, r.Paths = statusPreserved, paths
+			case renamed:
+				r.Status, r.Paths, r.Reason = statusTranslated, paths, "the native output uses another transport key"
 			default:
 				r.Status, r.Paths, r.Reason = statusTranslated, paths, "the native output uses another transport spelling"
 			}

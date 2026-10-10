@@ -475,3 +475,65 @@ func TestCompare_MCPContinueWrapperKeepsNativeConnectionEvidence(t *testing.T) {
 		}
 	}
 }
+
+func TestCompare_MCPRenamedTransportUsesExplicitNativeConnection(t *testing.T) {
+	for _, transport := range []string{"http", "sse"} {
+		t.Run(transport, func(t *testing.T) {
+			testutil.Chdir(t, setupCompareFixture(t))
+			silence(t)
+			writeCompareMCP(t, "remote", fmt.Sprintf("name: remote\ntype: %s\nurl: https://example.invalid/mcp\n", transport))
+			out := compareJSON(t, "claude", "windsurf")
+			r := findCompareResult(t, out, ".agnostic-ai/mcps/remote.yaml", "type", "windsurf")
+			if r.Status != statusTranslated || !slices.Contains(r.Paths, ".devin/mcp_config.json") {
+				t.Errorf("explicit renamed transport = %+v, want translated with Windsurf output path", r)
+			}
+			r = findCompareResult(t, out, ".agnostic-ai/mcps/remote.yaml", "type", "claude")
+			if r.Status != statusPreserved {
+				t.Errorf("same-key transport must stay preserved: %+v", r)
+			}
+		})
+	}
+}
+
+func TestCompare_MCPRenamedTransportDoesNotUseNestedOrUnrelatedKeys(t *testing.T) {
+	testutil.Chdir(t, setupCompareFixture(t))
+	silence(t)
+	writeCompareMCP(t, "nested-name", `name: nested-name
+command: mcp-test-command
+env:
+  transport: !literal stdio
+x-warp:
+  metadata:
+    nested-name:
+      transport: stdio
+`)
+	if err := os.MkdirAll(".agnostic-ai/overlays", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(".agnostic-ai/overlays/codex.config.toml", []byte("[extra]\ntransport = \"stdio\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{"codex", "warp", "windsurf"} {
+		out := compareJSON(t, "claude", target)
+		r := findCompareResult(t, out, ".agnostic-ai/mcps/nested-name.yaml", "type", target)
+		if r.Status != statusUnknown || len(r.Paths) != 0 {
+			t.Errorf("nested or unrelated transport cannot establish %s transport: %+v", target, r)
+		}
+	}
+}
+
+func TestCompare_MCPRenamedTransportUsesActualPortableValueWhenOverrideIsIgnored(t *testing.T) {
+	testutil.Chdir(t, setupCompareFixture(t))
+	silence(t)
+	writeCompareMCP(t, "remote", `name: remote
+type: http
+url: https://example.invalid/mcp
+x-windsurf:
+  type: sse
+`)
+	out := compareJSON(t, "claude", "windsurf")
+	r := findCompareResult(t, out, ".agnostic-ai/mcps/remote.yaml", "type", "windsurf")
+	if r.Status != statusTranslated || !slices.Contains(r.Paths, ".devin/mcp_config.json") {
+		t.Errorf("actual emitted portable transport = %+v, want translated with native output path", r)
+	}
+}
