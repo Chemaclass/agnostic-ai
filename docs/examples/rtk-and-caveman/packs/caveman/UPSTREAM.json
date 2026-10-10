@@ -1,0 +1,36 @@
+{
+  "repository": "https://github.com/JuliusBrussee/caveman",
+  "revision": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
+  "files": {
+    "SKILL.md": {
+      "source": "skills/caveman/SKILL.md",
+      "url": "https://raw.githubusercontent.com/JuliusBrussee/caveman/2e08b9177c07bb7249a8a2d1a6758e5db281d002/skills/caveman/SKILL.md",
+      "sha256": "415d43518f2b1a9498c15a445d4657117b129ee5e81b19454ce348439cc6672b"
+    },
+    "UPSTREAM-README.md": {
+      "source": "skills/caveman/README.md",
+      "url": "https://raw.githubusercontent.com/JuliusBrussee/caveman/2e08b9177c07bb7249a8a2d1a6758e5db281d002/skills/caveman/README.md",
+      "sha256": "e8b22f37ccb204bd00cdf98c723c0df37aeda1f5863e9ad1d634f5c839d99e5d"
+    },
+    "LICENSE": {
+      "source": "LICENSE",
+      "url": "https://raw.githubusercontent.com/JuliusBrussee/caveman/2e08b9177c07bb7249a8a2d1a6758e5db281d002/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "LICENSE-MIT": {
+      "source": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/JuliusBrussee/caveman/2e08b9177c07bb7249a8a2d1a6758e5db281d002/LICENSE-MIT",
+      "sha256": "5eb826cd03151bcc7cce3f80d40e87733237fedfc6c36d6908aca5fd650a0bdb"
+    },
+    "NOTICE": {
+      "source": "NOTICE",
+      "url": "https://raw.githubusercontent.com/JuliusBrussee/caveman/2e08b9177c07bb7249a8a2d1a6758e5db281d002/NOTICE",
+      "sha256": "20112dc6e62e91da4f03c29fd10cfa41743a9c526389fdf1396c3649c18216fc"
+    },
+    "LICENSING.md": {
+      "source": "LICENSING.md",
+      "url": "https://raw.githubusercontent.com/JuliusBrussee/caveman/2e08b9177c07bb7249a8a2d1a6758e5db281d002/LICENSING.md",
+      "sha256": "e36ef7b22766ea22f01bce187f629669e62f2346948435154a295f91bd3c3ff2"
+    }
+  }
+}
