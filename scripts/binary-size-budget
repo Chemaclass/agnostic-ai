@@ -26,4 +26,7 @@
 # checks and owned metadata snapshots add 12 KB to main after #1945.
 # #1964 measured 18596000 on Go 1.27.2: the opt-in RTK hook and
 # pinned Caveman skill, source notices, and licenses add 28672 bytes.
-18655000
+# #1988 measured 18677920 on Go 1.27.2, up 28672 from main a500a503:
+# Claude file explanations classify planned instructions and import routes.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+18700000
