@@ -1454,6 +1454,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		spec        bool
 	}
 	var planned []plannedHook
+	var claudeHooks []spec.Entry
 	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
 		if event == "" {
@@ -1461,7 +1462,14 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		}
 		args := stringSliceFromAny(entry.Meta["args"])
 		wraps := entry.WrapsCommand(target.name)
-		for _, command := range globalHookCommands(entry.Meta["command"]) {
+		commands := globalHookCommands(entry.Meta["command"])
+		if target.name == "claude" && len(commands) > 0 {
+			hook := entry
+			hook.Meta = maps.Clone(entry.Meta)
+			hook.Meta["type"] = "command"
+			claudeHooks = append(claudeHooks, hook)
+		}
+		for _, command := range commands {
 			rewrite := func(command string, meta ...map[string]any) string {
 				if target.scriptsDir != "" {
 					return adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), meta...)
@@ -1535,6 +1543,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
 		}
 	}
+	claude.NoteFailClosedNoOps(claudeHooks)
 	// writesNow reports that an edited copy of a recorded entry is what
 	// sync writes now. The form without the target signal counts only
 	// for a record that lacked it too, as versions before it wrote:

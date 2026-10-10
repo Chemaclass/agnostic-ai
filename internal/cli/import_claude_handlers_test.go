@@ -203,3 +203,36 @@ func claudePreToolUseGroups(t *testing.T, data string) []any {
 	}
 	return doc.Hooks["PreToolUse"]
 }
+
+func TestImportClaude_IgnoredOnFailureBlockRoundTrips(t *testing.T) {
+	cases := []struct {
+		name   string
+		native string
+	}{
+		{"stop", `{"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"guard.sh","onFailure":"block"}]}]}}`},
+		{"async", `{"hooks":{"PostToolUse":[{"matcher":"","hooks":[{"type":"command","command":"guard.sh","async":true,"onFailure":"block"}]}]}}`},
+		{"async rewake", `{"hooks":{"PostToolUse":[{"matcher":"","hooks":[{"type":"command","command":"guard.sh","asyncRewake":true,"onFailure":"block"}]}]}}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			writeFile(t, ".claude/settings.json", c.native)
+			execCLI(t, "import", "claude")
+			execCLI(t, "sync", "-t", "claude")
+			var want, got map[string]any
+			if err := json.Unmarshal([]byte(c.native), &want); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal([]byte(readFile(t, ".claude/settings.json")), &got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got["hooks"], want["hooks"]) {
+				t.Errorf("round-trip hooks = %#v, want %#v", got["hooks"], want["hooks"])
+			}
+			execCLI(t, "sync", "--check", "-t", "claude")
+			execCLI(t, "lint")
+		})
+	}
+}

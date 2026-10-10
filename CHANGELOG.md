@@ -16,7 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
-- `failClosed: true` blocks an action when its hook fails or times out, including global hooks and `hook run` (#1918).
+- `failClosed: true` handles hook failures; sync warns when Claude Code ignores it on stop, completion, or background hooks (#1918, #1975).
 - `import claude` preserves each hook's settings and `onFailure` values, so sync no longer adds duplicate hook groups (#1921, #1929).
 - `doctor` names hook specs that cause duplicate runs; delete the named spec, then run `sync` and `import claude` (#1924, #1925).
 

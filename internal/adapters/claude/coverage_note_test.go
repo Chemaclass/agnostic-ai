@@ -92,3 +92,75 @@ func TestEmit_Hook_OnceNotesFieldNoOp(t *testing.T) {
 		t.Errorf("expected a once field no-op note, got: %q", buf.String())
 	}
 }
+
+func TestEmit_Hook_FailClosedNotesIgnoredFailuresAndPreservesNativeKey(t *testing.T) {
+	cases := []struct {
+		name       string
+		event      string
+		meta       map[string]any
+		wantNote   bool
+		wantAction string
+	}{
+		{"stop", "Stop", nil, true, "PreToolUse"},
+		{"subagent stop", "SubagentStop", nil, true, "PreToolUse"},
+		{"task completed", "TaskCompleted", nil, true, "PreToolUse"},
+		{"teammate idle", "TeammateIdle", nil, true, "PreToolUse"},
+		{"async", "PreToolUse", map[string]any{"async": true}, true, "synchronous"},
+		{"async rewake", "PostToolUse", map[string]any{"asyncRewake": true}, true, "synchronous"},
+		{"permission request", "PermissionRequest", nil, false, ""},
+		{"pre tool use", "PreToolUse", nil, false, ""},
+		{"false async flags", "PreToolUse", map[string]any{"async": false, "asyncRewake": false}, false, ""},
+		{"http async field is not emitted", "PreToolUse", map[string]any{"type": "http", "url": "https://example.test/check", "async": true}, false, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			buf := swapNoteWarner(t)
+			meta := map[string]any{"event": c.event, "command": "guard.sh", "failClosed": true}
+			for k, v := range c.meta {
+				meta[k] = v
+			}
+			entry := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: meta}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(".claude/settings.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(raw), `"onFailure": "block"`) {
+				t.Errorf("onFailure must remain for import round trips: %s", raw)
+			}
+			emit.FlushCoverageNotes()
+			note := buf.String()
+			if got := strings.Contains(note, "`failClosed`"); got != c.wantNote {
+				t.Errorf("failClosed note = %t, want %t: %s", got, c.wantNote, note)
+			}
+			if c.wantNote && !strings.Contains(note, c.wantAction) {
+				t.Errorf("note must give an action containing %q: %s", c.wantAction, note)
+			}
+		})
+	}
+}
+
+func TestEmit_Hook_FailClosedFalseDoesNotNoteIgnoredFailures(t *testing.T) {
+	testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+	entry := spec.Entry{Kind: spec.KindHook, Name: "stop", Meta: map[string]any{
+		"event": "Stop", "command": "guard.sh", "failClosed": false,
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(".claude/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"onFailure"`) {
+		t.Errorf("false failClosed must keep the native default: %s", raw)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "`failClosed`") {
+		t.Errorf("false failClosed must not produce a note: %s", buf.String())
+	}
+}
