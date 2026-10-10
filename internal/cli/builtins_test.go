@@ -106,7 +106,7 @@ func TestBuiltins_UnknownNameListsValidNames(t *testing.T) {
 	if err == nil {
 		t.Fatal("unknown builtin accepted")
 	}
-	for _, want := range []string{"agnostic-ai.yaml", "builtins", "nope", "handoff"} {
+	for _, want := range []string{"agnostic-ai.yaml", "builtins", "nope", "handoff", "rtk", "caveman"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("config error missing %q: %v", want, err)
 		}
