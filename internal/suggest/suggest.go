@@ -2,9 +2,7 @@ package suggest
 
 import "strings"
 
-// maxInput bounds the input Name compares. Every name is far shorter, so
-// a longer input is never two edits from one, and the bound keeps a
-// value read from a spec file from sizing the distance table.
+// maxInput bounds the distance table for values read from spec files.
 const maxInput = 256
 
 // Name returns the name in names closest to a mistyped input, or ""
@@ -25,7 +23,12 @@ func Name(input string, names []string) string {
 		if n == input {
 			return ""
 		}
-		switch d := editDistance(in, strings.ToLower(n)); {
+		candidate := strings.ToLower(n)
+		difference := len(in) - len(candidate)
+		if difference < -limit || difference > limit {
+			continue
+		}
+		switch d := editDistance(in, candidate); {
 		case d < bestDist:
 			best, bestDist, tied = n, d, false
 		case d == bestDist && best != "":

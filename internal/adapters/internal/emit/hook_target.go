@@ -55,7 +55,7 @@ func StripCursorGuard(command string) string {
 // WithHookTarget returns env with the target variable added. A value the
 // spec set already wins, so an author can pin or override it.
 func WithHookTarget[V any](env map[string]V, target V) map[string]V {
-	out := make(map[string]V, len(env)+1)
+	out := make(map[string]V)
 	for k, v := range env {
 		out[k] = v
 	}
