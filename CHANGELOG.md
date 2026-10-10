@@ -40,6 +40,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Empty agent tool lists disable all tools, including after import and sync (#1954).
 - `import trae` reads shared `.agents/skills/` folders and assets; `.trae/skills/` takes priority for matching names (#1955).
 
+#### Kiro
+
+- `hook run` follows CLI V3 prompt and Stop exit codes, category tags, wildcards, and MCP selectors (#1974).
+
 #### Windsurf / Devin CLI
 
 - With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).
