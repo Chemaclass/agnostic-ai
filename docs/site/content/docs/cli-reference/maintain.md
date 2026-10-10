@@ -305,6 +305,8 @@ agnostic-ai migrate             # apply them
 agnostic-ai migrate --global    # rewrite the global specs
 ```
 
+See [credential previews](@/docs/cli-reference/sync.md#credential-previews) for shared reference and display rules.
+
 | Flag | Description |
 |------|-------------|
 | `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Every `env` and `headers` value, `args` item, URL, and credential-like value prints as `<redacted>`. A `${NAME}` reference and a `!literal` tag still show. |

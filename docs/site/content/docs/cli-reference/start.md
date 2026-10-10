@@ -79,6 +79,8 @@ The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) t
 
 Translate an existing AI CLI configuration into agnostic-ai specs. It writes them into the `sources:` directories from `agnostic-ai.yaml`. An absolute source path keeps its own destination. `--dry-run` and `--dry-run --diff` preview the files in a temporary copy.
 
+Preview diffs hide known credential values on both sides. See [credential previews](@/docs/cli-reference/sync.md#credential-previews).
+
 ```bash
 agnostic-ai import claude
 agnostic-ai import claude codex   # in order; AGNOSTIC_AI.md comes from the last

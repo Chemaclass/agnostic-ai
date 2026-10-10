@@ -21,6 +21,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -1625,8 +1626,19 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 // slices, not a general diff engine.
 func unifiedDiff(path, have, want string, maxLines int) string {
 	slash := filepath.ToSlash(path)
-	return labeledDiff(slash+" (on disk)", slash+" (agnostic-ai sync)",
-		splitLines(have), splitLines(want), maxLines)
+	return previewDiff(path, slash+" (on disk)", slash+" (agnostic-ai sync)", have, want, false, maxLines)
+}
+
+func previewDiff(path, haveLabel, wantLabel, have, want string, create bool, maxLines int) string {
+	before, after := preview.Display(path, have), preview.Display(path, want)
+	if have != want && before.Text == after.Text && (before.Hidden || after.Hidden) {
+		return fmt.Sprintf("--- %s\n+++ %s\nsensitive value changed; contents hidden\n", haveLabel, wantLabel)
+	}
+	var haveLines []string
+	if !create {
+		haveLines = splitLines(before.Text)
+	}
+	return labeledDiff(haveLabel, wantLabel, haveLines, splitLines(after.Text), maxLines)
 }
 
 // labeledDiff is unifiedDiff over line slices with caller-chosen `---` and

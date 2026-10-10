@@ -188,6 +188,8 @@ agnostic-ai render rules/no-console-log.md --target claude,codex
 
 Each file prints as `# target: <name>: <output path>` and its body. A target that writes nothing for that kind prints a note.
 
+Known credential values are hidden in the displayed body. See [credential previews](@/docs/cli-reference/sync.md#credential-previews).
+
 ## graph
 
 Show which targets and files each spec feeds (spec → target → file). It is read-only. See the [graph](@/docs/graph.md) guide.

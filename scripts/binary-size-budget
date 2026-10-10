@@ -94,4 +94,9 @@
 # Permission comparison with trusted context attribution measured
 # 18952352 bytes, up 28672 from main 66cc90dd.
 # Keep the established allowance for CI.
-18961352
+# Credential preview branch history:
+# Credential preview redaction including global summaries measured 18964640,
+# up 53248 from main 19a1b04e. Keep CI's 8 KB allowance.
+# With reviewed context attribution fixes, credential previews measured
+# 18976928, up 53248 from main fbf6be54. Keep CI's 8 KB allowance.
+18985928

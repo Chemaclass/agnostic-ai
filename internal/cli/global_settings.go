@@ -12,6 +12,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -293,19 +294,19 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 		recorded, owned := previous[s.key]
 		switch {
 		case !present:
-			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.value)))
+			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.key, s.value)))
 			set[s.key] = s.value
 		case sameSetting(have, s.value):
 			if !owned || !sameSetting(recorded, s.value) {
 				m.adopted = append(m.adopted, s.key)
 			}
 		case owned && sameSetting(have, recorded):
-			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.value)))
+			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.key, s.value)))
 			set[s.key] = s.value
 		default:
-			m.changes = append(m.changes, fmt.Sprintf("overwrite %s = %s with %s", s.key, settingsValueText(have), settingsValueText(s.value)))
+			m.changes = append(m.changes, fmt.Sprintf("overwrite %s = %s with %s", s.key, settingsValueText(s.key, have), settingsValueText(s.key, s.value)))
 			m.conflicts = append(m.conflicts, fmt.Sprintf("%s is %s, set outside agnostic-ai, and sync writes %s; to keep it, %s in %s",
-				s.key, settingsValueText(have), settingsValueText(s.value), settingsKeepHint(s, have), s.source))
+				s.key, settingsValueText(s.key, have), settingsValueText(s.key, s.value), settingsKeepHint(s, have), s.source))
 			set[s.key] = s.value
 		}
 		m.owned[s.key] = s.value
@@ -373,13 +374,44 @@ func sameSetting(a, b any) bool {
 // settingsKeepHint is the spec edit that keeps have as the value.
 func settingsKeepHint(s globalSetting, have any) string {
 	if strings.HasPrefix(s.field, "x-") || s.field == "permissions.default-mode" {
-		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(have))
+		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(s.key, have))
 	}
-	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(have), s.field)
+	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(s.key, have), s.field)
 }
 
-func settingsValueText(v any) string {
-	return jsonValueText(v, "", "")
+func settingsValueText(key string, v any) string {
+	parts := strings.Split(key, ".")
+	value := v
+	for i := len(parts) - 1; i >= 0; i-- {
+		value = map[string]any{parts[i]: value}
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "[preview withheld]"
+	}
+	shown := preview.Display("settings.json", string(data))
+	if !shown.Hidden {
+		return jsonValueText(v, "", "")
+	}
+	if shown.Withheld {
+		return strings.TrimSpace(shown.Text)
+	}
+	decoder := json.NewDecoder(strings.NewReader(shown.Text))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return "[preview withheld]"
+	}
+	for _, part := range parts {
+		object, ok := value.(map[string]any)
+		if !ok {
+			return "[preview withheld]"
+		}
+		value, ok = object[part]
+		if !ok {
+			return "[preview withheld]"
+		}
+	}
+	return jsonValueText(value, "", "")
 }
 
 // settingsValues decodes the top-level keys of a user settings file.
