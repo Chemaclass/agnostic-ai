@@ -64,6 +64,10 @@ type globalTarget struct {
 	agentsWindows string
 	// hooks is the hooks file.
 	hooks string
+	// hooksDir is a native directory of standalone hook definition files.
+	hooksDir string
+	// hookScriptsDir keeps command scripts outside the native definitions directory.
+	hookScriptsDir string
 	// hooksFormat selects the native hooks schema: "claude", "cursor",
 	// or "augment", Claude's grouping with Augment's narrower fields.
 	hooksFormat string
@@ -276,11 +280,13 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".junie/skills",
 	},
 	"kiro": {
-		rootEnv:      "KIRO_HOME",
-		root:         globalPathHome + ".kiro",
-		agents:       globalPathHome + ".kiro/agents",
-		instructions: globalPathHome + ".kiro/steering/AGENTS.md",
-		skills:       globalPathHome + ".kiro/skills",
+		rootEnv:        "KIRO_HOME",
+		root:           globalPathHome + ".kiro",
+		agents:         globalPathHome + ".kiro/agents",
+		instructions:   globalPathHome + ".kiro/steering/AGENTS.md",
+		skills:         globalPathHome + ".kiro/skills",
+		hooksDir:       globalPathHome + ".kiro/hooks",
+		hookScriptsDir: globalPathHome + ".kiro/scripts",
 	},
 	"crush": {
 		instructions: globalPathXDG + "crush/CRUSH.md",
@@ -362,7 +368,7 @@ func globalKindSupport() kindSupport {
 			spec.KindAgent:    g.agents != "",
 			spec.KindSkill:    g.skills != "",
 			spec.KindRule:     g.instructions != "" || g.rules != "",
-			spec.KindHook:     g.hooks != "",
+			spec.KindHook:     g.hooks != "" || g.hooksDir != "",
 			spec.KindSettings: g.settings.path != "",
 			spec.KindMCP:      g.mcp.path != "",
 		} {
@@ -379,7 +385,7 @@ func globalKindSupport() kindSupport {
 func globalHookTargets(targets []string) []string {
 	var out []string
 	for _, name := range slices.Sorted(slices.Values(targets)) {
-		if globalTargets[name].hooks != "" {
+		if globalTargets[name].hooks != "" || globalTargets[name].hooksDir != "" {
 			out = append(out, name)
 		}
 	}
@@ -424,7 +430,7 @@ func (g globalTarget) trees(home string) []string {
 	if g.hooks != "" {
 		out = append(out, filepath.Join(filepath.Dir(g.path(home, g.hooks)), "hooks"))
 	}
-	for _, p := range []string{g.skills, g.rules} {
+	for _, p := range []string{g.skills, g.rules, g.hooksDir, g.hookScriptsDir} {
 		if p != "" {
 			out = append(out, g.path(home, p))
 		}

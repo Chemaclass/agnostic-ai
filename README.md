@@ -36,6 +36,8 @@ agnostic-ai sync
 
 `init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
 
+Use `agnostic-ai sync --global` for shared home specs, including Kiro CLI V3 hooks that run in every workspace.
+
 From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
 After installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets the project to require that exact release and syncs again.

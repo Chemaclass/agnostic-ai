@@ -99,14 +99,14 @@ func TestValidateGlobal_ReportsUnknownHookEventAndScopedLocalRule(t *testing.T) 
 func TestValidateGlobal_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "save.yaml")
-	mustWriteGlobalTest(t, hook, "name: save\nevent: PostFileSave\ncommand: echo saved\n")
+	mustWriteGlobalTest(t, hook, "name: save\nevent: PostCompaction\ncommand: echo saved\n")
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
 		t.Fatalf("validate --global must reject an event no hook-writing global target fires:\n%s", out)
 	}
-	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "PostFileSave"`) {
-		t.Errorf("expected the kiro-only event reported on %s, got:\n%s", hook, out)
+	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "PostCompaction"`) {
+		t.Errorf("expected the Devin-only event reported on %s, got:\n%s", hook, out)
 	}
 }
 

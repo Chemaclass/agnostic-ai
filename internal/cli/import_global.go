@@ -71,6 +71,9 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, warn); err != nil {
 		return err
 	}
+	if err := stageGlobalHookFiles(home, stage, targets, bundle.Hooks, warn); err != nil {
+		return err
+	}
 
 	out := cmd.OutOrStdout()
 	var created, kept, differ int
@@ -117,7 +120,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 		return err
 	}
 	if created+kept+differ == 0 {
-		_, err := fmt.Fprintf(out, "No user settings or MCP servers found for %s.\n", strings.Join(targets, ", "))
+		_, err := fmt.Fprintf(out, "No user settings, MCP servers, or hooks found for %s.\n", strings.Join(targets, ", "))
 		return err
 	}
 	if dryRun {
@@ -132,7 +135,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 func globalImportTargets(args []string) ([]string, error) {
 	importable := func(name string) bool {
 		g, ok := globalTargets[name]
-		return ok && (g.settings.path != "" || g.mcp.path != "")
+		return ok && (g.settings.path != "" || g.mcp.path != "" || g.hooksDir != "")
 	}
 	if len(args) == 0 || (len(args) == 1 && args[0] == "all") {
 		var out []string
@@ -152,7 +155,7 @@ func globalImportTargets(args []string) ([]string, error) {
 					names = append(names, n)
 				}
 			}
-			return nil, fmt.Errorf("import --global: %q has no user settings or MCP file to read; supported: %s", name, strings.Join(names, ", "))
+			return nil, fmt.Errorf("import --global: %q has no user settings, MCP file, or hook directory to read; supported: %s", name, strings.Join(names, ", "))
 		}
 		if !slices.Contains(out, name) {
 			out = append(out, name)

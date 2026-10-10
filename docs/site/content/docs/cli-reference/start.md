@@ -98,7 +98,7 @@ When no tool is detected, a hand-written root `AGENTS.md` becomes `.agnostic-ai/
 
 See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
 
-`import --global` reads your user config (default model and effort, MCP servers) from the tools that `sync --global` writes. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`. Name targets to narrow it.
+`import --global` reads your user config (default model and effort, MCP servers, and Kiro hook files) from the tools that `sync --global` writes. It writes `settings/imported.yaml`, one `mcps/<name>.yaml` per server, and one `hooks/<name>.yaml` per supported Kiro hook file into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. See [Kiro import limits](@/docs/targets/kiro.md).
 
 - Anything a home spec already provides, `local/` included, is left out. An existing spec file is never replaced.
 - Two tools that define one server differently keep the first tool's server, with a warning.
