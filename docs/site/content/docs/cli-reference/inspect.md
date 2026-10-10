@@ -136,7 +136,7 @@ agnostic-ai explain --inputs
 
 ## compare
 
-Compare how two built-in targets handle the project's agent and skill fields, rule activation, and hook configuration, before you switch or add a tool.
+Compare how two built-in targets handle the project's agent and skill fields, rule activation, hook configuration, and MCP connections, before you switch or add a tool.
 
 ```bash
 agnostic-ai compare claude cursor
@@ -146,7 +146,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. Other spec kinds and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
+It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Other spec kinds and fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|
@@ -156,7 +156,9 @@ It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApp
 | `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
 | `unknown` | The written files do not show either way. |
 
-`preserved` describes the written file. It does not prove the tools behave the same or that a hook ran. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
+`preserved` describes the written file. It does not prove the tools behave the same, that a hook ran, or that an MCP server connects. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
+
+MCP entries name affected fields and output paths without printing command, argument, URL, environment, or header values. Default values and unrecognized reference text stay out of reasons too. An unwritable launch reference can leave the whole server out. A native file that omits an explicit transport is reported as `unknown`.
 
 The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
