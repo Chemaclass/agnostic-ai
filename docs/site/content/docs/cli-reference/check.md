@@ -210,6 +210,21 @@ Subcommands run one check:
 | `doctor config` | Validate `agnostic-ai.yaml`. |
 | `doctor install` | Which AI CLIs are on PATH. |
 | `doctor mcp` | Find each MCP server's command and list its unset `${NAME}` references. |
+| `doctor rtk --command '<command>'` | Preview an RTK rewrite and compare declared Claude Code approval rules. Add `--json` for the same report as JSON. |
+
+### RTK approval diagnostics
+
+`doctor rtk --command 'git status'` calls the installed `rtk --version` and `rtk rewrite` processors. It never executes the supplied command or changes permissions. Missing RTK reports `missing`; an unsupported or already-prefixed command reports `unchanged`.
+
+RTK can return a replacement with exit 3 when its own permission inspection requests approval, or exit 2 without a replacement when it finds a deny rule. Both are diagnostic outcomes, not processor failures. The JSON report includes `processor_exit`; this inspection remains separate from the live host's approval decision. Other processor failures stop the diagnostic.
+
+The report compares simple declared Bash rules from planned project settings, project-local settings, and user settings (`CLAUDE_CONFIG_DIR` or `~/.claude`). When no project settings file is planned, it reads native project settings instead. Exact rules, bare `Bash`, and simple trailing command prefixes are supported. Shell wrappers, parameter rules, other shell syntax, and ambiguous Bash patterns report `unknown`. Deny takes precedence over ask and allow. A rewrite from a known ask decision to a known allow decision produces a warning.
+
+Known RTK PreToolUse handlers are listed by settings path. More than one produces an ownership warning. This inspection recognizes direct Bash handlers using RTK rewrite or its Claude processor; plugins, indirect scripts, and other matcher expressions can remain undiscovered.
+
+Runtime approval always remains `unknown`. Managed settings, session flags, project trust, hook activation, and other handlers can change the actual outcome. The report describes declared rules rather than verifying a live host. Processor failures and unreadable settings fail the command. Warnings are diagnostic and do not grant approval or fail an otherwise successful inspection.
+
+The processor interface follows [RTK's rewrite protocol](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/rewrite_cmd.rs), and rule precedence follows [Claude Code permissions](https://code.claude.com/docs/en/permissions).
 
 ## status
 

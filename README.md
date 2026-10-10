@@ -40,6 +40,8 @@ Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It
 
 From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
+When another branch changes a native skill tree you have moved, use [`import reconcile`](https://agnostic-ai.org/docs/cli-reference/start/#import-reconcile) to review the mapped changes against the migration's Git revisions.
+
 After installing a newer release, run `agnostic-ai upgrade --requires` from the project root to update an exact version pin and sync again. To keep a deliberate minimum or range, follow [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
 The [VS Code extension](editors/vscode/) shows lint findings for saved specs and project configuration in Problems. Open or save a source to check it, then fix and save to clear the finding.
@@ -58,8 +60,10 @@ agnostic-ai new settings project-defaults --dry-run # preview a settings spec
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai explain --file src/main.go --target claude # show configured instructions for a file
 agnostic-ai explain --context --target claude         # rank estimated startup sources and on-demand bodies
+agnostic-ai project --check                      # check the installed project binary and generated output
 agnostic-ai sync --check                         # find generated files that differ from the sources
 agnostic-ai doctor --fix                         # repair generated files, choose which leftover files to remove
+agnostic-ai doctor rtk --command 'git status'    # preview rewrites and declared approval differences
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store

@@ -86,6 +86,28 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
+### import reconcile
+
+Plan later changes to a native skill tree after moving it to canonical sources:
+
+```bash
+agnostic-ai import reconcile \
+  --base before-migration \
+  --migrated migration-commit \
+  --upstream other-branch \
+  --map .cursor/skills=.agnostic-ai/skills
+```
+
+`--base` identifies the original native tree. `--migrated` identifies the first complete canonical tree, so changes made by import are part of the baseline. `--upstream` identifies the branch's later native changes. The current canonical tree comes from `HEAD`. The base must be an ancestor of both branches, and the migration must be an ancestor of `HEAD`.
+
+Each row reports `add`, `remove`, `update`, or `conflict`, followed by the native and canonical file paths. Asset files and executable modes are included. Concurrent canonical edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including non-skill canonical files. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
+
+The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a canonical counterpart at the migration revision. Content is compared as Git blobs, without merging text or normalizing later edits.
+
+Commit changes in mapped trees first. The command reads Git revisions and reports a plan; it does not copy files, restore deleted skills, or change the index. Applying a plan is a separate manual step. Other uncommitted project changes are allowed.
+
+### Import behavior
+
 `import all` imports every tool detected from its marker.
 
 - A detected tool with no importer is skipped with a `skipping <tool>` line.
