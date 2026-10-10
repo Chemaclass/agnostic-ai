@@ -172,16 +172,24 @@ Built-in entries add their name and the running version after the layer. JSON en
 
 ## new
 
-Create one agent, skill, rule, hook, or mcp spec, with starter frontmatter for its kind, in that kind's `sources:` directory.
+Create one spec in its configured `sources:` directory. Kinds: `agent`, `skill`, `rule`, `hook`, `mcp`, `command`, `settings`, `review`, `environment`, and `ignore`. Hooks, MCP, settings, and environments use YAML. Other kinds use Markdown.
 
 ```bash
 agnostic-ai new rule no-console-log     # → <rules>/no-console-log.md
 agnostic-ai new hook fmt-on-save        # → <hooks>/fmt-on-save.yaml
 agnostic-ai new rule payments-context --scope services/payments
+agnostic-ai new settings project-defaults --dry-run
+agnostic-ai new command review-changes
+agnostic-ai new review code-quality
+agnostic-ai new environment development
+agnostic-ai new ignore generated-files
 ```
 
 | Flag | Description |
 |------|-------------|
+| `--dry-run` | Preview the destination and exact content. |
 | `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
 
-It errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`).
+It errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`). Replace the `TODO` description and body with your own content; `lint` reports the placeholder description as LINT031.
+
+Settings and environment templates contain commented hints. Add the settings or reviewed commands you need before rendering; these templates set no policy or executable behavior by default. Ignore starts with a comment inside a gitignore fence, so it excludes no paths until you add patterns.
