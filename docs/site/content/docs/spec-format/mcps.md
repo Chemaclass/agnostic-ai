@@ -17,6 +17,8 @@ group = "Reference"
 - **Tool options kept.** Timeouts, tool filters, OAuth, and approval settings go only to the tools that read them.
 - **Limited per agent.** An [agent's `mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target) limits which servers one subagent may reach.
 
+Compare connection fields before changing tools with [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare). It reports written fields and reference omissions without printing their values or connecting to servers.
+
 ## Write one
 
 `agnostic-ai new mcp filesystem` creates `mcps/filesystem.yaml`: plain YAML, no markdown body.
