@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
+- Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
 - VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
 - Compare hook events, matchers, commands, timeouts, and failure policies with current output and ignored-field reasons (#1985).
 - The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).

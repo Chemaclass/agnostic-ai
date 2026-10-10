@@ -61,15 +61,25 @@ The parent requires exact versions of six platform packages, so the release publ
 
 1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt`, and unpacks one program per platform.
 2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
-3. `scripts/npm-publish.sh <x.y.z>` publishes the six, waits until the registry serves every one, then publishes the parent.
+3. `scripts/npm-publish.sh <x.y.z>` publishes each platform package with required provenance, waits for it and verifies it, then publishes and verifies the parent.
 
 The `distribution` job checks all seven afterwards. A parent on the registry whose platform package is missing breaks `npm install` on that platform until the next release, so nothing in this sequence is safe to reorder. npm scans each publish before serving it, which commonly takes about five minutes and can exceed 15, so the publish and verification waits cover about 20 minutes using increasing delays between attempts, up to a fixed maximum.
+
+### Required npm provenance and recovery
+
+Every new publish uses `--provenance`. A failed attested publish never retries without it. Existing versions count as complete only when their provenance verifies. The publisher and distribution job check all seven packages without installing or executing them.
+
+`scripts/npm-verify-provenance.js` uses the pinned npm CLI's bundled verification libraries and Sigstore trust root. It verifies the registry signature, build and registry publish attestations, and downloaded tarball integrity. It requires the build certificate to name this repository's `.github/workflows/release.yml` at the version tag, issued by GitHub Actions, and the signed source commit to match the release commit. A registry signature alone does not prove build origin.
+
+Re-run the same release after a temporary registry or signing-service failure when the published packages have valid attestations. Verified platform packages are skipped and missing packages publish before the parent. If a tarball reached npm without its required attestation, stop: npm versions are immutable and re-running cannot attach a replacement. Prepare a new version of all seven packages through the normal release process. Do not plain-publish, unpublish, or move the old tag to bypass verification.
+
+See [npm provenance verification](https://docs.npmjs.com/viewing-package-provenance/) and the [npm verifier implementation](https://github.com/npm/cli/blob/v11.5.1/lib/utils/verify-signatures.js).
 
 ### npm dist-tags
 
 `npm publish` with no `--tag` writes `latest`, and `latest` is what `npm install agnostic-ai` selects when no version is specified. The release workflow fires on every `v*` tag, including prereleases, so an untagged prerelease publish would replace the stable release for everyone.
 
-`npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and both the publish with build-origin verification (provenance) and the ordinary retry use it:
+`npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and every publish with required build-origin verification (provenance) uses it:
 
 | Version | dist-tag |
 |---|---|
