@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Compare MCP connection fields and reference omissions from actual target output, without printing connection values or starting servers (#1986).
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
 - VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
 - Compare hook events, matchers, commands, timeouts, and failure policies with current output and ignored-field reasons (#1985).
