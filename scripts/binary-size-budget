@@ -42,4 +42,6 @@
 # #2013 measured 18751648, up 28672 from main 7df02fd1: committed
 # native and canonical skill trees produce a deterministic reconciliation
 # plan with explicit migration baselines. Keep CI's 8 KB build allowance.
-18764000
+# After merging #2014, measured 18768032, up 28672 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+18777000
