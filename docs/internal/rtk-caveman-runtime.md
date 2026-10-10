@@ -47,7 +47,7 @@ docker run --rm --platform linux/arm64 \
   sh /lab/setup-linux.sh
 ```
 
-Results are written to `$linux_lab/rtk-caveman-runtime-linux-results.json` and `$linux_lab/linux-provenance.json`. The tracked results came from this Linux runtime, with Python 3.13.5 and glibc 2.41. The first signed Caveman installation was retained in scratch and reused by the successful run. An initial Debian bookworm attempt failed because the official RTK Linux archive requires glibc 2.39; the pinned trixie image supplies a compatible version.
+Results are written to `$linux_lab/rtk-caveman-runtime-linux-results.json` and `$linux_lab/linux-provenance.json`. The tracked results came from this Linux runtime, with Python 3.13.5 and glibc 2.41. A fresh scratch directory and signed installation through the documented helpers reproduced the tracked results byte for byte. The provenance records that fresh installation. An initial Debian bookworm attempt failed because the official RTK Linux archive requires glibc 2.39; the pinned trixie image supplies a compatible version.
 
 For an existing local installation, pass absolute paths and write results to a separate file. The Caveman CLI argument names its installed `dist/index.js`, and the Node argument names a real executable rather than a version-manager shim. The runner reads RTK's current recall mode and requires SQLite without changing that configuration. On macOS, RTK 0.51.0 reads its configuration under the caller's home even when `XDG_CONFIG_HOME` is set. If that configuration selects another recall mode, the runner stops; use the container recipe above. History and recovery stores are redirected explicitly. The disabled-recall case uses `RTK_RECALL=0` in the child process.
 

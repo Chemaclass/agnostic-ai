@@ -16,74 +16,41 @@
         "name": "caveman-proxy",
         "path": "/lab/caveman/bin/caveman-proxy",
         "sha256": "5a881979934d51822ccf9ea13c519769fea18c52c061e14e6bd0d9f950ce760f",
-        "status": "already installed"
+        "status": "installed"
       },
       {
         "name": "caveman-engine",
         "path": "/lab/caveman/bin/caveman-engine",
         "sha256": "ca9d8da274dc768d838187492cad8f784cb4922437b9d8677b6b698b083d6933",
-        "status": "already installed"
+        "status": "installed"
       },
       {
         "name": "caveman-mcp",
         "path": "/lab/caveman/bin/caveman-mcp",
         "sha256": "fb49b996eee5a297a674a067979931d9a28d59cbe735be2b9104e7519ef7042a",
-        "status": "already installed"
+        "status": "installed"
       },
       {
         "name": "cavemem",
         "path": "/lab/caveman/bin/cavemem",
         "sha256": "fcf6073d538358f0030f2f2ec085331f6a9534f56045e2b8554f50ea42bc947d",
-        "status": "already installed"
+        "status": "installed"
       },
       {
         "name": "caveman-browse",
         "path": "/lab/caveman/bin/caveman-browse",
         "sha256": "59122ceae7ac083e7add142a6bd30f837dedbea0bc4cf1504c3a3b645b65380f",
-        "status": "already installed"
+        "status": "installed"
       },
       {
         "name": "caveman-shrink",
         "path": "/lab/caveman/bin/caveman-shrink",
         "sha256": "ec746e50473687c06650150a92b9235a5aae58de50a75c3bc1e815932f0c342e",
-        "status": "already installed"
+        "status": "installed"
       }
     ],
     "next": "caveman claude"
   },
-  "rtk_verification": {
-    "archive": "rtk-aarch64-unknown-linux-gnu.tar.gz",
-    "sha256": "8d6d1aad9e69b42481eda7039507d1f7ee93698f87713cecd873d287c1931632",
-    "checksum_matches": true,
-    "github_digest_matches": true,
-    "binary_sha256": "c9a048412139955ce48f85f82065067b524e98b86bf34f012a92a45d719816b5"
-  },
-  "npm_lock": {
-    "name": "cli",
-    "lockfileVersion": 3,
-    "requires": true,
-    "packages": {
-      "": {
-        "dependencies": {
-          "@caveman-ai/cli": "2.1.0"
-        }
-      },
-      "node_modules/@caveman-ai/cli": {
-        "version": "2.1.0",
-        "resolved": "https://registry.npmjs.org/@caveman-ai/cli/-/cli-2.1.0.tgz",
-        "integrity": "sha512-G7NoJ6lgQUljgqeAX+7tEUvrtUy84C42VcUrTgavCj4/lkUEcL8cch9/Ut14DZjIfI8Sh6dzHzCacuavFfKqJw==",
-        "license": "Apache-2.0",
-        "bin": {
-          "cave": "dist/index.js",
-          "caveman": "dist/index.js"
-        },
-        "engines": {
-          "node": ">=22.13"
-        }
-      }
-    }
-  },
-  "container_image": "node@sha256:154ba2f4d6fec323d28e4f4bb86bba4677f1223391a1979cf521304e03a98dfa",
   "first_caveman_installer_result": {
     "release": "bin-v2.1.0",
     "platform": "linux/arm64",
@@ -128,7 +95,40 @@
     ],
     "next": "caveman claude"
   },
-  "signature_verification_basis": "Unmodified pinned Caveman CLI2.1.0 setup --install downloaded and validated checksums.txt.keysig with its bundled public key, verified signed RELEASE binding and every downloaded artifact digest before installing. First installation completed successfully; subsequent run verified cached binary hashes.",
+  "rtk_verification": {
+    "archive": "rtk-aarch64-unknown-linux-gnu.tar.gz",
+    "sha256": "8d6d1aad9e69b42481eda7039507d1f7ee93698f87713cecd873d287c1931632",
+    "checksum_matches": true,
+    "github_digest_matches": true,
+    "binary_sha256": "c9a048412139955ce48f85f82065067b524e98b86bf34f012a92a45d719816b5"
+  },
+  "npm_lock": {
+    "name": "cli",
+    "lockfileVersion": 3,
+    "requires": true,
+    "packages": {
+      "": {
+        "dependencies": {
+          "@caveman-ai/cli": "2.1.0"
+        }
+      },
+      "node_modules/@caveman-ai/cli": {
+        "version": "2.1.0",
+        "resolved": "https://registry.npmjs.org/@caveman-ai/cli/-/cli-2.1.0.tgz",
+        "integrity": "sha512-G7NoJ6lgQUljgqeAX+7tEUvrtUy84C42VcUrTgavCj4/lkUEcL8cch9/Ut14DZjIfI8Sh6dzHzCacuavFfKqJw==",
+        "license": "Apache-2.0",
+        "bin": {
+          "cave": "dist/index.js",
+          "caveman": "dist/index.js"
+        },
+        "engines": {
+          "node": ">=22.13"
+        }
+      }
+    }
+  },
+  "container_image_recipe": "node@sha256:154ba2f4d6fec323d28e4f4bb86bba4677f1223391a1979cf521304e03a98dfa",
+  "signature_verification_basis": "Unmodified pinned Caveman CLI 2.1.0 setup --install validates its signed checksum manifest and release binding before downloading and installing binaries. Cached installations verify binary hashes.",
   "caveman_installed_hashes_match_github_digests": true,
   "retained_signed_release_files": {
     "caveman-checksums.txt": "97da0fbb8337fb58c660a7700142fc49b63fb74b702d3cc6bf14ef4d0aa97212",
