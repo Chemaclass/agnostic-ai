@@ -1,22 +1,3 @@
-// agnostic-ai VS Code extension entry point.
-//
-// Shells out to the user's installed `agnostic-ai` binary; ships no
-// bundled binary, matching the v1 acceptance criteria. Four surfaces:
-//
-//   - Command palette entries for sync, sync --check, doctor --fix,
-//     status, and "render current spec".
-//   - "Open canonical source": from a generated file, ask
-//     `why --format json` which specs produced it and open one. Also on
-//     the editor and editor-tab context menus.
-//   - Codelens above each spec with one "Render to <target>" action per
-//     configured target.
-//   - Status bar item that polls `sync --check --json` and shows the
-//     current drift count.
-//
-// Schema-backed YAML editing is contributed declaratively via
-// package.json -> contributes.yamlValidation, so that part requires no
-// runtime code here.
-
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -24,6 +5,8 @@ import * as vscode from "vscode";
 import { updateDriftStatus } from "./drift";
 import { DriftChecks } from "./driftChecks";
 import { execCommand } from "./process";
+import { createDiagnosticSession, diagnosticFailure } from "./diagnosticClient";
+import { SourceDiagnostics } from "./sourceDiagnostics";
 
 import {
   NavigationPlan,
@@ -44,6 +27,7 @@ import {
 
 let statusBar: vscode.StatusBarItem | undefined;
 let driftChecks: DriftChecks | undefined;
+let sourceDiagnostics: SourceDiagnostics | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const out = vscode.window.createOutputChannel("agnostic-ai");
@@ -87,12 +71,44 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   initStatusBar(context);
+  initSourceDiagnostics(context, out);
 }
 
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   driftChecks?.dispose();
   driftChecks = undefined;
   statusBar?.dispose();
+  await sourceDiagnostics?.dispose();
+  sourceDiagnostics = undefined;
+}
+
+function initSourceDiagnostics(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+  const report = (current: { binary: string; cwd: string }, error: unknown) => {
+    const message = diagnosticFailure(current, error);
+    output.appendLine(message);
+    void vscode.window.showErrorMessage(message);
+  };
+  const diagnostics = new SourceDiagnostics({
+    create: current => createDiagnosticSession(current, output, error => report(current, error)),
+    failure: report,
+  });
+  sourceDiagnostics = diagnostics;
+  const refresh = () => {
+    const cwd = projectRoot();
+    void diagnostics.update(cwd && findConfigFile(cwd, fs.existsSync) ? { cwd, binary: binary() } : undefined);
+  };
+  const configFiles = vscode.workspace.createFileSystemWatcher("**/{agnostic-ai.yaml,agnostic.config.yaml,agnostic-ai.local.yaml}");
+  context.subscriptions.push(
+    new vscode.Disposable(() => { void diagnostics.dispose(); }),
+    configFiles,
+    configFiles.onDidCreate(refresh),
+    configFiles.onDidDelete(refresh),
+    vscode.workspace.onDidChangeWorkspaceFolders(refresh),
+    vscode.workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration("agnostic-ai.binaryPath")) refresh();
+    }),
+  );
+  refresh();
 }
 
 // ---------------------------------------------------------------------------
