@@ -58,7 +58,9 @@ jobs:
 
       - name: Test
         shell: bash
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          TEST_TIMEOUT: ${{ matrix.os == 'windows-latest' && '15m' || '10m' }}
+        run: go test -timeout="$TEST_TIMEOUT" -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
