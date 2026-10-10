@@ -76,3 +76,5 @@ function stopDriftTree(pid: number): Promise<void> {
     return Promise.reject(new Error(`stop drift process group ${pid}: ${String(error)}`));
   }
 }
+
+export { stopDriftTree as stopOwnedProcessTree };

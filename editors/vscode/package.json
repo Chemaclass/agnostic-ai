@@ -1,7 +1,7 @@
 {
   "name": "agnostic-ai",
   "displayName": "agnostic-ai",
-  "description": "Author once, ship to every AI CLI. Schema-validated config editing, codelens-driven render preview, sync/check/doctor commands, and a status-bar drift indicator for agnostic-ai projects.",
+  "description": "Saved-file diagnostics, schema-validated config editing, render preview, sync commands, and drift status for agnostic-ai projects.",
   "version": "0.2.0",
   "publisher": "Chemaclass",
   "license": "MIT",
@@ -17,7 +17,10 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Linters"],
+  "categories": [
+    "Other",
+    "Linters"
+  ],
   "keywords": [
     "agnostic-ai",
     "AI",
@@ -37,7 +40,10 @@
   "contributes": {
     "yamlValidation": [
       {
-        "fileMatch": ["agnostic-ai.yaml", "agnostic.config.yaml"],
+        "fileMatch": [
+          "agnostic-ai.yaml",
+          "agnostic.config.yaml"
+        ],
         "url": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
       }
     ],
@@ -48,11 +54,11 @@
       },
       {
         "command": "agnostic-ai.syncCheck",
-        "title": "agnostic-ai: Sync — check for drift"
+        "title": "agnostic-ai: Sync \u2014 check for drift"
       },
       {
         "command": "agnostic-ai.doctorFix",
-        "title": "agnostic-ai: Doctor — auto-fix"
+        "title": "agnostic-ai: Doctor \u2014 auto-fix"
       },
       {
         "command": "agnostic-ai.status",
@@ -116,12 +122,17 @@
     "watch": "tsc -watch -p ./",
     "test": "tsc -p ./ && node out/test/run.js",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "test:integration": "npm run compile && node out/test/hostRunner.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "2.5.2",
     "@vscode/vsce": "^3.2.1",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1"
   }
 }
