@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "action": {
+        "type": "command",
+        "command": "echo check"
+      },
+      "matcher": "^(fs_write|fs_append|str_replace|delete_file)$",
+      "name": "portable-edit",
+      "trigger": "PreToolUse"
+    }
+  ]
+}
