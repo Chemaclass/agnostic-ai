@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -200,29 +201,35 @@ func TestReleaseWorkflow_PublishesWithProvenance(t *testing.T) {
 	}
 }
 
-// TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance guards the
-// version the publish runs on.
-//
-// npm documents 9.5.0 as the floor for `--provenance`; older clients
-// ignore the flag rather than failing, so a downgrade would silently
-// ship an unattested package. setup-node's bundled npm is whatever the
-// Node line ships that week, hence the explicit pin.
 func TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance(t *testing.T) {
-	job := workflowJobs(t, releaseWorkflowPath)["npm"]
-	pin := job.Env["NPM_CLI_VERSION"]
-	if pin == "" {
-		t.Fatal("the npm job no longer pins NPM_CLI_VERSION; setup-node would decide which npm signs the release")
+	var pin struct {
+		Version   string
+		URL       string
+		Integrity string
 	}
-	if !strings.Contains(workflowRun(t, releaseWorkflowPath, "npm", "Pin the npm CLI that publishes"), "NPM_CLI_VERSION") {
-		t.Error("the pin step does not install NPM_CLI_VERSION, so the pin is decorative")
+	data := readRepoFile(t, "scripts/npm-toolchain-pin.json")
+	if err := json.Unmarshal([]byte(data), &pin); err != nil {
+		t.Fatalf("parse toolchain pin: %v", err)
+	}
+	for job, name := range map[string]string{"npm": "Verify and install the npm publishing toolchain", "distribution": "Verify and install the npm verifier"} {
+		if !strings.Contains(workflowRun(t, releaseWorkflowPath, job, name), "scripts/npm-toolchain.sh") {
+			t.Errorf("%s does not use the verified toolchain", job)
+		}
+	}
+	if !strings.HasPrefix(pin.Integrity, "sha512-") || pin.URL != "https://registry.npmjs.org/npm/-/npm-"+pin.Version+".tgz" {
+		t.Errorf("invalid pinned toolchain: %+v", pin)
 	}
 	const floorMajor, floorMinor = 9, 5
 	var major, minor, patch int
-	if _, err := fmt.Sscanf(pin, "%d.%d.%d", &major, &minor, &patch); err != nil {
-		t.Fatalf("NPM_CLI_VERSION is %q, which is not an exact version; a range would let the signing client drift: %v", pin, err)
+	if _, err := fmt.Sscanf(pin.Version, "%d.%d.%d", &major, &minor, &patch); err != nil {
+		t.Fatalf("npm toolchain version is not exact: %v", err)
 	}
 	if major < floorMajor || (major == floorMajor && minor < floorMinor) {
-		t.Errorf("NPM_CLI_VERSION is %s but npm needs %d.%d or newer for --provenance", pin, floorMajor, floorMinor)
+		t.Errorf("npm %s is below the provenance floor", pin.Version)
+	}
+	job := workflowJobs(t, releaseWorkflowPath)["npm"]
+	if job.Env["NODE_AUTH_TOKEN"] != "" {
+		t.Error("publication token is exposed outside the publish step")
 	}
 }
 
@@ -427,15 +434,44 @@ func TestInstallWorkflow_PublishedJobInstallsFromTheRegistry(t *testing.T) {
 	if strings.Contains(all, "npm pack") || strings.Contains(all, ".tgz") {
 		t.Errorf("the published job installs a packed tree, which carries 0.0.0-dev and tests the wrong resolveVersion branch:\n%s", all)
 	}
-	if !strings.Contains(all, "npm install -g agnostic-ai@") {
-		t.Errorf("the published job does not install a published version from the registry:\n%s", all)
+	release, releaseIndex := workflowStepAt(t, installWorkflowPath, "published", "Wait for the registry to serve the latest release")
+	install, installIndex := workflowStepAt(t, installWorkflowPath, "published", "Install the published package")
+	binary, binaryIndex := workflowStepAt(t, installWorkflowPath, "published", "Binary reports the published version")
+	if releaseIndex >= installIndex || installIndex >= binaryIndex {
+		t.Error("release validation must precede registry installation and installed-version verification")
 	}
-	if !strings.Contains(all, "--version") {
-		t.Errorf("the published job never runs the installed binary:\n%s", all)
+	if release.ID != "release" {
+		t.Errorf("release step must supply the version output, got id %q", release.ID)
+	}
+	for _, required := range []string{`want="${want#v}"`, `if [[ ! "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then`, "release tag is not an exact npm version", "exit 1", `npm view "agnostic-ai@${want}" version`, `[ "$got" = "$want" ]`, `echo "version=$want" >> "$GITHUB_OUTPUT"`} {
+		if !strings.Contains(release.Run, required) {
+			t.Errorf("registry wait does not validate and export the exact release version: missing %q", required)
+		}
+	}
+	validation := strings.Index(release.Run, "release tag is not an exact npm version")
+	registry := strings.Index(release.Run, `npm view "agnostic-ai@${want}" version`)
+	output := strings.Index(release.Run, `echo "version=$want" >> "$GITHUB_OUTPUT"`)
+	if validation < 0 || registry < validation || output < registry {
+		t.Error("exact-version validation and registry confirmation must precede exporting the install version")
+	}
+	const versionOutput = "${{ steps.release.outputs.version }}"
+	if install.Env["NPM_RELEASE_VERSION"] != versionOutput || binary.Env["NPM_RELEASE_VERSION"] != versionOutput {
+		t.Error("installation and binary check must consume the confirmed release step output")
+	}
+	if strings.TrimSpace(install.Run) != `npm install -g "agnostic-ai@$NPM_RELEASE_VERSION"` {
+		t.Errorf("registry install must quote the confirmed exact version, got %q", install.Run)
+	}
+	if strings.Contains(all, "agnostic-ai@latest") || strings.Contains(all, "agnostic-ai@next") {
+		t.Error("published install must not select a moving tag")
+	}
+	for _, required := range []string{"agnostic-ai --version", `[ "$got" = "agnostic-ai version $NPM_RELEASE_VERSION" ]`} {
+		if !strings.Contains(binary.Run, required) {
+			t.Errorf("installed binary version must equal the selected release, missing %q", required)
+		}
 	}
 	// Triggered by a release, this job races the same replica lag the
 	// distribution guard hit, so it has to wait the same way.
-	if !strings.Contains(all, "for attempt in") || !strings.Contains(all, "sleep") {
+	if !strings.Contains(release.Run, "for attempt in") || !strings.Contains(release.Run, "sleep") {
 		t.Errorf("the published job does not wait for the registry, so a run right after a release fails on propagation delay:\n%s", all)
 	}
 }

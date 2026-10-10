@@ -30,7 +30,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Playground or code used by WASM | `make playground-serve`, then exercise affected behavior in a browser |
 | Documentation | Check relative links and anchors; execute changed command examples in a temporary project |
 | Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`, with the pinned Zola. See [Docs site](#docs-site) |
-| Editor extension | Follow its [development guide](../../editors/README.md) and CI job |
+| Editor extension | Use Node.js 22+ for VS Code builds; follow its [development guide](../../editors/README.md) and CI job |
 
 `make preflight` covers formatting, lint (including `govet`), and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WebAssembly (WASM) builds, and extension builds.
 
@@ -89,3 +89,5 @@ Keep tutorials focused on one working outcome. Put optional workflows in task gu
 ## Before submitting
 
 Review the diff for unrelated edits and generated files. Describe the final behavior and the checks you ran in the PR. Record design choices that need an explanation in the [decision log](decisions.md).
+
+Read [build dependency checks](build-dependencies.md) for package integrity, vendor-load replay, and security alert evidence.

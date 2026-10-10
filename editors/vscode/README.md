@@ -68,9 +68,11 @@ or the CLI is too old, it says what to run instead.
 
 ## Develop
 
+Use Node.js 22 or newer. The packaging tool requires Node 22; the extension still supports VS Code 1.85 or newer.
+
 ```bash
 cd editors/vscode
-npm install
+npm ci
 npm run compile         # one-shot tsc
 npm run watch           # incremental compile while iterating
 npm test                # compile, then run unit tests
@@ -90,7 +92,7 @@ When both exist, `agnostic-ai.yaml` wins, as it does for the CLI.
 ## Publish
 
 ```bash
-npm install
+npm ci
 npm run package          # produces agnostic-ai-<version>.vsix
 npm run publish          # requires a Personal Access Token from
                          # https://dev.azure.com/<your-org>/_usersSettings/tokens

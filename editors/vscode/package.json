@@ -129,7 +129,7 @@
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vscode/test-electron": "2.5.2",
-    "@vscode/vsce": "^3.2.1",
+    "@vscode/vsce": "4.0.0",
     "typescript": "^5.4.0"
   },
   "dependencies": {

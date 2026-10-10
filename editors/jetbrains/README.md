@@ -49,7 +49,7 @@ cd editors/jetbrains
                             # recommended IDE versions
 ```
 
-The Gradle wrapper bootstraps Gradle 9.0.0 on first run.
+The Gradle wrapper bootstraps Gradle 9.0.0 on first run and checks the download against its pinned SHA-256 checksum. CI validates the committed wrapper JAR against Gradle's published checksums before running it.
 
 ## Publish
 

@@ -8,8 +8,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Rank estimated startup/on-demand words and bytes by source; compare hook/MCP omissions and ignored fields, hiding values (#2017, #1985, #1986).
 - Hooks prefer the project binary; Git checks use staged config; bootstrap installs locked npm/pnpm dependencies once (#2012).
-- Create all ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile`; keep permission and setup choices explicit (#1990, #2013).
-- Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
+- Create ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile`; keep permission and setup choices explicit (#1990, #2013).
+- Verify seven npm packages and retries with provenance, check Gradle downloads, remove vulnerable build dependencies, and record exact inputs (#2016, #2022).
 - Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
 
 ### By tool

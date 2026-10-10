@@ -10,7 +10,8 @@
 # tarballs, and runs the result. That is the whole install path a user takes,
 # minus the registry.
 #
-# Nothing here touches the network and nothing is published. The working tree
+# npm installs use only local tarballs and an empty offline cache. Go builds
+# use the configured module cache and proxy. Nothing is published. The working tree
 # is left as it was: the generator writes npm/package.json at the version it
 # already carries, so the file does not change.
 
@@ -76,6 +77,8 @@ main() {
   done
   npm pack --pack-destination "$work" --silent "$ROOT/npm" >/dev/null
 
+  node "$ROOT/scripts/npm-smoke-verify.js" tarballs "$work" "$version"
+
   # npm folds the scope into the tarball name: @agnostic-ai/darwin-arm64 packs
   # as agnostic-ai-darwin-arm64-<version>.tgz.
   host="$(host_package)"
@@ -85,10 +88,11 @@ main() {
 
   note "installing ${tarballs[*]}"
   mkdir -p "$work/project"
-  (cd "$work/project" && npm install --silent --no-audit --no-fund "${tarballs[@]}")
+  (cd "$work/project" && npm install --offline --cache "$work/npm-cache" --ignore-scripts --silent --no-audit --no-fund "${tarballs[@]}")
 
+  node "$ROOT/scripts/npm-smoke-verify.js" installed "$work" "$version"
   note "resolved binary:"
-  "$work/project/node_modules/.bin/$BINARY" --version
+  AGNOSTIC_AI_BINARY="" "$work/project/node_modules/.bin/$BINARY" --version
 
   rm -rf "$work"
   note "ok"

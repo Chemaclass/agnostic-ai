@@ -146,6 +146,10 @@ jobs:
           set -euo pipefail
           want=$(gh release view --repo Chemaclass/agnostic-ai --json tagName --jq '.tagName')
           want="${want#v}"
+          if [[ ! "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo '::error::release tag is not an exact npm version'
+            exit 1
+          fi
           # npm scans a publish before serving it. Five minutes is typical and
           # 15 minutes or more is possible, so allow about 20 minutes before
           # calling the release stale.
@@ -168,12 +172,17 @@ jobs:
           exit 1
 
       - name: Install the published package
-        run: npm install -g agnostic-ai@${{ steps.release.outputs.version }}
+        shell: bash
+        env:
+          NPM_RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: npm install -g "agnostic-ai@$NPM_RELEASE_VERSION"
 
       - name: Binary reports the published version
         shell: bash
+        env:
+          NPM_RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
           got=$(agnostic-ai --version)
           echo "$got"
-          grep -qF "${{ steps.release.outputs.version }}" <<<"$got"
+          [ "$got" = "agnostic-ai version $NPM_RELEASE_VERSION" ]

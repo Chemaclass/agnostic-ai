@@ -39,13 +39,14 @@ The local runner checked immediate retrieval only. [RTK 0.51.0 documents](https:
 
 ## Reproduce
 
-Run these commands from the repository root with Python 3 and Docker available. The [asset helper](../../scripts/rtk-caveman-runtime-linux/fetch-assets.py) downloads official pinned release metadata and assets to scratch, checks required assets and SHA-256 digests, and uses 60-second network timeouts. The [container helper](../../scripts/rtk-caveman-runtime-linux/setup-linux.sh) refuses execution outside a Linux arm64 Docker container running Debian trixie. It installs dependencies in the disposable container and Caveman under the mounted scratch directory. The unchanged upstream installer verifies Caveman's signed checksum manifest, its release binding, and binary checksums. No host home or provider configuration is mounted.
+Run these commands from the repository root with Python 3 and Docker available. The [asset helper](../../scripts/rtk-caveman-runtime-linux/fetch-assets.py) downloads official pinned release metadata and assets to scratch, checks required assets and SHA-256 digests, and uses 60-second network timeouts. The [container helper](../../scripts/rtk-caveman-runtime-linux/setup-linux.sh) refuses execution outside a Linux arm64 Docker container running Debian trixie. It installs dependencies in the disposable container and Caveman under the mounted scratch directory. The CLI dependency graph comes from the committed npm lockfile and installs with `npm ci --ignore-scripts`. Debian package installation still selects current repository packages; engine verification remains separate from the npm lock. The unchanged upstream installer verifies Caveman's signed checksum manifest, its release binding, and binary checksums. No host home or provider configuration is mounted.
 
 ```sh
 linux_lab=$(mktemp -d)
 python3 scripts/rtk-caveman-runtime-linux/fetch-assets.py --output "$linux_lab"
 cp scripts/rtk-caveman-runtime.py "$linux_lab/rtk-caveman-runtime.py"
 cp scripts/rtk-caveman-runtime-linux/setup-linux.sh "$linux_lab/setup-linux.sh"
+cp -R scripts/rtk-caveman-runtime-linux/caveman-cli "$linux_lab/caveman-cli"
 docker run --rm --platform linux/arm64 \
   --env RTK_CAVEMAN_CONTAINER=1 \
   --mount "type=bind,src=$linux_lab,dst=/lab" \
