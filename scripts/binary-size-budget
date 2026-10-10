@@ -64,4 +64,6 @@
 # RTK branch history:
 # After merging Codex file context, measured 18784416.
 # Keep the established 8 KB allowance for CI's Linux build.
-18793000
+# After combining reviewed source reconciliation and RTK diagnostics,
+# measured 18813088. Keep the established 8 KB allowance for CI.
+18822000
