@@ -91,4 +91,7 @@
 # After trusted import spans, frontmatter mapping and native rule output
 # attribution, measured 18923680, up 65536 from main f535cae3.
 # Keep the established 8 KB allowance for CI.
-18932680
+# Permission comparison with trusted context attribution measured
+# 18952352 bytes, up 28672 from main 66cc90dd.
+# Keep the established allowance for CI.
+18961352
