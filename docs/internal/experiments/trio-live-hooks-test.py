@@ -56,6 +56,15 @@ print(json.dumps({'type':'result','total_cost_usd':0,'is_error':False}))''')
         self.assertTrue((case / 'post.jsonl').exists())
         self.assertEqual(json.loads((self.root / 'runs/budget.json').read_text())['calls'][0]['state'], 'settled')
 
+    def test_relative_output_root_resolves_before_host_changes_directory(self):
+        self.env['TRIO_LIVE_ROOT'] = "relative outputs"
+        self.script(self.claude, "import json,pathlib,sys\npathlib.Path(sys.argv[sys.argv.index('--settings')+1]).read_text()\nprint(json.dumps({'type':'result','total_cost_usd':0}))")
+        result = subprocess.run([sys.executable, str(RUNNER.resolve()), 'relative-case'],
+                                cwd=self.root, env=self.env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        summary = json.loads((self.root / 'relative outputs/relative-case/summary.json').read_text())
+        self.assertEqual(summary['exit'], 0)
+
     def test_cargo_fixture_records_exact_command_and_exits_seven(self):
         self.script(self.claude, "print('{\"type\":\"result\",\"total_cost_usd\":0}')")
         result = self.run_case('cargo-case', 'raw', 'allow', 'cargo test --test fixture')

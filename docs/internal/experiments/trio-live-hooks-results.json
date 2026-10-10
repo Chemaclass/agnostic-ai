@@ -2132,5 +2132,32 @@
     "all_paths_equal": "builtin",
     "confirmation_probe_cost_usd": 0.00052995
   },
-  "cost_basis": "Claude CLI list-price estimate, not billed account cost"
+  "cost_basis": "Claude CLI list-price estimate, not billed account cost",
+  "processor_only": {
+    "scope": "Direct native processor calls with synthetic inputs, not live host requests",
+    "rtk_version": "0.51.0",
+    "cases": [
+      {
+        "case": "malformed",
+        "payload": "{broken",
+        "exit": 0,
+        "stdout": "",
+        "stderr": "[rtk hook] Failed to parse JSON input: key must be a string at line 1 column 2\n"
+      },
+      {
+        "case": "empty",
+        "payload": "",
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "case": "unsupported",
+        "payload": "{\"hook_event_name\": \"PreToolUse\", \"tool_name\": \"Bash\", \"permission_mode\": \"default\", \"tool_input\": {\"command\": \"printf fixture\"}}",
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ]
+  }
 }

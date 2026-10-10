@@ -1,8 +1,10 @@
 import json, os, pathlib, shlex, shutil, signal, subprocess, sys, time
-ROOT=pathlib.Path(os.environ.get('TRIO_LIVE_ROOT','/tmp/agnostic-ai-1959-live')); ROOT.mkdir(exist_ok=True)
+ROOT=pathlib.Path(os.environ.get('TRIO_LIVE_ROOT','/tmp/agnostic-ai-1959-live')).resolve(); ROOT.mkdir(parents=True,exist_ok=True)
 CLAUDE=os.environ.get('TRIO_CLAUDE_BIN') or shutil.which('claude')
 RTK=os.environ.get('TRIO_RTK_BIN') or shutil.which('rtk')
 if not CLAUDE or not RTK:raise SystemExit('claude and rtk must be installed')
+CLAUDE=str(pathlib.Path(CLAUDE).resolve())
+RTK=str(pathlib.Path(RTK).resolve())
 MODEL='claude-haiku-5-5'
 SYSTEM='You are running a controlled command fixture. Use Bash exactly once with the exact command given, timeout 10000 and description fixture-metadata-1959. Do not retry, edit, inspect files, or run other commands. Then report the observed result in one sentence. If denied, report denied and stop.'
 
