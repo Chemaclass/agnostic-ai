@@ -797,6 +797,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
 | qoder | `~/.qoder/settings.json` | `mcpServers.<name>` |
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
+| antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 | openhands | `~/.openhands/mcp.json` (`$OPENHANDS_PERSISTENCE_DIR/mcp.json` when set) | `mcpServers.<name>`: `{command, args, env}` or `{url, transport, headers, auth}` |
 
 Each server follows the per-key rules above:
@@ -805,6 +806,7 @@ Each server follows the per-key rules above:
 - A server sync wrote is removed when its spec goes. Servers you add under other names stay.
 - In `~/.claude.json`, sync edits only its own `mcpServers` entries and creates a missing file at `0600`. If the file changed after sync read it, sync stops without writing. Run it again.
 - A spec with `disabled: true` stays out of the Augment, Claude, Cursor, Copilot, and OpenHands user files, where a listed server is live in every project.
+- Antigravity keeps disabled servers with `disabled: true` in its user file.
 - When `CLAUDE_CONFIG_DIR` or another root variable moves a file, the next sync removes its entries from the old one.
 
 A personal agent such as `~/.agnostic-ai/agents/reviewer.md` with `targets: [claude, codex]` installs with:
