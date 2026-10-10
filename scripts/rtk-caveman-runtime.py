@@ -73,7 +73,6 @@ def json_report(stderr):
 
 def base_env(root, engine):
     env = {
-        "HOME": str(root),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "XDG_CONFIG_HOME": str(root / "config"),
         "XDG_DATA_HOME": str(root / "data"),
@@ -86,7 +85,7 @@ def base_env(root, engine):
         "CAVEMAN_TELEMETRY": "0",
         "DO_NOT_TRACK": "1",
     }
-    for name in ("LANG", "LC_ALL", "LC_CTYPE"):
+    for name in ("HOME", "LANG", "LC_ALL", "LC_CTYPE"):
         if name in os.environ:
             env[name] = os.environ[name]
     return env
@@ -129,7 +128,7 @@ def experiment(rtk, cli, engine):
         root = Path(directory)
         env = base_env(root, engine)
         mode = run([str(rtk), "config", "recall"], env)
-        require(mode.returncode == 0 and b"recall mode: sqlite" in mode.stdout, "isolated RTK recall is not sqlite")
+        require(mode.returncode == 0 and b"recall mode: sqlite" in mode.stdout, "RTK recall must already use sqlite; this runner does not change its configuration")
         normal, normal_handle, normal_data = rtk_case(rtk, env, root, "normal")
         normal_compact, normal_report = caveman_compress(cli, env, normal)
         require(normal_compact == normal and "recovery_handle" not in normal_report, "normal RTK summary unexpectedly transformed")
@@ -180,9 +179,7 @@ def experiment(rtk, cli, engine):
 
         disabled_root = root / "disabled-rtk"
         disabled_root.mkdir()
-        disabled_env = base_env(disabled_root, engine)
-        change = run([str(rtk), "config", "recall", "disabled"], disabled_env)
-        require(change.returncode == 0, "could not disable isolated RTK recall")
+        disabled_env = dict(base_env(disabled_root, engine), RTK_RECALL="0")
         disabled_counter = disabled_root / "disabled-runs"
         disabled = run([str(rtk), "test", sys.executable, str(Path(__file__).resolve()),
                         "emit-test", str(disabled_counter), "normal"], disabled_env)
@@ -222,7 +219,7 @@ def experiment(rtk, cli, engine):
                                   dict(env, CAVEMAN_CCR_DB=str(root / "missing-parent" / "ccr.db")))
         require(unavailable_wrapper.returncode == 7 and unavailable_counter.read_text() == "1",
                 "unavailable recovery wrapper changed exit status or reran command")
-        require(FAILURE in unavailable_wrapper.stdout, "unavailable recovery wrapper hid decisive error")
+        require(unavailable_wrapper.stdout == normal, "unavailable recovery wrapper did not pass through the exact RTK summary")
         missing_rtk_counter = root / "missing-rtk-runs"
         missing_rtk = run(cli + ["shrink", "--", str(root / "missing-rtk"), "test", sys.executable,
                                  str(Path(__file__).resolve()), "emit-test", str(missing_rtk_counter), "normal"], env)
@@ -238,7 +235,9 @@ def experiment(rtk, cli, engine):
                 "caveman_engine_sha256": sha(engine.read_bytes()),
             },
             "platform": sys.platform,
-            "recall_mode": "isolated sqlite",
+            "recall_mode": "sqlite with temporary stores",
+            "home_inherited": True,
+            "rtk_configuration_modified": False,
             "normal": normal_data,
             "long_summary": repeated_data,
             "stdin_filter": {
@@ -258,6 +257,7 @@ def experiment(rtk, cli, engine):
                 "unavailable_store_wrapper_exit": unavailable_wrapper.returncode,
                 "unavailable_store_wrapper_command_runs": int(unavailable_counter.read_text()),
                 "unavailable_store_wrapper_error_and_path_visible": True,
+                "unavailable_store_wrapper_exact_rtk_summary": True,
                 "short_input_noop": True,
                 "disabled_rtk_store_has_no_recall_hint": True,
                 "disabled_rtk_filtered_bytes": len(disabled.stdout),

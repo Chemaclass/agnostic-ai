@@ -1,6 +1,6 @@
 # RTK and Caveman runtime composition, issue #1960
 
-This local experiment tested RTK 0.51.0 with Caveman CLI 2.1.0 and its signed `bin-v2.1.0` engine on macOS arm64. The [runner](../../scripts/rtk-caveman-runtime.py) generates fixed test output, runs each command once, and writes [machine-readable results](rtk-caveman-runtime-results.json). It uses temporary home, history, and recovery stores, passes no provider credentials to either tool, and never starts a proxy or coding agent.
+This local experiment tested RTK 0.51.0 with Caveman CLI 2.1.0 and its signed `bin-v2.1.0` engine in a Linux arm64 Debian trixie container. The [runner](../../scripts/rtk-caveman-runtime.py) generates fixed test output, runs each command once, and writes [machine-readable results](rtk-caveman-runtime-results.json). The [Linux provenance](rtk-caveman-runtime-linux-provenance.json) records the pinned image, release checksums, signed installer result, and unchanged inherited home. The runner uses temporary history and recovery stores, passes no provider credentials to either tool, and never starts a proxy or coding agent.
 
 ## Recommendation
 
@@ -23,8 +23,8 @@ Each command wrote a counter once. Retrievals, including attempts against the wr
 
 - A wrong Caveman store could not retrieve the RTK summary. A wrong RTK store could not retrieve the original. Neither command was run again.
 - A missing Caveman engine passed the RTK summary through unchanged. A six-byte input also passed through unchanged.
-- With an unavailable Caveman recovery-store parent, `tools compress` exited 1, wrote no compact output, and named the store error. `tools shrink -- rtk test ...` still ran the command once, retained exit 7 and the decisive error, and passed the RTK summary through.
-- With an isolated RTK recall store disabled, RTK still ran the failing command once and returned a filtered response without a recall hint. That mode cannot support a claim that all elided bytes remain recoverable.
+- With an unavailable Caveman recovery-store parent, `tools compress` exited 1, wrote no compact output, and named the store error. `tools shrink -- rtk test ...` still ran the command once, retained exit 7, and passed the exact RTK summary through.
+- With RTK recall disabled for the child process through `RTK_RECALL=0`, RTK still ran the failing command once and returned a filtered response without a recall hint. That mode cannot support a claim that all elided bytes remain recoverable.
 - A missing RTK executable under `tools shrink -- ...` failed without running the target command. The error was not treated as a successful run.
 - A nested `tools shrink -- rtk test ...` wrapper ran the harmless failing command once, returned exit 7, and kept `tests/payment_test.go:42` plus the expected/actual values visible.
 - The same wrapper on the repeated-tail case reduced the RTK summary, preserved both recovery hints, returned exit 7, and retrieved the exact RTK summary without rerunning the command. Its appended status line explains the difference between its 2,367 output bytes and the direct compressor's 2,215 bytes.
@@ -33,7 +33,23 @@ The local runner checked immediate retrieval only. [RTK 0.51.0 documents](https:
 
 ## Reproduce
 
-Use reviewed local installations and pass absolute paths. The Caveman CLI argument names its installed `dist/index.js`, and the Node argument names a real executable rather than a version-manager shim. The command uses a new temporary directory for each run; it does not modify global agent or provider configuration.
+Run these commands from the repository root with Python 3 and Docker available. The [asset helper](../../scripts/rtk-caveman-runtime-linux/fetch-assets.py) downloads official pinned release metadata and assets to scratch, checks required assets and SHA-256 digests, and uses 60-second network timeouts. The [container helper](../../scripts/rtk-caveman-runtime-linux/setup-linux.sh) refuses execution outside a Linux arm64 Docker container running Debian trixie. It installs dependencies in the disposable container and Caveman under the mounted scratch directory. The unchanged upstream installer verifies Caveman's signed checksum manifest, its release binding, and binary checksums. No host home or provider configuration is mounted.
+
+```sh
+linux_lab=$(mktemp -d)
+python3 scripts/rtk-caveman-runtime-linux/fetch-assets.py --output "$linux_lab"
+cp scripts/rtk-caveman-runtime.py "$linux_lab/rtk-caveman-runtime.py"
+cp scripts/rtk-caveman-runtime-linux/setup-linux.sh "$linux_lab/setup-linux.sh"
+docker run --rm --platform linux/arm64 \
+  --env RTK_CAVEMAN_CONTAINER=1 \
+  --mount "type=bind,src=$linux_lab,dst=/lab" \
+  node@sha256:154ba2f4d6fec323d28e4f4bb86bba4677f1223391a1979cf521304e03a98dfa \
+  sh /lab/setup-linux.sh
+```
+
+Results are written to `$linux_lab/rtk-caveman-runtime-linux-results.json` and `$linux_lab/linux-provenance.json`. The tracked results came from this Linux runtime, with Python 3.13.5 and glibc 2.41. The first signed Caveman installation was retained in scratch and reused by the successful run. An initial Debian bookworm attempt failed because the official RTK Linux archive requires glibc 2.39; the pinned trixie image supplies a compatible version.
+
+For an existing local installation, pass absolute paths and write results to a separate file. The Caveman CLI argument names its installed `dist/index.js`, and the Node argument names a real executable rather than a version-manager shim. The runner reads RTK's current recall mode and requires SQLite without changing that configuration. On macOS, RTK 0.51.0 reads its configuration under the caller's home even when `XDG_CONFIG_HOME` is set. If that configuration selects another recall mode, the runner stops; use the container recipe above. History and recovery stores are redirected explicitly. The disabled-recall case uses `RTK_RECALL=0` in the child process.
 
 ```sh
 python3 scripts/rtk-caveman-runtime.py \
@@ -41,7 +57,7 @@ python3 scripts/rtk-caveman-runtime.py \
   --node /absolute/path/to/node \
   --caveman-cli /absolute/path/to/@caveman-ai/cli/dist/index.js \
   --caveman-engine /absolute/path/to/caveman-engine \
-  --output docs/internal/rtk-caveman-runtime-results.json
+  --output /absolute/scratch/path/rtk-caveman-runtime-results.json
 ```
 
 The result applies to these synthetic terminal fixtures and local command interfaces. It does not establish proxy routing, real coding-agent behavior, provider input reduction, task quality, or billed savings. The project setup remains independent: agnostic-ai emits configuration, RTK owns command filtering and its recall store, and Caveman owns its runtime transform and recovery store.

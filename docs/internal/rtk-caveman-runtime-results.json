@@ -20,10 +20,12 @@
     "unavailable_caveman_store_exit": 1,
     "unavailable_store_wrapper_command_runs": 1,
     "unavailable_store_wrapper_error_and_path_visible": true,
+    "unavailable_store_wrapper_exact_rtk_summary": true,
     "unavailable_store_wrapper_exit": 7,
     "wrong_caveman_store_fails": true,
     "wrong_rtk_store_fails": true
   },
+  "home_inherited": true,
   "long_summary": {
     "caveman_bytes": 2215,
     "caveman_recall_exact_rtk_summary": true,
@@ -53,8 +55,9 @@
     "rtk_recall_exact_original": true,
     "rtk_sha256": "7a0a16937a9c006ebcbdde49b2b7e09458becb5ce7a98ef8035410e8e95e0961"
   },
-  "platform": "darwin",
-  "recall_mode": "isolated sqlite",
+  "platform": "linux",
+  "recall_mode": "sqlite with temporary stores",
+  "rtk_configuration_modified": false,
   "stdin_filter": {
     "error_path_visible": true,
     "input_bytes": 21219,
@@ -65,8 +68,8 @@
   "versions": {
     "caveman_cli": "2.1.0",
     "caveman_cli_entry_sha256": "2864f44410cd8a6b508be530cbcb2e4f8b7c93380dba9190f3977e21a7c98806",
-    "caveman_engine_sha256": "dca7792b510817a9e0965a9a0c3a36779882c3924c4b597baf47cc9dfad07e08",
+    "caveman_engine_sha256": "ca9d8da274dc768d838187492cad8f784cb4922437b9d8677b6b698b083d6933",
     "rtk": "rtk 0.51.0",
-    "rtk_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f"
+    "rtk_sha256": "c9a048412139955ce48f85f82065067b524e98b86bf34f012a92a45d719816b5"
   }
 }
