@@ -121,6 +121,7 @@ func newImportCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings, MCP files, and Kiro hook files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change. Keys the tool never shows and comments on kept keys stay; ::target blocks for other tools are lost. Without it, an import that would replace a spec with different content stops before writing anything.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
+	cmd.AddCommand(newImportReconcileCmd())
 	return cmd
 }
 
