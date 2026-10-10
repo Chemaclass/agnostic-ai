@@ -108,3 +108,38 @@ func TestSyncGlobal_ClaudeHookFailClosedWritesOnFailureBlock(t *testing.T) {
 		t.Error("onFailure stayed after failClosed was removed")
 	}
 }
+
+func TestSyncGlobal_ClaudeFailClosedNotesIgnoredFailures(t *testing.T) {
+	cases := []struct {
+		name     string
+		event    string
+		flags    string
+		wantNote bool
+	}{
+		{"stop", "Stop", "", true},
+		{"async", "PreToolUse", "async: true\n", true},
+		{"async rewake", "PostToolUse", "asyncRewake: true\n", true},
+		{"synchronous", "PreToolUse", "", false},
+		{"permission request", "PermissionRequest", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: "+c.event+"\ncommand: guard.sh\nfailClosed: true\n"+c.flags)
+			_, warnings, err := runGlobalAgentTest("--only", "claude")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.Contains(warnings, "`failClosed`"); got != c.wantNote {
+				t.Errorf("failClosed note = %t, want %t: %s", got, c.wantNote, warnings)
+			}
+			if c.wantNote && !strings.Contains(warnings, "synchronous PreToolUse") {
+				t.Errorf("note must suggest a synchronous failure gate: %s", warnings)
+			}
+			handler := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), c.event)
+			if handler["onFailure"] != "block" {
+				t.Errorf("onFailure must remain: %v", handler)
+			}
+		})
+	}
+}

@@ -10,7 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// kiroGuardScript blocks a prompt that mentions deploy with exit 2, and
+// kiroGuardScript exits 2 when a prompt mentions deploy, and
 // otherwise prints the prompt Kiro's IDE gives as USER_PROMPT.
 const kiroGuardScript = `#!/bin/sh
 payload=$(cat)
@@ -37,14 +37,14 @@ func kiroProject(t *testing.T, hook, body string) {
 	mustSync(t)
 }
 
-func TestHookRun_KiroBlocksAPromptOnAnAssumedShell(t *testing.T) {
+func TestHookRun_KiroAllowsAPromptOnAnAssumedShell(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	kiroProject(t, kiroGuardSpec, kiroGuardScript)
 
 	out, err := runHookRun(t, "deploy-guard", "--prompt", "deploy now", "--expect", "block")
 	for _, want := range []string{
 		"claude: block (exit 2",
-		"kiro: block (exit 2", "(assumed: shell)\n", "event: UserPromptSubmit (prompt)", "command: .kiro/scripts/deploy-guard.sh",
+		"kiro: allow (exit 2", "(assumed: shell)\n", "event: UserPromptSubmit (prompt)", "command: .kiro/scripts/deploy-guard.sh",
 		"assumed shell: sh -c (Kiro does not document the shell that runs a hook command)",
 		"docs: https://kiro.dev/docs/hooks",
 		"1 checked, 1 assumed (not counted; --include-assumed to count)",
@@ -56,13 +56,13 @@ func TestHookRun_KiroBlocksAPromptOnAnAssumedShell(t *testing.T) {
 	if err != nil {
 		t.Errorf("the counted claude result passes --expect: %v", err)
 	}
-	if strings.Contains(out, "warning:") || strings.Contains(out, "assumed timeout") || strings.Contains(out, "assumed working directory") {
+	if !strings.Contains(out, "warning:") || strings.Contains(out, "assumed timeout") || strings.Contains(out, "assumed working directory") {
 		t.Errorf("a fresh sync warns, or the documented cwd or 60s timeout is marked assumed:\n%s", out)
 	}
 
 	out, err = runHookRun(t, "deploy-guard", "--prompt", "deploy now", "--expect", "block", "--include-assumed")
-	if err != nil || !strings.Contains(out, "2 checked, 1 assumed (counted)") {
-		t.Errorf("--include-assumed must count the exit 2 block: %v\n%s", err, out)
+	if err == nil || !strings.Contains(out, "2 checked, 1 assumed (counted)") {
+		t.Errorf("--include-assumed must catch the different prompt decisions: %v\n%s", err, out)
 	}
 
 	out, err = runHookRun(t, "deploy-guard", "--target", "kiro", "--prompt", "hello", "--expect", "allow", "--include-assumed")
@@ -73,27 +73,22 @@ func TestHookRun_KiroBlocksAPromptOnAnAssumedShell(t *testing.T) {
 	}
 }
 
-func TestHookRun_KiroDoesNotCountAnExitItsDocsDisagreeOn(t *testing.T) {
+func TestHookRun_KiroAllowsAFailedPromptHook(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	kiroProject(t, kiroGuardSpec, "#!/bin/sh\ncat >/dev/null\necho failed >&2\nexit 1\n")
-
-	out, err := runHookRun(t, "deploy-guard", "--target", "kiro", "--prompt", "deploy now", "--include-assumed")
+	out, err := runHookRun(t, "deploy-guard", "--target", "kiro", "--prompt", "deploy now", "--expect", "allow", "--include-assumed")
 	for _, want := range []string{
-		"kiro: error (exit 1",
-		"note: not counted: Kiro's docs disagree on whether a non-zero exit other than 2 blocks",
-		"0 checked, 1 assumed (counted; 1 result not counted, see its note)",
+		"kiro: allow (exit 1",
+		"only the IDE blocks prompts",
+		"context: kiro adds the output to the session",
+		"1 checked, 1 assumed (counted)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
 	}
 	if err != nil {
-		t.Errorf("an uncounted error must not fail the run: %v", err)
-	}
-
-	_, err = runHookRun(t, "deploy-guard", "--target", "kiro", "--prompt", "deploy now", "--expect", "block", "--include-assumed")
-	if err == nil || !strings.Contains(err.Error(), "--expect checks nothing") || !strings.Contains(err.Error(), "kiro: Kiro's docs disagree") {
-		t.Errorf("--expect on an uncounted result alone must fail and say why: %v", err)
+		t.Errorf("CLI V3 must send a prompt after a failed hook: %v", err)
 	}
 }
 
@@ -200,10 +195,19 @@ func TestHookRun_KiroJSONListsItsAssumption(t *testing.T) {
 		if r.Target != "kiro" {
 			continue
 		}
-		if r.Decision != "block" || r.Counted || len(r.Assumptions) != 1 || r.Assumptions[0].Item != "shell" || r.Assumptions[0].Value != "sh -c" {
-			t.Errorf("kiro = %+v; want block, not counted, shell assumed", r)
+		if r.Decision != "allow" || r.Counted || len(r.Assumptions) != 1 || r.Assumptions[0].Item != "shell" || r.Assumptions[0].Value != "sh -c" {
+			t.Errorf("kiro = %+v; want allow, not counted, shell assumed", r)
 		}
 		return
 	}
 	t.Fatalf("no kiro result:\n%s", out)
+}
+
+func TestHookRun_KiroStopExitOneKeepsTheAgentWorking(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	kiroProject(t, "name: deploy-guard\nevent: Stop\ncommand: .agnostic-ai/scripts/deploy-guard.sh\n", "#!/bin/sh\ncat >/dev/null\nexit 1\n")
+	out, err := runHookRun(t, "deploy-guard", "--target", "kiro", "--expect", "block", "--include-assumed")
+	if err != nil || !strings.Contains(out, "kiro: block (exit 1") || !strings.Contains(out, "Kiro keeps the agent running") {
+		t.Errorf("Stop exit 1 continues the agent: %v\n%s", err, out)
+	}
 }
