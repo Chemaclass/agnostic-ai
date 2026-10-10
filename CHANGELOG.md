@@ -6,16 +6,17 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Compare hooks, MCP connections, and portable permissions from tool output, with ignored fields and required options shown (#1985, #1986, #1987).
-- Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
+- Hooks prefer the project binary; Git checks use staged config; bootstrap installs locked npm/pnpm dependencies once (#2012).
+- Create ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile`; keep permission and setup choices explicit (#1990, #2013).
 - Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
-- VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
-- The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).
+- Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
+- Compare hooks, MCP fields and portable permissions from output; show ignored fields, omissions and required options; hide MCP values (#1985, #1986, #1987).
 
 ### By tool
 
 #### Claude Code
 
+- Preview RTK rewrites and declared approval changes with `doctor rtk --command`; live approval remains unknown (#2015).
 - Remove clean registered worktrees inside an allowed root with `hook worktree-remove`; dirty and locked checkouts stay (#2014).
 - Explain Claude Code instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).
 

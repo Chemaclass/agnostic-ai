@@ -856,6 +856,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd.AddCommand(newDoctorMCPCmd())
 	cmd.AddCommand(newDoctorInstallCmd())
 	cmd.AddCommand(newDoctorConfigCmd())
+	cmd.AddCommand(newDoctorRTKCmd())
 	return cmd
 }
 

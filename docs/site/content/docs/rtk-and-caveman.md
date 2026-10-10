@@ -32,7 +32,7 @@ agnostic-ai sync
 - **RTK** adds a hook to `.claude/settings.json`. A hook is a command Claude Code runs before each shell command. It works only in Claude Code, and only for the Bash tool on macOS or Linux, not PowerShell.
 - **Caveman** adds a skill to `.claude/skills/caveman/` and to every other tool that supports skills. Type `/caveman` to start it.
 
-Install RTK yourself with its [install guide](https://github.com/rtk-ai/rtk#installation). If RTK is missing, commands run as normal. agnostic-ai never installs or runs either tool.
+Install RTK yourself with its [install guide](https://github.com/rtk-ai/rtk#installation). If RTK is missing, commands run as normal. agnostic-ai does not install either tool. `doctor rtk` runs RTK to preview a rewrite without executing the supplied command.
 
 ## What happens on a command
 
