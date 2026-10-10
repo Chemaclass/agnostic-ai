@@ -44,4 +44,10 @@
 # Keep the established 8 KB allowance for CI.
 # After contract fixes, measured 18784416, up 45056 from main badb5ae3.
 # Keep the established 8 KB allowance for CI.
+# #1989 measured 18702496 before #1990, up 12288 from main 575a8a36:
+# Codex file explanations report planned source and discovery limits.
+# After #1990 and the tagged switch, measured 18706592, up 8192 from b64322dc.
+# After #1986, measured 18735264, up 12288 from main 7df02fd1.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #2014, measured 18751648, up 12288 from main badb5ae3.
 18794000

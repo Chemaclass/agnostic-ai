@@ -19,6 +19,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Remove clean registered worktrees inside an allowed root with `hook worktree-remove`; dirty and locked checkouts stay (#2014).
 - Explain Claude Code instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).
 
+#### Codex
+
+- Explain Codex instructions for a file with `explain --file <path> --target codex`, including planned outputs and launch directory limits (#1989).
+
 ## v0.82.0 - 2026-10-10
 
 ### General
