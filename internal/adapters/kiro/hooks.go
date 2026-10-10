@@ -106,12 +106,13 @@ func (Adapter) UserHookFiles(hooks []spec.Entry, sourceDir, scriptsDir string) (
 	if err != nil {
 		return nil, nil, err
 	}
+	commandDir := commandPath(scriptsDir)
 	commands := hookCommandForm{
 		shell: func(command string, meta map[string]any) string {
-			return emit.ExecFormCommand(emit.RewriteGlobalHookPath(command, target, scriptsDir, meta), emit.HookArgs(target, meta))
+			return emit.ExecFormCommand(emit.RewriteGlobalHookPath(command, target, commandDir, meta), emit.HookArgs(target, meta))
 		},
 		native: func(command string) string {
-			return emit.RewriteNeutralHookPath(command, scriptsDir)
+			return emit.RewriteNeutralHookPath(command, commandDir)
 		},
 	}
 	files := map[string]string{}
@@ -125,6 +126,19 @@ func (Adapter) UserHookFiles(hooks []spec.Entry, sourceDir, scriptsDir string) (
 		}
 	}
 	return files, scripts, nil
+}
+
+// commandPath spells a directory for a hook command with forward slashes,
+// which every shell Kiro runs hooks in reads, unlike a quoted folder or
+// mixed separators. A drive or UNC path is converted on any OS; any other
+// path only where the separator is a backslash, since a POSIX folder name
+// may hold one.
+func commandPath(dir string) string {
+	windows := len(dir) >= 3 && dir[1] == ':' && dir[2] == '\\' || strings.HasPrefix(dir, `\\`)
+	if windows {
+		return strings.ReplaceAll(dir, `\`, "/")
+	}
+	return filepath.ToSlash(dir)
 }
 
 // buildHookEntries renders one hooks[] entry per action on h as a
