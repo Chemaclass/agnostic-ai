@@ -19,18 +19,18 @@ func newLSPCmd() *cobra.Command {
 		Short: "Start the agnostic-ai Language Server (LSP) on stdio.",
 		Long: "Runs a Language Server Protocol server on stdin/stdout. " +
 			"Configure your editor to launch `agnostic-ai lsp` as the language " +
-			"server for agnostic-ai spec files (.agnostic-ai/**/*.md, *.mdc). " +
+			"server for agnostic-ai Markdown and YAML sources. " +
 			"The server pushes lint diagnostics whenever a file is opened or saved.",
 		Example: `  # Neovim (init.lua)
   vim.lsp.start({
     name = "agnostic-ai",
     cmd = { "agnostic-ai", "lsp" },
     root_dir = vim.fn.getcwd(),
-    filetypes = { "markdown" },
+    filetypes = { "markdown", "yaml" },
   })
 
-  # VS Code (settings.json, requires a generic LSP extension)
-  "languageServerExample.serverCommand": "agnostic-ai lsp"`,
+  # VS Code: install the agnostic-ai extension.
+  # Set agnostic-ai.binaryPath when the CLI is not on PATH.`,
 		SilenceUsage: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			srv := lsp.New(os.Stdin, os.Stdout, lspLinter)

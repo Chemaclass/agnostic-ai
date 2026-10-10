@@ -305,7 +305,7 @@ jobs:
         run: npm test
 
       - name: Package
-        run: npx vsce package --skip-license --no-dependencies
+        run: npx vsce package --skip-license
 
   jetbrains:
     name: JetBrains plugin

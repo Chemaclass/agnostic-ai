@@ -5,6 +5,8 @@ in this file.
 
 ## 0.2.0 (unreleased)
 
+- Problems shows lint findings for saved specs and project configuration. The configured CLI starts automatically, restarts when the project or binary changes, and stops on shutdown (#1983).
+
 - Background drift checks run one at a time. Save bursts queue one follow-up, older results are ignored, and closing the workspace or disabling the extension stops the active check (#1984).
 
 - The status bar shows failed checks with their reason in the tooltip. Invalid output and missing binaries get a useful message. A successful check clears the failure; ordinary drift keeps its file count (#1981).

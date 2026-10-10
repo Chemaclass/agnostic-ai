@@ -285,6 +285,8 @@ agnostic-ai migrate --global    # rewrite the global specs
 
 ## lsp
 
-Start the language server on stdin and stdout. Point your editor at `agnostic-ai lsp` for spec files (`.agnostic-ai/**/*.md`, `*.mdc`). It reads saved files and reports lint problems when you open or save a file. Config and spec load failures appear on the source file, with the parser location when available. A failure with no known source appears as a workspace error.
+Start the language server on stdin and stdout. The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) starts it automatically for a configured workspace, using `agnostic-ai.binaryPath`. Other editors can launch `agnostic-ai lsp` for Markdown and YAML files. It reads saved files and reports lint problems when you open or save a file. Config and spec load failures appear on the source file, with the parser location when available. A failure with no known source appears as a workspace error.
 
 After a successful check, resolved diagnostics clear from every affected file, including deleted sources. If loading fails, earlier diagnostics stay until a successful check replaces them. Fix the reported problem and save a project file to retry.
+
+The server checks the selected project's configured sources, including custom and absolute directories. Unsaved buffer edits do not run lint. Files keep their ordinary Markdown or YAML editing support.

@@ -330,3 +330,54 @@ func TestServer_OpeningEquivalentURIKeepsItsFinding(t *testing.T) {
 		t.Error("new client URI did not receive its finding")
 	}
 }
+
+func TestServer_DeclaresOpenSaveWithoutBufferChanges(t *testing.T) {
+	var in, out bytes.Buffer
+	writer := NewWriter(&in)
+	_ = writer.Send(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+	if err := New(&in, &out, nil).Run(); err != nil {
+		t.Fatal(err)
+	}
+	response, err := NewReader(&out).Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Capabilities struct {
+			TextDocumentSync struct {
+				OpenClose bool `json:"openClose"`
+				Change    int  `json:"change"`
+				Save      *struct {
+					IncludeText bool `json:"includeText"`
+				} `json:"save"`
+			} `json:"textDocumentSync"`
+		} `json:"capabilities"`
+	}
+	resultJSON, err := json.Marshal(response.Result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(resultJSON, &result); err != nil {
+		t.Fatalf("saved-file synchronization contract: %v", err)
+	}
+	sync := result.Capabilities.TextDocumentSync
+	if !sync.OpenClose || sync.Change != 0 || sync.Save == nil || sync.Save.IncludeText {
+		t.Errorf("saved-file synchronization = %+v", sync)
+	}
+}
+
+func TestServer_IgnoresUnsavedBufferChanges(t *testing.T) {
+	var in, out bytes.Buffer
+	writer := NewWriter(&in)
+	calls := 0
+	for _, method := range []string{"textDocument/didOpen", "textDocument/didChange", "textDocument/didSave"} {
+		_ = writer.Send(map[string]any{"jsonrpc": "2.0", "method": method, "params": map[string]any{"textDocument": map[string]any{"uri": "file:///tmp/project/rules/a.md"}, "contentChanges": []any{map[string]any{"text": "Unsaved body"}}}})
+	}
+	linter := func(string) (map[string][]Diagnostic, error) { calls++; return map[string][]Diagnostic{}, nil }
+	if err := New(&in, &out, linter).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Errorf("lint calls = %d, want open and save only", calls)
+	}
+}
