@@ -339,3 +339,109 @@ func TestImportReconcile_ReportsCompetingMappedSourcesAsConflicts(t *testing.T) 
 		}
 	}
 }
+
+func TestImportReconcile_UnchangedSharedOwnersMakeDestructiveChangesConflict(t *testing.T) {
+	for _, c := range []struct {
+		name, file string
+		remove     bool
+		wantCount  int
+	}{
+		{"delete skill", "SKILL.md", true, 2},
+		{"update skill", "SKILL.md", false, 1},
+		{"delete asset", "assets/guide.md", true, 1},
+		{"update asset", "assets/guide.md", false, 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dir := setupGitRepo(t)
+			testutil.Chdir(t, dir)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+			for _, source := range []string{"left", "right"} {
+				writeFile(t, source+"/example/SKILL.md", "original")
+				writeFile(t, source+"/example/assets/guide.md", "original asset")
+			}
+			git(t, dir, "add", ".")
+			git(t, dir, "commit", "-qm", "shared base")
+			base := git(t, dir, "rev-parse", "HEAD")
+			writeFile(t, ".agnostic-ai/skills/example/SKILL.md", "original")
+			writeFile(t, ".agnostic-ai/skills/example/assets/guide.md", "original asset")
+			git(t, dir, "rm", "-qr", "left", "right")
+			git(t, dir, "add", ".")
+			git(t, dir, "commit", "-qm", "shared migration")
+			migrated := git(t, dir, "rev-parse", "HEAD")
+			git(t, dir, "checkout", "-q", base)
+			changed := "left/example/" + c.file
+			if c.remove {
+				git(t, dir, "rm", "-q", changed)
+			} else {
+				writeFile(t, changed, "upstream change")
+			}
+			git(t, dir, "add", ".")
+			git(t, dir, "commit", "-qm", "one owner changes")
+			upstream := git(t, dir, "rev-parse", "HEAD")
+			git(t, dir, "checkout", "-q", migrated)
+			before := git(t, dir, "ls-files", "--stage")
+			for _, mappings := range [][]string{{"left=.agnostic-ai/skills", "right=.agnostic-ai/skills"}, {"right=.agnostic-ai/skills", "left=.agnostic-ai/skills"}} {
+				plan, err := planSkillReconciliation(base, migrated, upstream, mappings)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(plan.Entries) != c.wantCount {
+					t.Fatalf("shared owner entries = %+v, want %d", plan.Entries, c.wantCount)
+				}
+				for _, entry := range plan.Entries {
+					if entry.Action != "conflict" || !strings.HasPrefix(entry.Source, "left/") {
+						t.Errorf("unchanged right owner must prevent a destructive left plan: %+v", entry)
+					}
+				}
+			}
+			if after := git(t, dir, "ls-files", "--stage"); after != before {
+				t.Error("shared-owner planning changed the index")
+			}
+			if status := git(t, dir, "status", "--porcelain"); status != "" {
+				t.Errorf("shared-owner planning changed files: %s", status)
+			}
+		})
+	}
+}
+
+func TestImportReconcile_NestedProjectUsesItsConfiguredTrees(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	const project = "apps/demo project"
+	writeFile(t, project+"/agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nsources:\n  skills: specs/skills\n")
+	writeFile(t, project+"/native/example/SKILL.md", "nested original")
+	writeFile(t, "native/unrelated/SKILL.md", "root original")
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-qm", "nested base and unrelated root")
+	base := git(t, dir, "rev-parse", "HEAD")
+	writeFile(t, project+"/specs/skills/example/SKILL.md", "nested original")
+	writeFile(t, "specs/skills/unrelated/SKILL.md", "root original")
+	git(t, dir, "rm", "-qr", project+"/native")
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-qm", "nested migration")
+	migrated := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "checkout", "-q", base)
+	writeFile(t, project+"/native/example/SKILL.md", "nested update")
+	writeFile(t, "native/unrelated/SKILL.md", "root update")
+	git(t, dir, "add", ".")
+	git(t, dir, "commit", "-qm", "nested and root changes")
+	upstream := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "checkout", "-q", migrated)
+	writeFile(t, "native/unrelated/SKILL.md", "uncommitted unrelated root change")
+	before := git(t, dir, "status", "--porcelain")
+	testutil.Chdir(t, filepath.Join(dir, project))
+	plan, err := planSkillReconciliation(base, migrated, upstream, []string{"native=specs/skills"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Entries) != 1 || plan.Entries[0] != (reconciliationEntry{"update", "native/example/SKILL.md", "specs/skills/example/SKILL.md"}) {
+		t.Errorf("nested plan must use project-relative trees, excluding root changes: %+v", plan.Entries)
+	}
+	if after := git(t, dir, "status", "--porcelain"); after != before {
+		t.Error("nested planning changed files")
+	}
+	writeFile(t, "specs/skills/example/SKILL.md", "uncommitted project change")
+	if _, err := planSkillReconciliation(base, migrated, upstream, []string{"native=specs/skills"}); err == nil || !strings.Contains(err.Error(), "uncommitted") {
+		t.Errorf("nested mapped dirty tree must still be rejected: %v", err)
+	}
+}

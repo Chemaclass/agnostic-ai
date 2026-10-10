@@ -92,6 +92,7 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 	}
 	seen := map[string]bool{}
 	canonicalFiles := map[string]bool{}
+	owners := map[string]int{}
 	for _, mapping := range mappings {
 		old, canonical, ok := strings.Cut(mapping, "=")
 		if !ok || !reconciliationPath(old) || !reconciliationPath(canonical) || old == canonical || strings.HasPrefix(old, canonical+"/") || strings.HasPrefix(canonical, old+"/") {
@@ -129,6 +130,9 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 		}
 		for file := range files {
 			before, after, initial, current := trees[0][file], trees[1][file], trees[2][file], trees[3][file]
+			if before != "" || after != "" {
+				owners[canonical+"/"+file]++
+			}
 			if before != "" && initial == "" {
 				return plan, fmt.Errorf("migration %s has no canonical counterpart for %s/%s; choose the complete migration revision", plan.Migrated, old, file)
 			}
@@ -152,7 +156,7 @@ func planSkillReconciliation(base, migrated, upstream string, mappings []string)
 		destinations[entry.Destination]++
 	}
 	for i := range plan.Entries {
-		if destinations[plan.Entries[i].Destination] > 1 {
+		if destinations[plan.Entries[i].Destination] > 1 || owners[plan.Entries[i].Destination] > 1 {
 			plan.Entries[i].Action = "conflict"
 		}
 	}
@@ -196,7 +200,7 @@ func reconciliationPath(value string) bool {
 
 // Blob IDs include content; the mode also detects changes to executable assets.
 func reconciliationTree(revision, dir string, skillsOnly bool) (map[string]string, error) {
-	data, err := reconciliationGit("ls-tree", "-rz", "--full-tree", revision, "--", ":(literal)"+dir)
+	data, err := reconciliationGit("ls-tree", "-rz", revision, "--", ":(literal)"+dir)
 	if err != nil {
 		return nil, fmt.Errorf("read tree %s:%s: %w", revision, dir, err)
 	}
