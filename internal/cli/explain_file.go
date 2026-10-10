@@ -64,7 +64,7 @@ type explainFileOutput struct {
 
 // fileContextTargets lists the targets whose discovery semantics
 // `explain --file` models. Each one is verified against vendor docs.
-var fileContextTargets = []string{"cursor", "claude"}
+var fileContextTargets = []string{"cursor", "claude", "codex"}
 
 // sourceMarkerRE captures the spec path from the `<!-- source: ... -->`
 // marker WriteSection stamps before each section of a merged document.
@@ -111,6 +111,11 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 		return explainFileOutput{}, err
 	}
 	docs, err := plannedInstructionDocs(cfg, b, func(p string) bool {
+		if target == "codex" {
+			return path.Base(p) == "AGENTS.md" || path.Base(p) == "AGENTS.override.md" ||
+				p == filepath.ToSlash(adapters.EntryPointPath(cfg, "codex")) ||
+				p == filepath.ToSlash(cfg.Outputs["codex"].RulesFile)
+		}
 		if target == "claude" {
 			return filepath.Ext(p) == ".md" ||
 				p == filepath.ToSlash(adapters.EntryPointPath(cfg, "claude")) ||
@@ -128,9 +133,12 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 	included := b.For(target).Rules
 	reached := map[string]bool{}
 	var items []fileContextItem
-	if target == "claude" {
+	switch target {
+	case "claude":
 		items, err = claudeFileItems(cfg, b, adapter, docs, rel, projectRoot, reached)
-	} else {
+	case "codex":
+		items, err = codexFileItems(cfg, b, adapter, docs, rel, projectRoot, reached)
+	default:
 		items, err = cursorFileItems(cfg, b, adapter, docs, rel, reached)
 	}
 	if err != nil {
