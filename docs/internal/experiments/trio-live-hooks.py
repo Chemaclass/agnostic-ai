@@ -1,4 +1,4 @@
-import json, os, pathlib, shutil, subprocess, sys, time
+import json, os, pathlib, shlex, shutil, signal, subprocess, sys, time
 ROOT=pathlib.Path(os.environ.get('TRIO_LIVE_ROOT','/tmp/agnostic-ai-1959-live')); ROOT.mkdir(exist_ok=True)
 CLAUDE=os.environ.get('TRIO_CLAUDE_BIN') or shutil.which('claude')
 RTK=os.environ.get('TRIO_RTK_BIN') or shutil.which('rtk')
@@ -13,33 +13,70 @@ def redact(s):
         if secret:s=s.replace(secret,'<REDACTED>')
     return s
 
-def check_budget():
-    spent=sum((json.loads(f.read_text()).get('result') or {}).get('total_cost_usd',0) for f in ROOT.glob('*/*summary.json'))
-    if spent>=2.70:raise RuntimeError('Stop before the $3 cumulative provider budget')
+def reserve_budget(label):
+    path=ROOT/'budget.json'
+    ledger=json.loads(path.read_text()) if path.exists() else {
+        'prior_cost':sum((json.loads(f.read_text()).get('result') or {}).get('total_cost_usd',0) for f in ROOT.glob('*/*summary.json')),
+        'calls':[],
+    }
+    if any(call['state']=='pending' for call in ledger['calls']):
+        raise RuntimeError('A previous call has no final cost; stop and inspect its outcome')
+    spent=ledger['prior_cost']+sum(call['cost'] for call in ledger['calls'])
+    if spent+0.12>3:raise RuntimeError('Stop before the $3 provider budget')
+    ledger['calls'].append({'label':label,'state':'pending','cost':0.12})
+    path.write_text(json.dumps(ledger,indent=2)+'\n')
+    return len(ledger['calls'])-1
+
+def invoke(args, project, env, label):
+    reservation=reserve_budget(label)
+    process=subprocess.Popen(args,cwd=project,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
+    try:
+        stdout,stderr=process.communicate(timeout=float(os.environ.get('TRIO_CALL_TIMEOUT','100')))
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid,signal.SIGTERM)
+        try:stdout,stderr=process.communicate(timeout=2)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid,signal.SIGKILL)
+            stdout,stderr=process.communicate()
+    events=[]
+    for line in stdout.splitlines():
+        try:events.append(json.loads(line))
+        except ValueError:pass
+    final=next((event for event in reversed(events) if event.get('type')=='result'),None)
+    if final is not None and isinstance(final.get('total_cost_usd'),(int,float)):
+        path=ROOT/'budget.json';ledger=json.loads(path.read_text())
+        ledger['calls'][reservation].update(state='settled',cost=final['total_cost_usd'])
+        path.write_text(json.dumps(ledger,indent=2)+'\n')
+    return subprocess.CompletedProcess(args,process.returncode,stdout,stderr)
+
+def rtk_storage(project):
+    return {'RTK_DB_PATH':str(project/'rtk-data/tracking.db'),
+            'RTK_RECALL_DB':str(project/'rtk-data/recall.db'),
+            'RTK_TEE_DIR':str(project/'rtk-tee')}
 
 def run(name, mode='rtk', policy='allow', command='git status', extra=False):
-    check_budget()
     p=ROOT/name;p.mkdir(exist_ok=False)
     (p/'.claude').mkdir(exist_ok=True);(p/'bin').mkdir(exist_ok=True);(p/'rtk-profile').mkdir(exist_ok=True)
     subprocess.run(['/usr/bin/git','init','-q',str(p)],check=True)
     (p/'fixture.txt').write_text('fixture 1959\n')
     (p/'fail-fixture.sh').write_text("printf '%s\\n' 'FAIL tests/payment.rs:42 expected 200 got 503' >&2\nexit 7\n")
+    (p/'rtk-data').mkdir();(p/'rtk-tee').mkdir()
     hook=p/'hook.py'
     hook.write_text('''import sys,subprocess,json,os,pathlib
 p=pathlib.Path(__file__).parent
 body=sys.stdin.buffer.read()
 with (p/'hooks.jsonl').open('a') as f:f.write(json.dumps({'registration':sys.argv[1:] or ['project'],'payload':json.loads(body)})+'\\n')
-env=dict(os.environ,CLAUDE_CONFIG_DIR=str(p/'rtk-profile'),XDG_DATA_HOME=str(p/'rtk-data'),XDG_CONFIG_HOME=str(p/'rtk-config'))
+env=dict(os.environ,CLAUDE_CONFIG_DIR=str(p/'rtk-profile'),RTK_DB_PATH=str(p/'rtk-data/tracking.db'),RTK_RECALL_DB=str(p/'rtk-data/recall.db'),RTK_TEE_DIR=str(p/'rtk-tee'))
 mode='''+repr(mode)+'''
 if mode=='raw':sys.exit(0)
 if mode=='missing':
  env['PATH']='/usr/bin:/bin'
  r=subprocess.run(['/bin/sh','-c','command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude'],input=body,capture_output=True,env=env)
 else:
- r=subprocess.run(['/opt/homebrew/bin/rtk','hook','claude'],input=body,capture_output=True,env=env)
+ r=subprocess.run(['''+repr(RTK)+''','hook','claude'],input=body,capture_output=True,env=env)
 with (p/'hook-replies.jsonl').open('a') as f:f.write(json.dumps({'exit':r.returncode,'stdout':r.stdout.decode(),'stderr':r.stderr.decode()})+'\\n')
 sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr);sys.exit(r.returncode)
-'''.replace('/opt/homebrew/bin/rtk',RTK))
+''')
     post=p/'post.py';post.write_text("import sys,json,pathlib\np=pathlib.Path(__file__).parent\nwith (p/'post.jsonl').open('a') as f:f.write(sys.stdin.read()+'\\n')\n")
     for binary,real in [('rtk',RTK),('git','/usr/bin/git')]:
         f=p/'bin'/binary
@@ -49,8 +86,8 @@ sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr);sys.exit(r.r
         perms[policy.split('-')[0]]=['Bash('+command+')'];perms['allow']=['Bash(rtk '+command+')']
     elif policy!='none':perms[policy]=['Bash('+command+')']
     if policy=='allow' and command.startswith('rtk '):perms['allow']=['Bash('+command+')']
-    h={'matcher':'Bash','hooks':[{'type':'command','command':'/usr/bin/python3 '+str(hook)+' project'}]}
-    settings={'permissions':perms,'env':{'PATH':str(p/'bin')+':'+os.environ['PATH'],'XDG_DATA_HOME':str(p/'rtk-data'),'XDG_CONFIG_HOME':str(p/'rtk-config')},'hooks':{'PreToolUse':[h],'PostToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/usr/bin/python3 '+str(post)}]}]},'enabledPlugins':{}}
+    h={'matcher':'Bash','hooks':[{'type':'command','command':shlex.join(['/usr/bin/python3',str(hook),'project'])}]}
+    settings={'permissions':perms,'env':{'PATH':str(p/'bin')+':'+os.environ['PATH'],**rtk_storage(p)},'hooks':{'PreToolUse':[h],'PostToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':shlex.join(['/usr/bin/python3',str(post)])}]}]},'enabledPlugins':{}}
     settings['hooks']['PostToolUseFailure']=settings['hooks']['PostToolUse']
     if os.environ.get('TRIO_DISABLE_PLUGINS'):
         user_settings=pathlib.Path.home()/'.claude/settings.json'
@@ -65,23 +102,19 @@ sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr);sys.exit(r.r
     if policy=='allow':args+=['--allowedTools','Bash('+command+')']
     if policy in ('ask-wrapper-allow','deny-wrapper-allow'):args+=['--allowedTools','Bash(rtk '+command+')']
     if extra and extra!='actual-global':
-        profile=p/'simulated-global.json';profile.write_text(json.dumps({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/usr/bin/python3 '+str(hook)+' simulated-global'}]}]}}))
+        profile=p/'simulated-global.json';profile.write_text(json.dumps({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':shlex.join(['/usr/bin/python3',str(hook),'simulated-global'])}]}]}}))
         args+=['--settings',str(profile)]
     if os.environ.get('TRIO_ISOLATED_PROFILE') or extra=='actual-global':
         profile=p/'host-profile';profile.mkdir(exist_ok=True)
         args[args.index('--setting-sources')+1]='user,project'
         if extra=='actual-global':
-            (profile/'settings.json').write_text(json.dumps({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/usr/bin/python3 '+str(hook)+' user'}]}]}}))
+            (profile/'settings.json').write_text(json.dumps({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':shlex.join(['/usr/bin/python3',str(hook),'user'])}]}]}}))
     args+=['--','Run exactly this shell command once: '+command]
     (p/'invocation.json').write_text(json.dumps(args,indent=2))
     started=time.time()
-    env=dict(os.environ,PATH=str(p/'bin')+':'+os.environ['PATH'])
+    env=dict(os.environ,PATH=str(p/'bin')+':'+os.environ['PATH'],**rtk_storage(p))
     if os.environ.get('TRIO_ISOLATED_PROFILE') or extra=='actual-global':env['CLAUDE_CONFIG_DIR']=str(p/'host-profile')
-    try:r=subprocess.run(args,cwd=p,env=env,capture_output=True,text=True,stdin=subprocess.DEVNULL,timeout=100)
-    except subprocess.TimeoutExpired as e:
-        (p/'events.jsonl').write_text(redact((e.stdout or b'').decode() if isinstance(e.stdout,bytes) else e.stdout or ''))
-        (p/'stderr.txt').write_text(redact((e.stderr or b'').decode() if isinstance(e.stderr,bytes) else e.stderr or ''))
-        print(json.dumps({'case':name,'timeout':True}),flush=True);return
+    r=invoke(args,p,env,name)
     (p/'stderr.txt').write_text(redact(r.stderr))
     events=[]
     for line in r.stdout.splitlines():
@@ -106,7 +139,6 @@ def isolated_suite():
     remove_user_registration()
 
 def remove_user_registration():
-    check_budget()
     p=ROOT/'actual_global'
     if (p/'after-removal-summary.json').exists():raise RuntimeError('Removal replay already recorded')
     summary=json.loads((p/'summary.json').read_text())
@@ -118,8 +150,8 @@ def remove_user_registration():
     (p/'host-profile/settings.json').write_text('{}\n')
     before=(p/'hooks.jsonl').read_text()
     args=json.loads((p/'invocation.json').read_text())
-    env=dict(os.environ,CLAUDE_CONFIG_DIR=str(p/'host-profile'),PATH=str(p/'bin')+':'+os.environ['PATH'])
-    result=subprocess.run(args,cwd=p,env=env,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=100)
+    env=dict(os.environ,CLAUDE_CONFIG_DIR=str(p/'host-profile'),PATH=str(p/'bin')+':'+os.environ['PATH'],**rtk_storage(p))
+    result=invoke(args,p,env,'actual_global_after_user_removal')
     events=[json.loads(line) for line in result.stdout.splitlines() if line.strip().startswith('{')]
     init=next((e for e in events if e.get('subtype')=='init'),{})
     startup={'plugin_count':len(init.get('plugins',[])),'skill_count':len(init.get('skills',[])),'tools':init.get('tools',[])}
