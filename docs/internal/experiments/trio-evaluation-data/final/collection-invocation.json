@@ -1,0 +1,23 @@
+{
+  "record": "Transcription of actual final runner argv. Local paths are replaced by role placeholders; this is not a native CLI manifest field.",
+  "runner_source_commit": "9932169b2d0836bea33144c0d9413052c488bddf",
+  "argv": [
+    "python3",
+    "-B",
+    "docs/internal/experiments/trio-evaluation.py",
+    "--output",
+    "<private-final-directory>",
+    "--agnostic",
+    "<recorded-clean-main-cli>",
+    "--agnostic-build-source",
+    "current-main",
+    "--agnostic-build-commit",
+    "9932169b2d0836bea33144c0d9413052c488bddf",
+    "--skill",
+    "internal/builtins/data/caveman/skills/caveman",
+    "--live",
+    "--total-budget",
+    "2"
+  ],
+  "authentication": "Existing OAuth supplied through the supported child environment. Credentials are excluded."
+}

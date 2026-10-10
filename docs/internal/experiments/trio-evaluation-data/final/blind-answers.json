@@ -1,0 +1,482 @@
+[
+  {
+    "label": "B001",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "700 passed; 1 failed\n\nThe command failed (exit code 7).\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B002",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "Command failed (exit 7). 0 passed; 1 failed.\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B003",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "Command failed (exit 7).\n\n700 passed; 1 failed\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B004",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "700 passed; 1 failed\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503\n\n`cargo test --test payment` failed (exit code 7).",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B005",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "**300 passed; 2 failed.** The command failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B006",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "Command failed (exit 7). 0 passed; 1 failed.\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B007",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "**300 passed; 2 failed**\n\nThe command failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B008",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "The command failed (exit code 7): 0 passed; 1 failed.\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B009",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "The command failed: 0 passed; 1 failed.\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B010",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "The command failed (exit code 7).\n\n0 passed; 1 failed\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B011",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "0 passed; 1 failed\n\ntests::short | tests/short.rs:9 | expected 1, got 2\n\nThe command failed (exit code 7).",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B012",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "300 passed; 2 failed\n\nCommand failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B013",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "700 passed; 1 failed. Command failed (exit code 7).\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B014",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "300 passed; 2 failed\n\nThe command failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B015",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "**700 passed; 1 failed**\n\nThe command failed (exit code 7).\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B016",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "The command failed (exit code 7).\n\n0 passed; 1 failed\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B017",
+    "truth": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::short",
+          "tests/short.rs:9",
+          "1",
+          "2"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "0 passed; 1 failed. Command failed (exit code 7).\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B018",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "**700 passed; 1 failed**\n\nThe command failed (exit code 7).\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B019",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "700 passed; 1 failed\n\nCommand failed (exit code 7).\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B020",
+    "truth": {
+      "passed": 700,
+      "failed": 1,
+      "failures": [
+        [
+          "tests::payment",
+          "tests/payment.rs:42",
+          "200",
+          "503"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "**700 passed; 1 failed**\n\nThe command failed (exit code 7).\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B021",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "300 passed; 2 failed. Command failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B022",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "300 passed; 2 failed\n\nCommand failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B023",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "300 passed; 2 failed\n\nThe command failed (exit code 7).\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  },
+  {
+    "label": "B024",
+    "truth": {
+      "passed": 300,
+      "failed": 2,
+      "failures": [
+        [
+          "tests::cafe",
+          "tests/café.rs:17",
+          "12",
+          "18"
+        ],
+        [
+          "tests::timeout",
+          "tests/timeout.rs:88",
+          "100",
+          "250"
+        ]
+      ]
+    },
+    "expected_command_exit": 7,
+    "answer": "300 passed; 2 failed\n\ntests::cafe | tests/café.rs:17 | expected 12, got 18\ntests::timeout | tests/timeout.rs:88 | expected 100, got 250\n\nCommand failed, exit code 7.",
+    "requirements": "Exact passed/failed counts. State command failed. One line per failure links identifier, path and expected/actual values. No contradictory or invented facts. Reporting an exit code is optional, but a conflicting exit-code claim fails."
+  }
+]

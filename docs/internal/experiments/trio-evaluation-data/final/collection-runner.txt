@@ -52,13 +52,11 @@ def transcript(task):
     lines += [f"test result: FAILED. {task['passed']} passed; {task['failed']} failed; 0 ignored", '']
     return '\n'.join(lines).encode()
 
-def oracle(answer, task, command=None):
+def oracle(answer, task):
     required = [f"{task['passed']} passed; {task['failed']} failed"]
     required += [value for error in task['errors'] for value in error[:2]]
     required += [f'expected {expected}, got {actual}' for _, _, expected, actual in task['errors']]
-    named_command = r'`'+re.escape(command)+r'`[ \t]+' if command else None
-    failure_stated = (bool(re.search(r'\bcommand failed\b', answer, flags=re.IGNORECASE))
-                      or bool(named_command and re.search(named_command+r'(?i:failed)\b', answer)))
+    failure_stated = bool(re.search(r'\bcommand failed\b', answer, flags=re.IGNORECASE))
     missing = [value for value in required if value not in answer]
     if not failure_stated:
         missing.append('explicit command failed statement')
@@ -89,8 +87,6 @@ def oracle(answer, task, command=None):
         if observed.count(error) != 1:
             missing.append(f'one linked failure line for {error[0]}')
     if re.search(r'\b(?:command (?:succeeded|passed|completed successfully|was successful)|exit(?:ed)?(?: with)?(?: code| status)?\s*[:=]?\s*0)\b|(?<!not )\ball tests passed\b', answer, re.IGNORECASE):
-        contradictions.append('command success claim')
-    if named_command and re.search(named_command+r'(?i:succeeded|passed|completed successfully|was successful)\b', answer):
         contradictions.append('command success claim')
     return {'passed': not missing and not contradictions, 'missing': missing, 'contradictions': contradictions}
 
@@ -302,15 +298,6 @@ def self_test():
     assert 'conflicting expected/actual pair' in oracle(answer + ' expected 200, got 200.', task)['contradictions']
     assert 'command success claim' in oracle(answer + ' Command succeeded (exit code 0).', task)['contradictions']
     assert oracle(answer + ' Not all tests passed.', task)['passed']
-    named_failure = ('700 passed; 1 failed\n\ntests::payment | tests/payment.rs:42 | expected 200, got 503\n\n'
-                     '`cargo test --test payment` failed (exit code 7).')
-    assert oracle(named_failure, task, task_command('payment'))['passed']
-    assert not oracle(named_failure.replace('`cargo test --test payment` failed',
-                                           '`cargo test --test wrong` failed'), task, task_command('payment'))['passed']
-    assert not oracle(named_failure.replace('`cargo test --test payment` failed (exit code 7).', ''),
-                      task, task_command('payment'))['passed']
-    assert 'command success claim' in oracle(named_failure + ' `cargo test --test payment` succeeded.',
-                                             task, task_command('payment'))['contradictions']
     unicode_answer = ('300 passed; 2 failed. Command failed.\n'
                       '- tests::cafe | tests/café.rs:17 | expected 12, got 18\n'
                       '- tests::timeout | tests/timeout.rs:88 | expected 100, got 250')
@@ -328,10 +315,6 @@ def self_test():
     assert not oracle(original_swapped, TASKS['unicode'])['passed']
     short_answer = '0 passed; 1 failed. Command failed. tests::short | tests/short.rs:9 | expected 1, got 2'
     assert oracle(short_answer, TASKS['short'])['passed']
-    assert oracle(short_answer.replace('Command failed.', '`fixture-report short` failed.'),
-                  TASKS['short'], task_command('short'))['passed']
-    assert oracle(unicode_answer.replace('Command failed.', '`cargo test --test unicode` failed.'),
-                  TASKS['unicode'], task_command('unicode'))['passed']
     assert not oracle(short_answer.replace('expected 1, got 2', 'expected 2, got 1'), TASKS['short'])['passed']
     unknown = accounting(None, None)
     assert not unknown['measurement_complete'] and unknown['unweighted_total_input_tokens'] is None
@@ -802,7 +785,7 @@ sys.exit(code)
     hook_recorded = hook_observed(hook_events, command, tool_use_id, expected_rewrite)
     no_unexpected_rewrite = hook_noop_evidence(hook_events, command, tool_use_id) if not expected_rewrite else rtk_applied
     answer = result.get('result', '')
-    quality = oracle(answer, task, command)
+    quality = oracle(answer, task)
     init = next((event for event in events if event.get('type') == 'system' and event.get('subtype') == 'init'), {})
     inventory = {key: init.get(key) for key in ('claude_code_version', 'model', 'skills', 'plugins', 'mcp_servers', 'tools')}
     expected_skill = arm in ('caveman', 'both')

@@ -1,0 +1,72 @@
+{
+  "baseline_commit": "5a26e86cca3e9172525d3a750e9744d1a60eaf68",
+  "runner_sha256": "828de40f154b2eb49d610125269fc206cfd30d41fdc1bd588684206a797b1d0a",
+  "skill_source": "{selected-skill}",
+  "skill_tree_sha256": "1cc150ef22276483226e03cd7718c43e80c232aa2d75b53bbd01d80042ac62eb",
+  "agnostic_executable": "{agnostic-executable}",
+  "agnostic_binary_sha256": "64dd981abb7b18ae959e89dbbafac98398a545864eda7a17bf9c66e1feffbeb2",
+  "agnostic_version": "agnostic-ai version 0.81.0",
+  "agnostic_build_source": "current-main",
+  "agnostic_build_commit": "5a26e86cca3e9172525d3a750e9744d1a60eaf68",
+  "claude_executable": "{claude-executable}",
+  "claude_binary_sha256": "0116ee2e0a513900b633d9951367f18747686478e2b462805b8c31609f047f70",
+  "claude_version": "2.1.295 (Claude Code)",
+  "rtk_version": "rtk 0.51.0",
+  "rtk_processor_executable": "{rtk-executable}",
+  "rtk_host_executable": "{case}/bin/rtk",
+  "rtk_host_target": "{rtk-executable}",
+  "rtk_binary_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f",
+  "model": "claude-haiku-5-5",
+  "seed": 1957,
+  "repetitions": 1,
+  "selected_tasks": [
+    "short"
+  ],
+  "scope": "visible-summary-only; accepted protocol requires one task command and no recovery calls",
+  "cost_measure": "CLI list-price estimate; input, cache creation, cache read, and output remain separate",
+  "overhead_measure": "Prompt and loaded skill body are UTF-8 byte counts, not provider tokens",
+  "raw_artifacts": "private; stdout and hook events may contain session IDs, local paths, and full tool input",
+  "authentication_method": "inherited environment; credentials are not inspected or recorded",
+  "isolation": "fresh AGNOSTIC_AI_HOME and CLAUDE_CONFIG_DIR per case; HOME unchanged",
+  "builtin_cache": "normal os.UserCacheDir cache is shared with the host and its warmth is uncontrolled; sync time is setup telemetry only",
+  "expected_host": {
+    "tools": [
+      "Bash",
+      "Skill"
+    ],
+    "common_skills": [
+      "design",
+      "doctor",
+      "plugin-authoring"
+    ],
+    "bundled_plugin_count": 3,
+    "caveman_delta": "generated project skill only in caveman and both arms"
+  },
+  "rtk_store": "RTK_DB_PATH, RTK_RECALL_DB, and RTK_TEE_DIR point inside each private case directory",
+  "dataset": "new cases only; earlier debug runs are excluded",
+  "task_matrix": {
+    "short": {
+      "command": "fixture-report short",
+      "fixture_sha256": "5e49558e96cd15565c660eb85c00a5e00ce909ae73786b5fa90e1525570d43ba",
+      "fixture_utf8_bytes": 204,
+      "rtk_rewrite": false
+    }
+  },
+  "noop_preflight": {
+    "native_command": "command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude",
+    "request_sha256": "e5e00d1b21ea6e0b9cef6b7449a765be7cd0c1dae0a17675e166d79162305ef7",
+    "exit": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rtk_calls": [
+      [
+        "hook",
+        "claude"
+      ]
+    ],
+    "processor_count": 1,
+    "host_count": 0,
+    "exact_calls": true,
+    "generated_settings_sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d"
+  }
+}

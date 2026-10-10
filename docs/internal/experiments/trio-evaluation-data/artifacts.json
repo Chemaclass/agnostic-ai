@@ -1,0 +1,20 @@
+{
+  "final": {
+    "archive_sha256": "019331a462c850a56503f297e5d02b138777482b3076ee65d5766f6675e3ced5",
+    "archive_bytes": 374413,
+    "files": 580,
+    "raw_content_bytes": 1976517
+  },
+  "original-pilot": {
+    "archive_sha256": "0756aad3736410870654317e8a484b74f43985835a8d60f27dd095a642e2171b",
+    "archive_bytes": 58558,
+    "files": 110,
+    "raw_content_bytes": 243136
+  },
+  "fresh-pilot": {
+    "archive_sha256": "ea1d934223ad3e1551bb8ef79fd42228207ae1f2e615d5696641cbab1ad4be2d",
+    "archive_bytes": 57148,
+    "files": 110,
+    "raw_content_bytes": 241593
+  }
+}
