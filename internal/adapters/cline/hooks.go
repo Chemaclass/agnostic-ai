@@ -1,6 +1,7 @@
 package cline
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -220,9 +221,36 @@ func toolFilter(tools []string) string {
 	}
 	patterns := make([]string, len(tools))
 	for i, tool := range tools {
-		patterns[i] = `*'"toolName":"` + tool + `"'*`
+		var value strings.Builder
+		encoder := json.NewEncoder(&value)
+		encoder.SetEscapeHTML(false)
+		_ = encoder.Encode(tool)
+		patterns[i] = "*" + emit.ShellQuote(`"toolName":`+clineJSONSeparators(strings.TrimSuffix(value.String(), "\n"))) + "*"
 	}
 	return "case $aai_in in " + strings.Join(patterns, "|") + ") ;; *) exit 0 ;; esac\n"
+}
+
+// JSON.stringify leaves these separators literal; skip escaped backslashes.
+func clineJSONSeparators(value string) string {
+	var out strings.Builder
+	for i := 0; i < len(value); i++ {
+		if value[i] == '\\' && i+1 < len(value) {
+			if strings.HasPrefix(value[i:], `\u2028`) {
+				out.WriteRune('\u2028')
+				i += 5
+				continue
+			}
+			if strings.HasPrefix(value[i:], `\u2029`) {
+				out.WriteRune('\u2029')
+				i += 5
+				continue
+			}
+			out.WriteByte(value[i])
+			i++
+		}
+		out.WriteByte(value[i])
+	}
+	return out.String()
 }
 
 // clineBlockPrelude sets up the stderr file and the JSON string escape

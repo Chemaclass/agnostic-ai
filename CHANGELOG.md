@@ -28,6 +28,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
 
+#### Cline
+
+- Keep tool names in hook overrides as literal data, including quotes and newlines, so they cannot add shell commands (#2019).
+
 ## v0.82.0 - 2026-10-10
 
 ### General
