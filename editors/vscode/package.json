@@ -114,7 +114,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "tsc -p ./ && node --test out/test/*.test.js",
+    "test": "tsc -p ./ && node out/test/run.js",
     "package": "vsce package",
     "publish": "vsce publish"
   },
