@@ -5,6 +5,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import resource
+import shlex
+import signal
+import stat
 import subprocess
 import sys
 
@@ -36,10 +40,10 @@ def check(name, condition):
         raise AssertionError(name)
 
 
-def run(argv, project, process_env=env, payload=None, expected_exit=0):
+def run(argv, project, process_env=env, payload=None, expected_exit=0, child_setup=None):
     result = subprocess.run([str(x) for x in argv], cwd=project, env=process_env,
                             input=json.dumps(payload) if payload is not None else None,
-                            text=True, capture_output=True)
+                            text=True, capture_output=True, preexec_fn=child_setup)
     evidence['runs'].append({'argv': [str(x) for x in argv], 'project': project.name,
                              'exit': result.returncode, 'stdout': result.stdout,
                              'stderr': result.stderr})
@@ -124,7 +128,11 @@ try:
         reply = run(['/bin/sh', '-c', command], p, present_env, probe)
         check(f'No replacement for {text}', reply.stdout == '')
     marker = p / 'payload-executed'
-    probe = dict(payload, tool_input={'command': f'touch {marker}'})
+    payload_command = f'printf executed > {shlex.quote(str(marker))}'
+    run(['/bin/sh', '-c', payload_command], p, missing_env)
+    check('Missing-binary probe payload executes under empty PATH', marker.read_text() == 'executed')
+    marker.unlink()
+    probe = dict(payload, tool_input={'command': payload_command})
     reply = run(['/bin/sh', '-c', command], p, missing_env, probe)
     check('Missing RTK returns no reply and never executes payload', reply.stdout == '' and not marker.exists())
     add(p, 'caveman')
@@ -192,6 +200,55 @@ try:
          '--backup', empty_backup], p)
     check('Restore recreates missing hooks object and retains environment',
           settings(p)['hooks']['PreToolUse'] == [old] and settings(p)['env']['EXAMPLE_SENTINEL'] == 'preserve')
+
+    p = project('failed-settings-write', old)
+    path = p / '.claude/settings.json'
+    doc = settings(p)
+    doc['env']['PADDING'] = 'x' * 4096
+    path.write_text(json.dumps(doc, indent=2) + '\n')
+    path.chmod(0o640)
+    before = path.read_bytes()
+    failed_backup = root / 'failed-write-handler.json'
+
+    def limit_child_file_size():
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+        resource.setrlimit(resource.RLIMIT_FSIZE, (1024, 1024))
+
+    run([sys.executable, HERE / 'transfer-hook.py', 'take', '--project', p,
+         '--backup', failed_backup, '--command', old_command], p,
+        expected_exit=1, child_setup=limit_child_file_size)
+    check('Failed settings write preserves original bytes and unrelated fields', path.read_bytes() == before)
+    check('Failed settings write preserves original permissions', stat.S_IMODE(path.stat().st_mode) == 0o640)
+    check('Failed settings write cleans temporary siblings', not list(path.parent.glob('.settings.json-*')))
+    check('Selected handler snapshot is private', stat.S_IMODE(failed_backup.stat().st_mode) == 0o600)
+    failed_backup.unlink()
+    run([sys.executable, HERE / 'transfer-hook.py', 'take', '--project', p,
+         '--backup', failed_backup, '--command', old_command], p)
+    check('Successful replacement preserves settings permissions', stat.S_IMODE(path.stat().st_mode) == 0o640)
+
+    p = project('symlinked-settings', old)
+    path = p / '.claude/settings.json'
+    target = root / 'symlink-target.json'
+    path.rename(target)
+    before = target.read_bytes()
+    path.symlink_to(target)
+    rejected_backup = root / 'symlink-rejected.json'
+    run([sys.executable, HERE / 'transfer-hook.py', 'take', '--project', p,
+         '--backup', rejected_backup, '--command', old_command], p, expected_exit=2)
+    check('Symlink settings refused without modifying link or target',
+          path.is_symlink() and target.read_bytes() == before and not rejected_backup.exists())
+
+    p = project('symlinked-settings-directory', old)
+    directory = p / '.claude'
+    target_directory = root / 'symlink-directory-target'
+    directory.rename(target_directory)
+    before = (target_directory / 'settings.json').read_bytes()
+    directory.symlink_to(target_directory, target_is_directory=True)
+    run([sys.executable, HERE / 'transfer-hook.py', 'take', '--project', p,
+         '--backup', rejected_backup, '--command', old_command], p, expected_exit=2)
+    check('Symlink settings directory refused without modifying target',
+          directory.is_symlink() and (target_directory / 'settings.json').read_bytes() == before
+          and not rejected_backup.exists())
 
     p = project('existing-upstream-skill')
     skill(p).mkdir(parents=True)

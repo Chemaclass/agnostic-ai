@@ -2,17 +2,37 @@
 """Transfer one explicitly selected project hook without copying other settings."""
 import argparse
 import json
+import os
 from pathlib import Path
+import stat
+import tempfile
+
+
+def write_settings(settings, doc):
+    mode = stat.S_IMODE(settings.stat().st_mode)
+    descriptor, name = tempfile.mkstemp(prefix='.settings.json-', dir=settings.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, 'w') as output:
+            output.write(json.dumps(doc, indent=2) + '\n')
+        temporary.chmod(mode)
+        os.replace(temporary, settings)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog='Project settings.json and the .claude directory must not be symlinks.')
     parser.add_argument('action', choices=['take', 'restore'])
     parser.add_argument('--project', type=Path, required=True)
     parser.add_argument('--backup', type=Path, required=True)
     parser.add_argument('--command', help='Exact upstream-owned hook command to take')
     args = parser.parse_args()
     settings = args.project / '.claude' / 'settings.json'
+    if settings.is_symlink() or settings.parent.is_symlink():
+        parser.error(f'{settings}: symlink settings or .claude directory refused')
     doc = json.loads(settings.read_text())
     events = doc.setdefault('hooks', {})
     if args.action == 'take':
@@ -31,7 +51,8 @@ def main():
         original = dict(group, hooks=[group['hooks'][j]])
         record = {'project': str(args.project.resolve()), 'event': event,
                   'index': i, 'group': original}
-        with args.backup.open('x') as backup:
+        descriptor = os.open(args.backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, 'w') as backup:
             backup.write(json.dumps(record, indent=2) + '\n')
         group['hooks'].pop(j)
         if not group['hooks']:
@@ -49,7 +70,7 @@ def main():
             parser.error('command already exists; refusing a duplicate')
         groups = events.setdefault(record['event'], [])
         groups.insert(min(record['index'], len(groups)), restored)
-    settings.write_text(json.dumps(doc, indent=2) + '\n')
+    write_settings(settings, doc)
     print(f'{args.action}: {settings}')
 
 
