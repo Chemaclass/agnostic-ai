@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - VS Code runs one background drift check at a time, keeps the result current after save bursts, and stops checking when the workspace closes (#1984).
+- Compare hook events, matchers, commands, timeouts, and failure policies with current output and ignored-field reasons (#1985).
 - The VS Code status bar shows failed checks and their reason instead of reporting in sync (#1981).
 - The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).
 

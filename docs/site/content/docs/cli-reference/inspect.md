@@ -106,7 +106,7 @@ agnostic-ai explain --inputs
 
 ## compare
 
-Compare how two built-in targets handle the project's agent and skill fields and rule activation, before you switch or add a tool.
+Compare how two built-in targets handle the project's agent and skill fields, rule activation, and hook configuration, before you switch or add a tool.
 
 ```bash
 agnostic-ai compare claude cursor
@@ -116,7 +116,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-It covers agent and skill fields, plus rule `scope`, `paths`, `globs`, and `alwaysApply`. It leaves out hooks and the other spec kinds. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
+It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. Other spec kinds and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|
@@ -126,7 +126,7 @@ It covers agent and skill fields, plus rule `scope`, `paths`, `globs`, and `alwa
 | `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
 | `unknown` | The written files do not show either way. |
 
-`preserved` describes the written file, not what the tool does at runtime. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
+`preserved` describes the written file. It does not prove the tools behave the same or that a hook ran. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
 
 The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
