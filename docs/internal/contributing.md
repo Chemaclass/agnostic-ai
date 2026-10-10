@@ -24,6 +24,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Concurrency | `make test-race` |
 | Dependencies (`go.mod`) | `make size-check`; raise [`scripts/binary-size-budget`](../../scripts/binary-size-budget) only when the growth is worth it, and say why in the PR |
 | Shell scripts or CLI end-to-end behavior | `make test-shell` (requires bashunit on PATH) |
+| Project setup, branch changes or package versions | `go test ./tests/integration -run TestProjectLifecycle -count=1`; full Linux, macOS and Windows CI |
 | Config struct or schema fields | `go run ./cmd/schemagen`; include the updated schema |
 | Project source specs | `go run ./cmd/agnostic-ai lint`, then `go run ./cmd/agnostic-ai sync` |
 | Adapter output | Adapter tests and relevant saved expected output files (golden fixtures); preview with `sync --dry-run` |
@@ -33,6 +34,8 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Editor extension | Follow its [development guide](../../editors/README.md) and CI job |
 
 `make preflight` covers formatting, lint (including `govet`), and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WebAssembly (WASM) builds, and extension builds.
+
+The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks and migration plans that leave files unchanged. They do not connect to coding tools or call a model.
 
 `make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after the required version changes. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
 
