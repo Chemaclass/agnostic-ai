@@ -68,7 +68,7 @@ agnostic-ai memory path                          # print the memory folders, inc
 
 `agnostic-ai new` creates all ten spec kinds in their configured source directories. Edit the marked placeholders before rendering or syncing. See [new](https://agnostic-ai.org/docs/cli-reference/start/#new).
 
-`explain --file` supports Claude Code and Cursor. It shows source specs, planned output paths, and why instructions apply. See [file instructions](https://agnostic-ai.org/docs/cli-reference/inspect/#explain-a-source-file).
+`explain --file` supports Claude Code, Codex, and Cursor. It shows source specs, planned output paths, and why instructions apply. See [file instructions](https://agnostic-ai.org/docs/cli-reference/inspect/#explain-a-source-file).
 
 On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
 

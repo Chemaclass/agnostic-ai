@@ -30,6 +30,8 @@ AGENTS.md                                    # entry-point pointer body (written
 - **Scoped rules**: `scope: services/payments` writes to `services/payments/AGENTS.md`. Adding `globs: tests/payments/**` also writes the rule into `tests/payments/AGENTS.md`. A nested `AGENTS.md` cannot hold file filters outside its directory or root selectors, so those follow `on-unsupported`. Remove legacy `outputs.codex.rules-file` overrides before using explicit scopes.
 - **Rule loading**: Codex reads `AGENTS.md` from the session's working directory and its parent directories, so start Codex in a subtree to load its nested `AGENTS.md`. A session started at the root does not load nested files when it later edits there.
 
+  Run `agnostic-ai explain --file services/payments/handler.go --target codex` to see source specs and planned instruction paths. Nested files and custom filenames report the missing discovery information. See [file instruction reports](@/docs/cli-reference/inspect.md#explain-a-source-file).
+
   {% <details summary="When nested placement falls back"> %}
   Sync keeps the rule in the root `AGENTS.md`, with a note, when an output override, an unmanaged destination, or another tool that reads the root file cannot keep nested files. A one-off target picked on the command line counts. If tool settings or bodies conflict, sync fails before it writes anything. See the [scoped context safeguards](@/docs/scoped-context.md#shared-files-and-safe-updates).
   {% </details> %}
