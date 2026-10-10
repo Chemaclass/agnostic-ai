@@ -321,10 +321,9 @@ func importPreviewDiff(e importPreviewEntry) string {
 	}
 	afterLabel := e.path + " (after import)"
 	if !e.existed {
-		return labeledDiff("/dev/null", afterLabel, nil, splitLines(string(e.after)), diffBodyMax)
+		return previewDiff(e.path, "/dev/null", afterLabel, "", string(e.after), true, diffBodyMax)
 	}
-	return labeledDiff(e.path+" (current)", afterLabel,
-		splitLines(string(e.before)), splitLines(string(e.after)), diffBodyMax)
+	return previewDiff(e.path, e.path+" (current)", afterLabel, string(e.before), string(e.after), false, diffBodyMax)
 }
 
 // isBinary reports whether data is not printable as text.

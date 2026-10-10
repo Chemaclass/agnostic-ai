@@ -25,6 +25,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -836,7 +837,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return nil
 	}
 	if dryRun {
-		fmt.Printf("--- %s ---\n%s\n", path, content)
+		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
 		return nil
 	}
 	if escapesProjectRoot(path) {
