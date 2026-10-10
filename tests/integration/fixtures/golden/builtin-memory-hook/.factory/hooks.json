@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target factory'"
+          "command": "sh -c 'root=\"${FACTORY_PROJECT_DIR:-}\"; if [ -z \"$root\" ]; then root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || root=\"$PWD\"; fi; if [ -x \"$root/node_modules/.bin/agnostic-ai\" ]; then exec \"$root/node_modules/.bin/agnostic-ai\" project -- hook memory --target factory; fi; command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai project -- hook memory --target factory'"
         }
       ]
     }

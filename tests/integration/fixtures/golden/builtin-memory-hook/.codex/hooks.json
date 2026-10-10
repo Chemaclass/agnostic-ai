@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export AGNOSTIC_AI_TARGET=codex; sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target codex'",
-            "commandWindows": "if (Get-Command agnostic-ai -ErrorAction SilentlyContinue) { agnostic-ai hook memory --target codex }"
+            "command": "export AGNOSTIC_AI_TARGET=codex; sh -c 'root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || root=\"$PWD\"; if [ -x \"$root/node_modules/.bin/agnostic-ai\" ]; then exec \"$root/node_modules/.bin/agnostic-ai\" project -- hook memory --target codex; fi; command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai project -- hook memory --target codex'",
+            "commandWindows": "$root = (Get-Location).Path; if (Get-Command git -ErrorAction SilentlyContinue) { $top = git rev-parse --show-toplevel 2>$null; if ($top) { $root = $top } }; $local = Join-Path $root 'node_modules/.bin/agnostic-ai.cmd'; if (Test-Path $local) { & $local project -- hook memory --target codex } elseif (Get-Command agnostic-ai -ErrorAction SilentlyContinue) { agnostic-ai project -- hook memory --target codex }"
           }
         ]
       }

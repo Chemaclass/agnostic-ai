@@ -6,7 +6,7 @@
         "command": "echo '{\"env\":{\"AGNOSTIC_AI_TARGET\":\"cursor\"}}'"
       },
       {
-        "command": "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target cursor'"
+        "command": "sh -c 'root=\"${CURSOR_PROJECT_DIR:-}\"; if [ -z \"$root\" ]; then root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || root=\"$PWD\"; fi; if [ -x \"$root/node_modules/.bin/agnostic-ai\" ]; then exec \"$root/node_modules/.bin/agnostic-ai\" project -- hook memory --target cursor; fi; command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai project -- hook memory --target cursor'"
       }
     ]
   }

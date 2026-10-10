@@ -63,7 +63,7 @@ func automaticUpgradeAllowed(cmd *cobra.Command, version string, interactive boo
 	}
 	for c := cmd; c != nil; c = c.Parent() {
 		switch c.Name() {
-		case "hook", "install-hook", "lsp", "completion", "upgrade", "update", "use":
+		case "hook", "project", "install-hook", "lsp", "completion", "upgrade", "update", "use":
 			return false
 		}
 	}

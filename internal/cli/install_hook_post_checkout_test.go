@@ -33,11 +33,30 @@ func TestInstallHookPostCheckout_CreatesHook(t *testing.T) {
 		"# agnostic-ai install-hook --post-checkout\n",
 		`[ "$3" = "1" ] || exit 0`,
 		"agnostic-ai.yaml",
-		"agnostic-ai sync -q",
+		"agnostic-ai project",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("hook missing %q, got:\n%s", want, got)
 		}
+	}
+}
+
+func TestInstallHookPostCheckout_UpgradesLegacyChecks(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	path := postCheckoutHookPath(dir)
+	old := "#!/bin/sh\necho manual\n" + postCheckoutHook.sentinel + "\n" + postCheckoutHook.legacyChecks + "\n"
+	if err := os.WriteFile(path, []byte(old), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := runInstallHook("--post-checkout"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := readHook(t, path)
+	if !strings.Contains(got, "echo manual") || strings.Contains(got, "agnostic-ai sync -q") || strings.Count(got, "\nagnostic-ai project\n") != 1 {
+		t.Errorf("legacy upgrade: %s", got)
 	}
 }
 
@@ -50,7 +69,7 @@ func TestInstallHookPostCheckout_Shared(t *testing.T) {
 	}
 
 	got := readHook(t, filepath.Join(dir, sharedHooksPath, "post-checkout"))
-	if !strings.Contains(got, "agnostic-ai sync -q") {
+	if !strings.Contains(got, "agnostic-ai project") {
 		t.Errorf("shared hook missing the sync call, got:\n%s", got)
 	}
 	if value := git(t, dir, "config", "core.hooksPath"); value != sharedHooksPath {
@@ -94,7 +113,7 @@ func runGitWithFakeCLI(t *testing.T, dir, bin string, args ...string) (string, e
 	return string(out), err
 }
 
-// A branch checkout runs the hook, which runs `agnostic-ai sync -q` from
+// A branch checkout runs the hook, which runs `agnostic-ai project` from
 // the worktree root; a single-file checkout does not (#1330).
 func TestInstallHookPostCheckout_RunsSyncOnBranchCheckoutOnly(t *testing.T) {
 	dir := setupGitRepo(t)
@@ -136,8 +155,8 @@ func TestInstallHookPostCheckout_RunsSyncOnBranchCheckoutOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(string(calls)); got != "sync -q cwd="+root {
-		t.Errorf("calls = %q, want %q", got, "sync -q cwd="+root)
+	if got := strings.TrimSpace(string(calls)); got != "project cwd="+root {
+		t.Errorf("calls = %q, want %q", got, "project cwd="+root)
 	}
 }
 
@@ -170,8 +189,8 @@ func TestInstallHookPostCheckout_WorktreeAddRunsSyncInTheNewWorktree(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(string(calls)); got != "sync -q cwd="+root {
-		t.Errorf("calls = %q, want %q (the new worktree's own root)", got, "sync -q cwd="+root)
+	if got := strings.TrimSpace(string(calls)); got != "project cwd="+root {
+		t.Errorf("calls = %q, want %q (the new worktree's own root)", got, "project cwd="+root)
 	}
 }
 
@@ -234,7 +253,7 @@ func TestInstallHookPostCheckout_KeepsManualHooksAndInstallsBothOnce(t *testing.
 			}
 			for _, name := range []string{"post-checkout", "post-merge"} {
 				got := readHook(t, filepath.Join(hooks, name))
-				if !strings.Contains(got, "echo manual-"+name) || strings.Count(got, "agnostic-ai sync -q") != 1 {
+				if !strings.Contains(got, "echo manual-"+name) || strings.Count(got, "\nagnostic-ai project\n") != 1 {
 					t.Errorf("%s lost manual content or lacks one sync: %s", name, got)
 				}
 			}
@@ -300,7 +319,12 @@ func TestInstallHookPostMerge_SkipsMissingBinaryOrConfig(t *testing.T) {
 	if err := os.Symlink(realGit, filepath.Join(gitOnly, "git")); err != nil {
 		t.Fatal(err)
 	}
-	run(gitOnly)
+	missing := exec.Command("sh", hook, "0")
+	missing.Dir = dir
+	missing.Env = append(os.Environ(), "PATH="+gitOnly)
+	if out, err := missing.CombinedOutput(); err == nil || !strings.Contains(string(out), "project --bootstrap") {
+		t.Errorf("missing binary should name recovery: %v %s", err, out)
+	}
 	if calls, _ := os.ReadFile(log); len(calls) != 0 {
 		t.Errorf("missing binary ran sync: %s", calls)
 	}
@@ -313,7 +337,7 @@ func TestInstallHookPostMerge_SkipsMissingBinaryOrConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(string(calls)) != "sync -q cwd="+canonical {
+	if strings.TrimSpace(string(calls)) != "project cwd="+canonical {
 		t.Errorf("post-merge did not sync from root: %s", calls)
 	}
 }

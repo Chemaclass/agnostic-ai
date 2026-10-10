@@ -60,7 +60,7 @@ func TestInstallHook_CreatesPreCommit(t *testing.T) {
 	}
 
 	got := readHook(t, filepath.Join(dir, ".git", "hooks", "pre-commit"))
-	for _, want := range []string{"#!/bin/sh\n", "# agnostic-ai install-hook\n", "agnostic-ai sync --check --against index || exit 1\n"} {
+	for _, want := range []string{"#!/bin/sh\n", "# agnostic-ai install-hook\n", "agnostic-ai project --check --against index || exit 1\n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("hook missing %q, got:\n%s", want, got)
 		}
@@ -134,7 +134,7 @@ func TestInstallHook_Idempotent(t *testing.T) {
 	}
 
 	got := readHook(t, filepath.Join(dir, ".git", "hooks", "pre-commit"))
-	if count := strings.Count(got, "agnostic-ai sync --check"); count != 1 {
+	if count := strings.Count(got, "agnostic-ai project --check"); count != 1 {
 		t.Errorf("expected 1 occurrence of sync --check, got %d:\n%s", count, got)
 	}
 }
@@ -155,7 +155,7 @@ func TestInstallHook_UpdatesAHookFromAnOlderVersion(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := readHook(t, hookPath)
-		if !strings.Contains(got, "agnostic-ai sync --check --against index || exit 1\n") || strings.Count(got, "sync --check") != 1 {
+		if !strings.Contains(got, "agnostic-ai project --check --against index || exit 1\n") || strings.Count(got, "project --check") != 1 {
 			t.Errorf("hook from an older version not updated:\n%s", got)
 		}
 		if !strings.Contains(out.String(), "updated the checks") {
@@ -172,7 +172,7 @@ func TestInstallHook_Shared_CreatesGithooksDir(t *testing.T) {
 	}
 
 	got := readHook(t, filepath.Join(dir, ".githooks", "pre-commit"))
-	if !strings.Contains(got, "agnostic-ai sync --check") {
+	if !strings.Contains(got, "agnostic-ai project --check") {
 		t.Errorf("hook missing sync --check, got:\n%s", got)
 	}
 	if hooksPath := git(t, dir, "config", "core.hooksPath"); hooksPath != ".githooks" {
