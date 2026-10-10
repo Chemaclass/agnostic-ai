@@ -17,6 +17,8 @@ moved = { per-target-body-fences = "@/docs/spec-format/_index.md" }
 - **Fresh context.** Print the branch, open issues, or service status when a session starts.
 - **One script, many tools.** Tools that share event names, such as Claude Code and Codex, run one spec. `AGNOSTIC_AI_TARGET` tells a shared script which tool called it.
 
+Use [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare) to check how tools write hook events, matchers, commands, timeouts, and failure policies. The report names missing mappings, target exclusions, and ignored options. Written configuration does not prove a hook ran.
+
 Sync never runs a hook. The configured tools do. [`agnostic-ai hook run`](#hook-run) runs one when you ask. Review hook specs like code.
 
 ## Write one
