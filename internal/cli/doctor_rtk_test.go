@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -90,11 +91,31 @@ func TestRTKDeclaredPermissions_WrappersAndParameterRulesStayUnknown(t *testing.
 			t.Errorf("wrapper %q reported as %+v", command, got)
 		}
 	}
-	got := rtkDeclaredDecision("git status", []rtkSettings{{Permissions: rtkPermissionRules{
-		"allow": {"Bash(git status)"}, "deny": {"Bash(run_in_background:true)"},
-	}}})
-	if got.Decision != "unknown" {
-		t.Errorf("parameter rule reported as %+v", got)
+	for _, rule := range []string{"Bash(run_in_background:true)", "Bash(run_in_background :true)", "Bash(timeout:1000)", "Bash(timeout:*)", "Bash(description:status)", "Bash(dangerouslyDisableSandbox:true)"} {
+		got := rtkDeclaredDecision("git status", []rtkSettings{{Permissions: rtkPermissionRules{
+			"allow": {"Bash(git status)"}, "deny": {rule},
+		}}})
+		if got.Decision != "unknown" {
+			t.Errorf("parameter rule %q reported as %+v", rule, got)
+		}
+	}
+}
+
+func TestRTKDiagnostic_BoundsDescendantHeldOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX processor fixture")
+	}
+	processor := filepath.Join(t.TempDir(), "rtk")
+	if err := os.WriteFile(processor, []byte("#!/bin/sh\nsleep 3 &\nprintf 'rtk fixture\\n'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	_, err := runRTKDiagnostic(processor, "--version")
+	if err == nil {
+		t.Fatal("expected a failure for inherited output that stays open")
+	}
+	if elapsed := time.Since(start); elapsed > 1500*time.Millisecond {
+		t.Fatalf("descendant kept the diagnostic waiting for %s", elapsed)
 	}
 }
 

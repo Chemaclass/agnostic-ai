@@ -243,6 +243,7 @@ func runRTKDiagnostic(path string, args ...string) ([]byte, error) {
 	defer cancel()
 	var output rtkDiagnosticOutput
 	cmd := exec.CommandContext(ctx, path, args...)
+	cmd.WaitDelay = 250 * time.Millisecond
 	cmd.Stdout = &output
 	cmd.Stderr = io.Discard
 	err := cmd.Run()
@@ -316,8 +317,14 @@ func rtkRuleMatches(rule, command string) (bool, bool) {
 		return false, false
 	}
 	pattern := strings.TrimSuffix(strings.TrimPrefix(rule, "Bash("), ")")
-	if strings.HasPrefix(pattern, "run_in_background:") {
-		return false, false
+	if parameter, value, ok := strings.Cut(pattern, ":"); ok {
+		if value != "*" {
+			return false, false
+		}
+		switch strings.TrimSpace(parameter) {
+		case "timeout", "description", "run_in_background", "dangerouslyDisableSandbox":
+			return false, false
+		}
 	}
 	for _, suffix := range []string{":*", " *"} {
 		if strings.HasSuffix(pattern, suffix) {
