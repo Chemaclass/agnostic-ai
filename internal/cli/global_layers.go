@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -189,9 +191,22 @@ func globalInstructions(source string, rules []spec.Entry) ([]byte, error) {
 
 // instructionLayer is the text one source adds to always-loaded
 // instructions, named as lint reports it.
+type instructionRendering struct {
+	Text   string
+	Copied []header.CopiedRange
+}
+
 type instructionLayer struct {
-	Name string
-	Text string
+	Rendering *instructionRendering
+	Name      string
+	Text      string
+	Sources   []instructionSource
+}
+
+type instructionSource struct {
+	Imports []adapters.ImportSpan
+	Path    string
+	Text    string
 }
 
 // globalInstructionLayers returns the non-empty parts of the managed

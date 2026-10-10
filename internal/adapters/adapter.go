@@ -957,3 +957,9 @@ const PersonalMemoryIndexPath = emit.PersonalMemoryIndexPath
 // SetPriorOutputSum tells the merge writers where to find the sum the
 // last sync recorded for a file it wrote whole.
 func SetPriorOutputSum(prior func(path string) string) { emit.PriorOutputSum = prior }
+
+type ImportSpan = emit.ImportSpan
+
+func ApplyImportModeWithSpans(body, mode string) (string, []ImportSpan, error) {
+	return emit.ApplyImportModeWithSpans(body, mode)
+}

@@ -77,26 +77,34 @@ func Line(format Format) string {
 // is inserted right after the closing delimiter so the frontmatter
 // parser is not broken. Empty content is returned unchanged.
 // FormatJSON returns content unchanged.
+type CopiedRange struct {
+	Input  int
+	Output int
+	Length int
+}
+
 func With(content string, format Format) string {
-	if content == "" {
-		return content
-	}
+	text, _ := WithCopiedRanges(content, format)
+	return text
+}
+
+func WithCopiedRanges(content string, format Format) (string, []CopiedRange) {
 	line := Line(format)
-	if line == "" {
-		return content
+	if content == "" || line == "" {
+		return content, []CopiedRange{{Length: len(content)}}
 	}
 	if format == FormatMarkdown {
 		if strings.HasPrefix(content, "---\n") {
 			if end := findFrontmatterEnd(content); end > 0 {
 				rest := strings.TrimLeft(content[end:], "\n")
-				return content[:end] + "\n" + line + "\n" + rest
+				start := len(content) - len(rest)
+				prefix := content[:end] + "\n" + line + "\n"
+				return prefix + rest, []CopiedRange{{Length: end}, {Input: start, Output: len(prefix), Length: len(rest)}}
 			}
 		}
-		// For non-frontmatter markdown, separate the header from the
-		// body with a blank line so visual reading stays clean.
-		return line + "\n" + content
+		return line + "\n" + content, []CopiedRange{{Output: len(line) + 1, Length: len(content)}}
 	}
-	return line + content
+	return line + content, []CopiedRange{{Output: len(line), Length: len(content)}}
 }
 
 // findFrontmatterEnd returns the byte offset right after the closing

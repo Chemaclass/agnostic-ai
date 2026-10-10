@@ -1,0 +1,282 @@
+package cli
+
+import (
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestExplainContext_RanksDescriptionsAndSeparatesBodies(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Project instructions.\n")
+	for name, size := range map[string]int{"large": 40, "small": 20} {
+		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", name, "SKILL.md"), "---\nname: "+name+"\ndescription: "+words(size)+"\n---\n"+words(300)+"\n")
+	}
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "excluded", "SKILL.md"), "---\nname: excluded\ntarget-exclude: claude\ndescription: "+words(200)+"\n---\nHidden body.\n")
+	out, err := runCLI(t, "explain", "--context", "--target", "claude", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report explainContextOutput
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Contributions[0].Source != ".agnostic-ai/skills/large/SKILL.md" || report.Contributions[0].Words != 40 {
+		t.Fatalf("ranking: %+v", report.Contributions)
+	}
+	var sum int
+	for _, c := range report.Contributions {
+		if strings.Contains(c.Source, "excluded") {
+			t.Errorf("excluded source: %+v", c)
+		}
+		if c.Load == "startup" {
+			sum += c.Words
+		}
+		if c.Category == "skill body" && (c.Load != "on-demand" || c.Words != 300) {
+			t.Errorf("body: %+v", c)
+		}
+	}
+	if sum != report.Startup.Words {
+		t.Errorf("startup total %d != sum %d", report.Startup.Words, sum)
+	}
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loads, err := projectSessionLoads(cfg, projectKindSupport(cfg), bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Startup.Words != loads[0].total() {
+		t.Errorf("lint parity: %d != %d", report.Startup.Words, loads[0].total())
+	}
+	text, err := runCLI(t, "explain", "--context", "--target", "claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range report.Contributions {
+		row := fmt.Sprintf("[%s] %d words, %d bytes: %s (%s)", c.Load, c.Words, c.Bytes, c.Source, c.Category)
+		if !strings.Contains(text, row) {
+			t.Errorf("text missing %s", row)
+		}
+	}
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "large", "SKILL.md"), "---\nname: large\ndescription: "+words(10)+"\n---\n"+words(300)+"\n")
+	out, err = runCLI(t, "explain", "--context", "--target", "claude", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shorter explainContextOutput
+	if err := json.Unmarshal([]byte(out), &shorter); err != nil {
+		t.Fatal(err)
+	}
+	if report.Startup.Words-shorter.Startup.Words != 30 {
+		t.Errorf("shortening changed total by %d", report.Startup.Words-shorter.Startup.Words)
+	}
+	for _, c := range shorter.Contributions {
+		if c.Source == ".agnostic-ai/skills/large/SKILL.md" && c.Category == "skill discovery" && c.Words != 10 {
+			t.Errorf("shortened contribution: %+v", c)
+		}
+	}
+}
+
+func TestExplainContext_TracksScopedRulesWithoutIncreasingStartup(t *testing.T) {
+	for _, target := range []string{"cursor", "claude"} {
+		t.Run(target, func(t *testing.T) {
+			dir := budgetProject(t, "targets: ["+target+"]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "scoped.md"), "---\nname: scoped\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			matching, err := explainContext(cfg, bundle, target, "src/main.go")
+			if err != nil {
+				t.Fatal(err)
+			}
+			missing, err := explainContext(cfg, bundle, target, "src/main.ts")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if matching.Startup != missing.Startup || matching.FileScope.Words != 40 || missing.FileScope.Words != 0 {
+				t.Errorf("scope totals: matched %+v / %+v, missed %+v / %+v", matching.Startup, matching.FileScope, missing.Startup, missing.FileScope)
+			}
+		})
+	}
+}
+
+func TestExplainContext_AttributesInlineImportsAndSharedSectionsOnce(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex, amp]\nsync:\n  resolve-imports: inline\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root guidance.\n@docs/extra.md\n")
+	mustWriteFile(t, filepath.Join(dir, "docs", "extra.md"), words(30)+"\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "shared.md"), "---\nname: shared\n---\n"+words(20)+"\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "nested.md"), "---\nname: nested\nglobs: [src/api/**]\n---\n"+words(40)+"\n")
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := explainContext(cfg, bundle, "codex", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	for _, c := range report.Contributions {
+		if c.Load == "startup" {
+			counts[c.Source]++
+			if c.Words < 0 || c.Bytes < 0 {
+				t.Errorf("negative count: %+v", c)
+			}
+		}
+	}
+	if counts["docs/extra.md"] != 1 || counts[".agnostic-ai/rules/shared.md"] != 1 {
+		t.Errorf("source counts: %+v", counts)
+	}
+	loads, err := projectSessionLoads(cfg, projectKindSupport(cfg), bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Startup.Words != loads[0].total() {
+		t.Errorf("lint parity: %d != %d", report.Startup.Words, loads[0].total())
+	}
+	out, err := runCLI(t, "explain", "--context", "--target", "codex", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := runCLI(t, "explain", "--context", "--target", "codex", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != again {
+		t.Error("JSON ordering changed between runs")
+	}
+	scopedJSON, err := runCLI(t, "explain", "--context", "--target", "codex", "--file", "src/api/main.go", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scoped explainContextOutput
+	if err := json.Unmarshal([]byte(scopedJSON), &scoped); err != nil {
+		t.Fatal(err)
+	}
+	if scoped.Target != "codex" || scoped.File != "src/api/main.go" || scoped.Startup != report.Startup || scoped.FileScope != (contextSize{}) {
+		t.Errorf("Codex file changed startup or claimed known file scope: %+v", scoped)
+	}
+	var nestedBody bool
+	for _, c := range scoped.Contributions {
+		if c.Source == ".agnostic-ai/rules/nested.md" && c.Category == "conditional rule body" {
+			nestedBody = true
+			if c.Load != "on-demand" || c.Words != 40 {
+				t.Errorf("uncertain Codex nested body was promoted: %+v", c)
+			}
+		}
+	}
+	if !nestedBody {
+		t.Error("Codex nested body was omitted")
+	}
+	fileJSON, err := runCLI(t, "explain", "--file", "src/api/main.go", "--target", "codex", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fileReport explainFileOutput
+	if err := json.Unmarshal([]byte(fileJSON), &fileReport); err != nil {
+		t.Fatal(err)
+	}
+	nested := findItem(t, fileReport.Instructions, ".agnostic-ai/rules/nested.md", "src/api/AGENTS.md")
+	if nested.Status != contextUnknown || !strings.Contains(nested.Reason, "session launch directory") {
+		t.Errorf("Codex nested discovery should remain unknown: %+v", nested)
+	}
+	if _, err := runCLI(t, "explain", "--context", "--target", "amp", "--file", "src/api/main.go"); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Errorf("unsupported configured file target accepted: %v", err)
+	}
+	if _, err := runCLI(t, "explain", "--context", "--target", "cursor"); err == nil {
+		t.Error("unconfigured target accepted")
+	}
+}
+
+func TestExplainContext_UsesNormalizedRenderedBytes(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "hello"+strings.Repeat("\n", 2000))
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range cfg.Targets {
+		report, err := explainContext(cfg, bundle, target, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range report.Contributions {
+			if c.Bytes < 0 || c.Words < 0 {
+				t.Errorf("%s negative contribution: %+v", target, c)
+			}
+		}
+		loads, err := projectSessionLoads(cfg, projectKindSupport(cfg), bundle)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, load := range loads {
+			if load.target == target && report.Startup.Words != load.total() {
+				t.Errorf("%s lint parity: %d != %d", target, report.Startup.Words, load.total())
+			}
+		}
+	}
+}
+
+func TestExplainContext_LeavesAuthoredMarkersWithTheirSource(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex]\n")
+	fake := "<!-- source: fake.md -->\n"
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Root notes.\n```md\n"+fake+"```\n"+fake+"Root body.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "real.md"), "---\nname: real\n---\nRule text.\n```md\n"+fake+"```\n"+fake+"Rule body.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "review.md"), "---\nname: review\n---\nReview text.\n"+fake+"Review body.\n")
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := explainContext(cfg, bundle, "codex", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, c := range report.Contributions {
+		seen[c.Source] = true
+		if c.Source == "fake.md" {
+			t.Errorf("authored marker became provenance: %+v", c)
+		}
+	}
+	for _, source := range []string{".agnostic-ai/AGNOSTIC_AI.md", ".agnostic-ai/rules/real.md", ".agnostic-ai/reviews/review.md"} {
+		if !seen[source] {
+			t.Errorf("real source missing: %s", source)
+		}
+	}
+}
+
+func TestExplainContext_PreservesCompanionLocalProvenance(t *testing.T) {
+	for _, targets := range []string{"claude, codex", "claude"} {
+		t.Run(targets, func(t *testing.T) {
+			dir := budgetProject(t, "targets: ["+targets+"]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Shared instructions.\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), "Shared personal guidance.\n::target claude\nPersonal exclusive instructions.\n::end\n")
+			if targets == "claude" {
+				mustWriteFile(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
+				mustWriteFile(t, filepath.Join(dir, "AGENTS.md"), "Existing.\n")
+			}
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			report, err := explainContext(cfg, bundle, "claude", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var localWords int
+			for _, c := range report.Contributions {
+				if c.Source == ".agnostic-ai/local/AGNOSTIC_AI.md" {
+					localWords += c.Words
+				}
+			}
+			if localWords != 6 {
+				t.Errorf("local instructions attributed %d words, want 6: %+v", localWords, report.Contributions)
+			}
+		})
+	}
+}

@@ -76,21 +76,52 @@ func stripImportLines(body string) string {
 	return strings.Join(out, "\n")
 }
 
-// inlineImportLines replaces each lone `@path` import line with the
-// referenced file's content, wrapped in sentinel markers. A missing or
-// unreadable file is a hard error: the user opted into inlining, so a
-// dangling reference must surface rather than ship silently.
-func inlineImportLines(body string) (string, error) {
-	lines := strings.Split(body, "\n")
-	for _, imp := range spec.IncludeLines(lines) {
-		data, err := os.ReadFile(imp.Ref)
-		if err != nil {
-			return "", fmt.Errorf("%s: %w", imp.Ref, err)
-		}
-		content := strings.TrimRight(string(data), "\n")
-		lines[imp.Line] = fmt.Sprintf(importInlineStartFmt, imp.Ref) + "\n" + content + "\n" + importInlineEnd
+type ImportSpan struct {
+	Path  string
+	Start int
+	End   int
+}
+
+func ApplyImportModeWithSpans(body, mode string) (string, []ImportSpan, error) {
+	if mode != ImportModeInline {
+		text, err := ApplyImportMode(body, mode)
+		return text, nil, err
 	}
-	return strings.Join(lines, "\n"), nil
+	return inlineImportLinesWithSpans(body)
+}
+
+func inlineImportLines(body string) (string, error) {
+	text, _, err := inlineImportLinesWithSpans(body)
+	return text, err
+}
+
+func inlineImportLinesWithSpans(body string) (string, []ImportSpan, error) {
+	lines := strings.Split(body, "\n")
+	imports := spec.IncludeLines(lines)
+	byLine := make(map[int]string, len(imports))
+	for _, imp := range imports {
+		byLine[imp.Line] = imp.Ref
+	}
+	var out strings.Builder
+	var spans []ImportSpan
+	for i, line := range lines {
+		if i > 0 {
+			out.WriteByte('\n')
+		}
+		ref, ok := byLine[i]
+		if !ok {
+			out.WriteString(line)
+			continue
+		}
+		data, err := os.ReadFile(ref)
+		if err != nil {
+			return "", nil, fmt.Errorf("%s: %w", ref, err)
+		}
+		start := out.Len()
+		fmt.Fprintf(&out, importInlineStartFmt+"\n%s\n"+importInlineEnd, ref, strings.TrimRight(string(data), "\n"))
+		spans = append(spans, ImportSpan{Path: ref, Start: start, End: out.Len()})
+	}
+	return out.String(), spans, nil
 }
 
 // restoreImportInlines rewrites every sentinel-wrapped resolved import

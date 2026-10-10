@@ -63,6 +63,8 @@
 # After #1986, measured 18735264, up 12288 from main 7df02fd1.
 # Keep room for the 8 KB difference seen in CI's Linux build.
 # After #2014, measured 18751648, up 12288 from main badb5ae3.
+# Context contributions with Codex file explanations measured 18808992.
+# Keep the established 8 KB allowance for CI's Linux build.
 # Lifecycle branch history:
 # After merging Codex file context, measured 18796704.
 # Keep the established 8 KB allowance for CI's Linux build.
@@ -84,4 +86,9 @@
 # Keep room for the 8 KB difference seen in CI's Linux build.
 # After lifecycle, reconciliation and RTK changes, #1987 measured18886816,
 # up28672 from mainf535cae3. Keep the established CI allowance.
-18904000
+# After combining reviewed context reporting with lifecycle, source
+# reconciliation and RTK, measured 18911392. Keep CI's 8 KB allowance.
+# After trusted import spans, frontmatter mapping and native rule output
+# attribution, measured 18923680, up 65536 from main f535cae3.
+# Keep the established 8 KB allowance for CI.
+18932680
