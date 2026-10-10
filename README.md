@@ -51,7 +51,7 @@ Interactive runs offer new releases with upgrade guidance and a default Yes prom
 ```bash
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
 agnostic-ai import claude --overwrite           # replace conflicting specs
-agnostic-ai compare claude cursor                # compare fields, rule activation, and hook configuration
+agnostic-ai compare claude cursor                # compare fields, rule activation, hooks, and MCP connections
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai explain --file src/main.go --target claude # show configured instructions for a file
 agnostic-ai sync --check                         # find generated files that differ from the sources
