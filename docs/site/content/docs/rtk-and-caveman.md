@@ -11,7 +11,7 @@ group = "Workflows"
 
 agnostic-ai keeps your project instructions and hooks in one place. [RTK](https://github.com/rtk-ai/rtk) reduces supported terminal output. [Caveman's response skill](https://github.com/JuliusBrussee/caveman/tree/main/skills/caveman) asks the coding agent to write concise answers. Each tool keeps its own job.
 
-**Experimental project recipe.** Tested on macOS with agnostic-ai 0.81.0, RTK 0.51.0, and the Caveman skill revision below. Local checks cover generated files, direct RTK hook replies, and removal. Live Claude execution and approvals are still being investigated. Linux has not been tested.
+**Experimental project recipe.** Tested on macOS with agnostic-ai 0.81.0, RTK 0.51.0, and the Caveman skill revision below. Local checks cover generated files, direct RTK hook replies, and removal. Live Claude Code 2.1.295 tests cover execution and approval rules in noninteractive manual mode. Interactive approval dialogs and other hosts have not been tested.
 
 ## Add the project sources
 
@@ -88,6 +88,8 @@ Invoke `/caveman` in Claude Code before the task to request the response style. 
 
 RTK replies contain a replacement tool input. Do not add `decision: stdout` to this hook: that agnostic-ai option expects a different JSON format. Keep approval rules specific to the commands you intend to allow; a blanket RTK allowlist is not needed to configure the integration.
 
+Claude evaluates permissions against the rewritten command. In the live test, an ask rule for `git status` plus an allow rule for `rtk git status` let the rewritten command run without asking. Keep ask rules aligned with the rewritten form too. See the [tested approval cases](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/experiments/trio-live-hooks.md) before changing your permissions.
+
 ## Turn it off or remove it
 
 Say `stop caveman` to return to normal prose in the current session.
@@ -116,4 +118,4 @@ Standalone Caveman CLI 2.1.0 with runtime `bin-v2.1.0` compressed a repetitive 3
 
 In a separate synthetic test log, RTK reduced 21,220 bytes to 239 bytes and kept the failure and path. Passing that summary to Caveman gave no additional reduction. This supports testing each component separately before adding another compression step. No provider usage or billed cost was measured.
 
-Track the remaining work in the [project collaboration investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957): existing installation ownership, live-host approvals, runtime composition, and whole-task measurements.
+Track the remaining work in the [project collaboration investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957): runtime composition and whole-task measurements. The live-host report records tested versions, duplicate registrations, removal, and approval differences.
