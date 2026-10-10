@@ -180,7 +180,8 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
-- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Claude Code (command and HTTP handlers), Cursor. Both block when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output, which Claude Code allows. `loop_limit`: Cursor, Trae.
+- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `loop_limit`: Cursor, Trae.
+- `failClosed`: Claude Code (command and HTTP handlers), Cursor. Both block when the hook cannot start, times out, or exits with a code other than 0 or 2. Claude Code ignores it on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, and command handlers with `async: true` or `asyncRewake: true`; on `PermissionRequest`, a failure denies the request. Sync notes the ignored cases and keeps the key for import round trips. Cursor also blocks on exit 0 with no output, which Claude Code allows.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.
@@ -795,7 +796,7 @@ Each command reports one decision.
 - `error`: any other non-zero exit.
 - `timeout`: the command ran past its timeout.
 
-With `failClosed: true`, Claude Code reads an `error` or `timeout` as `block` on every event that can block.
+With `failClosed: true`, Claude Code applies the event's exit-2 behavior to a hook failure, except on `PermissionRequest`, where it denies the request. It ignores `failClosed` on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, and command handlers with `async: true` or `asyncRewake: true`. Use a synchronous `PreToolUse` or `UserPromptSubmit` hook when a failed check must block an action. Sync notes the ignored cases and keeps `onFailure: "block"` for import round trips.
 
 Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the tool adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 

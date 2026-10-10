@@ -79,11 +79,36 @@ func SettingsFilePath(cfg *config.Config) string {
 	return filepath.Join(emit.OutputDir(cfg, target, defaultDir), "settings.json")
 }
 
-// onFailure is "block" when the spec sets failClosed, Claude Code's way to
-// block the action when a command or HTTP hook cannot start, times out,
-// or exits unexpectedly (2.1.295). Older imports set failClosed on MCP-tool
-// and prompt handlers too, so every handler type writes it. Otherwise
-// x-claude.onFailure is written as is; unset keeps the fail-open default.
+// NoteFailClosedNoOps reports ignored failClosed options on hooks that reach Claude settings.
+func NoteFailClosedNoOps(hooks []spec.Entry) {
+	count := 0
+	for _, h := range hooks {
+		if !hookBoolMeta(h.Meta, "failClosed") {
+			continue
+		}
+		event, _ := h.Meta["event"].(string)
+		kind, _ := h.Meta["type"].(string)
+		if kind == "" {
+			kind = "command"
+		}
+		handler := claudehooks.CommandEntry{Type: kind, Async: hookBoolMeta(h.Meta, "async"), AsyncRewake: hookBoolMeta(h.Meta, "asyncRewake")}
+		if failClosedIgnored(event, handler) {
+			count++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindHook, "failClosed", count,
+		"Claude Code ignores onFailure for Stop, SubagentStop, TaskCompleted, TeammateIdle, and async or asyncRewake command hooks; use a synchronous PreToolUse or UserPromptSubmit hook for a failure gate")
+}
+
+func failClosedIgnored(event string, handler claudehooks.CommandEntry) bool {
+	switch event {
+	case "Stop", "SubagentStop", "TaskCompleted", "TeammateIdle":
+		return true
+	default:
+		return handler.Type == "command" && (handler.Async || handler.AsyncRewake)
+	}
+}
+
 func onFailure(meta map[string]any) string {
 	if hookBoolMeta(meta, "failClosed") {
 		return "block"
