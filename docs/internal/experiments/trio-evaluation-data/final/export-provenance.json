@@ -1,0 +1,18 @@
+{
+  "baseline_commit": "9932169b2d0836bea33144c0d9413052c488bddf",
+  "agnostic_build_commit": "9932169b2d0836bea33144c0d9413052c488bddf",
+  "agnostic_version": "agnostic-ai version 0.81.0",
+  "claude_version": "2.1.295 (Claude Code)",
+  "rtk_version": "rtk 0.51.0",
+  "runner_sha256": "828de40f154b2eb49d610125269fc206cfd30d41fdc1bd588684206a797b1d0a",
+  "agnostic_binary_sha256": "81da49052803957ada1f8972e56c10f7c7e938d5a1db2201f7a6bfe29d09764b",
+  "claude_binary_sha256": "0116ee2e0a513900b633d9951367f18747686478e2b462805b8c31609f047f70",
+  "rtk_binary_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f",
+  "skill_tree_sha256": "1cc150ef22276483226e03cd7718c43e80c232aa2d75b53bbd01d80042ac62eb",
+  "private_original_manifest_sha256": "1b415dc142b468807202c5064d90fdaa9a0bcf522e0acbb6646684ed51ad907c",
+  "private_original_results_sha256": "3dbe32ed35959f2805888d787fded0f687fdebf0a69f964af06206860de56ce6",
+  "sanitized_manifest_sha256": "7337ec9db2a0a3dbf084d21866b1057402743376075b35bd77570298cb5531c7",
+  "sanitized_results_sha256": "a85b7c2e7f99215aac5d12f1a47aa3eb73b8fdb8ccd3752f76f878129f8751e5",
+  "export_manifest_sha256": "15808be4cf2ad28e1b2f07c2c0fb5d788da4be466fab1801b8e3d12d41e4f68a",
+  "scratch_audit_sha256": "be1970abecbec828b5b30b64da5fa0283aa46eec1dca2bfc17a9008dc5b4d05d"
+}

@@ -1,0 +1,1613 @@
+[
+  {
+    "case_id": "short-caveman-0",
+    "repetition": 0,
+    "arm": "caveman",
+    "task": "short",
+    "command": "fixture-report short",
+    "fixture_sha256": "5e49558e96cd15565c660eb85c00a5e00ce909ae73786b5fa90e1525570d43ba",
+    "settings_sha256": "978845f89c5bf58a958da3ac54cee103ab15e352e4f6beb63f8f1f94a89b9eb9",
+    "argv": [
+      "{claude-executable}",
+      "-p",
+      "--model",
+      "claude-haiku-5-5",
+      "--max-budget-usd",
+      "0.12",
+      "--max-turns",
+      "6",
+      "--setting-sources",
+      "project",
+      "--strict-private-skill-021-private-skill-011",
+      "--private-skill-021-private-skill-011",
+      "{\"mcpServers\":{}}",
+      "--settings",
+      "{case}/.claude/settings.json",
+      "--no-session-persistence",
+      "--permission-private-identity-005",
+      "manual",
+      "--permission-prompts",
+      "none",
+      "--system-prompt",
+      "Perform the requested local diagnostic task. Preserve identifiers, paths, numbers, and error details.",
+      "--tools",
+      "Bash,Skill",
+      "--allowedTools",
+      "Bash(fixture-report short)",
+      "Bash(rtk fixture-report short)",
+      "Skill(caveman)",
+      "--private-identity-013-format",
+      "stream-json",
+      "--verbose",
+      "--include-hook-events",
+      "--",
+      "First invoke /caveman using the Skill tool. Then perform this task: Run exactly `fixture-report short` once. Do not edit files. Report counts in the form N passed; M failed. For each failing test, write exactly one plain-text line: TEST_IDENTIFIER | ERROR_PATH | expected N, got M. Put no other test identifier, error path, or comparison on that line. State that the command failed. Keep the answer concise."
+    ],
+    "rtk_processor_executable": "{rtk-executable}",
+    "rtk_host_executable": "{case}/bin/rtk",
+    "rtk_host_target": "{rtk-executable}",
+    "rtk_binary_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f",
+    "rtk_host_shim_sha256": "ef2a7d5a96c7f2abfaa497c40ad7176892a172a27667371b2e07c1620edd154f",
+    "prompt_utf8_bytes": 407,
+    "skill_body_utf8_bytes": 4557,
+    "rtk_enabled": false,
+    "rewrite_expected": false,
+    "fixture_utf8_bytes": 204,
+    "scope": "visible-summary-only; accepted protocol requires one task command and no private-identity-094 calls",
+    "recovery_reads_definition": "requested rtk recall Bash calls; extra tool calls fail the strict sequence",
+    "builtins": [
+      "caveman"
+    ],
+    "yaml_utf8_bytes": 49,
+    "yaml_sha256": "41776c56414efcc9b3402a07153d59419b5a56a810f010d4ce57a3f0a35123cf",
+    "yaml_text": "version: 1\ntargets: [claude]\nbuiltins: [caveman]\n",
+    "agnostic_home": "{dataset}/private-identity-066-home-short-caveman-0",
+    "sync": {
+      "exit": 0,
+      "elapsed_seconds": 0.08473237499999997,
+      "stdout_sha256": "2ea8e53e793ec2e4ee93e9d53d6cc8137bd19d9c0314eb7c0bcc85177636c6c1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "check": {
+      "exit": 0,
+      "elapsed_seconds": 0.039454917000000034,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "generated_outputs": {
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".claude/skills/caveman/LICENSE": {
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      ".claude/skills/caveman/LICENSE-MIT": {
+        "sha256": "5eb826cd03151bcc7cce3f80d40e87733237fedfc6c36d6908aca5fd650a0bdb",
+        "bytes": 1071
+      },
+      ".claude/skills/caveman/LICENSING.md": {
+        "sha256": "e36ef7b22766ea22f01bce187f629669e62f2346948435154a295f91bd3c3ff2",
+        "bytes": 3645
+      },
+      ".claude/skills/caveman/NOTICE": {
+        "sha256": "20112dc6e62e91da4f03c29fd10cfa41743a9c526389fdf1396c3649c18216fc",
+        "bytes": 2285
+      },
+      ".claude/skills/caveman/SKILL.md": {
+        "sha256": "5539518289064b65cee6c54c0ec35133df08570897462089b9c2959f019e2872",
+        "bytes": 4802
+      },
+      ".claude/skills/caveman/UPSTREAM-README.md": {
+        "sha256": "e8b22f37ccb204bd00cdf98c723c0df37aeda1f5863e9ad1d634f5c839d99e5d",
+        "bytes": 3030
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_project_files": {
+      ".private-identity-066-ai/.command-lock": {
+        "sha256": "578c71eb2bcee69f370929d3c65dfa488e9d1081c87fd074372b60a9da80a396",
+        "bytes": 129
+      },
+      ".private-identity-066-ai/.sync-state": {
+        "sha256": "669800859703ffa7e28c8fb72437d4c60e61cdf354e2dfc7c6bc1fa8f9a46d13",
+        "bytes": 2871
+      },
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".claude/skills/caveman/LICENSE": {
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      ".claude/skills/caveman/LICENSE-MIT": {
+        "sha256": "5eb826cd03151bcc7cce3f80d40e87733237fedfc6c36d6908aca5fd650a0bdb",
+        "bytes": 1071
+      },
+      ".claude/skills/caveman/LICENSING.md": {
+        "sha256": "e36ef7b22766ea22f01bce187f629669e62f2346948435154a295f91bd3c3ff2",
+        "bytes": 3645
+      },
+      ".claude/skills/caveman/NOTICE": {
+        "sha256": "20112dc6e62e91da4f03c29fd10cfa41743a9c526389fdf1396c3649c18216fc",
+        "bytes": 2285
+      },
+      ".claude/skills/caveman/SKILL.md": {
+        "sha256": "5539518289064b65cee6c54c0ec35133df08570897462089b9c2959f019e2872",
+        "bytes": 4802
+      },
+      ".claude/skills/caveman/UPSTREAM-README.md": {
+        "sha256": "e8b22f37ccb204bd00cdf98c723c0df37aeda1f5863e9ad1d634f5c839d99e5d",
+        "bytes": 3030
+      },
+      ".gitignore": {
+        "sha256": "2b3b35768020a65e45eb6bbd8c1af0e9df484634d5d5977528b8eb614e5fe6ed",
+        "bytes": 386
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_settings_sha256": null,
+    "generated_settings_utf8_bytes": 0,
+    "original_native_handler": null,
+    "original_native_handler_sha256": null,
+    "original_native_command": null,
+    "generated_skill_tree_sha256": "94e6d06d1bacc909031a7d49b4b1b01e8ff89e32aae10cd33412b36d789572cf",
+    "generated_skill_body_sha256": "e31585108e2754cc55ef45aec35bb69f38a58a0038a7160409699141cab2a844",
+    "generated_skill_assets_verified": true,
+    "exit": 0,
+    "elapsed_seconds": 6.216078167,
+    "correct_task": true,
+    "setup_matches_arm": true,
+    "correct": true,
+    "tool_sequence_ok": true,
+    "bash_request_ok": true,
+    "bash_failed_as_expected": true,
+    "hook_recorded": true,
+    "bash_hook_lifecycle": [
+      [
+        "hook_started",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_response",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_started",
+        "PostToolUseFailure:Bash"
+      ],
+      [
+        "hook_response",
+        "PostToolUseFailure:Bash"
+      ]
+    ],
+    "execution_count": 1,
+    "fixture_args": [
+      "fixture-report",
+      "short"
+    ],
+    "exact_execution": true,
+    "effective_inventory": {
+      "claude_code_version": "2.1.295",
+      "model": "claude-haiku-5-5",
+      "skills": [
+        "caveman",
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "plugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-telemetry",
+          "path": "builtin",
+          "source": "cc-plugin-telemetry@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "mcp_servers": [],
+      "tools": [
+        "Bash",
+        "Skill"
+      ]
+    },
+    "host_profile": {
+      "tools": [
+        "Bash",
+        "Skill"
+      ],
+      "common_skills": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "bundled_plugins": [
+        [
+          "cc-plugin-agents-md",
+          "cc-plugin-agents-md@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-plugin-authoring",
+          "cc-plugin-plugin-authoring@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-telemetry",
+          "cc-plugin-telemetry@builtin",
+          "builtin"
+        ]
+      ]
+    },
+    "host_profile_sha256": "e1110cbb14f7d0059051cfa4ad56299bd98fd07ea2758f1651a227d65d029dd9",
+    "host_inventory_ok": true,
+    "original_short_output": true,
+    "test_command_calls": 1,
+    "retry_calls": 0,
+    "recovery_reads": 0,
+    "recovery_in_accepted_protocol": false,
+    "rtk_calls": [],
+    "processor_rtk_count": 0,
+    "host_rtk_count": 0,
+    "rtk_calls_exact": true,
+    "skill_source_verified": true,
+    "oracle": {
+      "passed": true,
+      "missing": [],
+      "contradictions": []
+    },
+    "skill_used": true,
+    "rtk_applied": false,
+    "hook_events": [
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-caveman-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PreToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report short once"
+          },
+          "tool_use_id": "redacted-id-003"
+        },
+        "request_sha256": "18a38b965d836937c446d3e3509cabeb991cb13a0c65a31d37c4df7c61f65316",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      },
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-caveman-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report short once"
+          },
+          "tool_use_id": "redacted-id-003",
+          "error": "Exit code 7\ntest tests::short ... FAILED\n\nfailures:\n---- tests::short stdout ----\nthread panicked at tests/short.rs:9: expected 1, got 2\n\nfailures:\n    tests::short\ntest result: FAILED. 0 passed; 1 failed; 0 ignored",
+          "is_interrupt": false,
+          "duration_ms": 854
+        },
+        "request_sha256": "7f17e92d646e0f1f1a97c927be128b28566fce311d668c5f787e16c0ffe52a20",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      }
+    ],
+    "answer": "Command failed (exit 7).\n\n0 passed; 1 failed\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "tool_calls": [
+      {
+        "type": "tool_use",
+        "id": "redacted-id-004",
+        "name": "Skill",
+        "input": {
+          "skill": "caveman"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "redacted-id-003",
+        "name": "Bash",
+        "input": {
+          "command": "fixture-report short",
+          "description": "Run fixture-report short once"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      }
+    ],
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3345,
+      "cache_read_input_tokens": 10852,
+      "output_tokens": 319,
+      "output_tokens_details": {
+        "thinking_tokens": 140
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3345,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 188,
+          "cache_read_input_tokens": 5274,
+          "cache_creation_input_tokens": 244,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 244
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-haiku-5-5": {
+        "inputTokens": 6,
+        "outputTokens": 319,
+        "cacheReadInputTokens": 10852,
+        "cacheCreationInputTokens": 3345,
+        "webSearchRequests": 0,
+        "costUSD": 0.0009376200000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 140,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "token_accounting": {
+      "uncached_input_tokens": 6,
+      "cache_creation_input_tokens": 3345,
+      "cache_read_input_tokens": 10852,
+      "unweighted_total_input_tokens": 14203,
+      "output_tokens": 319,
+      "thinking_tokens_within_output": 140,
+      "counter_presence": {
+        "uncached_input_tokens": true,
+        "cache_creation_input_tokens": true,
+        "cache_read_input_tokens": true,
+        "output_tokens": true
+      },
+      "cost_present": true,
+      "measurement_complete": true,
+      "cli_list_price_estimate_usd": 0.0009376200000000001
+    },
+    "estimated_cost_usd": 0.0009376200000000001,
+    "cost_label": "CLI list-price estimate, not a bill",
+    "permission_denials": [],
+    "result_subtype": "success",
+    "comparison_valid": true
+  },
+  {
+    "case_id": "short-rtk-0",
+    "repetition": 0,
+    "arm": "rtk",
+    "task": "short",
+    "command": "fixture-report short",
+    "fixture_sha256": "5e49558e96cd15565c660eb85c00a5e00ce909ae73786b5fa90e1525570d43ba",
+    "settings_sha256": "e58f6f28485860b9bbe9dd01e86d9b322024d145c5819551b478901520faf0ce",
+    "argv": [
+      "{claude-executable}",
+      "-p",
+      "--model",
+      "claude-haiku-5-5",
+      "--max-budget-usd",
+      "0.12",
+      "--max-turns",
+      "6",
+      "--setting-sources",
+      "project",
+      "--strict-private-skill-021-private-skill-011",
+      "--private-skill-021-private-skill-011",
+      "{\"mcpServers\":{}}",
+      "--settings",
+      "{case}/.claude/settings.json",
+      "--no-session-persistence",
+      "--permission-private-identity-005",
+      "manual",
+      "--permission-prompts",
+      "none",
+      "--system-prompt",
+      "Perform the requested local diagnostic task. Preserve identifiers, paths, numbers, and error details.",
+      "--tools",
+      "Bash,Skill",
+      "--allowedTools",
+      "Bash(fixture-report short)",
+      "Bash(rtk fixture-report short)",
+      "Skill(caveman)",
+      "--private-identity-013-format",
+      "stream-json",
+      "--verbose",
+      "--include-hook-events",
+      "--",
+      "Run exactly `fixture-report short` once. Do not edit files. Report counts in the form N passed; M failed. For each failing test, write exactly one plain-text line: TEST_IDENTIFIER | ERROR_PATH | expected N, got M. Put no other test identifier, error path, or comparison on that line. State that the command failed. Keep the answer concise."
+    ],
+    "rtk_processor_executable": "{rtk-executable}",
+    "rtk_host_executable": "{case}/bin/rtk",
+    "rtk_host_target": "{rtk-executable}",
+    "rtk_binary_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f",
+    "rtk_host_shim_sha256": "4fad07349bba3b5651b7ae375ad4ec649e16f9f5e7558c0620d306db412e2259",
+    "prompt_utf8_bytes": 339,
+    "skill_body_utf8_bytes": 0,
+    "rtk_enabled": true,
+    "rewrite_expected": false,
+    "fixture_utf8_bytes": 204,
+    "scope": "visible-summary-only; accepted protocol requires one task command and no private-identity-094 calls",
+    "recovery_reads_definition": "requested rtk recall Bash calls; extra tool calls fail the strict sequence",
+    "builtins": [
+      "rtk"
+    ],
+    "yaml_utf8_bytes": 45,
+    "yaml_sha256": "319795fba71f99553112e4d1c74015784a96c0e51b20d084214a36d26b80e216",
+    "yaml_text": "version: 1\ntargets: [claude]\nbuiltins: [rtk]\n",
+    "agnostic_home": "{dataset}/private-identity-066-home-short-rtk-0",
+    "sync": {
+      "exit": 0,
+      "elapsed_seconds": 0.11350433399999993,
+      "stdout_sha256": "07300c2259e88ac71afe267ddd800e0d71efc9dec88d9427335c14465b786867",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "check": {
+      "exit": 0,
+      "elapsed_seconds": 0.04661404099999977,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "generated_outputs": {
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".claude/settings.json": {
+        "sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d",
+        "bytes": 308
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_project_files": {
+      ".private-identity-066-ai/.command-lock": {
+        "sha256": "f2f2ec7d9f8ce03315123f51a8f6bec0996d86d473db47dca3c6e192106dfaba",
+        "bytes": 129
+      },
+      ".private-identity-066-ai/.sync-state": {
+        "sha256": "f5211153506ae4cd7b057961056800dc17375ade98d86f4b0d350490ee9afb05",
+        "bytes": 1187
+      },
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".claude/settings.json": {
+        "sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d",
+        "bytes": 308
+      },
+      ".gitignore": {
+        "sha256": "2b3b35768020a65e45eb6bbd8c1af0e9df484634d5d5977528b8eb614e5fe6ed",
+        "bytes": 386
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_settings_sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d",
+    "generated_settings_utf8_bytes": 308,
+    "original_native_handler": {
+      "type": "command",
+      "command": "command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude"
+    },
+    "original_native_handler_sha256": "2413d9ce3ca20357c443bb5ddb6b914311342b80b07e5fbe48f36a77702b9af3",
+    "original_native_command": "command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude",
+    "generated_skill_tree_sha256": null,
+    "generated_skill_body_sha256": null,
+    "generated_skill_assets_verified": false,
+    "exit": 0,
+    "elapsed_seconds": 5.410559041,
+    "correct_task": true,
+    "setup_matches_arm": true,
+    "correct": true,
+    "tool_sequence_ok": true,
+    "bash_request_ok": true,
+    "bash_failed_as_expected": true,
+    "hook_recorded": true,
+    "bash_hook_lifecycle": [
+      [
+        "hook_started",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_response",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_started",
+        "PostToolUseFailure:Bash"
+      ],
+      [
+        "hook_response",
+        "PostToolUseFailure:Bash"
+      ]
+    ],
+    "execution_count": 1,
+    "fixture_args": [
+      "fixture-report",
+      "short"
+    ],
+    "exact_execution": true,
+    "effective_inventory": {
+      "claude_code_version": "2.1.295",
+      "model": "claude-haiku-5-5",
+      "skills": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "plugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-telemetry",
+          "path": "builtin",
+          "source": "cc-plugin-telemetry@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "mcp_servers": [],
+      "tools": [
+        "Bash",
+        "Skill"
+      ]
+    },
+    "host_profile": {
+      "tools": [
+        "Bash",
+        "Skill"
+      ],
+      "common_skills": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "bundled_plugins": [
+        [
+          "cc-plugin-agents-md",
+          "cc-plugin-agents-md@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-plugin-authoring",
+          "cc-plugin-plugin-authoring@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-telemetry",
+          "cc-plugin-telemetry@builtin",
+          "builtin"
+        ]
+      ]
+    },
+    "host_profile_sha256": "e1110cbb14f7d0059051cfa4ad56299bd98fd07ea2758f1651a227d65d029dd9",
+    "host_inventory_ok": true,
+    "original_short_output": true,
+    "test_command_calls": 1,
+    "retry_calls": 0,
+    "recovery_reads": 0,
+    "recovery_in_accepted_protocol": false,
+    "rtk_calls": [
+      [
+        "hook",
+        "claude"
+      ]
+    ],
+    "processor_rtk_count": 1,
+    "host_rtk_count": 0,
+    "rtk_calls_exact": true,
+    "skill_source_verified": true,
+    "oracle": {
+      "passed": true,
+      "missing": [],
+      "contradictions": []
+    },
+    "skill_used": false,
+    "rtk_applied": false,
+    "hook_events": [
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-rtk-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PreToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report short once"
+          },
+          "tool_use_id": "redacted-id-003"
+        },
+        "request_sha256": "199b52dffd145a9ca8a9b45448227bbc656c11880b85c66508e3ad80a449146f",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      },
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-rtk-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report short once"
+          },
+          "tool_use_id": "redacted-id-003",
+          "error": "Exit code 7\ntest tests::short ... FAILED\n\nfailures:\n---- tests::short stdout ----\nthread panicked at tests/short.rs:9: expected 1, got 2\n\nfailures:\n    tests::short\ntest result: FAILED. 0 passed; 1 failed; 0 ignored",
+          "is_interrupt": false,
+          "duration_ms": 758
+        },
+        "request_sha256": "0853bd5605d5f6ef4cb2d896a3bbf1f4349afb053cddaf8d52dae6dba2fa3fcc",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      }
+    ],
+    "answer": "The command failed (exit code 7). Result: 0 passed; 1 failed.\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "tool_calls": [
+      {
+        "type": "tool_use",
+        "id": "redacted-id-003",
+        "name": "Bash",
+        "input": {
+          "command": "fixture-report short",
+          "description": "Run fixture-report short once"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      }
+    ],
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 1363,
+      "cache_read_input_tokens": 5469,
+      "output_tokens": 264,
+      "output_tokens_details": {
+        "thinking_tokens": 130
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1363,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 183,
+          "cache_read_input_tokens": 3296,
+          "cache_creation_input_tokens": 240,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 240
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-haiku-5-5": {
+        "inputTokens": 4,
+        "outputTokens": 264,
+        "cacheReadInputTokens": 5469,
+        "cacheCreationInputTokens": 1363,
+        "webSearchRequests": 0,
+        "costUSD": 0.00045969,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 130,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "token_accounting": {
+      "uncached_input_tokens": 4,
+      "cache_creation_input_tokens": 1363,
+      "cache_read_input_tokens": 5469,
+      "unweighted_total_input_tokens": 6836,
+      "output_tokens": 264,
+      "thinking_tokens_within_output": 130,
+      "counter_presence": {
+        "uncached_input_tokens": true,
+        "cache_creation_input_tokens": true,
+        "cache_read_input_tokens": true,
+        "output_tokens": true
+      },
+      "cost_present": true,
+      "measurement_complete": true,
+      "cli_list_price_estimate_usd": 0.00045969
+    },
+    "estimated_cost_usd": 0.00045969,
+    "cost_label": "CLI list-price estimate, not a bill",
+    "permission_denials": [],
+    "result_subtype": "success",
+    "comparison_valid": true
+  },
+  {
+    "case_id": "short-concise-0",
+    "repetition": 0,
+    "arm": "concise",
+    "task": "short",
+    "command": "fixture-report short",
+    "fixture_sha256": "5e49558e96cd15565c660eb85c00a5e00ce909ae73786b5fa90e1525570d43ba",
+    "settings_sha256": "166a97d07b1d17568ee2386be98527194047177ec06c04fe1a8eb22840a5543f",
+    "argv": [
+      "{claude-executable}",
+      "-p",
+      "--model",
+      "claude-haiku-5-5",
+      "--max-budget-usd",
+      "0.12",
+      "--max-turns",
+      "6",
+      "--setting-sources",
+      "project",
+      "--strict-private-skill-021-private-skill-011",
+      "--private-skill-021-private-skill-011",
+      "{\"mcpServers\":{}}",
+      "--settings",
+      "{case}/.claude/settings.json",
+      "--no-session-persistence",
+      "--permission-private-identity-005",
+      "manual",
+      "--permission-prompts",
+      "none",
+      "--system-prompt",
+      "Perform the requested local diagnostic task. Preserve identifiers, paths, numbers, and error details.",
+      "--tools",
+      "Bash,Skill",
+      "--allowedTools",
+      "Bash(fixture-report short)",
+      "Bash(rtk fixture-report short)",
+      "Skill(caveman)",
+      "--private-identity-013-format",
+      "stream-json",
+      "--verbose",
+      "--include-hook-events",
+      "--",
+      "Run exactly `fixture-report short` once. Do not edit files. Report counts in the form N passed; M failed. For each failing test, write exactly one plain-text line: TEST_IDENTIFIER | ERROR_PATH | expected N, got M. Put no other test identifier, error path, or comparison on that line. State that the command failed. Keep the answer concise."
+    ],
+    "rtk_processor_executable": "{rtk-executable}",
+    "rtk_host_executable": "{case}/bin/rtk",
+    "rtk_host_target": "{rtk-executable}",
+    "rtk_binary_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f",
+    "rtk_host_shim_sha256": "647db681ade9b91f31053f0b74b53958df8a9da2889823f462171f2fcc062049",
+    "prompt_utf8_bytes": 339,
+    "skill_body_utf8_bytes": 0,
+    "rtk_enabled": false,
+    "rewrite_expected": false,
+    "fixture_utf8_bytes": 204,
+    "scope": "visible-summary-only; accepted protocol requires one task command and no private-identity-094 calls",
+    "recovery_reads_definition": "requested rtk recall Bash calls; extra tool calls fail the strict sequence",
+    "builtins": [],
+    "yaml_utf8_bytes": 42,
+    "yaml_sha256": "4f72a8afa24101a9c0b284567cd4b170200a28eae9996c9b8f9cbc59242af2c5",
+    "yaml_text": "version: 1\ntargets: [claude]\nbuiltins: []\n",
+    "agnostic_home": "{dataset}/private-identity-066-home-short-concise-0",
+    "sync": {
+      "exit": 0,
+      "elapsed_seconds": 0.11374558400000012,
+      "stdout_sha256": "97ce57a733acc5612e8a5676ebeb068306ecb200d66ede49a7149a057a0be797",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "check": {
+      "exit": 0,
+      "elapsed_seconds": 0.05454375000000056,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "generated_outputs": {
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_project_files": {
+      ".private-identity-066-ai/.command-lock": {
+        "sha256": "0adbf9b863b51988127770421d1eb13fbe42659119d2cc3ba35dfe24d395d241",
+        "bytes": 129
+      },
+      ".private-identity-066-ai/.sync-state": {
+        "sha256": "633f265d12556071b6efebcda7345865a217c5595cc93d3525571e99869cc037",
+        "bytes": 429
+      },
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".gitignore": {
+        "sha256": "2b3b35768020a65e45eb6bbd8c1af0e9df484634d5d5977528b8eb614e5fe6ed",
+        "bytes": 386
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_settings_sha256": null,
+    "generated_settings_utf8_bytes": 0,
+    "original_native_handler": null,
+    "original_native_handler_sha256": null,
+    "original_native_command": null,
+    "generated_skill_tree_sha256": null,
+    "generated_skill_body_sha256": null,
+    "generated_skill_assets_verified": false,
+    "exit": 0,
+    "elapsed_seconds": 5.002967040999998,
+    "correct_task": true,
+    "setup_matches_arm": true,
+    "correct": true,
+    "tool_sequence_ok": true,
+    "bash_request_ok": true,
+    "bash_failed_as_expected": true,
+    "hook_recorded": true,
+    "bash_hook_lifecycle": [
+      [
+        "hook_started",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_response",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_started",
+        "PostToolUseFailure:Bash"
+      ],
+      [
+        "hook_response",
+        "PostToolUseFailure:Bash"
+      ]
+    ],
+    "execution_count": 1,
+    "fixture_args": [
+      "fixture-report",
+      "short"
+    ],
+    "exact_execution": true,
+    "effective_inventory": {
+      "claude_code_version": "2.1.295",
+      "model": "claude-haiku-5-5",
+      "skills": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "plugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-telemetry",
+          "path": "builtin",
+          "source": "cc-plugin-telemetry@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "mcp_servers": [],
+      "tools": [
+        "Bash",
+        "Skill"
+      ]
+    },
+    "host_profile": {
+      "tools": [
+        "Bash",
+        "Skill"
+      ],
+      "common_skills": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "bundled_plugins": [
+        [
+          "cc-plugin-agents-md",
+          "cc-plugin-agents-md@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-plugin-authoring",
+          "cc-plugin-plugin-authoring@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-telemetry",
+          "cc-plugin-telemetry@builtin",
+          "builtin"
+        ]
+      ]
+    },
+    "host_profile_sha256": "e1110cbb14f7d0059051cfa4ad56299bd98fd07ea2758f1651a227d65d029dd9",
+    "host_inventory_ok": true,
+    "original_short_output": true,
+    "test_command_calls": 1,
+    "retry_calls": 0,
+    "recovery_reads": 0,
+    "recovery_in_accepted_protocol": false,
+    "rtk_calls": [],
+    "processor_rtk_count": 0,
+    "host_rtk_count": 0,
+    "rtk_calls_exact": true,
+    "skill_source_verified": true,
+    "oracle": {
+      "passed": true,
+      "missing": [],
+      "contradictions": []
+    },
+    "skill_used": false,
+    "rtk_applied": false,
+    "hook_events": [
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-concise-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PreToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report short once"
+          },
+          "tool_use_id": "redacted-id-003"
+        },
+        "request_sha256": "eea08fb26bc0ba2a02efae8a1ca001029f64e9a49e6231e1859b99215cf9b057",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      },
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-concise-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report short once"
+          },
+          "tool_use_id": "redacted-id-003",
+          "error": "Exit code 7\ntest tests::short ... FAILED\n\nfailures:\n---- tests::short stdout ----\nthread panicked at tests/short.rs:9: expected 1, got 2\n\nfailures:\n    tests::short\ntest result: FAILED. 0 passed; 1 failed; 0 ignored",
+          "is_interrupt": false,
+          "duration_ms": 773
+        },
+        "request_sha256": "41fdf4858955e5ca0c02b2c3adfa998c4d93a394915995c75b5efb837c2fd5ac",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      }
+    ],
+    "answer": "The command failed (exit code 7): **0 passed; 1 failed.**\n\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "tool_calls": [
+      {
+        "type": "tool_use",
+        "id": "redacted-id-003",
+        "name": "Bash",
+        "input": {
+          "command": "fixture-report short",
+          "description": "Run fixture-report short once"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      }
+    ],
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 1361,
+      "cache_read_input_tokens": 5467,
+      "output_tokens": 245,
+      "output_tokens_details": {
+        "thinking_tokens": 113
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1361,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 164,
+          "cache_read_input_tokens": 3294,
+          "cache_creation_input_tokens": 240,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 240
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-haiku-5-5": {
+        "inputTokens": 4,
+        "outputTokens": 245,
+        "cacheReadInputTokens": 5467,
+        "cacheCreationInputTokens": 1361,
+        "webSearchRequests": 0,
+        "costUSD": 0.00044977000000000005,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 113,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "token_accounting": {
+      "uncached_input_tokens": 4,
+      "cache_creation_input_tokens": 1361,
+      "cache_read_input_tokens": 5467,
+      "unweighted_total_input_tokens": 6832,
+      "output_tokens": 245,
+      "thinking_tokens_within_output": 113,
+      "counter_presence": {
+        "uncached_input_tokens": true,
+        "cache_creation_input_tokens": true,
+        "cache_read_input_tokens": true,
+        "output_tokens": true
+      },
+      "cost_present": true,
+      "measurement_complete": true,
+      "cli_list_price_estimate_usd": 0.00044977000000000005
+    },
+    "estimated_cost_usd": 0.00044977000000000005,
+    "cost_label": "CLI list-price estimate, not a bill",
+    "permission_denials": [],
+    "result_subtype": "success",
+    "comparison_valid": true
+  },
+  {
+    "case_id": "short-both-0",
+    "repetition": 0,
+    "arm": "both",
+    "task": "short",
+    "command": "fixture-report short",
+    "fixture_sha256": "5e49558e96cd15565c660eb85c00a5e00ce909ae73786b5fa90e1525570d43ba",
+    "settings_sha256": "a28ab4c8b0e9d68026c7f0d961154dd51941b27cd18c1d1c9357b68920479e73",
+    "argv": [
+      "{claude-executable}",
+      "-p",
+      "--model",
+      "claude-haiku-5-5",
+      "--max-budget-usd",
+      "0.12",
+      "--max-turns",
+      "6",
+      "--setting-sources",
+      "project",
+      "--strict-private-skill-021-private-skill-011",
+      "--private-skill-021-private-skill-011",
+      "{\"mcpServers\":{}}",
+      "--settings",
+      "{case}/.claude/settings.json",
+      "--no-session-persistence",
+      "--permission-private-identity-005",
+      "manual",
+      "--permission-prompts",
+      "none",
+      "--system-prompt",
+      "Perform the requested local diagnostic task. Preserve identifiers, paths, numbers, and error details.",
+      "--tools",
+      "Bash,Skill",
+      "--allowedTools",
+      "Bash(fixture-report short)",
+      "Bash(rtk fixture-report short)",
+      "Skill(caveman)",
+      "--private-identity-013-format",
+      "stream-json",
+      "--verbose",
+      "--include-hook-events",
+      "--",
+      "First invoke /caveman using the Skill tool. Then perform this task: Run exactly `fixture-report short` once. Do not edit files. Report counts in the form N passed; M failed. For each failing test, write exactly one plain-text line: TEST_IDENTIFIER | ERROR_PATH | expected N, got M. Put no other test identifier, error path, or comparison on that line. State that the command failed. Keep the answer concise."
+    ],
+    "rtk_processor_executable": "{rtk-executable}",
+    "rtk_host_executable": "{case}/bin/rtk",
+    "rtk_host_target": "{rtk-executable}",
+    "rtk_binary_sha256": "3aa2c36116310f1684f34ffd1dad023aa0930788d38219423ca5c1190c24fb7f",
+    "rtk_host_shim_sha256": "f66e88c0d3ac51086572b9a00fc9bd48d90966951722772b2d68eacbca742794",
+    "prompt_utf8_bytes": 407,
+    "skill_body_utf8_bytes": 4557,
+    "rtk_enabled": true,
+    "rewrite_expected": false,
+    "fixture_utf8_bytes": 204,
+    "scope": "visible-summary-only; accepted protocol requires one task command and no private-identity-094 calls",
+    "recovery_reads_definition": "requested rtk recall Bash calls; extra tool calls fail the strict sequence",
+    "builtins": [
+      "rtk",
+      "caveman"
+    ],
+    "yaml_utf8_bytes": 54,
+    "yaml_sha256": "e7d1ca304e81862d65a6201ca10e2085f4b0cb8b2a1fd9579138c5ab06e5b565",
+    "yaml_text": "version: 1\ntargets: [claude]\nbuiltins: [rtk, caveman]\n",
+    "agnostic_home": "{dataset}/private-identity-066-home-short-both-0",
+    "sync": {
+      "exit": 0,
+      "elapsed_seconds": 0.11655337499999874,
+      "stdout_sha256": "05821ee271bdc2d04dc7f76adacd4437e09aed9e61832232ba023e303e2c87d1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "check": {
+      "exit": 0,
+      "elapsed_seconds": 0.05116241700000046,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "generated_outputs": {
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".claude/settings.json": {
+        "sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d",
+        "bytes": 308
+      },
+      ".claude/skills/caveman/LICENSE": {
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      ".claude/skills/caveman/LICENSE-MIT": {
+        "sha256": "5eb826cd03151bcc7cce3f80d40e87733237fedfc6c36d6908aca5fd650a0bdb",
+        "bytes": 1071
+      },
+      ".claude/skills/caveman/LICENSING.md": {
+        "sha256": "e36ef7b22766ea22f01bce187f629669e62f2346948435154a295f91bd3c3ff2",
+        "bytes": 3645
+      },
+      ".claude/skills/caveman/NOTICE": {
+        "sha256": "20112dc6e62e91da4f03c29fd10cfa41743a9c526389fdf1396c3649c18216fc",
+        "bytes": 2285
+      },
+      ".claude/skills/caveman/SKILL.md": {
+        "sha256": "5539518289064b65cee6c54c0ec35133df08570897462089b9c2959f019e2872",
+        "bytes": 4802
+      },
+      ".claude/skills/caveman/UPSTREAM-README.md": {
+        "sha256": "e8b22f37ccb204bd00cdf98c723c0df37aeda1f5863e9ad1d634f5c839d99e5d",
+        "bytes": 3030
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_project_files": {
+      ".private-identity-066-ai/.command-lock": {
+        "sha256": "375e385840fbffbe8c45c4a939f85cf264759ffc21448f1e06f07b89bebec2ee",
+        "bytes": 129
+      },
+      ".private-identity-066-ai/.sync-state": {
+        "sha256": "a5f4b33f64aa1fedc13257447a07752f213ea7fa98478ebb3107979d08a8897f",
+        "bytes": 3610
+      },
+      ".private-identity-066-ai/AGNOSTIC_AI.md": {
+        "sha256": "da07acecd77daa0cbb5cf8c80e1638426ce7895be2e9d865f179efc34507d500",
+        "bytes": 294
+      },
+      ".claude/settings.json": {
+        "sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d",
+        "bytes": 308
+      },
+      ".claude/skills/caveman/LICENSE": {
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      ".claude/skills/caveman/LICENSE-MIT": {
+        "sha256": "5eb826cd03151bcc7cce3f80d40e87733237fedfc6c36d6908aca5fd650a0bdb",
+        "bytes": 1071
+      },
+      ".claude/skills/caveman/LICENSING.md": {
+        "sha256": "e36ef7b22766ea22f01bce187f629669e62f2346948435154a295f91bd3c3ff2",
+        "bytes": 3645
+      },
+      ".claude/skills/caveman/NOTICE": {
+        "sha256": "20112dc6e62e91da4f03c29fd10cfa41743a9c526389fdf1396c3649c18216fc",
+        "bytes": 2285
+      },
+      ".claude/skills/caveman/SKILL.md": {
+        "sha256": "5539518289064b65cee6c54c0ec35133df08570897462089b9c2959f019e2872",
+        "bytes": 4802
+      },
+      ".claude/skills/caveman/UPSTREAM-README.md": {
+        "sha256": "e8b22f37ccb204bd00cdf98c723c0df37aeda1f5863e9ad1d634f5c839d99e5d",
+        "bytes": 3030
+      },
+      ".gitignore": {
+        "sha256": "2b3b35768020a65e45eb6bbd8c1af0e9df484634d5d5977528b8eb614e5fe6ed",
+        "bytes": 386
+      },
+      "CLAUDE.md": {
+        "sha256": "076a63c509ddd97252808d3227a2210f2be91f4992974275ebe884c6f24593e3",
+        "bytes": 421
+      }
+    },
+    "generated_settings_sha256": "401db9f6bdb3a2b58564b88c360bf3d8fd2cefb73e8d2f5c3605a9300ca5103d",
+    "generated_settings_utf8_bytes": 308,
+    "original_native_handler": {
+      "type": "command",
+      "command": "command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude"
+    },
+    "original_native_handler_sha256": "2413d9ce3ca20357c443bb5ddb6b914311342b80b07e5fbe48f36a77702b9af3",
+    "original_native_command": "command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude",
+    "generated_skill_tree_sha256": "94e6d06d1bacc909031a7d49b4b1b01e8ff89e32aae10cd33412b36d789572cf",
+    "generated_skill_body_sha256": "e31585108e2754cc55ef45aec35bb69f38a58a0038a7160409699141cab2a844",
+    "generated_skill_assets_verified": true,
+    "exit": 0,
+    "elapsed_seconds": 6.128041834000001,
+    "correct_task": true,
+    "setup_matches_arm": true,
+    "correct": true,
+    "tool_sequence_ok": true,
+    "bash_request_ok": true,
+    "bash_failed_as_expected": true,
+    "hook_recorded": true,
+    "bash_hook_lifecycle": [
+      [
+        "hook_started",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_response",
+        "PreToolUse:Bash"
+      ],
+      [
+        "hook_started",
+        "PostToolUseFailure:Bash"
+      ],
+      [
+        "hook_response",
+        "PostToolUseFailure:Bash"
+      ]
+    ],
+    "execution_count": 1,
+    "fixture_args": [
+      "fixture-report",
+      "short"
+    ],
+    "exact_execution": true,
+    "effective_inventory": {
+      "claude_code_version": "2.1.295",
+      "model": "claude-haiku-5-5",
+      "skills": [
+        "caveman",
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "plugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-telemetry",
+          "path": "builtin",
+          "source": "cc-plugin-telemetry@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "mcp_servers": [],
+      "tools": [
+        "Bash",
+        "Skill"
+      ]
+    },
+    "host_profile": {
+      "tools": [
+        "Bash",
+        "Skill"
+      ],
+      "common_skills": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ],
+      "bundled_plugins": [
+        [
+          "cc-plugin-agents-md",
+          "cc-plugin-agents-md@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-plugin-authoring",
+          "cc-plugin-plugin-authoring@builtin",
+          "builtin"
+        ],
+        [
+          "cc-plugin-telemetry",
+          "cc-plugin-telemetry@builtin",
+          "builtin"
+        ]
+      ]
+    },
+    "host_profile_sha256": "e1110cbb14f7d0059051cfa4ad56299bd98fd07ea2758f1651a227d65d029dd9",
+    "host_inventory_ok": true,
+    "original_short_output": true,
+    "test_command_calls": 1,
+    "retry_calls": 0,
+    "recovery_reads": 0,
+    "recovery_in_accepted_protocol": false,
+    "rtk_calls": [
+      [
+        "hook",
+        "claude"
+      ]
+    ],
+    "processor_rtk_count": 1,
+    "host_rtk_count": 0,
+    "rtk_calls_exact": true,
+    "skill_source_verified": true,
+    "oracle": {
+      "passed": true,
+      "missing": [],
+      "contradictions": []
+    },
+    "skill_used": true,
+    "rtk_applied": false,
+    "hook_events": [
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-both-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PreToolUse",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report with short argument once"
+          },
+          "tool_use_id": "redacted-id-003"
+        },
+        "request_sha256": "b23f108cda471987429ee2cad5b82c71c14b2f3a64ec53e250209bb1195c0f4d",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      },
+      {
+        "request": {
+          "session_id": "redacted-id-001",
+          "transcript_path": "{case}/claude-profile/projects/-private-tmp-private-identity-066-ai-1961-pilot-9932169b-short-both-0/redacted-id-001.jsonl",
+          "cwd": "{case}",
+          "prompt_id": "redacted-id-002",
+          "permission_mode": "default",
+          "private-skill-016": {
+            "level": "medium"
+          },
+          "hook_event_name": "PostToolUseFailure",
+          "tool_name": "Bash",
+          "tool_input": {
+            "command": "fixture-report short",
+            "description": "Run fixture-report with short argument once"
+          },
+          "tool_use_id": "redacted-id-003",
+          "error": "Exit code 7\ntest tests::short ... FAILED\n\nfailures:\n---- tests::short stdout ----\nthread panicked at tests/short.rs:9: expected 1, got 2\n\nfailures:\n    tests::short\ntest result: FAILED. 0 passed; 1 failed; 0 ignored",
+          "is_interrupt": false,
+          "duration_ms": 766
+        },
+        "request_sha256": "44ef951154673e7b20bd49b5e2165922a8ed5e817b12353a5b266e3f60859891",
+        "reply": "",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exit": 0
+      }
+    ],
+    "answer": "Command failed (exit code 7).\n\n0 passed; 1 failed\ntests::short | tests/short.rs:9 | expected 1, got 2",
+    "tool_calls": [
+      {
+        "type": "tool_use",
+        "id": "redacted-id-004",
+        "name": "Skill",
+        "input": {
+          "skill": "caveman"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      },
+      {
+        "type": "tool_use",
+        "id": "redacted-id-003",
+        "name": "Bash",
+        "input": {
+          "command": "fixture-report short",
+          "description": "Run fixture-report with short argument once"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      }
+    ],
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3342,
+      "cache_read_input_tokens": 10842,
+      "output_tokens": 299,
+      "output_tokens_details": {
+        "thinking_tokens": 116
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3342,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 165,
+          "cache_read_input_tokens": 5268,
+          "cache_creation_input_tokens": 247,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 247
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-haiku-5-5": {
+        "inputTokens": 6,
+        "outputTokens": 299,
+        "cacheReadInputTokens": 10842,
+        "cacheCreationInputTokens": 3342,
+        "webSearchRequests": 0,
+        "costUSD": 0.0009269200000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 116,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "token_accounting": {
+      "uncached_input_tokens": 6,
+      "cache_creation_input_tokens": 3342,
+      "cache_read_input_tokens": 10842,
+      "unweighted_total_input_tokens": 14190,
+      "output_tokens": 299,
+      "thinking_tokens_within_output": 116,
+      "counter_presence": {
+        "uncached_input_tokens": true,
+        "cache_creation_input_tokens": true,
+        "cache_read_input_tokens": true,
+        "output_tokens": true
+      },
+      "cost_present": true,
+      "measurement_complete": true,
+      "cli_list_price_estimate_usd": 0.0009269200000000001
+    },
+    "estimated_cost_usd": 0.0009269200000000001,
+    "cost_label": "CLI list-price estimate, not a bill",
+    "permission_denials": [],
+    "result_subtype": "success",
+    "comparison_valid": true
+  }
+]

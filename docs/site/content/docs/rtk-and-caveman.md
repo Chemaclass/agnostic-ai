@@ -1,6 +1,6 @@
 +++
 title = "Use RTK and Caveman with agnostic-ai"
-description = "An experimental project recipe for shared setup, smaller command output, and concise responses."
+description = "Opt-in setup for shared instructions, smaller command output and concise responses, with measured tradeoffs."
 weight = 71
 
 [extra]
@@ -23,7 +23,7 @@ targets: [claude]
 builtins: [rtk, caveman]
 ```
 
-Use `[rtk]` or `[caveman]` to enable one. Both are off by default, including in projects created by `init`. A personal `agnostic-ai.local.yaml` can replace the shared list for one machine. These names require a build that includes this feature; agnostic-ai 0.81.0 does not support them.
+Add `rtk`, `caveman`, or both to your existing `builtins` list. Both are off by default, including in projects created by `init`. A personal `agnostic-ai.local.yaml` can replace the shared list for one machine. These names require a build that includes this feature; agnostic-ai 0.81.0 does not support them.
 
 Install RTK separately using its [installation guide](https://github.com/rtk-ai/rtk#installation). RTK must be on the hook process's `PATH`. If it is absent, the generated hook returns no replacement and leaves command handling to Claude. Sync does not run or install either third-party tool.
 
@@ -77,12 +77,18 @@ Combining the runtimes adds two recovery stores. Caveman retrieves the RTK summa
 
 Measure a complete task with and without the enabled components. Count prompt overhead, retries, recovery reads, and task correctness alongside provider usage. Smaller command output is useful evidence, but it is not a measured reduction in the cost of completing the task. See Caveman's [measurement notes](https://github.com/JuliusBrussee/caveman/blob/main/docs/HONEST-NUMBERS.md).
 
-## What the local experiments show
+## What complete sessions measured
 
-The project example passed 56 checks across seven fixtures. It covers independent pack selection, repeated sync, missing RTK, ownership transfer, removal, and failed writes. Unrelated handwritten hooks and settings survived. The skill, license, and notice files were preserved. These checks used a synthetic Claude-shaped request, rather than a launched coding session.
+In 24 synthetic diagnostic sessions with Claude Code 2.1.295, RTK 0.51.0 and `claude-haiku-5-5`, RTK alone had the lowest observed CLI price estimate for two larger failing test transcripts. Adding Caveman cost more than RTK alone in every paired task. Each task had two repetitions. These are CLI list-price estimates, not billed savings or predictions for your project.
 
-Standalone Caveman CLI 2.1.0 with runtime `bin-v2.1.0` compressed a repetitive 37,874-byte test transcript to 271 bytes and recovered the exact original. A failing command retained exit code 7. Missing-engine and short-input cases returned the original bytes.
+| Enabled feature | Two larger tasks | Short, unsupported command |
+| --- | --- | --- |
+| RTK | Lower estimate than concise instructions in both repetitions of each task | Mixed cost direction; command and output unchanged |
+| Caveman | No cost benefit established | Higher estimate in both repetitions |
+| Both | Lower than concise instructions, higher than RTK alone | Higher estimate in both repetitions |
 
-In a separate synthetic test log, RTK reduced 21,220 bytes to 239 bytes and kept the failure and path. Passing that summary to Caveman gave no additional reduction. This supports testing each component separately before adding another compression step. No provider usage or billed cost was measured.
+An independent blind model review accepted all 24 answers. The original automated check accepted 23 because it rejected one correct statement naming the failed command. The report retains that disagreement and its cost; a later fix only changes future checks. Claude also truncated four unfiltered larger outputs, so the comparison includes its native output handling.
 
-Track the remaining work in the [project collaboration investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957): runtime composition and whole-task measurements. The live-host report records tested versions, duplicate registrations, removal, and approval differences.
+Use RTK for supported noisy commands after checking that the required details survive. Keep it off for this short diagnostic task when lower cost is the goal. Choose Caveman when you want its response style. Its explicit skill activation adds instructions and a tool turn, and this study found no extra cost benefit from adding it to RTK. Both features remain off by default.
+
+Read the [complete results, paired values and raw evidence](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/experiments/trio-evaluation-results.md) before applying these observations to another workload. The [collaboration investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957) also records lifecycle, approval and runtime checks.

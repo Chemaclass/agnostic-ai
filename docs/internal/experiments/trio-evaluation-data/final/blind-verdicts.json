@@ -1,0 +1,98 @@
+{
+  "B001": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B002": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B003": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B004": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction. The named command is not itself present in the blinded truth."
+  },
+  "B005": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B006": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B007": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B008": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B009": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B010": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B011": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B012": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B013": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B014": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B015": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B016": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B017": {
+    "pass": true,
+    "reason": "Correct 0 passed; 1 failed; explicit command failure; one line links tests::short | tests/short.rs:9 | expected 1, got 2; no contradiction."
+  },
+  "B018": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B019": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B020": {
+    "pass": true,
+    "reason": "Correct 700 passed; 1 failed; explicit command failure; one line links tests::payment | tests/payment.rs:42 | expected 200, got 503; no contradiction."
+  },
+  "B021": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B022": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B023": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  },
+  "B024": {
+    "pass": true,
+    "reason": "Correct 300 passed; 2 failed; explicit command failure; two separate lines correctly link tests::cafe | tests/café.rs:17 | expected 12, got 18 and tests::timeout | tests/timeout.rs:88 | expected 100, got 250; no contradiction."
+  }
+}
