@@ -156,11 +156,14 @@ Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [li
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
+| `--scope <all\|project>` | `all` (default) includes local Codex hook trust. `project` skips that runtime check and keeps all project checks. |
 | `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. In a terminal, it offers to remove each kept orphan, defaulting to no. Otherwise it keeps the orphans and says why. The exit stays non-zero while any remain. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting it or removing a confirmed orphan. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`, plus `lint`, `hook_trust`, and `packaging_ignore` lists, and `references` with `--check-references`. |
+
+For a fresh CI runner, run `agnostic-ai doctor --scope project --check-references`. Text marks Codex hook trust as `SKIPPED`. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and leaves `hook_trust` empty. This distinguishes a skipped check from one with no findings. `--scope project --fix` repairs project drift without reading or approving trust. `--json` remains read-only. Packaging warnings keep their advisory status.
 
 `--check-references` reads each Markdown file a selected tool writes for its skills. A link is valid when it resolves from the document's directory or from the project root. It skips code, URLs, absolute paths, and `#fragment`-only links, and checks only the file in a `file#fragment` link. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. Doctor exits non-zero on any broken link. Findings group by source spec and link:
 

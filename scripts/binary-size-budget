@@ -78,14 +78,28 @@
 # measured 18813088. Keep the established 8 KB allowance for CI.
 # After combining reviewed lifecycle, source reconciliation and RTK,
 # measured 18858144. Keep the established 8 KB allowance for CI.
+# Permissions branch history:
+# #1987 measured 18768032, up 28672 from main eec372ab: permission
+# comparison checks emitted fields, target overrides, and partial translations.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #1989, measured 18784416, up 32768 from main cc7eb45c.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After lifecycle, reconciliation and RTK changes, #1987 measured18886816,
+# up28672 from mainf535cae3. Keep the established CI allowance.
 # After combining reviewed context reporting with lifecycle, source
 # reconciliation and RTK, measured 18911392. Keep CI's 8 KB allowance.
 # After trusted import spans, frontmatter mapping and native rule output
 # attribution, measured 18923680, up 65536 from main f535cae3.
 # Keep the established 8 KB allowance for CI.
+# Permission comparison with trusted context attribution measured
+# 18952352 bytes, up 28672 from main 66cc90dd.
+# Keep the established allowance for CI.
 # Credential preview branch history:
 # Credential preview redaction including global summaries measured 18964640,
 # up 53248 from main 19a1b04e. Keep CI's 8 KB allowance.
 # With reviewed context attribution fixes, credential previews measured
 # 18976928, up 53248 from main fbf6be54. Keep CI's 8 KB allowance.
-18985928
+# Permission comparison after credential preview protection measured
+# 19005600 bytes, up 28672 from main 60d9dfb4.
+# Keep the established allowance for CI.
+19014600

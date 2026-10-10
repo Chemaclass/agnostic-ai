@@ -600,6 +600,7 @@ func printDrift(reports []driftReport) bool {
 
 func newDoctorCmd() *cobra.Command {
 	var targets []string
+	var diagnosticScope string
 	var fix, backup, jsonOut, checkGlobs, checkRefs bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
@@ -620,9 +621,15 @@ func newDoctorCmd() *cobra.Command {
 			"  8. Check existing packaging ignore files against generated paths.\n" +
 			"  9. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
-			"failing. Subcommands run individual checks.",
-		Example: `  # Full diagnostic (CI gate)
+			"failing. Subcommands run individual checks.\n\n" +
+			"--scope project skips local Codex hook trust and reports it as skipped. " +
+			"All project checks stay enabled. With --fix, only project drift is repaired; " +
+			"trust is never approved. JSON output stays read-only.",
+		Example: `  # Project and local runtime diagnostic
   agnostic-ai doctor
+
+  # Validate project files on a fresh CI runner
+  agnostic-ai doctor --scope project --check-references
 
   # Reconcile drift in place, keeping a .bak of each hand-edited file
   agnostic-ai doctor --fix --backup
@@ -639,6 +646,10 @@ func newDoctorCmd() *cobra.Command {
   # Check only installed AI CLIs
   agnostic-ai doctor install`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateDoctorScope(diagnosticScope); err != nil {
+				return err
+			}
+
 			// JSON mode: emit only the drift report, skip human-readable sections.
 			if jsonOut {
 				reports, err := collectDrift(targets)
@@ -659,7 +670,8 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, collectCodexHookTrust(scope.cfg, targets), collectPackagingIgnoreFindings(reports))
+				hookTrust, trustCheck := doctorTrustForScope(scope.cfg, targets, diagnosticScope)
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck)
 			}
 
 			configOK := doctorConfigOK()
@@ -795,7 +807,10 @@ func newDoctorCmd() *cobra.Command {
 
 			packaging := collectPackagingIgnoreFindings(reports)
 			reportPackagingIgnoreFindings(cmd, packaging)
-			hookTrust := collectCodexHookTrust(cfg, targets)
+			hookTrust, trustCheck := doctorTrustForScope(cfg, targets, diagnosticScope)
+			if trustCheck != nil {
+				cmd.Printf("\nCodex hook trust:\n  SKIPPED: %s\n", trustCheck.Reason)
+			}
 			reportCodexHookTrust(cmd, hookTrust)
 			mergedHooks := mergedClaudeHookSpecs(cfg, bundle)
 			reportMergedClaudeHookSpecs(cmd, cfg, mergedHooks)
@@ -834,7 +849,7 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies+removedOrphans)
-				hookTrust = collectCodexHookTrust(cfg, targets)
+				hookTrust, _ = doctorTrustForScope(cfg, targets, diagnosticScope)
 				reportCodexHookTrust(cmd, hookTrust)
 				if n := orphanedCount(reports); n > 0 {
 					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
@@ -847,6 +862,7 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
+	cmd.Flags().StringVar(&diagnosticScope, "scope", "all", "Checks to run: all includes local hook trust; project skips it")
 	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift and offer removal of kept orphans in a terminal")
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting or confirmed orphan removal")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
@@ -866,6 +882,7 @@ type doctorJSONOutput struct {
 	Lint            []lintFinding            `json:"lint"`
 	References      *[]referenceFinding      `json:"references,omitempty"`
 	HookTrust       []codex.HookTrustFinding `json:"hook_trust"`
+	HookTrustCheck  *doctorTrustCheck        `json:"hook_trust_check,omitempty"`
 	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
 	// CoverageAccepted counts the coverage notes coverage.accept matches.
 	CoverageAccepted int `json:"coverage_accepted"`
@@ -875,11 +892,11 @@ type doctorJSONOutput struct {
 // used by `sync --check --json`: missing, stale, and orphaned files appear
 // in writes. Lint, hook trust, and packaging findings have their own lists. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted, HookTrustCheck: trustCheck}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}
