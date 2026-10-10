@@ -170,9 +170,35 @@ If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, 
 | `--include-assumed` | Count tools whose shell, timeout, or working directory is a guess (Cursor, Copilot, Factory, Antigravity, Cline, Kiro, Windsurf) toward `--expect` and the comparison between tools. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |
 | `--format text\|json` | `json` prints one object per tool with its result, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
 
+## project
+
+Run the project's installed binary with its exact stable `package.json` pins and `requires` contract. The helper prefers `node_modules/.bin/agnostic-ai` over `PATH`. A project declaring an agnostic-ai dependency must have its local binary installed; a global binary does not silently replace it. On Windows, the helper runs the installed Node shim directly.
+
+Conflicting exact declarations stop before installation. npm ranges, tags, aliases, prereleases, and file dependencies are not interpreted as version contracts; use `requires` for those declarations. Checks against `index` or `HEAD` read the contract from that Git view and select the installed binary from the working checkout. Unsupported binaries receive an instruction to upgrade the owning package explicitly; released v0.82.0 lacks `project`.
+
+```bash
+agnostic-ai project                     # sync --keep-edits --quiet
+agnostic-ai project --check             # sync --check, no install or writes
+agnostic-ai project --check --against index
+agnostic-ai project --bootstrap         # repair dependencies once, then sync
+agnostic-ai project -- hook memory --target codex
+```
+
+The helper finds the nearest project config at or above the working directory. A built-in hook can use the host's project-directory environment variable instead. The version probe must satisfy `requires`; failures name the installed version, required version, and `agnostic-ai project --bootstrap` recovery command. Bootstrap does not modify the requirement or package manifest, so the committed lockfile must install an allowed version.
+
+| Flag | Description |
+|------|-------------|
+| `--check` | Check the version and generated output without installing or writing. |
+| `--against index\|HEAD` | With `--check`, use the existing staged or committed output gate. |
+| `--bootstrap` | If the binary is missing or mismatched, run one locked npm or pnpm install, then sync preserving manual edits. |
+
+Bootstrap uses `packageManager` from `package.json`, or an unambiguous root lockfile. It runs `npm ci` or `pnpm install --frozen-lockfile`. Both require a committed lockfile and a declared agnostic-ai dependency. Other package managers must install explicitly before invoking the helper. Normal package scripts run, including hook-manager setup and native builds. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` prevents a recursive helper call from starting another install; postinstall can still regenerate output. Repeating bootstrap with the correct binary performs no install.
+
+Existing hook managers can call this helper without changing their own configuration format. A bootstrap entry point must already be installed, globally or locally. Versions released before `project` existed must first be updated through their existing package-manager command.
+
 ## install-hook
 
-Install git hooks. By default it installs a pre-commit hook that runs `sync --check --against index`, so a commit fails if regenerated files are not staged. With `--post-checkout`, it installs hooks that regenerate the tool files after a checkout or a pull. See [git hooks](@/docs/git-hooks.md).
+Install git hooks. By default it installs a pre-commit hook that runs `project --check --against index`, so a commit fails if regenerated files are not staged. With `--post-checkout`, it installs hooks that regenerate the tool files after a checkout or a pull. Project hooks prefer the installed local binary over `PATH`. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
@@ -187,7 +213,7 @@ An existing hook keeps its content, and the checks go at its end. A hook that wo
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
 - `--global` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree), and the commit fails if any fails. It cannot combine with `--shared` or `--post-checkout`, and it stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
-- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (not a single-file checkout) or a merge, including a pull. Both skip if the binary or `agnostic-ai.yaml` is missing.
+- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single-file checkout) or a merge, including a pull. They preserve manual edits, skip a checkout without `agnostic-ai.yaml`, and report a missing binary with a recovery command. They never install dependencies.
 
 ## completion
 

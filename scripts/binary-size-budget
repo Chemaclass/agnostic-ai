@@ -42,6 +42,11 @@
 # #2014 measured 18739360, up 16384 from main 7df02fd1: registered
 # worktree ownership, complete payloads, and hidden index flags are checked
 # before cleanup. Keep the same 8 KB allowance for CI's Linux build.
+# #2012 measured 18763936, up 24576 from main badb5ae3: pinned project
+# binaries, locked bootstrap and portable lifecycle launchers.
+# Keep the established 8 KB allowance for CI.
+# After contract fixes, measured 18784416, up 45056 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
 # #2013 measured 18751648, up 28672 from main 7df02fd1: committed
 # native and canonical skill trees produce a deterministic reconciliation
 # plan with explicit migration baselines. Keep CI's 8 KB build allowance.
@@ -58,6 +63,9 @@
 # After #1986, measured 18735264, up 12288 from main 7df02fd1.
 # Keep room for the 8 KB difference seen in CI's Linux build.
 # After #2014, measured 18751648, up 12288 from main badb5ae3.
+# Lifecycle branch history:
+# After merging Codex file context, measured 18796704.
+# Keep the established 8 KB allowance for CI's Linux build.
 # Source reconciliation branch history:
 # After merging Codex file context, measured 18780320.
 # Keep the established 8 KB allowance for CI's Linux build.
@@ -66,4 +74,6 @@
 # Keep the established 8 KB allowance for CI's Linux build.
 # After combining reviewed source reconciliation and RTK diagnostics,
 # measured 18813088. Keep the established 8 KB allowance for CI.
-18822000
+# After combining reviewed lifecycle, source reconciliation and RTK,
+# measured 18858144. Keep the established 8 KB allowance for CI.
+18867000
