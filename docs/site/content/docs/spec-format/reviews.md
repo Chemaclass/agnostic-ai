@@ -25,6 +25,12 @@ Other tools report review specs as unsupported.
 
 ## Write one
 
+```bash
+agnostic-ai new review code-quality
+```
+
+Replace the description and body with the checks your review bot should apply. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+
 Write Markdown with optional YAML settings between `---` lines at the top, one file per group of guidance.
 
 ```markdown

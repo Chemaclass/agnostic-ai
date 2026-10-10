@@ -54,6 +54,7 @@ Interactive runs offer new releases with upgrade guidance and a default Yes prom
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
 agnostic-ai import claude --overwrite           # replace conflicting specs
 agnostic-ai compare claude cursor                # compare fields, rule activation, hooks, and MCP connections
+agnostic-ai new settings project-defaults --dry-run # preview a settings spec
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai explain --file src/main.go --target claude # show configured instructions for a file
 agnostic-ai sync --check                         # find generated files that differ from the sources
@@ -62,6 +63,8 @@ agnostic-ai migrate --dry-run                    # preview rewrites of old spec 
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store
 ```
+
+`agnostic-ai new` creates all ten spec kinds in their configured source directories. Edit the marked placeholders before rendering or syncing. See [new](https://agnostic-ai.org/docs/cli-reference/start/#new).
 
 `explain --file` supports Claude Code and Cursor. It shows source specs, planned output paths, and why instructions apply. See [file instructions](https://agnostic-ai.org/docs/cli-reference/inspect/#explain-a-source-file).
 
