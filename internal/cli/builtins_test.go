@@ -187,7 +187,10 @@ func TestBuiltins_LintAndLSPKeepUserFindings(t *testing.T) {
 	dir := builtinProject(t, "handoff")
 	path := filepath.Join(dir, ".agnostic-ai", "skills", "mine.md")
 	writeFile(t, path, "---\nname: mine\n---\n")
-	diagnostics := lspLinter(dir)
+	diagnostics, err := lspLinter(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(diagnostics[path]) == 0 {
 		t.Error("LSP lost user diagnostics")
 	}
