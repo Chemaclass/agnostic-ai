@@ -37,14 +37,15 @@ func kiroProject(t *testing.T, hook, body string) {
 	mustSync(t)
 }
 
-func TestHookRun_KiroBlocksAPromptOnAnAssumedShell(t *testing.T) {
+func TestHookRun_KiroCLIV3DoesNotBlockAPromptOnAnAssumedShell(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	kiroProject(t, kiroGuardSpec, kiroGuardScript)
 
 	out, err := runHookRun(t, "deploy-guard", "--prompt", "deploy now", "--expect", "block")
 	for _, want := range []string{
 		"claude: block (exit 2",
-		"kiro: block (exit 2", "(assumed: shell)\n", "event: UserPromptSubmit (prompt)", "command: .kiro/scripts/deploy-guard.sh",
+		"kiro: allow (exit 2", "(assumed: shell)\n", "event: UserPromptSubmit (prompt)", "command: .kiro/scripts/deploy-guard.sh",
+		"note: exit 2: Kiro CLI V3 sends the prompt anyway", "only the IDE blocks it",
 		"assumed shell: sh -c (Kiro does not document the shell that runs a hook command)",
 		"docs: https://kiro.dev/docs/hooks",
 		"1 checked, 1 assumed (not counted; --include-assumed to count)",
@@ -56,13 +57,13 @@ func TestHookRun_KiroBlocksAPromptOnAnAssumedShell(t *testing.T) {
 	if err != nil {
 		t.Errorf("the counted claude result passes --expect: %v", err)
 	}
-	if strings.Contains(out, "warning:") || strings.Contains(out, "assumed timeout") || strings.Contains(out, "assumed working directory") {
+	if strings.Contains(strings.ReplaceAll(out, "kiro: warning: assumed result allow differs from block", ""), "warning:") || strings.Contains(out, "assumed timeout") || strings.Contains(out, "assumed working directory") {
 		t.Errorf("a fresh sync warns, or the documented cwd or 60s timeout is marked assumed:\n%s", out)
 	}
 
-	out, err = runHookRun(t, "deploy-guard", "--prompt", "deploy now", "--expect", "block", "--include-assumed")
-	if err != nil || !strings.Contains(out, "2 checked, 1 assumed (counted)") {
-		t.Errorf("--include-assumed must count the exit 2 block: %v\n%s", err, out)
+	out, err = runHookRun(t, "deploy-guard", "--target", "kiro", "--prompt", "deploy now", "--expect", "block", "--include-assumed")
+	if err == nil || !strings.Contains(out, "kiro: allow (exit 2") {
+		t.Errorf("a Kiro prompt exit 2 counts as allow, so --expect block must fail: %v\n%s", err, out)
 	}
 
 	out, err = runHookRun(t, "deploy-guard", "--target", "kiro", "--prompt", "hello", "--expect", "allow", "--include-assumed")
@@ -148,6 +149,33 @@ func TestHookRun_KiroReadsAStopBlockDecision(t *testing.T) {
 	}
 }
 
+func TestHookRun_KiroReadsAStopExit1AsKeepingTheAgentRunning(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	kiroProject(t, "name: deploy-guard\nevent: Stop\ncommand: .agnostic-ai/scripts/deploy-guard.sh\n", "#!/bin/sh\ncat >/dev/null\nexit 1\n")
+
+	out, err := runHookRun(t, "deploy-guard", "--target", "kiro", "--expect", "block", "--include-assumed")
+	for _, want := range []string{"kiro: block (exit 1", "note: exit 1: Kiro starts another agent turn and keeps the agent running; read as block"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output misses %q:\n%s", want, out)
+		}
+	}
+	if err != nil || strings.Contains(out, "failed on kiro") {
+		t.Errorf("a Stop exit 1 is a block, not a failure: %v\n%s", err, out)
+	}
+}
+
+func TestHookRun_KiroMatchesAnMCPToolBySelector(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	kiroProject(t, "name: deploy-guard\nevent: PreToolUse\nmatcher: '@git/git_status'\ncommand: .agnostic-ai/scripts/deploy-guard.sh\n", kiroGuardScript)
+
+	payload := filepath.Join(t.TempDir(), "call.json")
+	mustWrite(t, payload, `{"hook_event_name":"preToolUse","cwd":"/p","session_id":"s","tool_name":"mcp_git_git_status","tool_input":{"ref":"deploy"}}`)
+	out, err := runHookRun(t, "deploy-guard", "--target", "kiro", "--payload", payload, "--expect", "block", "--include-assumed")
+	if err != nil || !strings.Contains(out, "kiro: block (exit 2") || !strings.Contains(out, "event: PreToolUse (mcp_git_git_status)") {
+		t.Errorf("@git/git_status must match mcp_git_git_status: %v\n%s", err, out)
+	}
+}
+
 func TestHookRun_KiroDoesNotRunWhatItCannotRunAsACommand(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	for name, tc := range map[string]struct{ spec, input, want string }{
@@ -200,8 +228,8 @@ func TestHookRun_KiroJSONListsItsAssumption(t *testing.T) {
 		if r.Target != "kiro" {
 			continue
 		}
-		if r.Decision != "block" || r.Counted || len(r.Assumptions) != 1 || r.Assumptions[0].Item != "shell" || r.Assumptions[0].Value != "sh -c" {
-			t.Errorf("kiro = %+v; want block, not counted, shell assumed", r)
+		if r.Decision != "allow" || r.Counted || len(r.Assumptions) != 1 || r.Assumptions[0].Item != "shell" || r.Assumptions[0].Value != "sh -c" {
+			t.Errorf("kiro = %+v; want allow, not counted, shell assumed", r)
 		}
 		return
 	}

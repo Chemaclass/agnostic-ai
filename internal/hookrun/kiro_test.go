@@ -3,6 +3,7 @@ package hookrun
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -14,19 +15,21 @@ func TestReadKiro_FollowsTheDocumentedExitCodes(t *testing.T) {
 		want      Decision
 		uncounted bool
 	}{
-		"PreToolUse exit 0 allows":               {"PreToolUse", Result{}, Allow, false},
-		"PreToolUse exit 2 blocks":               {"PreToolUse", Result{Exit: 2}, Block, false},
-		"PreToolUse exit 1 is disputed":          {"PreToolUse", Result{Exit: 1}, Error, true},
-		"UserPromptSubmit exit 2 blocks":         {"UserPromptSubmit", Result{Exit: 2}, Block, false},
-		"UserPromptSubmit exit 3 is disputed":    {"UserPromptSubmit", Result{Exit: 3}, Error, true},
-		"PostToolUse exit 2 cannot block":        {"PostToolUse", Result{Exit: 2}, Error, false},
-		"Stop block decision keeps the agent":    {"Stop", Result{Stdout: `{"decision":"block","reason":"run the tests"}`}, Block, false},
-		"Stop with another reply stops":          {"Stop", Result{Stdout: `{"decision":"done"}`}, Allow, false},
-		"Stop with plain text stops":             {"Stop", Result{Stdout: "block"}, Allow, false},
-		"Stop block decision on a non-zero exit": {"Stop", Result{Exit: 1, Stdout: `{"decision":"block"}`}, Error, false},
-		"a JSON reply does not block PreToolUse": {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Allow, false},
-		"a timeout":                              {"PreToolUse", Result{TimedOut: true}, Timeout, false},
-		"a command that did not start":           {"UserPromptSubmit", Result{StartErr: errors.New("missing")}, Error, false},
+		"PreToolUse exit 0 allows":                       {"PreToolUse", Result{}, Allow, false},
+		"PreToolUse exit 2 blocks":                       {"PreToolUse", Result{Exit: 2}, Block, false},
+		"PreToolUse exit 1 is disputed":                  {"PreToolUse", Result{Exit: 1}, Error, true},
+		"UserPromptSubmit exit 2 only blocks in the IDE": {"UserPromptSubmit", Result{Exit: 2}, Allow, false},
+		"UserPromptSubmit exit 3 is disputed":            {"UserPromptSubmit", Result{Exit: 3}, Error, true},
+		"PostToolUse exit 2 cannot block":                {"PostToolUse", Result{Exit: 2}, Error, false},
+		"Stop block decision keeps the agent":            {"Stop", Result{Stdout: `{"decision":"block","reason":"run the tests"}`}, Block, false},
+		"Stop with another reply stops":                  {"Stop", Result{Stdout: `{"decision":"done"}`}, Allow, false},
+		"Stop with plain text stops":                     {"Stop", Result{Stdout: "block"}, Allow, false},
+		"Stop exit 1 starts another turn":                {"Stop", Result{Exit: 1}, Block, false},
+		"Stop exit 1 with a reply starts another turn":   {"Stop", Result{Exit: 1, Stdout: `{"decision":"block"}`}, Block, false},
+		"Stop exit 2 leaves the response finished":       {"Stop", Result{Exit: 2}, Error, false},
+		"a JSON reply does not block PreToolUse":         {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Allow, false},
+		"a timeout":                                      {"PreToolUse", Result{TimedOut: true}, Timeout, false},
+		"a command that did not start":                   {"UserPromptSubmit", Result{StartErr: errors.New("missing")}, Error, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := readKiro(tc.event, tc.r)
@@ -43,6 +46,15 @@ func TestReadKiro_FollowsTheDocumentedExitCodes(t *testing.T) {
 	}
 	if KiroNote("Stop", Result{Stdout: `{"decision":"block"}`}) == "" {
 		t.Error("a Stop block must explain why it reads as block")
+	}
+	if got := KiroNote("Stop", Result{Exit: 1}); !strings.Contains(got, "exit 1") || !strings.Contains(got, "keeps the agent running") {
+		t.Errorf("a Stop exit 1 note = %q", got)
+	}
+	if got := KiroNote("UserPromptSubmit", Result{Exit: 2}); !strings.Contains(got, "CLI V3") || !strings.Contains(got, "only the IDE blocks") {
+		t.Errorf("a prompt exit 2 note = %q", got)
+	}
+	if got := KiroNote("PreToolUse", Result{Exit: 2}); got != "" {
+		t.Errorf("a PreToolUse block needs no note: %q", got)
 	}
 }
 
@@ -72,11 +84,8 @@ func TestBuildKiro_WritesTheDocumentedPayloads(t *testing.T) {
 		t.Errorf("payload = %s", p.Body)
 	}
 
-	if p, _ := Build("kiro", "UserPromptSubmit", "^deploy", "/project", Input{Prompt: "please deploy"}); p.Fires {
-		t.Error("a prompt matcher is tested against the prompt text")
-	}
-	if p, _ := Build("kiro", "UserPromptSubmit", "deploy", "/project", Input{Prompt: "please deploy"}); !p.Fires {
-		t.Error("a prompt matcher is unanchored")
+	if p, _ := Build("kiro", "UserPromptSubmit", "^deploy", "/project", Input{Prompt: "please deploy"}); !p.Fires {
+		t.Error("CLI V3 does not evaluate a UserPromptSubmit matcher")
 	}
 
 	p, err = Build("kiro", "Stop", "anything", "/project", Input{})
@@ -96,37 +105,8 @@ func TestBuildKiro_WritesTheDocumentedPayloads(t *testing.T) {
 	if _, err := Build("kiro", "PostFileSave", "", "/project", Input{Raw: []byte(`{}`)}); !errors.As(err, &unbuilt) || unbuilt.Reason != "Kiro documents no payload for PostFileSave" {
 		t.Errorf("an event with no documented payload must stay unbuilt: %v", err)
 	}
-	if _, err := Build("kiro", "UserPromptSubmit", "(", "/project", Input{Prompt: "x"}); !errors.As(err, &unbuilt) {
-		t.Errorf("a matcher that does not compile must leave Kiro unbuilt: %v", err)
-	}
-}
-
-func TestKiroRawPayload_MatchesTheToolNameOrItsAlias(t *testing.T) {
-	call := func(tool string) Input {
-		return Input{Raw: []byte(`{"hook_event_name":"preToolUse","tool_name":"` + tool + `","tool_input":{}}`)}
-	}
-	for _, tc := range []struct {
-		matcher, tool string
-		fires         bool
-	}{
-		{"shell", "execute_bash", true},
-		{"fs_write", "write", true},
-		{"read", "execute_bash", false},
-		{"@git", "@git/status", true},
-		{"*", "anything", true},
-	} {
-		p, err := Build("kiro", "PreToolUse", tc.matcher, "/project", call(tc.tool))
-		if err != nil || p.Fires != tc.fires || p.Trigger != tc.tool {
-			t.Errorf("matcher %q on %s = %+v %v, want fires %t", tc.matcher, tc.tool, p, err, tc.fires)
-		}
-	}
-	var unbuilt Unbuilt
-	if _, err := Build("kiro", "PreToolUse", "@builtin", "/project", call("execute_bash")); !errors.As(err, &unbuilt) {
-		t.Errorf("@builtin names tools the docs do not list: %v", err)
-	}
-	p, err := Build("kiro", "UserPromptSubmit", "deploy", "/project", Input{Raw: []byte(`{"prompt":"hello"}`)})
-	if err != nil || p.Fires {
-		t.Errorf("a --payload prompt is matched too: %+v %v", p, err)
+	if _, err := Build("kiro", "PreToolUse", "(", "/project", Input{Raw: []byte(`{"tool_name":"read_file"}`)}); !errors.As(err, &unbuilt) {
+		t.Errorf("a tool matcher that does not compile must leave Kiro unbuilt: %v", err)
 	}
 }
 

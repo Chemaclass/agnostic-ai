@@ -10,7 +10,7 @@ import (
 )
 
 // Source: kiro.dev/docs/hooks and kiro.dev/docs/hooks/types (rechecked
-// 2026-10-03). Documented there:
+// 2026-10-10). Documented there:
 //   - Working directory: "Command actions run a shell command in your
 //     project root. The command receives session context as JSON on
 //     STDIN."
@@ -18,14 +18,16 @@ import (
 //     `0` disables the timeout." The CLI tab of kiro.dev/docs/hooks/actions
 //     gives 30 seconds for `timeout_ms`, a field of the CLI 2.x agent
 //     format, which sync does not write.
-//   - Matcher: "Regex pattern to filter which events fire this hook. For
-//     `PreToolUse`/`PostToolUse`, matches tool name. ... Defaults to
-//     always-match." A UserPromptSubmit matcher matches the "Prompt text"
-//     (kiro.dev/docs/ide/whats-new-v1/hooks), and "Stop hooks do not use
-//     matchers". No anchoring is stated, so hook run reads a matcher as
-//     an unanchored regular expression. "Hook matchers support both
-//     canonical names (`fs_read`, `fs_write`, `execute_bash`, `use_aws`)
-//     and their aliases (`read`, `write`, `shell`, `aws`)."
+//   - Matcher (CLI V3): "A matcher without regex metacharacters (`\ ^ $
+//     ( ) [ ] | +`) is a selector. It matches a tool whose ID or tags
+//     equal the selector; `*` and `?` act as wildcards against the ID and
+//     tags." A selector is also compiled as an unanchored regex; a matcher
+//     with metacharacters is only that regex, tested against the tool ID.
+//     "V3 does not expand CLI 2.x tool names", so `fs_read` is not `read`.
+//     MCP tools are reported as `mcp_<server>_<tool>` and selected with
+//     `@<server>` or `@<server>/<tool>`. The hooks migration page lists
+//     the `UserPromptSubmit` matcher as "Not evaluated", and "Stop hooks
+//     do not use matchers".
 //   - Payloads: userPromptSubmit and stop carry hook_event_name, cwd,
 //     and session_id, plus prompt or assistant_response. The IDE also
 //     gives the prompt as USER_PROMPT: "the user prompt can be accessed
@@ -47,17 +49,28 @@ const kiroDefaultTimeout = 60 * time.Second
 // kiroEvents are the triggers whose payload the docs show.
 var kiroEvents = []string{"UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"}
 
-// kiroToolAliases pairs each canonical tool name with its alias, both
-// ways, since a matcher may name either.
-var kiroToolAliases = map[string]string{
-	"fs_read": "read", "fs_write": "write", "execute_bash": "shell", "use_aws": "aws",
-	"read": "fs_read", "write": "fs_write", "shell": "execute_bash", "aws": "use_aws",
+// kiroToolTags lists the built-in tools each category tag covers, from the
+// "Common category mappings" on kiro.dev/docs/tools. `spec` and `subagent`
+// are absent: the docs name no tool for them.
+var kiroToolTags = map[string][]string{
+	"read":    {"read_file", "list_directory", "file_search", "grep_search", "code", "tool_search", "introspect"},
+	"write":   {"fs_write", "fs_append", "str_replace", "delete_file", "code"},
+	"shell":   {"execute_bash", "execute_pwsh", "control_bash_process", "control_pwsh_process", "get_process_output", "list_processes"},
+	"web":     {"web_fetch", "remote_web_search"},
+	"context": {"disclose_context", "introspect"},
 }
 
-// kiroSourceFilters are matchers for "all MCP tools", "all Powers
-// tools", and "all built-in tools", whose tool names the docs do not
-// list.
-var kiroSourceFilters = []string{"@mcp", "@powers", "@builtin"}
+// kiroUnlistedTags are tags Kiro documents without naming their tools.
+var kiroUnlistedTags = []string{"spec", "subagent"}
+
+// kiroUnlistedSources are source selectors whose tools the docs do not
+// name: a Powers tool has no documented ID, so a built-in tool cannot be
+// told from one.
+var kiroUnlistedSources = []string{"@powers", "@builtin"}
+
+// kiroRegexMeta are the characters that make a matcher a regular
+// expression, not a selector.
+const kiroRegexMeta = `\^$()[]|+`
 
 // kiroExitConflict is why a non-zero exit other than 2 on a blocking
 // event is not counted. kiro.dev/docs/hooks/actions says that on any
@@ -79,13 +92,10 @@ func kiroUndocumented(event string) string {
 	return "Kiro documents no payload for " + event
 }
 
-// kiroMatches reads a matcher as an unanchored regular expression, and
-// empty or `*` as everything. A matcher that does not compile leaves
-// the target unbuilt: the docs do not say what Kiro does with one.
-func kiroMatches(matcher, value string) (bool, error) {
-	if matcher == "" || matcher == "*" {
-		return true, nil
-	}
+// kiroRegex reads a matcher as an unanchored regular expression. A
+// matcher that does not compile leaves the target unbuilt: the docs do not
+// say what Kiro does with one.
+func kiroRegex(matcher, value string) (bool, error) {
 	re, err := regexp.Compile(matcher)
 	if err != nil {
 		return false, Unbuilt{fmt.Sprintf("Kiro does not document how it reads matcher %q, which hook run cannot compile: %v", matcher, err)}
@@ -93,16 +103,93 @@ func kiroMatches(matcher, value string) (bool, error) {
 	return re.MatchString(value), nil
 }
 
-// kiroToolMatches matches a tool name or its alias.
+// kiroGlob matches the whole of value against a `*` and `?` wildcard
+// pattern.
+func kiroGlob(pattern, value string) bool {
+	var re strings.Builder
+	re.WriteString("^")
+	for _, r := range pattern {
+		switch r {
+		case '*':
+			re.WriteString(".*")
+		case '?':
+			re.WriteString(".")
+		default:
+			re.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	re.WriteString("$")
+	ok, _ := regexp.MatchString(re.String(), value)
+	return ok
+}
+
+// kiroSanitize writes a server or tool name as Kiro writes it in a tool
+// ID: lowercase, every other character an underscore. Wildcards stay.
+func kiroSanitize(name string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '*', r == '?':
+			return r
+		case r >= 'A' && r <= 'Z':
+			return r + 'a' - 'A'
+		}
+		return '_'
+	}, name)
+}
+
+// kiroTags are the tags of a tool: its categories, and `@mcp` for an MCP
+// tool.
+func kiroTags(tool string) []string {
+	var tags []string
+	for tag, tools := range kiroToolTags {
+		if slices.Contains(tools, tool) {
+			tags = append(tags, tag)
+		}
+	}
+	if strings.HasPrefix(tool, "mcp_") {
+		tags = append(tags, "@mcp")
+	}
+	return tags
+}
+
+// kiroSelects reports whether a selector, a matcher with no regex
+// metacharacter, names the tool by ID, tag, or MCP server and tool.
+func kiroSelects(selector, tool string) bool {
+	if strings.HasPrefix(selector, "@") && selector != "@mcp" {
+		pattern := "mcp_" + kiroSanitize(strings.ReplaceAll(selector[1:], "/", "_"))
+		if !strings.Contains(selector, "/") {
+			pattern += "_*"
+		}
+		return kiroGlob(pattern, tool)
+	}
+	if slices.ContainsFunc(append(kiroTags(tool), tool), func(name string) bool { return kiroGlob(selector, name) }) {
+		return true
+	}
+	shell := []string{"execute_bash", "execute_pwsh"}
+	return slices.Contains(shell, selector) && slices.Contains(shell, tool)
+}
+
+// kiroToolMatches reads a PreToolUse or PostToolUse matcher against a V3
+// tool ID. A tag or source whose tools the docs do not list leaves the
+// target unbuilt when nothing else matches.
 func kiroToolMatches(matcher, tool string) (bool, error) {
-	if slices.Contains(kiroSourceFilters, matcher) {
+	switch {
+	case matcher == "":
+		return true, nil
+	case strings.ContainsAny(matcher, kiroRegexMeta):
+		return kiroRegex(matcher, tool)
+	case slices.Contains(kiroUnlistedSources, matcher):
 		return false, Unbuilt{fmt.Sprintf("Kiro does not list the tools matcher %q covers", matcher)}
+	case kiroSelects(matcher, tool):
+		return true, nil
 	}
-	ok, err := kiroMatches(matcher, tool)
-	if ok || err != nil || kiroToolAliases[tool] == "" {
-		return ok, err
+	if ok, _ := kiroRegex(matcher, tool); ok {
+		return true, nil
 	}
-	return kiroMatches(matcher, kiroToolAliases[tool])
+	if slices.Contains(kiroUnlistedTags, matcher) {
+		return false, Unbuilt{fmt.Sprintf("Kiro does not list the tools the %s tag covers", matcher)}
+	}
+	return false, nil
 }
 
 // buildKiro writes Kiro's payload: --prompt builds userPromptSubmit, and
@@ -127,15 +214,11 @@ func buildKiro(event, matcher, root string, in Input) (Payload, error) {
 		return Payload{}, Unbuilt{"Kiro documents no tool_input for its write tool; pass --payload <file>"}
 	}
 	doc["hook_event_name"], doc["prompt"] = "userPromptSubmit", in.Prompt
-	fires, err := kiroMatches(matcher, in.Prompt)
-	if err != nil {
-		return Payload{}, err
-	}
-	return marshal(Payload{Fires: fires, Trigger: "prompt"}, doc)
+	return marshal(Payload{Fires: true, Trigger: "prompt"}, doc)
 }
 
-// kiroRawPayload matches a --payload tool call's tool_name, and a
-// prompt's text; Stop ignores the matcher.
+// kiroRawPayload matches a --payload tool call's tool_name; a prompt and
+// Stop ignore the matcher.
 func kiroRawPayload(event, matcher string, p Payload) (Payload, error) {
 	var err error
 	switch event {
@@ -143,7 +226,7 @@ func kiroRawPayload(event, matcher string, p Payload) (Payload, error) {
 		p.Trigger = PayloadTool(p.Body)
 		p.Fires, err = kiroToolMatches(matcher, p.Trigger)
 	case "UserPromptSubmit":
-		p.Fires, err = kiroMatches(matcher, PayloadPrompt(p.Body))
+		p.Fires = true
 	}
 	return p, err
 }
@@ -158,13 +241,16 @@ type kiroRead struct {
 }
 
 // readKiro follows the exit codes on kiro.dev/docs/hooks/types: Pre Tool
-// Use "**2**: Block tool execution", and exit 2 "blocks the triggering
-// event (`PreToolUse`, `UserPromptSubmit`, `PreTaskExec`)" (the IDE 1.0
-// page). Post Tool Use: "**Other**: Show STDERR warning to user. Tool
-// already ran." Stop: "**0**: Hook succeeded. If STDOUT contains a block
-// decision (see below), the agent continues instead of stopping", with
-// `{"decision": "block", "reason": ...}`. Another non-zero exit on
-// PreToolUse or UserPromptSubmit is not counted; see kiroExitConflict.
+// Use "**2**: Block tool execution". Post Tool Use: "**Other**: Show
+// STDERR warning to user. Tool already ran." Prompt Submit: "CLI Prompt
+// Submit Hooks cannot block a prompt", and exit 2 is among the "Other"
+// codes after which "the prompt is still sent"; only the IDE blocks it
+// (the IDE 1.0 page: exit 2 "blocks the triggering event"). Stop: "**0**:
+// Hook succeeded. If STDOUT contains a block decision (see below), the
+// agent continues instead of stopping", with `{"decision": "block",
+// "reason": ...}`, and "**1**: Start another agent turn". Another non-zero
+// exit on PreToolUse or UserPromptSubmit is not counted; see
+// kiroExitConflict.
 func readKiro(event string, r Result) kiroRead {
 	blocking := event == "PreToolUse" || event == "UserPromptSubmit"
 	switch {
@@ -172,10 +258,14 @@ func readKiro(event string, r Result) kiroRead {
 		return kiroRead{decision: Timeout}
 	case r.StartErr != nil:
 		return kiroRead{decision: Error}
-	case r.Exit == 2 && blocking:
+	case r.Exit == 2 && event == "PreToolUse":
 		return kiroRead{decision: Block}
+	case r.Exit == 2 && event == "UserPromptSubmit":
+		return kiroRead{decision: Allow, note: "exit 2: Kiro CLI V3 sends the prompt anyway and adds the output to the agent's context; only the IDE blocks it"}
 	case r.Exit != 0 && blocking:
 		return kiroRead{decision: Error, uncounted: kiroExitConflict}
+	case r.Exit == 1 && event == "Stop":
+		return kiroRead{decision: Block, note: "exit 1: Kiro starts another agent turn and keeps the agent running; read as block"}
 	case r.Exit != 0:
 		return kiroRead{decision: Error}
 	case event == "Stop" && kiroStopReply(r).Decision == "block":
