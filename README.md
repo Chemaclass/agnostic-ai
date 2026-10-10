@@ -40,6 +40,8 @@ Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It
 
 From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
+When another branch changes a native skill tree you have moved, use [`import reconcile`](https://agnostic-ai.org/docs/cli-reference/start/#import-reconcile) to review the mapped changes against the migration's Git revisions.
+
 After installing a newer release, run `agnostic-ai upgrade --requires` from the project root to update an exact version pin and sync again. To keep a deliberate minimum or range, follow [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
 The [VS Code extension](editors/vscode/) shows lint findings for saved specs and project configuration in Problems. Open or save a source to check it, then fix and save to clear the finding.

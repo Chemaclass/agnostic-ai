@@ -6,10 +6,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Compare hooks and MCP connections from planned tool output, showing omissions and ignored fields without printing connection values (#1985, #1986).
+- Plan committed skill changes after a source migration with `import reconcile`, including assets, deletions, and concurrent edits (#2013).
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
 - Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
 - Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
+- Compare hook settings and MCP connections from target output, with ignored-field reasons and hidden connection values (#1985, #1986).
 
 ### By tool
 
