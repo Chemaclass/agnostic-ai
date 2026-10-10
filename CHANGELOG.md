@@ -44,6 +44,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `sync --global` writes MCP servers to `~/.warp/.mcp.json`; `import --global warp` reads them back (#1978).
 
+#### Kiro
+
+- `hook run` follows CLI V3 prompt and Stop exit codes, category tags, wildcards, and MCP selectors (#1974).
+
 #### Windsurf / Devin CLI
 
 - With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).

@@ -35,9 +35,12 @@ func TestHookRun_AnUncountedReplyKeepsAnotherCommandsTimeout(t *testing.T) {
 	for _, order := range []string{"disputed.sh, slow.sh", "slow.sh, disputed.sh"} {
 		t.Run(order, func(t *testing.T) {
 			commands := strings.ReplaceAll(".agnostic-ai/scripts/"+order, ", ", ", .agnostic-ai/scripts/")
-			uncountedProject(t, "kiro", "name: guard\nevent: UserPromptSubmit\ntimeout: 1\ncommand: ["+commands+"]\n", scripts)
+			uncountedProject(t, "kiro", "name: guard\nevent: PreToolUse\ntimeout: 1\ncommand: ["+commands+"]\n", scripts)
 
-			out, err := runHookRun(t, "guard", "--target", "kiro", "--prompt", "hello", "--include-assumed")
+			payload := filepath.Join(t.TempDir(), "call.json")
+			mustWrite(t, payload, `{"hook_event_name":"preToolUse","tool_name":"execute_bash","tool_input":{}}`)
+
+			out, err := runHookRun(t, "guard", "--target", "kiro", "--payload", payload, "--include-assumed")
 			if !strings.Contains(out, "not counted: Kiro's docs disagree") {
 				t.Errorf("the exit 1 must leave Kiro uncounted:\n%s", out)
 			}
@@ -45,7 +48,7 @@ func TestHookRun_AnUncountedReplyKeepsAnotherCommandsTimeout(t *testing.T) {
 				t.Errorf("the other command's timeout must still fail the run: %v\n%s", err, out)
 			}
 
-			if _, err := runHookRun(t, "guard", "--target", "kiro", "--prompt", "hello"); err != nil {
+			if _, err := runHookRun(t, "guard", "--target", "kiro", "--payload", payload); err != nil {
 				t.Errorf("without --include-assumed an assumed result is not judged: %v", err)
 			}
 		})
