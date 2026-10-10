@@ -12,6 +12,8 @@ target_id = "claude"
 
 Claude Code reads `CLAUDE.md`, the `.claude/` tree, and `.mcp.json`.
 
+Use `agnostic-ai explain --file src/main.go --target claude` to see the source specs, planned files, and why instructions apply. See [explain a source file](@/docs/cli-reference/inspect.md#explain-a-source-file) for statuses and session limits.
+
 ## Output
 
 ```
