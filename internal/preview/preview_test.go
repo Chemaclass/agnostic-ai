@@ -354,3 +354,29 @@ func TestDisplay_EnvironmentArraysKeepInheritedSensitivity(t *testing.T) {
 		t.Error("pure environment reference or ordinary model changed")
 	}
 }
+
+func TestDisplay_HelperLiteralArgumentsAreHidden(t *testing.T) {
+	for _, helper := range []string{"printf '%s' 'PREVIEW_SECRET_HELPER'", "echo PREVIEW_SECRET_HELPER", "/tools/get-key PREVIEW_SECRET_HELPER", "printf 'PREVIEW_SECRET_HELPER'", "echo 'PREVIEW_SECRET_HELPER", "$(printf PREVIEW_SECRET_HELPER)", "cat <<EOF\nPREVIEW_SECRET_HELPER\nEOF"} {
+		body, err := json.Marshal(map[string]string{"apiKeyHelper": helper, "model": "visible"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := Display(".claude/settings.json", string(body))
+		if !got.Hidden || strings.Contains(got.Text, "PREVIEW_SECRET_HELPER") {
+			t.Errorf("helper literal remains visible: %q", helper)
+		}
+	}
+}
+
+func TestDisplay_HelperPathsAndReferencesRemainVisible(t *testing.T) {
+	for _, helper := range []string{"/tools/get-key", "'/tools/get key'", "${HELPER}", "/tools/get-key ${TOKEN}", `/tools/get-key "${TOKEN}"`} {
+		body, err := json.Marshal(map[string]string{"apiKeyHelper": helper, "model": "visible"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := Display(".claude/settings.json", string(body))
+		if got.Hidden || got.Text != string(body) {
+			t.Errorf("safe helper changed: %q", helper)
+		}
+	}
+}

@@ -144,7 +144,7 @@ Bare capabilities in settings `permissions.allow` or `permissions.ask` print a L
 
 Dry-run, render, import, and migration previews hide literal values in known credential fields, environment maps, and headers. They also protect credential flags, assignments, and URLs in recognized commands. Pure environment references remain visible; references with defaults or mixed literal text are hidden. A hidden-value change still reports drift when the visible previews are equal.
 
-JSON, JSON with comments, YAML, and TOML previews keep valid syntax when shown. If a recognized document or sensitive command cannot be shown safely, its body is withheld. Helper commands and paths stay visible unless they contain a credential in a recognized position. Actual files, captured content, and ownership fingerprints retain their original values.
+JSON, JSON with comments, YAML, and TOML previews keep valid syntax when shown. If a recognized document or sensitive command cannot be shown safely, its body is withheld. API-key helper paths and environment references stay visible. Helper commands with literal arguments or shell operations are hidden because they can contain the key they return. Other commands are hidden when they contain a credential in a recognized position. Actual files, captured content, and ownership fingerprints retain their original values.
 
 This covers known configuration fields and command positions. It does not detect arbitrary secrets in freeform prompts, prose, unknown scripts, or binary assets.
 

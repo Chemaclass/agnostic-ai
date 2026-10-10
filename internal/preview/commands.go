@@ -161,3 +161,37 @@ func wholeURL(body string) bool {
 	}
 	return true
 }
+
+func sensitiveHelper(body string) bool {
+	file, err := syntax.NewParser().Parse(strings.NewReader(body), "")
+	if err != nil || len(file.Stmts) != 1 {
+		return true
+	}
+	stmt := file.Stmts[0]
+	call, ok := stmt.Cmd.(*syntax.CallExpr)
+	if !ok || len(call.Args) == 0 || len(call.Assigns) != 0 || len(stmt.Redirs) != 0 || stmt.Background || stmt.Negated {
+		return true
+	}
+
+	if !PureReference(shellWord(call.Args[0])) {
+		for _, part := range call.Args[0].Parts {
+			switch value := part.(type) {
+			case *syntax.Lit, *syntax.SglQuoted:
+			case *syntax.DblQuoted:
+				for _, inner := range value.Parts {
+					if _, literal := inner.(*syntax.Lit); !literal {
+						return true
+					}
+				}
+			default:
+				return true
+			}
+		}
+	}
+	for _, word := range call.Args[1:] {
+		if !PureReference(shellWord(word)) {
+			return true
+		}
+	}
+	return sensitiveShellTree(file)
+}
