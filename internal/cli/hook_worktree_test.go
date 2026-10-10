@@ -245,3 +245,30 @@ func TestHookWorktreeRemove_IgnoresMixedCaseRepositoryRedirects(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHookWorktreeRemove_PreservesHiddenTrackedChanges(t *testing.T) {
+	for _, flag := range []string{"--assume-unchanged", "--skip-worktree"} {
+		t.Run(flag, func(t *testing.T) {
+			main, allowed, linked := disposableWorktree(t)
+			file := filepath.Join(linked, "tracked.txt")
+			if err := os.WriteFile(file, []byte("base"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			git(t, linked, "add", "tracked.txt")
+			git(t, linked, "commit", "-q", "-m", "base tracked file")
+			git(t, linked, "update-index", flag, "tracked.txt")
+			if err := os.WriteFile(file, []byte("keep hidden change"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if got := git(t, linked, "status", "--porcelain", "--ignored"); got != "" {
+				t.Fatalf("fixture does not hide changes: %q", got)
+			}
+			if _, err := runWorktreeRemoval(t, main, allowed, linked); err == nil {
+				t.Error("hidden index changes accepted")
+			}
+			if got, err := os.ReadFile(file); err != nil || string(got) != "keep hidden change" {
+				t.Errorf("hidden content was not preserved: %q, %v", got, err)
+			}
+		})
+	}
+}

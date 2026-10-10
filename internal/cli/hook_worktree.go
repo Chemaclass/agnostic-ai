@@ -150,6 +150,16 @@ func removeHookWorktree(repo, allowedRoot, candidate string) (string, error) {
 	if err := verifyWorktreeRepository(repository, path); err != nil {
 		return "", err
 	}
+	index, err := worktreeGit(path, "ls-files", "-v", "-z")
+	if err != nil {
+		return "", err
+	}
+	// These index flags can hide changed content from both status and removal.
+	for _, entry := range strings.Split(string(index), "\x00") {
+		if entry != "" && (entry[0] == 'S' || entry[0] >= 'a' && entry[0] <= 'z') {
+			return "", fmt.Errorf("%s: worktree index contains assume-unchanged or skip-worktree entries", path)
+		}
+	}
 	// Git's non-force removal permits ignored files; preserve those files too.
 	status, err := worktreeGit(path, "status", "--porcelain", "-z", "--untracked-files=all", "--ignored")
 	if err != nil {
