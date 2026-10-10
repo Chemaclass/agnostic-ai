@@ -96,6 +96,31 @@ The report describes planned project configuration, not the model's active conte
  "instructions": [{"status": "match", "source": "...", "output": "...", "selector": "...", "reason": "..."}]}
 ```
 
+### Rank context contributions
+
+Use `--context --target <name>` to rank the sources contributing to estimated startup context, even below the lint warning budget. The report uses the same whitespace-separated word accounting as `lint`, with bytes beside each count. It needs a configured project target, takes no spec argument, and writes nothing.
+
+```bash
+agnostic-ai explain --context --target codex
+agnostic-ai explain --context --target claude --json
+agnostic-ai explain --context --target cursor --file src/main.go
+```
+
+Entry-point layers, marked rule and review sections, inlined imports, always-on rules, and individual skill and agent discovery descriptions are counted separately. Generated framing has its own contribution so the startup word total stays consistent with lint. Sources sharing a generated document are counted once for the selected target.
+
+Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup totals. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope`, with a separate additional total. Unmatched or uncertain rule bodies remain on demand. Entries sort by loading group, descending words and bytes, then source path and category.
+
+These are estimates from planned output and spec text, not model tokens or observed context. Runtime context, external imports, user-owned files, and host truncation are unknown. Inlined imports retain their source paths; unresolved imports are not expanded or read by this report.
+
+```json
+{"version": "1", "command": "explain", "target": "claude", "note": "...",
+ "startup": {"words": 80, "bytes": 500}, "file_scope": {"words": 0, "bytes": 0},
+ "contributions": [{"source": ".agnostic-ai/skills/review/SKILL.md",
+ "category": "skill discovery", "load": "startup", "words": 40, "bytes": 220}]}
+```
+
+`file` is present when requested. `load` is `startup`, `file-scope`, or `on-demand`. The text and JSON reports use the same contributions and totals.
+
 ### List generator inputs
 
 ```bash

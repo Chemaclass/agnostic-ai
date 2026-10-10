@@ -190,7 +190,13 @@ func globalInstructions(source string, rules []spec.Entry) ([]byte, error) {
 // instructionLayer is the text one source adds to always-loaded
 // instructions, named as lint reports it.
 type instructionLayer struct {
-	Name string
+	Name    string
+	Text    string
+	Sources []instructionSource
+}
+
+type instructionSource struct {
+	Path string
 	Text string
 }
 

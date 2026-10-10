@@ -144,7 +144,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		if err != nil {
 			return nil, err
 		}
-		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content}}
+		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content, Sources: []instructionSource{{Path: adapters.AgnosticEntryPointPath, Text: content}}}}
 		plain := !cfg.Sync.TargetOverview
 		unchanged := content
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
@@ -158,7 +158,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			}
 			adapters.NoteEntryPointVars(cfg, b, inliners[0])
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
-			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix})
+			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix, Sources: ruleInstructionSources(adapters.EntryPointRules(b, inliners[0], cfg))})
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer, cfg)))
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
@@ -169,7 +169,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			if section := adapters.ReviewSections(b, cfg, targets...)[""]; section != "" {
 				plain = false
 				content = adapters.AppendReviewSection(content, section)
-				layers = append(layers, instructionLayer{Name: "reviews", Text: section})
+				layers = append(layers, instructionLayer{Name: "reviews", Text: section, Sources: reviewInstructionSources(cfg, b, targets...)})
 			}
 		}
 		if local != "" {
@@ -178,7 +178,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 				return nil, err
 			}
 			content = adapters.AppendLocalInstructions(content, localView)
-			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView})
+			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView, Sources: []instructionSource{{Path: adapters.ProjectLocalEntryPointPath, Text: strings.TrimSpace(localView)}}})
 		}
 		memory, err := memoryBlockFor(cfg, path, consumers[path])
 		if err != nil {
@@ -244,7 +244,8 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 	}
 	agents := files[agentsAt]
 	parts := []string{"@AGENTS.md"}
-	for _, text := range []string{body, local} {
+	var companionLayers []instructionLayer
+	for i, text := range []string{body, local} {
 		if text == "" {
 			continue
 		}
@@ -262,6 +263,11 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 		}
 		if only != "" {
 			parts = append(parts, only)
+			name, source := "AGNOSTIC_AI.md", adapters.AgnosticEntryPointPath
+			if i == 1 {
+				name, source = "local/AGNOSTIC_AI.md", adapters.ProjectLocalEntryPointPath
+			}
+			companionLayers = append(companionLayers, instructionLayer{Name: name + " (Claude Code only)", Text: only, Sources: []instructionSource{{Path: source, Text: only}}})
 		}
 	}
 	parts, err := appendMemoryPart(cfg, parts, files[claudeAt].Path)
@@ -270,7 +276,7 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 	}
 	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
-	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
+	files[claudeAt].Layers = companionLayers
 	return files, nil
 }
 
@@ -280,7 +286,9 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int, body, local string) ([]entryPointFile, error) {
 	parts := []string{"@AGENTS.md"}
 	var shared []string
-	for _, text := range []string{body, local} {
+	var sharedSources []instructionSource
+	var companionLayers []instructionLayer
+	for i, text := range []string{body, local} {
 		if text == "" {
 			continue
 		}
@@ -290,8 +298,14 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 			return nil, err
 		}
 		shared = append(shared, view)
+		name, source := "AGNOSTIC_AI.md", adapters.AgnosticEntryPointPath
+		if i == 1 {
+			name, source = "local/AGNOSTIC_AI.md", adapters.ProjectLocalEntryPointPath
+		}
+		sharedSources = append(sharedSources, instructionSource{Path: source, Text: view})
 		if only != "" {
 			parts = append(parts, only)
+			companionLayers = append(companionLayers, instructionLayer{Name: name + " (Claude Code only)", Text: only, Sources: []instructionSource{{Path: source, Text: only}}})
 		}
 	}
 	if len(shared) == 0 {
@@ -308,14 +322,44 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 	}
 	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
-	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
+	files[claudeAt].Layers = companionLayers
 	return append(files, entryPointFile{
 		Path:    "AGENTS.md",
 		Content: rendered,
 		Readers: []string{"claude"},
-		Layers:  []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText}},
+		Layers:  []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText, Sources: sharedSources}},
 		plain:   true,
 	}), nil
+}
+
+// Reuse the renderer's source entries and section text rather than treating
+// marker-looking comments inside authored bodies as section boundaries.
+func ruleInstructionSources(b spec.Bundle) []instructionSource {
+	var sources []instructionSource
+	for _, r := range b.Rules {
+		section := adapters.RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{r}})
+		if section == "" {
+			continue
+		}
+		section = strings.TrimPrefix(section, "<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n")
+		section = strings.TrimSuffix(section, "<!-- agnostic-ai:rules:end -->\n")
+		sources = append(sources, instructionSource{Path: adapters.EntrySourcePath(r), Text: section})
+	}
+	return sources
+}
+
+func reviewInstructionSources(cfg *config.Config, b spec.Bundle, targets ...string) []instructionSource {
+	var sources []instructionSource
+	for _, r := range b.For("codex").Reviews {
+		section := adapters.ReviewSections(spec.Bundle{Reviews: []spec.Entry{r}}, cfg, targets...)[""]
+		if section == "" {
+			continue
+		}
+		section = strings.TrimPrefix(section, "<!-- agnostic-ai:reviews:start -->\n\n## Code Review Rules\n\n")
+		section = strings.TrimSuffix(section, "\n\n<!-- agnostic-ai:reviews:end -->\n")
+		sources = append(sources, instructionSource{Path: adapters.EntrySourcePath(r), Text: section})
+	}
+	return sources
 }
 
 // claudeImportsAgentsOnDisk reports whether the root CLAUDE.md is the
