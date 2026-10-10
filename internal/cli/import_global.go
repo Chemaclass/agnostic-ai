@@ -407,10 +407,14 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 // saved defaults are dropped. target's own environment references read
 // back as `${NAME}`.
 func normalizeImportedMCP(target string, servers map[string]any) {
-	for _, raw := range servers {
+	for name, raw := range servers {
 		server, ok := raw.(map[string]any)
 		if !ok {
 			continue
+		}
+		if target == "antigravity" {
+			server = normalizeAntigravityMCPEntry(server)
+			servers[name] = server
 		}
 		// Gemini's httpUrl becomes url first, so the literal escaping
 		// below sees it.

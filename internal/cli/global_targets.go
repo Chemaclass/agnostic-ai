@@ -255,6 +255,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathXDG + "opencode/skills",
 	},
 	"antigravity": {
+		mcp:          globalMCPFile{path: globalPathHome + ".gemini/config/mcp_config.json", format: "json", key: "mcpServers"},
 		agents:       globalPathHome + ".gemini/config/agents",
 		instructions: globalPathHome + ".gemini/GEMINI.md",
 		// antigravity.google/docs/skills?tab=ide rows the global scope

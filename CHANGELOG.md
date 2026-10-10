@@ -44,6 +44,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `hook run` follows CLI V3 prompt and Stop exit codes, category tags, wildcards, and MCP selectors (#1974).
 
+#### Antigravity
+
+- `sync --global` writes MCP servers to `~/.gemini/config/mcp_config.json`; `import --global antigravity` reads them back (#1977).
+
 #### Windsurf / Devin CLI
 
 - With `memory.personal: repo`, Devin CLI can save personal memory without asking each time (#1884).
