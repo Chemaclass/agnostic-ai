@@ -36,4 +36,7 @@
 # new creates and previews every spec kind in its configured source folder.
 # After merging #1990, measured 18722976, up 24576 from main b64322dc.
 # Keep room for the 8 KB difference seen in CI's Linux build.
-18740000
+# #2015 measured 18755744, up 32768 from main 7df02fd1: bounded RTK
+# diagnostics compare declared Bash rules while keeping unsupported
+# syntax and live host decisions unknown. Keep CI's 8 KB allowance.
+18772000
