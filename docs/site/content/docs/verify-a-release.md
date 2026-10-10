@@ -59,7 +59,19 @@ The `agnostic-ai` package and its six `@agnostic-ai/*` platform packages are pub
 npm audit signatures
 ```
 
-It checks each package's registry signature and signed build record. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
+It checks installed packages' registry signatures and verifies build records when present. Success alone does not require every package to have provenance or restrict it to this repository. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
+
+Official releases require provenance for the parent and all six platform packages. The release workflow also checks the GitHub Actions signing identity, this repository's release workflow at the version tag, the signed source commit, and the downloaded tarball integrity. It rejects missing or invalid attestations, including already published versions. These checks establish origin and integrity, not that the code has no defects.
+
+From a checkout of the release tag, using the release's npm CLI version (11.5.1), check any one package without installing or running it:
+
+```bash
+. scripts/npm-publish.sh
+verify_npm_provenance agnostic-ai X.Y.Z
+verify_npm_provenance @agnostic-ai/linux-x64 X.Y.Z
+```
+
+If a required attestation is missing, retry after a temporary registry outage. A version uploaded without provenance cannot be repaired in place; maintainers must release a new version of all seven packages.
 
 ## Signed tags and commits
 

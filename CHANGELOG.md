@@ -8,6 +8,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Rank estimated startup words and bytes by canonical source with `explain --context --target`; scoped bodies are shown separately (#2017).
 - Create all ten spec kinds with `new`; settings and environment templates leave permission and setup choices to you (#1990).
+- Require verified npm provenance for all seven release packages and reject unattested versions on retry (#2016).
 - VS Code shows source errors in Problems, explains failed checks, and keeps checks current after saves (#1981, #1983, #1984).
 - Compare hook settings and MCP connections from target output, with ignored-field reasons and hidden connection values (#1985, #1986).
 - The language server reports config and spec load failures and clears resolved diagnostics across files after a successful check (#1982).
