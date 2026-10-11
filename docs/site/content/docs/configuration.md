@@ -682,7 +682,7 @@ targets: [claude, codex, cursor]
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
-- Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [Codex skills](@/docs/targets/codex.md) for `disable-model-invocation`.
+- Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hooks.md#portable-events).
 - Kiro CLI V3 global hooks write one `~/.kiro/hooks/<name>.json` per spec, using the same format as project hooks. `KIRO_HOME` moves the hooks and scripts with Kiro's other global folders. Shared scripts go to `~/.kiro/scripts/`. Unrelated hook files stay; a conflicting file stops sync.
 - Targets without global agent output warn and skip agents.

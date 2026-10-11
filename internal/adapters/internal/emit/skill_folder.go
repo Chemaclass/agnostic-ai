@@ -19,7 +19,7 @@ const skillLicenseField = "license"
 // exclude keys suppress custom-meta passthrough for fields the adapter
 // routes elsewhere (e.g. codex's agents/openai.yaml keys).
 //
-// Every adapter of the shared SKILL.md format must render through this
+// Adapters using this shared SKILL.md format render through this
 // function: targets that emit into one tree (codex, amp, zed at
 // `.agents/skills/`) rely on byte-identical output to dedupe, and
 // `sync.shared-skills` links folders across trees only when the
@@ -92,12 +92,22 @@ func ScopedSkillsDir(scope, skillsDir string) (string, error) {
 // WriteScopedSkillFolders writes every skill into the native skills tree
 // rooted at its canonical scope.
 func (s *Session) WriteScopedSkillFolders(skills []spec.Entry, target, skillsDir string, dryRun bool) error {
+	return s.WriteScopedSkillFoldersWith(skills, skillsDir, dryRun, func(skill spec.Entry) string {
+		return SkillMarkdown(skill, target)
+	})
+}
+
+func (s *Session) WriteScopedSkillFoldersWith(skills []spec.Entry, skillsDir string, dryRun bool, render func(spec.Entry) string) error {
 	for _, skill := range skills {
 		dir, err := ScopedSkillsDir(skill.Scope, skillsDir)
 		if err != nil {
 			return err
 		}
-		if err := s.WriteSkillFolder(skill, target, dir, dryRun); err != nil {
+		folder := filepath.Join(dir, skill.Name)
+		if err := s.WriteFile(filepath.Join(folder, "SKILL.md"), WithHeader(render(skill), FormatMarkdown), dryRun); err != nil {
+			return err
+		}
+		if err := s.PropagateSkillAssets(skill, folder, SkipSKILLMd, dryRun); err != nil {
 			return err
 		}
 	}
