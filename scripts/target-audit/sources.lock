@@ -49,6 +49,7 @@ claude	docs	https://code.claude.com/docs/en/settings	200	html	9dd2ee79b9da05cd44
 claude	docs	https://code.claude.com/docs/en/settings-reference	200	html	872d9c83fb99d636947583d24f3249c694ac6502c8d04480d78b70a6a2494172	2026-10-11
 claude	docs	https://code.claude.com/docs/en/skills	200	html	2ebc98f79deab7f78c040448635c47f4a80935a9ff8e442401e15ebc921ad598	2026-10-11
 claude	docs	https://code.claude.com/docs/en/sub-agents	200	html	0fd0d8c3c60494b19625480b888f2b72bf512862566edcc70c2113d41d2d3fee	2026-10-11
+claude	docs	https://code.claude.com/docs/en/worktrees.md	200	markdown-mirror	7eb175c40d8bee8f98a0bb6745067ba9f61c1d5163c5438515c24018742362ad	2026-10-11
 claude	schema	https://www.schemastore.org/claude-code-launch.json	200	schema-keys	98ec297b1920aef478914155baf62cd23c81087832505e4077759f8cd0c50f16	2026-09-30
 claude	schema	https://www.schemastore.org/claude-code-settings.json	200	schema-keys	9be6db257b1c8748cb4cca1ac5adf492862492b2bfb7c876a305bf499da12ef6	2026-10-09
 cline	changelog	https://github.com/cline/cline/releases	200	github-api	73db3dcddd0291b9ee3b83f9235f86798cb40f266510129844e73636dfe8b0c1	2026-10-08
