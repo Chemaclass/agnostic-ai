@@ -283,6 +283,8 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 		t.Setenv("AGNOSTIC_LIFECYCLE_TEST_EXECUTABLE", helper)
 		t.Setenv("AGNOSTIC_LIFECYCLE_OLD_BINARY", binary)
 		t.Setenv("AGNOSTIC_LIFECYCLE_NEW_BINARY", matching)
+		diagnostic := filepath.Join(t.TempDir(), "launcher-error.json")
+		t.Setenv("AGNOSTIC_LIFECYCLE_LAUNCH_DIAGNOSTIC", diagnostic)
 		bootstrap := func(dir string) {
 			t.Helper()
 			out, err := run(dir, binary, "project", "--bootstrap")
@@ -290,20 +292,34 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 				return
 			}
 			if runtime.GOOS == "windows" {
+				receipt, receiptErr := os.ReadFile(diagnostic)
+				t.Logf("original launcher failure receipt: %v\n%s", receiptErr, receipt)
 				probe := func(command string, args ...string) (string, error) {
 					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 					defer cancel()
 					cmd := exec.CommandContext(ctx, command, args...)
 					cmd.Dir = dir
 					cmd.WaitDelay = 250 * time.Millisecond
-					output, err := cmd.CombinedOutput()
-					return string(output), err
+					var output lifecycleProbeOutput
+					cmd.Stdout, cmd.Stderr = &output, &output
+					err := cmd.Run()
+					return string(output.data), err
 				}
 				installed := filepath.Join(dir, "node_modules", "agnostic-ai", "bin")
 				launcher := filepath.Join(installed, "agnostic-ai.js")
 				node, lookupErr := exec.LookPath("node")
 				t.Logf("installed launcher Node path: %q, lookup: %v", node, lookupErr)
 				if lookupErr == nil {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					cmd := exec.CommandContext(ctx, node, launcher, "--version")
+					cmd.Dir = dir
+					cmd.Env = append(os.Environ(), "AGNOSTIC_AI_NO_UPDATE_CHECK=1")
+					cmd.WaitDelay = 250 * time.Millisecond
+					var stdout, stderr lifecycleProbeOutput
+					cmd.Stdout, cmd.Stderr = &stdout, &stderr
+					probeErr := cmd.Run()
+					t.Logf("separate-pipe launcher probe: %v, context: %v\nstdout: %s\nstderr: %s", probeErr, ctx.Err(), stdout.data, stderr.data)
+					cancel()
 					nodeOut, nodeErr := probe(node, launcher, "--version")
 					t.Logf("%s %s --version: %v\n%s", node, launcher, nodeErr, nodeOut)
 				}
@@ -823,7 +839,33 @@ func TestProjectLifecycleInstallerProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	if runtime.GOOS == "windows" {
-		mustWrite(t, filepath.Join("node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), "const { spawnSync } = require('node:child_process');\nconst path = require('node:path');\nconst result = spawnSync(path.join(__dirname, 'fixture.exe'), process.argv.slice(2), { stdio: 'inherit' });\nif (result.error) throw result.error;\nprocess.exit(result.status === null ? 1 : result.status);\n")
+		mustWrite(t, filepath.Join("node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), `const { spawnSync } = require('node:child_process');
+const path = require('node:path');
+const fs = require('node:fs');
+const result = spawnSync(path.join(__dirname, 'fixture.exe'), process.argv.slice(2), { stdio: 'inherit' });
+if (result.error || result.status !== 0) {
+  const streams = [0, 1, 2].map(fd => {
+    try {
+      const stat = fs.fstatSync(fd);
+      return { fd, character: stat.isCharacterDevice(), pipe: stat.isFIFO(), file: stat.isFile() };
+    } catch (error) {
+      return { fd, error: error.code };
+    }
+  });
+  const error = result.error;
+  try {
+    fs.writeFileSync(process.env.AGNOSTIC_LIFECYCLE_LAUNCH_DIAGNOSTIC, JSON.stringify({
+      status: result.status, signal: result.signal,
+      error: error && { code: error.code, errno: error.errno, syscall: error.syscall, message: error.message },
+      args: process.argv.slice(2), node: process.execPath, cwd: process.cwd(), streams,
+    }, null, 2));
+  } catch (receiptError) {
+    console.error("Cannot save launcher error:", receiptError.message);
+  }
+}
+if (result.error) throw result.error;
+process.exit(result.status === null ? 1 : result.status);
+`)
 	}
 	log, err := os.OpenFile(filepath.Join("node_modules", "lifecycle-installs.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -834,4 +876,18 @@ func TestProjectLifecycleInstallerProcess(t *testing.T) {
 	if writeErr != nil || closeErr != nil {
 		t.Fatalf("record install: %v, close: %v", writeErr, closeErr)
 	}
+}
+
+// Keep draining each pipe after its diagnostic output reaches the limit.
+type lifecycleProbeOutput struct {
+	data []byte
+}
+
+func (output *lifecycleProbeOutput) Write(data []byte) (int, error) {
+	n := len(data)
+	remaining := 64*1024 - len(output.data)
+	if remaining > 0 {
+		output.data = append(output.data, data[:min(n, remaining)]...)
+	}
+	return n, nil
 }
