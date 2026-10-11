@@ -16,6 +16,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- Handoff hooks read Claude's active checkout from native input, so worktree sessions keep their own notes and Git snapshots (#2068).
+
 - Preview RTK rewrites and declared approval changes with `doctor rtk --command`; live approval remains unknown (#2015).
 - Refresh Claude setup with `hook worktree-refresh`; remove only clean registered worktrees inside allowed roots; keep dirty or locked ones (#2014, #2054).
 - Explain Claude Code instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).

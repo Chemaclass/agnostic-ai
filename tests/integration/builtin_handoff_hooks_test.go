@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,6 +73,190 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 		return handoffReadHandlers(t, dir)
 	}
 
+	t.Run("claude-native-worktree-directory", func(t *testing.T) {
+		for _, layout := range []string{"external-with-config", "nested-without-config"} {
+			t.Run(layout, func(t *testing.T) {
+				main := project(t)
+				handoffInitGit(t, main)
+				handoffGit(t, main, "branch", "-M", "audit-main")
+				handlers := syncHooks(t, main)["claude"]
+				if handlers["SessionStart"].Env["AGNOSTIC_AI_TARGET"] != "claude" {
+					t.Fatal("emitted Claude handler environment is missing target identity")
+				}
+				active := filepath.Join(t.TempDir(), "active checkout ' 雪")
+				if layout == "nested-without-config" {
+					active = filepath.Join(main, ".claude", "worktrees", "active checkout ' 雪")
+				}
+				sibling := filepath.Join(t.TempDir(), "sibling checkout")
+				handoffGit(t, main, "worktree", "add", "-b", "audit-worktree", active)
+				handoffGit(t, main, "worktree", "add", "-b", "audit-sibling", sibling)
+				if layout == "external-with-config" {
+					handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+				}
+				handoffWrite(t, filepath.Join(active, "tracked.txt"), "active committed change\n")
+				handoffGit(t, active, "add", "tracked.txt")
+				handoffGit(t, active, "commit", "-m", "active checkout commit")
+				handoffWrite(t, filepath.Join(active, "tracked.txt"), "active dirty change\n")
+				handoffWrite(t, filepath.Join(sibling, "tracked.txt"), "sibling committed change\n")
+				handoffGit(t, sibling, "add", "tracked.txt")
+				handoffGit(t, sibling, "commit", "-m", "sibling checkout commit")
+				mainAuto, siblingManual, siblingAuto := "MAIN_AUTO_SENTINEL\n", "SIBLING_MANUAL_SENTINEL\n", "SIBLING_AUTO_SENTINEL\n"
+				activeManual := "ACTIVE_MANUAL_SENTINEL\n"
+				handoffWrite(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.auto.md"), mainAuto)
+				handoffWrite(t, filepath.Join(sibling, ".agnostic-ai/local/HANDOFF.md"), siblingManual)
+				handoffWrite(t, filepath.Join(sibling, ".agnostic-ai/local/HANDOFF.auto.md"), siblingAuto)
+				handoffWrite(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.md"), activeManual)
+				cwd := filepath.Join(active, "nested", "session directory")
+				if err := os.MkdirAll(cwd, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				t.Setenv("CLAUDE_PROJECT_DIR", main)
+				payload := func(event string) string {
+					data, err := json.Marshal(map[string]string{"cwd": cwd, "hook_event_name": event, "session_id": "PAYLOAD_PRIVATE_SENTINEL"})
+					if err != nil {
+						t.Fatal(err)
+					}
+					return string(data)
+				}
+				out := handoffExecute(t, "claude", handlers["SessionStart"], main, payload("SessionStart"), "foreign", "")
+				handoffAssertReply(t, "claude", out, "Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff.")
+				if got := handoffRead(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.auto.md")); got != mainAuto {
+					t.Errorf("startup changed main snapshot: %q", got)
+				}
+				mainManual := "MAIN_MANUAL_SENTINEL\n"
+				handoffWrite(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.md"), mainManual)
+				for _, event := range []string{"PreCompact", "SessionEnd"} {
+					t.Run(event, func(t *testing.T) {
+						handoffWrite(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.auto.md"), "ACTIVE_OLD_AUTO_SENTINEL\n")
+						out := handoffExecute(t, "claude", handlers[event], main, payload(event), "foreign", "")
+						handoffAssertReply(t, "claude", out, "")
+						snapshot := handoffRead(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.auto.md"))
+						head := strings.TrimSpace(handoffGit(t, active, "rev-parse", "HEAD"))
+						for _, want := range []string{"# Automatic handoff", "tool: claude", "branch: audit-worktree", "head: " + head, " M tracked.txt"} {
+							if !strings.Contains(snapshot, want) {
+								t.Errorf("active snapshot missing %q: %s", want, snapshot)
+							}
+						}
+						for _, forbidden := range []string{"audit-main", "audit-sibling", "ACTIVE_OLD_AUTO_SENTINEL", "PAYLOAD_PRIVATE_SENTINEL", "ACTIVE_MANUAL_SENTINEL"} {
+							if strings.Contains(snapshot, forbidden) {
+								t.Errorf("active snapshot includes %q: %s", forbidden, snapshot)
+							}
+						}
+						if got := handoffRead(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.md")); got != activeManual {
+							t.Errorf("active manual changed: %q", got)
+						}
+						handoffAssertLocal(t, main, mainManual, mainAuto)
+						handoffAssertLocal(t, sibling, siblingManual, siblingAuto)
+					})
+				}
+			})
+		}
+	})
+
+	t.Run("claude-native-input-validation", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)["claude"]
+		name := "active 雪 😀 apostrophe '"
+		if runtime.GOOS != "windows" {
+			name += " quote \" backslash \\ literal $(touch SHOULD_NOT_EXIST) `touch SHOULD_NOT_EXIST`\n"
+		}
+		active := filepath.Join(t.TempDir(), name)
+		handoffGit(t, main, "worktree", "add", "-b", "input-worktree", active)
+		handoffWrite(t, filepath.Join(active, "tracked.txt"), "active dirty\n")
+		mainManual, mainAuto := "MAIN_MANUAL\n", "MAIN_AUTO\n"
+		activeManual, activeAuto := "ACTIVE_MANUAL\n", "ACTIVE_AUTO\n"
+		quoted, err := json.Marshal(active)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cwd := string(quoted)
+		valid := "{\"cwd\":" + cwd + "}"
+		invalid := []struct{ name, input string }{
+			{"truncated", "{\"cwd\":" + cwd},
+			{"trailing data", valid + " false"},
+			{"duplicate", "{\"cwd\":" + cwd + ",\"c\\u0077d\":" + cwd + "}"},
+			{"wrong type", "{\"cwd\":[]}"},
+			{"null", "{\"cwd\":null}"},
+			{"empty", "{\"cwd\":\"\"}"},
+			{"relative", "{\"cwd\":\"nested\"}"},
+			{"missing", "{\"cwd\":" + cwd[:len(cwd)-1] + "/missing\"}"},
+			{"nul escape", "{\"cwd\":\"/\\u0000\"}"},
+			{"raw nul", valid + "\x00"},
+			{"raw soh", valid + "\x01"},
+			{"high surrogate", "{\"cwd\":\"/\\ud800\"}"},
+			{"low surrogate", "{\"cwd\":\"/\\udc00\"}"},
+			{"bad escape", "{\"cwd\":\"/\\x20\"}"},
+			{"non-object", "[]"},
+			{"oversized", "{\"ignored\":\"" + strings.Repeat("x", 65536) + "\",\"cwd\":" + cwd + "}"},
+			{"too deep", "{\"ignored\":" + strings.Repeat("[", 33) + "0" + strings.Repeat("]", 33) + ",\"cwd\":" + cwd + "}"},
+		}
+		reset := func() {
+			handoffWrite(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.md"), mainManual)
+			handoffWrite(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.auto.md"), mainAuto)
+			handoffWrite(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.md"), activeManual)
+			handoffWrite(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.auto.md"), activeAuto)
+		}
+		for _, tc := range invalid {
+			t.Run(tc.name, func(t *testing.T) {
+				reset()
+				for _, event := range []string{"SessionStart", "PreCompact", "SessionEnd"} {
+					out := handoffExecute(t, "claude", handlers[event], main, tc.input, "foreign", "")
+					handoffAssertReply(t, "claude", out, "")
+					handoffAssertLocal(t, main, mainManual, mainAuto)
+					handoffAssertLocal(t, active, activeManual, activeAuto)
+				}
+			})
+		}
+		for _, tc := range []struct{ name, input, selected string }{
+			{"literal path", valid, active},
+			{"escaped Unicode", strings.ReplaceAll(strings.ReplaceAll(valid, "雪", "\\u96ea"), "😀", "\\ud83d\\ude00"), active},
+			{"escaped key", strings.Replace(valid, "cwd", "c\\u0077d", 1), active},
+			{"unknown values", "{\"unknown\":[null,true,false,-1.25e+2,{\"cwd\":\"wrong\"}],\"cwd\":" + cwd + ",\"text\":\"apparent cwd\"}", active},
+			{"empty input", "", main},
+			{"whitespace", " \r\n\t", main},
+			{"absent cwd", "{\"nested\":{\"cwd\":\"wrong\"}}", main},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				reset()
+				out := handoffExecute(t, "claude", handlers["PreCompact"], main, tc.input, "foreign", "")
+				handoffAssertReply(t, "claude", out, "")
+				snapshot := handoffRead(t, filepath.Join(tc.selected, ".agnostic-ai/local/HANDOFF.auto.md"))
+				if !strings.Contains(snapshot, "# Automatic handoff") {
+					t.Errorf("valid input did not save selected checkout: %q", snapshot)
+				}
+				if tc.selected == active {
+					if !strings.Contains(snapshot, "branch: input-worktree") {
+						t.Errorf("wrong checkout: %s", snapshot)
+					}
+					handoffAssertLocal(t, main, mainManual, mainAuto)
+				} else {
+					handoffAssertLocal(t, active, activeManual, activeAuto)
+				}
+			})
+		}
+		t.Run("stdin stays open", func(t *testing.T) {
+			reset()
+			read, write, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer read.Close()
+			defer write.Close()
+			if _, err := write.WriteString(valid); err != nil {
+				t.Fatal(err)
+			}
+			started := time.Now()
+			out := handoffExecuteInput(t, "claude", handlers["PreCompact"], main, read, "foreign", "")
+			if elapsed := time.Since(started); elapsed > 8*time.Second {
+				t.Errorf("stdin read was not bounded: %s", elapsed)
+			}
+			handoffAssertReply(t, "claude", out, "")
+			handoffAssertLocal(t, main, mainManual, mainAuto)
+			handoffAssertLocal(t, active, activeManual, activeAuto)
+		})
+	})
+
 	t.Run("emission-and-golden", func(t *testing.T) {
 		dir := project(t)
 		handlers := syncHooks(t, dir)
@@ -97,7 +282,12 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 				if (target == "claude" || target == "qoder") && h.Shell != "bash" {
 					t.Errorf("%s shell = %q", target, h.Shell)
 				}
-				body := handoffAssertTransport(t, h.Command)
+				body := h.Command
+				if target == "claude" {
+					handoffAssertClaudeInput(t, h.Command)
+				} else {
+					body = handoffAssertTransport(t, h.Command)
+				}
 				if event != "SessionStart" && (!strings.Contains(body, "cd \"$handoff_root\" || return 1") || strings.Contains(body, "git -C")) {
 					t.Errorf("%s %s does not run Git from the resolved root", target, event)
 				}
@@ -130,7 +320,11 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 	})
 
 	for _, target := range handoffHookTargets {
-		t.Run("bom-leading-blank-line-"+target, func(t *testing.T) {
+		name := "bom-leading-blank-line-" + target
+		if target == "claude" {
+			name = "direct-native-input-claude"
+		}
+		t.Run(name, func(t *testing.T) {
 			transports := []string{"command"}
 			if target == "codex" && runtime.GOOS != "windows" {
 				transports = append(transports, "commandWindows")
@@ -146,6 +340,10 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 					}
 					withBOM := func(h handoffNativeHandler) handoffNativeHandler {
 						inject := func(command string) string {
+							if target == "claude" {
+								handoffAssertClaudeInput(t, command)
+								return command
+							}
 							if strings.Count(command, "echo '\n") != 1 {
 								t.Fatalf("%s lacks one leading echo blank line: %q", target, command)
 							}
@@ -610,6 +808,16 @@ func handoffReadHandlersFor(t *testing.T, dir, target string) map[string]handoff
 	return out
 }
 
+func handoffAssertClaudeInput(t *testing.T, command string) {
+	t.Helper()
+	if !strings.HasPrefix(command, "export LC_ALL=C\n") || !strings.Contains(command, "read -r -d '' -n 65537 -t 2 handoff_payload") {
+		t.Errorf("Claude command does not retain bounded native stdin: %q", command)
+	}
+	if strings.Contains(command, "echo '\n") || strings.Contains(command, "</dev/null") || strings.Contains(command, "exec sh -s") {
+		t.Errorf("Claude command replaces native input with program source: %q", command)
+	}
+}
+
 func handoffAssertTransport(t *testing.T, command string) string {
 	t.Helper()
 	_, after, ok := strings.Cut(command, "echo '\n")
@@ -638,6 +846,11 @@ func handoffAssertTransport(t *testing.T, command string) string {
 }
 
 func handoffExecute(t *testing.T, target string, h handoffNativeHandler, dir, stdin, inherited, shimDir string) string {
+	t.Helper()
+	return handoffExecuteInput(t, target, h, dir, strings.NewReader(stdin), inherited, shimDir)
+}
+
+func handoffExecuteInput(t *testing.T, target string, h handoffNativeHandler, dir string, stdin io.Reader, inherited, shimDir string) string {
 	t.Helper()
 	shell, args := "bash", []string{"-c", h.Command}
 	if target == "codex" {
@@ -697,7 +910,7 @@ func handoffExecute(t *testing.T, target string, h handoffNativeHandler, dir, st
 	}
 	env = append(env, "PATH="+strings.Join(pathParts, string(os.PathListSeparator)))
 	cmd.Env = env
-	cmd.Stdin = strings.NewReader(stdin)
+	cmd.Stdin = stdin
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
