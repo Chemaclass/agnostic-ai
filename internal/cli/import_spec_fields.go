@@ -39,13 +39,10 @@ func (f specFields) expresses(key string) bool {
 	return !f.omitted[key] && (f.all || f.keys[key])
 }
 
-// Skills: every target writes the Agent Skills `name`, `description`,
-// and `license` and nothing else, except Claude (the format the spec
-// fields are named after, so it round-trips) and Cursor (five documented
-// optional keys). A skill flattened into an instructions file keeps only
-// its name and description.
+// Skill field sets match each target's native frontmatter.
 var (
 	defaultSkillFields   = fieldsOf("name", "description", "license")
+	opencodeSkillFields  = specFields{keys: fieldsOf("name", "description", "license", "disable-model-invocation", "metadata").keys, preserve: preserveOpencodeSkillPolicy}
 	cursorSkillFields    = fieldsOf("name", "description", "license", "paths", "disable-model-invocation", "icon", "color", "metadata")
 	flattenedSkillFields = fieldsOf("name", "description")
 )
