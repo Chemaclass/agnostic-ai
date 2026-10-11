@@ -37,6 +37,8 @@ make preflight
 
 It runs formatting, lint (including `govet`), and the Go tests. Continuous integration (CI) also checks concurrent Go code, shell scripts, configuration schemas (the allowed fields and values), browser WebAssembly builds, and editor extensions. [Checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) says which of those your change needs. `make hooks` installs quick formatting and commit-message checks.
 
+PR Go tests run on Linux. Nightly and manual runs add macOS tests and a focused Windows smoke check with a seven-minute job limit. The full Windows Go suite is optional and manual only: dispatch `gh workflow run ci.yml --ref <branch> -f full_windows=true` for a ten-minute job limit.
+
 ## Submit
 
 - Commit with a Conventional Commits prefix: `feat:`, `fix:`, `docs:`, `ref:`, `test:`, or `chore:`. Keep the subject under 72 characters and explain why in the body.
