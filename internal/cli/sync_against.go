@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -285,6 +286,8 @@ var scopeSiblings = map[string]bool{"AGENTS.override.md": true, "WARP.md": true,
 // turn, so a linked output or source reads as
 // Git holds it.
 func (t *againstTree) exportLinkTargets() error {
+	tracked := append([]string(nil), t.tracked...)
+	sort.Strings(tracked)
 	done := map[string]bool{}
 	for {
 		var targets []string
@@ -301,10 +304,12 @@ func (t *againstTree) exportLinkTargets() error {
 		}
 		var files []string
 		for _, dest := range targets {
-			for _, p := range t.tracked {
-				if p == dest || strings.HasPrefix(p, dest+"/") {
-					files = append(files, p)
-				}
+			if i := sort.SearchStrings(tracked, dest); i < len(tracked) && tracked[i] == dest {
+				files = append(files, tracked[i])
+			}
+			prefix := dest + "/"
+			for i := sort.SearchStrings(tracked, prefix); i < len(tracked) && strings.HasPrefix(tracked[i], prefix); i++ {
+				files = append(files, tracked[i])
 			}
 		}
 		targets = files
