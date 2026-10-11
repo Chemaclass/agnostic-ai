@@ -16,6 +16,12 @@ import (
 func stageGlobalHookFiles(home, stage string, targets []string, have []spec.Entry, warn io.Writer) error {
 	for _, target := range targets {
 		g := globalTargets[target]
+		if target == "copilot" {
+			if err := stageGlobalCopilotHooks(g.path(home, g.hooks), stage, have, warn); err != nil {
+				return err
+			}
+			continue
+		}
 		if g.hooksDir == "" {
 			continue
 		}
