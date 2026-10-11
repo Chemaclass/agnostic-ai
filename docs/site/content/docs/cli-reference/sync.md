@@ -174,6 +174,10 @@ Watch mode also polls when a missing external source has no safe parent to watch
 
 ### JSON output
 
+A successful `sync --json` writes one object to stdout, including when it creates shared skill links. Routine summaries and verbose diagnostics are omitted.
+
+First-sync target selection still saves your choice. With `--json`, its prompts and saved-target message go to stderr.
+
 `sync --json`, `sync --plan --json`, `sync --dry-run --json`, and `sync --check --json` share one schema:
 
 | Field | Description |
