@@ -95,6 +95,7 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](
 - **Trae agents** preserve an explicitly empty list of allowed tools, including after import, so text-only agents keep tools disabled.
 - **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
 - **Hooks** run checks before or after a tool acts. Shared `on` and `match` values work where tools handle results the same way. Kiro supports `on: before-tool` for its built-in tools and named MCP servers. See [Portable hooks](https://agnostic-ai.org/docs/spec-format/hooks/#portable-events).
+- **OpenCode V2 hooks** use `x-opencode.plugin-api: v2` for native tool checks. See [OpenCode hooks](https://agnostic-ai.org/docs/targets/opencode/#opencode-v2-hooks).
 - **Worktree cleanup** verifies repository ownership and preserves dirty or locked checkouts with [`hook worktree-remove`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-remove).
 - **Claude setup refresh** reruns configured setup in one registered linked worktree with [`hook worktree-refresh`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-refresh).
 - **Model roles** name a choice once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).

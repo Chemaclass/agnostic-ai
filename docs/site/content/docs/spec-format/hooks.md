@@ -126,6 +126,8 @@ Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event us
 
 ### Native events
 
+OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before/after events. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and Windows requirements. The default remains V1.
+
 `agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. It is plain YAML with no markdown body.
 
 ```yaml
@@ -177,7 +179,7 @@ Sync keeps hook entries you wrote. In `.claude/settings.json`, `.codex/hooks.jso
 | `event` | `on` or `event` | none | Hook event, written as is. See [events](#events). |
 | `matcher` | no | empty | Regex on the tool name, or another selector the event uses. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
-| `args` | no | empty | Switches to **exec form**: `command` runs as a program with `args` as its arguments and no shell, so spaces, `$`, and backticks pass through unchanged. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, and Copilot keep `args` apart. The other tools run `command` in a shell, with the args added, each quoted for a POSIX shell. On Windows, Trae's PowerShell and OpenHands' cmd.exe can read those quotes differently, and sync notes it. Augment skips a hook with `args`, with a note. |
+| `args` | no | empty | Switches to **exec form**: `command` runs as a program with `args` as its arguments and no shell, so spaces, `$`, and backticks pass through unchanged. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, Copilot, and OpenCode V2 keep `args` apart. The other tools run `command` in a shell, with the args added, each quoted for a POSIX shell. On Windows, Trae's PowerShell and OpenHands' cmd.exe can read those quotes differently, and sync notes it. Augment skips a hook with `args`, with a note. |
 | `type` | no | `command` | `command`, `http`, `mcp_tool`, or `prompt`, where the tool supports it. |
 | `timeout` | no | none | Seconds before the tool cancels the hook. Some tools convert to milliseconds or apply their own default. |
 | `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other tools write the hook unchanged. |
@@ -638,14 +640,14 @@ case "$AGNOSTIC_AI_TARGET" in
 esac
 ```
 
-A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the parent process's value stays. Sync sets it for each tool:
+A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value, except OpenCode V2 sets it to `opencode` for each invocation. Where sync cannot set it, the parent process's value stays. Sync sets it for each tool:
 
 - [Claude Code](@/docs/targets/claude.md): `env` in `.claude/settings.json` (`~/.claude/settings.json` for `sync --global`). Set for the whole session, so the Bash tool sees it too.
 - [Cursor](@/docs/targets/cursor.md): a `sessionStart` hook returns the variable, so `sessionStart` hooks and hooks that fire before it returns do not see it.
 - [Codex](@/docs/targets/codex.md): `export AGNOSTIC_AI_TARGET=codex; ` before `command`. Not set on Windows (`commandWindows`), and needs a POSIX session shell (a `pwsh` or `nu` login shell breaks it).
 - [Gemini](@/docs/targets/gemini.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md): `env` on each command handler.
 - [Goose](@/docs/targets/goose.md), [Crush](@/docs/targets/crush.md), [Cline](@/docs/targets/cline.md): `export` prefix or line.
-- [OpenCode](@/docs/targets/opencode.md), [Kilo](@/docs/targets/kilo.md): `.env()` on each plugin command. [Zed](@/docs/targets/zed.md): `env` on each task.
+- [OpenCode](@/docs/targets/opencode.md) V1 and [Kilo](@/docs/targets/kilo.md): `.env()` on each plugin command. OpenCode V2 adds it to each child process's environment. [Zed](@/docs/targets/zed.md): `env` on each task.
 
 Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get the variable. Tell them apart by their own variables, such as `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, or `AUGMENT_PROJECT_DIR`. `CLAUDE_PROJECT_DIR` does not identify Claude Code, because Cursor and Trae provide it too.
 
@@ -691,7 +693,7 @@ Their docs do not show an edit's event data, so the command fails:
 - Windsurf, Trae, Copilot, Goose, Antigravity, OpenHands, Cline.
 - Kiro: a `PostFileSave` command can use its `filePath` template variable.
 - Crush: only `PreToolUse` runs, and it sets `CRUSH_TOOL_INPUT_FILE_PATH`.
-- OpenCode and Kilo: plugins get tool arguments as JavaScript objects, not as event data on stdin.
+- OpenCode V1 and Kilo: plugins get tool arguments as JavaScript objects, not as event data on stdin. OpenCode V2 sends native event JSON, which this command does not read.
 - Zed: no hook fires on an edit.
 {% </details> %}
 
@@ -909,7 +911,7 @@ A tool that lacks the input a flag needs is listed as not run, and the other too
 
 Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead. Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
 
-OpenCode and Kilo run hooks as plugins and Zed as tasks, with no event data on stdin, so `hook run` lists them as not run.
+OpenCode and Kilo run hooks as plugins and Zed as tasks, so `hook run` lists them as not run. OpenCode V2 plugins receive native event JSON on stdin; the command does not simulate their runtime.
 
 ### Kiro matchers {#kiro-hook-run-matchers}
 

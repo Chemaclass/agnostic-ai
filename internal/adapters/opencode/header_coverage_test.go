@@ -104,6 +104,10 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{"event": "session.idle", "command": "echo done"},
 		},
 		{
+			Kind: spec.KindHook, Name: "guard-shell-v2", Path: "hooks/guard-shell-v2.yaml",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "shell", "command": "echo guard", "x-opencode": map[string]any{"plugin-api": "v2"}},
+		},
+		{
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{
 				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},

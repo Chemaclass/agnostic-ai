@@ -28,6 +28,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
 
+#### OpenCode
+
+- Run native V2 tool checks with `x-opencode.plugin-api: v2`, including blocking commands, timeouts and cleanup (#2062).
+
 #### Cline
 
 - Keep tool names in hook overrides as literal data, including quotes and newlines, so they cannot add shell commands (#2019).

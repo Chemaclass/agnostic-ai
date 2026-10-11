@@ -10,7 +10,7 @@ target_id = "opencode"
 
 # OpenCode (`opencode`)
 
-OpenCode reads the root `AGENTS.md`, `.opencode/`, and `opencode.json`. Hooks become TypeScript plugins.
+OpenCode reads the root `AGENTS.md`, `.opencode/`, and `opencode.json`. Hook plugins use V1 by default. For OpenCode V2, select [V2 hooks](#opencode-v2-hooks) in each hook spec.
 
 ## Output
 
@@ -30,7 +30,7 @@ opencode.json                             # when MCP entries exist (merged with 
   - `outputs.opencode.emit-skills-as-commands: true` also writes the command form. Its relative links to bundled files point into the skill folder (`../skills/<name>/references/x.md`). Other links stay as written.
   - Names must be 1-64 lowercase letters or digits, with single hyphens between segments (the vendor's `name` rule, which Zed also enforces). `Deploy`, `my_skill`, and `my--skill` fail sync with the required format. Sync does not rename them, because OpenCode would skip the folder.
 - **Commands**: `.opencode/commands/<name>.md` keeps `description`, `agent`, `model`, and `subtask`.
-- **Hooks**: one [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. This is the only generated output that is code. OpenCode loads every JS or TS file in `.opencode/plugins/` at startup.
+- **V1 hooks**: one [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. This is the only generated output that is code. OpenCode loads every JS or TS file in `.opencode/plugins/` at startup.
   - Modules follow the vendor's example: `import type { Plugin } from "@opencode-ai/plugin"`, then `export const <Name>Plugin: Plugin = async ({ $ }) => { return { ... } }`. The type-only import is removed at runtime, so `@opencode-ai/plugin` is optional. A `//` comment at the top marks the file as generated.
   - `PreToolUse` and `PostToolUse` map to `tool.execute.before` and `tool.execute.after`. OpenCode's dotted names are kept. Other documented events (`session.idle`, `file.edited`, `permission.asked`, ...) use the single `event` hook with an `event.type` guard.
   - `matcher` becomes an anchored `new RegExp("^(?:...)$")` tested against `input.tool`, so `write` does not match `todowrite`. OpenCode tool names are lowercase, so a Claude-style `Edit` or `Edit|Write` is written as is with a coverage note.
@@ -58,6 +58,34 @@ opencode.json                             # when MCP entries exist (merged with 
 {% <details summary="Old .opencode/AGENTS.md leftovers"> %}
 Sync removes a generated file at the old `.opencode/AGENTS.md` path, which OpenCode never read. It leaves a hand-written one.
 {% </details> %}
+
+## OpenCode V2 hooks
+
+Set `x-opencode.plugin-api: v2` on each hook for OpenCode V2. This route is verified against 2.0.26. Omitting it, or choosing `v1`, keeps the V1 plugin format. Other values fail sync with the source path.
+
+```yaml
+name: guard-shell
+targets: [opencode]
+event: PreToolUse
+matcher: shell
+command: .agnostic-ai/scripts/guard-shell.sh
+x-opencode:
+  plugin-api: v2
+```
+
+V2 supports `PreToolUse`, `PostToolUse`, `tool.execute.before`, and `tool.execute.after`. Other events fail sync. Use these native event names; OpenCode has no portable `on` mapping. Explicit matchers stay anchored JavaScript regular expressions: `bash` is not rewritten to `shell`. An invalid expression prevents the plugin from loading.
+
+The plugin registers a native [V2 tool callback](https://opencode.ai/v2/docs/build/plugins) and runs commands in the triggering session's checkout. It sends the native event as one JSON object plus a newline on stdin. Before-tool input includes `tool`, `sessionID`, `agent`, `messageID`, `id`, and `input`. After-tool input adds `status` and either `result` or `error`. `PostToolUse` runs only for completed tools; the native `tool.execute.after` event also runs for failed tools.
+
+Commands run in order. A before-tool command exiting 2 blocks the operation and stops later commands; stderr gives the reason. Other command failures log the hook name, command, and error, then continue. Stdout is ignored. Structured stdout decisions are not supported by this route.
+
+With `args`, the executable and each argument are passed separately. Without `args`, the command runs through `/bin/sh`, or Git Bash on Windows. Windows shell commands and `.sh` executables require Git Bash; Windows Store Bash is not used. On other systems, exec-form scripts must be executable. Shared scripts are copied to `.opencode/hooks/` as with V1.
+
+Windows V2 also requires Windows PowerShell with permission to compile the generated process launcher. It creates each command in a Windows Job Object, which owns ordinary descendant processes until cleanup. Setup failures block the guard path. PowerShell startup counts toward the command timeout.
+
+`timeout` is a positive whole number of seconds, up to 86400; the default is 60 seconds. A timeout stops the owned process tree and logs a failure. Unloading the plugin also stops active commands and removes its callbacks. `x-opencode.env` adds string values to each command's inherited environment. Each invocation receives `AGNOSTIC_AI_TARGET=opencode`.
+
+Sync writes `.opencode/plugins/<name>.ts` and a companion `<name>.windows.ps1` launcher. The type-only `@opencode/plugin` import adds no runtime dependency. Arbitrary plugin code is not imported back into specs.
 
 ## Config keys
 
