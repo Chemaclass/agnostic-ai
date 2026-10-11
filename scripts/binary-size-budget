@@ -104,4 +104,7 @@
 # Keep the established allowance for CI.
 # Worktree refresh with owned setup cancellation measured 19034272.
 # Keep the established 8 KB allowance for CI.
-19042500
+# #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
+# preserve native V2 MCP fields and reject conflicting effective owners.
+# Keep the established CI build allowance.
+19080000
