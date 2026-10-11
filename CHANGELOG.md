@@ -4,42 +4,42 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## v0.83.0 - 2026-10-11
+
 ### General
 
-- Unchanged shared skill links appear as skipped outputs in `sync --json`; new and retargeted links remain writes (#2080).
-- Explain when Claude Code or Amp selects a home skill over a project skill with the same name, even when sync warnings are silenced (#2069).
-
-- Compare spec sizes, hooks, servers and permissions; reduce typo-check memory and speed up staged checks (#2017, #1985, #1986, #1987, #2020, #2055).
-- Hooks prefer local binaries; Git checks use staged config; setup uses locked installs; failed checks show timeout and command errors (#2012, #2046, #2018).
-- Create all ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile` (#1990, #2013).
-- Hide preview/permission credentials; verify build downloads and npm releases/retries; replace vulnerable build dependencies (#2021, #2044, #2022, #2016).
-- Keep fresh shared-skills sync output valid as JSON (#2079).
-
-- Check project targets with doctor; skip local hook trust, keep default trust, and diagnose Git skill links checked out as text (#2011, #2060).
+- Rank startup context and compare hooks, MCP servers and permissions across tools (#2017, #1985, #1986, #1987).
+- Run hooks with the project binary, use locked installs, and explain failed checks and timeouts (#2012, #2046, #2018).
+- Scaffold all ten spec kinds, plan imported skill changes, and check project targets and text skill links (#1990, #2013, #2011, #2060).
+- Hide credentials in previews and permissions; verify build downloads and npm releases, and update unsafe dependencies (#2021, #2044, #2022, #2016).
+- Keep sync JSON valid, skip unchanged skill links, and reduce staged-check time and typo-check memory (#2079, #2080, #2020, #2055).
 
 ### By tool
 
+#### Claude Code
+
+- Handoff hooks use the active checkout; refresh setup in linked worktrees and safely remove clean ones (#2068, #2014, #2054).
+- Preview RTK command rewrites and declared approval changes with `doctor rtk --command` (#2015).
+- Explain instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).
+- Explain when a home skill takes precedence over a project skill with the same name, even when sync warnings are silenced (#2069).
+
 #### OpenCode
 
-- Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
-- Run native V2 tool checks on macOS and Linux with `x-opencode.plugin-api: v2`, with blocking, timeouts and cleanup; Windows requires OpenCode V1 (#2062).
-- Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
+- Import V2 MCP servers, disabled states and separate timeouts without losing servers added by hand (#2063).
+- Run opt-in V2 tool hooks on macOS and Linux; Windows requires V1; set `x-opencode.plugin-api: v2` per hook (#2062).
+- Preserve manual-only skills and native invocation metadata through sync and import; V2 enforces the policy (#2064).
 
 #### Copilot
 
 - Sync and import user hooks across projects; keep handwritten handlers without duplicate execution (#2065).
 
-#### Claude Code
-
-- Handoff hooks read Claude's active checkout from native input, so worktree sessions keep their own notes and Git snapshots (#2068).
-
-- Preview RTK rewrites and declared approval changes with `doctor rtk --command`; live approval remains unknown (#2015).
-- Refresh Claude setup with `hook worktree-refresh`; remove only clean registered worktrees inside allowed roots; keep dirty or locked ones (#2014, #2054).
-- Explain Claude Code instructions for a file with `explain --file <path> --target claude`, including scoped rules and session limits (#1988).
-
 #### Codex
 
-- Explain Codex instructions for a file with `explain --file <path> --target codex`, including planned outputs and launch directory limits (#1989).
+- Explain instructions for a file with `explain --file <path> --target codex`, including planned outputs and launch directory limits (#1989).
+
+#### Amp
+
+- Explain when a home skill takes precedence over a project skill with the same name, even when sync warnings are silenced (#2069).
 
 #### VS Code
 
@@ -51,7 +51,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
-- Catch missing binaries, stale output and broken links before starting a cached environment with the project readiness checklist (#2052).
+- Check binaries, generated output and skill links before starting a cached environment with the project readiness checklist (#2052).
 
 ## v0.82.0 - 2026-10-10
 
