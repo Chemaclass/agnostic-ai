@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Unchanged shared skill links appear as skipped outputs in `sync --json`; new and retargeted links remain writes (#2080).
 - Explain when Claude Code or Amp selects a home skill over a project skill with the same name, even when sync warnings are silenced (#2069).
 
 - Compare spec sizes, hooks, servers and permissions; reduce typo-check memory and speed up staged checks (#2017, #1985, #1986, #1987, #2020, #2055).
