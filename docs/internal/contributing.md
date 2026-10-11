@@ -35,7 +35,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 
 `make preflight` covers formatting, lint (including `govet`), and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WebAssembly (WASM) builds, and extension builds.
 
-The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks and migration plans that leave files unchanged. They do not connect to coding tools or call a model. When Windows setup fails, the tests save the first launcher error outside the project. Follow-up checks have time and output limits.
+The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks and migration plans that leave files unchanged. They do not connect to coding tools or call a model. On Windows, the launcher tries to save a failed command's result outside the project. Follow-up checks have time and output limits.
 
 `make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after the required version changes. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
 
