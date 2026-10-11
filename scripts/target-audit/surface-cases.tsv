@@ -38,3 +38,7 @@ kiro-hook-tool-category-matchers	kiro	In V3 sessions, Hooks that run before or a
 trae-shared-skill-directory	trae	The .agents skill directory (that is, .agents/skills/) is a convention-based directory specified by Agent Skills for storing skills.	yes	signal:cap-shared-skill-directory-discovery
 claude-subagent-auto-compact-window	claude	Added `autoCompactWindow` to subagent frontmatter and `--agents` definitions, so a subagent can auto-compact earlier than the main conversation's window	yes	signal:cap-claude-subagent-auto-compact-window
 qoder-plugin-enablement	qoder	`enabledPlugins` | object | `{}` | Yes | Plugin enablement mapping (plugin ID → true/false).	yes	signal:cap-qoder-plugin-enablement
+opencode-v2-plugin-api	opencode	V1 plugin implementations do not run in V2. Moving a file or renaming its config entry is not enough.	yes	issue:2062
+opencode-v2-mcp-envelope	opencode	V2 does not place server names directly under mcp.	yes	issue:2063
+opencode-v2-manual-only-skill	opencode	disable-model-invocation Set to true for the same effect as opencode/autoinvoke: false	yes	issue:2064
+copilot-user-hook-directory	copilot	By default this is `~/.copilot/hooks/` on macOS and Linux, or `%USERPROFILE%\.copilot\hooks\` on Windows.	no	issue:2065
