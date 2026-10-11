@@ -922,7 +922,11 @@ set -x
 			t.Errorf("transport probe diagnostic %s: %v", path, err)
 			return nil
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				t.Errorf("close diagnostic %s: %v", path, err)
+			}
+		}()
 		body, err := io.ReadAll(io.LimitReader(f, 65537))
 		if err != nil {
 			t.Errorf("transport probe read %s: %v", path, err)
