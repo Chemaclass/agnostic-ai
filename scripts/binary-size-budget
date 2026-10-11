@@ -109,4 +109,7 @@
 # #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
 # preserve native V2 MCP fields and reject conflicting effective owners.
 # Keep the established CI build allowance for the combined changes.
-19080000
+# #2068 measured 19091616 on Go 1.27.2, up 24576 from main 784cba1d:
+# Claude handoff hooks read native input and select the active checkout.
+# Keep the established CI build allowance.
+19100000
