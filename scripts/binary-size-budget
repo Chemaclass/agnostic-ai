@@ -112,4 +112,8 @@
 # #2068 measured 19091616 on Go 1.27.2, up 24576 from main 784cba1d:
 # Claude handoff hooks read native input and select the active checkout.
 # Keep the established CI build allowance.
+# #2064 after #2063 measured 19079328 on Go 1.27.2, up 12288
+# from main 784cba1d (19067040 bytes):
+# preserve native skill policy and reconcile imported YAML ownership.
+# Keep the established CI build allowance.
 19100000
