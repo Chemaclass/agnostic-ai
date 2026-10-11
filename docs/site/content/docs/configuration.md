@@ -24,6 +24,8 @@ gitignore:
 
 For directory-specific instructions, give a rule a `scope`. See [scoped context](@/docs/scoped-context.md).
 
+OpenCode hooks choose their plugin version per spec with `x-opencode.plugin-api: v2`; the default is V1. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks).
+
 ## Find a setting
 
 | Change | Section |

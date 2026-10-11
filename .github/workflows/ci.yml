@@ -80,6 +80,35 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
+
+  opencode-hooks:
+    name: OpenCode hooks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tests/vendor/opencode/package-lock.json
+
+      - name: Validate released plugin types and native behavior
+        shell: bash
+        run: make opencode-hooks-test
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

@@ -1,0 +1,151 @@
+import type { Plugin } from "@opencode/plugin"
+import { spawn, type ChildProcess } from "node:child_process"
+
+const NAME = __NAME__
+const COMMANDS: { command: string; args?: string[] }[] = __COMMANDS__
+const TIMEOUT = __TIMEOUT__
+const ENV: Record<string, string> = __ENV__
+const MATCHER = new RegExp(__MATCHER__)
+const LABEL = `agnostic-ai hook ${NAME}:`
+
+class GuardInfrastructureError extends Error {}
+
+function launch(command: { command: string; args?: string[] }) {
+  return command.args !== undefined
+    ? { file: command.command, args: command.args }
+    : { file: "/bin/sh", args: ["-c", command.command] }
+}
+
+async function terminate(child: ChildProcess) {
+  const pid = child.pid
+  if (pid === undefined) return
+  try { process.kill(-pid, "SIGKILL") }
+  catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error
+  }
+}
+
+const plugin: Plugin.Plugin = {
+  id: __ID__,
+  async setup(ctx) {
+    const active = new Set<(reason: string) => Promise<void>>()
+    let unloaded = false
+    if (process.platform === "win32") console.error(LABEL, "native V2 hooks are unsupported on Windows; use OpenCode V1 with the default V1 hooks")
+    const run = async (command: { command: string; args?: string[] }, cwd: string, input: string) => {
+      if (unloaded) throw new Error(`${LABEL} plugin unloaded`)
+      if (cwd.includes("\0")) throw new GuardInfrastructureError(`${LABEL} session working directory must not contain NUL`)
+      const started = Date.now()
+      const { file, args } = launch(command)
+      const child = spawn(file, args, {
+        cwd, env: { ...process.env, ...ENV, AGNOSTIC_AI_TARGET: "opencode" },
+        detached: true, stdio: ["pipe", "ignore", "pipe"],
+      })
+      let stderr = ""
+      let stopped = ""
+      let directExit: number | undefined
+      let closed = false
+      let killing: Promise<void> | undefined
+      const closedPromise = new Promise<void>(resolve => {
+        child.once("close", () => { closed = true; resolve() })
+      })
+      let rejectCompletion: (error: Error) => void = () => {}
+      const completion = new Promise<number>((resolve, reject) => {
+        rejectCompletion = reject
+        child.once("error", reject)
+        child.once("close", (code, signal) => {
+          if (directExit === 2) resolve(2)
+          else if (signal) reject(new Error(`terminated by ${signal}`))
+          else resolve(directExit ?? code ?? 1)
+        })
+      })
+      child.once("exit", code => {
+        if (code !== null) directExit = code
+        void terminate(child).catch(error => rejectCompletion(error instanceof Error ? error : new Error(String(error))))
+      })
+      child.stderr?.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString("utf8")).slice(-65536) })
+      child.stdin?.on("error", error => {
+        if (!("code" in error && error.code === "EPIPE")) rejectCompletion(error)
+      })
+      child.stdin?.end(input)
+      const stop = (reason: string) => {
+        stopped ||= reason
+        killing ??= (async () => {
+          try { await terminate(child) }
+          catch (error) { rejectCompletion(error instanceof Error ? error : new Error(String(error))); throw error }
+          let timer: ReturnType<typeof setTimeout> | undefined
+          try {
+            await Promise.race([
+              closedPromise,
+              new Promise<never>((_resolve, reject) => {
+                timer = setTimeout(() => {
+                  child.stdin?.destroy(); child.stderr?.destroy()
+                  const error = new Error(`${LABEL} process did not close after cleanup`)
+                  rejectCompletion(error); reject(error)
+                }, 2000)
+              }),
+            ])
+          } finally { clearTimeout(timer) }
+        })()
+        return killing
+      }
+      active.add(stop)
+      const timer = setTimeout(() => { void stop(`timed out after ${TIMEOUT / 1000} seconds`).catch(() => {}) }, Math.max(0, TIMEOUT - (Date.now() - started)))
+      try {
+        const code = await completion
+        if (stopped && code !== 2) throw new Error(stopped)
+        if (code !== 0) console.error(LABEL, command.command, "exited", code, stderr.trim())
+        return { code, stderr }
+      } catch (error) {
+        const detail = stopped || (error instanceof Error ? error.message : String(error))
+        if (!closed && child.pid !== undefined) {
+          try { await stop(detail) } catch (cleanup) { stderr += `\ncleanup: ${String(cleanup)}` }
+        }
+        if (directExit === 2) return { code: 2, stderr }
+        const message = `${LABEL} ${command.command}: ${detail}${stderr.trim() ? `: ${stderr.trim()}` : ""}`
+        if (error instanceof GuardInfrastructureError) throw new GuardInfrastructureError(message)
+        throw new Error(message)
+      } finally {
+        clearTimeout(timer)
+        try {
+          if (killing) {
+            try { await killing } catch (error) {
+              if (directExit !== 2) throw error
+              console.error(LABEL, "cleanup failed after blocking guard", error)
+            }
+          }
+        } finally { active.delete(stop) }
+      }
+    }
+    const registration = await ctx.tool.hook(__EVENT__, async event => {
+      if (unloaded || !MATCHER.test(event.tool)) return
+      if (process.platform === "win32") throw new GuardInfrastructureError(`${LABEL} native V2 hooks are unsupported on Windows; use OpenCode V1 with the default V1 hooks`)
+      __AFTER_FILTER__
+      let cwd: string
+      let input: string
+      try {
+        const session = await ctx.session.get({ sessionID: event.sessionID })
+        cwd = session.location.directory
+        input = JSON.stringify(event) + "\n"
+      } catch (error) { throw new Error(`${LABEL} resolve session workspace and hook input: ${String(error)}`) }
+      for (const command of COMMANDS) {
+        let result: { code: number; stderr: string }
+        try { result = await run(command, cwd, input) }
+        catch (error) {
+          console.error(LABEL, error)
+          if (unloaded || error instanceof GuardInfrastructureError) throw error
+          continue
+        }
+        __BLOCK__
+      }
+    })
+    return async () => {
+      unloaded = true
+      const stops = [...active].map(stop => stop("plugin unloaded"))
+      const settled = await Promise.allSettled([Promise.resolve().then(() => registration.dispose()), ...stops])
+      const failed = settled.find(result => result.status === "rejected")
+      if (failed?.status === "rejected") throw failed.reason
+    }
+  },
+}
+
+export default plugin

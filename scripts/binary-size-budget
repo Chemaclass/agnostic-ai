@@ -108,6 +108,9 @@
 # indexed shared-link lookups avoid scanning every tracked path per link.
 # #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
 # preserve native V2 MCP fields and reject conflicting effective owners.
+# #2062 after #2063 measured 19108000 on Go 1.27.2, up 40960
+# from main 784cba1d (19067040 bytes):
+# native V2 hook validation, runner and Windows child ownership helper.
 # Keep the established CI build allowance for the combined changes.
 # #2068 measured 19091616 on Go 1.27.2, up 24576 from main 784cba1d:
 # Claude handoff hooks read native input and select the active checkout.
@@ -118,8 +121,12 @@
 # from main 784cba1d (19067040 bytes):
 # preserve native skill policy and reconcile imported YAML ownership.
 # Keep the established CI build allowance.
+# #2062 macOS/Linux V2 hooks measured 19128480 on Go 1.27.2,
+# up 24576 from main 1d425332 (19103904 bytes).
+# Keep the established CI build allowance.
 # #2065 with #2064 measured 19103904, up 24576 from main 34d870e6
 # (19079328 bytes). Keep the established CI build allowance.
-# #2068 measured 19128480, up 24576 from main 1d425332
-# (19103904 bytes). Keep the established CI build allowance.
-19140000
+# #2068 with merged #2062 measured 19153056 on Go 1.27.2,
+# up 24576 from main 70ccdb86 (19128480 bytes).
+# Keep the established CI build allowance.
+19160000
