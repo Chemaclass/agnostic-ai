@@ -3,6 +3,7 @@ package copilot
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"regexp/syntax"
 	"sort"
 	"strings"
@@ -195,8 +196,25 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 	return []byte(buf.String()), nil
 }
 
-// emitHooks writes `.github/hooks/agnostic-ai.json`. No-op when no
-// hooks emit. The path is overridable via `outputs.copilot.hooks-file`.
+// HookEntries renders the native flat handlers used by project and user files.
+func HookEntries(hooks []spec.Entry, scriptsDir ...string) (map[string][]any, error) {
+	doc := buildHooksAt(hooks, scriptsDir...)
+	if doc == nil {
+		return map[string][]any{}, nil
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return nil, err
+	}
+	var native struct {
+		Hooks map[string][]any `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &native); err != nil {
+		return nil, err
+	}
+	return native.Hooks, nil
+}
+
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	doc := buildHooks(hooks)
 	if doc == nil {
@@ -244,7 +262,9 @@ func UnwrapPortableCommand(command, cwd string) (options []string, inner string,
 // semantics for free; one authored in Copilot's own camelCase form
 // answers to the native regex rule on whatever camelMatcherSubject
 // names for its event.
-func buildHooks(hooks []spec.Entry) *hooksDoc {
+func buildHooks(hooks []spec.Entry) *hooksDoc { return buildHooksAt(hooks) }
+
+func buildHooksAt(hooks []spec.Entry, scriptsDir ...string) *hooksDoc {
 	byEvent := map[string][]hookEntry{}
 	var eventOrder []string
 	var camelMatcherTraps, nonToolMatchers, unsupportedMatchers, invalidMatchers, execForm, promptWrongEvent, windowsUnused int
@@ -309,7 +329,12 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 					if len(args) > 0 {
 						inner = emit.ExecFormCommand(ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd))
 					}
-					entry.Command = emit.PortableHookCommand(h, target, inner, func(string) string { return wrapperPath(cwd) })
+					entry.Command = emit.PortableHookCommand(h, target, inner, func(string) string {
+						if len(scriptsDir) > 0 && scriptsDir[0] != "" {
+							return emit.ShellQuote(filepath.ToSlash(filepath.Join(scriptsDir[0], "agnostic-ai-portable-hook.sh")))
+						}
+						return wrapperPath(cwd)
+					})
 				case len(args) > 0:
 					entry.Exec, entry.Args = ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd)
 				default:

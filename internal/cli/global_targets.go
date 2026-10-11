@@ -69,7 +69,7 @@ type globalTarget struct {
 	// hookScriptsDir keeps command scripts outside the native definitions directory.
 	hookScriptsDir string
 	// hooksFormat selects the native hooks schema: "claude", "cursor",
-	// or "augment", Claude's grouping with Augment's narrower fields.
+	// "copilot", or "augment".
 	hooksFormat string
 	// hookTarget is how a hook learns which target ran it, the same way
 	// the project adapter tells it: the settings `env` (claude), an
@@ -215,6 +215,8 @@ var globalTargets = map[string]globalTarget{
 		},
 	},
 	"copilot": {
+		hooks:        globalPathHome + ".copilot/hooks/agnostic-ai.json",
+		hooksFormat:  "copilot",
 		rootEnv:      "COPILOT_HOME",
 		root:         globalPathHome + ".copilot",
 		agents:       globalPathHome + ".copilot/agents",

@@ -19,6 +19,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
 - Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
 
+#### Copilot
+
+- Sync and import user hooks across projects; keep handwritten handlers without duplicate execution (#2065).
+
 #### Claude Code
 
 - Handoff hooks read Claude's active checkout from native input, so worktree sessions keep their own notes and Git snapshots (#2068).
