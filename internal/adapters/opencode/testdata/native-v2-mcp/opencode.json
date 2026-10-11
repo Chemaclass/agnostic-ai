@@ -1,0 +1,41 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "codemode": false,
+    "servers": {
+      "docs": {
+        "command": [
+          "node",
+          "server.js",
+          "--read-only"
+        ],
+        "cwd": "tools/docs",
+        "disabled": true,
+        "environment": {
+          "DOCS_TOKEN": "{env:DOCS_TOKEN}"
+        },
+        "options": {
+          "vendor_option": false
+        },
+        "timeout": {
+          "catalog": 2000,
+          "execution": 5000
+        },
+        "type": "local"
+      },
+      "remote": {
+        "disabled": false,
+        "headers": {
+          "Authorization": "Bearer {env:MCP_TOKEN}"
+        },
+        "oauth": false,
+        "type": "remote",
+        "url": "https://example.test/mcp"
+      }
+    },
+    "timeout": {
+      "catalog": 3000,
+      "execution": 9000
+    }
+  }
+}
