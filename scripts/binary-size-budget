@@ -118,7 +118,8 @@
 # from main 784cba1d (19067040 bytes):
 # preserve native skill policy and reconcile imported YAML ownership.
 # Keep the established CI build allowance.
-# #2068 with #2064 measured 19103904, up 24576 from main 34d870e6
 # #2065 with #2064 measured 19103904, up 24576 from main 34d870e6
 # (19079328 bytes). Keep the established CI build allowance.
-19115000
+# #2068 measured 19128480, up 24576 from main 1d425332
+# (19103904 bytes). Keep the established CI build allowance.
+19140000
