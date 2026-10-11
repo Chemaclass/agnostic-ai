@@ -52,6 +52,8 @@ In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install 
 
 This repository ignores generated tool files and runs `lint` in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
 
+For cached environments that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/maintain.md#project-readiness). They check every configured tool without approving local hooks.
+
 ## Install the CLI in CI
 
 In Node projects, install the CLI with the project's dependencies. Other projects use the install script.

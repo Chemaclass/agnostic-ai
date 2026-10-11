@@ -198,6 +198,24 @@ Bootstrap uses `packageManager` from `package.json`, or an unambiguous root lock
 
 Existing hook managers can call this helper without changing their own configuration format. A bootstrap entry point must already be installed, globally or locally. Versions released before `project` existed must first be updated through their existing package-manager command.
 
+### Project readiness
+
+Before starting a cached environment, check that the installed project binary and generated files are usable. Run these commands from the project root in a shell that stops on failure:
+
+```bash
+set -e
+agnostic-ai project --check
+agnostic-ai project -- doctor --scope project --check-references
+```
+
+Put the commands that start your environment after these checks. A failed check stops startup. The second command checks every configured target, including local Markdown links in generated skills, without approving hooks on this machine.
+
+The entry-point helper must already be installed at a release that supports `project`. The selected project binary must also support `doctor --scope project`. v0.82.0 supports neither; update it through your package manager first. Keep the package pin, lockfile and `requires` aligned.
+
+For a missing or mismatched project binary, run `agnostic-ai project --bootstrap`, then repeat the checks above. Bootstrap installs from the lockfile and generates output. If only ignored generated files are missing, run `agnostic-ai project` first. Move manual edits into the source before repairing drift.
+
+Checkout hooks can warn and let Git continue. That behavior does not prove startup is ready. These checks cover project configuration; use your application's own checks for running services.
+
 ## install-hook
 
 Install git hooks. By default it installs a pre-commit hook that runs `project --check --against index`, so a commit fails if regenerated files are not staged. With `--post-checkout`, it installs hooks that regenerate the tool files after a checkout or a pull. Project hooks prefer the installed local binary over `PATH`. See [git hooks](@/docs/git-hooks.md).
