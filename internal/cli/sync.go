@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"slices"
@@ -61,6 +62,11 @@ func newSyncCmd() *cobra.Command {
   # After moving generated files into the managed .gitignore block, stop tracking them
   agnostic-ai sync --untrack`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jsonOut {
+				previousOut := logOut
+				logOut = io.Discard
+				defer func() { logOut = previousOut }()
+			}
 			if keepEdits && (check || plan || watch || global) {
 				return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --global")
 			}
@@ -134,7 +140,11 @@ func newSyncCmd() *cobra.Command {
 			}
 			if !check && !plan && !dryRun && !allTargets && len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				if shouldPromptTargetSelection(".", cfg) {
-					picked, err := firstSyncTargetSelection(".", cmd.InOrStdin(), cmd.OutOrStdout())
+					pickerOut := cmd.OutOrStdout()
+					if jsonOut {
+						pickerOut = cmd.ErrOrStderr()
+					}
+					picked, err := firstSyncTargetSelection(".", cmd.InOrStdin(), pickerOut)
 					if err != nil {
 						return err
 					}
