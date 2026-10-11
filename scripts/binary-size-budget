@@ -104,7 +104,9 @@
 # Keep the established allowance for CI.
 # Worktree refresh with owned setup cancellation measured 19034272.
 # Keep the established 8 KB allowance for CI.
+# #2055 after #2060 measured 19046560 on Go 1.27.2, up 4096:
+# indexed shared-link lookups avoid scanning every tracked path per link.
 # #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
 # preserve native V2 MCP fields and reject conflicting effective owners.
-# Keep the established CI build allowance.
+# Keep the established CI build allowance for the combined changes.
 19080000
