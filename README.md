@@ -95,6 +95,7 @@ On a fresh clone, `sync --check` uses Git history to identify old generated file
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
 
+- **Shared skill names**: `doctor` explains when a tool selects the home copy and project sync cannot change it. See [shared names](https://agnostic-ai.org/docs/configuration/#global-shared-names).
 - **Manual-only skills** keep their invocation flag in OpenCode V2. See [support by tool](https://agnostic-ai.org/docs/spec-format/skills/#disable-model-invocation-support-by-target).
 - **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3. `import trae` also reads shared `.agents/skills/` folders, keeping `.trae/skills/` first for duplicate names.
 - **Trae agents** preserve an explicitly empty list of allowed tools, including after import, so text-only agents keep tools disabled.

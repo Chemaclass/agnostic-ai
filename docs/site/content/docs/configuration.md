@@ -707,8 +707,10 @@ For a home kept in Git, `install-hook --global` writes a pre-commit hook that ru
 A project skill or agent can share its `name` with one in the home. Sync writes both, and each tool decides which one it loads. `sync` and `doctor` print one warning per shared name, naming each target where one copy hides the other, which copy wins, and the fix:
 
 ```text
-! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on claude
 ```
+
+A home skill can hide a project skill with the same name. Claude Code and Amp do not document a project setting that selects only that project copy while keeping other home skills. Amp's `amp.skills.disableGlobalAgentsSkills` disables discovery of all skills from the global agents folders; it does not choose one conflicting name. Sync keeps both copies and explains that limit; it does not change your home files. Renaming a copy lets both load, but changes the name you use to call it. Doctor reports the limit even when sync warnings are silenced.
 
 A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here. When both copies hold the same content, it says to delete one before they drift apart.
 
