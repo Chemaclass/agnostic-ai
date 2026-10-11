@@ -184,7 +184,9 @@ agnostic-ai project --bootstrap         # repair dependencies once, then sync
 agnostic-ai project -- hook memory --target codex
 ```
 
-The helper finds the nearest project config at or above the working directory. A built-in hook can use the host's project-directory environment variable instead. The version probe must satisfy `requires`; failures name the installed version, required version, and `agnostic-ai project --bootstrap` recovery command. Bootstrap does not modify the requirement or package manifest, so the committed lockfile must install an allowed version. Version and command-support checks share a ten-second deadline. Failed checks with an expired deadline or cancellation retain that error instead of reporting the command as unsupported.
+The helper finds the nearest project config at or above the working directory. A built-in hook can use the host's project-directory environment variable instead. The installed version must satisfy `requires`; version mismatches name the installed version, required version, and `agnostic-ai project --bootstrap` recovery command. Bootstrap does not modify the requirement or package manifest, so the committed lockfile must install an allowed version.
+
+Version and command checks have ten seconds in total. If a check fails, its error includes up to 64 KiB of the command's error output and marks any cut-off text. Errors also name timeouts or cancellation when they occur. A successful command's warnings do not make the check fail.
 
 | Flag | Description |
 |------|-------------|

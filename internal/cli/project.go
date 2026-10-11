@@ -278,9 +278,9 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 	probe.Dir = root
 	probe.Env = append(os.Environ(), envNoUpdateCheck+"=1")
 	probe.WaitDelay = 250 * time.Millisecond
-	var output projectProbeOutput
-	probe.Stdout, probe.Stderr = &output, io.Discard
-	err = projectProbeError(ctx, probe.Run())
+	var output, stderr projectProbeOutput
+	probe.Stdout, probe.Stderr = &output, &stderr
+	err = projectProbeError(ctx, probe.Run(), &stderr)
 	if err != nil {
 		return projectBinary{}, fmt.Errorf("project binary %s cannot report its version; run `agnostic-ai project --bootstrap`: %w", selected, err)
 	}
@@ -305,18 +305,29 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 		}
 	}
 	capability := exec.CommandContext(ctx, binary.path, append(binary.prefix, "project", "--help")...)
-	capability.Dir, capability.Stdout, capability.Stderr = root, io.Discard, io.Discard
+	var capabilityStderr projectProbeOutput
+	capability.Dir, capability.Stdout, capability.Stderr = root, io.Discard, &capabilityStderr
 	capability.Env = append(os.Environ(), envNoUpdateCheck+"=1")
 	capability.WaitDelay = 250 * time.Millisecond
-	if err := projectProbeError(ctx, capability.Run()); err != nil {
+	if err := projectProbeError(ctx, capability.Run(), &capabilityStderr); err != nil {
 		return projectBinary{}, &projectCapabilityError{selected: selected, err: err}
 	}
 	return binary, nil
 }
 
-func projectProbeError(ctx context.Context, err error) error {
-	if err != nil && ctx.Err() != nil {
-		return errors.Join(err, ctx.Err())
+func projectProbeError(ctx context.Context, err error, stderr *projectProbeOutput) error {
+	if err == nil {
+		return nil
+	}
+	if ctx.Err() != nil {
+		err = errors.Join(err, ctx.Err())
+	}
+	message := strings.TrimSpace(stderr.buffer.String())
+	if stderr.overflow {
+		message += "\n(stderr truncated at 64 KiB)"
+	}
+	if message != "" {
+		return fmt.Errorf("%w: %s", err, message)
 	}
 	return err
 }
