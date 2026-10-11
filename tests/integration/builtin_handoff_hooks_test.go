@@ -241,8 +241,14 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer read.Close()
-			defer write.Close()
+			t.Cleanup(func() {
+				if err := read.Close(); err != nil {
+					t.Errorf("close pipe reader: %v", err)
+				}
+				if err := write.Close(); err != nil {
+					t.Errorf("close pipe writer: %v", err)
+				}
+			})
 			if _, err := write.WriteString(valid); err != nil {
 				t.Fatal(err)
 			}
