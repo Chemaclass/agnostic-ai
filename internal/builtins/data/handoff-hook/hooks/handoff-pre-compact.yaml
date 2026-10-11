@@ -476,13 +476,13 @@ x-claude:
       trap handoff_stop HUP INT TERM
       printf "# Automatic handoff
     tool: %s | date: %s | branch: %s | head: %s
-    
+
     ## Git status
-    
+
     %s
-    
+
     ## Last five commits
-    
+
     %s
     " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_status" "$handoff_commits" >"$handoff_temp" || return 1
       mv -f "$handoff_temp" "$handoff_dir/HANDOFF.auto.md" || return 1
