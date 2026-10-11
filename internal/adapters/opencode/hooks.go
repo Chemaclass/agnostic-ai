@@ -1,6 +1,8 @@
 package opencode
 
 import (
+	"fmt"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -24,10 +26,67 @@ var pluginHost = func() emit.PluginHookHost {
 	}
 }()
 
-// emitHooks writes one plugin module per hook spec through the renderer
-// OpenCode and Kilo share.
+type hookPlan struct {
+	v1, v2 []spec.Entry
+}
+
+func prepareHooks(hooks []spec.Entry) (hookPlan, error) {
+	var plan hookPlan
+	for _, hook := range hooks {
+		api, err := hookPluginAPI(hook)
+		if err != nil {
+			return hookPlan{}, err
+		}
+		if api == "v2" {
+			if err := validateV2Hook(hook); err != nil {
+				return hookPlan{}, err
+			}
+			plan.v2 = append(plan.v2, hook)
+		} else {
+			plan.v1 = append(plan.v1, hook)
+		}
+	}
+	return plan, nil
+}
+
 func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
-	return emit.EmitPluginHooks(sess, pluginHost, hooks, dir, dryRun)
+	plan, err := prepareHooks(hooks)
+	if err != nil {
+		return err
+	}
+	return plan.emit(sess, dir, dryRun)
+}
+
+func (plan hookPlan) emit(sess *emit.Session, dir string, dryRun bool) error {
+	if err := emit.EmitPluginHooks(sess, pluginHost, plan.v1, dir, dryRun); err != nil {
+		return err
+	}
+	for _, hook := range plan.v2 {
+		if err := emitV2Hook(sess, hook, dir, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func hookPluginAPI(hook spec.Entry) (string, error) {
+	meta, _ := hook.Meta["x-opencode"].(map[string]any)
+	value, exists := meta["plugin-api"]
+	if !exists {
+		return "v1", nil
+	}
+	api, ok := value.(string)
+	if ok && (api == "v1" || api == "v2") {
+		return api, nil
+	}
+	return "", fmt.Errorf("%s: opencode plugin-api must be v1 or v2", hookLocation(hook))
+}
+
+func hookLocation(hook spec.Entry) string {
+	if hook.Path != "" {
+		return hook.Path
+	}
+	return hook.Name
 }
 
 // HookEvents lists every event a hook spec may name for this target, so

@@ -24,6 +24,8 @@ gitignore:
 
 For directory-specific instructions, give a rule a `scope`. See [scoped context](@/docs/scoped-context.md).
 
+OpenCode hooks choose their plugin version per spec with `x-opencode.plugin-api: v2`; the default is V1. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks).
+
 ## Find a setting
 
 | Change | Section |
@@ -684,6 +686,7 @@ targets: [claude, codex, cursor]
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
 - Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hooks.md#portable-events).
+- Copilot user hooks write `~/.copilot/hooks/agnostic-ai.json`; `COPILOT_HOME` moves the native home. `import --global copilot` adopts matching handlers from neighboring user JSON files without adding a second copy. See [Copilot hooks](@/docs/targets/copilot.md#hooks) for conflict recovery.
 - Kiro CLI V3 global hooks write one `~/.kiro/hooks/<name>.json` per spec, using the same format as project hooks. `KIRO_HOME` moves the hooks and scripts with Kiro's other global folders. Shared scripts go to `~/.kiro/scripts/`. Unrelated hook files stay; a conflicting file stops sync.
 - Targets without global agent output warn and skip agents.
 - Output is real files, never symlinks. A user file that is itself a symlink, such as a dotfiles-managed `CLAUDE.md`, is written through. A symlink inside a skills, agents, or rules directory stops the run.
@@ -704,8 +707,10 @@ For a home kept in Git, `install-hook --global` writes a pre-commit hook that ru
 A project skill or agent can share its `name` with one in the home. Sync writes both, and each tool decides which one it loads. `sync` and `doctor` print one warning per shared name, naming each target where one copy hides the other, which copy wins, and the fix:
 
 ```text
-! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on claude
 ```
+
+A home skill can hide a project skill with the same name. Claude Code and Amp do not document a project setting that selects only that project copy while keeping other home skills. Amp's `amp.skills.disableGlobalAgentsSkills` disables discovery of all skills from the global agents folders; it does not choose one conflicting name. Sync keeps both copies and explains that limit; it does not change your home files. Renaming a copy lets both load, but changes the name you use to call it. Doctor reports the limit even when sync warnings are silenced.
 
 A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here. When both copies hold the same content, it says to delete one before they drift apart.
 

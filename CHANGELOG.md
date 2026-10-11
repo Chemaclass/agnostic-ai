@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Explain when Claude Code or Amp selects a home skill over a project skill with the same name, even when sync warnings are silenced (#2069).
+
 - Compare spec sizes, hooks, servers and permissions; reduce typo-check memory and speed up staged checks (#2017, #1985, #1986, #1987, #2020, #2055).
 - Hooks prefer local binaries; Git checks use staged config; setup uses locked installs; failed checks show timeout and command errors (#2012, #2046, #2018).
 - Create all ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile` (#1990, #2013).
@@ -17,9 +19,16 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
+- Run native V2 tool checks on macOS and Linux with `x-opencode.plugin-api: v2`, with blocking, timeouts and cleanup; Windows requires OpenCode V1 (#2062).
 - Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
 
+#### Copilot
+
+- Sync and import user hooks across projects; keep handwritten handlers without duplicate execution (#2065).
+
 #### Claude Code
+
+- Handoff hooks read Claude's active checkout from native input, so worktree sessions keep their own notes and Git snapshots (#2068).
 
 - Preview RTK rewrites and declared approval changes with `doctor rtk --command`; live approval remains unknown (#2015).
 - Refresh Claude setup with `hook worktree-refresh`; remove only clean registered worktrees inside allowed roots; keep dirty or locked ones (#2014, #2054).

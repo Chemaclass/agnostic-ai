@@ -41,7 +41,7 @@ agnostic-ai sync
 
 `init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
 
-Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It also writes [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
+Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It also writes [Copilot user hooks](https://agnostic-ai.org/docs/targets/copilot/#hooks), [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
 
 Edit your shared instructions in `.agnostic-ai/AGNOSTIC_AI.md` and your specs under `.agnostic-ai/`, then run `agnostic-ai sync` again. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
@@ -95,11 +95,14 @@ On a fresh clone, `sync --check` uses Git history to identify old generated file
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
 
+- **Claude handoff hooks** follow the active checkout named by the event, including linked worktrees.
+- **Shared skill names**: `doctor` explains when a tool selects the home copy and project sync cannot change it. See [shared names](https://agnostic-ai.org/docs/configuration/#global-shared-names).
 - **Manual-only skills** keep their invocation flag in OpenCode V2. See [support by tool](https://agnostic-ai.org/docs/spec-format/skills/#disable-model-invocation-support-by-target).
 - **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3. `import trae` also reads shared `.agents/skills/` folders, keeping `.trae/skills/` first for duplicate names.
 - **Trae agents** preserve an explicitly empty list of allowed tools, including after import, so text-only agents keep tools disabled.
 - **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
 - **Hooks** run checks before or after a tool acts. Shared `on` and `match` values work where tools handle results the same way. Kiro supports `on: before-tool` for its built-in tools and named MCP servers. See [Portable hooks](https://agnostic-ai.org/docs/spec-format/hooks/#portable-events).
+- **OpenCode V2 hooks** use `x-opencode.plugin-api: v2` for native tool checks on macOS and Linux. Windows requires OpenCode V1 with the default V1 hooks. See [OpenCode hooks](https://agnostic-ai.org/docs/targets/opencode/#opencode-v2-hooks).
 - **Worktree cleanup** verifies repository ownership and preserves dirty or locked checkouts with [`hook worktree-remove`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-remove).
 - **Claude setup refresh** reruns configured setup in one registered linked worktree with [`hook worktree-refresh`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-refresh).
 - **Model roles** name a choice once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).

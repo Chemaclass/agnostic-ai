@@ -78,6 +78,10 @@ The `claude` target writes `.mcp.json` too. A plain server is identical from bot
 
 ### Hooks
 
+`sync --global` writes user hooks to `~/.copilot/hooks/agnostic-ai.json`, or `$COPILOT_HOME/hooks/agnostic-ai.json` when set. Copilot CLI combines all user `*.json` hook files with repository hooks. This native user route was checked against the [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) on October 11, 2026.
+
+`import --global copilot` reads those user files. It keeps matching handwritten handlers in their original file, so sync adds no duplicate. Unsupported entries stay native with a skip reason. If an imported neighboring handler changes, sync stops and names its file. Make the native entry match the spec, or move the original file outside the hooks directory before syncing. On a fresh machine, sync creates the imported handlers in the managed file.
+
 Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hooks-file`). Copilot CLI and cloud agent load every `.github/hooks/*.json` and merge them ([hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)). Copilot documents 14 events. With `builtins: [memory]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session. A spec with `commandWindows` writes `bash` (from `command`) and `powershell` (from `commandWindows`) instead of one `command`, which Copilot would run in both shells.
 
 - The wrapper is `{"version": 1, "hooks": {...}}` with an **integer** version. Each entry is flat, `{"type": "command", "matcher": ..., "command": ..., "timeoutSec": ...}`, not Claude Code's nested `{matcher, hooks: [...]}` group.
