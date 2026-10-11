@@ -89,6 +89,7 @@ var caps = emit.Capabilities{
 
 func capabilities(cfg *config.Config) emit.Capabilities {
 	coverage := caps
+	coverage.SkillFields.Markdown = (Adapter{}).SkillMarkdown
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		coverage.SkillFields.AdditionalFields = func(skill spec.Entry) map[string]any {
 			fields, _ := commandMeta(skill)
@@ -142,6 +143,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	if err := validateMCPOwners(b.MCPs, b.Settings); err != nil {
+		return err
+	}
 	if err := reportPermissionWidening(b.Settings, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -164,7 +168,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteScopedSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteScopedSkillFoldersWith(b.Skills, skillsDir, dryRun, (Adapter{}).SkillMarkdown); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
@@ -205,10 +209,7 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 	return sess.RemoveGenerated(legacyEntryPointFile, dryRun)
 }
 
-// emitMCPConfig writes (or merges into) opencode.json with the `mcp`
-// map and a `$schema` link. Routes through emit.MergeJSONFile so any
-// pre-existing user-managed keys (theme, small_model, ...) survive the
-// sync; only `$schema`, `mcp`, and the portable `model` field are owned.
+// Native V2 MCP settings claim servers individually inside mcp.servers.
 func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, directories []string, path string, dryRun bool) error {
 	permissions, dropped := buildPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
@@ -262,6 +263,17 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 	nested, err := mergeExternalDirectories(sess, keys, settings, path, directories, dryRun)
 	if err != nil {
 		return err
+	}
+	nativeMCP, err := mergeNativeMCP(sess, keys, path, dryRun)
+	if err != nil {
+		return err
+	}
+	if nativeMCP {
+		nestedKeys := []string{"mcp"}
+		if nested {
+			nestedKeys = append(nestedKeys, permissionKey)
+		}
+		return sess.MergeJSONFileNested(path, keys, nestedKeys, dryRun)
 	}
 	emit.MergeEntriesOf(keys, "mcp")
 	if nested {

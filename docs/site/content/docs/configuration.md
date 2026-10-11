@@ -176,6 +176,8 @@ Missing directories are skipped. See [path semantics](#path-semantics). A source
 
 `outputs.<target>.*` overrides where one target writes. An unknown field fails with AAI-004. Each target page lists its keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude.md#claude-settings) and [Codex](@/docs/targets/codex.md#codex-config) also accept settings blocks.
 
+For OpenCode V2, imported MCP configuration stays in a settings spec under `x-opencode.mcp`. Keep portable MCP specs targeted to other tools when using this native configuration. See [OpenCode MCP](@/docs/targets/opencode.md).
+
 ```yaml
 outputs:
   claude:
@@ -304,6 +306,8 @@ When `true`, tools that share the Agent Skills layout (`<dir>/<name>/SKILL.md` p
 - Only folders with identical content link. Skills with per-tool overrides such as `x-cursor` keep real copies.
 - Turning the option off restores real copies on the next sync.
 - Without symlink support (Windows without the privilege), sync warns once and keeps real copies.
+
+When committing shared skill links, Git must also check them out as links. Git's `core.symlinks` setting and the operating system's permission to create links are separate. With `core.symlinks=false`, `sync --check --against index` and `HEAD` name affected links that Git exported as plain files. Where link creation is supported, run `git config --local core.symlinks true` and rerun the check. To keep the false setting, set `sync.shared-skills: false`, run `agnostic-ai sync`, and stage the configuration and restored skill copies. Commit that repair before checking `--against HEAD`.
 
 ### `sync.unmanaged` {#syncunmanaged}
 
@@ -678,7 +682,7 @@ targets: [claude, codex, cursor]
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
-- Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [Codex skills](@/docs/targets/codex.md) for `disable-model-invocation`.
+- Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hooks.md#portable-events).
 - Kiro CLI V3 global hooks write one `~/.kiro/hooks/<name>.json` per spec, using the same format as project hooks. `KIRO_HOME` moves the hooks and scripts with Kiro's other global folders. Shared scripts go to `~/.kiro/scripts/`. Unrelated hook files stay; a conflicting file stops sync.
 - Targets without global agent output warn and skip agents.

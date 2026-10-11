@@ -85,12 +85,17 @@ Failed project checks include the installed command's error message. See [projec
 
 `explain --file` supports Claude Code, Codex, and Cursor. It shows source specs, planned output paths, and why instructions apply. See [file instructions](https://agnostic-ai.org/docs/cli-reference/inspect/#explain-a-source-file).
 
+Checks against the Git index or a commit are faster on large projects that share skill folders.
+
+Checks against Git also diagnose shared skill links checked out as plain files. See [shared skill checkout policy](https://agnostic-ai.org/docs/configuration/#syncshared-skills).
+
 On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
 
 ## What you can share
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
 
+- **Manual-only skills** keep their invocation flag in OpenCode V2. See [support by tool](https://agnostic-ai.org/docs/spec-format/skills/#disable-model-invocation-support-by-target).
 - **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3. `import trae` also reads shared `.agents/skills/` folders, keeping `.trae/skills/` first for duplicate names.
 - **Trae agents** preserve an explicitly empty list of allowed tools, including after import, so text-only agents keep tools disabled.
 - **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
@@ -99,6 +104,7 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](
 - **Claude setup refresh** reruns configured setup in one registered linked worktree with [`hook worktree-refresh`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-refresh).
 - **Model roles** name a choice once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
 - **MCP servers** use environment references for credentials. Mark plain settings with `!literal`. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
+  OpenCode V2 imports keep native server settings, OAuth and separate timeouts through sync and fresh checkouts. See [OpenCode](https://agnostic-ai.org/docs/targets/opencode/).
 - **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
 - **Shared memory** keeps one project memory that every tool reads and writes. `builtins: [memory]` adds it. Personal memory can share one store across worktrees with `memory.personal: repo` in the local config. See [Shared memory](https://agnostic-ai.org/docs/memory/).
 - **RTK and Caveman** are separate opt-ins: `builtins: [rtk]` adds a Claude hook that rewrites commands using an installed RTK; `builtins: [caveman]` adds the response skill from a fixed Caveman revision, invoked with `/caveman`, with no executable needed. Keep existing `builtins` names when adding either one. Both stay off in existing projects and `init`. Remove a name and sync to remove its owned output. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/) for supported coding tools and how to avoid duplicate installations.

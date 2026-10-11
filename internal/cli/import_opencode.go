@@ -50,6 +50,10 @@ const (
 // `opencode.json`) under root and writes specs into the configured
 // source directories.
 func importFromOpencode(root string, src config.Sources) error {
+	nativeMCP, err := planOpencodeV2MCP(root, src)
+	if err != nil {
+		return err
+	}
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs, src.Settings); err != nil {
 		return err
 	}
@@ -61,7 +65,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFoldersFrom(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, importSourcePath(root, src.Skills))
+	skills, err := importScopedSkillFoldersWith(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, importSourcePath(root, src.Skills), &opencodeSkillFields)
 	if err != nil {
 		return err
 	}
@@ -82,6 +86,12 @@ func importFromOpencode(root string, src config.Sources) error {
 		return err
 	}
 	settings += permissions
+	if nativeMCP != nil {
+		if err := writeOpencodeV2MCP(nativeMCP, importSourcePath(root, src.Settings)); err != nil {
+			return err
+		}
+		settings++
+	}
 	if _, err := mirrorMainFile(root, opencodeMainFile(root)); err != nil {
 		return err
 	}
@@ -118,6 +128,10 @@ func importOpencodeMarkdownDir(root, dir, dstDir string) (int, error) {
 // agnostic MCP shape (`command:` string + `args:` slice, `env:` map)
 // before writing so the YAML re-emits cleanly.
 func importOpencodeMCP(root, dstDir string) (int, error) {
+	_, native, err := readOpencodeMCP(root)
+	if err != nil || native {
+		return 0, err
+	}
 	servers, err := readJSONMapAt(filepath.Join(root, opencodeMCPFile), opencodeMCPKey)
 	if err != nil || len(servers) == 0 {
 		return 0, err

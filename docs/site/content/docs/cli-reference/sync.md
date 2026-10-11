@@ -42,6 +42,7 @@ agnostic-ai sync --only claude,cursor
 <a id="against-details"></a>
 {% <details summary="What --against compares"> %}
 - Only outputs Git tracks are compared.
+- Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/configuration.md#syncshared-skills).
 - A tracked output that no spec produces fails as a leftover to delete. That covers a file with the generated header, and any file the previous state wrote that still holds what it wrote. The previous state is `HEAD` for `index` and the first parent for `HEAD`.
 - A file edited since is left alone.
 - A run narrowed with `-t`, `--only`, or `--except` skips the leftover comparison.
@@ -188,3 +189,5 @@ Watch mode also polls when a missing external source has no safe parent to watch
 `sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints. `--plan`, `--dry-run`, and `--check` carry the same entries. There is one entry per target, and the lists are empty when there are none. Each entry has `target`, `kind`, `count`, and `message`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, even for notes a plain `sync` would hide as unchanged. A later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out.
 
 `--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`. Kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` to get the per-target numbers `--plan` prints.
+
+Checks against the Git index or a commit resolve shared skill folders faster on large projects.

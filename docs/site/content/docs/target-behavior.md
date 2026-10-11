@@ -54,6 +54,8 @@ The next full sync removes a rule file it no longer writes, edited or not, if it
 
 Some settings files also hold your own keys, such as `.gemini/settings.json`, `.claude/settings.json`, `.cursor/cli.json`, `opencode.json`, or Aider's `.aider.conf.yml`. Sync merges its keys into them and records which keys it set.
 
+OpenCode V2 MCP imports retain the native `mcp.servers` configuration in a target-specific settings spec. Sync records ownership per server and keeps servers and defaults added by hand. Portable MCP specs cannot claim the same OpenCode configuration alongside native settings.
+
 - In a permission list you share with it, sync tracks only the rules it added.
 - MCP servers merge by name. Servers you add stay. A server whose spec goes away is removed. A spec server with the same name as one of yours replaces it, with a note.
 - Once no spec writes the file, or its tool leaves `targets`, sync and `doctor --fix` remove only what they added. The file is deleted only when sync created it and nothing else is left.
@@ -171,6 +173,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - **Shared paths** are written once: `~/.agents/skills/` (codex, windsurf, amp, zed, warp, goose, openhands), `~/.agents/agents/` (goose, openhands), `~/.agents/AGENTS.md` (cline, warp), `~/.gemini/GEMINI.md` (gemini, antigravity). If two tools would write different content to one path, the run stops before writing and names the path.
 - **Copilot agent effort**: Copilot agent profiles have no effort key. A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`. Sync stops when the file has comments, since a rewrite drops them. Rerun with `--backup` to rewrite it and keep `settings.json.bak`. A hand-set `effortLevel` with a different value stops the run. Other effort values raise a coverage note.
 - **Cursor** does not load the home-level `AGENTS.md`. Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows) that passes the instructions to Cursor. It needs neither agnostic-ai, Python, nor jq, and it adds context without enforcing policy. Existing `sessionStart` entries stay.
+- **OpenCode** keeps `disable-model-invocation` in project and global skills. V2 honors it; V1 does not. See [OpenCode skills](@/docs/targets/opencode.md) for native metadata precedence.
 - **OpenCode** reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist. Syncing both tools moves OpenCode onto its own file, so text that lived only in the Claude file stops reaching it.
 - **Devin CLI and VS Code Copilot** read `~/.claude/` by default, so syncing claude plus windsurf or copilot delivers the same instructions through two paths.
 
