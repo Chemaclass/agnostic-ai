@@ -85,7 +85,7 @@ Commands run in order. A before-tool command exiting 2 blocks the operation and 
 
 With `args`, the executable and each argument are passed separately. Without `args`, the command runs through `/bin/sh`, or Git Bash on Windows. Windows shell commands and `.sh` executables require Git Bash; Windows Store Bash is not used. On other systems, exec-form scripts must be executable. Shared scripts are copied to `.opencode/hooks/` as with V1.
 
-Windows V2 also requires Windows PowerShell with permission to compile the generated process launcher. It creates each command in a Windows Job Object, which owns ordinary descendant processes until cleanup. Setup failures block the guard path. PowerShell startup counts toward the command timeout.
+Windows V2 requires Windows PowerShell in `FullLanguage` mode so the launcher can call Windows process functions. It creates each command in a Windows Job Object, which owns ordinary descendant processes until cleanup. Setup failures block the guard path. PowerShell startup counts toward the command timeout.
 
 `timeout` is a positive whole number of seconds, up to 86400; the default is 60 seconds. A timeout stops the owned process tree and logs a failure. Unloading the plugin also stops active commands and removes its callbacks. `x-opencode.env` adds string values to each command's inherited environment. Each invocation receives `AGNOSTIC_AI_TARGET=opencode`.
 

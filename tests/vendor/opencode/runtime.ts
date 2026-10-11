@@ -148,25 +148,62 @@ async function measureWindowsBootstrap() {
     const started = performance.now()
     const child = spawn(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoProfile", "-NonInteractive", "-File", join(output!, "guard.windows.ps1")], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
     let stdout = "", stderr = "", expired = false
+    let elapsed: number | undefined
     child.stdout.on("data", data => { stdout += String(data) })
     child.stderr.on("data", data => { stderr += String(data) })
     child.stdin.on("error", error => { if (!("code" in error && error.code === "EPIPE")) throw error })
     child.stdin.end(input)
-    const timer = setTimeout(() => { expired = true; child.kill("SIGKILL") }, 1000)
+    const timer = setTimeout(() => { expired = true; child.kill("SIGKILL") }, Math.max(0, 1000 - (performance.now() - started)))
     try {
-      const code = await new Promise<number | null>((resolve, reject) => { child.once("close", resolve); child.once("error", reject) })
+      const code = await new Promise<number | null>((resolve, reject) => {
+        child.once("close", code => { elapsed = performance.now() - started; resolve(code) })
+        child.once("error", reject)
+      })
       assert(!expired, `one-second Windows bootstrap deadline expired: ${stderr}`)
+      assert(elapsed !== undefined && elapsed <= 1000, `Windows bootstrap completion exceeded 1000 ms: ${elapsed}: ${stderr}`)
       assert.equal(code, 0, stderr)
       assert.equal(stdout.replace(/\r/g, ""), "AGNOSTIC_READY\nAGNOSTIC_EXIT 0\n", stderr)
     } finally {
       clearTimeout(timer)
-      const elapsed = performance.now() - started
-      samples.push(elapsed)
+      if (elapsed !== undefined) samples.push(elapsed)
       console.log(JSON.stringify({ windowsNoopBootstrap: index, elapsedMs: elapsed, expired }))
     }
   }
   const sorted = [...samples].sort((a, b) => a - b)
   console.log(JSON.stringify({ windowsNoopBootstrapSummary: { samples: samples.length, coldMs: samples[0], medianMs: sorted[2], p95Ms: sorted[4] } }))
+}
+
+async function windowsNativeSpawnFailure() {
+  if (process.platform !== "win32") return
+  const missing = join(root, "missing-native-program.exe")
+  assert(!existsSync(missing), "native error fixture application must not exist")
+  const field = (value: string) => {
+    const body = Buffer.from(value, "utf8"), length = Buffer.alloc(4)
+    length.writeInt32LE(body.length); return Buffer.concat([length, body])
+  }
+  const count = Buffer.alloc(4)
+  const input = Buffer.concat([field(missing), field(workspace), count])
+  const started = performance.now()
+  const child = spawn(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoProfile", "-NonInteractive", "-File", join(output!, "guard.windows.ps1")], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
+  let stdout = "", stderr = "", expired = false
+  let elapsed: number | undefined
+  child.stdout.on("data", data => { stdout += String(data) })
+  child.stderr.on("data", data => { stderr += String(data) })
+  child.stdin.on("error", error => { if (!("code" in error && error.code === "EPIPE")) throw error })
+  child.stdin.end(input)
+  const timer = setTimeout(() => { expired = true; child.kill("SIGKILL") }, Math.max(0, 1000 - (performance.now() - started)))
+  try {
+    const code = await new Promise<number | null>((resolve, reject) => {
+      child.once("close", code => { elapsed = performance.now() - started; resolve(code) })
+      child.once("error", reject)
+    })
+    assert(!expired, `native error fixture exceeded one second: ${stderr}`)
+    assert(elapsed !== undefined && elapsed <= 1000, `native error fixture completion exceeded 1000 ms: ${elapsed}: ${stderr}`)
+    assert.equal(code, 125, stderr)
+    assert.equal(stdout, "", "failed native creation must emit neither READY nor EXIT")
+    assert.match(stderr, /CreateProcessW owned job \(Win32 error 2\):[^\r\n]+/, "captured native error must retain the operation, exact code and system message")
+    console.log("Windows native missing-application error preserved Win32 code 2 before resume")
+  } finally { clearTimeout(timer) }
 }
 
 async function windowsExitedParentControl() {
@@ -238,6 +275,7 @@ try {
   }, workspace + "\0ignored")
   await windowsExitedParentControl()
   await measureWindowsBootstrap()
+  await windowsNativeSpawnFailure()
   await windowsInheritedPathGuard()
   await plugin("guard", async invoke => {
     const file = join(root, "success.jsonl")
