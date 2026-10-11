@@ -85,6 +85,16 @@ func RewriteNeutralHookPath(command, dir string, literal ...bool) string {
 func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
 	meta := hookRootMeta(target, metadata)
 	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
+	command = stripNeutralHookRoots(command, literal)
+	command = RewriteNeutralHookPath(command, scriptsDir, literal)
+	return RewriteGlobalHookRoot(command, target, metadata...)
+}
+
+func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
+	return RewriteWindowsNeutralHookPath(stripNeutralHookRoots(command, false), scriptsDir)
+}
+
+func stripNeutralHookRoots(command string, literal bool) string {
 	var out strings.Builder
 	from := 0
 	for _, ref := range neutralHookReferences(command, literal) {
@@ -93,8 +103,7 @@ func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[s
 		from = ref.end
 	}
 	out.WriteString(command[from:])
-	command = RewriteNeutralHookPath(out.String(), scriptsDir, literal)
-	return RewriteGlobalHookRoot(command, target, metadata...)
+	return out.String()
 }
 
 func RewriteWindowsNeutralHookPath(command, dir string) string {

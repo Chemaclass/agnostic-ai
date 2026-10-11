@@ -20,6 +20,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Run native V2 tool checks with `x-opencode.plugin-api: v2`, including blocking commands, timeouts and cleanup (#2062).
 - Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
 
+#### Copilot
+
+- Sync and import user hooks across projects; keep handwritten handlers without duplicate execution (#2065).
+
 #### Claude Code
 
 - Preview RTK rewrites and declared approval changes with `doctor rtk --command`; live approval remains unknown (#2015).

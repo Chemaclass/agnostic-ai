@@ -953,6 +953,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		for _, hook := range hooks {
+			if target == "copilot" {
+				hook.Meta = adapters.ResolveMeta(hook.Meta, target)
+			}
 			if event, _ := hook.Meta["event"].(string); event == "" {
 				continue
 			}
@@ -965,7 +968,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			for _, command := range globalHookCommands(hook.Meta["command"]) {
 				commands = append(commands, sourceCommand{command, literal})
 			}
-			if target == "codex" {
+			if target == "codex" || target == "copilot" {
 				if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
 					commands = append(commands, sourceCommand{windows, false})
 				}
@@ -1459,6 +1462,9 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	} else if !absent {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
+	if format == "copilot" && !absent && doc["version"] != float64(1) {
+		return nil, fmt.Errorf("%s: Copilot user hooks require integer version 1", path)
+	}
 	// Nothing managed, nothing previously managed, no file: leave the
 	// user's home directory untouched rather than seeding an empty one.
 	if absent && len(entries) == 0 && len(previous) == 0 {
@@ -1480,6 +1486,24 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
 		if event == "" {
+			continue
+		}
+		if format == "copilot" {
+			native, err := globalCopilotHookEntries(entry, target.scriptsDir)
+			if err != nil {
+				return nil, fmt.Errorf("render %s hooks: %w", path, err)
+			}
+			for _, item := range native[event] {
+				plain := jsonRoundTrip(item)
+				dropHookTargetEnv(plain.(map[string]any), "copilot")
+				adopted, err := adoptGlobalCopilotHook(path, event, item, plain, entry.Meta)
+				if err != nil {
+					return nil, err
+				}
+				if !adopted {
+					planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
+				}
+			}
 			continue
 		}
 		args := stringSliceFromAny(entry.Meta["args"])
@@ -1640,7 +1664,9 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 				return nil
 			}
 		}
-		if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) }) {
+		if slices.ContainsFunc(unrecorded[event], func(existing any) bool {
+			return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) || (format == "copilot" && sameGlobalCopilotHandler(existing, item))
+		}) {
 			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
 		}
 		if value, ok := hooks[event]; !ok {
@@ -1676,7 +1702,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	}
 	// Cursor's schema version goes with the last managed hook when sync
 	// added it.
-	if format == "cursor" {
+	if format == "cursor" || format == "copilot" {
 		_, hasVersion := doc["version"]
 		switch {
 		case len(next) > 0:
@@ -1684,7 +1710,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 				mark("version")
 			}
 			doc["version"] = float64(1)
-		case hasVersion && owns("version"):
+		case hasVersion && owns("version") && (format != "copilot" || len(hooks) == 0):
 			delete(doc, "version")
 		}
 	}

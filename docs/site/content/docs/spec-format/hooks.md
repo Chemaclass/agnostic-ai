@@ -580,6 +580,8 @@ A guard like this catches a mistake. It is not a sandbox: a command written to g
 
 For a shell command that starts an interpreter, quote the path: `command: 'node ".agnostic-ai/scripts/guard.mjs"'`. The path can also follow a [project-root variable](#imported-project-root-paths). Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working.
 
+Copilot user hooks use the same command fields and event casing as project hooks. Global sync writes `~/.copilot/hooks/agnostic-ai.json` and honors `COPILOT_HOME`. Imported handlers keep a target-scoped `x-copilot.user-hook-file` filename to prevent duplicate execution while the original neighboring file remains. A fresh native home recreates the handler from the spec.
+
 `sync --global` copies scripts from the global source root's `scripts/` directory into the selected tools' user hook directories, and its commands use absolute paths to those copies. Script sharing does not translate event names or reply formats, so pick ones every tool supports.
 
 {% <details summary="Where each tool keeps its scripts"> %}
