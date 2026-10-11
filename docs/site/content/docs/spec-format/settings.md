@@ -23,6 +23,8 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 - **One default model.** Set it per tool with a fallback, since model names differ between vendors.
 - **Tool-only keys.** An `x-<target>` block merges into that tool's own settings file.
 
+OpenCode V2 MCP imports use `x-opencode.mcp` to retain native connection details, disabled states, OAuth settings and separate timeouts. Keep this target-specific configuration in a settings spec instead of portable MCP specs for OpenCode. See [OpenCode](@/docs/targets/opencode.md).
+
 ## Write one
 
 ```bash

@@ -14,6 +14,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### OpenCode
+
+- Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
+
 #### Copilot
 
 - Sync and import user hooks across projects; keep handwritten handlers without duplicate execution (#2065).

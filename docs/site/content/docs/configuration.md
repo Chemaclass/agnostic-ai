@@ -176,6 +176,8 @@ Missing directories are skipped. See [path semantics](#path-semantics). A source
 
 `outputs.<target>.*` overrides where one target writes. An unknown field fails with AAI-004. Each target page lists its keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude.md#claude-settings) and [Codex](@/docs/targets/codex.md#codex-config) also accept settings blocks.
 
+For OpenCode V2, imported MCP configuration stays in a settings spec under `x-opencode.mcp`. Keep portable MCP specs targeted to other tools when using this native configuration. See [OpenCode MCP](@/docs/targets/opencode.md).
+
 ```yaml
 outputs:
   claude:
