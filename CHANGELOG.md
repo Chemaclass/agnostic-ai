@@ -32,6 +32,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Keep tool names in hook overrides as literal data, including quotes and newlines, so they cannot add shell commands (#2019).
 
+### Site
+
+- Catch missing binaries, stale output and broken links before starting a cached environment with the project readiness checklist (#2052).
+
 ## v0.82.0 - 2026-10-10
 
 ### General

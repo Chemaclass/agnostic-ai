@@ -68,6 +68,8 @@ Specs merge by top-level key, and the last value wins. A field that no enabled t
 - [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note that `setup`, `cleanup`, and `dev-commands` have no effect.
 - Other tools report the spec as unsupported.
 
+Before starting a cached environment, use the [project readiness checks](@/docs/cli-reference/maintain.md#project-readiness) after installation and sync. A successful install alone does not check the current generated files.
+
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 
 Claude Code has no setup step for a worktree it creates ([worktrees](https://code.claude.com/docs/en/worktrees#set-up-the-worktree-environment)). So sync writes `setup` into `.claude/hooks/agnostic-ai-worktree-setup.sh` and runs that script from three hooks in `.claude/settings.json`:
