@@ -17,6 +17,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -134,7 +135,11 @@ func classifyPermissions(cfg *config.Config, settings []spec.Entry, e spec.Entry
 			if preserved && translated.Supported && translated.Override == "" && len(translated.Widening) == 0 {
 				r.Status = statusPreserved
 			}
-			r.Reason = rule + ": " + list + " maps to " + strings.Join(translated.Native, ", ")
+			displayed := make([]string, len(translated.Native))
+			for i, native := range translated.Native {
+				displayed[i] = displayPermissionNative(native)
+			}
+			r.Reason = rule + ": " + list + " maps to " + strings.Join(displayed, ", ")
 			if !translated.Supported {
 				r.Reason += "; part of this permission is unsupported"
 			}
@@ -162,6 +167,13 @@ func classifyPermissions(cfg *config.Config, settings []spec.Entry, e spec.Entry
 		results[field] = r
 	}
 	return results, nil
+}
+
+func displayPermissionNative(native string) string {
+	if json.Valid([]byte(native)) {
+		return strings.TrimSpace(preview.Display("permission.json", native).Text)
+	}
+	return native
 }
 
 func permissionNativePaths(files []adapters.CapturedFile, list, rule string, translated adapters.CapabilityTranslation) ([]string, bool, string) {

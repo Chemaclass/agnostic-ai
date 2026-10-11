@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -268,5 +269,120 @@ func TestCompare_PermissionPartialLossDiffersFromCompleteTranslation(t *testing.
 	}
 	if completePair.Differences != 0 || completePair.Specs[0].Fields[0].Differs {
 		t.Errorf("complete translations with different native names must not differ: %+v", completePair)
+	}
+}
+
+func TestCompare_PermissionWebhookCredentialsHiddenInTextAndJSON(t *testing.T) {
+	for _, test := range []struct {
+		name, policy, secret string
+	}{
+		{"URL token", "webhookUrl: https://example.invalid/check?token=COMPARE_WEBHOOK_SECRET", "COMPARE_WEBHOOK_SECRET"},
+		{"authorization header", "webhookUrl: https://example.invalid/check\n        headers:\n          Authorization: Bearer COMPARE_HEADER_SECRET", "COMPARE_HEADER_SECRET"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
+			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [shell]\nx-augment:\n  toolPermissions:\n    - toolName: terminal\n      permission:\n        type: webhook-policy\n        "+test.policy+"\n")
+			mustWriteFile(t, ".augment/settings.json", "{\"manual\":\"Keep existing output.\"}\n")
+			before := snapshotTree(t, dir)
+			for _, format := range [][]string{nil, {"--json"}} {
+				args := append([]string{"augment", "claude"}, format...)
+				out, err := runCompare(t, args...)
+				if err != nil {
+					t.Fatalf("compare native webhook policy: %v", err)
+				}
+				if strings.Contains(out, test.secret) {
+					t.Error("comparison exposed the synthetic native policy credential")
+				}
+				for _, visible := range []string{"permissions.allow[0]", "terminal", "webhook-policy", "x-augment.toolPermissions"} {
+					if !strings.Contains(out, visible) {
+						t.Errorf("comparison lost useful policy detail %q", visible)
+					}
+				}
+			}
+			out := compareJSON(t, "augment", "claude")
+			result := findCompareResult(t, out, ".agnostic-ai/settings/policy.yaml", "permissions.allow[0]", "augment")
+			if result.Status != statusTranslated || len(result.Paths) == 0 {
+				t.Errorf("raw webhook override no longer matches native output: status %s, paths %v", result.Status, result.Paths)
+			}
+			if out.Differences == 0 {
+				t.Error("webhook policy and ordinary allow became indistinguishable")
+			}
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			captured, err := capturePermissions(cfg, bundle.Settings, "augment")
+			if err != nil {
+				t.Fatal(err)
+			}
+			translated := adapters.TranslatePermissionCapabilityIn("augment", "allow", "shell", bundle.Settings[0], bundle.Settings, cfg)
+			if len(translated.Native) != 1 || !strings.Contains(translated.Native[0], test.secret) {
+				t.Fatal("native translation lost its original credential before display")
+			}
+			paths, _, meaning := permissionNativePaths(captured.files, "allow", "shell", translated)
+			if len(paths) == 0 || meaning != "webhook-policy" {
+				t.Error("raw native webhook evidence or existing decision meaning changed")
+			}
+			mismatched := translated
+			mismatched.Native = []string{strings.ReplaceAll(translated.Native[0], test.secret, test.secret+"-different")}
+			paths, _, _ = permissionNativePaths(captured.files, "allow", "shell", mismatched)
+			if len(paths) != 0 {
+				t.Error("different raw native credentials incorrectly matched the emitted policy")
+			}
+			if after := snapshotTree(t, dir); !reflect.DeepEqual(before, after) {
+				t.Error("permission comparison changed source or emitted configuration")
+			}
+		})
+	}
+}
+
+func TestCompare_PermissionOrdinaryWebhookDetailsRemainVisible(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "targets: [augment, claude]\n")
+	mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "name: policy\npermissions:\n  allow: [shell]\nx-augment:\n  toolPermissions:\n    - toolName: terminal\n      permission:\n        type: webhook-policy\n        webhookUrl: https://example.invalid/check?mode=review\n")
+	for _, format := range [][]string{nil, {"--json"}} {
+		out, err := runCompare(t, append([]string{"augment", "claude"}, format...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, visible := range []string{"https://example.invalid/check?mode=review", "Bash", "permissions.allow[0]", "webhook-policy"} {
+			if !strings.Contains(out, visible) {
+				t.Errorf("ordinary permission detail %q was hidden", visible)
+			}
+		}
+	}
+}
+
+func TestCompare_PermissionFilenamePatternsKeepTheirOrdinaryActions(t *testing.T) {
+	for _, target := range []string{"opencode", "kilo"} {
+		t.Run(target, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "targets: ["+target+", claude]\n")
+			mustWriteFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [read]\nx-"+target+":\n  permission:\n    read:\n      TOKEN: deny\n")
+			before := snapshotTree(t, dir)
+			for _, format := range [][]string{nil, {"--json"}} {
+				out, err := runCompare(t, append([]string{target, "claude"}, format...)...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(out, "TOKEN") || !strings.Contains(out, "deny") || strings.Contains(out, "<redacted>") || strings.Contains(out, `\u003credacted\u003e`) {
+					t.Error("ordinary filename-pattern permission action was hidden")
+				}
+			}
+			out := compareJSON(t, target, "claude")
+			result := findCompareResult(t, out, ".agnostic-ai/settings/policy.yaml", "permissions.allow[0]", target)
+			if !strings.Contains(result.Reason, `"TOKEN":"deny"`) {
+				t.Error("native filename-pattern decision is absent from the permission summary")
+			}
+			if after := snapshotTree(t, dir); !reflect.DeepEqual(before, after) {
+				t.Error("comparison changed filename-pattern policy sources")
+			}
+		})
 	}
 }
