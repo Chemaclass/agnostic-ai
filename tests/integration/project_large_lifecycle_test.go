@@ -439,6 +439,91 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 			}
 			mustWrite(t, exclude, string(existing)+"\nnode_modules/\n")
 		}
+		for _, dir := range []string{clone, linked} {
+			metadataPath := filepath.Join(dir, "node_modules", "agnostic-ai", "package.json")
+			metadata, err := os.ReadFile(metadataPath)
+			if err != nil || !strings.Contains(string(metadata), `"version":"99.2.0"`) {
+				t.Fatalf("matching installed metadata: %v\n%s", err, metadata)
+			}
+			local := filepath.Join(dir, "node_modules", ".bin", "agnostic-ai")
+			if runtime.GOOS == "windows" {
+				local = filepath.Join(dir, "node_modules", "agnostic-ai", "bin", "agnostic-ai.js")
+			}
+			wantInstalls := "99.1.0 install --frozen-lockfile marker=1\n99.2.0 install --frozen-lockfile marker=1\n"
+			brokenCheck := func() {
+				t.Helper()
+				beforeFiles := lifecycleFiles(t, dir)
+				unchanged(dir, func() {
+					out, err := run(dir, binary, "project", "--check")
+					if err == nil || !strings.Contains(out, "agnostic-ai project --bootstrap") {
+						t.Errorf("damaged launcher must fail with recovery: %v\n%s", err, out)
+					}
+				})
+				if !reflect.DeepEqual(beforeFiles, lifecycleFiles(t, dir)) {
+					t.Error("damaged installation check changed project files")
+				}
+				installs(dir, wantInstalls)
+				after, err := os.ReadFile(metadataPath)
+				if err != nil || !bytes.Equal(after, metadata) {
+					t.Errorf("check changed installed metadata: %v\n%s", err, after)
+				}
+			}
+			for _, damage := range []string{"missing", "failing"} {
+				if damage == "missing" {
+					if err := os.Remove(local); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					failure := "#!/bin/sh\nexit 23\n"
+					if runtime.GOOS == "windows" {
+						failure = "process.exit(23);\n"
+					}
+					if err := os.WriteFile(local, []byte(failure), 0o755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				brokenCheck()
+				unchanged(dir, func() { bootstrap(dir) })
+				wantInstalls += "99.2.0 install --frozen-lockfile marker=1\n"
+				installs(dir, wantInstalls)
+				unchanged(dir, func() { bootstrap(dir) })
+				installs(dir, wantInstalls)
+				unchanged(dir, func() { cli(dir, "project", "--check") })
+			}
+			if err := os.Remove(local); err != nil {
+				t.Fatal(err)
+			}
+			if runtime.GOOS == "windows" {
+				if err := os.Remove(filepath.Join(filepath.Dir(local), "fixture.exe")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv("AGNOSTIC_LIFECYCLE_INSTALL_FAILURE", "after-metadata")
+			unchanged(dir, func() {
+				out, err := run(dir, binary, "project", "--bootstrap")
+				if err == nil || !strings.Contains(out, "fixture installer stopped after package metadata") || !strings.Contains(out, "project bootstrap install") {
+					t.Errorf("partial installation error was lost: %v\n%s", err, out)
+				}
+			})
+			wantInstalls += "99.2.0 install --frozen-lockfile marker=1\n"
+			installs(dir, wantInstalls)
+			if _, err := os.Stat(local); !os.IsNotExist(err) {
+				t.Errorf("failed install created usable launcher: %v", err)
+			}
+			brokenCheck()
+			t.Setenv("AGNOSTIC_LIFECYCLE_INSTALL_FAILURE", "")
+			unchanged(dir, func() { bootstrap(dir) })
+			wantInstalls += "99.2.0 install --frozen-lockfile marker=1\n"
+			installs(dir, wantInstalls)
+			unchanged(dir, func() { bootstrap(dir) })
+			installs(dir, wantInstalls)
+			unchanged(dir, func() { cli(dir, "project", "--check") })
+			if out := cli(dir, "project", "--", "--version"); !strings.Contains(out, "99.2.0") {
+				t.Errorf("recovered installation selected wrong version: %s", out)
+			}
+			assertLifecycleOutputs(t, dir, contractOutputs)
+			status(dir, "")
+		}
 		git(clone, "checkout", "-q", "main")
 		git(linked, "checkout", "--detach", "-q", initialCommit)
 		assertLifecycleOutputs(t, clone, initial)
@@ -824,6 +909,23 @@ func TestProjectLifecycleInstallerProcess(t *testing.T) {
 	if err != nil || candidate == "" || string(lock) != "lockfileVersion: '9.0'\nfixtureVersion: "+version+"\n" {
 		t.Fatalf("fixture package pin and lock disagree: %v, version %q, lock %q", err, version, lock)
 	}
+	metadata := filepath.Join("node_modules", "agnostic-ai", "package.json")
+	if err := os.MkdirAll(filepath.Dir(metadata), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, metadata, fmt.Sprintf(`{"name":"agnostic-ai","version":"%s"}`, version)+"\n")
+	log, err := os.OpenFile(filepath.Join("node_modules", "lifecycle-installs.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, writeErr := fmt.Fprintf(log, "%s install --frozen-lockfile marker=1\n", version)
+	closeErr := log.Close()
+	if writeErr != nil || closeErr != nil {
+		t.Fatalf("record install: %v, close: %v", writeErr, closeErr)
+	}
+	if os.Getenv("AGNOSTIC_LIFECYCLE_INSTALL_FAILURE") == "after-metadata" {
+		t.Fatal("fixture installer stopped after package metadata")
+	}
 	data, err = os.ReadFile(candidate)
 	if err != nil {
 		t.Fatal(err)
@@ -867,15 +969,7 @@ if (result.error) throw result.error;
 process.exit(result.status === null ? 1 : result.status);
 `)
 	}
-	log, err := os.OpenFile(filepath.Join("node_modules", "lifecycle-installs.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, writeErr := fmt.Fprintf(log, "%s install --frozen-lockfile marker=1\n", version)
-	closeErr := log.Close()
-	if writeErr != nil || closeErr != nil {
-		t.Fatalf("record install: %v, close: %v", writeErr, closeErr)
-	}
+
 }
 
 // Keep draining each pipe after its diagnostic output reaches the limit.
