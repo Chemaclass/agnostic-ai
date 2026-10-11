@@ -10,7 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Hooks prefer local binaries; Git checks use staged config; setup uses locked installs; failed checks show timeout and command errors (#2012, #2046, #2018).
 - Create all ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile` (#1990, #2013).
 - Hide preview/permission credentials; verify build downloads and npm releases/retries; replace vulnerable build dependencies (#2021, #2044, #2022, #2016).
-- Check every target with `doctor --scope project`, skip local hook trust, and keep default trust checks (#2011).
+- Check project targets with doctor; skip local hook trust, keep default trust, and diagnose Git skill links checked out as text (#2011, #2060).
 
 ### By tool
 
