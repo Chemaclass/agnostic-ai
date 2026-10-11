@@ -3,12 +3,14 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -315,6 +317,98 @@ func (t *againstTree) exportLinkTargets() error {
 			return err
 		}
 	}
+}
+
+type againstSkillLinkFailure struct {
+	path    string
+	message string
+}
+
+func (t *againstTree) diagnoseSkillLinks(cfg *config.Config, reports []driftReport) ([]againstSkillLinkFailure, error) {
+	if !cfg.Sync.SharedSkills {
+		return nil, nil
+	}
+	links := map[string]bool{}
+	for _, report := range reports {
+		for _, file := range report.Missing {
+			if filepath.Base(file.Path) != "SKILL.md" {
+				continue
+			}
+			link := filepath.ToSlash(filepath.Dir(file.Path))
+			recorded := t.prefix + link
+			if t.modes[recorded] != "120000" || !t.exported[recorded] {
+				continue
+			}
+			exported := filepath.Join(t.root, filepath.FromSlash(recorded))
+			info, err := os.Lstat(exported)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", link, err)
+			}
+			if !info.Mode().IsRegular() {
+				continue
+			}
+			destination, err := os.ReadFile(exported)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", link, err)
+			}
+			if filepath.IsAbs(string(destination)) {
+				continue
+			}
+			canonical := path.Clean(path.Join(path.Dir(recorded), filepath.ToSlash(string(destination))))
+			if !strings.HasPrefix(canonical, t.prefix) || !t.isTrackedPath(canonical+"/SKILL.md") {
+				continue
+			}
+			links[link] = true
+		}
+	}
+	if len(links) == 0 {
+		return nil, nil
+	}
+	policy, err := gitOutput(t.toplevel, isolatedGitEnv(), "config", "--bool", "--default", "true", "--get", "core.symlinks")
+	if err != nil {
+		return nil, fmt.Errorf("read original Git symlink checkout policy: %w", err)
+	}
+	if strings.TrimSpace(policy) != "false" {
+		return nil, nil
+	}
+	paths := make([]string, 0, len(links))
+	for link := range links {
+		paths = append(paths, link)
+	}
+	sort.Strings(paths)
+	failures := make([]againstSkillLinkFailure, 0, len(paths))
+	for _, link := range paths {
+		message := fmt.Sprintf("%s: Git exported this shared skill link as a plain file because core.symlinks=false; where link creation is supported, run git config --local core.symlinks true and rerun the check; otherwise set sync.shared-skills: false, run agnostic-ai sync, and stage the config and real skill copies", link)
+		if t.ref == againstHEAD {
+			message += "; commit the repair before checking HEAD"
+		}
+		failures = append(failures, againstSkillLinkFailure{path: link, message: message})
+	}
+	for i := range reports {
+		missing := reports[i].Missing[:0]
+		for _, file := range reports[i].Missing {
+			affected := false
+			for link := range links {
+				if strings.HasPrefix(filepath.ToSlash(file.Path), link+"/") {
+					affected = true
+					break
+				}
+			}
+			if !affected {
+				missing = append(missing, file)
+			}
+		}
+		reports[i].Missing = missing
+	}
+	return failures, nil
+}
+
+func againstSkillLinkError(failures []againstSkillLinkFailure) error {
+	var errs []error
+	for _, failure := range failures {
+		errs = append(errs, errors.New(failure.message))
+	}
+	return errors.Join(errs...)
 }
 
 // exportMissing checks out each output reports find missing that Git
