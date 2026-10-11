@@ -85,6 +85,8 @@ Failed project checks include the installed command's error message. See [projec
 
 `explain --file` supports Claude Code, Codex, and Cursor. It shows source specs, planned output paths, and why instructions apply. See [file instructions](https://agnostic-ai.org/docs/cli-reference/inspect/#explain-a-source-file).
 
+Checks against the Git index or a commit are faster on large projects that share skill folders.
+
 On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
 
 ## What you can share
