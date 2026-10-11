@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -167,6 +168,8 @@ func TestProjectContract_AgainstChecksNestedPackage(t *testing.T) {
 func TestProjectProbe_PreservesContextFailure(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=^TestProjectProbeExitHelper$")
 	cmd.Env = append(os.Environ(), "AGNOSTIC_AI_PROJECT_PROBE_EXIT_HELPER=1")
+	var stderr projectProbeOutput
+	cmd.Stderr = &stderr
 	processErr := cmd.Run()
 	var exitErr *exec.ExitError
 	if !errors.As(processErr, &exitErr) {
@@ -185,7 +188,10 @@ func TestProjectProbe_PreservesContextFailure(t *testing.T) {
 		{"cancellation", canceled, context.Canceled},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := projectProbeError(tc.ctx, processErr)
+			got := projectProbeError(tc.ctx, processErr, &stderr)
+			if !strings.Contains(got.Error(), "fixture process failed") {
+				t.Error("probe lost original command message")
+			}
 			if !errors.Is(got, tc.want) {
 				t.Errorf("probe lost %v classification", tc.want)
 			}
@@ -202,10 +208,11 @@ func TestProjectProbe_PreservesContextFailure(t *testing.T) {
 			}
 		})
 	}
-	if got := projectProbeError(context.Background(), processErr); got != processErr {
+	var emptyStderr projectProbeOutput
+	if got := projectProbeError(context.Background(), processErr, &emptyStderr); got != processErr {
 		t.Error("live context changed original process error")
 	}
-	if got := projectProbeError(deadline, nil); got != nil {
+	if got := projectProbeError(deadline, nil, &stderr); got != nil {
 		t.Error("successful probe became a deadline error after completion")
 	}
 	capability := &projectCapabilityError{selected: "project-binary", err: errors.Join(context.DeadlineExceeded, processErr)}
@@ -221,8 +228,58 @@ func TestProjectProbe_PreservesContextFailure(t *testing.T) {
 	}
 }
 
+func TestProjectProbe_ReportsFailedCommandError(t *testing.T) {
+	for _, tc := range []struct {
+		name, failOn, versionError, commandError, want string
+	}{
+		{"version failure", "--version", "fixture version failed", "", "fixture version failed"},
+		{"command failure", "project", "earlier version warning", "fixture command failed", "fixture command failed"},
+		{"long error", "--version", strings.Repeat("x", 70<<10), "", "stderr truncated at 64 KiB"},
+		{"successful warnings", "", "fixture version warning", "fixture command warning", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			local := filepath.Join(root, "node_modules", ".bin", "agnostic-ai")
+			script := fmt.Sprintf("#!/bin/sh\nif [ \"$1\" = --version ]; then\n  printf '%%s\\n' '%s' >&2\n  if [ '%s' = --version ]; then exit 1; fi\n  echo 'agnostic-ai 0.82.0'\nelse\n  printf '%%s\\n' '%s' >&2\n  if [ '%s' = project ]; then exit 1; fi\nfi\n", tc.versionError, tc.failOn, tc.commandError, tc.failOn)
+			if runtime.GOOS == "windows" {
+				local = filepath.Join(root, "node_modules", "agnostic-ai", "bin", "agnostic-ai.js")
+				script = fmt.Sprintf("const version = process.argv[2] === '--version';\nconsole.error(version ? %q : %q);\nif (process.argv[2] === %q) process.exit(1);\nif (version) console.log('agnostic-ai 0.82.0');\n", tc.versionError, tc.commandError, tc.failOn)
+			}
+			mustWriteFile(t, local, script)
+			if err := os.Chmod(local, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			pkg := projectPackage{DevDependencies: map[string]string{"agnostic-ai": "0.82.0"}}
+			_, err := resolveProjectBinary(root, pkg, "")
+			if tc.want == "" {
+				if err != nil {
+					t.Errorf("successful check rejected warning output: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("failed command was accepted")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error lost command message %q: %.300s", tc.want, err)
+			}
+			if strings.Contains(err.Error(), "earlier version warning") {
+				t.Error("command failure included a successful version warning")
+			}
+			if len(err.Error()) > 65<<10 {
+				t.Errorf("error output was not bounded: %d bytes", len(err.Error()))
+			}
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+				t.Errorf("error lost process exit status: %v", err)
+			}
+		})
+	}
+}
+
 func TestProjectProbeExitHelper(t *testing.T) {
 	if os.Getenv("AGNOSTIC_AI_PROJECT_PROBE_EXIT_HELPER") == "1" {
+		fmt.Fprintln(os.Stderr, "fixture process failed")
 		os.Exit(1)
 	}
 }
