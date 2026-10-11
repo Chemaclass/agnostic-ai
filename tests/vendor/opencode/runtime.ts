@@ -111,7 +111,10 @@ function alive(pid: number) {
       return !execFileSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).trim().startsWith("Z")
     }
     return true
-  } catch { return false }
+  } catch (error) {
+    if (process.platform === "win32" && !(error instanceof Error && "code" in error && error.code === "ESRCH")) throw new Error(`Windows process health check failed for PID ${pid}`, { cause: error })
+    return false
+  }
 }
 
 function forceFixtureDescendantCleanup(file: string) {
@@ -168,16 +171,35 @@ async function measureWindowsBootstrap() {
 
 async function windowsExitedParentControl() {
   if (process.platform !== "win32") return
-  const control = join(root, "windows-old-taskkill-control.jsonl")
-  const parent = spawn(process.execPath, ["-e", `const fs=require('node:fs'),cp=require('node:child_process');const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit'});fs.writeFileSync(process.argv[1],String(child.pid));process.exit(0)`, control + ".pid"], { stdio: ["ignore", "ignore", "pipe"] })
-  try {
-    await new Promise<void>((resolve, reject) => { parent.once("exit", code => code === 0 ? resolve() : reject(new Error("old-control parent failed"))); parent.once("error", reject) })
-    assert(parent.pid)
-    assert.throws(() => execFileSync("taskkill.exe", ["/PID", String(parent.pid), "/T", "/F"], { stdio: "ignore", timeout: 2000 }), "taskkill cannot own the exited parent")
-    assert(alive(Number(readFileSync(control + ".pid", "utf8"))), "old taskkill leaves the real descendant alive")
-    assert(alive(process.pid), "host must remain alive")
-    console.log("Windows exited-parent old taskkill control reproduced")
-  } finally { forceFixtureDescendantCleanup(control); parent.stderr?.destroy() }
+  for (const detached of [false, true]) {
+    const control = join(root, `windows-old-taskkill-${detached ? "detached" : "ordinary"}.jsonl`)
+    const source = `const fs=require('node:fs'),cp=require('node:child_process');const file=process.argv[1];const child=cp.spawn(process.execPath,['-e',"require('node:fs').writeFileSync(process.argv[1],'ready');setInterval(()=>{},1000)",file+'.ready'],{stdio:'inherit',detached:${detached}});child.once('error',error=>{console.error(error);process.exit(1)});fs.writeFileSync(file+'.pid',String(child.pid));const timer=setInterval(()=>{if(fs.existsSync(file+'.ready')){clearInterval(timer);process.exit(0)}},5);setTimeout(()=>{console.error('control child readiness exceeded 5 seconds');process.exit(1)},5000).unref()`
+    const parent = spawn(process.execPath, ["-e", source, control], { stdio: ["ignore", "ignore", "pipe"] })
+    let stderr = ""
+    parent.stderr.on("data", data => { stderr = (stderr + String(data)).slice(-16384) })
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      await new Promise<void>((resolve, reject) => {
+        timer = setTimeout(() => { parent.kill("SIGKILL"); reject(new Error("control parent did not exit within 5 seconds")) }, 5000)
+        parent.once("exit", code => code === 0 ? resolve() : reject(new Error(`old-control parent exited ${code}`)))
+        parent.once("error", reject)
+      })
+      clearTimeout(timer)
+      assert(parent.pid)
+      assert(existsSync(control + ".ready"), "descendant must report readiness before parent exits")
+      const pid = Number(readFileSync(control + ".pid", "utf8"))
+      assert(Number.isSafeInteger(pid) && pid > 0, "control descendant PID must be positive")
+      if (detached) assert(alive(pid), "detached descendant must survive its original parent before taskkill")
+      else await descendantStopped(control)
+      assert.throws(() => execFileSync("taskkill.exe", ["/PID", String(parent.pid), "/T", "/F"], { stdio: "ignore", timeout: 2000 }), "taskkill cannot own the exited parent")
+      if (detached) assert(alive(pid), "old taskkill leaves the real detached descendant alive")
+      else assert(!alive(pid), "ordinary child is stopped by the runtime's parent-owned Job")
+      assert(alive(process.pid), "host must remain alive")
+      console.log(JSON.stringify({ windowsExitedParentControl: { detached, parentPID: parent.pid, descendantPID: pid, descendantAlive: alive(pid) } }))
+    } catch (error) {
+      throw new Error(`Windows exited-parent control failed: detached=${detached}, parentPID=${parent.pid}, hostExecutable=${process.execPath}, stderr=${stderr}`, { cause: error })
+    } finally { clearTimeout(timer); forceFixtureDescendantCleanup(control); parent.stderr?.destroy() }
+  }
 }
 
 async function windowsInheritedPathGuard() {
@@ -215,8 +237,8 @@ try {
     assert(!existsSync(file), "invalid cwd must refuse before launching a guard")
   }, workspace + "\0ignored")
   await windowsExitedParentControl()
-  await windowsInheritedPathGuard()
   await measureWindowsBootstrap()
+  await windowsInheritedPathGuard()
   await plugin("guard", async invoke => {
     const file = join(root, "success.jsonl")
     const input = event(file)
@@ -325,7 +347,7 @@ try {
 } finally {
   if (windowsDurations.length) {
     const sorted = [...windowsDurations].sort((a, b) => a - b)
-    console.log(JSON.stringify({ nativeWindowsLatency: { samples: sorted.length, coldMs: windowsDurations[0], medianMs: sorted[Math.floor(sorted.length / 2)], p95Ms: sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * .95) - 1)] } }))
+    console.log(JSON.stringify({ nativeWindowsLatency: { samples: sorted.length, firstCallbackMs: windowsDurations[0], medianMs: sorted[Math.floor(sorted.length / 2)], p95Ms: sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * .95) - 1)] } }))
   }
   console.error = originalError
   rmSync(root, { recursive: true, force: true })

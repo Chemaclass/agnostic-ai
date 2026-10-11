@@ -83,13 +83,13 @@ process.stdin.on("end", () => {
  if (input.mode === "block") { console.error("guard refused operation"); process.exit(2); }
  if (input.mode === "failure") { console.error("ordinary hook failure"); process.exit(7); }
  if (input.mode === "orphan-grandchild") {
-  const intermediate = cp.spawn(process.execPath, ["-e", "const fs=require('node:fs'),cp=require('node:child_process');const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit'});fs.writeFileSync(process.argv[1],String(child.pid));process.exit(0)", input.pid], { stdio: "inherit" });
+  const intermediate = cp.spawn(process.execPath, ["-e", "const fs=require('node:fs'),cp=require('node:child_process');const child=cp.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit',detached:process.platform==='win32'});fs.writeFileSync(process.argv[1],String(child.pid));process.exit(0)", input.pid], { stdio: "inherit", detached: process.platform === "win32" });
   fs.writeFileSync(input.pid + ".intermediate", String(intermediate.pid));
   const ready = setInterval(() => { if (fs.existsSync(input.pid)) { clearInterval(ready); process.exit(0); } }, 5);
   return;
  }
  if (["tree", "orphan", "orphan-quiet", "block-orphan"].includes(input.mode)) {
-  const descendant = cp.spawn(process.execPath, ["-e", "const fs=require('node:fs');setInterval(()=>fs.writeFileSync(process.argv[1],String(Date.now())),40)", input.heartbeat], { stdio: input.mode === "orphan-quiet" ? "ignore" : "inherit" });
+  const descendant = cp.spawn(process.execPath, ["-e", "const fs=require('node:fs');setInterval(()=>fs.writeFileSync(process.argv[1],String(Date.now())),40)", input.heartbeat], { stdio: input.mode === "orphan-quiet" ? "ignore" : "inherit", detached: process.platform === "win32" });
   fs.writeFileSync(input.pid, String(descendant.pid));
   if (input.mode === "block-orphan") { console.error("guard refused operation with held stderr"); process.exit(2); }
   if (input.mode === "orphan" || input.mode === "orphan-quiet") process.exit(0);
