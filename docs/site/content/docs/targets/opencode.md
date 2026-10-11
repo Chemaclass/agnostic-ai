@@ -41,6 +41,10 @@ opencode.json                             # when MCP entries exist (merged with 
   - `shell.env` and `experimental.session.compacting` are declined with a note. They rewrite output that a command spec cannot express.
   - `import opencode` does not read `.opencode/plugins/` back.
 - **MCP**: `opencode.json` in the project root gets a `$schema` link and the `mcp` map.
+  - OpenCode V2 stores servers under `mcp.servers`. `import opencode` keeps the complete native MCP configuration in `settings/opencode-mcp.yaml`, under `x-opencode.mcp`. Sync restores it even without the original JSON file. This round trip is verified against V2 2.0.26.
+  - Native V2 settings and portable MCP specs cannot both own the MCP configuration. Sync reports the conflicting spec paths. Use one representation for OpenCode.
+  - Import replaces inline environment and header values with native environment references. It refuses credentials it cannot rewrite, including inline OAuth secrets. Use `{env:NAME}` references before importing those fields.
+  - Sync manages each native server separately. Servers and defaults added by hand stay; a removed spec server stays when you have edited it.
   - Stdio becomes `{type: "local", command: [...], cwd}`, and HTTP or SSE becomes `{type: "remote", url, headers}`. `cwd` (relative to the workspace) and `timeout` (ms for fetching tools, default 5000) keep their names.
   - `disabled: true` writes `"enabled": false` ([MCP docs](https://opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key.
   - Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`.

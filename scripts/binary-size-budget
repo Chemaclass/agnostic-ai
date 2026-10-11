@@ -106,8 +106,9 @@
 # Keep the established 8 KB allowance for CI.
 # #2055 after #2060 measured 19046560 on Go 1.27.2, up 4096:
 # indexed shared-link lookups avoid scanning every tracked path per link.
-# Keep the established 8 KB allowance for CI.
+# #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
+# preserve native V2 MCP fields and reject conflicting effective owners.
 # #2062 after #2055 measured 19083424 on Go 1.27.2, up 36864:
 # native V2 hook validation, runner and Windows child ownership helper.
-# Keep the established CI build allowance.
-19095000
+# Keep the established CI build allowance for the combined changes.
+19120000
