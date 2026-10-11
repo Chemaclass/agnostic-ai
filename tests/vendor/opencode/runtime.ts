@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
-import { execFileSync, spawn } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { delimiter, dirname, join } from "node:path"
+import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { $ } from "bun"
 import type { Plugin } from "@opencode/plugin"
@@ -25,7 +25,6 @@ const nativeTool = await import(pathToFileURL(join(packageRoot, "node_modules/@o
 const root = mkdtempSync(join(tmpdir(), "agnostic-opencode-runtime-"))
 const workspace = realpathSync(mkdtempSync(join(tmpdir(), "agnostic opencode checkout with spaces ")))
 const warnings: unknown[][] = []
-const windowsDurations: number[] = []
 const originalError = console.error
 console.error = (...values: unknown[]) => { warnings.push(values) }
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
@@ -35,6 +34,7 @@ function unavailable(): never { throw new Error("fixture accessed an unrelated n
 function registry(cwd: string) {
   const handlers = new Map<string, Handler>()
   let disposed = false
+  let sessionCalls = 0
   const tool: Context["tool"] = {
     transform: unavailable, reload: unavailable, list: unavailable,
     hook: async (name, callback) => {
@@ -43,14 +43,14 @@ function registry(cwd: string) {
     },
   }
   // Only the accessed location is supplied; every unrelated session field fails.
-  const get: Context["session"]["get"] = async () => new Proxy({ location: { directory: cwd } }, {
+  const get: Context["session"]["get"] = async () => { sessionCalls++; return new Proxy({ location: { directory: cwd } }, {
     get(target, field) { if (field === "then") return undefined; if (field === "location") return target.location; return unavailable() },
-  }) as SessionInfo
+  }) as SessionInfo }
   const supplied = { tool, session: { get } } satisfies { tool: Context["tool"]; session: Pick<Context["session"], "get"> }
   const context = new Proxy(supplied, {
     get(target, field) { if (field === "tool") return target.tool; if (field === "session") return target.session; return unavailable() },
   }) as Context
-  return { handlers, context, disposed: () => disposed }
+  return { handlers, context, disposed: () => disposed, sessionCalls: () => sessionCalls }
 }
 
 function event(file: string, mode = "success"): BeforeEvent {
@@ -75,18 +75,7 @@ async function plugin(name: string, body: (invoke: Handler, registered: ReturnTy
   assert.equal(typeof cleanup, "function")
   const invoke = registered.handlers.values().next().value
   assert(invoke, "native setup must register a tool callback")
-  const measured: Handler = async event => {
-    const started = performance.now()
-    try { await invoke(event) }
-    finally {
-      if (process.platform === "win32") {
-        const elapsed = performance.now() - started
-        windowsDurations.push(elapsed)
-        console.log(JSON.stringify({ nativeWindowsHook: name, elapsedMs: elapsed, timeoutFixture: name === "timeout" }))
-      }
-    }
-  }
-  try { await body(measured, registered) }
+  try { await body(invoke, registered) }
   finally { if (cleanup) await cleanup() }
   assert(registered.disposed(), "unload must dispose the native registration")
   assert.equal(registered.handlers.size, 0)
@@ -107,14 +96,8 @@ async function ready(path: string) {
 function alive(pid: number) {
   try {
     process.kill(pid, 0)
-    if (process.platform !== "win32") {
-      return !execFileSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).trim().startsWith("Z")
-    }
-    return true
-  } catch (error) {
-    if (process.platform === "win32" && !(error instanceof Error && "code" in error && error.code === "ESRCH")) throw new Error(`Windows process health check failed for PID ${pid}`, { cause: error })
-    return false
-  }
+    return !execFileSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).trim().startsWith("Z")
+  } catch { return false }
 }
 
 function forceFixtureDescendantCleanup(file: string) {
@@ -135,237 +118,99 @@ async function descendantStopped(file: string) {
   }
 }
 
-async function measureWindowsBootstrap() {
-  if (process.platform !== "win32") return
-  const samples: number[] = []
-  for (let index = 0; index < 5; index++) {
-    const field = (value: string) => {
-      const body = Buffer.from(value, "utf8"), length = Buffer.alloc(4)
-      length.writeInt32LE(body.length); return Buffer.concat([length, body])
-    }
-    const count = Buffer.alloc(4); count.writeInt32LE(2)
-    const input = Buffer.concat([field(process.execPath), field(workspace), count, field("-e"), field("")])
-    const started = performance.now()
-    const child = spawn(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoProfile", "-NonInteractive", "-File", join(output!, "guard.windows.ps1")], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
-    let stdout = "", stderr = "", expired = false
-    let elapsed: number | undefined
-    child.stdout.on("data", data => { stdout += String(data) })
-    child.stderr.on("data", data => { stderr += String(data) })
-    child.stdin.on("error", error => { if (!("code" in error && error.code === "EPIPE")) throw error })
-    child.stdin.end(input)
-    const timer = setTimeout(() => { expired = true; child.kill("SIGKILL") }, Math.max(0, 1000 - (performance.now() - started)))
-    try {
-      const code = await new Promise<number | null>((resolve, reject) => {
-        child.once("close", code => { elapsed = performance.now() - started; resolve(code) })
-        child.once("error", reject)
-      })
-      assert(!expired, `one-second Windows bootstrap deadline expired: ${stderr}`)
-      assert(elapsed !== undefined && elapsed <= 1000, `Windows bootstrap completion exceeded 1000 ms: ${elapsed}: ${stderr}`)
-      assert.equal(code, 0, stderr)
-      assert.equal(stdout.replace(/\r/g, ""), "AGNOSTIC_READY\nAGNOSTIC_EXIT 0\n", stderr)
-    } finally {
-      clearTimeout(timer)
-      if (elapsed !== undefined) samples.push(elapsed)
-      console.log(JSON.stringify({ windowsNoopBootstrap: index, elapsedMs: elapsed, expired }))
-    }
-  }
-  const sorted = [...samples].sort((a, b) => a - b)
-  console.log(JSON.stringify({ windowsNoopBootstrapSummary: { samples: samples.length, coldMs: samples[0], medianMs: sorted[2], p95Ms: sorted[4] } }))
-}
-
-async function windowsNativeSpawnFailure() {
-  if (process.platform !== "win32") return
-  const missing = join(root, "missing-native-program.exe")
-  assert(!existsSync(missing), "native error fixture application must not exist")
-  const field = (value: string) => {
-    const body = Buffer.from(value, "utf8"), length = Buffer.alloc(4)
-    length.writeInt32LE(body.length); return Buffer.concat([length, body])
-  }
-  const count = Buffer.alloc(4)
-  const input = Buffer.concat([field(missing), field(workspace), count])
-  const started = performance.now()
-  const child = spawn(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoProfile", "-NonInteractive", "-File", join(output!, "guard.windows.ps1")], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
-  let stdout = "", stderr = "", expired = false
-  let elapsed: number | undefined
-  child.stdout.on("data", data => { stdout += String(data) })
-  child.stderr.on("data", data => { stderr += String(data) })
-  child.stdin.on("error", error => { if (!("code" in error && error.code === "EPIPE")) throw error })
-  child.stdin.end(input)
-  const timer = setTimeout(() => { expired = true; child.kill("SIGKILL") }, Math.max(0, 1000 - (performance.now() - started)))
-  try {
-    const code = await new Promise<number | null>((resolve, reject) => {
-      child.once("close", code => { elapsed = performance.now() - started; resolve(code) })
-      child.once("error", reject)
-    })
-    assert(!expired, `native error fixture exceeded one second: ${stderr}`)
-    assert(elapsed !== undefined && elapsed <= 1000, `native error fixture completion exceeded 1000 ms: ${elapsed}: ${stderr}`)
-    assert.equal(code, 125, stderr)
-    assert.equal(stdout, "", "failed native creation must emit neither READY nor EXIT")
-    assert.match(stderr, /CreateProcessW owned job \(Win32 error 2\):[^\r\n]+/, "captured native error must retain the operation, exact code and system message")
-    console.log("Windows native missing-application error preserved Win32 code 2 before resume")
-  } finally { clearTimeout(timer) }
-}
-
-async function windowsExitedParentControl() {
-  if (process.platform !== "win32") return
-  for (const detached of [false, true]) {
-    const control = join(root, `windows-old-taskkill-${detached ? "detached" : "ordinary"}.jsonl`)
-    const source = `const fs=require('node:fs'),cp=require('node:child_process');const file=process.argv[1];const child=cp.spawn(process.execPath,['-e',"require('node:fs').writeFileSync(process.argv[1],'ready');setInterval(()=>{},1000)",file+'.ready'],{stdio:'inherit',detached:${detached}});child.once('error',error=>{console.error(error);process.exit(1)});fs.writeFileSync(file+'.pid',String(child.pid));const timer=setInterval(()=>{if(fs.existsSync(file+'.ready')){clearInterval(timer);process.exit(0)}},5);setTimeout(()=>{console.error('control child readiness exceeded 5 seconds');process.exit(1)},5000).unref()`
-    const parent = spawn(process.execPath, ["-e", source, control], { stdio: ["ignore", "ignore", "pipe"] })
-    let stderr = ""
-    parent.stderr.on("data", data => { stderr = (stderr + String(data)).slice(-16384) })
-    let timer: ReturnType<typeof setTimeout> | undefined
-    try {
-      await new Promise<void>((resolve, reject) => {
-        timer = setTimeout(() => { parent.kill("SIGKILL"); reject(new Error("control parent did not exit within 5 seconds")) }, 5000)
-        parent.once("exit", code => code === 0 ? resolve() : reject(new Error(`old-control parent exited ${code}`)))
-        parent.once("error", reject)
-      })
-      clearTimeout(timer)
-      assert(parent.pid)
-      assert(existsSync(control + ".ready"), "descendant must report readiness before parent exits")
-      const pid = Number(readFileSync(control + ".pid", "utf8"))
-      assert(Number.isSafeInteger(pid) && pid > 0, "control descendant PID must be positive")
-      if (detached) assert(alive(pid), "detached descendant must survive its original parent before taskkill")
-      else await descendantStopped(control)
-      assert.throws(() => execFileSync("taskkill.exe", ["/PID", String(parent.pid), "/T", "/F"], { stdio: "ignore", timeout: 2000 }), "taskkill cannot own the exited parent")
-      if (detached) assert(alive(pid), "old taskkill leaves the real detached descendant alive")
-      else assert(!alive(pid), "ordinary child is stopped by the runtime's parent-owned Job")
-      assert(alive(process.pid), "host must remain alive")
-      console.log(JSON.stringify({ windowsExitedParentControl: { detached, parentPID: parent.pid, descendantPID: pid, descendantAlive: alive(pid) } }))
-    } catch (error) {
-      throw new Error(`Windows exited-parent control failed: detached=${detached}, parentPID=${parent.pid}, hostExecutable=${process.execPath}, stderr=${stderr}`, { cause: error })
-    } finally { clearTimeout(timer); forceFixtureDescendantCleanup(control); parent.stderr?.destroy() }
-  }
-}
-
-async function windowsInheritedPathGuard() {
-  if (process.platform !== "win32") return
-  const node = process.env.AGNOSTIC_AI_OPENCODE_NODE
-  assert(node && existsSync(node), "native Windows PATH regression needs the installed Node executable")
-  const original = Object.entries(process.env).filter(([key]) => key.toLowerCase() === "path")
-  const inherited = original.map(([, value]) => value ?? "").join(delimiter)
-  for (const [key] of original) delete process.env[key]
-  process.env.Path = dirname(node) + delimiter + inherited
-  try {
-    const copied = { ...process.env }
-    assert(Object.hasOwn(copied, "Path") && !Object.hasOwn(copied, "PATH"), "native environment must retain the mixed-case inherited Path key")
-    await plugin("windows-path", async invoke => {
-      const file = join(root, "windows-inherited-path.jsonl")
-      await assert.rejects(Promise.resolve(invoke(event(file, "block"))), /guard refused operation/)
-      assert.equal(records(file).length, 1, "bare Node executable must start through inherited Path and block")
-    })
-    process.env.Path = workspace
-    await plugin("windows-path-override", async invoke => {
-      const file = join(root, "windows-overridden-path.jsonl")
-      await assert.rejects(Promise.resolve(invoke(event(file, "block"))), /guard refused operation/)
-      assert.equal(records(file).length, 1, "hook pAtH override must replace inherited Path and start the blocking guard")
-    })
-  } finally {
-    for (const key of Object.keys(process.env).filter(key => key.toLowerCase() === "path")) delete process.env[key]
-    for (const [key, value] of original) if (value !== undefined) process.env[key] = value
-  }
-}
 
 try {
-  await plugin("guard", async invoke => {
-    const file = join(root, "invalid-cwd.jsonl")
-    await assert.rejects(Promise.resolve(invoke(event(file))), /working directory must not contain NUL/)
-    assert(!existsSync(file), "invalid cwd must refuse before launching a guard")
-  }, workspace + "\0ignored")
-  await windowsExitedParentControl()
-  await measureWindowsBootstrap()
-  await windowsNativeSpawnFailure()
-  await windowsInheritedPathGuard()
-  await plugin("guard", async invoke => {
-    const file = join(root, "success.jsonl")
-    const input = event(file)
-    await invoke({ ...input, tool: "shell-extra" })
-    assert(!existsSync(file), "literal matcher must not match a longer tool name")
-    await invoke(input)
-    const values = records(file)
-    assert.equal(values.length, 2, "commands must run sequentially once each")
-    for (const value of values) {
-      assert.equal(value.cwd, workspace, "cwd must follow the triggering session")
-      assert.equal(value.raw, JSON.stringify(input) + "\n")
-      assert.equal(value.target, "opencode")
-      assert.equal(value.custom, "per-hook")
-      assert.equal(value.inherited, "inherited")
-      assert.deepEqual(value.argv, ["two words", "", "'quote\"", "a;b", "unicode-ñ", "space and trailing\\", "two\\\\"])
-    }
-    assert.equal(process.env.AGNOSTIC_AI_TARGET, undefined, "target env must stay invocation-local")
-    assert.equal(process.env.HOOK_TEST_ENV, undefined, "hook env must stay invocation-local")
-    const blocked = join(root, "blocked.jsonl")
-    await assert.rejects(Promise.resolve(invoke(event(blocked, "block"))), /guard refused operation/)
-    assert.equal(records(blocked).length, 1, "block must stop later commands")
-    const failure = join(root, "failure.jsonl")
-    await invoke(event(failure, "failure"))
-    assert.equal(records(failure).length, 2, "ordinary command errors retain sequential behavior")
-  })
-  for (const name of ["post", "after"]) {
-    await plugin(name, async invoke => {
-      const errorFile = join(root, name + "-error.jsonl")
-      const failed: ToolEvent = { ...event(errorFile), status: "error", error: new nativeTool.Tool.Error({ message: "tool failed" }) }
-      await invoke(failed)
-      assert.equal(existsSync(errorFile), name === "after", "PostToolUse filters errors; native after receives them")
-      const completeFile = join(root, name + "-completed.jsonl")
-      await invoke({ ...event(completeFile), status: "completed", result: { content: [] } })
-      assert.equal(records(completeFile).length, 1)
-    })
-  }
-  await plugin("timeout", async invoke => {
-    const file = join(root, "timeout.jsonl")
-    await invoke(event(file, "tree"))
-    await descendantStopped(file)
-    assert(warnings.some(values => values.some(value => String(value).includes("timed out after 1 seconds"))))
-  })
-  await plugin("timeout", async invoke => {
-    const file = join(root, "block-held-stderr.jsonl")
-    try {
-      await assert.rejects(Promise.resolve(invoke(event(file, "block-orphan"))), /guard refused operation with held stderr/)
-      await descendantStopped(file)
-    } finally { forceFixtureDescendantCleanup(file) }
-  })
   if (process.platform === "win32") {
-    const sibling = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], { stdio: "ignore" })
-    try {
-      assert(sibling.pid)
-      const siblingPID = sibling.pid
-      for (const mode of ["orphan", "orphan-quiet", "orphan-grandchild"]) {
-        await plugin("timeout", async invoke => {
-          const file = join(root, "windows-exited-parent-" + mode + ".jsonl")
-          const started = Date.now()
-          try {
-            await invoke(event(file, mode))
-            assert(Date.now() - started < 8000, "exited-parent callback must finish within the timeout and cleanup bound")
-            await descendantStopped(file)
-            if (existsSync(file + ".pid.intermediate")) assert(!alive(Number(readFileSync(file + ".pid.intermediate", "utf8"))), "intermediate parent must stop")
-            assert(alive(process.pid), "host must remain alive")
-            assert(alive(siblingPID), "unrelated sibling must remain alive")
-          } finally { forceFixtureDescendantCleanup(file) }
-        })
+    const warningStart = warnings.length
+    await plugin("guard", async (invoke, registered) => {
+      const file = join(root, "unsupported-windows.jsonl")
+      await invoke({ ...event(file), tool: "shell-extra" })
+      await assert.rejects(Promise.resolve(invoke(event(file))), /native V2 hooks are unsupported on Windows/)
+      assert(!existsSync(file), "Windows refusal must not launch a command")
+      assert.equal(registered.sessionCalls(), 0, "Windows refusal must precede session lookup")
+    }, workspace + "\0invalid")
+    for (const name of ["post", "after"]) {
+      await plugin(name, async invoke => {
+        const file = join(root, name + "-unsupported-windows.jsonl")
+        await assert.rejects(Promise.resolve(invoke({ ...event(file), status: "completed", result: { content: [] } })), /native V2 hooks are unsupported on Windows/)
+        assert(!existsSync(file), "Windows after callback must not launch a command")
+      })
+    }
+    assert(warnings.slice(warningStart).some(values => values.some(value => String(value).includes("native V2 hooks are unsupported on Windows"))), "setup must explain unsupported Windows V2")
+  } else {
+    await plugin("guard", async invoke => {
+      const file = join(root, "invalid-cwd.jsonl")
+      await assert.rejects(Promise.resolve(invoke(event(file))), /working directory must not contain NUL/)
+      assert(!existsSync(file), "invalid cwd must refuse before launching a guard")
+    }, workspace + "\0ignored")
+    await plugin("guard", async invoke => {
+      const file = join(root, "success.jsonl")
+      const input = event(file)
+      await invoke({ ...input, tool: "shell-extra" })
+      assert(!existsSync(file), "literal matcher must not match a longer tool name")
+      await invoke(input)
+      const values = records(file)
+      assert.equal(values.length, 2, "commands must run sequentially once each")
+      for (const value of values) {
+        assert.equal(value.cwd, workspace, "cwd must follow the triggering session")
+        assert.equal(value.raw, JSON.stringify(input) + "\n")
+        assert.equal(value.target, "opencode")
+        assert.equal(value.custom, "per-hook")
+        assert.equal(value.inherited, "inherited")
+        assert.deepEqual(value.argv, ["two words", "", "'quote\"", "a;b", "unicode-ñ", "space and trailing\\", "two\\\\"])
       }
-    } finally { sibling.kill("SIGKILL") }
+      assert.equal(process.env.AGNOSTIC_AI_TARGET, undefined, "target env must stay invocation-local")
+      assert.equal(process.env.HOOK_TEST_ENV, undefined, "hook env must stay invocation-local")
+      const blocked = join(root, "blocked.jsonl")
+      await assert.rejects(Promise.resolve(invoke(event(blocked, "block"))), /guard refused operation/)
+      assert.equal(records(blocked).length, 1, "block must stop later commands")
+      const failure = join(root, "failure.jsonl")
+      await invoke(event(failure, "failure"))
+      assert.equal(records(failure).length, 2, "ordinary command errors retain sequential behavior")
+    })
+    for (const name of ["post", "after"]) {
+      await plugin(name, async invoke => {
+        const errorFile = join(root, name + "-error.jsonl")
+        const failed: ToolEvent = { ...event(errorFile), status: "error", error: new nativeTool.Tool.Error({ message: "tool failed" }) }
+        await invoke(failed)
+        assert.equal(existsSync(errorFile), name === "after", "PostToolUse filters errors; native after receives them")
+        const completeFile = join(root, name + "-completed.jsonl")
+        await invoke({ ...event(completeFile), status: "completed", result: { content: [] } })
+        assert.equal(records(completeFile).length, 1)
+      })
+    }
+    await plugin("timeout", async invoke => {
+      const file = join(root, "timeout.jsonl")
+      await invoke(event(file, "tree"))
+      await descendantStopped(file)
+      assert(warnings.some(values => values.some(value => String(value).includes("timed out after 1 seconds"))))
+    })
+    await plugin("timeout", async invoke => {
+      const file = join(root, "block-held-stderr.jsonl")
+      try {
+        await assert.rejects(Promise.resolve(invoke(event(file, "block-orphan"))), /guard refused operation with held stderr/)
+        await descendantStopped(file)
+      } finally { forceFixtureDescendantCleanup(file) }
+    })
+    const unloadFile = join(root, "unload.jsonl")
+    let pending: Promise<void> | undefined
+    await plugin("guard", async invoke => {
+      pending = Promise.resolve(invoke(event(unloadFile, "tree")))
+      void pending.catch(() => {})
+      await ready(unloadFile + ".pid")
+    })
+    assert(pending)
+    await assert.rejects(pending, /plugin unloaded/)
+    await descendantStopped(unloadFile)
+    await plugin("spawn-failure", async invoke => {
+      const invocation = Promise.resolve(invoke(event(join(root, "spawn.jsonl"))))
+      await invocation
+    })
+    assert(warnings.some(values => values.some(value => String(value).includes("ENOENT"))))
+    await plugin("parse-failure", async invoke => { await assert.rejects(Promise.resolve(invoke(event(join(root, "parse.jsonl"))))) })
+    await plugin("shell", async invoke => { await invoke(event(join(root, "shell.jsonl"))) })
+    await assert.rejects(plugin("bad-matcher", async () => {}), /regular expression|unterminated|invalid|character class/i)
   }
-  const unloadFile = join(root, "unload.jsonl")
-  let pending: Promise<void> | undefined
-  await plugin("guard", async invoke => {
-    pending = Promise.resolve(invoke(event(unloadFile, "tree")))
-    void pending.catch(() => {})
-    await ready(unloadFile + ".pid")
-  })
-  assert(pending)
-  await assert.rejects(pending, /plugin unloaded/)
-  await descendantStopped(unloadFile)
-  await plugin("spawn-failure", async invoke => {
-    const invocation = Promise.resolve(invoke(event(join(root, "spawn.jsonl"))))
-    if (process.platform === "win32") await assert.rejects(invocation, /executable not found/)
-    else await invocation
-  })
-  if (process.platform !== "win32") assert(warnings.some(values => values.some(value => String(value).includes("ENOENT"))))
-  await plugin("parse-failure", async invoke => { await assert.rejects(Promise.resolve(invoke(event(join(root, "parse.jsonl"))))) })
-  await plugin("shell", async invoke => { await invoke(event(join(root, "shell.jsonl"))) })
-  await assert.rejects(plugin("bad-matcher", async () => {}), /regular expression|unterminated|invalid|character class/i)
   const legacy: unknown = await nativeHost.Host.load(pathToFileURL(join(output, "v1.js")).href)
   assert(legacy && typeof legacy === "object" && "V1Plugin" in legacy && typeof legacy.V1Plugin === "function")
   const nativeSDK = await import(pathToFileURL(join(packageRoot, "node_modules/@opencode-ai/sdk/dist/client.js")).href) as typeof import("@opencode-ai/sdk/client")
@@ -383,10 +228,6 @@ try {
   await assert.rejects(before({ tool: "bash", sessionID: "ses_fixture", callID: "call_fixture" }, { args: {} }), /blocked by hook v1/)
   console.log("Native hook behavior assertions passed")
 } finally {
-  if (windowsDurations.length) {
-    const sorted = [...windowsDurations].sort((a, b) => a - b)
-    console.log(JSON.stringify({ nativeWindowsLatency: { samples: sorted.length, firstCallbackMs: windowsDurations[0], medianMs: sorted[Math.floor(sorted.length / 2)], p95Ms: sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * .95) - 1)] } }))
-  }
   console.error = originalError
   rmSync(root, { recursive: true, force: true })
   rmSync(workspace, { recursive: true, force: true })

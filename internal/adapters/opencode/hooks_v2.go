@@ -16,9 +16,6 @@ import (
 //go:embed hooks_v2.ts.txt
 var v2HookModule string
 
-//go:embed hooks_v2.windows.ps1.txt
-var v2WindowsLauncher string
-
 type v2Command struct {
 	Command string    `json:"command"`
 	Args    *[]string `json:"args,omitempty"`
@@ -151,11 +148,7 @@ func emitV2Hook(sess *emit.Session, hook spec.Entry, dir string, dryRun bool) er
 		"__EVENT__", v2JSON(native),
 		"__AFTER_FILTER__", afterFilter,
 		"__BLOCK__", block,
-		"__WINDOWS_HELPER__", v2JSON("./"+hook.Name+".windows.ps1"),
 	).Replace(v2HookModule)
-	if err := sess.WriteFile(filepath.Join(dir, hook.Name+".windows.ps1"), emit.WithHeader(v2WindowsLauncher, emit.FormatShell), dryRun); err != nil {
-		return err
-	}
 	return sess.WriteFile(filepath.Join(dir, hook.Name+".ts"), emit.WithHeader(body, emit.FormatJavaScript), dryRun)
 }
 

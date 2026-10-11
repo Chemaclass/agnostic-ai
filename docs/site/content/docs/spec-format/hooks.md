@@ -126,7 +126,7 @@ Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event us
 
 ### Native events
 
-OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before/after events. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and Windows requirements. The default remains V1.
+OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before/after events on macOS and Linux. Windows requires OpenCode V1 with the default V1 hooks; V2 cannot run V1 plugins. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and Windows refusal behavior. The default remains V1.
 
 `agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. It is plain YAML with no markdown body.
 
@@ -179,7 +179,7 @@ Sync keeps hook entries you wrote. In `.claude/settings.json`, `.codex/hooks.jso
 | `event` | `on` or `event` | none | Hook event, written as is. See [events](#events). |
 | `matcher` | no | empty | Regex on the tool name, or another selector the event uses. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
-| `args` | no | empty | Switches to **exec form**: `command` runs as a program with `args` as its arguments and no shell, so spaces, `$`, and backticks pass through unchanged. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, Copilot, and OpenCode V2 keep `args` apart. The other tools run `command` in a shell, with the args added, each quoted for a POSIX shell. On Windows, Trae's PowerShell and OpenHands' cmd.exe can read those quotes differently, and sync notes it. Augment skips a hook with `args`, with a note. |
+| `args` | no | empty | Switches to **exec form**: `command` runs as a program with `args` as its arguments and no shell, so spaces, `$`, and backticks pass through unchanged. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, Copilot, and OpenCode V2 on macOS and Linux keep `args` apart. The other tools run `command` in a shell, with the args added, each quoted for a POSIX shell. On Windows, Trae's PowerShell and OpenHands' cmd.exe can read those quotes differently, and sync notes it. Augment skips a hook with `args`, with a note. |
 | `type` | no | `command` | `command`, `http`, `mcp_tool`, or `prompt`, where the tool supports it. |
 | `timeout` | no | none | Seconds before the tool cancels the hook. Some tools convert to milliseconds or apply their own default. |
 | `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other tools write the hook unchanged. |

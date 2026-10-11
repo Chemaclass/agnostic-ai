@@ -78,19 +78,19 @@ x-opencode:
   plugin-api: v2
 ```
 
-V2 supports `PreToolUse`, `PostToolUse`, `tool.execute.before`, and `tool.execute.after`. Other events fail sync. Use these native event names; OpenCode has no portable `on` mapping. Explicit matchers stay anchored JavaScript regular expressions: `bash` is not rewritten to `shell`. An invalid expression prevents the plugin from loading.
+On macOS and Linux, V2 supports `PreToolUse`, `PostToolUse`, `tool.execute.before`, and `tool.execute.after`. Other events fail sync. Use these native event names; OpenCode has no portable `on` mapping. Explicit matchers stay anchored JavaScript regular expressions: `bash` is not rewritten to `shell`. An invalid expression prevents the plugin from loading.
 
 The plugin registers a native [V2 tool callback](https://opencode.ai/v2/docs/build/plugins) and runs commands in the triggering session's checkout. It sends the native event as one JSON object plus a newline on stdin. Before-tool input includes `tool`, `sessionID`, `agent`, `messageID`, `id`, and `input`. After-tool input adds `status` and either `result` or `error`. `PostToolUse` runs only for completed tools; the native `tool.execute.after` event also runs for failed tools.
 
 Commands run in order. A before-tool command exiting 2 blocks the operation and stops later commands; stderr gives the reason. Other command failures log the hook name, command, and error, then continue. Stdout is ignored. Structured stdout decisions are not supported by this route.
 
-With `args`, the executable and each argument are passed separately. Without `args`, the command runs through `/bin/sh`, or Git Bash on Windows. Windows shell commands and `.sh` executables require Git Bash; Windows Store Bash is not used. On other systems, exec-form scripts must be executable. Shared scripts are copied to `.opencode/hooks/` as with V1.
+With `args`, the executable and each argument are passed separately. Without `args`, the command runs through `/bin/sh`. Exec-form scripts must be executable. Shared scripts are copied to `.opencode/hooks/` as with V1.
 
-Windows V2 requires Windows PowerShell in `FullLanguage` mode so the launcher can call Windows process functions. It creates each command in a Windows Job Object, which owns ordinary descendant processes until cleanup. Setup failures block the guard path. PowerShell startup counts toward the command timeout.
+On Windows, use OpenCode V1 with the default V1 hooks. OpenCode V2 cannot run V1 plugins. V2 plugins load with a clear warning and refuse matching callbacks before reading session data or starting a command. A before-tool callback blocks the operation. An after-tool callback reports the refusal after the operation has already run.
 
 `timeout` is a positive whole number of seconds, up to 86400; the default is 60 seconds. A timeout stops the owned process tree and logs a failure. Unloading the plugin also stops active commands and removes its callbacks. `x-opencode.env` adds string values to each command's inherited environment. Each invocation receives `AGNOSTIC_AI_TARGET=opencode`.
 
-Sync writes `.opencode/plugins/<name>.ts` and a companion `<name>.windows.ps1` launcher. The type-only `@opencode/plugin` import adds no runtime dependency. Arbitrary plugin code is not imported back into specs.
+Sync writes `.opencode/plugins/<name>.ts`. The type-only `@opencode/plugin` import adds no runtime dependency. Arbitrary plugin code is not imported back into specs.
 
 ## Config keys
 
