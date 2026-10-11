@@ -37,6 +37,8 @@ Use a temporary project when experimenting with imported or generated files. Ada
 
 The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks and migration plans that leave files unchanged. They do not connect to coding tools or call a model. On Windows, the launcher tries to save a failed command's result outside the project. Follow-up checks have time and output limits.
 
+To investigate first-launch failures without the large project, run `go test ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$' -count=1 -v`. This installs into eight separate small projects and stops at the first setup error. It uses the same test installer and Windows launcher. Passing runs do not explain an earlier failure.
+
 `make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after the required version changes. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
 
 Pull requests and pushes to `main` run the Go tests on Linux only. Windows and macOS run once a night and on demand with `gh workflow run ci.yml --ref <branch>`; dispatch that on a branch that touches paths, file watching, or renames. Editor jobs on pull requests run when their source or dependencies change. Confirm a full three-OS run before cutting a release.
