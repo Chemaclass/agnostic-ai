@@ -307,6 +307,8 @@ When `true`, tools that share the Agent Skills layout (`<dir>/<name>/SKILL.md` p
 - Turning the option off restores real copies on the next sync.
 - Without symlink support (Windows without the privilege), sync warns once and keeps real copies.
 
+When committing shared skill links, Git must also check them out as links. Git's `core.symlinks` setting and the operating system's permission to create links are separate. With `core.symlinks=false`, `sync --check --against index` and `HEAD` name affected links that Git exported as plain files. Where link creation is supported, run `git config --local core.symlinks true` and rerun the check. To keep the false setting, set `sync.shared-skills: false`, run `agnostic-ai sync`, and stage the configuration and restored skill copies. Commit that repair before checking `--against HEAD`.
+
 ### `sync.unmanaged` {#syncunmanaged}
 
 Paths you own. `sync` never writes, merges, copies, or removes them.
