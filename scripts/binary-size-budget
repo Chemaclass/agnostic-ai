@@ -116,4 +116,7 @@
 # from main 784cba1d (19067040 bytes):
 # preserve native skill policy and reconcile imported YAML ownership.
 # Keep the established CI build allowance.
-19120000
+# #2062 with #2064 and public .NET reflection measured 19124384
+# on Go 1.27.2, up 45056 from main 34d870e6 (19079328 bytes).
+# Keep the established CI build allowance.
+19135000
