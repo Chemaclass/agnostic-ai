@@ -183,7 +183,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - Continue's one documented home setting is the `rules:` list in the `config.yaml` it rewrites itself.
 - Jules documents nothing at user level.
 
-Hooks reach seven tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, and Kiro CLI V3. The other tools have no user-level hook output:
+Hooks reach eight tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, and Copilot. The other tools have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
 - Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones.
