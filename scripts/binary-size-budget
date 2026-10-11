@@ -102,4 +102,6 @@
 # Permission comparison after credential preview protection measured
 # 19005600 bytes, up 28672 from main 60d9dfb4.
 # Keep the established allowance for CI.
-19014600
+# Worktree refresh with owned setup cancellation measured 19034272.
+# Keep the established 8 KB allowance for CI.
+19042500
