@@ -142,3 +142,16 @@ func mappingHasKey(mapping *yaml.Node, key string) bool {
 	}
 	return false
 }
+
+func detachImportOverride(node *yaml.Node) *yaml.Node {
+	if node.Kind == yaml.AliasNode {
+		return detachImportOverride(node.Alias)
+	}
+	detached := *node
+	detached.Anchor = ""
+	detached.Content = make([]*yaml.Node, len(node.Content))
+	for i, child := range node.Content {
+		detached.Content[i] = detachImportOverride(child)
+	}
+	return &detached
+}

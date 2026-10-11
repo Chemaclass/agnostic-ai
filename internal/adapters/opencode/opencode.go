@@ -81,6 +81,7 @@ var caps = emit.Capabilities{
 
 func capabilities(cfg *config.Config) emit.Capabilities {
 	coverage := caps
+	coverage.SkillFields.Markdown = (Adapter{}).SkillMarkdown
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		coverage.SkillFields.AdditionalFields = func(skill spec.Entry) map[string]any {
 			fields, _ := commandMeta(skill)
@@ -163,7 +164,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteScopedSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteScopedSkillFoldersWith(b.Skills, skillsDir, dryRun, (Adapter{}).SkillMarkdown); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {

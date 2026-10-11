@@ -18,6 +18,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
 - Run native V2 tool checks with `x-opencode.plugin-api: v2`, including blocking commands, timeouts and cleanup (#2062).
+- Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
 
 #### Claude Code
 

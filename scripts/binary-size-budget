@@ -112,4 +112,8 @@
 # from main 784cba1d (19067040 bytes):
 # native V2 hook validation, runner and Windows child ownership helper.
 # Keep the established CI build allowance for the combined changes.
+# #2064 after #2063 measured 19079328 on Go 1.27.2, up 12288
+# from main 784cba1d (19067040 bytes):
+# preserve native skill policy and reconcile imported YAML ownership.
+# Keep the established CI build allowance.
 19120000

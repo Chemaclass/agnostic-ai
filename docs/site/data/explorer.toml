@@ -55,7 +55,7 @@
 
 [[files]]
   path = ".agnostic-ai/skills/release/SKILL.md"
-  body = "---\nname: release\ndescription: Cut a release and verify it.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+  body = "---\nname: release\ndescription: Cut a release and verify it.\nx-opencode:\n  disable-model-invocation: true\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
 [[files]]
   path = ".claude/agents/test-writer.md"
