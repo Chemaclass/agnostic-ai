@@ -24,6 +24,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Explain Codex instructions for a file with `explain --file <path> --target codex`, including planned outputs and launch directory limits (#1989).
 
+#### OpenCode
+
+- Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
+
 #### VS Code
 
 - Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).

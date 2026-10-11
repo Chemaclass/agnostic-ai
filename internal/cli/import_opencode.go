@@ -61,7 +61,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFoldersFrom(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, importSourcePath(root, src.Skills))
+	skills, err := importScopedSkillFoldersWith(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, importSourcePath(root, src.Skills), &opencodeSkillFields)
 	if err != nil {
 		return err
 	}
