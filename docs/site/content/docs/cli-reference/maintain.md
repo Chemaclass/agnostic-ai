@@ -137,6 +137,20 @@ agnostic-ai hook memory --target codex
 |------|-------------|
 | `-t`, `--target <name>` | Tool that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
 
+## hook worktree-refresh
+
+Rerun Claude Code's configured environment setup in one registered linked worktree:
+
+```bash
+agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
+```
+
+Pass a checkout of the owning repository with `--repo` and the linked checkout with `--worktree`. The helper refuses the main checkout and paths that are not registered to that repository. Run `agnostic-ai sync` in the selected worktree first when setup changes. Its generated setup script must match current source, including configured output-path overrides, before the helper resets the completion marker.
+
+Setup runs from the selected worktree with a 600-second limit. Output and failures pass through to the caller. Cancellation stops setup processes the helper owns; successful setup can leave background services running. A failed run leaves no completion marker; run the command again after fixing the failure. Other worktrees keep their markers. Normal Claude setup hooks still run once per worktree. Windows requires Git Bash, resolved from `CLAUDE_CODE_GIT_BASH_PATH` or the Git for Windows installation; the helper does not use a Windows `bash` launcher from PATH.
+
+This command runs your configured setup, which can install dependencies or perform other project setup. It does not check application health or change other tools' setup behavior. See [environment specs](@/docs/spec-format/environments.md#claude-code-worktree-setup).
+
 ## hook run
 
 Test a hook spec without starting a session. Run `sync` first so the hook's scripts are in place. For each tool the hook applies to, `hook run` sends a sample event to the synced command and prints the result: allow or block, exit code, time, stdout, and stderr.

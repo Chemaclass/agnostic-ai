@@ -93,6 +93,14 @@ How the script runs:
 - Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context.
 - The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads the hooks in `.claude/settings.json`, such as Cursor, then does not run setup a second time.
 
+After changing setup or dependencies, sync the selected worktree and explicitly rerun its Claude setup:
+
+```bash
+agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
+```
+
+The helper checks repository ownership and the current generated setup script, including `outputs.claude.dir`. It resets only that linked worktree's completion marker and runs setup again. A failure leaves no marker so a later attempt can recover. It refuses the main checkout and unregistered paths. It does not install dependencies unless your setup command does. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for the command requirements.
+
 A new worktree needs `.claude/settings.json` and the script.
 
 - With `gitignore.enabled`, both are ignored. `.worktreeinclude`, which sync keeps when `claude` is a target, copies them into each worktree Claude Code creates (see [gitignore](@/docs/configuration.md#gitignore)).
