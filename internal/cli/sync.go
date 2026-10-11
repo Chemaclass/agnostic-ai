@@ -198,6 +198,7 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
+				var linkFailures []againstSkillLinkFailure
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0
 					dropped, note, err := tree.droppedOutputs(filtered, reports)
@@ -207,6 +208,11 @@ func newSyncCmd() *cobra.Command {
 					if note != "" && verbosity >= levelDefault {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", note)
 					}
+					linkFailures, err = tree.diagnoseSkillLinks(cfg, reports)
+					if err != nil {
+						return err
+					}
+					notesErr = errors.Join(notesErr, againstSkillLinkError(linkFailures))
 					if reports, err = tree.trackedDrift(reports, dropped); err != nil {
 						return err
 					}
@@ -221,6 +227,13 @@ func newSyncCmd() *cobra.Command {
 				}
 				if jsonOut {
 					return printSyncCheckJSON(cmd, reports, drops, notesErr)
+				}
+				for _, failure := range linkFailures {
+					if format == checkFormatGitHub {
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "::error file=%s::%s\n", githubProp(failure.path), githubData(failure.message))
+					} else {
+						_, _ = fmt.Fprintln(cmd.ErrOrStderr(), failure.message)
+					}
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
 				if err != nil && tree != nil && regeneratedDrift(reports) {
