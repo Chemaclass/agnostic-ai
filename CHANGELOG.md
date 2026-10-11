@@ -17,6 +17,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
+- Run native V2 tool checks with `x-opencode.plugin-api: v2`, including blocking commands, timeouts and cleanup (#2062).
 
 #### Claude Code
 
@@ -31,10 +32,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### VS Code
 
 - Editors report source and load errors, clear fixed diagnostics, explain failed checks, and keep checks current (#1981, #1982, #1983, #1984).
-
-#### OpenCode
-
-- Run native V2 tool checks with `x-opencode.plugin-api: v2`, including blocking commands, timeouts and cleanup (#2062).
 
 #### Cline
 

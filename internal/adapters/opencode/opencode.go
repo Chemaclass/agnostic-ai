@@ -144,6 +144,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err
 	}
+	hooks, err := prepareHooks(b.Hooks)
+	if err != nil {
+		return err
+	}
 	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {
 		return err
 	}
@@ -155,7 +159,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitHooks(sess, b.Hooks, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
+	if err := hooks.emit(sess, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

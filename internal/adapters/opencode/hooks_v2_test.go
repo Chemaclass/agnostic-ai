@@ -209,6 +209,55 @@ func TestEmit_HookV2RefusesInvalidBatchBeforeWritingPlugins(t *testing.T) {
 	}
 }
 
+func TestEmit_HookV2InvalidMixedBundlePreservesNativeFiles(t *testing.T) {
+	testutil.TempCwd(t)
+	existing := map[string]string{
+		legacyEntryPointFile:             emit.WithHeader("# existing legacy instructions\n", emit.FormatMarkdown),
+		"AGENTS.md":                      "existing root instructions\n",
+		".opencode/agents/existing.md":   "existing agent bytes\n",
+		".opencode/commands/existing.md": "existing command bytes\n",
+		"opencode.json":                  "{\"custom\":true}\n",
+	}
+	for path, body := range existing {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	invalid := spec.Entry{Kind: spec.KindHook, Name: "invalid", Path: ".agnostic-ai/hooks/invalid.yaml", Meta: map[string]any{
+		"event": "PreToolUse", "command": "node", "args": []any{"valid", "broken\x00argument"},
+		"x-opencode": map[string]any{"plugin-api": "v2"},
+	}}
+	bundle := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindAgent, Name: "existing", Body: "replacement agent"},
+		{Kind: spec.KindAgent, Name: "fresh", Body: "fresh agent"},
+		{Kind: spec.KindCommand, Name: "existing", Body: "replacement command"},
+		{Kind: spec.KindCommand, Name: "fresh", Body: "fresh command"},
+		invalid,
+	})
+	err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false)
+	if err == nil || !strings.Contains(err.Error(), invalid.Path) {
+		t.Errorf("expected source-specific V2 preflight failure, got %v", err)
+	}
+	for path, expected := range existing {
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("preflight removed existing native file %s: %v", path, err)
+			continue
+		}
+		if string(got) != expected {
+			t.Errorf("preflight changed native file %s: got %q, want %q", path, got, expected)
+		}
+	}
+	for _, path := range []string{".opencode/agents/fresh.md", ".opencode/commands/fresh.md", ".opencode/plugins"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("invalid V2 bundle wrote fresh native output %s: %v", path, err)
+		}
+	}
+}
+
 func TestEmit_HookV2RejectsNULProcessFieldsBeforeWritingPlugins(t *testing.T) {
 	for _, tt := range []struct {
 		name, command string

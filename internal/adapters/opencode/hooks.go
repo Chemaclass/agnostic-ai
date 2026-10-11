@@ -26,26 +26,42 @@ var pluginHost = func() emit.PluginHookHost {
 	}
 }()
 
-func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
-	var v1, v2 []spec.Entry
+type hookPlan struct {
+	v1, v2 []spec.Entry
+}
+
+func prepareHooks(hooks []spec.Entry) (hookPlan, error) {
+	var plan hookPlan
 	for _, hook := range hooks {
 		api, err := hookPluginAPI(hook)
 		if err != nil {
-			return err
+			return hookPlan{}, err
 		}
 		if api == "v2" {
 			if err := validateV2Hook(hook); err != nil {
-				return err
+				return hookPlan{}, err
 			}
-			v2 = append(v2, hook)
+			plan.v2 = append(plan.v2, hook)
 		} else {
-			v1 = append(v1, hook)
+			plan.v1 = append(plan.v1, hook)
 		}
 	}
-	if err := emit.EmitPluginHooks(sess, pluginHost, v1, dir, dryRun); err != nil {
+	return plan, nil
+}
+
+func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) error {
+	plan, err := prepareHooks(hooks)
+	if err != nil {
 		return err
 	}
-	for _, hook := range v2 {
+	return plan.emit(sess, dir, dryRun)
+}
+
+func (plan hookPlan) emit(sess *emit.Session, dir string, dryRun bool) error {
+	if err := emit.EmitPluginHooks(sess, pluginHost, plan.v1, dir, dryRun); err != nil {
+		return err
+	}
+	for _, hook := range plan.v2 {
 		if err := emitV2Hook(sess, hook, dir, dryRun); err != nil {
 			return err
 		}
