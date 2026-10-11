@@ -47,7 +47,7 @@ Each session used --no-daemon, --ignore-user-config, --ignore-rules, --ephemeral
 
 > Use only the current public repository fixture. Establish a source-verified answer to how compare turns a portable settings permission entry into target output evidence at this pinned revision, including the Codex output opt-in and a target override. Trace the actual functions and report file:line evidence, limitations and completeness. Verify claimed graph relationships against source. Do not modify source, install anything, access credentials or other projects, or run tests/builds. Use at most 12 tool calls and finish within 140 seconds. Return a concise answer with source citations and any unresolved uncertainty.
 
-Each session had a hard five-minute limit and an output-size limit, within a 35-minute investigation ceiling. All four finished within 77 seconds and twelve calls. The CLI could not cap or report billed currency.
+The runner requested termination with SIGTERM after five minutes or when output crossed its size limit, within a 35-minute investigation ceiling. All four finished within 77 seconds and twelve calls. The CLI could not cap or report billed currency.
 
 ## Keeping ordinary search separate
 

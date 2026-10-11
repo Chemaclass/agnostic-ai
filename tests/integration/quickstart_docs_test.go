@@ -56,11 +56,20 @@ func TestSiteDocs_QuickstartSharedAcrossEntryPoints(t *testing.T) {
 
 func readQuickstart(t *testing.T, path string) string {
 	t.Helper()
-	match := regexp.MustCompile("(?s)## Quickstart\\n.*?```bash\\n(.*?)\\n```").FindStringSubmatch(readRepoFile(t, path))
-	if match == nil {
+	_, section, ok := strings.Cut(readRepoFile(t, path), "## Quickstart\n")
+	if !ok {
+		t.Fatalf("%s has no Quickstart section", path)
+	}
+	section, _, _ = strings.Cut(section, "\n## ")
+	matches := regexp.MustCompile("(?s)```bash\\n(.*?)\\n```").FindAllStringSubmatch(section, -1)
+	if len(matches) == 0 {
 		t.Fatalf("%s has no Quickstart shell block", path)
 	}
-	return match[1]
+	var blocks []string
+	for _, match := range matches {
+		blocks = append(blocks, match[1])
+	}
+	return strings.Join(blocks, "\n")
 }
 
 func assertRenderedQuickstart(t *testing.T, home string) {

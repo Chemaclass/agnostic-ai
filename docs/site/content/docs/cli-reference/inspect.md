@@ -127,7 +127,7 @@ These are estimates from planned output and spec text, not model tokens or obser
 agnostic-ai explain --inputs
 ```
 
-`--inputs` is its own mode. It lists every file and directory whose change can change a generated file, one per line (`--json` for an array). Paths are relative to the repository root, like a hook manager's glob. It takes no spec and no `--file`. See [git hooks](@/docs/git-hooks.md#check-staged-files). It lists:
+`--inputs` lists the files and directories that can affect generated output, one per line. Use `--json` for an array. Paths are relative to the repository root. Run it without a spec argument or `--file`. See [git hooks](@/docs/git-hooks.md#check-staged-files). It lists:
 
 - the config files
 - `.agnostic-ai/**`
@@ -161,9 +161,9 @@ It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApp
 
 `preserved` describes the written file. It does not prove the tools behave the same, that a hook ran, or that an MCP server connects. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
 
-MCP entries name affected fields and output paths without printing command, argument, URL, environment, or header values. Default values and unrecognized reference text stay out of reasons too. An unwritable launch reference can leave the whole server out. A native file that omits an explicit transport is reported as `unknown`.
+MCP comparison names fields and output paths without showing command, argument, URL, environment or header values, including defaults and unknown reference text. If the tool's configuration cannot represent a reference in the server URL or arguments, the whole server can be omitted. If the native file has no explicit transport, the result is `unknown`.
 
-Permission rows use the source list index, such as `permissions.deny[0]`, and name the rule in the result. Native overrides and partial mappings stay visible. Recognized credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries. Filename patterns and ordinary permission actions remain visible. Matching and comparison still use the original values. Shell permission output on Codex requires `outputs.codex.exec-policies-from-permissions: true`. The portable default-mode mapping belongs to global sync, so project comparison reports it as unsupported. Permission differences include effective native decisions and partial support, even when both results are translated.
+Permission rows use the source list index, such as `permissions.deny[0]`, name the rule, and show native override values and partial mappings. Recognized credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries. Filename patterns and ordinary permission actions remain visible. Matching and comparison still use the original values. Codex shell permissions require `outputs.codex.exec-policies-from-permissions: true`. Portable default-mode applies to global sync, so project comparison reports it as unsupported. Differences include effective decisions and partial support, even when both results are translated.
 
 The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 

@@ -6,11 +6,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Rank words/bytes; compare hook/MCP/permission losses and options; bound typo work; hide permission credentials (#2017, #1985, #1986, #1987, #2020, #2044).
+- Find large specs by estimated words and bytes; compare hooks, servers and permissions; use less memory for typo checks (#2017, #1985, #1986, #1987, #2020).
 - Hooks prefer the project binary; Git checks use staged config; bootstrap installs locked npm/pnpm dependencies once (#2012).
-- Create ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile`; keep permission and setup choices explicit (#1990, #2013).
-- Hide credentials in previews and diffs; keep writes/drift checks unchanged; verify seven npm packages and retries with provenance (#2021, #2016).
-- Check targets with `doctor --scope project`, skip local trust checks; verify Gradle downloads, remove vulnerable dependencies, record inputs (#2011, #2022).
+- Create all ten spec kinds with `new`; plan skill edits, assets and deletions with `import reconcile` (#1990, #2013).
+- Hide preview/permission credentials; verify build downloads and npm releases/retries; replace vulnerable build dependencies (#2021, #2044, #2022, #2016).
+- Check every target with `doctor --scope project`, skip local hook trust, and keep default trust checks (#2011).
 
 ### By tool
 

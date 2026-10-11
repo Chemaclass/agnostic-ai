@@ -23,6 +23,11 @@ From your project root, with Node 18 or newer:
 npm install -g agnostic-ai
 agnostic-ai init --from all
 agnostic-ai sync --plan
+```
+
+Review the planned files. If they match the tools and instructions you want, run:
+
+```bash
 agnostic-ai sync
 ```
 

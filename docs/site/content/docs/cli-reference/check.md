@@ -157,7 +157,7 @@ Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [li
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--scope <all\|project>` | `all` (default) includes local Codex hook trust. `project` skips that runtime check and keeps all project checks. |
-| `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. In a terminal, it offers to remove each kept orphan, defaulting to no. Otherwise it keeps the orphans and says why. The exit stays non-zero while any remain. |
+| `--fix` | Write missing files and overwrite stale or manually edited generated files. Remove each nested `CLAUDE.md` whose text is already in a scoped rule. In a terminal, ask before removing each kept orphan, with No as the default. Without a terminal, keep orphans and explain why. Exit non-zero while any orphan remains. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting it or removing a confirmed orphan. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |

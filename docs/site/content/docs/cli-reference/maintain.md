@@ -172,7 +172,7 @@ If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, 
 
 ## project
 
-Run the project's installed binary with its exact stable `package.json` pins and `requires` contract. The helper prefers `node_modules/.bin/agnostic-ai` over `PATH`. A project declaring an agnostic-ai dependency must have its local binary installed; a global binary does not silently replace it. On Windows, the helper runs the installed Node shim directly.
+Run the project's installed agnostic-ai binary after checking its version against any exact stable version declared in `package.json` and the project's `requires` setting. The helper prefers `node_modules/.bin/agnostic-ai` over `PATH`. A project declaring an agnostic-ai dependency must have its local binary installed; a global binary does not silently replace it. On Windows, the helper runs the installed Node shim directly.
 
 Conflicting exact declarations stop before installation. npm ranges, tags, aliases, prereleases, and file dependencies are not interpreted as version contracts; use `requires` for those declarations. Checks against `index` or `HEAD` read the contract from that Git view and select the installed binary from the working checkout. Unsupported binaries receive an instruction to upgrade the owning package explicitly; released v0.82.0 lacks `project`.
 

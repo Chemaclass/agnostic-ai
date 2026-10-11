@@ -110,7 +110,7 @@ Commit changes in mapped trees first. The command reads Git revisions and report
 
 ### Import behavior
 
-`import all` imports every tool detected from its marker.
+`import all` detects tools from their configuration files and directories. It imports each detected tool that has an importer.
 
 - A detected tool with no importer is skipped with a `skipping <tool>` line.
 - An entry file that links outside the project is skipped with a `skipped <file>` note. Naming the tool (`import claude`) follows the link.

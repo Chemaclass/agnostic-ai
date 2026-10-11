@@ -31,6 +31,11 @@ From your project root, with Node 18 or newer:
 npm install -g agnostic-ai
 agnostic-ai init --from all
 agnostic-ai sync --plan
+```
+
+Review the planned files. If they match the tools and instructions you want, run:
+
+```bash
 agnostic-ai sync
 ```
 
@@ -38,7 +43,7 @@ agnostic-ai sync
 
 Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It also writes [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
 
-From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
+Edit your shared instructions in `.agnostic-ai/AGNOSTIC_AI.md` and your specs under `.agnostic-ai/`, then run `agnostic-ai sync` again. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
 When another branch changes a native skill tree you have moved, use [`import reconcile`](https://agnostic-ai.org/docs/cli-reference/start/#import-reconcile) to review the mapped changes against the migration's Git revisions.
 
@@ -54,7 +59,7 @@ Interactive runs offer new releases with upgrade guidance and a default Yes prom
 
 ```bash
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
-agnostic-ai import claude --overwrite           # replace conflicting specs
+agnostic-ai import claude --overwrite           # replace conflicting specs after reviewing the preview
 agnostic-ai compare claude cursor                # compare fields, rules, hooks, MCP connections, and permissions
 agnostic-ai new settings project-defaults --dry-run # preview a settings spec
 agnostic-ai why AGENTS.md                        # trace an output to its source
@@ -69,6 +74,8 @@ agnostic-ai migrate --dry-run                    # preview rewrites of old spec 
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store
 ```
+
+Before using `import --overwrite`, review `import --dry-run --diff`. Body blocks for other tools can be lost; see [Keep existing specs](https://agnostic-ai.org/docs/cli-reference/start/#keep-existing-specs).
 
 `agnostic-ai new` creates all ten spec kinds in their configured source directories. Edit the marked placeholders before rendering or syncing. See [new](https://agnostic-ai.org/docs/cli-reference/start/#new).
 

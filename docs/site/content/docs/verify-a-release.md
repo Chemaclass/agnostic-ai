@@ -71,7 +71,7 @@ verify_npm_provenance agnostic-ai X.Y.Z
 verify_npm_provenance @agnostic-ai/linux-x64 X.Y.Z
 ```
 
-If a required attestation is missing, retry after a temporary registry outage. A version uploaded without provenance cannot be repaired in place; maintainers must release a new version of all seven packages.
+If verification fails because the registry is temporarily unavailable, retry when it recovers. A package version published without its required signed build record cannot be repaired in place; maintainers must release a new version of all seven packages.
 
 ## Signed tags and commits
 
