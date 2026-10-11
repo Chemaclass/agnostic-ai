@@ -1240,7 +1240,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	mainSess.StartTransaction()
 	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, false)
 	for _, l := range applied {
-		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
+		if l.changed {
+			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
+		} else {
+			out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "skip"})
+		}
 	}
 	if gitignoreOn {
 		for _, l := range applied {

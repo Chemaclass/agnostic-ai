@@ -20,6 +20,7 @@ import (
 type skillLink struct {
 	path      string
 	canonical string
+	changed   bool
 }
 
 // targetCapture pairs a target name with the files its adapter would
@@ -422,6 +423,7 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			warnf("%v", err)
 			continue
 		}
+		l.changed = true
 		applied = append(applied, l)
 		created++
 	}
