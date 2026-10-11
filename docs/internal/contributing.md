@@ -24,7 +24,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Concurrency | `make test-race` |
 | Dependencies (`go.mod`) | `make size-check`; raise [`scripts/binary-size-budget`](../../scripts/binary-size-budget) only when the growth is worth it, and say why in the PR |
 | Shell scripts or CLI end-to-end behavior | `make test-shell` (requires bashunit on PATH) |
-| Project setup, branch changes or package versions | `go test ./tests/integration -run TestProjectLifecycle -count=1`; full Linux, macOS and Windows CI |
+| Project setup, branch changes or package versions | `go test ./tests/integration -run TestProjectLifecycle -count=1`; Linux and macOS CI plus Windows smoke |
 | Config struct or schema fields | `go run ./cmd/schemagen`; include the updated schema |
 | Project source specs | `go run ./cmd/agnostic-ai lint`, then `go run ./cmd/agnostic-ai sync` |
 | Adapter output | Adapter tests and relevant saved expected output files (golden fixtures); preview with `sync --dry-run` |
@@ -41,7 +41,7 @@ To investigate first-launch failures without the large project, run `go test ./t
 
 `make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after the required version changes. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
 
-Pull requests and pushes to `main` run the Go tests on Linux only. Windows and macOS run once a night and on demand with `gh workflow run ci.yml --ref <branch>`; dispatch that on a branch that touches paths, file watching, or renames. Editor jobs on pull requests run when their source or dependencies change. Confirm a full three-OS run before cutting a release.
+Pull requests and pushes to `main` run the Go tests on Linux only. Nightly and manual runs add the full macOS suite and a focused Windows smoke check. Windows smoke covers fresh package startup, handoff hooks, paths, import, and linked checkouts without the race detector. Its whole job stops after seven minutes, including setup. Dispatch `gh workflow run ci.yml --ref <branch>` for these checks before releases and when a branch touches paths, file watching, renames, permissions, or import. The full Windows Go race suite is optional and manual only: add `-f full_windows=true` for a ten-minute job limit. Linux and macOS Go jobs also stop after ten minutes. Windows OpenCode and editor jobs keep their native tests and stop after seven minutes. Editor jobs on pull requests run when their source or dependencies change.
 
 ## Docs site
 

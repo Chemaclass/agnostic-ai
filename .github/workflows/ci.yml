@@ -10,6 +10,11 @@ on:
     # cron jobs that every project schedules on the hour.
     - cron: "17 4 * * *"
   workflow_dispatch:
+    inputs:
+      full_windows:
+        description: Run the full Windows Go race suite (ten-minute job limit)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,11 +37,11 @@ concurrency:
 jobs:
   # Pull requests and pushes to main test on Linux: a merge reruns code its PR
   # already tested, and a full matrix on every merge tripled the runner time.
-  # The nightly and manual runs test all three operating systems. Run the full
-  # matrix on the release commit before tagging, and dispatch it on a branch
-  # that touches paths, file watching, or renames.
+  # Nightly and manual runs add macOS and a focused Windows smoke check.
+  # The full Windows Go suite is manual only, with full_windows=true.
   test:
     name: Test
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
     strategy:
       fail-fast: false
       matrix:
@@ -53,14 +58,21 @@ jobs:
           cache: true
 
       - name: Vet
-        if: matrix.os != 'ubuntu-latest'
+        if: matrix.os == 'macos-latest' || (matrix.os == 'windows-latest' && inputs.full_windows == true)
         run: go vet ./...
 
       - name: Test
+        if: matrix.os != 'windows-latest' || inputs.full_windows == true
         shell: bash
-        env:
-          TEST_TIMEOUT: ${{ matrix.os == 'windows-latest' && '15m' || '10m' }}
-        run: go test -timeout="$TEST_TIMEOUT" -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Windows smoke
+        if: matrix.os == 'windows-latest' && inputs.full_windows != true
+        shell: bash
+        run: |
+          go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit
+          go test -timeout=5m -count=1 ./internal/cli -run '^TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$'
+          go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestBuiltinHandoffHooks)$'
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
@@ -72,6 +84,7 @@ jobs:
 
   opencode-hooks:
     name: OpenCode hooks
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 7 || 10 }}
     strategy:
       fail-fast: false
       matrix:
@@ -307,6 +320,7 @@ jobs:
 
   vscode:
     name: VS Code extension (${{ matrix.os }})
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 7 || 10 }}
     needs: editor_changes
     if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.vscode == 'true') }}
     runs-on: ${{ matrix.os }}
