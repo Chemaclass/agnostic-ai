@@ -65,9 +65,16 @@ func validateV2Hook(hook spec.Entry) error {
 		if !ok {
 			return fmt.Errorf("%s: opencode v2 env must be a map of strings", hookLocation(hook))
 		}
-		for _, value := range values {
-			if _, ok := value.(string); !ok {
+		for key, value := range values {
+			if key == "" || strings.ContainsRune(key, '=') {
+				return fmt.Errorf("%s: opencode v2 environment name must be nonempty and must not contain =", hookLocation(hook))
+			}
+			text, ok := value.(string)
+			if !ok {
 				return fmt.Errorf("%s: opencode v2 env must contain strings", hookLocation(hook))
+			}
+			if strings.ContainsRune(key, '\x00') || strings.ContainsRune(text, '\x00') {
+				return fmt.Errorf("%s: opencode v2 environment name and value must not contain NUL", hookLocation(hook))
 			}
 		}
 	}

@@ -14,6 +14,16 @@ const LABEL = `agnostic-ai hook ${NAME}:`
 
 class GuardInfrastructureError extends Error {}
 
+function commandEnvironment(): NodeJS.ProcessEnv {
+  if (process.platform !== "win32") return { ...process.env, ...ENV, AGNOSTIC_AI_TARGET: "opencode" }
+  const env: NodeJS.ProcessEnv = {}
+  for (const source of [process.env, ENV]) {
+    for (const [key, value] of Object.entries(source)) env[key.toUpperCase()] = value
+  }
+  env.AGNOSTIC_AI_TARGET = "opencode"
+  return env
+}
+
 function windowsExecutable(file: string, cwd: string, env: NodeJS.ProcessEnv) {
   const roots = isAbsolute(file) || /[/\\]/.test(file) ? [resolve(cwd, file)] : [join(cwd, file), ...(env.PATH ?? "").split(delimiter).filter(Boolean).map(root => join(root, file))]
   for (const root of roots) {
@@ -84,7 +94,7 @@ const plugin: Plugin.Plugin = {
       const started = Date.now()
       const { file, args } = launch(command)
       const windows = process.platform === "win32"
-      const env = { ...process.env, ...ENV, AGNOSTIC_AI_TARGET: "opencode" }
+      const env = commandEnvironment()
       const executable = windows ? windowsExecutable(file, cwd, env) : file
       const payload = windows ? windowsInput(executable, args, cwd, input) : input
       const powershell = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe")

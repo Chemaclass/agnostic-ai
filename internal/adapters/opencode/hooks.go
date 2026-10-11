@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"fmt"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )

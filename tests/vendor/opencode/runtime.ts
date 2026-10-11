@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { execFileSync, spawn } from "node:child_process"
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { delimiter, dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { $ } from "bun"
 import type { Plugin } from "@opencode/plugin"
@@ -180,6 +180,34 @@ async function windowsExitedParentControl() {
   } finally { forceFixtureDescendantCleanup(control); parent.stderr?.destroy() }
 }
 
+async function windowsInheritedPathGuard() {
+  if (process.platform !== "win32") return
+  const node = process.env.AGNOSTIC_AI_OPENCODE_NODE
+  assert(node && existsSync(node), "native Windows PATH regression needs the installed Node executable")
+  const original = Object.entries(process.env).filter(([key]) => key.toLowerCase() === "path")
+  const inherited = original.map(([, value]) => value ?? "").join(delimiter)
+  for (const [key] of original) delete process.env[key]
+  process.env.Path = dirname(node) + delimiter + inherited
+  try {
+    const copied = { ...process.env }
+    assert(Object.hasOwn(copied, "Path") && !Object.hasOwn(copied, "PATH"), "native environment must retain the mixed-case inherited Path key")
+    await plugin("windows-path", async invoke => {
+      const file = join(root, "windows-inherited-path.jsonl")
+      await assert.rejects(Promise.resolve(invoke(event(file, "block"))), /guard refused operation/)
+      assert.equal(records(file).length, 1, "bare Node executable must start through inherited Path and block")
+    })
+    process.env.Path = workspace
+    await plugin("windows-path-override", async invoke => {
+      const file = join(root, "windows-overridden-path.jsonl")
+      await assert.rejects(Promise.resolve(invoke(event(file, "block"))), /guard refused operation/)
+      assert.equal(records(file).length, 1, "hook pAtH override must replace inherited Path and start the blocking guard")
+    })
+  } finally {
+    for (const key of Object.keys(process.env).filter(key => key.toLowerCase() === "path")) delete process.env[key]
+    for (const [key, value] of original) if (value !== undefined) process.env[key] = value
+  }
+}
+
 try {
   await plugin("guard", async invoke => {
     const file = join(root, "invalid-cwd.jsonl")
@@ -187,6 +215,7 @@ try {
     assert(!existsSync(file), "invalid cwd must refuse before launching a guard")
   }, workspace + "\0ignored")
   await windowsExitedParentControl()
+  await windowsInheritedPathGuard()
   await measureWindowsBootstrap()
   await plugin("guard", async invoke => {
     const file = join(root, "success.jsonl")

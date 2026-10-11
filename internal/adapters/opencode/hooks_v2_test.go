@@ -112,10 +112,15 @@ process.stdin.on("end", () => {
 		{"bad-matcher", "PreToolUse", "v2", "[", "echo unused", nil, 0},
 		{"v1", "PreToolUse", "v1", "bash", "exit 2", nil, 0},
 		{"shell", "PreToolUse", "v2", "shell", "printf shell-ran", nil, 0},
+		{"windows-path", "PreToolUse", "v2", "shell", "node.exe", args, 0},
+		{"windows-path-override", "PreToolUse", "v2", "shell", "node.exe", args, 0},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			meta := map[string]any{"event": tt.event, "matcher": tt.matcher, "command": tt.command, "x-opencode": map[string]any{"plugin-api": tt.api, "env": map[string]any{"HOOK_TEST_ENV": "per-hook"}}}
+			if tt.name == "windows-path-override" {
+				meta["x-opencode"].(map[string]any)["env"].(map[string]any)["pAtH"] = filepath.Dir(node)
+			}
 			if tt.args != nil {
 				meta["args"] = tt.args
 			}
@@ -132,6 +137,15 @@ process.stdin.on("end", () => {
 			}
 			if err := os.WriteFile(filepath.Join(output, tt.name+".ts"), body, 0o644); err != nil {
 				t.Fatal(err)
+			}
+			if tt.api == "v2" {
+				helper, err := os.ReadFile(filepath.Join(".opencode/plugins", tt.name+".windows.ps1"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(output, tt.name+".windows.ps1"), helper, 0o644); err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
 	}
@@ -219,6 +233,83 @@ func TestEmit_HookV2RejectsNULProcessFieldsBeforeWritingPlugins(t *testing.T) {
 			}
 			if _, err := os.Stat(".opencode/plugins"); !os.IsNotExist(err) {
 				t.Errorf("invalid process field wrote a plugin or Windows helper: %v", err)
+			}
+		})
+	}
+}
+
+func TestEmit_HookV2RuntimeFixtureExportsGeneratedWindowsLaunchers(t *testing.T) {
+	testutil.TempCwd(t)
+	export := t.TempDir()
+	t.Setenv("AGNOSTIC_AI_OPENCODE_FIXTURE_DIR", export)
+	hook := spec.Entry{Kind: spec.KindHook, Name: "baseline", Meta: map[string]any{
+		"event": "PreToolUse", "command": "echo baseline", "x-opencode": map[string]any{"plugin-api": "v2"},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	expected := readFile(t, ".opencode/plugins/baseline.windows.ps1")
+	if !t.Run("actual fixture producer", TestEmit_HookV2RuntimeFixtures) {
+		t.Fatal("fixture producer failed")
+	}
+	for _, name := range []string{"guard", "timeout", "post", "after", "spawn-failure", "parse-failure", "bad-matcher", "shell", "windows-path", "windows-path-override"} {
+		path := filepath.Join(export, name+".windows.ps1")
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("generated Windows launcher was not exported: %s: %v", path, err)
+			continue
+		}
+		if string(body) != expected {
+			t.Errorf("exported %s differs from the actual emitted Windows launcher", path)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(export, "v1.windows.ps1")); !os.IsNotExist(err) {
+		t.Errorf("V1 must not acquire a V2 Windows launcher: %v", err)
+	}
+}
+
+func TestEmit_HookV2RejectsInvalidEnvironmentNamesBeforeWritingPlugins(t *testing.T) {
+	for _, key := range []string{"", "INVALID=NAME"} {
+		t.Run(key, func(t *testing.T) {
+			testutil.TempCwd(t)
+			hook := spec.Entry{Kind: spec.KindHook, Name: "invalid-env-name", Path: ".agnostic-ai/hooks/invalid-env-name.yaml", Meta: map[string]any{
+				"event": "PreToolUse", "command": "echo guard",
+				"x-opencode": map[string]any{"plugin-api": "v2", "env": map[string]any{key: "value"}},
+			}}
+			err := emitHooks(emit.NewSession(), []spec.Entry{hook}, ".opencode/plugins", false)
+			if err == nil || !strings.Contains(err.Error(), hook.Path) || !strings.Contains(err.Error(), "environment name") {
+				t.Errorf("expected source-specific invalid environment name refusal, got %v", err)
+			}
+			if _, err := os.Stat(".opencode/plugins"); !os.IsNotExist(err) {
+				t.Errorf("invalid environment name wrote a plugin or Windows helper: %v", err)
+			}
+		})
+	}
+}
+
+func TestEmit_HookV2RejectsNULEnvironmentBeforeWritingPlugins(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		env  map[string]any
+	}{
+		{"environment name", map[string]any{"VALID": "first", "BROKEN\x00NAME": "value"}},
+		{"environment value", map[string]any{"VALID": "first", "BROKEN": "value\x00truncated"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			hook := spec.Entry{Kind: spec.KindHook, Name: "invalid-env", Path: ".agnostic-ai/hooks/invalid-env.yaml", Meta: map[string]any{
+				"event": "PreToolUse", "command": "echo guard",
+				"x-opencode": map[string]any{"plugin-api": "v2", "env": tt.env},
+			}}
+			valid := spec.Entry{Kind: spec.KindHook, Name: "valid-first", Meta: map[string]any{
+				"event": "PreToolUse", "command": "echo guard", "x-opencode": map[string]any{"plugin-api": "v2"},
+			}}
+			err := emitHooks(emit.NewSession(), []spec.Entry{valid, hook}, ".opencode/plugins", false)
+			if err == nil || !strings.Contains(err.Error(), hook.Path) || !strings.Contains(err.Error(), "NUL") {
+				t.Errorf("expected source-specific NUL %s refusal, got %v", tt.name, err)
+			}
+			if _, err := os.Stat(".opencode/plugins"); !os.IsNotExist(err) {
+				t.Errorf("invalid environment wrote a plugin or Windows helper: %v", err)
 			}
 		})
 	}

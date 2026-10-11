@@ -107,7 +107,7 @@
 # #2055 after #2060 measured 19046560 on Go 1.27.2, up 4096:
 # indexed shared-link lookups avoid scanning every tracked path per link.
 # Keep the established 8 KB allowance for CI.
-# #2062 after #2055 measured 19079328 on Go 1.27.2, up 32768:
+# #2062 after #2055 measured 19083424 on Go 1.27.2, up 36864:
 # native V2 hook validation, runner and Windows child ownership helper.
 # Keep the established CI build allowance.
-19090000
+19095000

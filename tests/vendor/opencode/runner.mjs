@@ -11,7 +11,7 @@ const fixtures = process.env.AGNOSTIC_AI_OPENCODE_FIXTURE_DIR
 assert(fixtures, "AGNOSTIC_AI_OPENCODE_FIXTURE_DIR must name the rendered fixture directory")
 writeFileSync(join(fixtures, "package.json"), '{"type":"module"}\n')
 const names = readdirSync(fixtures).filter(name => name.endsWith(".ts"))
-assert.equal(names.length, 9, "all native fixtures must be present")
+assert.equal(names.length, 11, "all native fixtures must be present")
 const output = mkdtempSync(join(tmpdir(), "agnostic-opencode-typed-"))
 try {
   writeFileSync(join(output, "package.json"), '{"type":"module"}\n')
