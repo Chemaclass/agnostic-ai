@@ -59,6 +59,17 @@ const (
 )
 
 func (c globalNameClash) String() string {
+	return c.message() + c.projectSelectionLimit()
+}
+
+func (c globalNameClash) projectSelectionLimit() string {
+	if c.project.Kind != spec.KindSkill || len(c.globalWins) == 0 {
+		return ""
+	}
+	return "; project sync cannot select this skill instead on " + strings.Join(c.globalWins, ", ")
+}
+
+func (c globalNameClash) message() string {
 	global := homeRelative(c.global.Path)
 	if c.global.Layer == layerNameBuiltin {
 		global = entrySourceText(c.global)
@@ -102,7 +113,7 @@ func (c globalNameClash) silenced(by string) string {
 	if c.global.Layer == layerNameBuiltin {
 		global = entrySourceText(c.global)
 	}
-	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), global, c.winners(), by)
+	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), global, c.winners(), by) + c.projectSelectionLimit()
 }
 
 func (c globalNameClash) head() string {
