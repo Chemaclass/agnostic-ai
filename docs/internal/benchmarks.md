@@ -126,3 +126,48 @@ The flag lives on the root command (`internal/cli/root.go`): profiling
 starts in the persistent pre-run hook and stops in the persistent post-run
 hook, so the profile covers a completed run. The per-target stopwatch wraps
 the emit call in `emitTargetsConcurrent` (`internal/cli/sync_run.go`).
+
+## Staged checks in a large repository
+
+`BenchmarkSyncCheckAgainstIndex` measures the production `sync --check --against index` command in process, including its Git subprocesses and scratch-tree work. Setup is excluded. Each fixture has exactly 23,000 tracked baseline files, three targets (Claude Code, Codex and Cursor), scoped rules, shared skills and one asset per skill. The 100- and 500-spec cases count rules plus skills, split equally, rather than N copies of each spec kind. Source files span roughly 1,100 package directories so previous-state directory discovery has representative work.
+
+Land the harness before changing the implementation. Measure the merged current-main revision first, record its commit and Go version, and use the same machine and fixture method for the later change. Keep raw samples and rerun anomalous results. No latency threshold decides whether a run passes.
+
+```sh
+go test ./internal/cli -run '^TestStagedCheckBenchmarkControls$' -count=1
+go test ./internal/cli -run '^$' -bench '^BenchmarkSyncCheckAgainstIndex$' -benchtime=1x -count=6 -benchmem -timeout 30m
+```
+
+Six controls run at both sizes:
+
+| Case | Staged change | Expected check |
+| --- | --- | --- |
+| clean | None | Pass |
+| yaml-comment | Comment added to configuration | Pass, rendered content unchanged |
+| semantic-config | Claude rule output directory changed without staging new output | Fail |
+| spec-change | One rule changed; correct output exists only in the working tree | Fail |
+| deleted-output | One generated rule removed from the index but left on disk | Fail |
+| deleted-spec | One source rule removed while its generated output remains tracked | Fail, history-based leftover detection retained |
+
+The small regular test runs these controls without building the large fixture, verifies the expected result, and checks unchanged index and working-tree status. Every expected failure must report drift, including each large-fixture benchmark iteration. Git or filesystem errors fail the harness rather than becoming timing samples. Fixture setup verifies that the generated rule used by the deleted-output control is tracked. No agent tools, servers or package installation run.
+
+For built-binary measurements or CPU profiles, export one fixture into a new empty absolute directory. The export test is skipped unless explicitly requested:
+
+```sh
+fixture=$(mktemp -d)
+AGNOSTIC_AI_STAGED_BENCH_FIXTURE="$fixture" \
+AGNOSTIC_AI_STAGED_BENCH_SPECS=100 \
+AGNOSTIC_AI_STAGED_BENCH_CASE=yaml-comment \
+go test ./internal/cli -run '^TestWriteStagedCheckBenchFixture$' -count=1 -v
+```
+
+The exported fixture is retained. Choose `100` or `500` and any case from the table. Its Git history and staging are part of the scenario. The fixture config has no release requirement so comparison binaries use the same inputs. Use isolated temporary HOME, CODEX_HOME and AGNOSTIC_AI_HOME directories for each built-binary comparison to exclude user configuration. Disable update checks with `AGNOSTIC_AI_NO_UPDATE_CHECK=1`. Record binary hashes, producing commits, build flags, compiler versions, exact commands, exit status and stdout/stderr. Alternate the baseline and candidate on this same retained fixture with one warm-up and six measured calls per binary. Time only the calls, not fixture construction.
+
+Profile a separate call on that fixture with the matching built binary:
+
+```sh
+(cd "$fixture" && /absolute/path/agnostic-ai sync --check --against index --profile /absolute/path/staged-comment.prof)
+go tool pprof -top /absolute/path/agnostic-ai /absolute/path/staged-comment.prof
+```
+
+The profile command returns nonzero for expected failure cases. Keep its actual exit status and use profiles outside the fixture; profiling overhead does not belong in latency samples. Compare the unchanged and comment controls before attributing cost to historical rendering. If CPU samples leave most elapsed time unexplained, capture bounded Git subprocess and filesystem stage timings before choosing an optimization. The safe boundaries are `enterAgainstTree`, `sameInputs`, `renderRef`, `checkoutPaths`, recollection and cleanup in `internal/cli/sync_against.go`. Full local and operating-system checks remain required for a later implementation touching these paths.
