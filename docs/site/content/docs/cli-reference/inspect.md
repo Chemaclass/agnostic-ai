@@ -163,7 +163,7 @@ It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApp
 
 MCP entries name affected fields and output paths without printing command, argument, URL, environment, or header values. Default values and unrecognized reference text stay out of reasons too. An unwritable launch reference can leave the whole server out. A native file that omits an explicit transport is reported as `unknown`.
 
-Permission rows use the source list index, such as `permissions.deny[0]`, and name the rule in the result. Native overrides and partial mappings stay visible. Shell permission output on Codex requires `outputs.codex.exec-policies-from-permissions: true`. The portable default-mode mapping belongs to global sync, so project comparison reports it as unsupported. Permission differences include effective native decisions and partial support, even when both results are translated.
+Permission rows use the source list index, such as `permissions.deny[0]`, and name the rule in the result. Native overrides and partial mappings stay visible. Recognized credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries. Filename patterns and ordinary permission actions remain visible. Matching and comparison still use the original values. Shell permission output on Codex requires `outputs.codex.exec-policies-from-permissions: true`. The portable default-mode mapping belongs to global sync, so project comparison reports it as unsupported. Permission differences include effective native decisions and partial support, even when both results are translated.
 
 The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
