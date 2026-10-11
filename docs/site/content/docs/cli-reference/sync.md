@@ -42,6 +42,7 @@ agnostic-ai sync --only claude,cursor
 <a id="against-details"></a>
 {% <details summary="What --against compares"> %}
 - Only outputs Git tracks are compared.
+- Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/configuration.md#syncshared-skills).
 - A tracked output that no spec produces fails as a leftover to delete. That covers a file with the generated header, and any file the previous state wrote that still holds what it wrote. The previous state is `HEAD` for `index` and the first parent for `HEAD`.
 - A file edited since is left alone.
 - A run narrowed with `-t`, `--only`, or `--except` skips the leftover comparison.

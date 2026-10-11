@@ -87,6 +87,8 @@ Failed project checks include the installed command's error message. See [projec
 
 Checks against the Git index or a commit are faster on large projects that share skill folders.
 
+Checks against Git also diagnose shared skill links checked out as plain files. See [shared skill checkout policy](https://agnostic-ai.org/docs/configuration/#syncshared-skills).
+
 On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
 
 ## What you can share
