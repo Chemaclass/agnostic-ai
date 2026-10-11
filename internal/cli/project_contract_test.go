@@ -1,11 +1,15 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -157,5 +161,68 @@ func TestProjectContract_AgainstChecksNestedPackage(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "package.json pins agnostic-ai to 0.82.0") {
 			t.Errorf("nested %s package pin was not checked: %v", ref, err)
 		}
+	}
+}
+
+func TestProjectProbe_PreservesContextFailure(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=^TestProjectProbeExitHelper$")
+	cmd.Env = append(os.Environ(), "AGNOSTIC_AI_PROJECT_PROBE_EXIT_HELPER=1")
+	processErr := cmd.Run()
+	var exitErr *exec.ExitError
+	if !errors.As(processErr, &exitErr) {
+		t.Fatalf("helper error = %v, want ExitError", processErr)
+	}
+	deadline, stopDeadline := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer stopDeadline()
+	canceled, stopCanceled := context.WithCancel(context.Background())
+	stopCanceled()
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"deadline", deadline, context.DeadlineExceeded},
+		{"cancellation", canceled, context.Canceled},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := projectProbeError(tc.ctx, processErr)
+			if !errors.Is(got, tc.want) {
+				t.Errorf("probe lost %v classification", tc.want)
+			}
+			if !errors.Is(got, processErr) {
+				t.Error("probe lost original process error")
+			}
+			var originalExit *exec.ExitError
+			if !errors.As(got, &originalExit) || originalExit != exitErr {
+				t.Error("probe lost original ExitError type")
+			}
+			capability := &projectCapabilityError{selected: "project-binary", err: got}
+			if message := capability.Error(); !strings.Contains(message, tc.want.Error()) || strings.Contains(message, "does not support") || strings.Contains(message, "upgrade") {
+				t.Errorf("capability context failure misclassified: %s", message)
+			}
+		})
+	}
+	if got := projectProbeError(context.Background(), processErr); got != processErr {
+		t.Error("live context changed original process error")
+	}
+	if got := projectProbeError(deadline, nil); got != nil {
+		t.Error("successful probe became a deadline error after completion")
+	}
+	capability := &projectCapabilityError{selected: "project-binary", err: errors.Join(context.DeadlineExceeded, processErr)}
+	if message := capability.Error(); !strings.Contains(message, "deadline") || strings.Contains(message, "does not support") || strings.Contains(message, "upgrade") {
+		t.Errorf("capability deadline misclassified: %s", message)
+	}
+	if !errors.Is(capability, context.DeadlineExceeded) || !errors.Is(capability, processErr) {
+		t.Error("capability deadline lost underlying errors")
+	}
+	genuine := &projectCapabilityError{selected: "project-binary", err: processErr}
+	if message := genuine.Error(); !strings.Contains(message, "does not support") || !strings.Contains(message, "upgrade") {
+		t.Errorf("genuine capability failure changed: %s", message)
+	}
+}
+
+func TestProjectProbeExitHelper(t *testing.T) {
+	if os.Getenv("AGNOSTIC_AI_PROJECT_PROBE_EXIT_HELPER") == "1" {
+		os.Exit(1)
 	}
 }

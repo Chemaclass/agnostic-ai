@@ -280,7 +280,7 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 	probe.WaitDelay = 250 * time.Millisecond
 	var output projectProbeOutput
 	probe.Stdout, probe.Stderr = &output, io.Discard
-	err = probe.Run()
+	err = projectProbeError(ctx, probe.Run())
 	if err != nil {
 		return projectBinary{}, fmt.Errorf("project binary %s cannot report its version; run `agnostic-ai project --bootstrap`: %w", selected, err)
 	}
@@ -308,10 +308,17 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 	capability.Dir, capability.Stdout, capability.Stderr = root, io.Discard, io.Discard
 	capability.Env = append(os.Environ(), envNoUpdateCheck+"=1")
 	capability.WaitDelay = 250 * time.Millisecond
-	if err := capability.Run(); err != nil {
+	if err := projectProbeError(ctx, capability.Run()); err != nil {
 		return projectBinary{}, &projectCapabilityError{selected: selected, err: err}
 	}
 	return binary, nil
+}
+
+func projectProbeError(ctx context.Context, err error) error {
+	if err != nil && ctx.Err() != nil {
+		return errors.Join(err, ctx.Err())
+	}
+	return err
 }
 
 type projectCapabilityError struct {
@@ -320,6 +327,9 @@ type projectCapabilityError struct {
 }
 
 func (e *projectCapabilityError) Error() string {
+	if errors.Is(e.err, context.DeadlineExceeded) || errors.Is(e.err, context.Canceled) {
+		return fmt.Sprintf("project binary %s could not complete the project command check: %v", e.selected, e.err)
+	}
 	return fmt.Sprintf("project binary %s does not support the project command; upgrade its owning package to a supporting release and update package.json and requires explicitly, then rerun (no global fallback): %v", e.selected, e.err)
 }
 
