@@ -81,6 +81,8 @@ Before using `import --overwrite`, review `import --dry-run --diff`. Body blocks
 
 Configuration previews and diffs hide credential values. See [credential previews](https://agnostic-ai.org/docs/cli-reference/sync/#credential-previews) for their scope.
 
+Failed project checks include the installed command's error message. See [project checks](https://agnostic-ai.org/docs/cli-reference/maintain/#project) for time and output limits.
+
 `explain --file` supports Claude Code, Codex, and Cursor. It shows source specs, planned output paths, and why instructions apply. See [file instructions](https://agnostic-ai.org/docs/cli-reference/inspect/#explain-a-source-file).
 
 On a fresh clone, `sync --check` uses Git history to identify old generated files. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for what it keeps and how to remove them.
