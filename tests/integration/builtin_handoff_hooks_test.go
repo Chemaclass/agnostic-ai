@@ -3,7 +3,6 @@ package integration
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,18 +73,15 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 		return handoffReadHandlers(t, dir)
 	}
 
-	t.Run("claude-windows-command-transport", func(t *testing.T) {
-		if runtime.GOOS != "windows" {
-			t.Skip("native Go-to-Git-Bash command transport probe")
+	t.Run("claude-command-source-and-native-input", func(t *testing.T) {
+		payload := `{"cwd":"C:\\checkout\\雪"}`
+		handler := handoffNativeHandler{Command: `IFS= read -r payload
+printf '%s\n' "$payload"
+awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
+		out := handoffExecute(t, "claude", handler, t.TempDir(), payload+"\n", "", "")
+		if want := payload + "\n\\u\nmatched\n"; out != want {
+			t.Errorf("command source or native input changed: got %q, want %q", out, want)
 		}
-		t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
-		main := t.TempDir()
-		handoffWrite(t, filepath.Join(main, "agnostic-ai.yaml"), fixture)
-		handoffInitGit(t, main)
-		active := filepath.Join(t.TempDir(), "active checkout")
-		handoffGit(t, main, "worktree", "add", "-b", "transport-worktree", active)
-		handoffWrite(t, filepath.Join(active, "tracked.txt"), "transport dirty change\n")
-		handoffWindowsTransportProbe(t, syncHooks(t, main)["claude"]["PreCompact"], main, active)
 	})
 
 	t.Run("claude-native-worktree-directory", func(t *testing.T) {
@@ -866,144 +862,6 @@ func handoffAssertTransport(t *testing.T, command string) string {
 	return body
 }
 
-func handoffWindowsTransportProbe(t *testing.T, h handoffNativeHandler, main, active string) {
-	t.Helper()
-	git, err := exec.LookPath("git")
-	if err != nil {
-		t.Fatal(err)
-	}
-	root := filepath.Dir(filepath.Dir(git))
-	if strings.HasPrefix(strings.ToLower(filepath.Base(root)), "mingw") {
-		root = filepath.Dir(root)
-	}
-	bash := filepath.Join(root, "usr", "bin", "bash.exe")
-	if _, err := os.Stat(bash); err != nil {
-		t.Fatalf("native transport probe Git Bash: %v", err)
-	}
-	if h.Env["AGNOSTIC_AI_TARGET"] != "claude" {
-		t.Fatal("native transport probe requires emitted Claude target environment")
-	}
-	for name, value := range h.Env {
-		t.Setenv(name, value)
-	}
-	t.Setenv("PATH", strings.Join([]string{filepath.Dir(bash), filepath.Join(root, "bin"), os.Getenv("PATH")}, string(os.PathListSeparator)))
-	t.Setenv("CLAUDE_PROJECT_DIR", main)
-	probe := t.TempDir()
-	startup := filepath.Join(probe, "startup.sh")
-	script := filepath.Join(probe, "emitted-command.sh")
-	handoffWrite(t, script, h.Command)
-	handoffWrite(t, startup, `printf '%s' "${BASH_EXECUTION_STRING-}" > "$HANDOFF_PROBE_COMMAND"
-printf '%s\n' "${BASH_EXECUTION_STRING+x}" > "$HANDOFF_PROBE_PRESENT"
-printf '%s\n' "$BASH_VERSION" > "$HANDOFF_PROBE_VERSION"
-: > "$HANDOFF_PROBE_AWK_ERROR"
-awk() { command awk "$@" 2>> "$HANDOFF_PROBE_AWK_ERROR"; }
-unset BASH_ENV
-exec 3> "$HANDOFF_PROBE_TRACE"
-BASH_XTRACEFD=3
-PS4='+${LINENO}: '
-set -x
-`)
-	t.Setenv("BASH_ENV", filepath.ToSlash(startup))
-	input, err := json.Marshal(map[string]string{"cwd": active, "hook_event_name": "PreCompact"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	input = append(input, '\n')
-	t.Logf("transport probe shell=%q cwd=%q input=%q commandBytes=%d commandSHA256=%x", bash, main, input, len(h.Command), sha256.Sum256([]byte(h.Command)))
-	clip := func(value string, limit int) string {
-		if len(value) <= limit {
-			return value
-		}
-		return fmt.Sprintf("[omitted %d leading bytes]\n%s", len(value)-limit, value[len(value)-limit:])
-	}
-	readDiagnostic := func(path string) []byte {
-		f, err := os.Open(path)
-		if err != nil {
-			t.Errorf("transport probe diagnostic %s: %v", path, err)
-			return nil
-		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				t.Errorf("close diagnostic %s: %v", path, err)
-			}
-		}()
-		body, err := io.ReadAll(io.LimitReader(f, 65537))
-		if err != nil {
-			t.Errorf("transport probe read %s: %v", path, err)
-		}
-		if len(body) > 65536 {
-			t.Errorf("transport probe diagnostic exceeds 64 KiB: %s", path)
-			body = body[:65536]
-		}
-		return body
-	}
-	for _, mode := range []string{"direct-command", "identical-script-control"} {
-		captured := filepath.Join(probe, mode+".command")
-		present := filepath.Join(probe, mode+".present")
-		version := filepath.Join(probe, mode+".version")
-		trace := filepath.Join(probe, mode+".trace")
-		awkError := filepath.Join(probe, mode+".awk-error")
-		t.Setenv("HANDOFF_PROBE_COMMAND", filepath.ToSlash(captured))
-		t.Setenv("HANDOFF_PROBE_PRESENT", filepath.ToSlash(present))
-		t.Setenv("HANDOFF_PROBE_VERSION", filepath.ToSlash(version))
-		t.Setenv("HANDOFF_PROBE_TRACE", filepath.ToSlash(trace))
-		t.Setenv("HANDOFF_PROBE_AWK_ERROR", filepath.ToSlash(awkError))
-		handoffWrite(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.auto.md"), "MAIN_TRANSPORT_SENTINEL\n")
-		handoffWrite(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.auto.md"), "ACTIVE_TRANSPORT_SENTINEL\n")
-		args := []string{"-c", h.Command}
-		if mode == "identical-script-control" {
-			args = []string{filepath.ToSlash(script)}
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		cmd := exec.CommandContext(ctx, bash, args...)
-		cmd.Dir = main
-		cmd.Env = os.Environ()
-		cmd.Stdin = bytes.NewReader(input)
-		cmd.WaitDelay = time.Second
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		started := time.Now()
-		runErr := cmd.Run()
-		elapsed := time.Since(started)
-		cancel()
-		received := readDiagnostic(captured)
-		available := strings.TrimSpace(string(readDiagnostic(present))) == "x"
-		t.Logf("%s: elapsed=%s error=%v bash=%q captureAvailable=%t receivedBytes=%d receivedSHA256=%x stdout=%q stderr=%q", mode, elapsed, runErr, readDiagnostic(version), available, len(received), sha256.Sum256(received), clip(stdout.String(), 2048), clip(stderr.String(), 2048))
-		t.Logf("%s trace tail:\n%s", mode, clip(string(readDiagnostic(trace)), 12288))
-		t.Logf("%s awk stderr: %q", mode, clip(string(readDiagnostic(awkError)), 2048))
-		if mode == "direct-command" {
-			if !available {
-				t.Error("BASH_EXECUTION_STRING was unavailable during startup; command corruption is not established")
-			} else if string(received) != h.Command {
-				offset := 0
-				for offset < len(received) && offset < len(h.Command) && received[offset] == h.Command[offset] {
-					offset++
-				}
-				start := max(0, offset-80)
-				t.Errorf("direct command changed at byte %d: expected=%q received=%q", offset, h.Command[start:min(len(h.Command), offset+160)], received[start:min(len(received), offset+160)])
-			}
-		}
-		if runErr != nil {
-			t.Errorf("%s failed: %v", mode, runErr)
-		}
-		if stderr.Len() != 0 {
-			t.Errorf("%s produced stderr: %q", mode, clip(stderr.String(), 2048))
-		}
-		if strings.TrimSpace(stdout.String()) != "{}" {
-			t.Errorf("%s reply = %q, want {}", mode, clip(stdout.String(), 2048))
-		}
-		if got := handoffRead(t, filepath.Join(main, ".agnostic-ai/local/HANDOFF.auto.md")); got != "MAIN_TRANSPORT_SENTINEL\n" {
-			t.Errorf("%s changed the main checkout: %q", mode, clip(got, 2048))
-		}
-		snapshot := handoffRead(t, filepath.Join(active, ".agnostic-ai/local/HANDOFF.auto.md"))
-		for _, want := range []string{"# Automatic handoff", "tool: claude", "branch: transport-worktree", " M tracked.txt"} {
-			if !strings.Contains(snapshot, want) {
-				t.Errorf("%s selected snapshot missing %q: %q", mode, want, clip(snapshot, 2048))
-			}
-		}
-	}
-}
-
 func handoffExecute(t *testing.T, target string, h handoffNativeHandler, dir, stdin, inherited, shimDir string) string {
 	t.Helper()
 	return handoffExecuteInput(t, target, h, dir, strings.NewReader(stdin), inherited, shimDir)
@@ -1041,6 +899,12 @@ func handoffExecuteInput(t *testing.T, target string, h handoffNativeHandler, di
 			shell, args = "powershell.exe", []string{"-NoProfile", "-NonInteractive", "-Command", command}
 		} else {
 			shell = bash
+			if target == "claude" {
+				// Native Go/MSYS argument quoting drops backslashes in the emitted command.
+				script := filepath.Join(t.TempDir(), "claude-handoff.sh")
+				handoffWrite(t, script, h.Command)
+				args = []string{filepath.ToSlash(script)}
+			}
 		}
 	}
 	pathParts = append(pathParts, os.Getenv("PATH"))

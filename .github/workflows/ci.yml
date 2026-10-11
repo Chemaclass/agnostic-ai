@@ -10,11 +10,6 @@ on:
     # cron jobs that every project schedules on the hour.
     - cron: "17 4 * * *"
   workflow_dispatch:
-    inputs:
-      windows_handoff_probe:
-        description: Run the temporary native Windows handoff transport probe
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -41,11 +36,11 @@ jobs:
   # matrix on the release commit before tagging, and dispatch it on a branch
   # that touches paths, file watching, or renames.
   test:
-    name: ${{ inputs.windows_handoff_probe && 'Windows handoff transport probe' || 'Test' }}
+    name: Test
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ inputs.windows_handoff_probe && fromJSON('["windows-latest"]') || (github.event_name == 'pull_request' || github.event_name == 'push') && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
+        os: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -65,13 +60,7 @@ jobs:
         shell: bash
         env:
           TEST_TIMEOUT: ${{ matrix.os == 'windows-latest' && '15m' || '10m' }}
-          WINDOWS_HANDOFF_PROBE: ${{ inputs.windows_handoff_probe }}
-        run: |
-          if [ "$WINDOWS_HANDOFF_PROBE" = true ]; then
-            go test ./tests/integration -run '^TestBuiltinHandoffHooks$/^claude-windows-command-transport$' -count=1 -timeout=5m -v
-          else
-            go test -timeout="$TEST_TIMEOUT" -race -coverprofile=coverage.out -covermode=atomic ./...
-          fi
+        run: go test -timeout="$TEST_TIMEOUT" -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
