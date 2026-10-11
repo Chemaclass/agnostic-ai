@@ -57,7 +57,7 @@ Before every push, all green. Check each command by its own exit code; a pipe su
 
 Commit with conventional commits, GPG-signed, no AI attribution or session links. Push.
 
-PR checks run Go tests on Linux only. When the PR touches paths, renames, permissions, file watching, or import, run the full OS matrix on the branch (`gh workflow run ci.yml --ref <branch>`) and wait for it on the head SHA before merging.
+PR checks run Go tests on Linux only. When the PR touches paths, renames, permissions, file watching, or import, dispatch cross-platform checks on the branch (`gh workflow run ci.yml --ref <branch>`) and wait for them on the head SHA before merging. Windows runs a focused smoke check with a seven-minute job limit. The full Windows Go race suite is optional and manual only: add `-f full_windows=true` for a ten-minute job limit.
 
 ## 6. Merge
 
@@ -68,7 +68,7 @@ For each PR, oldest first, or the one that changes shared files (`sources.lock`,
 3. `gh pr merge <N> --squash --admin --delete-branch`. If `--admin` is rejected, use `--auto --squash --delete-branch` and report that the PR awaits approval.
 4. Fast-forward local `main` from `origin/main` and delete the local branch. Stop if `main` has unpublished commits; never reset them away.
 
-PR Go tests run on Linux only. After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed, Windows included. A red main is the first thing to fix.
+After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed. Main pushes run Go tests on Linux. A red main is the first thing to fix.
 
 ## 7. Report
 
