@@ -102,6 +102,7 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 	tb.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	stagedCheckGit(tb, root, "init", "-q")
 	stagedCheckGit(tb, root, "config", "core.autocrlf", "false")
+	stagedCheckGit(tb, root, "config", "core.symlinks", "true")
 	writeBenchFile(tb, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
 	writeBenchFile(tb, filepath.Join(root, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Benchmark project\n\nRead the nearest scoped instructions before editing.\n")
 	for i := 0; i < specs/2; i++ {
@@ -124,6 +125,7 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 	}
 	stagedCheckGit(tb, root, "add", "-A")
 	stagedCheckGit(tb, root, "ls-files", "--error-unmatch", ".claude/rules/rule-0000.md")
+	checkStagedCheckSkillLink(tb, root)
 	tracked := strings.Count(stagedCheckGit(tb, root, "ls-files", "-z"), "\x00")
 	if tracked > files {
 		tb.Fatalf("fixture has %d tracked files, exceeding requested %d", tracked, files)
@@ -136,6 +138,53 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 		tb.Fatalf("fixture tracked files: got %d, want %d", got, files)
 	}
 	stagedCheckGit(tb, root, "-c", "user.name=benchmark", "-c", "user.email=benchmark@localhost", "-c", "commit.gpgsign=false", "-c", "core.hooksPath="+os.DevNull, "commit", "-q", "--no-verify", "-m", "benchmark baseline")
+}
+
+func checkStagedCheckSkillLink(tb testing.TB, root string) {
+	tb.Helper()
+	policy := strings.TrimSpace(stagedCheckGit(tb, root, "config", "--local", "--get", "core.symlinks"))
+	if policy != "true" {
+		tb.Fatalf("fixture Git core.symlinks = %q, want true", policy)
+	}
+	link := ".claude/skills/skill-0000"
+	info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(link)))
+	if err != nil {
+		tb.Fatalf("shared skill fixture %s: %v", link, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		for _, rel := range []string{"SKILL.md", "assets/example.md"} {
+			if _, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(link), filepath.FromSlash(rel))); err != nil {
+				tb.Fatalf("shared skill copy %s/%s: %v", link, rel, err)
+			}
+		}
+		tb.Logf("fixture Git core.symlinks=%s; %s uses the real-copy fallback", policy, link)
+		return
+	}
+	target, err := os.Readlink(filepath.Join(root, filepath.FromSlash(link)))
+	if err != nil {
+		tb.Fatalf("read shared skill link %s: %v", link, err)
+	}
+	entry := strings.TrimSpace(stagedCheckGit(tb, root, "ls-files", "--stage", "--", link))
+	if !strings.HasPrefix(entry, "120000 ") || !strings.HasSuffix(entry, "\t"+link) {
+		tb.Fatalf("shared skill Git entry must be one symlink: %q", entry)
+	}
+	canonical := filepath.ToSlash(filepath.Clean(filepath.Join(filepath.Dir(filepath.FromSlash(link)), target)))
+	if canonical != ".agents/skills/skill-0000" {
+		tb.Fatalf("shared skill link %s points to %q, want .agents/skills/skill-0000", link, target)
+	}
+	probe := tb.TempDir()
+	stagedCheckGit(tb, root, "checkout-index", "--force", "--prefix="+probe+string(filepath.Separator), "--",
+		canonical+"/SKILL.md", canonical+"/assets/example.md", link)
+	got, err := os.Readlink(filepath.Join(probe, filepath.FromSlash(link)))
+	if err != nil || filepath.Clean(got) != filepath.Clean(target) {
+		tb.Fatalf("Git checkout link %s = %q, %v; want %q", link, got, err, target)
+	}
+	for _, rel := range []string{"SKILL.md", "assets/example.md"} {
+		if _, err := os.ReadFile(filepath.Join(probe, filepath.FromSlash(link), filepath.FromSlash(rel))); err != nil {
+			tb.Fatalf("Git checkout shared skill %s/%s: %v", link, rel, err)
+		}
+	}
+	tb.Logf("fixture Git core.symlinks=%s; %s mode=120000 target=%q; Git checkout restored the link and its files", policy, link, target)
 }
 
 func applyStagedCheckCase(tb testing.TB, root, scenario string) {

@@ -131,6 +131,8 @@ the emit call in `emitTargetsConcurrent` (`internal/cli/sync_run.go`).
 
 `BenchmarkSyncCheckAgainstIndex` measures the production `sync --check --against index` command in process, including its Git subprocesses and scratch-tree work. Setup is excluded. Each fixture has exactly 23,000 tracked baseline files, three targets (Claude Code, Codex and Cursor), scoped rules, shared skills and one asset per skill. The 100- and 500-spec cases count rules plus skills, split equally, rather than N copies of each spec kind. Source files span roughly 1,100 package directories so previous-state directory discovery has representative work.
 
+Fixture setup sets repository-local `core.autocrlf=false` and `core.symlinks=true` on every operating system. This lets Git export the shared-skill links as links, including on Windows. Before timing, setup records the Git setting and checks one linked skill's staged mode and target, then uses `checkout-index` outside the fixture to verify Git restores the link and its body/assets. If sync cannot create symlinks, its real-copy fallback remains valid and all controls still run. No global Git setting changes.
+
 Land the harness before changing the implementation. Measure the merged current-main revision first, record its commit and Go version, and use the same machine and fixture method for the later change. Keep raw samples and rerun anomalous results. No latency threshold decides whether a run passes.
 
 ```sh
