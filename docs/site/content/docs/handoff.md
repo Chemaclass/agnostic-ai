@@ -83,7 +83,9 @@ The snapshot goes to `.agnostic-ai/local/HANDOFF.auto.md`. It holds the tool, da
 
 When a new session starts and a handoff file exists, the tool shows a notice suggesting you resume. Nothing resumes until you ask.
 
-The hooks need `sh` and Git. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
+Claude hooks use the native event's `cwd`, including linked worktrees, even when the hook process runs in the main checkout. Config discovery stays inside the selected checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
+
+Claude hooks need Bash and `awk`; the other hooks need `sh`. All need Git. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
 
 Each tool's own hook settings still apply: approve Codex hooks with `/hooks`, and approve Gemini project hooks when asked. A tool may stop before the snapshot finishes when it exits or compacts.
 
