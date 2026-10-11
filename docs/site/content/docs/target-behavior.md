@@ -54,6 +54,8 @@ The next full sync removes a rule file it no longer writes, edited or not, if it
 
 Some settings files also hold your own keys, such as `.gemini/settings.json`, `.claude/settings.json`, `.cursor/cli.json`, `opencode.json`, or Aider's `.aider.conf.yml`. Sync merges its keys into them and records which keys it set.
 
+OpenCode V2 MCP imports retain the native `mcp.servers` configuration in a target-specific settings spec. Sync records ownership per server and keeps servers and defaults added by hand. Portable MCP specs cannot claim the same OpenCode configuration alongside native settings.
+
 - In a permission list you share with it, sync tracks only the rules it added.
 - MCP servers merge by name. Servers you add stay. A server whose spec goes away is removed. A spec server with the same name as one of yours replaces it, with a note.
 - Once no spec writes the file, or its tool leaves `targets`, sync and `doctor --fix` remove only what they added. The file is deleted only when sync created it and nothing else is left.
