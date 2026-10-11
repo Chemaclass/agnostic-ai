@@ -30,17 +30,9 @@
 // store under `permission.external_directory`, since OpenCode asks
 // before a tool touches a path outside the project.
 //
-// Hooks are the one surface here that is codegen rather than a config
-// key. opencode.ai/docs/plugins documents `.opencode/plugins/` as a
-// project-level plugin directory whose JavaScript and TypeScript files
-// load at startup, so each hook spec emits one `<name>.ts` module
-// exporting a plugin function that returns the hook object. PreToolUse
-// and PostToolUse map onto the `tool.execute.before` and
-// `tool.execute.after` keys; every other documented event rides the
-// single `event` hook with an `event.type` guard. The command runs
-// through Bun's injected `$` helper. The generated module is one-way:
-// `import opencode` does not read `.opencode/plugins/` back, since
-// recovering a spec would mean parsing TypeScript.
+// Hooks emit V1 plugin functions by default. A hook selects native V2
+// tool callbacks with x-opencode.plugin-api: v2. Plugin code cannot be
+// imported back into specs.
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters
 // separated by single hyphens, per opencode.ai/docs/skills. Invalid
@@ -153,6 +145,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err
 	}
+	hooks, err := prepareHooks(b.Hooks)
+	if err != nil {
+		return err
+	}
 	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {
 		return err
 	}
@@ -164,7 +160,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitHooks(sess, b.Hooks, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
+	if err := hooks.emit(sess, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

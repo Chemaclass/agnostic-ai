@@ -186,7 +186,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 Hooks reach eight tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, and Copilot. The other tools have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
-- Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones.
+- Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones. OpenCode defaults to V1; each hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux. On Windows, V2 refuses matching callbacks; use OpenCode V1 with the default V1 hooks.
 - Cline hooks are project-level only.
 
 An unsupported feature, such as a hook for a tool without hooks, is skipped with a warning by default. Change that with `on-unsupported` in [configuration](@/docs/configuration.md).

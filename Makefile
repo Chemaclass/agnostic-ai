@@ -1,4 +1,4 @@
-.PHONY: build test test-race ci-local test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -99,6 +99,7 @@ preflight: fmt-check lint test
 #
 # Each line is the local equivalent of one job, in the workflow's own order.
 ci-local: fmt-check test-race build lint
+	$(MAKE) opencode-hooks-test
 	GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
 	go run ./cmd/schemagen
 	git diff --exit-code docs/schemas/config.schema.json
@@ -226,3 +227,7 @@ playground-serve: site-build playground-build
 
 playground-clean:
 	rm -f $(PLAYGROUND_DIR)/agnostic-ai.wasm $(PLAYGROUND_DIR)/wasm_exec.js
+
+opencode-hooks-test:
+	cd tests/vendor/opencode && npm ci --ignore-scripts --no-audit --no-fund
+	node tests/vendor/opencode/prepare.mjs

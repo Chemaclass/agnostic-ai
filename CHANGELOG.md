@@ -19,6 +19,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Import V2 MCP configuration without losing servers, disabled states or separate timeouts; keep servers added by hand (#2063).
+- Run native V2 tool checks on macOS and Linux with `x-opencode.plugin-api: v2`, with blocking, timeouts and cleanup; Windows requires OpenCode V1 (#2062).
 - Keep manual-only skill flags and native invocation metadata through sync and import; V2 honors the policy (#2064).
 
 #### Copilot
