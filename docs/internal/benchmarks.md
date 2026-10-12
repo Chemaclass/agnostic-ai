@@ -7,7 +7,7 @@ Measure sync performance before and after changing code that runs frequently. Th
 Most benchmarks live in `internal/cli/bench_test.go`, in the same package so they can
 call the unexported sync internals directly. `BenchmarkCompareToDisk` lives
 in `internal/adapters/internal/emit` beside the compare helper it measures.
-Fixtures use `testing` only, no external dependencies.
+Test projects (fixtures) use Go's `testing` package only, with no external dependencies.
 
 ## Run
 
@@ -76,7 +76,7 @@ BenchmarkSyncEmit/specs=100-14   26   45589017 ns/op   80354676 B/op   317246 al
   `b.ReportAllocs()`.
 - `specs=N`: the spec-count parameter. Each fixture holds N rules, N
   agents, and N skills plus a fixed handful of hooks, MCPs, and commands.
-  The suite sweeps 10, 100, and 500. The end-to-end `BenchmarkSyncFull`
+  The suite tests sizes of 10, 100, and 500. The end-to-end `BenchmarkSyncFull`
   stops at 100 to limit disk writes.
 
 Every benchmark builds its fixture, then calls `b.ResetTimer()` so setup
@@ -98,7 +98,7 @@ closes: future runtime or compiler changes can re-measure it cheaply.
 
 ## Profiling a slow sync
 
-The benchmark suite measures frequently run code in this repository. To diagnose a slow `sync` in another project, such as a large repository or a particular adapter, use these two optional tools without setting up benchmarks.
+Use the benchmark suite to measure frequently run code in this repository. To diagnose a slow `sync` in another project, such as a large repository or a particular adapter, use these two optional tools without setting up benchmarks.
 
 `--profile <file>` (or `AGNOSTIC_AI_PROFILE=<file>`) writes a
 `runtime/pprof` CPU profile of the whole run. It uses the Go standard-library profiler
@@ -129,11 +129,11 @@ the emit call in `emitTargetsConcurrent` (`internal/cli/sync_run.go`).
 
 ## Staged checks in a large repository
 
-`BenchmarkSyncCheckAgainstIndex` measures the production `sync --check --against index` command in process, including its Git subprocesses and scratch-tree work. Setup is excluded. Each fixture has exactly 23,000 tracked baseline files, three targets (Claude Code, Codex and Cursor), scoped rules, shared skills and one asset per skill. The 100- and 500-spec cases count rules plus skills, split equally, rather than N copies of each spec kind. Source files span roughly 1,100 package directories so previous-state directory discovery has representative work.
+`BenchmarkSyncCheckAgainstIndex` measures the production `sync --check --against index` command in process, including the Git commands it starts and work in temporary checkouts. Setup is excluded. Each fixture has exactly 23,000 tracked baseline files, three targets (Claude Code, Codex and Cursor), scoped rules, shared skills and one asset per skill. The 100- and 500-spec cases count rules plus skills, split equally, rather than N copies of each spec kind. Source files span roughly 1,100 package directories so previous-state directory discovery has representative work.
 
 Fixture setup sets repository-local `core.autocrlf=false` and `core.symlinks=true` on every operating system. This lets Git export the shared-skill links as links, including on Windows. Before timing, setup records the Git setting and checks one linked skill's staged mode and target, then uses `checkout-index` outside the fixture to verify Git restores the link and its body/assets. If sync cannot create symlinks, its real-copy fallback remains valid and all controls still run. No global Git setting changes.
 
-Land the harness before changing the implementation. Measure the merged current-main revision first, record its commit and Go version, and use the same machine and fixture method for the later change. Keep raw samples and rerun anomalous results. No latency threshold decides whether a run passes.
+Merge the benchmark setup before changing the implementation. Measure the merged current-main revision first, record its commit and Go version, and use the same machine and fixture method for the later change. Keep raw samples and rerun anomalous results. No latency threshold decides whether a run passes.
 
 ```sh
 go test ./internal/cli -run '^TestStagedCheckBenchmarkControls$' -count=1
@@ -151,7 +151,7 @@ Six controls run at both sizes:
 | deleted-output | One generated rule removed from the index but left on disk | Fail |
 | deleted-spec | One source rule removed while its generated output remains tracked | Fail, history-based leftover detection retained |
 
-The small regular test runs these controls without building the large fixture, verifies the expected result, and checks unchanged index and working-tree status. Every expected failure must report drift, including each large-fixture benchmark iteration. Git or filesystem errors fail the harness rather than becoming timing samples. Fixture setup verifies that the generated rule used by the deleted-output control is tracked. No agent tools, servers or package installation run.
+The small regular test runs these controls without building the large fixture, verifies the expected result, and checks unchanged index and working-tree status. Every expected failure must report output that differs from the specs, including each large-fixture benchmark iteration. Git or filesystem errors fail the benchmark rather than becoming timing samples. Fixture setup verifies that the generated rule used by the deleted-output control is tracked. No agent tools, servers or package installation run.
 
 For built-binary measurements or CPU profiles, export one fixture into a new empty absolute directory. The export test is skipped unless explicitly requested:
 

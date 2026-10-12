@@ -12,6 +12,18 @@ target_id = "windsurf"
 
 Windsurf became Devin Desktop (2026-06). The tool keeps its `windsurf` name, so existing `outputs.windsurf.*` keys and `x-windsurf` meta still work.
 
+## Set up this tool
+
+Add `windsurf` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import windsurf`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -28,11 +40,11 @@ AGENTS.md                            # shared pointer body, plus the rules block
 ```
 
 - **Rules**: Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurfrules` is legacy). Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync removes the files it wrote there earlier and leaves hand-written files alone.
-- **Entry point**: Devin also reads the root `AGENTS.md`, so `sync` writes the shared pointer body there.
+- **Entry point**: Devin also reads the root `AGENTS.md`, so `sync` writes the shared instructions that point to source specs there.
   - When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, Devin loads each always-on rule twice, because every rule also keeps its `.devin/rules/` file.
   - Legacy Cascade [limits](https://docs.devin.ai/desktop/cascade/memories#rules) each workspace rule file to 12,000 characters and reads `AGENTS.md` the same way. The [Devin CLI rules reference](https://docs.devin.ai/cli/extensibility/rules) gives no size limit. Sync keeps the per-rule files for compatibility. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 - **Agents**: custom subagent profiles ([subagents docs](https://docs.devin.ai/cli/subagents)) with `name`, `description`, `model`, `allowed-tools`, and `max-nesting`. The body is the system prompt. A scoped agent is written flat, because Devin looks in sub-folders for rules only.
-  - `allowed-tools` maps Claude-style names to Devin's ([permissions reference](https://docs.devin.ai/cli/reference/permissions), [CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)): `Read`/`Grep`/`Glob`/`Bash` to `read`/`grep`/`glob`/`exec`, and `Write`/`Edit` to `write`/`edit`. `write` needs Devin CLI v3000.11.1 or later. `mcp__<server>__<tool>` is copied as written. Anything else is dropped with a coverage note.
+  - `allowed-tools` maps Claude-style names to Devin's ([permissions reference](https://docs.devin.ai/cli/reference/permissions), [CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)): `Read`/`Grep`/`Glob`/`Bash` to `read`/`grep`/`glob`/`exec`, and `Write`/`Edit` to `write`/`edit`. `write` needs Devin CLI v3000.11.1 or later. `mcp__<server>__<tool>` is copied as written. Anything else is dropped with a sync note.
   - **Devin also reads `.agents/agents/`**, flat `<name>.md` and nested `<name>/agent.md`. Profiles written for Antigravity, Goose, or OpenHands can therefore appear in Devin without `allowed-tools` restrictions, even when their specs exclude `windsurf`. A matching `.devin/agents/` profile can also produce a duplicate name. Check the discovered profiles; see [target behavior](@/docs/target-behavior.md#spec-kind-behavior).
   - `x-windsurf.allowed-tools` writes Devin's names directly. `x-windsurf.max-nesting` sets nesting, which has no portable field. `model` is copied as written.
   - Devin marks custom subagents as experimental, so the format may change.
@@ -56,20 +68,20 @@ AGENTS.md                            # shared pointer body, plus the rules block
 - **MCP**: servers are merged into `.devin/mcp_config.json` under `mcpServers`, which [Devin Local](https://docs.devin.ai/desktop/devin-local) reads for project scope. Cascade, with its own MCP file, was removed in Devin Desktop v3.9.19 ([changelog](https://docs.devin.ai/desktop/changelog.md), [Cascade MCP page](https://docs.devin.ai/desktop/cascade/mcp)).
   - [The schema](https://docs.devin.ai/cli/extensibility/mcp/configuration) uses `command`/`args`/`env` for stdio and `url`/`transport` (`http` or `sse`)/`headers`/`oauthClientId`/`oauthClientSecret`/`oauthResource` for remote. The key is `transport`, not `type`, so this tool has its own format.
   - Both accept `disabled`, also toggled by `devin mcp enable|disable` (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)).
-  - A `type: ws` spec writes no server and gets a coverage note. Devin remote servers use only `http` and `sse`.
+  - A `type: ws` spec writes no server and gets a sync note. Devin remote servers use only `http` and `sse`.
   - Cascade's personal file `~/.codeium/windsurf/mcp_config.json` is not written, since agnostic-ai writes project files only.
 - **Hooks**: hooks are merged into `.devin/hooks.v1.json` ([hooks docs](https://docs.devin.ai/cli/extensibility/hooks/overview)). Eight events: `PreToolUse`, `PostToolUse`, `PermissionRequest`, `UserPromptSubmit`, `Stop`, `PostCompaction`, `SessionStart`, `SessionEnd`.
   - The file is the hooks object, `{"<Event>": [...]}`, with no `hooks` wrapper (unlike Claude Code, Codex, Gemini, and Qoder).
   - Per entry: `type`, `command`, and optional `timeout` (seconds). `type` is `"command"`, or `"prompt"` for an LLM prompt. A hook spec gets `"prompt"` only through a hand-written `type`/`prompt` Meta pair.
-  - `matcher` is a regex on `tool_name` for `PreToolUse`, `PostToolUse`, and `PermissionRequest`. **Devin CLI names tools in lowercase snake_case** (`exec`, `edit`, `read`, `write`, `apply_patch`, `grep`, `glob`, `webfetch`, ...), so a Claude-style matcher matches nothing. Sync adds a coverage note and does not rename it.
+  - `matcher` is a regex on `tool_name` for `PreToolUse`, `PostToolUse`, and `PermissionRequest`. **Devin CLI names tools in lowercase snake_case** (`exec`, `edit`, `read`, `write`, `apply_patch`, `grep`, `glob`, `webfetch`, ...), so a Claude-style matcher matches nothing. Sync adds a sync note and does not rename it.
   - [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Devin CLI's event data on an [assumed shell, working directory, and timeout](@/docs/spec-format/hooks.md#assumed-results). `--edit` is listed as not run, because Devin does not document the edit tools' input.
 - **Settings**: portable `permissions` are merged into `.devin/config.json`, the committed project policy ([permissions reference](https://docs.devin.ai/cli/reference/permissions)).
   - Project configs accept only `permissions`, `read_config_from`, and `hooks` ([config file reference](https://docs.devin.ai/cli/reference/configuration/config-file)). Sync sets only `permissions`, so other keys, and other entries inside it, are kept.
   - An `x-windsurf` block on a settings spec is merged into the same file, which is how you set `read_config_from` and `hooks`. Its `permissions` are merged per spec and per list with the translated rules.
-  - A portable `model` is not written and gets a coverage note, because Devin's `agent` block works only in your personal config.
+  - A portable `model` is not written and gets a sync note, because Devin's `agent` block works only in your personal config.
   - Translation: `Read(glob)` and `Write(glob)` are copied as written, `Edit(glob)` becomes `Write(glob)`, `Bash(prefix:*)` becomes `Exec(prefix)`, `WebFetch(pattern)` becomes `Fetch(pattern)`, and `mcp__<server>__<tool>` is copied as written.
   - Bare tool names map to Devin's own (`Bash` to `exec`, and so on), the same way as in `allowed-tools`. `WebSearch` becomes `web_search`, accepted since Devin CLI v3000.10.21 ([CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)), and imports back. A bare `WebFetch` is dropped, because `webfetch` is not a permissions name.
-  - Devin's `Exec` matches only the start of a command, so an exact `Bash(...)` rule without `:*` would match more commands. On `allow` and `ask` that would approve commands you did not list, so the rule is dropped with a coverage note. On `deny` it blocks more, which is safe: `Bash(rm -rf /)` becomes `Exec(rm -rf /)`. A command deny wins over a broader `ask` or `allow` (Devin CLI v3000.10.31).
+  - Devin's `Exec` matches only the start of a command, so an exact `Bash(...)` rule without `:*` would match more commands. On `allow` and `ask` that would approve commands you did not list, so the rule is dropped with a sync note. On `deny` it blocks more, which is safe: `Bash(rm -rf /)` becomes `Exec(rm -rf /)`. A command deny wins over a broader `ask` or `allow` (Devin CLI v3000.10.31).
   - `x-windsurf.permissions` writes Devin's rules directly and replaces that spec's portable ones.
   - With `memory.personal: repo`, sync adds `Write(<folder>/**)` to `permissions.allow`, so Devin CLI saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own rules stay. A committed settings kind (`gitignore.commit`) keeps the rule out.
 - **Workflows**: `outputs.windsurf.workflows-dir` writes nothing. It only prints a warning about moving to skills. `.devin/agents/<name>.md` is written either way.
@@ -105,12 +117,12 @@ AGENTS.md                            # shared pointer body, plus the rules block
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). To tell the agent about them, list the paths in a rule.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). To tell the agent about them, list the paths in a rule.
 
 ## Verify
 
 1. Install Devin Desktop from [devin.ai](https://devin.ai) (formerly windsurf.com).
-2. Check the tree: `ls .devin/rules/ .devin/agents/ .agents/skills/`, `grep "Generated by agnostic-ai" .devin/rules/*.md`, `ls .agents/skills/*/SKILL.md >/dev/null`, `python -m json.tool .devin/mcp_config.json > /dev/null` when MCP specs exist, `python -m json.tool .devin/hooks.v1.json > /dev/null` when hook specs exist.
+2. Check the files: `ls .devin/rules/ .devin/agents/ .agents/skills/`, `grep "Generated by agnostic-ai" .devin/rules/*.md`, `ls .agents/skills/*/SKILL.md >/dev/null`, `python -m json.tool .devin/mcp_config.json > /dev/null` when MCP specs exist, `python -m json.tool .devin/hooks.v1.json > /dev/null` when hook specs exist.
 3. Open the project. Devin Local loads every `.devin/rules/*.md` ([rules docs](https://docs.devin.ai/cli/extensibility/rules)) into the Rules panel without "failed to parse" warnings. Each `.agents/skills/<name>/` loads as a skill.
    A scoped rule at `<scope>/.devin/rules/<name>.md` shows there too, and a `trigger:` rule shows that mode instead of Always On.
    Ask Devin CLI for a subagent by name (`review this using the <name> subagent`). Each `.devin/agents/<name>.md` lists beside the built-in `subagent_explore` and `subagent_general` without a "profile skipped" warning.

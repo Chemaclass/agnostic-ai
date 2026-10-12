@@ -9,13 +9,15 @@ group = "Reference"
 
 # Ignore
 
-`ignore/` lists what agents must not read or index: secrets, generated code, vendored dependencies, large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
+`ignore/` lists what agents must not read or index: secrets, generated code, copied third-party dependencies, large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
 
 - **Secrets stay out of context.** An `.env` file or a key folder is not sent to the model.
-- **Smaller context.** Build output and vendored code stop crowding search and indexing.
+- **Smaller context.** Build output and copied third-party code stop crowding search and indexing.
 - **One list.** Add a pattern once instead of in every tool's file.
 
 Tools apply an ignore file to their own reads and indexing. Whether it also stops a shell command depends on the tool, so pair it with a [settings](@/docs/spec-format/settings.md) `deny` rule for anything that must never be read.
+
+Use exact paths or narrow patterns for files that are irrelevant or private. Check each tool's behavior before treating an ignore pattern as an access restriction; some tools only leave matching paths out of search or indexing.
 
 ## Write one
 

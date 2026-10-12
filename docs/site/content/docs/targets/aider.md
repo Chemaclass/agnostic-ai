@@ -12,6 +12,18 @@ target_id = "aider"
 
 [Aider](https://aider.chat/docs/config/aider_conf.html) reads rules from `CONVENTIONS.md`. agnostic-ai writes that file, an optional `.aider.conf.yml` that loads it, and `.aiderignore`.
 
+## Set up this tool
+
+Add `aider` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import aider`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -20,7 +32,7 @@ CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 .aiderignore             # only when the project has ignore entries
 ```
 
-- **Rules**: `CONVENTIONS.md` holds the pointer body plus a marked `## Rules` block with the unscoped rule bodies. `import aider` strips that block. Load it with `aider --read CONVENTIONS.md`.
+- **Rules**: `CONVENTIONS.md` holds the instructions that point to source specs plus a marked `## Rules` block with the project-wide rule bodies. `import aider` strips that block. Load it with `aider --read CONVENTIONS.md`.
 - **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml` to add a `read:` entry to Aider's [project config](https://aider.chat/docs/config/aider_conf.html). `model` and `weak-model` go into the same file when set. Your other keys stay, and the `read:` list has no duplicates. Each sync rewrites the file with sorted keys and drops its comments.
 - **Ignore**: ignore entries go to `.aiderignore` in the project root. That is Aider's default path ([Aider config docs](https://aider.chat/docs/config/aider_conf.html)), so it needs no setup. If you point `outputs.aider.ignore-file` elsewhere, Aider reads it only when the config file's `aiderignore:` key names that path.
 
@@ -35,7 +47,7 @@ When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, 
 | `outputs.aider.conf-file` | empty, opt-in | |
 | `outputs.aider.model` | | |
 | `outputs.aider.weak-model` | | |
-| `outputs.aider.rules-file` | unset | writes all rules into one legacy file and skips the pointer-body write |
+| `outputs.aider.rules-file` | unset | writes all rules into one legacy file and skips the write of instructions that point to source specs |
 | `outputs.aider.ignore-file` | `.aiderignore` | |
 
 With [`builtins: [handoff]`](@/docs/handoff.md), a configured `rules-file` includes the handoff instructions.

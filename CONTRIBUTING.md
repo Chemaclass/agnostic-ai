@@ -4,7 +4,7 @@ Build the CLI, make one focused change, run the checks for what you changed, and
 
 ## Set up
 
-You need Git, Go (version in [go.mod](go.mod)), and Make. Put `$(go env GOPATH)/bin` on `PATH` first.
+You need Git, Go (version in [go.mod](go.mod)), and Make. Add Go's tool directory to `PATH` first: `export PATH="$(go env GOPATH)/bin:$PATH"`.
 
 ```bash
 git clone https://github.com/Chemaclass/agnostic-ai.git
@@ -14,11 +14,11 @@ make build
 ./agnostic-ai sync  # this repository's own tool config
 ```
 
-Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
+Setup is complete when the build succeeds and `sync` generates this repository's tool configuration. Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
 
 ## Make a change
 
-Branch, keep the change to one outcome, and add tests for behavior you change.
+Create a branch, keep the change to one outcome, and add tests for behavior you change. When working with a coding agent, give it the expected result and the checks from the guide below. Have it read `AGENTS.md` before editing and review its diff before submitting.
 
 | Area | Start here |
 |---|---|

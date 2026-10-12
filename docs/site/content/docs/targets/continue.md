@@ -12,6 +12,18 @@ target_id = "continue"
 
 agnostic-ai writes Continue rules, skills, and MCP servers under `.continue/`, plus optional assistant files.
 
+## Set up this tool
+
+Add `continue` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import continue`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -21,13 +33,13 @@ agnostic-ai writes Continue rules, skills, and MCP servers under `.continue/`, p
 .continue/assistants/<name>.yaml       # one per agent, only when assistants-dir is set
 ```
 
-- **Rule activation**: a scoped rule matches its scope directory plus its `globs` or `paths`, and gets no `alwaysApply`. An unscoped rule keeps `globs`, `alwaysApply`, and `description`. A comma-separated `globs` string becomes an array, because Continue reads a string as one pattern. `x-continue.regex` works only without `scope`. See [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
+- **Rule activation**: a scoped rule matches its scope directory plus its `globs` or `paths`, and gets no `alwaysApply`. A rule with no directory scope keeps `globs`, `alwaysApply`, and `description`. A comma-separated `globs` string becomes an array, because Continue reads a string as one pattern. `x-continue.regex` works only without `scope`. See [file-pattern limits for directory rules](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Skills**: `.continue/skills/<name>/SKILL.md` and bundled files are copied unchanged. The IDE extension and `cn` read this folder and `.claude/skills/`. Continue requires `name` and `description`, and offers the other files on demand ([`loadMarkdownSkills.ts`](https://github.com/continuedev/continue/blob/main/core/config/markdown/loadMarkdownSkills.ts)). It does not merge names across the two folders, so with the `claude` target each skill shows up twice.
 - **MCP**: each file is a Continue block (`name`, `version`, `schema: v1`) with the server under an `mcpServers:` list. A flat single-server file does not load.
-  - Stdio servers get `command`/`args`/`env`/`cwd`. Remote servers get `type`/`url`/`requestOptions`, and `env` (stdio only) is dropped with a coverage note.
+  - Stdio servers get `command`/`args`/`env`/`cwd`. Remote servers get `type`/`url`/`requestOptions`, and `env` (stdio only) is dropped with a sync note.
   - `type: http` becomes `type: streamable-http`, the only Streamable HTTP value [Continue's schema](https://github.com/continuedev/continue/blob/main/packages/config-yaml/src/schemas/mcp/index.ts) accepts. `sse` and `streamable-http` are unchanged. `headers` moves to `requestOptions.headers`. `import continue` reverses both.
   - Every transport keeps `connectionTimeout` (milliseconds). Remote `requestOptions` keeps `timeout`, `verifySsl`, `caBundlePath`, `proxy`, `clientCertificate`, and `headers`. An explicit native header wins a duplicate key. `x-continue` overrides each matching top-level option.
-  - No file is written, with a coverage note, for `type: ws` (Continue has no websocket transport) or for an entry missing `command` (stdio) or `url` (remote). Either would make Continue reject the whole file.
+  - No file is written, with a sync note, for `type: ws` (Continue has no websocket transport) or for an entry missing `command` (stdio) or `url` (remote). Either would make Continue reject the whole file.
 - **Assistants**: with `outputs.continue.assistants-dir` set, each agent also gets `<dir>/<name>.yaml` with `name`, `version` (default `0.0.1`), `schema: v1`, and the body as one `prompts: [{name, description, prompt}]` entry, per Continue's schema ([reference](https://docs.continue.dev/reference)).
   - Continue may not scan this directory. Its [config docs](https://docs.continue.dev/guides/understanding-configs) describe one global `~/.continue/config.yaml` and no project-level agent directory.
   - Each file is a standalone `config.yaml` for `cn --config <dir>/<name>.yaml` or the IDE's config picker. It has no models or rules, so your defaults apply.

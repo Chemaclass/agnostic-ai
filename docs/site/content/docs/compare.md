@@ -12,7 +12,9 @@ scripts = ["assets/scripts/compare-targets.js"]
 # Compare targets
 
 
-Pick two tools to see what `agnostic-ai sync` writes for each spec kind, and where. Add an optional third in Target C. The URL keeps your choice, so you can share it.
+Pick two AI coding tools to compare their generated files, grouped by spec kind (rules, skills, hooks, and the other source types). Add a third in Target C if needed. The URL keeps your choice so you can share it with teammates.
+
+Before switching tools in an existing project, run [`agnostic-ai compare`](@/docs/cli-reference/inspect.md#compare) too. It checks the fields in your own specs; this page shows sample output paths.
 
 {{ <compare_targets /> }}
 

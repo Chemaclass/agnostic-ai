@@ -9,7 +9,7 @@ group = "Start"
 
 # Verify a release
 
-You can check every release yourself. Each check answers a different question. Pick the ones you need.
+Choose the release tag and archive for your operating system and CPU, then check the downloaded file before extracting or running it. In the examples below, replace `vX.Y.Z` with your release tag and `agnostic-ai_linux_amd64.tar.gz` with your archive name. Each check answers a different question.
 
 | Check | Proves | Command |
 |---|---|---|
@@ -33,7 +33,7 @@ The checksum comes from the same release page. It catches a corrupted download, 
 
 ## Check where the archive was built {#build-provenance}
 
-Releases after 0.74.0 include a signed record of where every archive and module list was built. This record is called a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The release workflow signs it through Sigstore, with no long-lived key. Verify it with the [GitHub CLI](https://cli.github.com/):
+Releases after 0.74.0 include a signed record of where every archive and module list was built. This record is called a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The release workflow signs it through Sigstore without keeping a permanent signing key. Verify it with the [GitHub CLI](https://cli.github.com/):
 
 ```bash
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai
@@ -61,7 +61,7 @@ npm audit signatures
 
 It checks installed packages' registry signatures and verifies build records when present. Success alone does not require every package to have provenance or restrict it to this repository. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
 
-Official releases require provenance for the parent and all six platform packages. The release workflow also checks the GitHub Actions signing identity, this repository's release workflow at the version tag, the signed source commit, and the downloaded tarball integrity. It rejects missing or invalid attestations, including already published versions. These checks establish origin and integrity, not that the code has no defects.
+Official releases require provenance for the parent and all six platform packages. The release workflow also checks the GitHub Actions signing identity, this repository's release workflow at the version tag, the signed source commit, and the downloaded tarball integrity. It rejects missing or invalid signed build records, including for already published versions. These checks establish origin and integrity, not that the code has no defects.
 
 From a checkout of the release tag, using the release's npm CLI version (11.5.1), check any one package without installing or running it:
 

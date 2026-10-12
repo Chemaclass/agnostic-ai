@@ -9,6 +9,8 @@ group = "Reference"
 
 # Maintain and set up
 
+Choose the command for the change you need: `upgrade` installs a CLI release, `migrate` updates old spec formats, and `project` checks or prepares the project's installed CLI. Use `revert` to restore generated-file backups and `cleanup` to remove those backups after review.
+
 ## revert
 
 Undo a `sync --backup`. For every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes it. It also restores a nested `CLAUDE.md` that sync deleted. Files without a `.bak` stay unless you pass `--force`.
@@ -95,9 +97,9 @@ agnostic-ai hook worktree-remove --repo "/path/to/repository" --allowed-root "/p
 
 The helper verifies Git's worktree registration and the checkout's repository metadata before running `git worktree remove` without force. It refuses the main checkout, the allowed root itself, other repositories, unregistered directories, traversal, symlinks below the allowed root, locked worktrees, and worktrees with changed, untracked, or ignored files. It also refuses indexes with `assume-unchanged` or `skip-worktree` entries, including sparse checkouts, because those flags can hide changed file contents. Ignored dependencies also prevent removal; remove them deliberately before retrying. It keeps the branch.
 
-According to [Claude Code's WorktreeRemove contract](https://code.claude.com/docs/en/hooks#worktreeremove), this event replaces cleanup for hook-created worktrees and runs while the directory still exists. Exit 0 means cleanup succeeded; a nonzero exit preserves an existing directory without a Git fallback. Pair this helper with your `WorktreeCreate` hook, and keep `--repo` outside the disposable checkout. It does not change cleanup for worktrees the host creates without a custom creation hook.
+According to [Claude Code's WorktreeRemove contract](https://code.claude.com/docs/en/hooks#worktreeremove), this event replaces cleanup for hook-created worktrees and runs while the directory still exists. Exit 0 means cleanup succeeded; a non-zero exit preserves an existing directory without a Git fallback. Pair this helper with your `WorktreeCreate` hook, and keep `--repo` outside the disposable checkout. It does not change cleanup for worktrees the host creates without a custom creation hook.
 
-Success prints `removed: <path>` and exits 0. A path already absent below the allowed root prints `already absent: <path>` and exits 0, including repeated calls after successful removal. Absence alone cannot prove prior ownership; this result performs no deletion or registration pruning. Unsafe inputs, payloads larger than 1 MiB, and failed Git operations exit 1.
+Success prints `removed: <path>` and exits 0. A path already absent below the allowed root prints `already absent: <path>` and exits 0, including repeated calls after successful removal. Absence alone cannot prove prior ownership; this result performs no deletion or registration pruning. Unsafe inputs, event data larger than 1 MiB, and failed Git operations exit 1.
 
 | Flag | Description |
 |------|-------------|
@@ -123,7 +125,7 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 
 ## hook memory
 
-Prints the memory indexes for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
+Prints the `MEMORY.md` fact lists for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
 
 ```bash
 agnostic-ai hook memory --target codex
@@ -186,9 +188,9 @@ If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, 
 
 ## project
 
-Run the project's installed agnostic-ai binary after checking its version against any exact stable version declared in `package.json` and the project's `requires` setting. The helper prefers `node_modules/.bin/agnostic-ai` over `PATH`. A project declaring an agnostic-ai dependency must have its local binary installed; a global binary does not silently replace it. On Windows, the helper runs the installed Node shim directly.
+Run the project's installed agnostic-ai binary after checking its version against any exact stable version declared in `package.json` and the project's `requires` setting. The helper prefers `node_modules/.bin/agnostic-ai` over `PATH`. A project declaring an agnostic-ai dependency must have its local binary installed; a global binary does not silently replace it. On Windows, the helper runs the Node launcher installed with the package directly.
 
-Conflicting exact declarations stop before installation. npm ranges, tags, aliases, prereleases, and file dependencies are not interpreted as version contracts; use `requires` for those declarations. Checks against `index` or `HEAD` read the contract from that Git view and select the installed binary from the working checkout. Unsupported binaries receive an instruction to upgrade the owning package explicitly; released v0.82.0 lacks `project`.
+Conflicting exact declarations stop before installation. npm ranges, tags, aliases, prereleases, and file dependencies are not interpreted as requirements for the installed version; use `requires` for those declarations. Checks against `index` or `HEAD` read the contract from the selected staged files or commit and select the installed binary from the working checkout. Unsupported binaries receive an instruction to upgrade the owning package explicitly; released v0.82.0 lacks `project`.
 
 ```bash
 agnostic-ai project                     # sync --keep-edits --quiet
@@ -205,12 +207,12 @@ Version and command checks have ten seconds in total. If a check fails, its erro
 | Flag | Description |
 |------|-------------|
 | `--check` | Check the version and generated output without installing or writing. |
-| `--against index\|HEAD` | With `--check`, use the existing staged or committed output gate. |
-| `--bootstrap` | If the binary is missing or mismatched, run one locked npm or pnpm install, then sync preserving manual edits. |
+| `--against index\|HEAD` | With `--check`, use the existing check for staged or committed output. |
+| `--bootstrap` | If the binary is missing or mismatched, install once from the npm or pnpm lockfile, then sync preserving manual edits. |
 
 Bootstrap uses `packageManager` from `package.json`, or an unambiguous root lockfile. It runs `npm ci` or `pnpm install --frozen-lockfile`. Both require a committed lockfile and a declared agnostic-ai dependency. Other package managers must install explicitly before invoking the helper. Normal package scripts run, including hook-manager setup and native builds. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` prevents a recursive helper call from starting another install; postinstall can still regenerate output. Repeating bootstrap with the correct binary performs no install.
 
-Existing hook managers can call this helper without changing their own configuration format. A bootstrap entry point must already be installed, globally or locally. Versions released before `project` existed must first be updated through their existing package-manager command.
+Existing hook managers can call this helper without changing their own configuration format. A CLI capable of running bootstrap must already be installed, globally or locally. Versions released before `project` existed must first be updated through their existing package-manager command.
 
 ### Project readiness
 

@@ -9,7 +9,7 @@ group = "Workflows"
 
 # CI
 
-Pick the check that matches your Git strategy. Run it from the project root, after you install the CLI.
+Choose the recipe for how your team stores generated files: committed in Git or ignored and generated during setup. Run it from the project root after installing the CLI. CI (continuous integration) runs these checks on each change.
 
 ## Committed outputs
 
@@ -121,13 +121,13 @@ steps:
 
 ## Diagnose drift
 
-Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output and the failure types.
+Drift means generated files differ from what your current specs produce. Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output and the failure types.
 
 ## Gate model and CLI changes
 
 `sync --check` proves the generated files match your specs. It does not show whether a model or CLI still gives good results for your project.
 
-Configure a project-owned verifier:
+Configure a script that checks the AI tool against tasks from your project:
 
 ```yaml
 verify:
@@ -137,8 +137,8 @@ verify:
 Add the gate after installing the AI CLI it needs:
 
 ```yaml
-- name: Verify Codex harness behavior
+- name: Verify Codex project behavior
   run: agnostic-ai verify --target codex
 ```
 
-`verify` first checks that generated files are current, then sends JSON to the script on stdin. The script runs the checks and scores them. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON format.
+`verify` first checks that generated files are current, then sends JSON to the script on stdin. Your script runs the tasks and decides whether the results pass. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON format.

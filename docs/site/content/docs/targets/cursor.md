@@ -12,6 +12,18 @@ target_id = "cursor"
 
 Cursor reads its project configuration from `.cursor/`, including `.cursor/rules/`.
 
+## Set up this tool
+
+Add `cursor` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import cursor`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -30,22 +42,22 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
   - With neither, `globs` is omitted, so Cursor treats the rule as "Apply Intelligently" (description-driven) or "Apply Manually".
 - **Per-file check**: `agnostic-ai explain --file <path> --target cursor` checks each planned `.mdc` rule and every `AGENTS.md` Cursor reads against one file, using the [Rules](https://cursor.com/docs/rules) matrix.
 - **Agents**: [Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The body is the system prompt.
-  - Cursor has no `tools` field, so sync drops a `tools` list with a coverage note. Use `readonly: true` instead.
-  - Cursor has no effort field, so a portable `effort` raises a coverage note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
+  - Cursor has no `tools` field, so sync drops a `tools` list with a sync note. Use `readonly: true` instead.
+  - Cursor has no effort field, so a portable `effort` raises a sync note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
 - **Commands**: Markdown files under `.cursor/commands/`, body as the prompt. Cursor no longer documents this path; see its [migrate commands to skills](https://cursor.com/help/customization/skills.md) FAQ.
 - **Old copies**: sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` files.
-- **Skills**: `.cursor/skills/<name>/SKILL.md`, the [Agent Skills](https://cursor.com/docs/skills.md) layout (Cursor 2.4+), bundled files copied byte-for-byte.
+- **Skills**: `.cursor/skills/<name>/SKILL.md`, the [Agent Skills](https://cursor.com/docs/skills.md) layout (Cursor 2.4+), bundled files copied unchanged.
   - Frontmatter has `name`, `description`, and any declared `paths`, `disable-model-invocation`, `icon`, `color`, and `metadata`. `icon` and `color` style the badge when the skill backs a [Custom Mode](https://cursor.com/docs/agent/prompting.md#custom-modes).
-  - A source-layout scope moves the tree under that directory.
+  - A directory scope from the source folder moves the folder under that directory.
   - Cursor loads skills only from the workspace it opens, so a skill's `workspaces` list adds a `<dir>/.cursor/skills/<name>/` copy per directory, beside the root copy.
-  - Skill `model` and `effort` are omitted with a coverage note when a value resolves for Cursor.
-- **Review**: [Bugbot](https://cursor.com/docs/bugbot) files, root `.cursor/BUGBOT.md` for unscoped specs and `<scope>/.cursor/BUGBOT.md` for scoped ones.
+  - Skill `model` and `effort` are omitted with a sync note when a value resolves for Cursor.
+- **Review**: [Bugbot](https://cursor.com/docs/bugbot) files, root `.cursor/BUGBOT.md` for specs with no directory scope and `<scope>/.cursor/BUGBOT.md` for scoped ones.
   - Same-scope specs are joined into one file.
   - [Rule limits](https://cursor.com/docs/bugbot#rule-limits): Bugbot truncates each BUGBOT.md at 30,000 characters and caps one review's rules at 100,000 in total.
-  - agnostic-ai never truncates. An over-cap file is written in full, with a coverage note. The size counts the whole file, header included, so several small specs joined can pass the cap. Split the review across sibling scopes.
+  - agnostic-ai never truncates. An over-cap file is written in full, with a sync note. The size counts the whole file, header included, so several small specs joined can pass the cap. Split the review across sibling scopes.
   - `sync` also notes a scope whose chain (the scope and its parent directories) passes 100,000 characters. Team and repository rules share that budget, so a shorter chain can still lose rules. To see what Bugbot dropped, run `bugbot run verbose=true` or `cursor review verbose=true` on a pull request.
-- **Environment**: `.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) bootstrap).
-  - Spec keys pass through as written, except routing fields and `cleanup`, which gets a no-effect note. Specs merge by top-level key.
+- **Environment**: `.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) setup).
+  - Spec keys pass through as written, except fields that select a tool or directory and `cleanup`, which gets a no-effect note. Specs merge by top-level key.
   - `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (Windows only) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
   - A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
 - **Ignore**: `.cursorignore` (gitignore syntax). Specs are joined into one file.
@@ -112,7 +124,7 @@ These stay out:
 - `ask` rules. The CLI has no ask list and already prompts before a call no `allow` rule covers.
 - Other tools, such as `WebSearch`, `Grep`, or a bare `Bash`.
 
-A dropped `allow` rule raises a coverage note. A dropped `deny` rule loosens the policy, so sync names each one: `deny rule not enforced on cursor: Bash(git push:*)`. Block those with a [Cursor hook](https://cursor.com/docs/hooks) on `beforeShellExecution`.
+A dropped `allow` rule raises a sync note. A dropped `deny` rule loosens the policy, so sync names each one: `deny rule not enforced on cursor: Bash(git push:*)`. Block those with a [Cursor hook](https://cursor.com/docs/hooks) on `beforeShellExecution`.
 
 Cursor does not say how `Shell` matches a chained command such as `git status && rm -rf build`, or a pipe. Claude Code checks each subcommand of a chain, so an `allow` rule may approve more in the Cursor CLI.
 
@@ -130,7 +142,7 @@ A rule you remove from a spec leaves `cli.json` on the next sync. A rule you wro
 | `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md` |
 | (no `name:` in frontmatter) | `name:` added from the filename |
 | `.cursor/agents/<name>.md` | `<agents>/<name>.md`, generated header stripped |
-| `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder tree, SKILL.md merged onto the existing spec |
+| `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder and all its files, SKILL.md merged onto the existing spec |
 | `.cursor/commands/<name>.md` | `<commands>/<name>.md`, generated header stripped |
 | `.cursor/BUGBOT.md` | `<reviews>/review.md` |
 | `<scope>/.cursor/BUGBOT.md` | `<reviews>/<scope-slug>.md` with `scope: <scope>`, such as `services-api.md` for `services/api` |
@@ -153,16 +165,16 @@ Both skill directories are project-level, at the root and in nested subdirectori
 Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block becomes `Write(<path>)` and `Write(<path>/**)` rules in `permissions.deny` of `.cursor/cli.json`, the project CLI config ([configuration](https://cursor.com/docs/cli/reference/configuration)). A path that already ends in `**` gets the first rule only. The rules carry no leading `/`: Cursor scopes a relative path to the workspace and reads a leading `/` as an absolute path ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)).
 
 - **IDE agent**: not covered ([permissions](https://cursor.com/docs/reference/permissions.md)). State the paths in a rule if the IDE agent should know about them.
-- **`decision: ask`**: not enforced, with a coverage note. The CLI has no ask list and already prompts before a write no `allow` rule covers. Use `decision: deny` to block.
+- **`decision: ask`**: not enforced, with a sync note. The CLI has no ask list and already prompts before a write no `allow` rule covers. Use `decision: deny` to block.
 - **`reason`**: not written. A CLI permission rule has no message field.
-- **Other settings fields**: `model`, `effort`, and `x-cursor` raise a coverage note, since a project `cli.json` takes `permissions` only.
+- **Other settings fields**: `model`, `effort`, and `x-cursor` raise a sync note, since a project `cli.json` takes `permissions` only.
 
 `cli.json` merges as [Permissions](#permissions) describes: your own rules and other keys stay, and removing a path or its block removes its rules on the next sync. A matching rule that was in `cli.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 
 1. Install Cursor from [cursor.com](https://cursor.com).
-2. Check the tree: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` (the header sits after the frontmatter), `python -m json.tool .cursor/mcp.json > /dev/null`.
+2. Check the files: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` (the header sits after the frontmatter), `python -m json.tool .cursor/mcp.json > /dev/null`.
 3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` with the right `alwaysApply` and no "failed to parse" warnings. The Skills list, agent picker, and `/` picker show each skill, agent, and command.
 4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
 5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses. Trigger the matched event (for example a shell command for `beforeShellExecution`) and check that the `command` runs.

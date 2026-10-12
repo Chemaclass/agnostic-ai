@@ -11,11 +11,13 @@ group = "Reference"
 
 ## sync
 
-Write each target's config. A run that writes takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands); `--watch` holds it until it exits.
+Generate files from your specs for each selected AI coding tool. A run that writes takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands); `--watch` holds it until it exits.
 
 ```bash
 agnostic-ai sync --only claude,cursor
 ```
+
+For a normal edit, change the source under `.agnostic-ai/`, preview with `agnostic-ai sync --dry-run`, then run `agnostic-ai sync` and `agnostic-ai sync --check`. For automation, select tools explicitly and use [JSON output](#json-output) when a script needs to read the result.
 
 | Flag | Description |
 |------|-------------|
@@ -23,11 +25,11 @@ agnostic-ai sync --only claude,cursor
 | `--only <list>` | Write only these targets. Errors on unknown names. |
 | `--except <list>` | Write all configured targets except these. Errors on unknown names. Not with `--only`. |
 | `--all` | Write every configured target without the [first-sync picker](#first-sync-target-picker). |
-| `--dry-run` | Print to stdout instead of writing files. Does not preview the orphan sweep. |
+| `--dry-run` | Print to stdout instead of writing files. Does not preview deletion of leftover generated files. |
 | `--plan` | Print added and changed counts per target without writing. Exits 0. With `--check`, exits 1 on the same drift `--check` fails on, so CI can gate on the short report. `--diff` and `--format` do not apply. Not with `--global`. |
 | `--check` | Exit non-zero if files on disk differ from what sync would write. Writes nothing. |
 | `--against <index\|HEAD>` | With `--check`, compare what Git holds instead of the working tree. `index` renders the staged specs and compares them with the staged outputs. `HEAD` does the same for the last commit. Ignored outputs are skipped. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
-| `--diff` | With `--check`, print a unified diff per drifted file (on disk vs what sync would write). Without `--check` or `--dry-run` it fails and writes nothing. |
+| `--diff` | With `--check`, print a line-by-line diff per changed file (on disk vs what sync would write). Without `--check` or `--dry-run` it fails and writes nothing. |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing output file to `<path>.bak` before overwriting. Pair with `revert`. |
 | `--keep-edits` | Keep each output edited since the last sync, write the rest, and name each kept file as `~ kept <path>` (on stderr under `--quiet`). With no record of the last sync, it keeps each Git-tracked output that differs from `HEAD`. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
@@ -54,7 +56,7 @@ agnostic-ai sync --only claude,cursor
 - Loads overrides from `local/` in the source root. Reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there. See [global configuration](@/docs/configuration.md#global-configuration) and [global output](@/docs/target-behavior.md#global-output).
 - Works outside a project. It never loads project config or packs.
 - Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
-- MCP specs install servers in the user MCP files of Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+- MCP specs install servers in the user MCP files of Antigravity, Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 - Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
 
 Sync skips paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) and reports them as `~ skip (unmanaged) <path>`.
@@ -114,16 +116,16 @@ On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lis
 
 | Context | Behavior |
 |---------|----------|
-| TTY | Multi-select prompt, same as `init`. |
+| Interactive terminal (TTY) | Multi-select prompt, same as `init`. |
 | Piped stdin | Selects and saves without a prompt. |
-| Non-TTY, nothing piped (CI) | Writes every configured target. |
+| No interactive terminal, nothing piped (CI) | Writes every configured target. |
 | `--all`, `-t`, `--only`, or `--except` | Skips the picker for this run. |
 
 `echo "claude,codex" | agnostic-ai sync` keeps two targets.
 
 ### Reading a failing `--check` {#reading-a-failing---check}
 
-A drifting `--check` exits non-zero in every format. Each drifted file gets one of two labels:
+A failing `--check` exits non-zero in every format. Each changed file gets one of two labels:
 
 | Label | Meaning |
 |-------|---------|
@@ -145,7 +147,7 @@ Bare capabilities in settings `permissions.allow` or `permissions.ask` print a L
 
 Dry-run, render, import, and migration previews hide literal values in known credential fields, environment maps, and headers. They also protect credential flags, assignments, and URLs in recognized commands. Pure environment references remain visible; references with defaults or mixed literal text are hidden. A hidden-value change still reports drift when the visible previews are equal.
 
-JSON, JSON with comments, YAML, and TOML previews keep valid syntax when shown. If a recognized document or sensitive command cannot be shown safely, its body is withheld. API-key helper paths and environment references stay visible. Helper commands with literal arguments or shell operations are hidden because they can contain the key they return. Other commands are hidden when they contain a credential in a recognized position. Actual files, captured content, and ownership fingerprints retain their original values.
+JSON, JSON with comments, YAML, and TOML previews keep valid syntax when shown. If a recognized document or sensitive command cannot be shown safely, its body is withheld. API-key helper paths and environment references stay visible. Helper commands with literal arguments or shell operations are hidden because they can contain the key they return. Other commands are hidden when they contain a credential in a recognized position. Actual files, captured content, and checksums used to track generated content retain their original values.
 
 This covers known configuration fields and command positions. It does not detect arbitrary secrets in freeform prompts, prose, unknown scripts, or binary assets.
 
@@ -158,7 +160,7 @@ This covers known configuration fields and command positions. It does not detect
 - every `sources.*` directory, including absolute paths outside the project and linked roots
 - `.agnostic-ai/local/` and `.agnostic-ai/overlays/`
 
-It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C. A spec change re-syncs only the targets that write that kind. Config and overlay edits, deletes, and renames re-sync everything.
+It uses file-system notifications with a 50 ms delay to group nearby changes, polls every 200 ms where notifications fail, and exits on Ctrl+C. A spec change re-syncs only the targets that write that kind. Config and overlay edits, deletes, and renames re-sync everything.
 
 Polling picks up edits made during a re-sync on the next tick. Config changes update the source paths it watches.
 
@@ -178,11 +180,11 @@ A successful `sync --json` writes one object to stdout, including when it create
 
 First-sync target selection still saves your choice. With `--json`, its prompts and saved-target message go to stderr.
 
-`sync --json`, `sync --plan --json`, `sync --dry-run --json`, and `sync --check --json` share one schema:
+`sync --json`, `sync --plan --json`, `sync --dry-run --json`, and `sync --check --json` share one JSON format:
 
 | Field | Description |
 |-------|-------------|
-| `version` | Schema version, currently `"1"`. A breaking change bumps it. |
+| `version` | JSON format version, currently `"1"`. A breaking change bumps it. |
 | `command` | `"sync"`, `"sync --plan"`, `"sync --dry-run"`, or `"sync --check"`. |
 | `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). `"stale"`: the specs changed. `"edited"`: the file changed since the last sync. `"leftover"`: no longer generated, removed by the next full sync (target `ledger`, or `unledgered` when no record proves sync wrote it). With `--untrack`, a path removed from the index is `"untracked"`, target `agnostic-ai`. A write over a hand edit names the copy it kept in `"backup"`. |
 | `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), orphans kept because sync could not prove it wrote them (`"orphan"`), unledgered leftovers kept (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |

@@ -11,7 +11,7 @@ echo "claude,cursor" | agnostic-ai init --demo
 agnostic-ai sync --dry-run
 ```
 
-The demo creates examples for agents, skills, rules, hooks, and MCP servers. Some targets do not support every kind; preview output includes warnings for those omissions. Edit or delete the samples before using them in a real project.
+The demo creates examples for agents, skills, rules, hooks, and MCP servers. Some coding tools cannot use every spec kind; the preview warns about anything they will skip. Edit or delete the samples before using them in a real project.
 
 For language-specific starters, use `init --preset go`, `init --preset ts-react`, or `init --preset python`. The bundled sources live in [internal/cli/initdata](../../internal/cli/initdata/).
 
@@ -23,7 +23,7 @@ The [directory-specific instructions walkthrough](https://agnostic-ai.org/docs/s
 
 Start with the config created by `init`. [agnostic-ai.yaml](agnostic-ai.yaml) is a small, commented starter for Claude Code and Cursor. The [configuration reference](https://agnostic-ai.org/docs/configuration/) describes every field.
 
-See [Configuration](https://agnostic-ai.org/docs/configuration/) for defaults and [Targets](https://agnostic-ai.org/docs/targets/) for supported fields per tool.
+Check [Targets](https://agnostic-ai.org/docs/targets/) for the fields your tool can use. After editing, run `agnostic-ai sync`, inspect the generated files, and finish with `agnostic-ai sync --check`.
 
 ## Add RTK or Caveman independently
 

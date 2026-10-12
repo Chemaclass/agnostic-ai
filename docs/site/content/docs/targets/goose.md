@@ -12,6 +12,18 @@ target_id = "goose"
 
 Block [Goose](https://goose-docs.ai) reads the root `AGENTS.md` and a `.goosehints` file. Goose is opt-in. See [Selecting targets](@/docs/configuration.md#targets).
 
+## Set up this tool
+
+Add `goose` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import goose`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -26,9 +38,9 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 <scope>/.agents/REVIEW.md          # directory-specific review instructions
 ```
 
-- **Rules**: go inline into the `## Rules` block of `AGENTS.md`. `outputs.goose.rules-file: .goosehints` also writes all rules into one `.goosehints`, which Goose reads only with the `Developer` extension enabled ([using goosehints](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md)).
+- **Rules**: are included in the `## Rules` block of `AGENTS.md`. `outputs.goose.rules-file: .goosehints` also writes all rules into one `.goosehints`, which Goose reads only with the `Developer` extension enabled ([using goosehints](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md)).
 - **Scoped rules**: Goose reads context files (`CONTEXT_FILE_NAMES`, default `AGENTS.md` and `.goosehints`) in the subdirectories it works in. Scoped rules go to a nested `AGENTS.md`, or with `rules-file` set, to `backend/.goosehints` for a `backend/` scope. Rules with the same scope share one file.
-- **Agents**: each file has `name`, `description`, an optional free-form `model`, and the prompt body. OpenHands reads the same path and fields, so the file is written once. A generic `tools` list is dropped with a coverage note, because Goose does not document it. `x-goose` fields work. If they make the file differ from what another tool gets, set a different `outputs.goose.agents-dir`.
+- **Agents**: each file has `name`, `description`, an optional free-form `model`, and the prompt body. OpenHands reads the same path and fields, so the file is written once. A generic `tools` list is dropped with a sync note, because Goose does not document it. `x-goose` fields work. If they make the file differ from what another tool gets, set a different `outputs.goose.agents-dir`.
 - **Skills**: `.agents/skills/` is Goose's [recommended path](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md), read ahead of `.goose/skills/` and `.claude/skills/`. The other `.agents/skills/` tools get the same files, so the shared folder is written once.
 - **Hooks**: an [Open Plugins](https://goose-docs.ai/docs/guides/context-engineering/hooks/) package (`.agents/plugins/agnostic-ai/plugin.json` plus `hooks/hooks.json`). All 12 documented events are supported. `matcher` is a regular expression. `timeout` is in seconds (default 30). `x-goose.on_failure` takes `allow` or `block` for `PreToolUse` failures. [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs these hooks with Goose's event data, shell, and timeout, so you can test them before a session does.
 - **Plugin skills**: set `outputs.goose.skills-dir: .agents/plugins/<name>/skills` to bundle skills as a plugin ([plugins](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/plugins.md)), with or without hooks. Skills and hooks share one manifest. Goose prefixes names with the plugin name, so `review` in `agnostic-ai` loads as `agnostic-ai:review`.
@@ -55,10 +67,10 @@ A skills directory inside a plugin folder but outside its `skills/` folder is no
 
 | Source | Becomes |
 |--------|---------|
-| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.goosehints` | the same, read only when `AGENTS.md` carried no rules |
 | `.agents/agents/<name>.md` | `<agents>/<name>.md`, unchanged except for the generated-file header |
-| `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
+| `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
 | `.agents/plugins/<name>/skills/<skill>/SKILL.md` | the same, for every plugin in the project |
 | `.agents/plugins/<name>/hooks/hooks.json` | one hook spec per matcher group, `on_failure` under `x-goose` |
 | `.agents/REVIEW.md` | `<reviews>/review.md` |

@@ -11,7 +11,7 @@ group = "Workflows"
 
 [RTK](https://github.com/rtk-ai/rtk) shortens the output of common terminal commands before the coding agent reads it. [Caveman](https://github.com/JuliusBrussee/caveman/tree/main/skills/caveman) is a skill that asks the agent to answer in fewer words. agnostic-ai can set up either one for you.
 
-Start with RTK if you want lower cost. In our tests, adding Caveman on top of RTK cost more, not less. Pick Caveman only if you like its style.
+Start with RTK if you want to reduce the command output your agent reads. In our tests, adding Caveman on top of RTK cost more. Choose Caveman for shorter answers if you like its style; measure cost on your own tasks.
 
 ## Turn them on
 
@@ -32,7 +32,7 @@ agnostic-ai sync
 - **RTK** adds a hook to `.claude/settings.json`. A hook is a command Claude Code runs before each shell command. It works only in Claude Code, and only for the Bash tool on macOS or Linux, not PowerShell.
 - **Caveman** adds a skill to `.claude/skills/caveman/` and to every other tool that supports skills. Type `/caveman` to start it.
 
-Install RTK yourself with its [install guide](https://github.com/rtk-ai/rtk#installation). If RTK is missing, commands run as normal. agnostic-ai does not install either tool. `doctor rtk` runs RTK to preview a rewrite without executing the supplied command.
+Install RTK yourself with its [install guide](https://github.com/rtk-ai/rtk#installation). If RTK is missing, commands run as normal. agnostic-ai does not install either tool. Use `agnostic-ai doctor rtk --command 'git status'` to preview how RTK changes a command without executing that command.
 
 ## What happens on a command
 

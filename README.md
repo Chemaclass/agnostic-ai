@@ -19,7 +19,7 @@ Paste this into Claude Code, Codex, Cursor, or another coding agent:
 Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior. Before any sync, check for existing CLAUDE.md, AGENTS.md, and similar files, and ask me what to do with their content. Finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
 ```
 
-It takes about two minutes. The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) is the checklist the agent follows.
+The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) is the checklist the agent follows.
 
 <a id="set-up-manually"></a>
 
@@ -43,9 +43,9 @@ agnostic-ai sync
 
 Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It also writes [Copilot user hooks](https://agnostic-ai.org/docs/targets/copilot/#hooks), [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
 
-Edit your shared instructions in `.agnostic-ai/AGNOSTIC_AI.md` and your specs under `.agnostic-ai/`, then run `agnostic-ai sync` again. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
+Edit your shared instructions in `.agnostic-ai/AGNOSTIC_AI.md` and your specs under `.agnostic-ai/`, then run `agnostic-ai sync` again. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs. After cloning a configured project, install its documented CLI version, run `agnostic-ai sync`, and finish with `agnostic-ai sync --check`.
 
-When another branch changes a native skill tree you have moved, use [`import reconcile`](https://agnostic-ai.org/docs/cli-reference/start/#import-reconcile) to review the mapped changes against the migration's Git revisions.
+When another branch changes a native skill tree you have moved, use [`import reconcile`](https://agnostic-ai.org/docs/cli-reference/start/#import-reconcile) to review the mapped changes against the Git commits recorded during migration.
 
 After installing a newer release, run `agnostic-ai upgrade --requires` from the project root to update an exact version pin and sync again. To keep a deliberate minimum or range, follow [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
@@ -54,6 +54,19 @@ The [VS Code extension](editors/vscode/) shows lint findings for saved specs and
 Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [Installation](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 ## Daily commands
+
+Run from the directory containing `agnostic-ai.yaml`:
+
+```bash
+agnostic-ai status       # see selected tools and out-of-date files
+agnostic-ai sync --plan  # preview what will change
+agnostic-ai sync         # write the tool files
+agnostic-ai sync --check # confirm they match the sources
+```
+
+Edit instructions and settings under `.agnostic-ai/`, then repeat sync and check. Use the [command reference](https://agnostic-ai.org/docs/cli-reference/) when you need to import, compare, or repair a setup.
+
+### Upgrades and inspection
 
 Interactive runs offer new releases with upgrade guidance and a default Yes prompt. Accept to update, migrate this project, and check its generated files. The prompt includes any project version and schema changes. Local package installations show their package manager's update command. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable the daily check. See [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
@@ -64,7 +77,7 @@ agnostic-ai compare claude cursor                # compare fields, rules, hooks,
 agnostic-ai new settings project-defaults --dry-run # preview a settings spec
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai explain --file src/main.go --target claude # show configured instructions for a file
-agnostic-ai explain --context --target claude         # rank estimated startup sources and on-demand bodies
+agnostic-ai explain --context --target claude         # rank estimated instructions loaded at startup and when requested
 agnostic-ai project --check                      # check the installed project binary and generated output
 agnostic-ai sync --check                         # find generated files that differ from the sources
 agnostic-ai doctor --scope project               # check project files without local hook trust

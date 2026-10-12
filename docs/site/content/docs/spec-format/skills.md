@@ -9,18 +9,20 @@ group = "Reference"
 
 # Skills
 
-`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, triage a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files only when the skill applies.
+`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, investigate a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files only when the skill applies.
 
-- **Small standing context.** A long procedure costs nothing until it is used. A rule, by contrast, loads every session.
-- **Files that travel with it.** Scripts, templates, and fixtures sit next to `SKILL.md` and are copied beside it for every tool.
+- **Fewer instructions loaded every session.** A long procedure costs nothing until it is used. An always-on rule loads every session.
+- **Files that travel with it.** Scripts, templates, and sample files sit next to `SKILL.md` and are copied beside it for tools that support skill folders.
 - **Used by the model or by name.** The model picks a skill from its description. A person can also call it directly.
-- **One format across tools.** Tools that read the `SKILL.md` layout get the skill as written. Tools without skill support get a rule and a coverage note.
+- **One format across tools.** Tools that read the `SKILL.md` layout get the skill as written. Tools without skill support get a rule and a sync note.
 
 Use a [rule](@/docs/spec-format/rules.md) for what applies to every task, and a skill for a procedure some tasks need.
 
+Write the trigger, prerequisites, steps, and expected result. Name commands and paths the agent can use directly. State when it must stop for missing information or approval. Link supporting files beside `SKILL.md` instead of repeating long reference text in the body.
+
 ## Write one
 
-`agnostic-ai new skill release-notes` scaffolds one. Two layouts:
+`agnostic-ai new skill release-notes` creates a starter file. Two layouts:
 
 - **Flat:** `skills/yaml-validator.md`
 - **Nested**, for skills with attached files: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
@@ -38,7 +40,7 @@ description: Validate YAML against a schema. Use when a YAML file changes or the
 3. Report violations as `path: message`
 ```
 
-Write `description` as the trigger: what the skill does and when to use it. The model decides from that line alone.
+Write `description` as the trigger: what the skill does and when to use it. The model uses that line to decide whether the skill fits the task.
 
 This manual-only release skill runs on a stronger model in Claude Code and ships its own script:
 
@@ -69,15 +71,15 @@ model: {claude: opus}
 | `description` | no | empty | One line the model uses to decide whether to use the skill. |
 | `argument-hint` | no | unset | Hint for the arguments to a Claude Code slash command. Other tools leave it out unless you set it under their `x-<target>` block. |
 | `disable-model-invocation` | no | unset | `true` stops the model from using the skill on its own. A person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
-| `model` | no | unset | Claude Code model for the rest of the turn. Scalar, per-target map, or [tier](@/docs/spec-format/agents.md#model-tiers) name; `x-claude.model` wins. |
-| `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
+| `model` | no | unset | Claude Code model for the rest of the turn. Single value, per-target map, or [tier](@/docs/spec-format/agents.md#model-tiers) name; `x-claude.model` wins. |
+| `effort` | no | unset | Claude Code effort for the rest of the turn. Single value or per-target map; `x-claude.effort` wins. |
 | `allowed-tools` | no | unset | Tool-neutral capabilities the skill may use, such as `[read, shell(git diff *)]`. See [allowed tools](#allowed-tools). |
 | `license` | no | unset | The Agent Skills license, kept in every tool's `SKILL.md`. |
 | `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/web]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool. |
 
 A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` puts the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
-Sync reports a coverage note for each skill field a tool leaves out, including `argument-hint`, `model`, and `effort`.
+Sync reports a sync note for each skill field a tool leaves out, including `argument-hint`, `model`, and `effort`.
 
 - A field that is kept in the tool's own frontmatter, in a command copy of the skill, or in a policy file gets no note.
 - `agnostic-ai compare claude codex` shows which skill fields each tool keeps, translates, or drops.
@@ -92,7 +94,7 @@ Write `allowed-tools` with the same [capabilities](@/docs/spec-format/agents.md#
 allowed-tools: [read(src/**), edit(src/**), shell(git diff *), mcp:github]
 ```
 
-The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each tool gets its own names where it supports this field. A tool that drops a restriction or grants more access raises a coverage note. `on-unsupported: error` fails when a tool would grant more access.
+The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each tool gets its own names where it supports this field. A tool that drops a restriction or grants more access raises a sync note. `on-unsupported: error` fails when a tool would grant more access.
 
 Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. So do scoped names such as `Read(src/**)` and `Bash(git diff *)`. A list can mix neutral and Claude Code names.
 
@@ -102,7 +104,7 @@ Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSe
 
 Only `SKILL.md` and flat `skills/*.md` files are read as skills. Every other file in a nested skill directory is a bundled file (scripts, templates, fixtures, extra `*.md`). Bundled files are copied unchanged to the same relative path under each tool's skills directory. Import and sync keep executable bits.
 
-Most tools get `<dir>/<name>/SKILL.md` with the bundled files. Several share `.agents/skills/`, so identical files are written once. Tools without skill support get the skill as a `skill-<name>.md` rule. Bundled files cannot follow, so they raise a coverage note. Set `outputs.<target>.emit-skills-as-commands: true` to also write a slash command. Each target page gives the exact directory.
+Most tools get `<dir>/<name>/SKILL.md` with the bundled files. Several share `.agents/skills/`, so identical files are written once. Tools without skill support get the skill as a `skill-<name>.md` rule. Bundled files cannot follow, so they raise a sync note. Set `outputs.<target>.emit-skills-as-commands: true` to also write a slash command. Each target page gives the exact directory.
 
 A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which becomes each tool's own skills directory.
 

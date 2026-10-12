@@ -18,12 +18,14 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 `settings/` sets what agents may run without asking, what they must never run, and which model and effort they start with. Every tool spells this differently: Claude Code uses `permissions` in `.claude/settings.json`, Factory uses command lists, Codex uses `config.toml`. A settings spec states the policy once.
 
 - **One policy.** Allow `go test`, deny `rm`, and ask before pushing, in every tool that supports permissions.
-- **No silent widening.** A rule a tool cannot express raises a coverage note.
+- **No silent widening.** A rule a tool cannot express raises a sync note.
 - **Protected files.** List the files an agent must not edit without asking. Each tool gets its own guard.
 - **One default model.** Set it per tool with a fallback, since model names differ between vendors.
 - **Tool-only keys.** An `x-<target>` block merges into that tool's own settings file.
 
 OpenCode V2 MCP imports use `x-opencode.mcp` to retain native connection details, disabled states, OAuth settings and separate timeouts. Keep this target-specific configuration in a settings spec instead of portable MCP specs for OpenCode. See [OpenCode](@/docs/targets/opencode.md).
+
+Start with the commands and paths a task needs, then check what each tool can enforce. Use narrow permission patterns and a per-tool model when model names differ. The support tables below explain which settings are written and which are left out.
 
 ## Write one
 
@@ -58,7 +60,7 @@ effort:
 | `permissions.allow` | no | empty | Rules approved without prompting. |
 | `permissions.deny` | no | empty | Rules always blocked. |
 | `permissions.ask` | no | empty | Rules that prompt before running. |
-| `permissions.default-mode` | no | unset | Claude Code's starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other tools raise a coverage note. |
+| `permissions.default-mode` | no | unset | Claude Code's starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other tools raise a sync note. |
 | `model` | no | empty | Default model: a string, a map per target with an optional `default` (like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort)), or a [tier](@/docs/spec-format/agents.md#model-tiers) name. A target with no entry and no `default` gets no model. |
 | `effort` | no | empty | Default reasoning effort: a single value, or a map per target with an optional `default` (like [agent `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort)). An agent's own `effort` is separate. |
 | `protected` | no | unset | Files agents must not edit without asking: `paths`, `decision` (`ask` or `deny`), and `reason`. See [protected paths](#protected-paths). |
@@ -94,7 +96,7 @@ A path starts at the project root. `composer.lock` protects only the root file. 
 | Codex | enforced (hook) | a generated `PreToolUse` hook in `.codex/hooks/` that blocks a matching `apply_patch` ([details](@/docs/targets/codex.md#protected-paths)) |
 | Cursor | enforced (permission), CLI only, `deny` only | `Write(<path>)` rules in `permissions.deny` of `.cursor/cli.json`; `ask` is not enforced ([details](@/docs/targets/cursor.md#protected-paths)) |
 | Gemini CLI | enforced (hook) | a generated `BeforeTool` hook in `.gemini/hooks/` that blocks a matching `write_file` or `replace` ([details](@/docs/targets/gemini.md#protected-paths)) |
-| Every other target | not enforced | a coverage note on sync. State the paths in a rule |
+| Every other target | not enforced | a sync note on sync. State the paths in a rule |
 
 Protection covers the agent's edit tools. A shell command that writes the file can still change it.
 
@@ -116,7 +118,7 @@ A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same na
 | `web` | Fetching pages and searching the web | `WebFetch` and `WebSearch` |
 | `mcp:<server>`, `mcp:<server>/<tool>` | One MCP server, or one of its tools | `mcp__<server>`, `mcp__<server>__<tool>` |
 
-- Each rule becomes the tool's own permission name. `delete` raises a coverage note where a tool has no delete permission.
+- Each rule becomes the tool's own permission name. `delete` raises a sync note where a tool has no delete permission.
 - A Claude Code rule still works as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both.
 - `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a tool would drop it.
@@ -151,7 +153,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 ## Effort by target
 
-`effort` reaches four tools, each under its own key. A value the tool does not accept is not written and raises a coverage note. The other tools still get their files. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. Every other tool reports a coverage note.
+`effort` reaches four tools, each under its own key. A value the tool does not accept is not written and raises a sync note. The other tools still get their files. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. Every other tool reports a sync note.
 
 `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it. Otherwise the value goes under `x-<target>`.
 
@@ -174,26 +176,26 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Cursor | `allow` and `deny` in `.cursor/cli.json`, for the Cursor CLI ([details](@/docs/targets/cursor.md#permissions)) | no |
 | Copilot, Junie, Gemini | no | yes |
 
-Every other target takes neither. A field a tool cannot hold raises a coverage note, and the other tools still get their files.
+Every other target takes neither. A field a tool cannot hold raises a sync note, and the other tools still get their files.
 
 - Copilot and Junie report the whole policy in a note.
 - Codex does too, unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies. The rest raise a note ([Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions)).
 - Rules carry over only as far as the vendor allows. Augment gates `read`, `edit`, and `write` as whole tools. Factory's command lists take shell patterns. A path-scoped rule raises a note instead of widening.
 - Factory's `commandDenylist` prompts, so `ask` goes there and `deny` goes to `commandBlocklist`.
 - Review an imported `model` before you enable more tools, because model names differ between vendors.
-- A shared Claude model name raises the same coverage note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex.md#codex-config) sets the model.
+- A shared Claude model name raises the same sync note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex.md#codex-config) sets the model.
 
 ## Target-specific keys
 
-Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a coverage note that names both.
+Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
 
 When agnostic-ai also writes the same key:
 
 - Lists are joined, with the entries sync writes first.
 - Objects merge key by key, at every level.
 - A single value such as `model` is replaced.
-- A list and a string cannot merge. The `x-<target>` value wins, with a coverage note.
+- A list and a string cannot merge. The `x-<target>` value wins, with a sync note.
 - Maps of whole records (`x-qoder.mcpServers`, `x-augment.mcpServers`) merge by name. A server both sides name comes whole from the `x-<target>` block (#974).
 - Blocks with a fixed order (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events added at the end (#976).
 
-Four keys take one type each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Any other type is skipped, the rules from your `permissions` are still written, and a coverage note names the key (#976).
+Four keys take one type each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Any other type is skipped, the rules from your `permissions` are still written, and a sync note names the key (#976).

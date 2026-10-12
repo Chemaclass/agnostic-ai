@@ -1,6 +1,6 @@
 +++
 title = "Cross-target behavior"
-description = "How entry-point files, global output, and other behavior work across several AI tools."
+description = "Understand shared instruction files, machine-wide settings, and differences between tools."
 weight = 125
 
 [extra]
@@ -17,7 +17,7 @@ Rules with `scope` work on 20 tools, through each tool's file conditions or inst
 
 ## Entry-point files
 
-`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into a root entry-point file for each enabled tool. Edit `AGNOSTIC_AI.md`; sync creates it once from a short template and never rewrites it. The next sync overwrites any edit to a root entry-point file.
+`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into each enabled tool's root instruction file (entry point), such as `AGENTS.md` or `CLAUDE.md`. Edit `AGNOSTIC_AI.md`; sync creates it once from a short template and never rewrites it. The next sync overwrites any edit to a root entry-point file.
 
 | Entry-point file | Targets |
 |---|---|
@@ -33,7 +33,7 @@ Tools that share a path write it once. Cursor and continue have no root entry po
 
 ### Inlined rules
 
-These tools have no native rules directory: codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and junie. Sync copies their unscoped rules into the entry-point file, under a `## Rules` heading after the shared instructions. `import` removes that block.
+These tools have no rules directory they read directly: codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and junie. Sync copies their project-wide rules into the root instruction file, under a `## Rules` heading after the shared instructions. `import` removes that block.
 
 Augment (`.augment/rules/`) and Kilo Code (`.kilo/rules/`) have a rules directory but still inline into `AGENTS.md`. OpenHands inlines always-on rules. Its scoped rules (`globs`, `paths`, a folder, or frontmatter) go to `.agents/skills/<name>/SKILL.md`.
 
@@ -72,12 +72,12 @@ While a spec still writes the file, the next sync removes a key it set that no s
 
 ## Spec kind behavior
 
-The [spec format guide](@/docs/spec-format/_index.md) defines every portable kind. The [tool support table](@/docs/targets/_index.md#capability-matrix) shows where each is native, mapped, opt-in, source-only, or has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step. See [coverage notes](@/docs/configuration.md#coverage-notes).
+The [spec format guide](@/docs/spec-format/_index.md) defines every portable kind. The [tool support table](@/docs/targets/_index.md#capability-matrix) shows whether each kind is read directly by the tool, converted to another kind, enabled by a setting, kept only in the source, or skipped because it has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step. See [coverage notes](@/docs/configuration.md#coverage-notes).
 
-- **Skills** are written as native skill folders (`SKILL.md` plus assets). Most tools read `.agents/skills/`; codex, windsurf, amp, zed, warp, antigravity, crush, augment, goose, openhands, factory, and kilo write it by default, so identical folders are written once. The rest read their own folder. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) replaces byte-identical folders with one copy plus symlinks. Aider writes skill text as rule files.
+- **Skills** are written as skill folders the tool reads directly (`SKILL.md` plus supporting files). Most tools read `.agents/skills/`; codex, windsurf, amp, zed, warp, antigravity, crush, augment, goose, openhands, factory, and kilo write it by default, so identical folders are written once. The rest read their own folder. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) replaces byte-identical folders with one copy plus symlinks. Aider writes skill text as rule files.
 
   Trae can also read `.agents/skills/` when **Enable .agents Skills Directory** is on under Settings > Skills & Commands > Import Settings. Its default is not documented. [`import trae`](@/docs/targets/trae.md#import) reads both paths without changing that switch; sync keeps `.trae/skills/` as its default.
-- **Agents** are written as native subagent profiles. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads that shared folder plus `.devin/agents/`.
+- **Agents** are written as profiles for helper agents (subagents) that your coding tool can delegate work to. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads that shared folder plus `.devin/agents/`.
 
   **Devin can discover profiles written for other tools.** Shared profiles can lack `allowed-tools`, which defaults to all tools in [Devin](https://docs.devin.ai/cli/subagents#frontmatter-fields). If a `.devin/agents/` profile has the same name, Devin also discovers that copy. Check every discovered profile for duplicate names and missing restrictions. A spec's `target:` controls which adapter writes it; it does not stop Devin reading shared files written for another target. `sync` reports the number of shared files and their writers.
 - **Hooks** differ per tool in event names, paths, wrappers, and timeout units. A matcher can parse but match nothing when event names differ, so read the target page before sharing a hook. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths) for imported `$CLAUDE_PROJECT_DIR` paths and [which target ran a hook](@/docs/spec-format/hooks.md#hook-target) for `AGNOSTIC_AI_TARGET`.
@@ -124,7 +124,7 @@ Per run:
 agnostic-ai sync -t claude,cursor,copilot
 ```
 
-The flag overrides config. Unknown targets log a warning and are skipped. Five targets are opt-in. `-t amp,warp,jules,goose,augment` enables them for one run. The [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects, else the CLIs on `PATH`, else `claude` and `codex`.
+The flag replaces the configured list for this run. Unknown targets log a warning and are skipped. Five targets are opt-in. `-t amp,warp,jules,goose,augment` enables them for one run. The [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects, else the CLIs on `PATH`, else `claude` and `codex`.
 
 ## New targets
 

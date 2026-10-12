@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Local overrides
 
-A `local/` folder holds your personal setup. It changes shared specs field by field, adds new specs, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` stays the team's setup.
+Use `.agnostic-ai/local/` for personal specs and instructions, and `agnostic-ai.local.yaml` for personal configuration values. A `local/` folder holds your personal setup. It changes shared specs field by field, adds new specs, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` stays the team's setup.
 
 There are two `local/` folders:
 
@@ -25,9 +25,9 @@ A folder loads only when it exists. Project sync ignores `~/.agnostic-ai/`, and 
 The team agrees on `.agnostic-ai/`, but you work your own way. If you edit the shared specs, the change lands in your next commit. If you edit generated files, the next `sync` overwrites them. A `local/` folder keeps your changes on your machine.
 
 - **Model and effort.** Your plan includes Opus; the team default is Sonnet. Change one field, keep the rest of the skill.
-- **Personal steps.** Add "run my local benchmark" to the shared review skill without forking it.
+- **Personal steps.** Add "run my local benchmark" to the shared review skill without keeping a separate copy.
 - **Experiments.** Try a new agent or rule for a week. Move it to `.agnostic-ai/` if it works, or delete it.
-- **Machine specifics.** Point an MCP server at your local port, or add an env var.
+- **Machine specifics.** Point an MCP server at your local port, or add an environment variable.
 - **Tools.** Drop or add a tool for an agent on your machine only.
 
 ## Layout
@@ -51,7 +51,7 @@ The global folder reads `AGNOSTIC_AI.md`, `agents/`, `skills/`, `rules/`, and `h
 
 ## Add a spec
 
-A local spec with a new name joins the shared set. Every target gets it like any other spec.
+A local spec with a new name joins the shared set. Run `agnostic-ai sync` to generate its files for each selected tool.
 
 ## Override fields
 
@@ -93,12 +93,12 @@ model:
 Read the merged PRs since the last tag.
 ```
 
-Frontmatter merges key by key, the same way `agnostic-ai.local.yaml` merges over `agnostic-ai.yaml`:
+Frontmatter (the YAML fields between `---` lines) merges key by key, the same way `agnostic-ai.local.yaml` merges over `agnostic-ai.yaml`:
 
 | Local value | Result |
 |---|---|
-| a map | merges into the shared map, key by key, at any depth |
-| a scalar or a list | replaces the shared value |
+| a group of keys | merges into the shared group, key by key, at any depth |
+| a single value or a list | replaces the shared value |
 | `null` | removes the key |
 | missing | keeps the shared value |
 
@@ -133,7 +133,7 @@ Shared:
 ---
 name: custom
 ---
-foo for
+Review the changed code.
 ```
 
 Local:
@@ -143,21 +143,21 @@ Local:
 name: custom
 ---
 ::parent
-bar baz
+Then run my local benchmark.
 ```
 
 Result:
 
 ```md
-foo for
-bar baz
+Review the changed code.
+Then run my local benchmark.
 ```
 
 `::parent` must start at column 0 and stand alone on its line. Keep it outside a `::target` fence. In a spec with a new name, `::parent` has nothing to extend, so sync drops it.
 
 ## Skill assets
 
-A local skill folder with only a `SKILL.md` keeps the shared folder's scripts and templates. If the local folder holds any other file, its own files replace the shared ones.
+A local skill folder with only a `SKILL.md` keeps the shared folder's supporting files, such as scripts and templates. If the local folder holds any other file, its own supporting files replace the shared supporting files.
 
 ## What does not merge
 
@@ -167,7 +167,7 @@ Two files with the same name in one folder are a mistake. One wins, and `agnosti
 
 ## Extend the instructions
 
-`.agnostic-ai/local/AGNOSTIC_AI.md` extends `.agnostic-ai/AGNOSTIC_AI.md`. Sync appends its text to every entry-point file it writes (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and the rest), after the shared body and any inlined rules:
+`.agnostic-ai/local/AGNOSTIC_AI.md` extends `.agnostic-ai/AGNOSTIC_AI.md`. Sync appends its text to every root instruction file it writes (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and the rest), after the shared body and any inlined rules:
 
 ```md
 <!-- agnostic-ai:local:start -->

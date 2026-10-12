@@ -12,6 +12,18 @@ target_id = "kilo"
 
 Kilo [Code](https://kilo.ai/docs) gets `AGENTS.md`, agents, commands, plugin hooks, shared skills, and a merged `kilo.jsonc`.
 
+## Set up this tool
+
+Add `kilo` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import kilo`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -32,9 +44,9 @@ kilo.jsonc                         # instructions, mcp, and permission maps (mer
 - `mode` takes OpenCode's `primary`, `subagent`, or `all`.
 - `disable`, `hidden`, `steps`, `temperature`, and `top_p` ([agent options](https://kilo.ai/docs/customize/custom-subagents)) need `x-kilo`, for example `x-kilo: {temperature: 0.1, steps: 15}`.
 - Kilo has no `tools:` key, so a `tools` list becomes a [`permission`](https://kilo.ai/docs/customize/agent-permissions) map: `tools: [Read, Grep]` writes `permission: {"*": deny, read: allow, grep: allow}`. The catch-all comes first because the last matching rule wins.
-- These names translate: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `Bash`, `WebFetch`, `WebSearch`, `Task`, `Skill`, `TodoRead`, `TodoWrite`, and `mcp__<server>__<tool>` as `{server}_{tool}` ([permission keys](https://kilo.ai/docs/getting-started/settings/auto-approving-actions), [tool groups](https://kilo.ai/docs/automate/tools)). Other names drop with a coverage note. If nothing translates, no map is written, because `{"*": deny}` alone would lock the agent out. `x-kilo: {permission: {...}}` wins outright.
+- These names translate: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `Bash`, `WebFetch`, `WebSearch`, `Task`, `Skill`, `TodoRead`, `TodoWrite`, and `mcp__<server>__<tool>` as `{server}_{tool}` ([permission keys](https://kilo.ai/docs/getting-started/settings/auto-approving-actions), [tool groups](https://kilo.ai/docs/automate/tools)). Other names drop with a sync note. If nothing translates, no map is written, because `{"*": deny}` alone would lock the agent out. `x-kilo: {permission: {...}}` wins outright.
 
-A scoped `edit` deny also sets Kilo's `write` deny for that path, so an unscoped `write` allow cannot bypass it.
+A scoped `edit` deny also sets Kilo's `write` deny for that path, so a project-wide `write` allow cannot bypass it.
 
 **Skills** go to the shared `.agents/skills/<name>/SKILL.md` tree. Kilo loads it by default beside its own `.kilo/skills/`. Codex, amp, zed, crush, openhands, windsurf, and augment share it. Kilo also scans `.claude/skills/` (in the VS Code extension, only with Claude Code Compatibility on). Any other `outputs.kilo.skills-dir` is added to `skills.paths` in `kilo.jsonc` ([skills](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/skills.md)). Your `skills.paths` entries and `skills.urls` stay.
 
@@ -59,7 +71,7 @@ Kilo reads no rules block when a `file` output override moves the entry point of
 - Both keep `timeout` (milliseconds, zero included). `x-kilo` can override `timeout` and `oauth`.
 - `sync` keeps your keys in `kilo.jsonc`. It reads JSONC, as Kilo documents, but drops comments and trailing commas with a warning.
 
-**Hooks**: Kilo auto-registers each plugin module at startup ([plugins](https://kilo.ai/docs/automate/extending/plugins)). Its plugins work like [OpenCode](@/docs/targets/opencode.md)'s, and one renderer serves both. `PreToolUse` and `PostToolUse` map to `tool.execute.before` and `tool.execute.after`. Other documented events use the `event` hook with an `event.type` guard. Matchers, exit code 2 blocking, and `disabled: true` behave the same. Only the module shape differs: `export default { id: "<name>", server }`. Hooks on `shell.env`, `experimental.session.compacting`, or an unmapped event drop with a coverage note.
+**Hooks**: Kilo auto-registers each plugin module at startup ([plugins](https://kilo.ai/docs/automate/extending/plugins)). Its plugins work like [OpenCode](@/docs/targets/opencode.md)'s, and sync uses the same code to generate both. `PreToolUse` and `PostToolUse` map to `tool.execute.before` and `tool.execute.after`. Other documented events use the `event` hook with an `event.type` guard. Matchers, exit code 2 blocking, and `disabled: true` behave the same. Only the module shape differs: `export default { id: "<name>", server }`. Hooks on `shell.env`, `experimental.session.compacting`, or an unmapped event drop with a sync note.
 
 **Settings**: a settings spec's default `model` and its `x-kilo` block (for Kilo-only keys such as `sandbox`) merge into the top level of `kilo.jsonc`. An `x-kilo` `permission` instead merges tool by tool with the translated rules.
 
@@ -69,7 +81,7 @@ The portable `allow`, `deny`, and `ask` lists merge into the `permission` key of
 - A rule in two lists takes the stricter action.
 - An `Edit` deny or ask also lands under `write`. Claude Code's `Edit` rules cover every tool that edits files, and Kilo keeps `write` apart. So `Edit(.env)` in `deny` blocks writing `.env` too. An `Edit` allow stays under `edit`.
 - Inside one tool, patterns go allow, then ask, then deny. Kilo takes the last match, and Claude Code lets a deny or ask win over any allow, so a narrower allow never bypasses a broader deny.
-- `WebFetch(domain:example.test)` drops with a coverage note, because Kilo matches URLs. Unknown tool names drop too.
+- `WebFetch(domain:example.test)` drops with a sync note, because Kilo matches URLs. Unknown tool names drop too.
 - `x-kilo.permission` writes Kilo's own map. It wins for the tool keys it names, and that spec's portable lists are skipped.
 - Your entries for tools agnostic-ai does not set stay.
 
@@ -101,12 +113,12 @@ Generated rule sections in `AGENTS.md` are recovered when their source specs are
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).
-2. Check the tree: `ls AGENTS.md .kilo/agents/ .agents/skills/ .kilo/commands/ .kilo/plugin/ kilo.jsonc`, and `grep "Generated by agnostic-ai" .kilo/agents/*.md .kilo/commands/*.md .kilo/plugin/*.ts`. `AGENTS.md` carries each unscoped rule under `## Rules`, with no copy in `.kilo/rules/`.
+2. Check the files: `ls AGENTS.md .kilo/agents/ .agents/skills/ .kilo/commands/ .kilo/plugin/ kilo.jsonc`, and `grep "Generated by agnostic-ai" .kilo/agents/*.md .kilo/commands/*.md .kilo/plugin/*.ts`. `AGENTS.md` carries each project-wide rule under `## Rules`, with no copy in `.kilo/rules/`.
 3. Open the project and confirm each:
    - `.kilo/rules/<name>.md` in the `instructions` array appears in the loaded rules.
    - `.kilo/agents/<name>.md` appears in the agent picker.

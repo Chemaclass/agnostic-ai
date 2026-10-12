@@ -1,6 +1,6 @@
 # Project packs for RTK and Caveman
 
-These two local packs (folders of shared specs) work independently with existing agnostic-ai commands on Claude Code using a POSIX shell, such as on macOS or Linux. The RTK pack adds a hook that calls an installed RTK. The Caveman pack adds the default response skill from a fixed revision of the Caveman project. Invoke `/caveman` in Claude before your task. Copying the skill does not prove Claude used it.
+These two local packs (folders of shared specs) work independently with existing agnostic-ai commands on Claude Code using a shell such as Bash on macOS or Linux. The RTK pack adds a hook that calls an installed RTK. The Caveman pack adds the default response skill from a fixed Git commit of the Caveman project. Invoke `/caveman` in Claude before your task. Copying the skill does not prove Claude used it.
 
 <a id="add-a-component"></a>
 

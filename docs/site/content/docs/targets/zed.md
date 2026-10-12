@@ -14,6 +14,18 @@ Zed reads `.rules`, `.agents/skills/`, `.zed/settings.json` MCP servers, and opt
 
 Set `outputs.zed.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
+## Set up this tool
+
+Add `zed` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import zed`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -23,14 +35,14 @@ Set `outputs.zed.agents: skill` to write agents as on-demand skills; see [agents
 .zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
 
-- **Rules**: Zed 1.4.2 retired its rules library, so `sync` writes the pointer body and a marked `## Rules` block to `.rules`.
-  - Zed reads [the first matching file](https://zed.dev/docs/ai/instructions) of `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. Nothing agnostic-ai writes ranks above `.rules`. `AGENTS.md` ranks below Copilot's pointer-only file. With copilot enabled, rules in `AGENTS.md` never reach Zed.
+- **Rules**: Zed 1.4.2 retired its rules library, so `sync` writes the instructions that point to source specs and a marked `## Rules` block to `.rules`.
+  - Zed reads [the first matching file](https://zed.dev/docs/ai/instructions) of `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. Nothing agnostic-ai writes ranks above `.rules`. `AGENTS.md` ranks below Copilot's file that only points to source specs. With copilot enabled, rules in `AGENTS.md` never reach Zed.
   - Zed calls `AGENTS.md` primary and `.rules` a compatibility file. If Zed drops `.rules`, the rules move back to `AGENTS.md`.
-  - For older Zed, `outputs.zed.rules-file: .rules` replaces the pointer body with the legacy single document (agent bodies included).
+  - For older Zed, `outputs.zed.rules-file: .rules` replaces the instructions that point to source specs with the legacy single document (agent bodies included).
 - **Skills**: [Zed skills](https://zed.dev/docs/ai/skills). Identical files are written once. Sync reports `x-zed` overrides that make two copies differ.
   - `x-zed: {disable-model-invocation: true}` hides a skill from the agent's catalog (slash command or @-mention only). Only `x-zed` keys are used. A top-level `disable-model-invocation:` (Cursor's form) does nothing here.
   - Names must be 1-64 lowercase letters or digits, with single hyphens between segments. Sync fails on names such as `Deploy`, `my_skill`, and `my--skill` and states the format. It does not rename them.
-- **Agents**: Zed has no per-agent support. Sync prints a coverage note unless `outputs.zed.rules-file` is set (the single document includes agent sections).
+- **Agents**: Zed has no per-agent support. Sync prints a sync note unless `outputs.zed.rules-file` is set (the single document includes agent sections).
 - **MCP**: servers go under `context_servers` (not `mcpServers`): flat `command`/`args`/`env` for stdio, `url`/`headers` for remote (HTTP / SSE). Your other keys (theme, buffer_font_size) stay.
   - `disabled: true` becomes `enabled: false`. Enabled servers get no key, because Zed defaults to true. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
   - Set `timeout` (both transports; seconds per tool call, default 60), `oauth` (HTTP), and `remote` (stdio and extension servers) through `x-zed`. No other tool has them.
@@ -49,11 +61,11 @@ Set `outputs.zed.agents: skill` to write agents as on-demand skills; see [agents
 | `outputs.zed.skills-dir` | `.agents/skills` | |
 | `outputs.zed.mcp-file` | `.zed/settings.json` | |
 | `outputs.zed.tasks-file` | empty | opt-in |
-| `outputs.zed.rules-file` | unset | writes the legacy single document and skips the pointer-body write, so pointing it at `.rules` replaces the pointer file instead of clashing with it |
+| `outputs.zed.rules-file` | unset | writes the legacy single document and skips the write of instructions that point to source specs, so pointing it at `.rules` replaces the pointer file instead of clashing with it |
 
 ## Import
 
-`agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (as hook specs), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` with all bundled assets.
+`agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (as hook specs), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` with all bundled files.
 
 ## Protected paths
 

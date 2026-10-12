@@ -10,7 +10,19 @@ target_id = "jules"
 
 # Jules (`jules`)
 
-Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared pointer body and the inlined `## Rules` block there.
+Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared instructions that point to source specs and the embedded `## Rules` block there.
+
+## Set up this tool
+
+Add `jules` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) to check that Jules loads the rules. Jules supports sync only; it has no import command.
 
 ## Output
 

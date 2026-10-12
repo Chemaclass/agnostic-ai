@@ -1,6 +1,6 @@
 # Recorded configuration and hook checks
 
-Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The final verifier passed 56 checks. 4 sync checks exited 0. The verifier ran seven separate Claude-only test projects.
+Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The final check script passed 56 checks. 4 sync checks exited 0. The script ran seven separate Claude-only test projects.
 
 ## Captured sync output
 
@@ -70,7 +70,7 @@ Repeat sync:
 
 ## Captured hook request and reply
 
-Claude-shaped request sent to the exact generated command:
+Request in Claude's format sent to the exact generated command:
 
 ```json
 {
@@ -125,7 +125,7 @@ Repeat sync changed only `.agnostic-ai/.command-lock` and `.agnostic-ai/.sync-st
 
 The first skill-restoration test project omitted the parent directory that sync pruned after removal. The corrected test project and documented restore command recreate `.claude/skills` before restoring the directory.
 
-These checks cover local configuration and Claude's JSON requests and replies. They do not show that a running Claude session used a rewritten command or Caveman skill, that global installations changed, that a separate Caveman program compressed requests, or that model-provider token use or costs fell. The test restores selected local settings; it does not test an external recovery system.
+These checks cover local configuration and Claude's JSON requests and replies. They do not show that a running Claude session used a rewritten command or Caveman skill, that global installations changed, that a separate Caveman program shortened requests, or that tokens used by the model provider or costs fell. The test restores selected local settings; it does not test an external recovery system.
 
 Run the [verifier](README.md#reproduce-the-checks) to capture the complete command output and check results for your machine.
 
@@ -133,4 +133,4 @@ Run the [verifier](README.md#reproduce-the-checks) to capture the complete comma
 
 The final run included a controlled file-size limit in a child process. The old helper truncated the Claude settings file when its write failed. The fixed helper left all original bytes and permissions intact, removed its temporary file, and kept the selected-hook backup private. Symlinked settings files and directories were refused without changing their targets.
 
-The missing-RTK test command uses shell builtins and redirection, so it can execute even with an empty PATH. Running the test command directly first created its marker; passing it to the hook then returned no reply and left the marker absent. These checks supplement the captured add, remove, and restore output above.
+The missing-RTK test command uses commands built into the shell and redirection, so it can execute even with an empty PATH. Running the test command directly first created its marker; passing it to the hook then returned no reply and left the marker absent. These checks supplement the captured add, remove, and restore output above.

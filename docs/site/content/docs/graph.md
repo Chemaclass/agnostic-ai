@@ -9,7 +9,7 @@ group = "Workflows"
 
 # graph
 
-Show which specs reach which tools, and which files they produce.
+Use `graph` to check whether a rule, skill, or other spec reaches the tools you selected. Start with `agnostic-ai graph --spec <name>` when one spec appears to be missing.
 
 `graph` checks which files each spec writes for each configured tool, and prints the result. It is read-only and writes no files. Output is sorted by spec name, then target.
 
@@ -43,7 +43,7 @@ other          | rule   rule   rule
 
 ### mermaid
 
-`graph LR`, for Markdown docs.
+A Mermaid diagram starting with `graph LR`, for Markdown viewers that support Mermaid.
 
 ```mermaid
 graph LR
@@ -69,7 +69,7 @@ digraph agnostic_ai {
 
 ### json
 
-One record per spec-to-file link, for editor extensions and scripts.
+One record for each file a spec produces, for editor extensions and scripts.
 
 ```json
 [
