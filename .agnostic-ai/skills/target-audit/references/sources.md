@@ -147,7 +147,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 ## amp
 
 - docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/the-dial · /docs/orbs/customizing · /docs/orbs/portals
-- changelog: https://ampcode.com/chronicle (`ampcode.com/news` 307s here; individual posts keep `/news/<slug>`; the page is an app shell, so read entries from `ampcode.com/news.rss`)
+- changelog: https://ampcode.com/news.rss (official Chronicle feed; `ampcode.com/chronicle` serves an app shell; individual posts keep `/news/<slug>`)
 - schema: https://ampcode.com/cli-settings.schema.json (the authoritative `.amp/settings.json` key list; `/docs/cli/settings` prose lists a subset)
 - trap: `ampcode.com/manual` returns 200 but serves an empty SvelteKit shell. Do not cite it.
 - blocker: `/docs/tools` lists no tool names; it defers to `amp tools list`. A tool table there would unblock mapping portable `deny` onto `amp.tools.disable` (written today via `x-amp`, #950). Portable `allow` and `ask` stay blocked: "By default, Amp does not ask for approval before running tools."
@@ -249,7 +249,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - docs: https://github.com/charmbracelet/crush (README is the reference) · https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md
 - changelog: https://github.com/charmbracelet/crush/releases (the feed carries a rolling `nightly` tag whose timestamp bumps daily while its body stays static artifact-verification boilerplate; it reads like a daily ship and is not one, so compare against the newest real version tag, target-audit 2026-09-07)
 - schema: https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json (the only place the MCP property set appears closed; main moves ahead of the published charm.land copy)
-- watch: the `crush.json` `mcp` block; agents or commands surfaces; `crushrc` / `.crushrc`, the Bash config format now preferred over JSON (#674); a second hook event beyond `PreToolUse`; MCP channel fields (`channel_enabled`, `channel_reply`) after a stable release (in main's schema since 2026-09-25, absent in v0.96.1).
+- watch: the `crush.json` `mcp` block; agents or commands surfaces; `crushrc` / `.crushrc`, the Bash config format now preferred over JSON (#674); a second hook event beyond `PreToolUse`.
 - quirk: the rolling `nightly` release bumps daily with static boilerplate. Compare against the newest real version tag.
 - decision: map MCP fields explicitly. `schema.json` sets `"additionalProperties": false` on `MCPConfig`, so a passthrough typo breaks the config.
 - decision: `timeout` stays unmapped. Crush reads seconds (default 10); the spec uses milliseconds, so 5000 would mean 5000 seconds.
