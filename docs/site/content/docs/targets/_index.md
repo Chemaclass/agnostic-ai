@@ -26,7 +26,7 @@ See what `agnostic-ai sync` writes for each supported tool. Filter the table, th
 
 ## Tools without a target
 
-Many tools read the root `AGENTS.md` and `.agents/skills/`. Enable a target that writes both, such as [codex](@/docs/targets/codex.md) with its default output paths. Those tools then get your unscoped rules and skills. Codex puts unscoped rules inline in `AGENTS.md`; see [cross-target behavior](@/docs/target-behavior.md#entry-point-files).
+Many tools read the root `AGENTS.md` and `.agents/skills/`. Enable a target that writes both, such as [codex](@/docs/targets/codex.md) with its default output paths. Those tools then get your project-wide rules and skills. Codex includes project-wide rules in `AGENTS.md`; see [cross-target behavior](@/docs/target-behavior.md#entry-point-files).
 
 Copy MCP servers and commands into the tool's own config by hand. For [pi](https://pi.dev), that is `.pi/mcp.json` and `.pi/prompts/<name>.md`. Pi loads them only after you trust the project.
 

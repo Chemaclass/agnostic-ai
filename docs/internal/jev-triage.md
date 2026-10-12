@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Decision 005](decisions.md#005-jev-triage-for-target-audits-optional-and-measured) · [Target audit skill](../../.agnostic-ai/skills/target-audit/SKILL.md)
 
-`scripts/jev-triage.sh` is an optional first reader for `/target-audit`. It asks TypeSafe's Jev, a model that returns structured answers instead of prose, which changed vendor pages probably break a claim agnostic-ai makes, and which pages are safe to skip. The audit works the same without it.
+`scripts/jev-triage.sh` is an optional first pass that decides which changed pages `/target-audit` should review. It asks TypeSafe's Jev, a model that returns structured answers instead of prose, which changed vendor pages probably break a claim agnostic-ai makes, and which pages are safe to skip. The audit works the same without it.
 
 ## What it does
 
@@ -17,7 +17,7 @@ The skill reviews targets with a possible problem from Jev first and passes the 
 
 ## Backward compatibility
 
-Without `TYPESAFE_API_KEY`, with `--lexical`, or when the API fails, the script still exits 0. `triage.tsv` then holds word-matching leads (claims that share a path, key, or term with the changed text), and every page is `lexical` or `unjudged`, so every changed row gets the auditor read it got before Jev. A page with no saved earlier copy has no change to compare, never appears in `triage-pages.tsv`, and always keeps the full review.
+Without `TYPESAFE_API_KEY`, with `--lexical`, or when the API fails, the script still exits 0. `triage.tsv` then holds possible problems found by matching words (claims that share a path, key, or term with the changed text), and every page is `lexical` or `unjudged`, so an auditor reads every changed row as before. A page with no saved earlier copy has no change to compare, never appears in `triage-pages.tsv`, and always keeps the full review.
 
 A 401, 403, no response, or exhausted retries stop further requests. Any other 4xx loses only that request's page. `JEV_MAX_REQUESTS` (default 40) caps a run; pages past the cap are `unjudged`.
 

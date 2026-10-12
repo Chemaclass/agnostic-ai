@@ -17,6 +17,8 @@ group = "Reference"
 
 Keep a rule short and write it as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md) instead, so it loads only when needed.
 
+Write instructions the agent can act on and you can check, such as which test command to run or which files to edit. Keep one convention per rule. Set a directory or file pattern when the instruction applies to only part of the project.
+
 ## Write one
 
 `agnostic-ai new rule conventional-commits` creates `rules/conventional-commits.md` with `globs: "**/*"` and `alwaysApply: true`.

@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents.
+
 ## v0.83.0 - 2026-10-11
 
 ### General

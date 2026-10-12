@@ -11,7 +11,7 @@ group = "Workflows"
 
 AI coding tools change their project configuration often. Each agnostic-ai release has a short announcement. It says what changes for you, and which verified changes in the tools and models affect your setup, safety, and portability.
 
-Each edition is one dated Markdown file under `docs/site/content/updates/`. Zola builds the article, adds it to the archive, and adds it to the [RSS feed](https://agnostic-ai.org/updates/feed.xml).
+Each announcement is one dated Markdown file under `docs/site/content/updates/`. Zola builds the article, adds it to the archive, and adds it to the [RSS feed](https://agnostic-ai.org/updates/feed.xml).
 
 The archive filters editions by target and searches titles, descriptions, summaries, and highlights. Pick several targets to see editions that match any of them. Search terms separated by spaces must all match. Filters stay in the URL, so you can bookmark or share a view. Without JavaScript, every edition is listed by date.
 
@@ -22,17 +22,17 @@ Each announcement has two parts:
 - **What changed in agnostic-ai.** Two or three effects on you. The GitHub release notes have the full list.
 - **News from the tools and models.** Selected changes outside agnostic-ai, with primary sources, what they mean for you, and whether agnostic-ai supports them yet.
 
-Breaking changes, changed defaults, removals, and deprecations come first. Safety changes and large additions follow. A feature a tool has may not be supported by agnostic-ai yet.
+Breaking changes, changed defaults, removals, and features scheduled for removal come first. Safety changes and large additions follow. A feature a tool has may not be supported by agnostic-ai yet.
 
 The same name does not mean the same behavior. Before calling two features equivalent, the audit compares which project files each feature affects, when it runs, its defaults, and its file format.
 
 ## How observations are classified
 
-| Disposition | Meaning |
+| Classification | Meaning |
 |---|---|
-| `adapter-gap` | The shared spec can describe the behavior, but one adapter does not write or import it yet. |
-| `spec-candidate` | Several tools share a verified project setting that the current spec cannot hold. It needs a design decision first. |
-| `target-extension` | Useful, but specific to one tool. It fits an `x-<target>` extension. |
+| `adapter-gap` | The shared spec can describe the behavior, but the code for one tool does not write or import it yet. |
+| `spec-candidate` | Several tools share a verified project setting that the current spec format cannot describe. It needs a design decision first. |
+| `target-extension` | Useful, but specific to one tool. It fits a block such as `x-codex` rather than a shared field. |
 | `watch` | The change matters, but the evidence is too thin for a product decision. |
 
 A proposed improvement is not shipped support. Automated fixes skip design candidates until their schema and scope are approved.
@@ -40,7 +40,7 @@ A proposed improvement is not shipped support. Automated fixes skip design candi
 ## Know which record to trust
 
 - The [release updates](https://agnostic-ai.org/updates/) summarize the release and selected news from the tools. They can describe a tool feature before agnostic-ai supports it, and they say so.
-- [`targets.md`](@/docs/targets/_index.md) records what the current code supports: file paths, limits, and opt-in settings.
+- [Tool support pages](@/docs/targets/_index.md) record what the current code supports: file paths, limits, and opt-in settings.
 - [`CHANGELOG.md`](https://github.com/Chemaclass/agnostic-ai/blob/main/CHANGELOG.md) records what agnostic-ai released.
 
 A change seen in a tool, support in agnostic-ai, and a release are three separate states.
@@ -49,7 +49,7 @@ Target audit reports and issues are research notes. They hold the evidence from 
 
 ## Publishing workflow
 
-The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article right before the release commit. The article, version bump, and dated changelog section go in one commit and tag. Its front matter holds the release identity, summary highlights, permanent RSS GUID, `.html` alias, and target IDs. It needs no audit counts, audit marker, or report digest.
+The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article right before the release commit. The article, version bump, and dated changelog section go in one commit and tag. Its front matter (the metadata at the top of the file) holds the release identity, summary highlights, permanent identifier for the RSS feed (`rss_guid`), alternative `.html` URL (`aliases`), and tool IDs. It needs no audit counts, audit marker, or report checksum.
 
 To prepare a release announcement:
 

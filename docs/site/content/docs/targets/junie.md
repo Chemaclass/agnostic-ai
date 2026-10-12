@@ -10,7 +10,19 @@ target_id = "junie"
 
 # Junie (`junie`)
 
-JetBrains Junie reads `.junie/AGENTS.md` (pointer body and rules), the rest of `.junie/`, and `.aiignore`.
+JetBrains Junie reads `.junie/AGENTS.md` (instructions that point to source specs and rules), the rest of `.junie/`, and `.aiignore`.
+
+## Set up this tool
+
+Add `junie` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import junie`](@/docs/cli-reference/start.md#import).
 
 ## Output
 
@@ -33,7 +45,7 @@ Junie uses the first guidelines source it finds, with no merging ([IDE plugin](h
 
 `sync` always writes `.junie/AGENTS.md`, so Junie [uses it exclusively](https://junie.jetbrains.com/docs/environment-variables.html) and step 2 never applies.
 
-- **Rules**: a `## Rules` block right after the pointer body, marked so sync can find it. Each rule is a `### <name>` section (source comment, optional description, full body), the same shape every tool that inlines rules uses.
+- **Rules**: a `## Rules` block right after the instructions that point to source specs, marked so sync can find it. Each rule is a `### <name>` section (source comment, optional description, full body), the same shape every tool that includes rules in instruction files uses.
 - **Agents** ([docs](https://junie.jetbrains.com/docs/junie-cli-subagents.html)): Junie reads `.junie/agents/` (the vendor's preferred location and the default here) or `.agents/`. Junie CLI offers to import `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/` into it. Set `outputs.junie.agents-dir: .agents` for the shared alternative, like Codex's `outputs.codex.agents-dir: .agents/agents`.
   - Names, and filenames when `name` is missing, must match `[a-z][a-z0-9_-]*` (underscores allowed, unlike the OpenCode and Zed skill rule). An invalid name such as `Deploy_Bot` fails sync, and the error shows the required format. Sync does not rename it.
   - Frontmatter is copied as written. The documented fields (`name`, `description`, `tools`, `disallowedTools`, `mcpServers`, `model`, `permissionMode`, `reasoningLevel`, `maxTurns`, `skills`, `allowPromptArgument`) use the same spelling as specs, and `tools` and `disallowedTools` stay YAML lists.
@@ -43,8 +55,8 @@ Junie uses the first guidelines source it finds, with no merging ([IDE plugin](h
   - Early Access covers only the automatic model-selection toggle (`/settings → Subagents`), not the file format or how Junie finds agents.
 - **Commands** ([project commands folder](https://junie.jetbrains.com/docs/custom-slash-commands.html)): Junie documents `description` and `allowPromptArgument` (free-form text through a `$prompt` placeholder). Other keys are copied as written. Junie fills `$argumentName` placeholders in the body when you run the command.
 - **CLI only**: the IDE plugin docs mention neither subagents nor slash commands.
-- **Skills**: bundled assets are copied as they are, and a flat file never loads as a skill. Junie CLI also loads `.agents/skills/` in a trusted project ([agent-skills](https://junie.jetbrains.com/docs/agent-skills.html)), so another tool that writes it gives Junie a harmless second copy.
-- **MCP**: `.junie/mcp/mcp.json` in the standard `mcpServers` schema (`command`/`args`/`env` local, `url`/`headers` remote). Those are the only [documented keys](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html), so `disabled` and `description` are dropped with a coverage note. Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+- **Skills**: bundled files are copied as they are, and a flat file never loads as a skill. Junie CLI also loads `.agents/skills/` in a trusted project ([agent-skills](https://junie.jetbrains.com/docs/agent-skills.html)), so another tool that writes it gives Junie a harmless second copy.
+- **MCP**: `.junie/mcp/mcp.json` in the standard `mcpServers` schema (`command`/`args`/`env` local, `url`/`headers` remote). Those are the only [documented keys](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html), so `disabled` and `description` are dropped with a sync note. Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 - **Settings**: a settings spec's default `model` merges into `.junie/config.json`, keeping other keys. `x-junie` adds project-config keys that have no portable field.
 - **Ignore**: `.aiignore` in the project root, in `.gitignore` syntax ([IDE plugin](https://junie.jetbrains.com/docs/junie-ide-plugin.html)). Specs are joined. Override the path with `outputs.junie.ignore-file`.
   - Junie asks before it views or edits a listed file instead of blocking it, and it protects contents, not names.
@@ -81,7 +93,7 @@ Older versions wrote rules and agents to `.junie/rules/`, which `.junie/AGENTS.m
 - The Rules block in `.junie/AGENTS.md`.
 - Agents from `.junie/agents/<name>.md` (or `.agents/<name>.md`).
 - Commands from `.junie/commands/<name>.md`.
-- Skills, with bundled assets, from `.junie/skills/<name>/SKILL.md`, then `.agents/skills/` for names not already found.
+- Skills, with bundled files, from `.junie/skills/<name>/SKILL.md`, then `.agents/skills/` for names not already found.
 - The default `model` in `.junie/config.json`, restored to `settings/junie.yaml`.
 
 Older layouts still import:
@@ -92,13 +104,13 @@ Older layouts still import:
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 
 1. Install the Junie plugin in a JetBrains IDE (or the Junie CLI, [docs](https://junie.jetbrains.com/docs/)).
-2. Check the tree:
+2. Check the files:
    - `ls AGENTS.md .junie/AGENTS.md .junie/agents/ .junie/skills/ .junie/commands/`
    - `grep "Generated by agnostic-ai" .junie/AGENTS.md`
    - `python -m json.tool .junie/mcp/mcp.json > /dev/null`
-3. Ask Junie to list its guidelines. The rules apply, each `.junie/agents/<name>.md` is a delegatable subagent, each `.junie/skills/<name>/` a skill, and each `.junie/commands/<name>.md` a `/name` slash command.
+3. Ask Junie to list its guidelines. The rules apply, each `.junie/agents/<name>.md` is a subagent you can hand a task to, each `.junie/skills/<name>/` a skill, and each `.junie/commands/<name>.md` a `/name` slash command.

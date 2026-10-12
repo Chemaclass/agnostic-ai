@@ -6,7 +6,7 @@ Use this page after building the CLI. It covers checks, conventions, and generat
 
 ## Development loop
 
-Run the smallest relevant example while implementing, then batch the required checks once the change is complete.
+Run the smallest relevant example while implementing, then run the required checks once the change is complete.
 
 ```bash
 go run ./cmd/agnostic-ai validate
@@ -33,13 +33,13 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`, with the pinned Zola. See [Docs site](#docs-site) |
 | Editor extension | Use Node.js 22+ for VS Code builds; follow its [development guide](../../editors/README.md) and CI job |
 
-`make preflight` covers formatting, lint (including `govet`), and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WebAssembly (WASM) builds, and extension builds.
+`make preflight` covers formatting, lint (including `govet`), and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, outdated schemas, WebAssembly (WASM) builds, and extension builds.
 
 The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks and migration plans that leave files unchanged. They do not connect to coding tools or call a model. On Windows, the launcher tries to save a failed command's result outside the project. Follow-up checks have time and output limits.
 
 To investigate first-launch failures without the large project, run `go test ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$' -count=1 -v`. This installs into eight separate small projects and stops at the first setup error. It uses the same test installer and Windows launcher. Passing runs do not explain an earlier failure.
 
-`make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after the required version changes. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
+`make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after the required version changes. A linter older than your Go toolchain can report a type-checking failure in files you never touched.
 
 Pull requests and pushes to `main` run the Go tests on Linux only. Nightly and manual runs add the full macOS suite and a focused Windows smoke check. Windows smoke covers fresh package startup, handoff hooks, paths, import, and linked checkouts without the race detector. Its whole job stops after seven minutes, including setup. Dispatch `gh workflow run ci.yml --ref <branch>` for these checks before releases and when a branch touches paths, file watching, renames, permissions, or import. The full Windows Go race suite is optional and manual only: add `-f full_windows=true` for a ten-minute job limit. Linux and macOS Go jobs also stop after ten minutes. Windows OpenCode and editor jobs keep their native tests and stop after seven minutes. Editor jobs on pull requests run when their source or dependencies change.
 
@@ -95,4 +95,4 @@ Keep tutorials focused on one working outcome. Put optional workflows in task gu
 
 Review the diff for unrelated edits and generated files. Describe the final behavior and the checks you ran in the PR. Record design choices that need an explanation in the [decision log](decisions.md).
 
-Read [build dependency checks](build-dependencies.md) for package integrity, vendor-load replay, and security alert evidence.
+Read [build dependency checks](build-dependencies.md) for package integrity, repeating vendor load checks, and the evidence needed to review security alerts.

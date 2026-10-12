@@ -9,7 +9,7 @@ group = "Start"
 
 # Getting started
 
-Install agnostic-ai and bring your AI coding tool setup into one source directory.
+Use this guide for a project you are setting up for the first time. You will import any existing instructions, add one rule, and check the files your coding tools read. For an existing agnostic-ai project, skip to [Daily use](#daily-use).
 
 <a id="install"></a>
 <a id="scaffold"></a>
@@ -25,7 +25,7 @@ agnostic-ai init --from all
 agnostic-ai sync --plan
 ```
 
-Review the planned files. If they match the tools and instructions you want, run:
+Select only the coding tools this project uses. Review the planned files and imported instructions under `.agnostic-ai/`. If they match the setup you want, run:
 
 ```bash
 agnostic-ai sync
@@ -70,11 +70,24 @@ Write shared project instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync creates
 `init` asks. Without a terminal, or with `--all`, it ignores them.
 
 - **Ignore (default):** Git holds only `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. Every teammate installs the tool and runs `agnostic-ai sync` after cloning. [Checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) can run it for them. CI [validates and generates](@/docs/ci.md#ignored-outputs) instead of comparing.
-- **Commit (`init --gitignore=off`):** a clone works without the tool. Add the [CI drift gate](@/docs/ci.md#committed-outputs) to keep files current. To switch an existing project, see [gitignore](@/docs/configuration.md#gitignore).
+- **Commit (`init --gitignore=off`):** a clone works without the tool. Add the [CI check for out-of-date files](@/docs/ci.md#committed-outputs) to keep files current. To switch an existing project, see [gitignore](@/docs/configuration.md#gitignore).
 
 ## Daily use
 
-Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` to see loaded specs, tools, and drift. Run `agnostic-ai sync --check` after a sync or in CI to catch drift.
+After cloning a configured project, install the CLI using the project's documented method. If it declares agnostic-ai as a package dependency, install the locked dependencies and use that local command, such as `pnpm exec agnostic-ai`.
+
+From the directory containing `agnostic-ai.yaml`:
+
+```bash
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+The check must exit 0 before you start work with a coding tool. If it fails, use [Troubleshooting](@/docs/troubleshooting.md). For automated or cached agent environments, follow [Project readiness](@/docs/cli-reference/maintain.md#project-readiness).
+
+Edit `.agnostic-ai/AGNOSTIC_AI.md` for shared project instructions or the relevant spec for a rule, skill, or setting. Run sync again and review the changed files. Avoid editing generated tool files: your next sync can replace those edits.
+
+Use `agnostic-ai sync --watch` to regenerate while you edit. Use `agnostic-ai status` to see loaded specs, selected tools, and out-of-date files. Finish with `agnostic-ai sync --check`.
 
 <a id="shell-completion"></a>
 <a id="add-a-single-spec"></a>

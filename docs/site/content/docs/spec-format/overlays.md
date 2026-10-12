@@ -17,6 +17,8 @@ group = "Reference"
 
 An overlay reaches one tool only. When a shared spec kind covers a setting, move it into that spec so every tool gets it.
 
+To change an imported setting, edit its overlay below and run `agnostic-ai sync --dry-run` to review the result. Then sync and check the tool's generated file. Use a portable spec when the setting should also reach other tools.
+
 ## Files
 
 | Overlay | Written into | Holds |

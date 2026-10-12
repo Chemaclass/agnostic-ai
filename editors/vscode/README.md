@@ -1,20 +1,19 @@
 # agnostic-ai for VS Code
 
-> Author your AI specs once. Ship to every CLI. Live preview, drift
-> detection, and one-click sync from inside VS Code.
+Write specs, preview generated configuration, and sync coding tools from VS Code.
 
 This extension wraps the [agnostic-ai](https://github.com/Chemaclass/agnostic-ai)
-CLI. Install `agnostic-ai` on `PATH`, or set `agnostic-ai.binaryPath` to its location.
+CLI. Install `agnostic-ai` on `PATH`, or set `agnostic-ai.binaryPath` to its location. Open a project containing `agnostic-ai.yaml`, edit a source spec, and use **Render to <target>** to preview it. Run sync from the command palette to update the generated files.
 
 ## Features
 
-| Surface | What you get |
+| Editor feature | What you get |
 |---------|--------------|
-| Problems | Lint findings for saved Markdown and YAML specs and project configuration. Open a source or save it to check; fix and save to clear. |
+| Problems | Warnings and errors in saved Markdown and YAML specs and project configuration. Open a source or save it to check; fix and save to clear. |
 | YAML schema | `agnostic-ai.yaml` (or the legacy `agnostic.config.yaml`) validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
 | Command palette | Run sync, check generated files, fix setup with Doctor, show status, or preview a spec. The first four open a terminal in the project root; previews use the output panel. |
 | Codelens | Above each spec in `<base>/agents/`, `<base>/skills/`, `<base>/rules/`, `<base>/hooks/`, `<base>/mcps/`: one **Render to <target>** button per configured target. Output streams to the agnostic-ai output channel. |
-| Status bar | Shows in sync, a drift count, or a failed check. Hover to read the result or failure reason. Click to run `sync --check` in a terminal. |
+| Status bar | Shows in sync, a count of generated files that differ from the specs, or a failed check. Hover to read the result or failure reason. Click to run `sync --check` in a terminal. |
 | Open canonical source | From a generated file (`.claude/rules/x.md`, `AGENTS.md`, ...), run `agnostic-ai: Open canonical source` from the command palette or the editor context menu. One source opens directly. A merged file lists every contributing spec by name and path. |
 
 ### Problems
@@ -46,7 +45,7 @@ the project that owns the file: the nearest directory holding
 `agnostic-ai.yaml` or `agnostic.config.yaml`, inside that file's
 workspace folder. Source paths come from that reply, so configured
 `sources:` directories and files ignored by Git both work. The reply is
-validated before any path opens. The command never runs `sync`; when
+checked before any path opens. The command never runs `sync`; when
 the file is untracked, the project never synced, a source is missing,
 or the CLI is too old, it says what to run instead.
 
@@ -73,8 +72,8 @@ Use Node.js 22 or newer. The packaging tool requires Node 22; the extension stil
 ```bash
 cd editors/vscode
 npm ci
-npm run compile         # one-shot tsc
-npm run watch           # incremental compile while iterating
+npm run compile         # compile TypeScript once
+npm run watch           # recompile when files change
 npm test                # compile, then run unit tests
 AGNOSTIC_AI_TEST_BINARY=/path/to/agnostic-ai npm run test:integration
 ```
@@ -82,7 +81,7 @@ AGNOSTIC_AI_TEST_BINARY=/path/to/agnostic-ai npm run test:integration
 Tests cover project and source navigation helpers, plus the production status presentation in `src/drift.ts`. The navigation fixtures in
 `test/fixtures/why/` are real `agnostic-ai why --format json` output
 from a synced project with configured source paths containing spaces.
-Recapture them when the `why` JSON envelope changes.
+Recapture them when the fields returned by `why` change.
 
 Press `F5` to launch a development host. Open a folder containing
 `agnostic-ai.yaml` or `agnostic.config.yaml`; the extension activates
@@ -105,4 +104,4 @@ review schedules.
 
 ## Limits in v1
 
-- No live hover preview yet (codelens covers the iteration loop).
+- No preview when hovering over a spec. Use the **Render to <target>** buttons above it.

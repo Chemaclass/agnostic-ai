@@ -18,6 +18,8 @@ nav_after = "configuration"
 agnostic-ai [command] [flags]
 ```
 
+Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents support for subdirectories or `--global`. Use `agnostic-ai <command> --help` for the options available in your installed release.
+
 ## Find a command
 
 | Task | Commands |
@@ -25,7 +27,7 @@ agnostic-ai [command] [flags]
 | Set up a project | [use](@/docs/cli-reference/start.md#use), [init](@/docs/cli-reference/start.md#init), [import](@/docs/cli-reference/start.md#import), [new](@/docs/cli-reference/start.md#new) |
 | Generate or preview output | [sync](@/docs/cli-reference/sync.md#sync), [render](@/docs/cli-reference/inspect.md#render) |
 | Check source, output, and behavior | [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [doctor](@/docs/cli-reference/check.md#doctor), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
-| Inspect routing | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
+| Find which specs each tool reads | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |
 | Check and repair shared memory | [memory](@/docs/cli-reference/maintain.md#memory) |
@@ -57,14 +59,14 @@ The lock file is `.agnostic-ai/.command-lock`, which the managed `.gitignore` bl
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Any error (parse failure, I/O error, missing config) |
+| 1 | Any error (invalid file format, file read or write failure, missing config) |
 | verifier exit code | `verify` returns the external verifier's non-zero code unchanged. |
 
 ## Environment variables
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global`, `list --global`, `lint --global`, `validate --global`, and `migrate --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source folder for `sync --global`, `list --global`, `lint --global`, `validate --global`, and `migrate --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
 
 ## Which config wins {#config-precedence}
 

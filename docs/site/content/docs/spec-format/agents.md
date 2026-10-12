@@ -12,10 +12,12 @@ group = "Reference"
 
 `agents/` defines subagents: specialists the main agent hands a task to. Each has its own instructions, tools, and model. Examples: a reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
 
-- **Clean context.** A subagent works in its own context and hands back a result.
-- **Least access.** `can`, `readonly`, and `mcpServers` limit what it may touch.
+- **Separate working context.** A subagent works in its own context and hands back a result.
+- **Limited access.** `can`, `readonly`, and `mcpServers` limit what it may touch.
 - **The right model per role.** `model` and `effort` set cost and depth per agent, and per tool.
-- **One definition.** Every tool that supports agents gets its own file from the same spec. The rest get a coverage note.
+- **One definition.** Every tool that supports agents gets its own file from the same spec. The rest get a sync note.
+
+Give the agent one responsibility, the files or decisions it owns, and a clear return format. Include how it should check its result. Use `description` to help the main agent decide when to delegate, and keep the body focused on the delegated task.
 
 ## Write one
 
@@ -75,9 +77,9 @@ Any other frontmatter field is written as given.
 |--------|--------|
 | Cursor | Restricted |
 | Claude Code | `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed) |
-| Codex | Writes `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), and a coverage note |
+| Codex | Writes `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), and a sync note |
 | Factory | `tools: read-only` with `mcpServers: []` unless servers are listed. Wins over a portable `tools` list |
-| Other targets | Coverage note |
+| Other targets | Sync note |
 
 An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.
 
@@ -101,7 +103,7 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 | `mcp:<server>` | Use every tool of one MCP server | `mcp__<server>` |
 | `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
 
-- Each capability becomes the tool's own name for it. `delete` raises a coverage note on tools with no delete tool.
+- Each capability becomes the tool's own name for it. `delete` raises a sync note on tools with no delete tool.
 - Claude Code names still work as aliases. A list can mix both: `can: [read, Grep]`.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hooks.md#portable-events).
 - A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this.
@@ -153,7 +155,7 @@ Result:
 - Junie gets `gpt-6.1-sol` and `high`.
 - Cursor gets `claude-opus-5[effort=high]`. The effort is not written.
 - Codex gets `gpt-6.1-sol`, with `x-codex` overriding effort to `xhigh`.
-- Factory gets `gpt-6.1-sol` and no `reasoningEffort`, because `max` is not one of its values (coverage note).
+- Factory gets `gpt-6.1-sol` and no `reasoningEffort`, because `max` is not one of its values (sync note).
 - Trae drops both, with notes.
 
 **`effort` values by target.** Without `effort`, the agent uses the session's level. The by-target tables on this page list only the tools that were checked.
@@ -163,15 +165,15 @@ Result:
 | [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent | Written as `effort`, not checked |
 | [Qoder](@/docs/targets/qoder.md) | Same five names, or a positive integer | Written as `effort` |
 | [Junie](@/docs/targets/junie.md) | Alias of `reasoningLevel` | Written as `effort` |
-| [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` | `reasoningEffort`. Other values and integers raise a coverage note |
+| [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` | `reasoningEffort`. Other values and integers raise a sync note |
 | [Codex](@/docs/targets/codex.md) | Any string | `model_reasoning_effort`; `x-codex.model_reasoning_effort` wins. An integer raises a note |
-| [Cursor](@/docs/targets/cursor.md) | none | Coverage note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
-| [Copilot](@/docs/targets/copilot.md) | none | Coverage note. `x-copilot.effort` still passes through |
-| Every other target | none | Coverage note |
+| [Cursor](@/docs/targets/cursor.md) | none | Sync note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
+| [Copilot](@/docs/targets/copilot.md) | none | Sync note. `x-copilot.effort` still passes through |
+| Every other target | none | Sync note |
 
 Factory ignores `reasoningEffort` when `model` is `inherit`.
 
-**Claude model names on other targets.** A shared `model` (a single value or `default`) set to a Claude model name raises a coverage note on a tool that cannot load it. The note names `model: {claude: <name>}`. Sync leaves the value out, so that tool uses its own default.
+**Claude model names on other targets.** A shared `model` (a single value or `default`) set to a Claude model name raises a sync note on a tool that cannot load it. The note names `model: {claude: <name>}`. Sync leaves the value out, so that tool uses its own default.
 
 - `on-unsupported: error` fails the sync instead.
 - A value under `model.<target>` or `x-<target>.model` is written as given.
@@ -250,7 +252,7 @@ outputs:
 
 ## `can` and `tools` support by target {#tools-support-by-target}
 
-Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list prints a coverage note, so `can: [read]` never becomes an unrestricted agent without warning.
+Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list prints a sync note, so `can: [read]` never becomes an unrestricted agent without warning.
 
 | Target | Behavior |
 |--------|----------|
@@ -275,7 +277,7 @@ A top-level `mcpServers` list limits which MCP servers one agent may reach. With
 | [Antigravity](@/docs/targets/antigravity.md) | Inline objects only. Set `x-antigravity.mcpServers` |
 | [Kiro](@/docs/targets/kiro.md) | Inline definitions only. Set `x-kiro.mcpServers` |
 
-Every other tool drops the list with a coverage note. On the three inline tools, the note names the `x-<target>` key to set.
+Every other tool drops the list with a sync note. On the three inline tools, the note names the `x-<target>` key to set.
 
 **An empty list does not mean the same everywhere.** Junie treats `mcpServers: []` as keeping every configured server. Factory treats it as excluding every server. List the servers you want instead.
 
@@ -302,5 +304,5 @@ On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disable
 | [Qoder](@/docs/targets/qoder.md) | One of eight names |
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
-`color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), which has no `color`, so a portable `color` prints a coverage note there.
+`color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), which has no `color`, so a portable `color` prints a sync note there.
 

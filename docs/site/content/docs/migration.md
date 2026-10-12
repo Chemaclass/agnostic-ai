@@ -9,7 +9,7 @@ group = "Start"
 
 # Import existing tool configuration
 
-Move your existing AI tool instructions into `.agnostic-ai/`, review them, then generate files for the tools you pick.
+Move your existing AI tool instructions into `.agnostic-ai/`, review them, then generate files for the tools you pick. Start from a clean Git working tree so you can inspect and undo the import with Git. When finished, edit the source specs and run `sync` for future changes.
 
 ## 1. Import
 
@@ -21,7 +21,7 @@ agnostic-ai init --from claude   # or --from all to detect every tool
 
 Already using agnostic-ai? Run `agnostic-ai import claude` instead.
 
-Import writes specs only. It does not sync or change your targets. Re-running it with no edits leaves every spec as it is. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool and holds nothing the tool's file cannot carry, such as `::target` blocks for other tools. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges frontmatter and multiple sources.
+Import writes specs only. It does not sync or change your targets. Re-running it with no edits leaves every spec as it is. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool and holds nothing the tool's file cannot carry, such as `::target` blocks for other tools. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges the YAML fields at the top of a Markdown spec and imports from several tools.
 
 After you import from several tools, replacing a spec that a later tool overwrote needs `--overwrite`. A sync that skips edited or unmanaged files does not count as approval.
 
@@ -55,15 +55,15 @@ agnostic-ai sync --backup
 agnostic-ai sync --check
 ```
 
-Sync replaces a hand-written file only when the specs contain all its text. Otherwise it stops and quotes the missing line. Move that line into a spec, or set the original aside:
+For directory-specific instruction files, sync replaces a hand-written file only when the specs contain all its text. Otherwise it stops and quotes the missing line. Move that line into a spec, or set the original aside:
 
 ```bash
 mv services/payments/AGENTS.md services/payments/AGENTS.md.before-agnostic
 ```
 
-Keep the saved copy until you have checked the output. `--backup` does not bypass this check.
+Keep the saved copy until you have checked the output. `--backup` does not bypass this directory-specific check. Root instruction files have a separate [backup and overwrite rule](@/docs/cli-reference/sync.md#sync).
 
-Review the diff for content, not only formatting. The first sync adds headers and replaces entry-point files with the shared instructions.
+Review the diff for content, not only formatting. The first sync adds generated-file headers and replaces root instruction files such as `AGENTS.md` with the shared instructions.
 
 ## 4. Commit or ignore outputs
 

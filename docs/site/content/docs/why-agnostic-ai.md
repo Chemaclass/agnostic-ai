@@ -10,11 +10,11 @@ group = "Reference"
 
 # Why agnostic-ai
 
-Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each has its own path, format, and keys. Use two tools and you keep two copies, which grow different over time.
+Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each tool expects different paths, formats, and setting names. Use two tools and you keep two copies, which grow different over time.
 
 ## The same server, four formats
 
-One MCP server, written once in `.agnostic-ai/mcps/github.yaml`:
+One Model Context Protocol (MCP) server, which connects coding tools to an external service, written once in `.agnostic-ai/mcps/github.yaml`:
 
 ```yaml
 name: github

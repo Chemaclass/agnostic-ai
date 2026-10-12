@@ -17,7 +17,9 @@ group = "Reference"
 - **Tool options kept.** Timeouts, tool filters, OAuth, and approval settings go only to the tools that read them.
 - **Limited per agent.** An [agent's `mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target) limits which servers one subagent may reach.
 
-Compare connection fields before changing tools with [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare). It reports written fields and reference omissions without printing their values or connecting to servers.
+Compare connection fields before changing tools with [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare). It reports written fields and references a tool leaves out without printing their values or connecting to servers.
+
+Choose a local command or a remote URL, then add only the connection fields it needs. Run `agnostic-ai lint` before syncing, and verify the connection in the coding tool. A generated entry alone does not confirm that the server is running or authenticated.
 
 ## Write one
 

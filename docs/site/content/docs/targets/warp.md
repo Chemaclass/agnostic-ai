@@ -14,6 +14,18 @@ Warp reads `AGENTS.md`, `.agents/skills/`, and `.warp/.mcp.json`, plus optional 
 
 Set `outputs.warp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
+## Set up this tool
+
+Add `warp` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import warp`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -23,7 +35,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 .warp/.mcp.json                        # when MCP entries exist
 ```
 
-- **Rules**: root rules go inline into `AGENTS.md`. Scoped rules go to `<scope>/AGENTS.md` ([tools that share it](@/docs/scoped-context.md)).
+- **Rules**: root rules are included in `AGENTS.md`. Scoped rules go to `<scope>/AGENTS.md` ([tools that share it](@/docs/scoped-context.md)).
 - **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, the path Warp recommends. A skill in a scope folder moves under that scope, and import keeps it there. Identical root copies are written once.
   - Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. agnostic-ai writes only `.agents/skills/`. Warp also picks up OpenCode's default `.opencode/skills/`, with no extra file.
   - `WARP_SKILL_DIRS` adds directories outside the repo for Cloud agents to index skills from. It does not change which project folders Warp scans.
@@ -33,7 +45,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 - **MCP**: `mcpServers` has only the keys in [Warp's MCP docs](https://docs.warp.dev/agents/capabilities/mcp):
   - Stdio: `command`/`args`/`env`, plus `working_directory` (Warp's `cwd`). `args` is required, so a server with no arguments gets `"args": []`.
   - Remote (HTTP/SSE/WS): `url`/`headers`, with no `type`, because Warp has no transport field.
-  - `description`, `disabled`, and `roots` are not written. `disabled` raises a coverage note (Warp never starts project servers on its own). Set `description` and `roots` through `x-warp`.
+  - `description`, `disabled`, and `roots` are not written. `disabled` raises a sync note (Warp never starts project servers on its own). Set `description` and `roots` through `x-warp`.
   - Warp also loads Claude Code's `.mcp.json`, Codex's `.codex/config.toml`, and `.agents/.mcp.json`, each after explicit approval ([provider table](https://docs.warp.dev/agents/capabilities/mcp)). With `claude` or `codex` synced too, one server can appear in up to three files, and Warp documents no handling of same-name servers. Approve only one copy.
   - `import warp` renames `working_directory` back to `cwd`. An entry missing `command` (stdio) or `url` (remote) is skipped, as in trae, antigravity, and windsurf.
 
@@ -48,7 +60,7 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 | `outputs.warp.skills-dir` | `.agents/skills` | |
 | `outputs.warp.workflows-dir` | empty | opt-in |
 | `outputs.warp.mcp-file` | `.warp/.mcp.json` | |
-| `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips the pointer-body write |
+| `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips the write of instructions that point to source specs |
 
 ## Global configuration
 
@@ -62,7 +74,7 @@ Servers you add under other names stay. A different server with the same name st
 
 `agnostic-ai import warp` reads `AGENTS.md`, workflows from `.warp/workflows/`, and MCP servers from `.warp/.mcp.json`.
 
-Skills import, with all bundled assets, from `<root>/skills/` for each root Warp scans: `.agents`, `.warp`, `.claude`, `.codex`, `.cursor`, `.gemini`, `.copilot`, `.factory`, `.github`, and `.opencode`. Within a scope, an earlier root wins a duplicate name. Scoped paths stay together.
+Skills import, with all bundled files, from `<root>/skills/` for each root Warp scans: `.agents`, `.warp`, `.claude`, `.codex`, `.cursor`, `.gemini`, `.copilot`, `.factory`, `.github`, and `.opencode`. Within a scope, an earlier root wins a duplicate name. Scoped paths stay together.
 
 ## Protected paths
 

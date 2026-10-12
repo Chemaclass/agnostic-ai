@@ -2,15 +2,17 @@
 
 [Contributor docs](README.md)
 
+Use this map to find the package to change. An adapter is the code that writes configuration for one coding tool. Follow the data flow before editing so you change the source of the behavior.
+
 ## Code layout
 
 ```
 agnostic-ai/
 ├── cmd/agnostic-ai/main.go         # entry point
 ├── internal/
-│   ├── cli/                        # cobra commands; gitignore helper; watch loop
+│   ├── cli/                        # command definitions; gitignore helper; watch loop
 │   ├── config/                     # agnostic-ai.yaml loader
-│   ├── spec/                       # spec loader (md+frontmatter, yaml) with per-dir scope
+│   ├── spec/                       # loads Markdown/YAML specs and folder-specific rules
 │   └── adapters/
 │       ├── adapter.go              # Adapter interface + registry
 │       ├── internal/emit/          # shared write helpers (capture/recording/backup, MCP, output paths)
@@ -33,7 +35,7 @@ The CLI loads configuration and source specs, selects targets, and calls each ad
 agnostic-ai.yaml          (committed; team defaults)
   + agnostic-ai.local.yaml (optional, gitignored; per-machine overrides)
         │
-        ▼  deep-merge: maps recurse, scalars and slices replace
+        ▼  merge nested maps; replace scalar values and lists
    config.Load ──► *config.Config (defaults applied)
 ```
 
@@ -45,7 +47,7 @@ Legacy `agnostic.config.yaml` still loads, with one rename warning on stderr.
 agents/*.md   ─┐
 skills/*.md   ─┤
 rules/*.md    ─┼─► spec.LoadLayered ─► spec.Bundle
-hooks/*.yaml  ─┤                       (Entries pre-bucketed by Kind; per-entry Scope from layout)
+hooks/*.yaml  ─┤                       (Entries grouped by Kind; each Scope comes from its folder)
 mcps/*.yaml   ─┘
 ```
 
@@ -79,8 +81,8 @@ Modes can run together, for example recording and backup during a sync that upda
 type Entry struct {
     Kind  Kind             // One of the ten kinds in spec.AllKinds
     Name  string            // identifier
-    Path  string            // source file path (for errors and provenance)
-    Scope string            // implicit per-dir scope from layout
+    Path  string            // source file path (for errors and tracing output)
+    Scope string            // folder scope from source layout
     Layer string            // project source: pack:<name> | project | project-user
     Meta  map[string]any    // frontmatter or YAML fields
     Body  string            // markdown body (empty for hooks/mcps)
@@ -90,7 +92,7 @@ type Entry struct {
 // and YAML scalar styles) so a round-trip keeps the author's formatting.
 ```
 
-One spec file = one Entry. Adapters consume `spec.Bundle` (entries grouped by `Kind`).
+Each spec file becomes one `Entry`. Adapters consume `spec.Bundle` (entries grouped by `Kind`).
 
 ### `Adapter` interface
 
@@ -110,7 +112,7 @@ Mirrors `agnostic-ai.yaml`. See [internal/config/config.go](../../internal/confi
 
 ## Registry
 
-`internal/adapters/adapter.go` holds the `name → Adapter` map. Adding an adapter: one registry line + new package. See [adding-adapters.md](adding-adapters.md).
+`internal/adapters/adapter.go` holds the `name → Adapter` map. Register a new package here to make its adapter available. See [adding-adapters.md](adding-adapters.md).
 
 ## Boundaries
 

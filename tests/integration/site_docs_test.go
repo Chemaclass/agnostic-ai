@@ -907,6 +907,25 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	if !strings.Contains(fullDocs, "# Set up agnostic-ai with a coding agent") {
 		t.Error("llms-full.txt does not include the agent setup guide")
 	}
+	if err := filepath.WalkDir(siteDocsContentDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".md" {
+			return nil
+		}
+		for line := range strings.SplitSeq(readBuiltFile(t, path), "\n") {
+			if strings.HasPrefix(line, "# ") {
+				if !strings.Contains(fullDocs, "\n"+line+"\n") {
+					t.Errorf("llms-full.txt is missing the guide %s (%s)", path, line)
+				}
+				break
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("read user documentation: %v", err)
+	}
 	for name, content := range map[string]string{"agent-setup.txt": agentSetup, "llms-full.txt": fullDocs} {
 		if strings.Contains(content, "@/docs/") || strings.Contains(content, "\n+++\n") || strings.Contains(content, "agent_setup_prompt") {
 			t.Errorf("%s exposes Zola-only source syntax", name)

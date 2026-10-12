@@ -12,6 +12,18 @@ target_id = "codex"
 
 agnostic-ai writes [Codex](https://learn.chatgpt.com/docs/codex/cli) instructions to `AGENTS.md`, plus agents, skills, hooks, MCP servers, and settings.
 
+## Set up this tool
+
+Add `codex` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import codex`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -26,7 +38,7 @@ AGENTS.md                                    # entry-point pointer body (written
 .codex/prompts/<name>.md                     # opt-in via outputs.codex.commands-dir (deprecated by Codex)
 ```
 
-- **Rules**: project-wide rules go into the root `AGENTS.md`. An unscoped rule whose `globs` or `paths` cover whole directories, such as `[src/app/api/**, prisma/**]` or `dir/**/*`, goes into one nested `AGENTS.md` per directory. `alwaysApply: true` keeps an unscoped rule at the root. Root files, filename filters such as `src/api/**/*.ts`, and mixed selectors stay in the root file with a note, or fail with `on-unsupported: error`.
+- **Rules**: rules without a directory scope go into the root `AGENTS.md`. A rule with no directory scope whose `globs` or `paths` cover whole directories, such as `[src/app/api/**, prisma/**]` or `dir/**/*`, goes into one nested `AGENTS.md` per directory. `alwaysApply: true` keeps a rule with no directory scope at the root. Root files, filename filters such as `src/api/**/*.ts`, and mixed selectors stay in the root file with a note, or fail with `on-unsupported: error`.
 - **Scoped rules**: `scope: services/payments` writes to `services/payments/AGENTS.md`. Adding `globs: tests/payments/**` also writes the rule into `tests/payments/AGENTS.md`. A nested `AGENTS.md` cannot hold file filters outside its directory or root selectors, so those follow `on-unsupported`. Remove legacy `outputs.codex.rules-file` overrides before using explicit scopes.
 - **Rule loading**: Codex reads `AGENTS.md` from the session's working directory and its parent directories, so start Codex in a subtree to load its nested `AGENTS.md`. A session started at the root does not load nested files when it later edits there.
 
@@ -36,13 +48,13 @@ AGENTS.md                                    # entry-point pointer body (written
   Sync keeps the rule in the root `AGENTS.md`, with a note, when an output override, an unmanaged destination, or another tool that reads the root file cannot keep nested files. A one-off target picked on the command line counts. If tool settings or bodies conflict, sync fails before it writes anything. See the [scoped context safeguards](@/docs/scoped-context.md#shared-files-and-safe-updates).
   {% </details> %}
 - **Agents**: [Codex custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents) hold `name`, `description`, and `developer_instructions`. Any `config.toml` key, such as `model`, `model_reasoning_effort`, or `mcp_servers`, goes under `x-codex`. Sync drops a generic `tools: [Read, Bash, ...]` list with a note, because Codex `tools` is a config table. Use `x-codex.tools` for native settings such as `web_search` and `view_image`.
-- **Agent model**: a per-target `model` map keeps another CLI's model name out of Codex. If a shared `model` holds a Claude model name (an alias such as `opus` or `fable`, `inherit`, or a `claude-*` id), sync leaves it out and adds a coverage note naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync. A [model tier](@/docs/spec-format/agents.md#model-tiers) with a `codex` entry sets the Codex model for every agent that names it. The aliases `sol`, `luna`, `astra`, and `terra` resolve to the current ids ([models](@/docs/configuration.md#models)).
+- **Agent model**: a per-target `model` map keeps another CLI's model name out of Codex. If a shared `model` holds a Claude model name (an alias such as `opus` or `fable`, `inherit`, or a `claude-*` id), sync leaves it out and adds a sync note naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync. A [model tier](@/docs/spec-format/agents.md#model-tiers) with a `codex` entry sets the Codex model for every agent that names it. The aliases `sol`, `luna`, `astra`, and `terra` resolve to the current ids ([models](@/docs/configuration.md#models)).
 - **Agent effort**: `effort` writes `model_reasoning_effort`. Codex accepts `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`, and loads any other text as a custom label ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference.md)). Only Qoder's integer effort budget is dropped, with a note. An explicit `x-codex.model_reasoning_effort` wins.
 - **Agent sandbox**: a Codex agent inherits the session sandbox. Codex v0.155.0 and later ignore `sandbox_mode` in an agent file, so `readonly: true` does not make the agent read-only there. Sync still writes `sandbox_mode = "read-only"` for older releases, unless `x-codex.sandbox_mode` overrides it (`null` omits the key). Only session-level limits are enforced: `sandbox_mode` in `config.toml` and [exec policies](#codex-exec-policies).
 - **Skills**: Codex scans [skill folders](https://learn.chatgpt.com/docs/build-skills) under `.agents/skills/` from the cwd up to the repo root. Each `SKILL.md` needs `name` and `description`. A scoped skill moves under its scope: `skills/services/api/review/SKILL.md` becomes `services/api/.agents/skills/review/SKILL.md`. Codex reads Claude Code's `` !`command` `` lines and `$ARGUMENTS` as plain text, with a note ([syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)).
 
-  Sync writes `agents/openai.yaml` when the spec sets `x-codex.interface`, `x-codex.policy`, `x-codex.dependencies`, or `disable-model-invocation: true`. A bundled `agents/openai.yaml` is the base, and `x-codex` keys are merged on top. Every tool that writes `.agents/skills/` or the `outputs.codex.skills-dir` folder gets the merged file. Other skill trees, such as `.cursor/skills/`, keep the bundled file.
-- **Skill model and effort**: Codex skills have no `model` or `effort` field. Sync omits both, with a coverage note. Codex reads no `disable-model-invocation`, so it becomes `policy.allow_implicit_invocation: false`. An explicit `allow_implicit_invocation` in `x-codex.policy` or a bundled `agents/openai.yaml` wins.
+  Sync writes `agents/openai.yaml` when the spec sets `x-codex.interface`, `x-codex.policy`, `x-codex.dependencies`, or `disable-model-invocation: true`. A bundled `agents/openai.yaml` is the base, and `x-codex` keys are merged on top. Every tool that writes `.agents/skills/` or the `outputs.codex.skills-dir` folder gets the merged file. Other skills folders, such as `.cursor/skills/`, keep the bundled file.
+- **Skill model and effort**: Codex skills have no `model` or `effort` field. Sync omits both, with a sync note. Codex reads no `disable-model-invocation`, so it becomes `policy.allow_implicit_invocation: false`. An explicit `allow_implicit_invocation` in `x-codex.policy` or a bundled `agents/openai.yaml` wins.
 - **Personal memory**: with `memory.personal: repo`, a hand-written `.codex/config.toml` that sync leaves in place needs the personal memory folder in `sandbox_workspace_write.writable_roots`. Sync names the folder and key to add when they are missing. Keep the other writable roots.
 - **Hooks**: grouped by `event` (`SessionStart`, `SubagentStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `Stop`, `SubagentStop`, `SessionEnd`, `Interrupt`) with `matcher` and `command`. Optional `timeout`, `statusMessage`, `commandWindows`, `additionalContextLimit` (an explicit `0` is kept), and `async` (run in the background) pass through. With `builtins: [memory]`, a `SessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
 - **Hook trust**: Codex runs a new command or MCP tool hook from `sync` or `sync --global` only after you trust it with `/hooks`, and again after its handler, matcher, or another setting changes. Project hooks also need a trusted project ([hooks docs](https://learn.chatgpt.com/docs/hooks)).
@@ -61,8 +73,8 @@ AGENTS.md                                    # entry-point pointer body (written
   {% <details summary="Hooks inside config.toml"> %}
   `import codex` also reads hooks from a hand-written `.codex/config.toml`: `[[hooks.<event>]]` holds `matcher`, and a nested `[[hooks.<event>.hooks]]` holds the command fields. A flat table with `matcher` and `command` together works too.
   {% </details> %}
-- **Reviews**: review specs land in `## Code Review Rules`. [Codex code review](https://learn.chatgpt.com/docs/third-party/github) reads it from the root `AGENTS.md` and the `AGENTS.md` nearest each changed file. An unscoped spec goes to the root. `scope: services/api` goes to `services/api/AGENTS.md`. Other tools that read `AGENTS.md` load the section too; set `targets:` on a spec to keep it out. With `outputs.codex.rules-file` set, sync skips the root `AGENTS.md`, so unscoped reviews get a coverage note.
-- **Exec policies**: opt-in, from [declared policies](#codex-exec-policies) or [translated Bash permissions](#translate-bash-permissions). Until a source holds a rule, portable `permissions` lists raise a coverage note naming both routes.
+- **Reviews**: review specs land in `## Code Review Rules`. [Codex code review](https://learn.chatgpt.com/docs/third-party/github) reads it from the root `AGENTS.md` and the `AGENTS.md` nearest each changed file. A spec with no directory scope goes to the root. `scope: services/api` goes to `services/api/AGENTS.md`. Other tools that read `AGENTS.md` load the section too; set `targets:` on a spec to keep it out. With `outputs.codex.rules-file` set, sync skips the root `AGENTS.md`, so project-wide reviews get a sync note.
+- **Exec policies**: opt-in, from [declared policies](#codex-exec-policies) or [translated Bash permissions](#translate-bash-permissions). Until a source holds a rule, portable `permissions` lists raise a sync note naming both routes.
 - **Environment**: environment specs write the Codex app's [local environment](https://learn.chatgpt.com/docs/environments/local-environment).
   - `setup`, `cleanup`, and `setup-windows` become the `[setup]`, `[cleanup]`, and `[setup.win32]` scripts (a list runs one command per line). `[setup]` is always written, empty if needed.
   - Each `dev-commands` entry becomes an `[[actions]]` button with its `name`, `command` (a list joins into one shell line), and an `icon` that defaults to `run`. A `cwd` becomes `cd <cwd> &&` before the command.
@@ -91,8 +103,8 @@ AGENTS.md                                    # entry-point pointer body (written
   {% <details summary="Server names with special characters"> %}
   Server names that are not bare TOML keys are quoted, such as `npm:@modelcontextprotocol/server-sequential.thinking` (Codex CLI 0.152.0 and later).
   {% </details> %}
-- **Settings**: the last portable `model` and `effort` write `model` and `model_reasoning_effort`. They lose to `outputs.codex.config.model` or `outputs.codex.config.model-reasoning-effort` and to the captured `.agnostic-ai/overlays/codex.config.toml` (see [Codex config](#codex-config)). Codex does not copy settings from `x-<target>` blocks: an `x-codex` block on a settings spec raises a coverage note naming the overlay and `outputs.codex.config`.
-- **Commands**: off by default. Codex reads custom prompts only from `~/.codex/prompts/` and [deprecates them in favor of skills](https://learn.chatgpt.com/docs/custom-prompts). `sync` prints a coverage note and removes a stale managed `.codex/prompts/` tree.
+- **Settings**: the last portable `model` and `effort` write `model` and `model_reasoning_effort`. They lose to `outputs.codex.config.model` or `outputs.codex.config.model-reasoning-effort` and to the captured `.agnostic-ai/overlays/codex.config.toml` (see [Codex config](#codex-config)). Codex does not copy settings from `x-<target>` blocks: an `x-codex` block on a settings spec raises a sync note naming the overlay and `outputs.codex.config`.
+- **Commands**: off by default. Codex reads custom prompts only from `~/.codex/prompts/` and [deprecates them in favor of skills](https://learn.chatgpt.com/docs/custom-prompts). `sync` prints a sync note and removes a stale managed `.codex/prompts/` tree.
 
 ## Config keys
 
@@ -106,7 +118,7 @@ AGENTS.md                                    # entry-point pointer body (written
 | `outputs.codex.mcp-file` | `.codex/config.toml` | |
 | `outputs.codex.hooks-file` | `.codex/hooks.json` | |
 | `outputs.codex.environment-file` | `.codex/environments/environment.toml` | |
-| `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
+| `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the write of instructions that point to source specs |
 | `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` | unset | write `.codex/rules/default.rules` |
 | `outputs.codex.exec-policies-from-permissions` | `false` | translate simple Bash permission rules when no native policy source is set |
 
@@ -210,7 +222,7 @@ note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) is not writ
 
 The rule is written when a deny or ask rule on the same or a shorter prefix already decides every command it would match, or when a wildcard `allow` such as `Bash(git:*)` already allows the extra arguments. `on-unsupported: error` fails on a left-out rule; `silent` omits the note. Exact `deny` and `ask` rules are always written.
 
-Only plain, unquoted words translate. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords gets a coverage note. `on-unsupported: error` fails on it; `silent` omits it. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
+Only plain, unquoted words translate. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords gets a sync note. `on-unsupported: error` fails on it; `silent` omits it. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` sync note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
 
 An inline policy list (even `exec-policies: []`), `exec-policies-file` (even an empty file), or imported policy overlay wins. Sync skips translation, notes which source won, and never modifies the policy file.
 
@@ -218,7 +230,7 @@ An inline policy list (even `exec-policies: []`), `exec-policies-file` (even an 
 
 ## Import
 
-`agnostic-ai import codex` finds `AGENTS.md` at any depth and reads the rest of the Codex tree:
+`agnostic-ai import codex` finds `AGENTS.md` at any depth and reads the other Codex files:
 
 | Source | Becomes |
 |--------|---------|
@@ -233,7 +245,7 @@ An inline policy list (even `exec-policies: []`), `exec-policies-file` (even an 
 | `.codex/hooks.json` and inline hooks in `.codex/config.toml` | `<hooks>/<event>-<hash8>.yaml` (one spec per handler). A duplicate hook in both files imports once; the JSON definition wins |
 | `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, `[history]`, ...) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped). The [ignored keys](#keys-codex-ignores-in-a-project-config) stay in the overlay but are left out of `.codex/config.toml` on sync |
-| `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy) |
+| `.codex/prompts/*.md` | `<commands>/<name>.md` (unchanged copy) |
 | `.codex/environments/environment.toml` | `<environments>/codex.yaml`: `[setup]`, `[setup.win32]`, `[cleanup]`, and `[[actions]]` become `setup`, `setup-windows`, `cleanup`, and `dev-commands`. A file with a `[setup.darwin]` script, an action `platform`, or another key stays as written with a note |
 
 Two sections with the same heading in one file get separate names (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, `vendor/`, directories git ignores, and directories with their own `.git`.

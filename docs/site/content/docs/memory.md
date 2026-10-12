@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Shared memory
 
-What one AI tool learns, your other tools know next session. If Codex learns that CI runs only on Ubuntu, Claude Code and Cursor know it too.
+Keep useful project facts in shared Markdown files so other AI coding tools can read them in later sessions. For example, a fact saved while using Codex can tell Claude Code and Cursor which operating systems your project checks.
 
 Memory is plain Markdown in your project, so every tool can read it and your team reviews it like any other file.
 
@@ -26,7 +26,7 @@ builtins: [handoff, memory]
 agnostic-ai sync
 ```
 
-That's it. Tools save new facts on their own; you never need to sync again for that.
+New memory facts are read from these Markdown files. Saving a fact does not need another sync; team facts still need your confirmation as described below.
 
 To turn it on for every project, add `memory` to `builtins` in `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global` instead. Pick one place: with both, some tools load memory twice. Claude Code still loads it only after a sync in the project.
 
@@ -36,7 +36,7 @@ To turn it on for every project, add `memory` to `builtins` in `~/.agnostic-ai/a
 | --- | --- | --- |
 | Folder | `.agnostic-ai/memory/` | `.agnostic-ai/local/memory/` |
 | In Git | Yes, shared with the team | No, stays on your machine |
-| Holds | Team facts: conventions, decisions, gotchas | Your preferences and corrections |
+| Holds | Team facts: conventions, decisions, known problems | Your preferences and corrections |
 | Tools save | After you confirm | Without asking |
 
 Each folder has one file per fact and a `MEMORY.md` list with one line per fact. Tools read the list at the start of a session and open a fact only when they need it.
@@ -66,7 +66,7 @@ PR CI runs on Ubuntu alone.
 
 `type` is `user`, `feedback`, `project`, or `reference`. The `sources:` setting does not move these folders.
 
-Every tool gets the `shared-memory-policy` rule. It has tools save only what the code, Git history, and rules don't already say, update a fact instead of adding a copy, check that a file or command a fact names still exists, and never save secrets. Your request always wins over a saved fact. Anyone who can push can change what every tool reads, so review memory changes in pull requests.
+Every tool gets the `shared-memory-policy` rule, which tells it when to read, save, and update facts. It has tools save only what the code, Git history, and rules don't already say, update a fact instead of adding a copy, check that a file or command a fact names still exists, and never save secrets. Your request always wins over a saved fact. Anyone who can push can change what every tool reads, so review memory changes in pull requests.
 
 To recall what the project knows about a topic, or to clean memory up (merge duplicates, drop stale facts), ask your tool to use the `shared-memory` skill. You confirm each change.
 

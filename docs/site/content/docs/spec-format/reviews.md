@@ -23,6 +23,8 @@ group = "Reference"
 
 Other tools report review specs as unsupported.
 
+Write checks a reviewer can verify against changed files. For each reported issue, ask for the file and line, the effect on behavior, and a suggested fix. Keep general coding instructions in [rules](@/docs/spec-format/rules.md).
+
 ## Write one
 
 ```bash

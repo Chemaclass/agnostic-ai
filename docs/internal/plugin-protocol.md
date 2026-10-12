@@ -18,7 +18,7 @@ agnostic-ai runs the program once per target on each `sync`, or when `doctor` / 
 
 ## Wire format
 
-agnostic-ai writes one JSON document to standard input and reads one from standard output. Use standard error for diagnostic messages; agnostic-ai shows them unchanged when the adapter exits with a nonzero status.
+agnostic-ai writes one JSON document to standard input and reads one from standard output. Keep log messages on standard error; agnostic-ai shows them unchanged when the adapter exits with a nonzero status.
 
 ### Input
 
@@ -87,18 +87,18 @@ agnostic-ai writes one JSON document to standard input and reads one from standa
 ## Process model
 
 - Adapter runs as a subprocess, not in-process. Only the operating system's restrictions for child processes apply.
-- Host pipes stdin once, reads stdout to EOF, waits for exit. No interactive terminal.
+- agnostic-ai sends input once, reads output until the stream ends, and waits for the program to exit. No interactive terminal.
 - Adapter must not write to disk. agnostic-ai handles all file writes so comparison, backup, and dry-run behavior stays consistent.
 
 ## Versioning
 
 - `protocol_version` integer is the sole compatibility signal. Changes that break the input or output format increase this number.
 - Compatible additions, such as optional fields, keep the same number. Adapters ignore unknown fields rather than fail.
-- Frontmatter under `meta` is stable. Adapter-specific keys (`x-my-tool.<key>`) belong to the adapter; ignore the rest.
+- YAML header fields (frontmatter) under `meta` are stable. Adapter-specific keys (`x-my-tool.<key>`) belong to the adapter; ignore the rest.
 
 ## Reference helpers
 
-Go authors: `github.com/chemaclass/agnostic-ai/internal/adapters/external` exposes typed `Input` / `Output` structs and `DecodeInput` / `EncodeOutput`. Other languages re-implement the JSON shape directly.
+Go authors: `github.com/chemaclass/agnostic-ai/internal/adapters/external` exposes typed `Input` / `Output` structs and `DecodeInput` / `EncodeOutput`. For other languages, read and write the JSON fields shown above.
 
 ## Minimal Go adapter
 

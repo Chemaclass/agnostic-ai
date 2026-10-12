@@ -1,10 +1,12 @@
 # agnostic-ai
 
-One spec, every AI CLI. Write your agents, skills, rules, hooks, and MCP servers once, then emit them to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more in each tool's native format.
+Keep one set of instructions and settings for your coding tools. Write source files (specs) once, then run sync to create the files Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more tools read.
 
 ```bash
-npx agnostic-ai init --demo   # scaffold specs, one example per kind
-npx agnostic-ai sync          # emit native config for every target
+npx agnostic-ai init --from all # import existing tool files; select the tools you use
+npx agnostic-ai sync --plan     # review the planned files
+npx agnostic-ai sync            # write each selected tool's configuration
+npx agnostic-ai sync --check    # confirm the files match their sources
 ```
 
 Or install it globally:
@@ -27,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts
 
 Windows, Go, and manual download are covered in [all install options](https://agnostic-ai.org/docs/installation/).
 
-This package is a thin wrapper around the prebuilt Go binary. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), declared as optional dependencies. npm reads each one's `os` and `cpu` and installs only the one that matches your machine. Supported platforms are macOS, Linux, and Windows on x64 and arm64.
+This package is a launcher for the ready-to-run command. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), declared as optional dependencies. npm reads each one's `os` and `cpu` and installs only the one that matches your machine. Supported platforms are macOS, Linux, and Windows on x64 and arm64.
 
 Nothing is downloaded and no install script runs, so the package works under `--ignore-scripts`, behind a proxy, and from an offline npm mirror. To pin a version, pin the package: `npm install -g agnostic-ai@<version>`.
 

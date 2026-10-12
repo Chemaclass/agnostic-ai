@@ -1,6 +1,6 @@
 # Editor extensions
 
-First-party editor integrations for agnostic-ai. Both extensions
+Use agnostic-ai from VS Code or a JetBrains editor to preview specs, sync configuration, and check generated files. Both extensions
 **use the user's installed `agnostic-ai` binary**. They ship
 no bundled binary, matching the v1 acceptance criteria from
 [issue #44](https://github.com/Chemaclass/agnostic-ai/issues/44).
@@ -15,4 +15,4 @@ VS Code shows saved-file lint findings in Problems for configured Markdown and Y
 ## Why one repo
 
 Keeping the extensions next to the CLI lets a feature ship with its server and tests in one change. Marketplace publishes stay manual because the
-review cadences differ from agnostic-ai's own release cadence.
+marketplaces review extensions on a different schedule from CLI releases.

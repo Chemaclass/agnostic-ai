@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Directory-specific instructions
 
-Write a service's conventions once. Sync writes them in each tool's own format and keeps them out of the root instructions.
+Use a scoped rule for instructions that apply to one directory, such as a service's conventions. Write the rule once; sync generates each supported tool's files. This keeps directory-specific text out of the root instructions that load every session.
 
 ## Start with one directory
 
@@ -53,7 +53,7 @@ Start from the file you are editing:
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-The report lists each Cursor instruction with its source spec, output path, selector, and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the output sync plans to write, so a shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. It shows what is set to apply, not what the model loaded. Only Cursor is supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
+The report lists each instruction for the selected tool with its source spec, output path, file or directory condition (selector), and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the output sync plans to write, so a shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. It shows what is set to apply, not what the model loaded. Claude Code, Codex, and Cursor are supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
 
 ## Scope rules
 
@@ -69,7 +69,7 @@ The report lists each Cursor instruction with its source spec, output path, sele
 
 ## Codex rules with globs alone
 
-With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`. That keeps the text out of the root instructions. Other tools that read `AGENTS.md` share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
+Globs are filename patterns such as `src/api/**`. With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`. That keeps the text out of the root instructions. Other tools that read `AGENTS.md` share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
 
 Every pattern must cover a whole directory tree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns keep the whole rule inline, with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. The rule also stays inline, with a note, for output overrides, unmanaged destinations, and tools that read the root file without verified nested-file support. This applies to configured tools and to `--target`. Sync never widens a file filter to a whole directory.
 
@@ -138,7 +138,7 @@ Runtime limits:
 
 ## Shared files and safe updates
 
-Sync checks all configured readers, even with `--only`:
+Sync checks every configured tool that reads a shared output file, even with `--only`:
 
 - Kiro loads nested `AGENTS.md` files everywhere, so it conflicts with tools that write them.
 - Crush reads `.cursor/rules` without applying its conditions, so it conflicts with scoped Cursor rules.
