@@ -12,6 +12,18 @@ target_id = "kiro"
 
 agnostic-ai writes AWS Kiro steering files, native skills, agents, commands, and hooks under `.kiro/`, plus MCP servers and `.kiroignore`.
 
+## Set up this tool
+
+Add `kiro` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import kiro`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -63,7 +75,7 @@ Built-in tools such as `knowledge` use their exact tool IDs. Sync translates fou
 | `mcp:<server>` | `mcp__<server>` | `@<server>` |
 | `mcp:<server>/<tool>` | `mcp__<server>__<tool>` | `@<server>/<tool>` |
 
-Duplicates are merged. A Kiro category covers more than one tool, so access widens: `write` also covers `delete_file`, and `web` covers fetch and search. Sync prints a note naming the extra access, such as `kiro: .agnostic-ai/agents/writer.md: edit becomes Kiro's write category, which also allows delete_file`. `on-unsupported: error` fails when access widens, including for a Claude Code alias such as `Edit`. Scoped values, such as `shell(git diff *)` and `read(src/**)`, are dropped with a coverage note. The rest are still written. `x-kiro.tools` takes Kiro's own names and always wins.
+Duplicates are merged. A Kiro category covers more than one tool, so access widens: `write` also covers `delete_file`, and `web` covers fetch and search. Sync prints a note naming the extra access, such as `kiro: .agnostic-ai/agents/writer.md: edit becomes Kiro's write category, which also allows delete_file`. `on-unsupported: error` fails when access widens, including for a Claude Code alias such as `Edit`. Scoped values, such as `shell(git diff *)` and `read(src/**)`, are dropped with a sync note. The rest are still written. `x-kiro.tools` takes Kiro's own names and always wins.
 
 **Hooks** are [native](https://kiro.dev/docs/hooks/): one JSON file per spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`.
 
@@ -115,8 +127,8 @@ Sync removes only recorded files after their specs are removed. A conflicting or
 |--------|---------|
 | `.kiro/prompts/<name>.md` (or the configured command directory) | `<commands>/<name>.md` |
 | `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md` |
-| `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled sibling assets included |
-| `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (unscoped rule) |
+| `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled files next to the skill included |
+| `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (project-wide rule) |
 | `.kiro/steering/<name>.md` (`inclusion: fileMatch` + `fileMatchPattern`) | `<rules>/<name>.md` with `globs: <fileMatchPattern>` |
 | `.kiro/steering/<name>.md` (`inclusion: manual` or `auto`) | skipped with a note. The file stays hand-written, since a rule has no on-demand mode |
 | `.kiro/steering/agent-<name>.md` (legacy, pre-native sync) | `<agents>/<name>.md`, body only |
@@ -140,7 +152,7 @@ Hook import reads every Kiro field:
 The imported spec loses some data, but the Kiro files sync writes stay the same:
 
 - A rule's folder scope becomes an equivalent `globs:`.
-- An old flattened agent or skill keeps only its body. That form never had a description, model, or bundled assets.
+- An old flattened agent or skill keeps only its body. That form never had a description, model, or bundled files.
 - An explicit `enabled: true` leaves no key, since it is the default.
 - Two hook files with the same `name` keep both hooks. The second gets a generated name, because spec names are unique file names.
 - <code>{&#123;filePath}}</code> stays as written. Kiro documents it as new in 3.0, and it means nothing elsewhere.
@@ -152,7 +164,7 @@ Not enforced. Kiro takes no settings specs, so sync reports a spec with a `prote
 ## Verify
 
 1. Install Kiro from [kiro.dev](https://kiro.dev).
-2. Check the tree: `ls AGENTS.md .kiro/steering/ .kiro/skills/ .kiro/agents/ .kiro/hooks/ .kiro/settings/mcp.json .kiroignore`, `head -2 .kiro/steering/*.md .kiro/skills/*/SKILL.md .kiro/agents/*.md` (frontmatter first, no leading blank lines), `python -m json.tool .kiro/settings/mcp.json > /dev/null`, and `python -m json.tool .kiro/hooks/*.json > /dev/null`.
+2. Check the files: `ls AGENTS.md .kiro/steering/ .kiro/skills/ .kiro/agents/ .kiro/hooks/ .kiro/settings/mcp.json .kiroignore`, `head -2 .kiro/steering/*.md .kiro/skills/*/SKILL.md .kiro/agents/*.md` (frontmatter first, no leading blank lines), `python -m json.tool .kiro/settings/mcp.json > /dev/null`, and `python -m json.tool .kiro/hooks/*.json > /dev/null`.
 3. Open the project. The steering panel lists every rule with its inclusion mode and no parse warnings; the skill and agent pickers list every `.kiro/skills/<name>/` and `.kiro/agents/<name>.md`.
 4. Trigger a hook's event (e.g. save a file for `PostFileSave`). The command runs with no schema warning.
 5. In Kiro CLI 2.27.0 or newer, start `kiro-cli chat --v3`. Type `/` and select a synced command. Check that its prompt and native arguments expand.

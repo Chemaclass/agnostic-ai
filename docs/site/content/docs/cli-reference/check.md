@@ -9,6 +9,10 @@ group = "Reference"
 
 # Check specs and output
 
+Use `validate` for invalid spec formats, `lint` for spec quality, and `sync --check` for generated files that differ from the sources. `doctor` combines project checks with local setup checks. `verify` runs your own tasks to check the AI tool's behavior.
+
+For coding agents and scripts, inspect errors before choosing a repair. `doctor` is read-only by default; `doctor --fix` changes files.
+
 ## validate
 
 Load all specs and report parse errors. On success it prints `loaded 12 entries. ok.`. With no specs it prints `loaded 0 entries. ok.` and stderr suggests `init` or `import`.
@@ -16,9 +20,9 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | Check | Reports |
 |-------|------------|
 | Hook events | A hook with no `event:`, or an event no configured target supports. The report lists the supported events. |
-| Orphaned kinds | Hook or MCP specs that no enabled target reads. The line names the targets that would. |
+| Unused spec kinds | Hook or MCP specs that no enabled target reads. The line names the targets that would. |
 | Declared sources | A `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr, loads the kind empty, and passes. |
-| Entry-point fences | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor an external adapter listed in `targets`. Also a tool that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
+| Tool-specific instruction blocks | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor an external adapter listed in `targets`. Also a tool that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`: a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | Global settings | With `--global`: a settings `effort` that a tool cannot take, such as `max` for Claude. |
 
@@ -40,7 +44,7 @@ Hook events accepted per target:
 
 ## lint
 
-Run checks beyond the schema. Exits 1 on errors.
+Check spec quality beyond whether the file format is valid. Exits 1 on errors.
 
 ```bash
 agnostic-ai lint --strict
@@ -126,7 +130,7 @@ Codex also reads each scoped `AGENTS.md` between the root and its working direct
 
 ## verify
 
-Run your own behavior check against each selected AI tool. Omit `--target` to check every configured target. It first runs `sync --check`, and a missing or stale generated file stops it.
+Run your own checks against each selected AI tool. Omit `--target` to check every configured target. It first runs `sync --check`, and a missing or stale generated file stops it.
 
 ```bash
 agnostic-ai verify --target codex
@@ -136,11 +140,11 @@ The command in [`verify.command`](@/docs/configuration.md#verify) runs once per 
 
 | Field | Meaning |
 |------|---------|
-| `version` | Contract version, currently `1`. |
+| `version` | Input format version, currently `1`. |
 | `target` | Tool being verified, such as `"codex"`. |
 | `configured_model` | Optional. Model in the generated config, not the one used at runtime. |
 | `cli` | Optional. Detected CLI command, resolved path, and `--version` output. Omitted when the binary is missing. |
-| `harness_fingerprint` | SHA-256 digest of the tool's specs and generated files. It identifies the setup. |
+| `harness_fingerprint` | SHA-256 checksum of the tool's specs and generated files. It identifies the setup. |
 
 ## doctor
 
@@ -225,7 +229,7 @@ The report compares simple declared Bash rules from planned project settings, pr
 
 Known RTK PreToolUse handlers are listed by settings path. More than one produces an ownership warning. This inspection recognizes direct Bash handlers using RTK rewrite or its Claude processor; plugins, indirect scripts, and other matcher expressions can remain undiscovered.
 
-Runtime approval always remains `unknown`. Managed settings, session flags, project trust, hook activation, and other handlers can change the actual outcome. The report describes declared rules rather than verifying a live host. Processor failures and unreadable settings fail the command. Warnings are diagnostic and do not grant approval or fail an otherwise successful inspection.
+Runtime approval always remains `unknown`. Administrator settings, session options, project trust, enabled hooks, and other handlers can change the actual outcome. The report describes declared rules rather than verifying a live host. Processor failures and unreadable settings fail the command. Warnings are diagnostic and do not grant approval or fail an otherwise successful inspection.
 
 The processor interface follows [RTK's rewrite protocol](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/rewrite_cmd.rs), and rule precedence follows [Claude Code permissions](https://code.claude.com/docs/en/permissions).
 

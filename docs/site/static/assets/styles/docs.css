@@ -31,6 +31,16 @@
   font-weight: 700;
 }
 
+.docs-start {
+  padding-block: 3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.docs-start .docs-content {
+  max-width: var(--reading);
+  margin-inline: auto;
+}
+
 .docs-directory {
   padding-block: clamp(4rem, 9vw, 7rem);
 }

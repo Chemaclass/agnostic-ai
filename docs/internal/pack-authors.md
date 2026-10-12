@@ -4,6 +4,8 @@
 
 A pack is a Git repository or local directory with the same source layout as an agnostic-ai project. Users install it with `agnostic-ai packs add`; its specs become shared defaults for their project.
 
+Start with one useful spec, publish a version tag, and test installation in a temporary project using the command under [Versioning](#versioning).
+
 ## Layout
 
 ```
@@ -23,7 +25,7 @@ Use the same YAML header fields (frontmatter) and Markdown body as [user spec fo
 
 - Set `name:` (name that projects use to override a spec).
 - Write a short, action-oriented `description:` (adapters show it in combined documents).
-- Avoid project-specific `globs:`. Prefer language/framework-level patterns.
+- Avoid project-specific `globs:`. Prefer patterns that match files for a language or framework.
 
 ## Versioning
 
@@ -37,7 +39,7 @@ Renames are breaking (project overrides using the old names stop working). Addin
 
 ## Naming
 
-Default installed dir is the last path segment (`github.com/foo/go-rules` → `go-rules`). Choose a name that does not conflict with another installed pack. Users can rename with `--name`.
+The default installation directory is the last part of the repository path (`github.com/foo/go-rules` → `go-rules`). Choose a name that does not conflict with another installed pack. Users can rename with `--name`.
 
 ## Distribution
 

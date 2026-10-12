@@ -1,8 +1,8 @@
 # Build dependency checks
 
-Release builds, editor packaging, vendor compatibility checks, and local experiments use different inputs. Review each dependency alert against the route that installs or executes it.
+Release builds, editor packaging, vendor compatibility checks, and local experiments use different inputs. When a dependency alert appears, find the workflow that installs or runs the affected package in the table below. Check its selected version and verification steps.
 
-| Route | Inputs and verification | Alert review |
+| Workflow | Inputs and verification | Alert review |
 | --- | --- | --- |
 | VS Code packaging | Exact @vscode/vsce 4.0.0 and the committed npm lock, built with Node 22. Its dependencies no longer include the braces package; package checks still scan for secrets. | Run a fresh dependency scan after merging and include development dependencies. |
 | JetBrains bootstrap | The committed Gradle9 wrapper matches its official checksum. CI validates wrapper changes before execution. The distribution has its official SHA-256 pin. | Review the intentional committed binary alert against this evidence. |
@@ -22,9 +22,9 @@ These checks provide evidence for reviewing alerts, not records of dismissed ale
 
 ## Replay a vendor load check
 
-The Tool load workflow uploads `tool-load-dependencies`, containing `package.json`, `package-lock.json`, `selected-packages.txt`, and `environment.txt`. The lock records the complete selected npm dependency graph and its registry integrity values. Integrity checks downloaded bytes against the recorded lock; they do not verify publisher identity or source provenance.
+The Tool load workflow uploads `tool-load-dependencies`, containing `package.json`, `package-lock.json`, `selected-packages.txt`, and `environment.txt`. The lock records all selected npm packages, their dependencies, and registry checksums. Those checksums verify that downloaded files match the lock; they do not verify who published the package or which source produced it.
 
-To replay the dependency graph from a downloaded artifact with an existing agnostic-ai binary:
+To repeat the check using the packages recorded in a downloaded workflow artifact (its saved output), use an existing agnostic-ai binary:
 
 ```sh
 TOOL_LOAD_LOCK_DIR=/absolute/path/to/tool-load-dependencies \
@@ -33,6 +33,6 @@ TOOL_LOAD_LOCK_DIR=/absolute/path/to/tool-load-dependencies \
 
 This uses `npm ci` with the saved manifest and lock. Keep the same operating system, Node/npm versions, source revision, and selected tools when comparing results. Vendor commands can still depend on external services or configuration outside the npm graph.
 
-To test a particular release without a saved lock, set `TOOL_LOAD_CODEX_VERSION`, `TOOL_LOAD_GEMINI_VERSION`, or `TOOL_LOAD_OPENCODE_VERSION` to an exact version. Unset variables follow current releases. Exact release selection alone does not freeze transitive dependencies. `TOOL_LOAD_REPORT_DIR` chooses where a run saves its dependency evidence.
+To test a particular release without a saved lock, set `TOOL_LOAD_CODEX_VERSION`, `TOOL_LOAD_GEMINI_VERSION`, or `TOOL_LOAD_OPENCODE_VERSION` to an exact version. Unset variables follow current releases. Selecting an exact release alone does not fix the versions of its dependencies. `TOOL_LOAD_REPORT_DIR` chooses where a run saves its dependency evidence.
 
 The [npm ci contract](https://docs.npmjs.com/cli/v11/commands/npm-ci/) requires a matching manifest and lock. The [Gradle checksum guidance](https://docs.gradle.org/current/userguide/gradle_wrapper.html#sec:verification) covers wrapper and distribution verification. See the [runtime experiment](rtk-caveman-runtime.md) for its separate engine verification and reproducibility limits.

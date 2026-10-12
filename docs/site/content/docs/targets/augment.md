@@ -12,6 +12,18 @@ target_id = "augment"
 
 [Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`, `.augment/`, and the shared `.agents/skills/` tree.
 
+## Set up this tool
+
+Add `augment` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import augment`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -31,9 +43,9 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
   - A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). Rules have no `name` key.
 - **Legacy guidelines**: `outputs.augment.rules-file: .augment-guidelines` also writes all rules as one document. It is opt-in, because Augment cuts it first when context runs short.
 - **Agents** ([subagents docs](https://docs.augmentcode.com/cli/subagents)): `.augment/agents/<name>.md` with `name` (required), `description` (falls back to the spec name), and, when set, `color` (written as is; Augment expects an ANSI color name) and `model`.
-  - Augment's `tools` and `disabled_tools` take its own tool names (`view`, `codebase-retrieval`, `str-replace-editor`, ...), so the generic `tools` field raises a coverage note. Set `x-augment: {tools: [...]}` or `x-augment: {disabled_tools: [...]}` instead.
+  - Augment's `tools` and `disabled_tools` take its own tool names (`view`, `codebase-retrieval`, `str-replace-editor`, ...), so the generic `tools` field raises a sync note. Set `x-augment: {tools: [...]}` or `x-augment: {disabled_tools: [...]}` instead.
 - **Skills**: Augment also scans `.claude/skills/` and `.augment/skills/`.
-- **Commands**: `.augment/commands/<scope>/<name>.md`, with a source-layout scope as a nested folder name. `description`, `argument-hint`, and `model` stay in frontmatter.
+- **Commands**: `.augment/commands/<scope>/<name>.md`, with a directory scope from the source folder as a nested folder name. `description`, `argument-hint`, and `model` stay in frontmatter.
 - **Ignore**: ignore specs write `.augmentignore`. `import augment` restores a hand-written one, keeping pattern order and negation.
 
 {% <details summary="Entry point off AGENTS.md"> %}
@@ -46,17 +58,17 @@ Servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `comm
 
 - Sync changes only its own keys. `shell`, `startupScript`, `theme`, plugin keys, and tool permissions stay.
 - If the file is JSONC, sync drops comments and trailing commas and prints a one-line warning. Keys stay, comments do not.
-- Augment documents no per-server `disabled` key, so `disabled: true` is dropped with a coverage note. Use `auggie mcp remove`.
-- Transports are `stdio`, `sse`, and `http` only ([integrations docs](https://docs.augmentcode.com/cli/integrations)). A `type: ws` spec writes no server and raises a coverage note.
+- Augment documents no per-server `disabled` key, so `disabled: true` is dropped with a sync note. Use `auggie mcp remove`.
+- Transports are `stdio`, `sse`, and `http` only ([integrations docs](https://docs.augmentcode.com/cli/integrations)). A `type: ws` spec writes no server and raises a sync note.
 
 ### Hooks
 
 Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Auggie's event data, shell, and timeout, so you can test them before a session.
 
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
-- `command` must be a script ending in `.sh`, `.ps1`, `.cmd`, or `.bat`, because Augment never runs an inline shell string. Other commands are written as is with a coverage note. A hook with `args` is skipped with a note, because Augment has no shell to fold them into.
+- `command` must be a script ending in `.sh`, `.ps1`, `.cmd`, or `.bat`, because Augment never runs an inline shell string. Other commands are written as is with a sync note. A hook with `args` is skipped with a note, because Augment has no shell to fold them into.
 - `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on the session events.
-- Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a coverage note.
+- Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a sync note.
 
 ### Permissions
 
@@ -67,7 +79,7 @@ Settings specs merge into the same file under `toolPermissions`, which Auggie CL
 - Bare tool names map onto Augment's six tools (`Read` to `read`, `Bash` to `terminal`, `WebFetch` to `web-fetch`, ...).
 - `Bash(prefix:*)` becomes a `terminal` rule with `shellInputRegex: ^prefix`. An exact `Bash(command)` is anchored at both ends. `mcp__<server>__<tool>` becomes `{tool-name}_{server-name}`.
 
-These are not written and raise a coverage note:
+These are not written and raise a sync note:
 
 - `model`: the file has no documented key.
 - The `ask` list: none of Augment's types (`allow`, `deny`, `webhook-policy`, `script-policy`) prompts.
@@ -93,12 +105,12 @@ These are not written and raise a coverage note:
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
-2. Check the tree: `ls AGENTS.md .augment/agents/ .agents/skills/`, plus `.augment/rules/` (a rule with `alwaysApply: false`), `.augment-guidelines` (`outputs.augment.rules-file` set), and `.augment/settings.json` (MCP, hook, or settings specs).
+2. Check the files: `ls AGENTS.md .augment/agents/ .agents/skills/`, plus `.augment/rules/` (a rule with `alwaysApply: false`), `.augment-guidelines` (`outputs.augment.rules-file` set), and `.augment/settings.json` (MCP, hook, or settings specs).
 3. Open the project. Augment reads `AGENTS.md`, `.augment/rules/`, `.augment/agents/`, `.agents/skills/`, `.augment-guidelines` when present, and (through Auggie CLI) `.augment/settings.json`.
 4. With hook specs, `auggie` starts with no "invalid hook" warning, and a `PreToolUse` hook on a `.sh`/`.ps1`/`.cmd`/`.bat` script runs on the matching tool call.
 5. With settings specs, `auggie` starts with no dropped-rule warning. A `deny` tool is blocked, and an `allow` tool runs without approval.

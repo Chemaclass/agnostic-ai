@@ -9,6 +9,8 @@ group = "Reference"
 
 # Inspect and preview
 
+Start with the item you know: `explain <spec>` finds a spec's output, `why <file>` finds a generated file's source, and `render <spec>` previews file contents. Use `compare` before changing tools and `graph` for an overview. These commands help a coding agent find the source to edit.
+
 ## explain
 
 List every output file and section one spec contributes to. It works backward from the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions that apply to one source file instead.
@@ -48,7 +50,7 @@ A spec that sets `model` or `effort` also lists the [tier](@/docs/spec-format/ag
 
 `model_tier` and `models` are omitted when the spec sets neither `model` nor `effort`.
 
-For an agent's `can` or `tools`, and for settings `permissions`, the report lists each configured target's native names. Unsupported rules stay visible. A widening line names the extra access a target grants. Native overrides show their values and name the field that wins. For Codex, widening follows the merged permission policy and any explicit exec policy source.
+For an agent's `can` or `tools`, and for settings `permissions`, the report lists each configured target's native names. Unsupported rules stay visible. A widening line names the extra access a target grants. Tool-specific overrides show their values and name the field that wins. For Codex, the report calculates extra access from the merged permissions and any explicit command policy source.
 
 ```bash
 agnostic-ai explain agents/reviewer.md
@@ -59,7 +61,7 @@ The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, a
 
 ### Explain a source file
 
-Start from a project file instead of a spec. The report lists configured instructions from the planned sync output, with their source, output path, selector, and reason. Claude Code, Codex, and Cursor are supported.
+Start from a project file instead of a spec. The report lists configured instructions from the planned sync output, with their source, output path, file or directory condition, and reason. Claude Code, Codex, and Cursor are supported.
 
 ```bash
 agnostic-ai explain --file services/payments/handler.go --target cursor
@@ -87,9 +89,9 @@ A root `AGENTS.md` written for another tool such as Codex reaches Cursor too. Cu
 
 For Codex, root `AGENTS.md` and `AGENTS.override.md` instructions have no file condition. When both are planned in one directory, the override takes priority. Nested instructions report `unknown` and state whether the file is under their directory. Codex discovers instructions from the project root to its session launch directory, which this command cannot establish. Custom filenames also report `unknown` because their discovery needs a fallback filename or session setting. See [Codex's instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 
-For Claude Code, the report reads the emitted `paths` values, including native overrides, and discovers Markdown rules recursively under `.claude/rules/`. Nested `CLAUDE.md` files cover files beneath their directory. For other files, their loading depends on the session launch directory, so the result is `unknown`. Imported instructions and outputs outside native discovery also report `unknown` when session approval or settings are needed. Complex path patterns the command cannot evaluate, including brace expansion and character classes, name that limit in their reason. See [Claude Code's instruction discovery](https://code.claude.com/docs/en/memory).
+For Claude Code, the report reads the generated `paths` values, including tool-specific overrides, and discovers Markdown rules recursively under `.claude/rules/`. Nested `CLAUDE.md` files cover files beneath their directory. For other files, loading depends on the directory where the session starts, so the result is `unknown`. Imported instructions and outputs outside native discovery also report `unknown` when session approval or settings are needed. Complex path patterns the command cannot evaluate, including brace expansion and character classes, name that limit in their reason. See [Claude Code's instruction discovery](https://code.claude.com/docs/en/memory).
 
-The report describes planned project configuration, not the model's active context. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
+The report describes planned project configuration, not the instructions the model has actually loaded. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
 
 ```json
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
@@ -98,7 +100,7 @@ The report describes planned project configuration, not the model's active conte
 
 ### Rank context contributions
 
-Use `--context --target <name>` to rank the sources contributing to estimated startup context, even below the lint warning budget. The report uses the same whitespace-separated word accounting as `lint`, with bytes beside each count. It needs a configured project target, takes no spec argument, and writes nothing.
+Use `--context --target <name>` to see which sources add the most text when a session starts, even when no lint warning appears. The report uses the same whitespace-separated word accounting as `lint`, with bytes beside each count. It needs a configured project target, takes no spec argument, and writes nothing.
 
 ```bash
 agnostic-ai explain --context --target codex
@@ -106,7 +108,7 @@ agnostic-ai explain --context --target claude --json
 agnostic-ai explain --context --target cursor --file src/main.go
 ```
 
-Entry-point layers, marked rule and review sections, inlined imports, always-on rules, and individual skill and agent discovery descriptions are counted separately. Generated framing has its own contribution so the startup word total stays consistent with lint. Sources sharing a generated document are counted once for the selected target.
+Entry-point layers, marked rule and review sections, inlined imports, always-on rules, and individual skill and agent descriptions used to find skills and agents are counted separately. Generated framing has its own contribution so the startup word total stays consistent with lint. Sources sharing a generated document are counted once for the selected target.
 
 Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup totals. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope`, with a separate additional total. Unmatched or uncertain rule bodies remain on demand. Entries sort by loading group, descending words and bytes, then source path and category.
 
@@ -149,7 +151,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Portable settings permissions are compared one source rule at a time, including allow, ask, deny, and default-mode. Other settings, spec kinds, and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex policy sidecars. Each field gets one result per target:
+It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Portable settings permissions are compared one source rule at a time, including allow, ask, deny, and default-mode. Other settings, spec kinds, and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex's separate policy files. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|

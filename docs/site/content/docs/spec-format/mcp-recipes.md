@@ -15,6 +15,8 @@ Checked on 2026-10-03. Upstream names and URLs change often, so compare with the
 
 No recipe contains a secret. Each reads one from your shell with a [`${NAME}` reference](@/docs/spec-format/mcps.md#environment-references). Export the variable before you start the tool.
 
+Before copying a recipe, check its linked source, replace example paths, and set any required environment variables. Run `agnostic-ai lint`, sync, then confirm the server connects in your coding tool.
+
 ## GitHub (remote)
 
 Source: [github/github-mcp-server, remote server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md) and its [README](https://github.com/github/github-mcp-server#readme).

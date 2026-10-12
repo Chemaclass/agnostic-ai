@@ -11,10 +11,12 @@ group = "Reference"
 
 `environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree, a cloud sandbox, or a preview. That means install dependencies, copy local config, start the dev server, and stop it afterwards. Each tool has its own file for this, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
 
-- **Ready worktrees.** Every new worktree runs the same setup, so an agent does not start on a tree with no dependencies.
+- **Ready worktrees.** Every new worktree runs the same setup, so an agent does not start in a checkout with no dependencies.
 - **Preview buttons.** `dev-commands` become the dev servers a tool can start and preview.
 - **Clean exits.** `cleanup` stops what setup started when the worktree goes away.
 - **One spec for every tool.** A field one tool ignores raises no note when another enabled tool uses it.
+
+Use setup scripts that work from a fresh checkout. List the tools they need, install dependencies before starting servers, and name the command that confirms the project is ready. Keep long setup procedures in scripts so developers and agents can run the same steps.
 
 ## Write one
 
@@ -62,7 +64,7 @@ Specs merge by top-level key, and the last value wins. A field that no enabled t
 
 ## Support by target
 
-- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a note that they have no effect. `import cursor` reads both files back.
+- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the spec metadata and tool-selection fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a note that they have no effect. `import cursor` reads both files back.
 - [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a note that they have no effect. `import codex` reads the file back.
 - [Claude Code](@/docs/targets/claude.md): `setup` runs from generated hooks (see [Claude Code worktree setup](#claude-code-worktree-setup)). `dev-commands` goes to `.claude/launch.json`. Claude Code reads a relative `cwd` there from the project root, so the spec needs no `${workspaceFolder}`. Every other field, `setup-windows` and `cleanup` included, gets a note that it has no effect.
 - [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note that `setup`, `cleanup`, and `dev-commands` have no effect.

@@ -1,6 +1,6 @@
 +++
 title = "Configuration"
-description = "Configure sources, targets, output overrides, sync behavior, imports, and global defaults."
+description = "Choose tools, source folders, generated file paths, and settings for your project or machine."
 weight = 130
 
 [extra]
@@ -20,7 +20,9 @@ gitignore:
   enabled: true
 ```
 
-`agnostic-ai init` creates one with your selected tools.
+`agnostic-ai init` creates one with your selected tools. A **target** is an AI coding tool that receives generated files. **Sources** are the specs you edit; **outputs** are the files those tools read.
+
+After changing this config, run `agnostic-ai sync --dry-run` to inspect the planned output, then `agnostic-ai sync` and `agnostic-ai sync --check`. For scripts and coding agents, choose tools explicitly rather than relying on a prompt.
 
 For directory-specific instructions, give a rule a `scope`. See [scoped context](@/docs/scoped-context.md).
 
@@ -164,7 +166,7 @@ Releases before 0.70.0 ignore the key. Releases before 0.74.0 read only `>=X.Y.Z
 
 ## `sources`
 
-Missing directories are skipped. See [path semantics](#path-semantics). A source root can be a directory symlink (macOS, Linux) or junction (Windows). Links below a source root are not followed.
+Missing directories are skipped. Paths follow the [path rules](#path-semantics). A source root can be a directory symlink (macOS, Linux) or junction (Windows). Links below a source root are not followed.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -199,7 +201,7 @@ Two Codex keys change how rules and permissions are written:
 
 ## `models`
 
-Name each model role once, then write the role in specs instead of a vendor's model id:
+Name each model role (a tier) once, then use that name in specs instead of repeating a vendor's model ID:
 
 ```yaml
 models:
@@ -323,7 +325,7 @@ sync:
     - .claude/skills/legacy/          # trailing slash: everything under the directory
 ```
 
-- Entries are project-relative with forward slashes. Globs use Go `path.Match`; `**` is not supported. A malformed glob or an empty entry fails config load.
+- Entries are project-relative with forward slashes. Filename patterns use Go `path.Match`; `**` is not supported. A malformed glob or an empty entry fails config load.
 - `sync` prints `~ skip (unmanaged) <path>`. `sync --check`, `status`, and `doctor` never count it as drift. `revert` and `doctor --fix` never touch it.
 - Removing the entry deletes nothing. The next sync rewrites the file.
 - `sync.shared-skills` never links such a skill folder.
@@ -332,7 +334,7 @@ sync:
 
 ### `sync.output-manifest` {#syncoutput-manifest}
 
-For repositories that commit their generated files. A full `sync` writes `.agnostic-ai/outputs.lock`: one line per generated path, with the content sum sync wrote. `sync --check` fails when the file is missing or out of date. Commit it with the outputs.
+For repositories that commit their generated files. A full `sync` writes `.agnostic-ai/outputs.lock`: one line per generated path, with a checksum of the content sync wrote. `sync --check` fails when the file is missing or out of date. Commit it with the outputs.
 
 ```yaml
 sync:
@@ -340,7 +342,7 @@ sync:
 ```
 
 - With no `.sync-state`, `doctor` and `sync --check` count a tracked file the generated-path list includes but no spec produces as a leftover. `doctor --fix` removes it.
-- A file edited since sync wrote it no longer matches its sum, so it is left for you.
+- A file edited since sync wrote it no longer matches its checksum, so it is left for you.
 - `sync --check --against` reads the generated-path list from the state it checks. It catches a deleted spec's outputs even in a shallow clone, unless that list was regenerated in the same commit.
 
 ### `sync.allow-global-names` {#syncallow-global-names}
@@ -373,7 +375,7 @@ sync:
 
 ## `verify`
 
-`verify.command` is the argv list `agnostic-ai verify` runs, without a shell. Put pipes and redirects in your script.
+`verify.command` is a list containing the program to run and its arguments. `agnostic-ai verify` runs it without a shell. Put pipes and redirects in your script.
 
 ```yaml
 verify:
@@ -444,7 +446,7 @@ An entry is the destination text as written, such as `url` for `[Logs](url)`, or
 
 ## `on-unsupported`
 
-Applies when a tool does not support a spec kind, such as `hooks` for Cursor or `mcps` for Cline.
+Applies when a tool does not support a spec kind, such as `hooks` for Jules or project-level `mcps` for Cline.
 
 | Value | Behavior |
 |-------|----------|
@@ -643,13 +645,13 @@ Specs load from four layers, lowest first. A higher layer overrides a spec of th
 | `project` | `agnostic-ai.yaml` `sources` paths | always |
 | `project-user` | `<project>/.agnostic-ai/local` | directory exists |
 
-Only `project` honors custom `sources` paths. `$AGNOSTIC_AI_HOME` is not a project layer.
+Only `project` uses custom `sources` paths. `$AGNOSTIC_AI_HOME` is not a project layer.
 
 ## Global configuration
 
 `agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets. [Global output](@/docs/target-behavior.md#global-output) lists the paths. It works from any directory and loads no packs or project specs.
 
-Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
+The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
 ```text
 ~/.agnostic-ai/
@@ -684,13 +686,13 @@ targets: [claude, codex, cursor]
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
-- Skills copy bundled assets verbatim. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
+- Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hooks.md#portable-events).
 - Copilot user hooks write `~/.copilot/hooks/agnostic-ai.json`; `COPILOT_HOME` moves the native home. `import --global copilot` adopts matching handlers from neighboring user JSON files without adding a second copy. See [Copilot hooks](@/docs/targets/copilot.md#hooks) for conflict recovery.
 - Kiro CLI V3 global hooks write one `~/.kiro/hooks/<name>.json` per spec, using the same format as project hooks. `KIRO_HOME` moves the hooks and scripts with Kiro's other global folders. Shared scripts go to `~/.kiro/scripts/`. Unrelated hook files stay; a conflicting file stops sync.
 - Targets without global agent output warn and skip agents.
 - Output is real files, never symlinks. A user file that is itself a symlink, such as a dotfiles-managed `CLAUDE.md`, is written through. A symlink inside a skills, agents, or rules directory stops the run.
-- Sync records what it wrote in `$AGNOSTIC_AI_HOME/state/global.json` and removes only those artifacts for the targets in the run, so `--only` never sweeps another target.
+- Sync records what it wrote in `$AGNOSTIC_AI_HOME/state/global.json` and removes only those files and settings for the targets in the run. With `--only`, other targets' output stays in place.
 - A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block never counts.
 - A file or hook that already matches what sync would write is adopted. One that differs, even by one byte, stops the run. So do an unmanaged agent, skill, or rule collision, a damaged marker, invalid native JSON, corrupt state, and state recorded under another `HOME`.
 - Without `--only`, explicit targets, or a home `targets` list, a target with a relative root variable or an invalid agent name is skipped with a warning. Naming it makes that an error.

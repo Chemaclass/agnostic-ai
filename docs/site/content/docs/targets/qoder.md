@@ -12,6 +12,18 @@ target_id = "qoder"
 
 agnostic-ai writes Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) rules, agents, skills, and commands under `.qoder/`, and merges MCP, hooks, and settings into `.qoder/settings.json`.
 
+## Set up this tool
+
+Add `qoder` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import qoder`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -23,7 +35,7 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
 .qoder/settings.json             # MCP, hooks, and settings (merged; other keys are kept)
 ```
 
-- **Rules**: Qoder reads `.qoder/rules/` and the root `AGENTS.md`. Per-rule files win a conflict, so rules go there instead of inline. When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file. The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files. Keep it listed there, or the CLI misses the rules that have no file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
+- **Rules**: Qoder reads `.qoder/rules/` and the root `AGENTS.md`. Per-rule files win a conflict, so rules go there instead of including them in that file. When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file. The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files. Keep it listed there, or the CLI misses the rules that have no file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
 - **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`. `name` and `description` are required. `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, and `hooks` are optional. `effort` takes a single value or a per-tool map, and an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
   - `color` is one of `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` ([CLI field reference](https://docs.qoder.com/cli/subagent)).
   - `tools` renders as a comma-separated string (`tools: Read, Grep, Bash`), which `import qoder` splits back. Qoder uses Claude-style names (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), so the portable list is copied unchanged.
@@ -33,7 +45,7 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
 - **Commands**: `.qoder/commands/<name>.md`, the project path for the [CLI](https://docs.qoder.com/cli/commands) and the [IDE](https://docs.qoder.com/user-guide/commands). Sync always writes `description` (default: the command's name) and never `name`, because the file path sets it. On a name clash, the CLI prefers your personal command (`~/.qoder/commands/`), and the IDE lists both with a scope label. Sync cannot see your personal commands, so it cannot warn.
 - **MCP**: `mcpServers` is merged into `.qoder/settings.json` (stdio: `command`/`args`/`env`/`cwd`, no `type`; remote: `type` plus `url`/`headers`). Other keys such as `mcp.enableAllProjectMcpServers`, permissions, and custom models are kept.
   - Entries accept these [optional fields](https://docs.qoder.com/cli/mcp-reference): `timeout` (milliseconds), `description`, `trust` (skip tool-call confirmation), `includeTools`, `excludeTools`, `alwaysAllow`, `disabled` (keep the config, turn the server off), and an `oauth` object, written as you declare it. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
-  - A `type: ws` spec gets only a coverage note. Qoder's ws transport takes a TCP host and port that a spec cannot express.
+  - A `type: ws` spec gets only a sync note. Qoder's ws transport takes a TCP host and port that a spec cannot express.
   - The file may be JSONC ([settings](https://docs.qoder.com/cli/settings)). `sync` keeps the keys but drops comments and trailing commas, and warns.
 - **Settings**: the shared default model becomes `model.name`. `permissions.allow`, `permissions.deny`, and `permissions.ask` are copied directly. An `x-qoder` settings block is merged in too.
   - With `memory.personal: repo`, sync adds the personal store to `permissions.additionalDirectories`, so Qoder approves saves there. Your own entries stay. See [repo mode](@/docs/memory.md#one-store-per-repository).
@@ -44,7 +56,7 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
   - `args` switches to the form without a shell: `command` is one program and each `args` element is one literal argument. Qoder then ignores `shell`. Sync still writes both and adds a note.
   - `once` has no effect, and `sync` says so. Qoder honors it only for session-scoped hooks ([Hooks](https://docs.qoder.com/cli/hooks), [Subagent](https://docs.qoder.com/cli/subagent)), and portable hooks go in settings.
   - HTTP handlers have `url`, optional `headers`, and `allowedEnvVars`. Prompt handlers have `prompt` and optional `model`. Both keep filters, timeouts in seconds, and matcher groups.
-  - Other handler types get a coverage note. Sync writes only one `env` entry, `AGNOSTIC_AI_TARGET`, and no `rewakeMessage`, `rewakeSummary`, or agent handlers.
+  - Other handler types get a sync note. Sync writes only one `env` entry, `AGNOSTIC_AI_TARGET`, and no `rewakeMessage`, `rewakeSummary`, or agent handlers.
 
 {% <details summary="Unmanaged AGENTS.md"> %}
 Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. But sync then stops writing `AGENTS.md`, so other tools that read it, such as Codex, miss rule changes.
@@ -109,12 +121,12 @@ Auto memory is off by default. agnostic-ai never reads or writes that store. See
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
 
 ## Verify
 
 1. Install Qoder from [qoder.com](https://qoder.com).
-2. Check the tree:
+2. Check the files:
    - `ls AGENTS.md .qoder/rules/ .qoder/agents/ .qoder/skills/ .qoder/commands/ .qoder/settings.json`
    - `grep "Generated by agnostic-ai" .qoder/rules/*.md .qoder/agents/*.md .qoder/skills/*/SKILL.md .qoder/commands/*.md` for the generated-file header
    - `python -m json.tool .qoder/settings.json > /dev/null`

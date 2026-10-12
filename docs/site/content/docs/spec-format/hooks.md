@@ -21,6 +21,8 @@ Use [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compar
 
 Sync never runs a hook. The configured tools do. [`agnostic-ai hook run`](#hook-run) runs one when you ask. Review hook specs like code.
 
+Start with one event and one script. State the input the script reads and the exit codes it returns. Test it with [`agnostic-ai hook run`](#hook-run) before enabling it in a coding session; different tools can handle the same failure differently.
+
 ## Write one
 
 ### Portable events {#portable-events}
@@ -226,7 +228,7 @@ The script reads `tool_input.command` from the event JSON on stdin, with no `jq`
 
 Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths). Codex gets `$(git rev-parse --show-toplevel)` in both commands, plus the project's path below the Git root.
 
-For Copilot, a hook with one plain command writes `commandWindows` as the `powershell` field and `command` as `bash`. A portable `on:` hook, `args`, or a command list keeps one `command`, with a coverage note. Cursor and Gemini CLI ignore `commandWindows`.
+For Copilot, a hook with one plain command writes `commandWindows` as the `powershell` field and `command` as `bash`. A portable `on:` hook, `args`, or a command list keeps one `command`, with a sync note. Cursor and Gemini CLI ignore `commandWindows`.
 
 On Windows, Codex runs `commandWindows` with `powershell.exe -Command`. The command above handles three PowerShell quirks:
 
@@ -809,7 +811,7 @@ Each command reports one decision.
 - `error`: any other non-zero exit.
 - `timeout`: the command ran past its timeout.
 
-With `failClosed: true`, Claude Code applies the event's exit-2 behavior to a hook failure, except on `PermissionRequest`, where it denies the request. It ignores `failClosed` on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, and command handlers with `async: true` or `asyncRewake: true`. Use a synchronous `PreToolUse` or `UserPromptSubmit` hook when a failed check must block an action. Sync notes the ignored cases and keeps `onFailure: "block"` for import round trips.
+With `failClosed: true`, Claude Code applies the event's exit-2 behavior to a hook failure, except on `PermissionRequest`, where it denies the request. It ignores `failClosed` on `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, and command handlers with `async: true` or `asyncRewake: true`. Use a synchronous `PreToolUse` or `UserPromptSubmit` hook when a failed check must block an action. Sync notes the ignored cases and keeps `onFailure: "block"` for repeated import and sync.
 
 Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the tool adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 
@@ -934,7 +936,7 @@ Vendor docs and pinned source each tool's hook behavior is checked against:
 - **Gemini CLI:** [Hooks reference](https://geminicli.com/docs/hooks/reference/), [file system tools](https://geminicli.com/docs/tools/file-system/), source [`c6bccb7`](https://github.com/google-gemini/gemini-cli/tree/c6bccb7ecbf6d8368d995455dd725ed34466faad/packages/core/src/hooks).
 - **Qoder:** [Hooks](https://docs.qoder.com/cli/hooks), [hooks reference](https://docs.qoder.com/cli/hooks-reference).
 - **Factory:** [Hooks](https://docs.factory.com/harness/hooks), [hooks guide](https://docs.factory.com/cli/configuration/hooks-guide).
-- **Devin CLI:** [Hooks](https://docs.devin.ai/cli/extensibility/hooks), [lifecycle hooks](https://docs.devin.ai/cli/extensibility/hooks/lifecycle-hooks).
+- **Devin CLI:** [Hooks](https://docs.devin.ai/cli/extensibility/hooks), [commands triggered by session events](https://docs.devin.ai/cli/extensibility/hooks/lifecycle-hooks).
 - **Antigravity:** [Hooks](https://antigravity.google/docs/hooks).
 - **Kiro:** [Hooks](https://kiro.dev/docs/hooks), [hook types](https://kiro.dev/docs/hooks/types), [hook actions](https://kiro.dev/docs/hooks/actions), [CLI V3 migration](https://kiro.dev/docs/cli/v3/hooks-migration), [built-in tools](https://kiro.dev/docs/tools).
 - **Trae:** [automate actions with hooks](https://docs.trae.cn/ide_automate-actions-with-hooks), [hook reference](https://docs.trae.cn/ide_hook-configuration-reference).

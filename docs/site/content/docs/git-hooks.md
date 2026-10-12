@@ -13,7 +13,7 @@ Catch out-of-date generated files at commit time, before CI. Each recipe runs `a
 
 It is the same check as the [CI gate](@/docs/ci.md). It compares the whole working tree, not only staged files.
 
-If outputs are ignored, run `sync` once in each checkout before you enable the hook. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
+If your team commits generated files, use [the staged-file check](#check-staged-files) to catch output you forgot to stage. If outputs are ignored, run `sync` once in each checkout before enabling a hook, and use [checkout and pull hooks](#regenerate-on-checkout) to keep them available to coding agents. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
 
 ## Why a pre-commit hook
 
@@ -23,7 +23,7 @@ If outputs are ignored, run `sync` once in each checkout before you enable the h
 
 ## pre-commit (Python)
 
-[pre-commit](https://pre-commit.com) is common in polyglot repos. Add `.pre-commit-config.yaml`:
+[pre-commit](https://pre-commit.com) works in projects using several languages. Add `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
@@ -96,7 +96,7 @@ Install once per checkout:
 npm install
 ```
 
-The trailing `--` swallows the file paths lint-staged adds. `sync --check` checks the whole project, not single files.
+The trailing `--` keeps the file paths lint-staged adds from being read as command options. `sync --check` checks the whole project, not single files.
 
 ## Check the staged files {#check-staged-files}
 
@@ -228,11 +228,11 @@ agnostic-ai project --check
 agnostic-ai project --bootstrap
 ```
 
-Bootstrap uses one locked npm or pnpm install only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
+Bootstrap installs from the npm or pnpm lockfile once only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
 
 Only stable exact npm versions are checked against the installed version. Ranges, tags, aliases, prereleases, and file dependencies are not interpreted as npm version contracts; set `requires` to enforce the accepted releases. `--against index` and `--against HEAD` read both the config and package declarations from that Git view while using the installed binary in the working checkout.
 
-Generated hooks first check that the selected binary supports `project`. Released v0.82.0 does not support it. An unsupported selected package produces an upgrade instruction; update its declared version and `requires` explicitly before using the new lifecycle. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
+Generated hooks first check that the selected binary supports `project`. Released v0.82.0 does not support it. An unsupported selected package produces an upgrade instruction; update its declared version and `requires` explicitly before using these setup hooks. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
 
 A hook manager can call `agnostic-ai project --check --against index` for a read-only pre-commit gate. Use `agnostic-ai project` after checkout or merge to regenerate without installing. The helper prefers the local package even when an older global binary is on `PATH`; call the local helper or use a global version supporting this command. A missing helper must first be installed through your package manager. The command does not rewrite hook-manager configuration or widen an exact requirement.
 

@@ -10,7 +10,7 @@ scripts = ["assets/scripts/landing.js"]
 
 # Installation
 
-Every installer puts the same prebuilt binary on your machine. You don't need Go. macOS needs 13 Ventura or later.
+The package managers and install scripts provide a ready-to-run command. You do not need Go unless you choose the Go install method. macOS needs 13 Ventura or later.
 
 {{ <install_picker /> }}
 
@@ -61,7 +61,7 @@ A JavaScript project can add the CLI as a dev dependency. Then every clone and C
 pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
 ```
 
-From the project root, run `agnostic-ai upgrade --requires` with that installed CLI, such as `pnpm exec agnostic-ai upgrade --requires`. It sets [`requires`](@/docs/configuration.md#requires) and the schema URL to the installed release, then syncs. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install. Until then, commands stop with AAI-005.
+From the project root, run `agnostic-ai upgrade --requires` with that installed CLI, such as `pnpm exec agnostic-ai upgrade --requires`. It sets [`requires`](@/docs/configuration.md#requires) and the schema URL to the installed release, then syncs. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install. If the installed version does not meet the project requirement, commands stop with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires).
 
 ## Optional extras
 

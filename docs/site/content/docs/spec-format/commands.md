@@ -17,13 +17,15 @@ group = "Reference"
 
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
 
+Name the inputs the command needs, the steps to follow, and the result to report. State any approval needed before a deploy or other external change. Use a skill when the same procedure also needs scripts or templates.
+
 ## Write one
 
 ```bash
 agnostic-ai new command review-changes
 ```
 
-Replace the description and prompt body before rendering. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+Replace the description and prompt body before running `agnostic-ai sync`. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
 
 Markdown with optional YAML settings between `---` lines at the top. Each spec becomes one slash command in the tool's own format.
 

@@ -10,7 +10,7 @@ group = "Workflows"
 
 # `agnostic-ai why <file>`
 
-Find where a generated file came from: the tool that wrote it, the source specs, the `outputs.<target>.*` keys behind its path, and the last sync time.
+Use `why` when you need to change a generated file. It finds the tool that wrote it, the source specs to edit, the `outputs.<target>.*` keys behind its path, and the last sync time. Edit those sources and run `agnostic-ai sync` to apply the change.
 
 [`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the reverse: it lists the files a spec writes.
 
@@ -49,7 +49,7 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 ## Entry-point files
 
-Each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`, so `why` lists that file first, as an `instructions` source. It is `full` when nothing else goes into the file.
+Each root instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`, so `why` lists that file first, as an `instructions` source. It is `full` when nothing else goes into the file.
 
 ```sh
 $ agnostic-ai why CLAUDE.md
@@ -65,5 +65,5 @@ The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Tools with
 ## Errors
 
 - **No sync state**: `.agnostic-ai/.sync-state` is missing. Run `agnostic-ai sync` first.
-- **Source file**: a spec (`.agnostic-ai/rules/x.md`) is an input, so `why` points you to `agnostic-ai explain <spec>`. `.agnostic-ai/AGNOSTIC_AI.md` gets the same note, naming the entry-point files it feeds.
+- **Source file**: a spec (`.agnostic-ai/rules/x.md`) is a source file, so `why` points you to `agnostic-ai explain <spec>`. `.agnostic-ai/AGNOSTIC_AI.md` gets the same note, naming the entry-point files it feeds.
 - **Untracked file**: the path is not something sync writes. `why` reports "not synced or not tracked". Re-run `sync` or check the path.

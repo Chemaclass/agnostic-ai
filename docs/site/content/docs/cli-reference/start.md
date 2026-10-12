@@ -9,6 +9,10 @@ group = "Reference"
 
 # Start a project
 
+Use `use <tool>` to add a tool and generate its files in one step. Use `init` and `import` separately when you want to review existing instructions before generating output. Use `new` to create a source spec and `list` to see what loads.
+
+Run these commands from the project root. For coding agents and setup scripts, pass tool names explicitly rather than relying on an interactive choice.
+
 ## use
 
 Start using an AI tool with what the project already has, in one step:
@@ -44,7 +48,7 @@ A tool already in `targets` changes nothing. A run that stopped partway finishes
 
 ## init
 
-Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. It errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` fill; `new` and `import` create the rest on first use.
+Create the project setup files: `agnostic-ai.yaml` and the managed `.gitignore` block. It errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` fill; `new` and `import` create the rest on first use.
 
 ```bash
 agnostic-ai init specs --demo     # base dir specs/, example specs to start from
@@ -58,8 +62,8 @@ echo "claude,codex" | agnostic-ai init
 | `--preset <name>` | Add starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
 | `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore=off` commits them instead. `true` and `false` work too, here and on `sync`. Write the value after `=`. `--gitignore off` stops with a hint, because `off` would read as the folder argument. |
-| `--from <cli>` | After scaffolding, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
-| `--dry-run` | List what the scaffold would create without writing. With `--from`, also list every file the import would write. |
+| `--from <cli>` | After creating the project setup files, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
+| `--dry-run` | List which setup files it would create without writing. With `--from`, also list every file the import would write. |
 
 Without `--all`, `init` takes targets from a terminal prompt or from a comma-separated list on piped stdin. Unknown names error and write nothing.
 
@@ -90,7 +94,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 ### import reconcile
 
-Plan later changes to a native skill tree after moving it to canonical sources:
+Plan how to bring later edits from a tool's skill folder into the source specs after an import:
 
 ```bash
 agnostic-ai import reconcile \
@@ -100,11 +104,11 @@ agnostic-ai import reconcile \
   --map .cursor/skills=.agnostic-ai/skills
 ```
 
-`--base` identifies the original native tree. `--migrated` identifies the first complete canonical tree, so changes made by import are part of the baseline. `--upstream` identifies the branch's later native changes. The current canonical tree comes from `HEAD`. The base must be an ancestor of both branches, and the migration must be an ancestor of `HEAD`.
+`--base` identifies the commit containing the original tool skill folder. `--migrated` identifies the commit containing the first complete source specs, so changes made by import are part of the baseline. `--upstream` identifies the branch's later edits to the tool skill folder. The current source specs come from `HEAD`. The base must be an ancestor of both branches, and the migration must be an ancestor of `HEAD`.
 
-Each row reports `add`, `remove`, `update`, or `conflict`, followed by the native and canonical file paths. Asset files and executable modes are included. Concurrent canonical edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including non-skill canonical files. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
+Each row reports `add`, `remove`, `update`, or `conflict`, followed by the tool and source spec file paths. Asset files and executable modes are included. Concurrent source edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including source files outside a skill. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
 
-The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a canonical counterpart at the migration revision. Content is compared as Git blobs, without merging text or normalizing later edits.
+The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a source counterpart at the migration revision. Content is compared using the file contents stored in Git, without merging text or normalizing later edits.
 
 Commit changes in mapped trees first. The command reads Git revisions and reports a plan; it does not copy files, restore deleted skills, or change the index. Applying a plan is a separate manual step. Other uncommitted project changes are allowed.
 
@@ -181,7 +185,7 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads 
 | `<name>.md` | `<rules>/<name>.md` |
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
-Import strips the leading `# <heading>` block that the adapter adds when it writes. It adds a minimal `name:` frontmatter.
+Import strips the leading `# <heading>` block that the adapter adds when it writes. It adds a `name:` field between `---` lines.
 
 ## list
 

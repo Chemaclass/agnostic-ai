@@ -44,7 +44,7 @@ tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
 
 Each new handoff replaces the old one. It never includes secrets or the tool's own memory.
 
-The project root is the nearest folder with `agnostic-ai.yaml`, or the git root when there is none. A subproject with its own config keeps its own handoff.
+The project root is the nearest folder with `agnostic-ai.yaml`, or the Git repository root when there is none. A subproject with its own config keeps its own handoff.
 
 ## Save what you learned
 
@@ -62,7 +62,7 @@ The project file follows `sources.rules` if you changed it, and the global file 
 
 ## Add automatic Git snapshots
 
-The separate `handoff-hook` built-in saves a git snapshot when a session ends or its context is compacted:
+The separate `handoff-hook` built-in saves the Git state when a session ends or the tool shortens its conversation history (context compaction):
 
 ```yaml
 requires: ">=0.80.0"
@@ -83,7 +83,7 @@ The snapshot goes to `.agnostic-ai/local/HANDOFF.auto.md`. It holds the tool, da
 
 When a new session starts and a handoff file exists, the tool shows a notice suggesting you resume. Nothing resumes until you ask.
 
-Claude hooks use the native event's `cwd`, including linked worktrees, even when the hook process runs in the main checkout. Config discovery stays inside the selected checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
+Claude hooks use the working directory (`cwd`) supplied by the tool's event, including linked Git worktrees (additional checkouts of the same repository), even when the hook process runs in the main checkout. Config discovery stays inside the selected checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
 
 Claude hooks need Bash and `awk`; the other hooks need `sh`. All need Git. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
 
@@ -129,4 +129,4 @@ agnostic-ai explain builtin:handoff
 agnostic-ai why .claude/skills/handoff/SKILL.md
 ```
 
-Reports name it `builtin:handoff` with the agnostic-ai version that ships it. After an upgrade changes the built-in, `sync --check` reports drift until you run `agnostic-ai sync`.
+Reports name it `builtin:handoff` with the agnostic-ai version that ships it. After an upgrade changes the built-in, `sync --check` reports that generated files are out of date until you run `agnostic-ai sync`.

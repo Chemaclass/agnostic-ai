@@ -23,7 +23,26 @@ Each AI coding tool keeps its configuration in its own place and format: `.claud
 - **One source to review.** A new rule or permission is one diff, not one per tool.
 - **Files stay in sync.** `sync --check` fails when a tool's file no longer matches its spec.
 - **Easy to add tools.** Adding a tool is one entry in `targets:`.
-- **Visible gaps.** When a tool cannot hold a field, sync prints a coverage note.
+- **Visible gaps.** When a tool cannot hold a field, sync prints a note.
+
+## Choose what to write
+
+Start with a [rule](@/docs/spec-format/rules.md) for a short instruction that applies to routine work. Use a [skill](@/docs/spec-format/skills.md) for a procedure the agent needs only for certain tasks. Use an [agent](@/docs/spec-format/agents.md) when a specialist needs separate instructions or access limits. Add a [hook](@/docs/spec-format/hooks.md) when the tool must run a command at a fixed event.
+
+Write the smallest spec that covers the task. State when it applies, what the agent should do, and what result it should return. Keep commands and file paths explicit. Test the generated files with `agnostic-ai lint`, `agnostic-ai sync --dry-run`, and `agnostic-ai sync --check` after syncing.
+
+## Terms used in these pages
+
+- **Target:** an AI coding tool selected in `agnostic-ai.yaml`.
+- **Portable:** a setting written once that sync translates for several tools.
+- **Native:** a tool's own file format, setting, or feature.
+- **Frontmatter:** YAML settings between `---` lines at the start of a Markdown file.
+- **Scope:** the directory where a spec applies. A project-wide spec has no directory scope.
+- **Glob:** a file pattern such as `src/**/*.go`, rather than one exact path.
+- **Sync note:** a message explaining what a tool cannot use, leaves out, or handles differently.
+- **MCP:** Model Context Protocol, a way for an agent to use outside tools and data. A `stdio` server runs a local command; HTTP, SSE, and WebSocket (`ws`) servers connect over a network.
+- **Matcher:** a pattern that selects which tool calls trigger a hook. A regular expression (regex) is one pattern format.
+- **Entry point:** the first instruction file a tool loads, such as `AGENTS.md` or `CLAUDE.md`.
 
 ## Folders
 
@@ -90,7 +109,7 @@ With none set, every target that supports the kind gets the spec. `target` wins 
 
 A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini`). Delete the field to let it reach every target.
 
-`import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays unscoped. So does every spec in a single-tool project, so an import and a sync give identical files.
+`import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays shared across tools. So does every spec in a single-tool project, so an import and a sync give identical files.
 
 ## YAML headers (frontmatter) {#frontmatter-rules}
 
@@ -139,8 +158,8 @@ A spec body can name a directory without hardcoding one tool's layout. `{{$SKILL
 
 - **Bodies only.** Frontmatter values do not expand.
 - **An `outputs.<target>.<field>` override wins.** With `outputs.claude.skills-dir: custom/skills`, `{{$SKILLS_DIR}}` follows it.
-- **A variable the tool has no directory for stays as written** and raises a coverage note. aider and jules resolve no variables.
-- **A shared file resolves for every tool that reads it.** This covers the rules block of an entry point, the review section of `AGENTS.md`, and a nested `AGENTS.md`. `GEMINI.md` has one reader, so it gets `.gemini/skills`. Codex and Amp both read `AGENTS.md` and use `.agents/skills`, so it expands. Codex and OpenCode use different paths, so the variable stays as written and raises one coverage note naming the file.
+- **A variable the tool has no directory for stays as written** and raises a sync note. aider and jules resolve no variables.
+- **A shared file resolves for every tool that reads it.** This covers the rules block of an entry point, the review section of `AGENTS.md`, and a nested `AGENTS.md`. `GEMINI.md` has one reader, so it gets `.gemini/skills`. Codex and Amp both read `AGENTS.md` and use `.agents/skills`, so it expands. Codex and OpenCode use different paths, so the variable stays as written and raises one sync note naming the file.
 - **Only where the tool has its own directory.** Tools that turn agents into rules (continue, trae, windsurf) or commands (gemini) have no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
 - **The `$` is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and Handlebars or Jinja text survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
 
@@ -161,7 +180,7 @@ Before pushing, run {{$AGENT:reviewer}}, then {{$SKILL:commit}}.
 | every other target | the reviewer agent | the commit skill | |
 
 - **Bodies only**, with the `$` and an uppercase keyword, like path variables. `{{AGENT:reviewer}}` stays untouched.
-- **A tool with no documented form gets a neutral phrase** and one coverage note. Unlike a path variable, the text is not left as written, because a raw `{{$AGENT:reviewer}}` reads worse to a model than plain words.
+- **A tool with no documented form gets a neutral phrase** and one sync note. Unlike a path variable, the text is not left as written, because a raw `{{$AGENT:reviewer}}` reads worse to a model than plain words.
 - **A rule or review in a shared file**, such as the rules block of `AGENTS.md` or a nested `AGENTS.md`, gets the neutral phrase, because several tools read that file. Codex reads its rules there, so a Codex rule always gets the neutral phrase. The same goes for a skill, agent, or command in a directory two enabled tools write, such as `.agents/skills` for Codex and Windsurf.
 - **An unknown name fails `lint`** with LINT033, which lists the known agents or skills. So does a name whose spec does not sync to every target the referring spec reaches. Only project specs count: a teammate without your global agent would get a phrase that points at nothing.
 

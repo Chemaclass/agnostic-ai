@@ -14,6 +14,18 @@ Charm [Crush](https://github.com/charmbracelet/crush) reads `AGENTS.md`, `.agent
 
 Set `outputs.crush.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
+## Set up this tool
+
+Add `crush` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+
+```bash
+agnostic-ai sync --dry-run
+agnostic-ai sync
+agnostic-ai sync --check
+```
+
+Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import crush`](@/docs/cli-reference/start.md#import).
+
 ## Output
 
 ```
@@ -22,7 +34,7 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 crush.json                         # when MCP or PreToolUse hook entries exist (merged with existing user config)
 .crushignore                       # project-root ignore patterns
 ```
-- **Rules**: Crush has no per-rule directory, so rule bodies go inline into `AGENTS.md`.
+- **Rules**: Crush has no per-rule directory, so rule bodies are included in `AGENTS.md`.
 - **Skills**: `.agents/skills/` is the first project path Crush scans. The files are identical to those the other `.agents/skills/` tools get, so the shared folder is written once. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
 - **Agents**: Crush has no agent support. Agents are skipped with a warning.
 - **`crush.json`**: sync keeps your `models`, `providers`, `lsp`, and `options` keys. Crush now prefers `crushrc`, a Bash script it runs on startup, and adds new options only there. JSON is deprecated but still works, so sync writes `crush.json` and never `crushrc`. An MCP field that exists only in `crushrc` cannot be set here.
@@ -54,7 +66,7 @@ Crush rejects unknown MCP keys, so MCP entries take no `x-crush` keys. Skills st
 
 Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 
-- Crush supports only `PreToolUse` ([Crush hooks](https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md)). Other events get a coverage note.
+- Crush supports only `PreToolUse` ([Crush hooks](https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md)). Other events get a sync note.
 - Sync accepts any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...) and writes `PreToolUse`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
 - Crush runs a command as a script only when it starts with `./`, `../`, or `/`. A hook command that starts with a `.agnostic-ai/scripts/<name>` script, which sync copies, becomes `./.crush/hooks/<name>`. Other commands, such as `bin/guard` or `.crush/hooks/guard`, stay as written. Import keeps every command as written.
@@ -75,8 +87,8 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 
 | Source | Becomes |
 |--------|---------|
-| `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
-| `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
+| `AGENTS.md` embedded `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
+| `.agents/skills/<name>/SKILL.md` (+ bundled files) | `<skills>/<name>/SKILL.md` (folder copied unchanged) |
 | `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
 | `crush.json` `hooks.PreToolUse` | hook specs; a named entry's `name` becomes the spec's `name:` field and its filename, so a re-import gives the same path |
 | `.crushignore` | an ignore spec |

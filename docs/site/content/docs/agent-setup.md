@@ -23,7 +23,7 @@ Follow this when a user asks you to install or set up agnostic-ai in a repositor
 - Import existing tool files before the first sync. Sync writes files; it does not import them.
 - Enable only the targets the project uses or the user names. Never enable every target.
 - Preview before writing. If sync reports a file it does not own or would overwrite, stop and name the path.
-- After setup, edit only `.agnostic-ai/`. The tool files are generated.
+- After setup, edit instructions and specs under `.agnostic-ai/`, and project settings in `agnostic-ai.yaml`. The tool files are generated.
 
 ### 1. Install or verify the CLI
 
@@ -49,11 +49,11 @@ Run `--version` again. If the command is not found, add the install directory to
 
 | State | Signal | Action |
 |---|---|---|
-| Already set up | `agnostic-ai.yaml` and `.agnostic-ai/` exist | Skip `init`. Go to step 4. |
+| Already set up | `agnostic-ai.yaml` and `.agnostic-ai/` exist | Keep its selected tools and Git policy. Skip `init`. Go to step 4. |
 | Existing tool files | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursor/`, `.github/copilot-instructions.md` | Import during `init`. |
 | Fresh | Neither | Plain `init`. |
 
-If you are unsure which tools to enable, ask the user. A tool installed on the machine may not be one the repository uses.
+If the repository has only one of `agnostic-ai.yaml` or `.agnostic-ai/`, inspect it before initializing; do not replace a partial setup. If you are unsure which tools to enable, ask the user. A tool installed on the machine may not be one the repository uses.
 
 ### 3. Initialize
 
@@ -81,7 +81,7 @@ agnostic-ai lint
 agnostic-ai sync --dry-run
 ```
 
-Check that the targets, output paths, and kept instructions match the project. Fix errors in the specs. Read any warning about an unsupported capability before you silence it.
+Check that the targets, output paths, and kept instructions match the project. Fix errors in the specs. Read warnings about instructions or fields a tool cannot use. A passing sync check means files match their sources; it does not mean every tool can enforce every rule. See [Tool behavior](@/docs/target-behavior.md) before changing restrictions or hiding warnings.
 
 ### 5. Sync and prove the result
 
@@ -92,7 +92,7 @@ git status --short
 git diff -- .
 ```
 
-Check the generated files and `.gitignore`. If Git tracks the generated files, commit them with their specs.
+Check the generated files and `.gitignore`. Inspect ignored output files directly: `git diff` does not show them. If Git tracks the generated files, include them with their specs when committing.
 
 Report:
 
