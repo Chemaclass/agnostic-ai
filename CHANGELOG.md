@@ -4,6 +4,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### By tool
+
+#### Windsurf / Devin
+
+- Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery.
+
 ## v0.83.0 - 2026-10-11
 
 ### General

@@ -110,22 +110,7 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 // sharedAgentsTree is the project subagent root several vendors read.
 const sharedAgentsTree = ".agents/agents/"
 
-// warnSharedAgentsTreeReaders reports the one overlap the collision
-// check above cannot see. Devin reads `.agents/agents/` as well as its
-// own `.devin/agents/`, and the targets that own that tree write an
-// agent at a different path inside it: antigravity nests
-// `<name>/agent.md`, goose and openhands write a flat `<name>.md`. Two
-// different paths never collide on content, so one spec quietly becomes
-// two profiles claiming the same name, and Devin documents a conflict
-// rule only for built-in names.
-//
-// It stays a warning rather than an error. The configuration is
-// legitimate, and the two files cannot be merged into one: `model`
-// means a model id to Devin and a closed `inherit`/`flash`/`pro` tier
-// to Antigravity, so a single file would have to carry a value one of
-// the two vendors never documented. Scope the spec with `target:` to
-// silence it (#863). It folds into one line and buffers with the
-// coverage notes, so an unchanged overlap is not re-printed every sync.
+// Devin discovers shared profiles even when target filtering omits its native copy.
 func warnSharedAgentsTreeReaders(owners map[string][]string, targets []string) {
 	if !slices.Contains(targets, "windsurf") {
 		return
@@ -160,6 +145,6 @@ func warnSharedAgentsTreeReaders(owners map[string][]string, targets []string) {
 	if files == 1 {
 		verb = "is"
 	}
-	adapters.NoteProject(fmt.Sprintf("%d agent file%s in %s written by %s %s also read by Devin, which loads them beside its own .devin/agents/ copy; only the .devin/ copy carries allowed-tools (scope the spec with `target:` to write one)",
+	adapters.NoteProject(fmt.Sprintf("%d agent file%s in %s written by %s %s also read by Devin; shared profiles may lack allowed-tools restrictions (check discovered profiles for duplicate names)",
 		files, plural(files), sharedAgentsTree, strings.Join(names, ", "), verb))
 }
