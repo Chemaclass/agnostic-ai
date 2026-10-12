@@ -6,7 +6,13 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents.
+- Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
+
+### By tool
+
+#### Windsurf / Devin
+
+- Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
 
 ## v0.83.0 - 2026-10-11
 
