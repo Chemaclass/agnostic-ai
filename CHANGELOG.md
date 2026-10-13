@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Crush
+
+- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
+
 #### Windsurf / Devin
 
 - Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
