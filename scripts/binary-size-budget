@@ -154,4 +154,7 @@
 # #2115 measured 19284128, up 4096 from main 3564b706 (19280032):
 # Kiro selects the personal include from its configured memory mode.
 # Keep the established 8 KB build allowance.
-19294000
+# #2116 measured 19304608, up 20480 from the validated Kiro tree
+# (19284128): native Claude memory availability and worktree subagent
+# context. Keep the established 8 KB build allowance.
+19314000
