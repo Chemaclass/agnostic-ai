@@ -52,13 +52,7 @@ func userAutoMemoryDirectory(configDir, home string) string {
 		return ""
 	}
 	dir, _ := doc[autoMemoryDirectoryKey].(string)
-	if rest, ok := strings.CutPrefix(dir, "~/"); ok {
-		return filepath.Join(home, filepath.FromSlash(rest))
-	}
-	if filepath.IsAbs(dir) {
-		return filepath.Clean(dir)
-	}
-	return ""
+	return autoMemoryDirectoryPath(dir, home)
 }
 
 // claudeProjectDirName is the form Claude Code accepts for

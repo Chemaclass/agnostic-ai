@@ -672,3 +672,118 @@ func TestMemoryImport_SaysEveryToolReadsWhatItCopies(t *testing.T) {
 		t.Errorf("import:\n%s", real)
 	}
 }
+
+func TestMemoryImport_KeepsIndexNotesWhenASourceFactUsesTheirName(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"MEMORY.md": "Prefer small pull requests.\n", "claude-index-notes.md": tabsFact})
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if got := readText(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
+		t.Errorf("source fact = %q", got)
+	}
+	notes := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md"))
+	if !strings.Contains(notes, "Prefer small pull requests.") {
+		t.Errorf("notes = %q", notes)
+	}
+	before := listing(t, personalStore)
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("retry: %v\n%s", err, out)
+	}
+	if after := listing(t, personalStore); after != before {
+		t.Errorf("retry changed store:\n%s\n%s", before, after)
+	}
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(personalStore, "claude-index-notes-2.md")); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := runRoot(t, "memory", "lint")
+	if strings.Contains(out, "LINT043") {
+		t.Errorf("handled notes still reported:\n%s", out)
+	}
+}
+
+func TestMemoryImport_GuardsTheDestinationOfASymlinkedStore(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	writeStore(t, "public-notes", map[string]string{"tracked.md": ciFact})
+	if out, err := exec.Command("git", "add", "public-notes/tracked.md").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v %s", err, out)
+	}
+	if err := os.MkdirAll(filepath.Dir(personalStore), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "..", "public-notes"), personalStore); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	writeFile(t, ".gitignore", ".agnostic-ai/local/\n")
+	_, err := runRoot(t, "memory", "import", "--from", "claude")
+	if err == nil || !strings.Contains(err.Error(), "Git tracks") {
+		t.Errorf("import error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join("public-notes", "tabs.md")); !os.IsNotExist(err) {
+		t.Errorf("private fact reached tracked destination: %v", err)
+	}
+}
+
+func TestMemoryImport_ExcludesTheDestinationOfASymlinkedParent(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	if err := os.MkdirAll("public-notes", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "public-notes"), filepath.Join(".agnostic-ai", "local")); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	writeFile(t, ".gitignore", ".agnostic-ai/local/\n")
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if err := exec.Command("git", "check-ignore", "-q", "public-notes/memory/tabs.md").Run(); err != nil {
+		t.Errorf("effective destination is committable: %v", err)
+	}
+}
+
+func TestMemoryImport_KeepsIndexNotesWhenTheDestinationUsesTheirName(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"MEMORY.md": "Prefer small pull requests.\n"})
+	writeStore(t, personalStore, map[string]string{"claude-index-notes.md": tabsFact})
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if got := readText(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
+		t.Errorf("existing fact = %q", got)
+	}
+	if got := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
+		t.Errorf("notes = %q", got)
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil || !strings.Contains(out, "Nothing to copy") {
+		t.Errorf("retry: %v\n%s", err, out)
+	}
+}
+
+func TestMemoryImport_KeepsNewIndexNotesAfterTheCollidingSourceFactIsRemoved(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"claude-index-notes.md": tabsFact})
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("initial import: %v\n%s", err, out)
+	}
+	if err := os.Remove(filepath.Join(native, "claude-index-notes.md")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(native, "MEMORY.md"), "Prefer small pull requests.\n")
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("notes import: %v\n%s", err, out)
+	}
+	if got := readText(t, filepath.Join(personalStore, "claude-index-notes.md")); got != tabsFact {
+		t.Errorf("original fact = %q", got)
+	}
+	if got := readText(t, filepath.Join(personalStore, "claude-index-notes-2.md")); !strings.Contains(got, "Prefer small pull requests.") {
+		t.Errorf("new prose lost: %q", got)
+	}
+}

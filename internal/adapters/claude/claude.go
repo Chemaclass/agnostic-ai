@@ -1143,18 +1143,60 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
 			return err
 		}
-		// The first sync to point Claude away from its own store brings
-		// that store's facts along, or they would stop loading. A linked
-		// worktree skips it: Claude Code reads the main checkout's
-		// settings there, so its own store stopped changing once the main
-		// checkout pointed it at personal memory.
-		if !owned && !inLinkedWorktree(".") {
+		// Linked worktrees share native memory until the main checkout redirects it.
+		if !owned && !mainWorktreeRedirectsAutoMemory(".", dir) {
 			if native, err := (Adapter{}).NativeMemoryDir("."); err == nil {
 				emit.RequestMemorySeed(emit.MemorySeed{Target: target, From: native, To: store})
 			}
 		}
 	}
 	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
+}
+
+func autoMemoryDirectoryPath(dir, home string) string {
+	if rest, ok := strings.CutPrefix(dir, "~/"); ok {
+		if home == "" {
+			return ""
+		}
+		return filepath.Join(home, filepath.FromSlash(rest))
+	}
+	if filepath.IsAbs(dir) {
+		return filepath.Clean(dir)
+	}
+	return ""
+}
+
+func mainWorktreeRedirectsAutoMemory(root, dir string) bool {
+	if !inLinkedWorktree(root) {
+		return false
+	}
+	main := memoryProjectRoot(root)
+	native, err := (Adapter{}).NativeMemoryDir(root)
+	if err != nil {
+		return false
+	}
+	home, _ := os.UserHomeDir()
+	for _, name := range []string{"settings.local.json", "settings.json"} {
+		settingsDir := dir
+		if !filepath.IsAbs(settingsDir) {
+			settingsDir = filepath.Join(main, settingsDir)
+		}
+		path := filepath.Join(settingsDir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var doc map[string]any
+		data, _ = emit.StripJSONC(data)
+		if json.Unmarshal(data, &doc) != nil {
+			continue
+		}
+		store, _ := doc[autoMemoryDirectoryKey].(string)
+		if store = autoMemoryDirectoryPath(store, home); store != "" {
+			return canonicalPath(store) != canonicalPath(native)
+		}
+	}
+	return false
 }
 
 // noteDroppedAutoMemory names, on the sync that drops the key with the

@@ -149,9 +149,10 @@ const memoryFactMaxBytes = 1 << 20
 
 // memoryCopy is one fact file import writes, with the index line it gets.
 type memoryCopy struct {
-	file string
-	body []byte
-	line string
+	file   string
+	body   []byte
+	line   string
+	record string
 }
 
 // memoryImportPlan is what import copies from one store into another.
@@ -186,6 +187,11 @@ func (s memorySkip) String() string { return s.file + ": " + s.reason }
 func importMemory(source, target, label string, only []string, intoEmpty bool) (memoryImportPlan, bool, error) {
 	if intoEmpty && hasMarkdownFile(target) {
 		return memoryImportPlan{}, false, nil
+	}
+	var err error
+	target, err = effectiveMemoryPath(target)
+	if err != nil {
+		return memoryImportPlan{}, false, err
 	}
 	if err := guardStoreFromGit(target); err != nil {
 		return memoryImportPlan{}, false, err
@@ -245,7 +251,11 @@ func planMemoryImport(source, target, label string, only []string) (memoryImport
 		}
 	}
 	if notes := sourceIndexNotes(source); len(notes) > 0 {
-		facts = append(facts, memoryNotesFact(label, notes))
+		fact, err := uniqueMemoryNotesFact(source, target, label, notes)
+		if err != nil {
+			return plan, err
+		}
+		facts = append(facts, fact)
 	}
 	if len(only) > 0 {
 		for _, name := range only {
@@ -383,13 +393,52 @@ func memoryNotesFact(label string, notes []string) memoryCopy {
 	description := "Notes kept in the MEMORY.md of " + what
 	body := "---\nname: " + name + "\ndescription: " + description + "\nmetadata:\n  type: reference\n---\n\n" + strings.Join(notes, "\n") + "\n"
 	file := name + ".md"
-	return memoryCopy{file: file, body: []byte(body), line: "- [" + name + "](" + file + "): " + description}
+	return memoryCopy{file: file, body: []byte(body), line: "- [" + name + "](" + file + "): " + description, record: "@index-notes/" + file}
+}
+
+func uniqueMemoryNotesFact(source, target, label string, notes []string) (memoryCopy, error) {
+	base := memoryNotesFact(label, notes)
+	handled := importedFacts(target)
+	for n := 1; ; n++ {
+		fact := base
+		if n > 1 {
+			name := strings.TrimSuffix(base.file, ".md")
+			renamed := fmt.Sprintf("%s-%d", name, n)
+			fact.file = renamed + ".md"
+			fact.record = "@index-notes/" + fact.file
+			fact.body = bytes.Replace(base.body, []byte("name: "+name+"\n"), []byte("name: "+renamed+"\n"), 1)
+			fact.line = strings.ReplaceAll(base.line, name, renamed)
+		}
+		if _, err := os.Lstat(filepath.Join(source, fact.file)); err == nil {
+			continue
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return fact, fmt.Errorf("%s: %w", source, err)
+		}
+		if handled[label+"/"+fact.record] {
+			return fact, nil
+		}
+		existing, err := os.ReadFile(filepath.Join(target, fact.file))
+		if errors.Is(err, fs.ErrNotExist) || err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(fact.body)) {
+			return fact, nil
+		}
+		if err != nil {
+			return fact, fmt.Errorf("%s: %w", filepath.Join(target, fact.file), err)
+		}
+	}
 }
 
 // apply writes the planned facts into the target store and adds the index
 // line of each fact there that its index lacks. It never replaces a file:
 // a fact written since the plan stays as it is.
 func (p memoryImportPlan) apply() error {
+	var err error
+	p.target, err = effectiveMemoryPath(p.target)
+	if err != nil {
+		return err
+	}
+	if err := guardStoreFromGit(p.target); err != nil {
+		return err
+	}
 	for _, name := range []string{memoryIndexFile, memoryImportRecord} {
 		if err := requireRegularOrAbsent(filepath.Join(p.target, name)); err != nil {
 			return err
@@ -416,17 +465,18 @@ func (p memoryImportPlan) apply() error {
 	return p.record()
 }
 
-// memoryImportRecord is the file in a personal store that lists, as
-// <source>/<file>, each fact an import copied or found already there, so
-// LINT043 no longer counts a fact the user deleted or merged after it came
-// over. A skipped fact stays out, so LINT043 keeps naming it.
+// The record suppresses warnings for facts deleted or merged after import.
 const memoryImportRecord = ".imported"
 
 // record adds each fact the plan handled to the store's record.
 func (p memoryImportPlan) record() error {
 	var names []string
 	for _, c := range append(slices.Clone(p.copies), p.present...) {
-		names = append(names, c.file)
+		name := c.record
+		if name == "" {
+			name = c.file
+		}
+		names = append(names, name)
 	}
 	names = append(names, p.kept...)
 	if len(names) == 0 {
@@ -585,6 +635,11 @@ func appendMemoryIndexLines(target string, facts []memoryCopy) error {
 // the working directory's repository. A store outside any repository
 // needs nothing.
 func guardStoreFromGit(store string) error {
+	var err error
+	store, err = effectiveMemoryPath(store)
+	if err != nil {
+		return err
+	}
 	repo := existingAncestor(store)
 	if out, err := exec.Command("git", "-C", repo, "ls-files", "--", store).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
 		return fmt.Errorf("%s holds files Git tracks, so imported facts would reach a commit; untrack them with `git rm -r --cached %s`", filepath.ToSlash(store), filepath.ToSlash(store))
@@ -608,7 +663,7 @@ func guardStoreFromGit(store string) error {
 		return fmt.Errorf("%s: %w", repo, err)
 	}
 	here, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err != nil || strings.TrimSpace(string(here)) != strings.TrimSpace(string(top)) {
+	if err != nil || canonicalDir(strings.TrimSpace(string(here))) != canonicalDir(strings.TrimSpace(string(top))) {
 		return fmt.Errorf("%s: the Git repository in %s would track it; ignore the folder there first", filepath.ToSlash(store), strings.TrimSpace(string(top)))
 	}
 	rel, err := filepath.Rel(canonicalDir(strings.TrimSpace(string(top))), canonicalDir(store))
@@ -622,6 +677,36 @@ func guardStoreFromGit(store string) error {
 		return fmt.Errorf("%s: Git would still track it; ignore the folder in .gitignore", filepath.ToSlash(store))
 	}
 	return nil
+}
+
+// Resolve existing parents too, since a new store may live below a symlink.
+func effectiveMemoryPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", path, err)
+	}
+	ancestor := abs
+	var tail []string
+	for {
+		if _, err := os.Lstat(ancestor); err == nil {
+			resolved, err := filepath.EvalSymlinks(ancestor)
+			if err != nil {
+				return "", fmt.Errorf("%s: %w", ancestor, err)
+			}
+			for i := len(tail) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, tail[i])
+			}
+			return resolved, nil
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("%s: %w", ancestor, err)
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return "", fmt.Errorf("%s: no existing parent", path)
+		}
+		tail = append(tail, filepath.Base(ancestor))
+		ancestor = parent
+	}
 }
 
 // gitWouldTrack reports whether the repository holding dir would track a
@@ -806,7 +891,13 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 			return nil, err
 		}
 		if len(sourceIndexNotes(c.dir)) > 0 {
-			facts = append(facts, memoryNotesFact(c.from, nil).file)
+			fact, err := uniqueMemoryNotesFact(c.dir, personal, c.from, sourceIndexNotes(c.dir))
+			if err != nil {
+				return nil, err
+			}
+			if !handled[c.from+"/"+fact.record] {
+				facts = append(facts, fact.file)
+			}
 		}
 		missing := 0
 		for _, f := range facts {
