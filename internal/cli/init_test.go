@@ -302,7 +302,7 @@ func TestScaffold_RefusesIfConfigExists(t *testing.T) {
 }
 
 func TestRenderConfig_DefaultTargetsListAllThirteen(t *testing.T) {
-	got := renderConfig("", allTargetNames(), false, "test")
+	got := renderConfig("", allTargetNames(), false, "test", false)
 	for _, name := range []string{
 		"claude", "codex", "gemini", "cursor", "copilot",
 		"aider", "cline", "windsurf", "continue", "amp",
@@ -318,7 +318,7 @@ func TestRenderConfig_DefaultTargetsListAllThirteen(t *testing.T) {
 }
 
 func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
-	got := renderConfig("", []string{"claude", "codex"}, false, "test")
+	got := renderConfig("", []string{"claude", "codex"}, false, "test", false)
 	if !strings.Contains(got, "  - claude\n") || !strings.Contains(got, "  - codex\n") {
 		t.Errorf("missing chosen targets:\n%s", got)
 	}
@@ -332,7 +332,7 @@ func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
 func TestRenderConfig_PinsSchemaToTheRelease(t *testing.T) {
 	cases := map[string]string{"0.71.0": "v0.71.0", "v0.71.0": "v0.71.0", "test": "main", "0.72.0-SNAPSHOT-abc123": "main", "": "main"}
 	for version, ref := range cases {
-		got := renderConfig("", []string{"claude"}, false, version)
+		got := renderConfig("", []string{"claude"}, false, version, false)
 		want := "# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + ref + "/docs/schemas/config.schema.json\n"
 		if !strings.HasPrefix(got, want) {
 			t.Errorf("version %q: renderConfig should start with %q, got:\n%s", version, want, got)
@@ -341,14 +341,14 @@ func TestRenderConfig_PinsSchemaToTheRelease(t *testing.T) {
 }
 
 func TestRenderConfig_GitignoreDisabledOmitsBlock(t *testing.T) {
-	got := renderConfig("", []string{"claude"}, false, "test")
+	got := renderConfig("", []string{"claude"}, false, "test", false)
 	if strings.Contains(got, "gitignore:") {
 		t.Errorf("expected no gitignore block when disabled, got:\n%s", got)
 	}
 }
 
 func TestRenderConfig_GitignoreEnabledWritesBlock(t *testing.T) {
-	got := renderConfig("", []string{"claude"}, true, "test")
+	got := renderConfig("", []string{"claude"}, true, "test", false)
 	if !strings.Contains(got, "gitignore:\n  enabled: true\n") {
 		t.Errorf("expected gitignore block, got:\n%s", got)
 	}

@@ -1,6 +1,10 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -40,4 +44,39 @@ func validateMemory(m MemoryConfig, base map[string]any, basePath, source string
 		}
 	}
 	return nil
+}
+
+func inheritPersonalMemory(cfg *Config, root string) (string, error) {
+	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-prefix").Output()
+	if err != nil {
+		return "", nil
+	}
+	parts := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+	if len(parts) != 3 || strings.TrimSpace(parts[0]) == strings.TrimSpace(parts[1]) || filepath.Base(strings.TrimSpace(parts[1])) != ".git" {
+		return "", nil
+	}
+	path := filepath.Join(filepath.Dir(strings.TrimSpace(parts[1])), filepath.FromSlash(strings.TrimSpace(parts[2])), LocalOverrideFileName)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return "", nil
+	} else if err != nil {
+		return "", fmt.Errorf("%s: %w", path, err)
+	}
+	doc, err := readYAMLMap(path)
+	if err != nil {
+		return "", err
+	}
+	memory, _ := doc["memory"].(map[string]any)
+	value, set := memory["personal"]
+	if !set {
+		return "", nil
+	}
+	mode, ok := value.(string)
+	if !ok {
+		return "", errs.Coded(errs.CodeConfigDecode, "%s: memory.personal must be a string", path)
+	}
+	if err := validateMemory(MemoryConfig{Personal: mode}, nil, "", path); err != nil {
+		return "", err
+	}
+	cfg.Memory.Personal = mode
+	return path, nil
 }

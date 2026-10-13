@@ -535,6 +535,15 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if err := validateMemory(cfg.Memory, base, basePath, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
+	if !localExists {
+		inherited, err := inheritPersonalMemory(cfg, root)
+		if err != nil {
+			return nil, nil, err
+		}
+		if inherited != "" {
+			sources = append(sources, inherited)
+		}
+	}
 	return cfg, sources, nil
 }
 
