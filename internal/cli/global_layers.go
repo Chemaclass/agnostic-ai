@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -30,6 +31,24 @@ func globalLayers(source string, names []string) ([]spec.Layer, error) {
 		{Name: "global", Root: source, Sources: sources},
 		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
 	}...), nil
+}
+
+// loadGlobalBundle loads the global specs. sync --global writes one
+// instructions block that every tool reads, so a built-in rule with a
+// scope or target condition stays out instead of stopping the sync.
+func loadGlobalBundle(source string, names []string) (spec.Bundle, error) {
+	layers, err := globalLayers(source, names)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	b, err := spec.LoadLayered(layers)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	b.Rules = slices.DeleteFunc(slices.Clone(b.Rules), func(r spec.Entry) bool {
+		return r.Layer == layerNameBuiltin && (r.Scope != "" || hasGlobalRuleCondition(r.Meta))
+	})
+	return b, nil
 }
 
 // globalSourceRoot resolves the source root as sync --global does,
@@ -120,11 +139,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
-	layers, err := globalLayers(source, names)
-	if err != nil {
-		return checkScope{}, err
-	}
-	b, err := spec.LoadLayered(layers)
+	b, err := loadGlobalBundle(source, names)
 	if err != nil {
 		return checkScope{}, err
 	}

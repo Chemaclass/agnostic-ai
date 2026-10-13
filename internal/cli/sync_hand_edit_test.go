@@ -37,7 +37,44 @@ func TestSync_KeepsAHandEditAsABackupBeforeWritingOverIt(t *testing.T) {
 	if got := readFile(t, handEditSkill+".bak"); got != edited {
 		t.Errorf(".bak = %q, want the hand edit", got)
 	}
-	if want := "overwrote a hand edit to " + handEditSkill + " (saved as " + handEditSkill + ".bak)"; !strings.Contains(log.String(), want) {
+	if want := "overwrote a hand edit to " + handEditSkill + " (saved as " + handEditSkill + ".bak); move the edit into .agnostic-ai/\n"; !strings.Contains(log.String(), want) {
+		t.Errorf("sync output does not say %q:\n%s", want, log.String())
+	}
+}
+
+// Gemini CLI saves team facts to GEMINI.md, which sync writes over, so
+// the warning for an entry point also names shared memory (#2103).
+func TestSync_OverwriteWarningForAnEntryPointNamesSharedMemory(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\nbuiltins: [memory]\n")
+	runSyncOK(t)
+	skill := ".gemini/skills/shared-memory/SKILL.md"
+	for _, path := range []string{"GEMINI.md", skill} {
+		mustWriteFile(t, path, readFile(t, path)+"The API listens on port 8080.\n")
+	}
+	log := captureLog(t)
+
+	runSyncOK(t)
+
+	for path, advice := range map[string]string{
+		"GEMINI.md": "move the edit into .agnostic-ai/, or save a fact in .agnostic-ai/memory/\n",
+		skill:       "move the edit into .agnostic-ai/\n",
+	} {
+		if want := "overwrote a hand edit to " + path + " (saved as " + path + ".bak); " + advice; !strings.Contains(log.String(), want) {
+			t.Errorf("sync output does not say %q:\n%s", want, log.String())
+		}
+	}
+}
+
+// Without the memory built-in no tool reads .agnostic-ai/memory/.
+func TestSync_OverwriteWarningForAnEntryPointWithoutSharedMemoryKeepsItsText(t *testing.T) {
+	handEditProject(t, "gemini")
+	mustWriteFile(t, "GEMINI.md", readFile(t, "GEMINI.md")+"my local tweak\n")
+	log := captureLog(t)
+
+	runSyncOK(t)
+
+	if want := "overwrote a hand edit to GEMINI.md (saved as GEMINI.md.bak); move the edit into .agnostic-ai/\n"; !strings.Contains(log.String(), want) {
 		t.Errorf("sync output does not say %q:\n%s", want, log.String())
 	}
 }

@@ -227,11 +227,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	layers, err := globalLayers(source, names)
-	if err != nil {
-		return err
-	}
-	bundle, err := spec.LoadLayered(layers)
+	bundle, err := loadGlobalBundle(source, names)
 	if err != nil {
 		return err
 	}
