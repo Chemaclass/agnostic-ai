@@ -120,6 +120,36 @@ func TestHandoffList_SuggestsOnlyBranchesProvenMergedAndNeverDeletes(t *testing.
 	}
 }
 
+func TestHandoffList_HiddenUntrackedCodePreventsRemovalSuggestion(t *testing.T) {
+	main, active, _ := handoffListProject(t)
+	mustWriteFile(t, filepath.Join(active, "merged.txt"), "merged\n")
+	git(t, active, "add", "merged.txt")
+	git(t, active, "commit", "-qm", "merged work")
+	git(t, main, "merge", "--ff-only", "feat/a")
+	git(t, active, "config", "status.showUntrackedFiles", "no")
+	path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-a.md")
+	writeListHandoff(t, path, "feat/a", active, git(t, active, "rev-parse", "HEAD"), "ready", "#1")
+	before := readText(t, path)
+	code := filepath.Join(active, "new-code.go")
+	mustWriteFile(t, code, "package probe\n")
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatalf("handoff list: %v %s", err, out)
+	}
+	if !strings.Contains(out, "feat/a") || !strings.Contains(out, "dirty") {
+		t.Errorf("hidden untracked code was not reported dirty: %s", out)
+	}
+	if strings.Contains(out, "Review ") {
+		t.Errorf("untracked code received a removal suggestion: %s", out)
+	}
+	if got := git(t, active, "config", "status.showUntrackedFiles"); got != "no" {
+		t.Errorf("list changed the user's status setting: %q", got)
+	}
+	if readText(t, code) != "package probe\n" || readText(t, path) != before {
+		t.Error("list changed the code or handoff")
+	}
+}
+
 func TestHandoffList_EmptyOutsideGitDoesNotCreateAStore(t *testing.T) {
 	root := testutil.TempCwd(t)
 	out, err := runRoot(t, "handoff", "list")
