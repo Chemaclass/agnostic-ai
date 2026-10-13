@@ -261,6 +261,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. It counts facts by file name, and notes kept in that store's index as one more, and never prints what a fact says.",
 		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is.",
 	},
+	"LINT045": {
+		Severity: lintError,
+		Title:    "Invalid session retention",
+		Cause:    "session-retention-days is not an integer of 1 or more. Sync stops before changing any tool settings.",
+		Fix:      "Use a positive integer, or remove the field to leave native retention unchanged.",
+	},
 	"LINT044": {
 		Severity: lintError,
 		Title:    "Hidden character in a memory file",

@@ -27,6 +27,7 @@ type globalSettingsFile struct {
 	// Empty native keys have no mapping.
 	model, effort  string
 	permissionMode string
+	retention      string
 	effortLevel    func() []string
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
@@ -86,6 +87,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	}
 	adapters.NoteSettingsFieldNoOp(target, "protected", protected, "protected paths are relative to a project, so sync --global does not write them")
 	permissions := globalPermissionSettings(target, f, settings)
+	retention := globalRetentionSetting(target, f, settings)
 	if f.path == "" {
 		const reason = "sync --global does not write this target's user settings yet"
 		adapters.NoteSettingsFieldNoOp(target, "model", models, reason)
@@ -93,7 +95,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
 		return nil
 	}
-	out := permissions
+	out := append(permissions, retention...)
 	if model := adapters.SettingsModel(settings, target); model != "" {
 		if f.model == "" {
 			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
@@ -265,6 +267,10 @@ type globalSettingsMerge struct {
 // leaving every other key and line as it is. base is the content to
 // start from; nil reads path.
 func mergeGlobalSettings(path, format string, base []byte, want []globalSetting, previous map[string]any) (globalSettingsMerge, error) {
+	return mergeGlobalSettingsKeeping(path, format, base, want, previous, nil)
+}
+
+func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, keep map[string]string) (globalSettingsMerge, error) {
 	data := base
 	absent := false
 	if data == nil {
@@ -341,7 +347,7 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 		}
 		return m, nil
 	}
-	m.data, err = editJSONRoot(path, data, order, set, remove)
+	m.data, err = editJSONRootKeeping(path, data, "", order, set, remove, keep)
 	return m, err
 }
 

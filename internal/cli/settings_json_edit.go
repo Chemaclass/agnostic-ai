@@ -23,6 +23,10 @@ func editJSONRoot(path string, data []byte, order []string, set map[string]any, 
 // editJSONRootIndent is editJSONRoot with the indent unit to use when
 // the file shows none, such as `{}`.
 func editJSONRootIndent(path string, data []byte, fallback string, order []string, set map[string]any, remove []string) ([]byte, error) {
+	return editJSONRootKeeping(path, data, fallback, order, set, remove, nil)
+}
+
+func editJSONRootKeeping(path string, data []byte, fallback string, order []string, set map[string]any, remove []string, keep map[string]string) ([]byte, error) {
 	text := strings.TrimRight(string(data), " \t\r\n")
 	trailing := string(data)[len(text):]
 	if text == "" {
@@ -35,7 +39,7 @@ func editJSONRootIndent(path string, data []byte, fallback string, order []strin
 	for _, key := range remove {
 		open, err := jsonRootOpen(text)
 		if err == nil {
-			text, err = removeJSONPath(text, open, strings.Split(key, "."))
+			text, err = removeJSONPathKeeping(text, open, strings.Split(key, "."), "", keep)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
@@ -117,6 +121,10 @@ func setJSONPath(text string, open int, path []string, value any, unit string) (
 }
 
 func removeJSONPath(text string, open int, path []string) (string, error) {
+	return removeJSONPathKeeping(text, open, path, "", nil)
+}
+
+func removeJSONPathKeeping(text string, open int, path []string, prefix string, keep map[string]string) (string, error) {
 	members, closing, err := scanJSONObject(text, open)
 	if err != nil {
 		return "", err
@@ -130,7 +138,8 @@ func removeJSONPath(text string, open int, path []string) (string, error) {
 		if text[m.valueStart] != '{' {
 			return text, nil
 		}
-		if text, err = removeJSONPath(text, m.valueStart, path[1:]); err != nil {
+		parentKey := prefix + path[0]
+		if text, err = removeJSONPathKeeping(text, m.valueStart, path[1:], parentKey+".", keep); err != nil {
 			return "", err
 		}
 		// A parent the path left empty goes too, which undoes creating it.
@@ -140,6 +149,9 @@ func removeJSONPath(text string, open int, path []string) (string, error) {
 		}
 		if len(inner) > 0 || strings.TrimSpace(text[m.valueStart+1:innerClose]) != "" {
 			return text, nil
+		}
+		if original, present := keep[parentKey]; present {
+			return text[:m.valueStart] + original + text[innerClose+1:], nil
 		}
 		if members, closing, err = scanJSONObject(text, open); err != nil {
 			return "", err

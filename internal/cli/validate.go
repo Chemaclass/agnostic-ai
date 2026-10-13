@@ -101,6 +101,7 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 		}
 		if e.Kind == spec.KindSettings {
 			out = append(out, permissionCapabilityIssues([]spec.Entry{e})...)
+			out = append(out, sessionRetentionIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind == spec.KindMCP {
