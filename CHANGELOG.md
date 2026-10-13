@@ -25,7 +25,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Antigravity
 
-- Sync writes the new `SessionStart` hook event to `.agents/hooks.json`, and `hook run` accepts a `PreToolUse` reply of `auto_approve` as allow, with a note that `allow` only defers to the default policy (#2124, #2125).
+- Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies with native permission limits (#2124, #2125).
 
 #### Qoder
 
