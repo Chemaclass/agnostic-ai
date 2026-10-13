@@ -657,6 +657,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 				if mode == "unborn" {
 					handoffGit(t, dir, "init")
+					handoffGit(t, dir, "config", "maintenance.auto", "false")
 				}
 				if mode == "bare" {
 					handoffGit(t, dir, "init", "--bare")

@@ -24,6 +24,8 @@ agnostic-ai sync --check
 
 Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import codex`](@/docs/cli-reference/start.md#import).
 
+With `handoff` or `handoff-hook`, linked worktrees get shared handoff write access through `sandbox_workspace_write.writable_roots` in the ignored `.codex/config.toml`. See [shared handoff access](@/docs/handoff.md#write-from-a-linked-worktree) for preserved configuration and fallback behavior.
+
 ## Output
 
 ```

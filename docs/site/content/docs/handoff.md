@@ -47,6 +47,12 @@ A new handoff replaces only that branch's previous note. Its header names the re
 
 The project root is the nearest folder with `agnostic-ai.yaml`, or the Git repository root when there is none. A subproject with its own config keeps its own store at the same relative path in the main checkout. If that checkout is bare, its store is not ignored by Git, or a write fails, the skill uses the current checkout's ignored store. It stops if neither destination is safe.
 
+## Write from a linked worktree
+
+With `handoff` or `handoff-hook` enabled, sync adds the main checkout's ignored handoff store to the generated Codex, Qoder, and Claude Code write directories. Codex uses `sandbox_workspace_write.writable_roots`; Qoder and Claude Code use `permissions.additionalDirectories`. Claude Code keeps this setting in `settings.local.json`, separate from its memory setting.
+
+The absolute path stays in ignored native configuration. Sync preserves tracked, hand-written, and unmanaged configuration and reports the directory to add by hand. An explicit Codex sandbox table in an imported overlay also keeps its entries. If the main store is not ignored, is tracked, has a symlink, or cannot be opened or created, sync grants no shared access and the handoff skill uses its safe checkout fallback. Dry runs and checks create no store.
+
 ## Save what you learned
 
 After writing the handoff, the skill suggests lessons worth keeping. Each one shows its scope and the exact change. You approve each before it is saved.

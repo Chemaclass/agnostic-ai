@@ -393,6 +393,19 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	if err != nil {
 		return err
 	}
+	if overlayKeys["sandbox_workspace_write"] {
+		if dir := emit.SharedHandoffWriteRoot(cfg); dir != "" {
+			emit.NoteProject(fmt.Sprintf("codex: %s keeps its sandbox table; add %q to sandbox_workspace_write.writable_roots in that overlay to save shared handoffs", configOverlayPath, filepath.ToSlash(dir)))
+		}
+	} else {
+		dir, err := sess.HandoffAccessRoot(cfg, path, target, "sandbox_workspace_write.writable_roots", dryRun)
+		if err != nil {
+			return err
+		}
+		if dir != "" && !slices.Contains(roots, dir) {
+			roots = append(roots, dir)
+		}
+	}
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, roots, overlay, overlayKeys)
 	if body == "" || sess.IsUnmanaged(path) {
 		if err := notePreservedMemoryRoot(cfg, path); err != nil {

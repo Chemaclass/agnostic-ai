@@ -238,7 +238,7 @@ func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 // memory once memory.personal is repo.
 func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
 	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
-	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+	if !emit.RepoMemoryFile(cfg, path, nil, target) && !emit.HandoffConfigFile(cfg, path, target) {
 		return nil
 	}
 	return []string{path}
@@ -267,6 +267,19 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 		if len(store) > 0 && !slices.Contains(planned, store[0]) {
 			planned = append(planned, store[0])
 		}
+	}
+	dir, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.additionalDirectories", dryRun)
+	if err != nil {
+		return err
+	}
+	if dir != "" {
+		store := emit.WithoutUserItems(path, []string{"permissions", "additionalDirectories"}, existing, []any{dir})
+		if len(store) > 0 && !slices.Contains(planned, store[0]) {
+			planned = append(planned, store[0])
+		}
+	}
+	if len(planned) == 0 && len(emit.PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})) == 0 {
+		return nil
 	}
 	if len(planned) == 0 && len(existing) == 0 {
 		return nil
