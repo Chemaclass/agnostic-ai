@@ -86,6 +86,7 @@ agnostic-ai doctor rtk --command 'git status'    # preview rewrites and declared
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store
+agnostic-ai memory import --from claude          # copy facts Claude Code saved before sync redirected it
 ```
 
 Before using `import --overwrite`, review `import --dry-run --diff`. Body blocks for other tools can be lost; see [Keep existing specs](https://agnostic-ai.org/docs/cli-reference/start/#keep-existing-specs).
@@ -123,7 +124,7 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](
   `import qoder` reads project MCP servers from `.qoder/settings.json`, including JSONC.
   OpenCode V2 imports keep native server settings, OAuth and separate timeouts through sync and fresh checkouts. See [OpenCode](https://agnostic-ai.org/docs/targets/opencode/).
 - **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
-- **Shared memory** keeps one project memory that every tool reads and writes. `builtins: [memory]` adds it. Personal memory can share one store across worktrees with `memory.personal: repo` in the local config. See [Shared memory](https://agnostic-ai.org/docs/memory/).
+- **Shared memory** keeps one project memory that every tool reads and writes. `builtins: [memory]` adds it. Personal memory can share one store across worktrees with `memory.personal: repo` in the local config, and `memory import` brings facts over from a tool's own store. See [Shared memory](https://agnostic-ai.org/docs/memory/).
 - **RTK and Caveman** are separate opt-ins: `builtins: [rtk]` adds a Claude hook that rewrites commands using an installed RTK; `builtins: [caveman]` adds the response skill from a fixed Caveman revision, invoked with `/caveman`, with no executable needed. Keep existing `builtins` names when adding either one. Both stay off in existing projects and `init`. Remove a name and sync to remove its owned output. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/) for supported coding tools and how to avoid duplicate installations.
 
 ## Develop agnostic-ai
