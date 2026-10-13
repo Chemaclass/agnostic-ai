@@ -84,6 +84,84 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	})
 
+	t.Run("task-handoffs-across-worktrees", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handoffGit(t, main, "branch", "-M", "task-main")
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "active checkout ' 雪")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/b", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+		for _, branch := range []string{"feat/a", "feat/b"} {
+			name := strings.ReplaceAll(branch, "/", "-") + ".md"
+			handoffWrite(t, filepath.Join(store, name), "# Handoff\ntool: codex | date: 2026-10-13T12:00Z | branch: "+branch+" | head: abc1234\nworktree: "+active+" | status: active | pr: none\n\nTASK_CONTENT_MUST_NOT_LOAD\n")
+		}
+		for _, target := range handoffHookTargets {
+			t.Run(target, func(t *testing.T) {
+				handler := handlers[target]["SessionStart"]
+				out := handoffExecute(t, target, handler, active, "{}", "foreign", "")
+				handoffAssertReply(t, target, out, "Task handoff available: .agnostic-ai/local/handoffs/feat-b.md (branch feat/b). Ask to resume the handoff.")
+				out = handoffExecute(t, target, handler, main, "{}", "foreign", "")
+				handoffAssertReply(t, target, out, "2 task handoffs available. Ask to resume a task handoff.")
+				if strings.Contains(out, "TASK_CONTENT_MUST_NOT_LOAD") {
+					t.Error("startup read task contents")
+				}
+			})
+		}
+		handoffGit(t, main, "worktree", "remove", "--force", active)
+		if _, err := os.Stat(filepath.Join(store, "feat-b.md")); err != nil {
+			t.Errorf("removed worktree lost handoff: %v", err)
+		}
+	})
+
+	t.Run("task-handoff-local-fallback", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "fallback checkout")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/local", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		// The shared path is not ignored, while the worktree still uses its committed ignore rule.
+		handoffWrite(t, filepath.Join(main, ".gitignore"), ".env\n")
+		handoffWrite(t, filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-local.md"), "# Handoff\ntool: codex | branch: wrong | head: abc1234\n")
+		handoffWrite(t, filepath.Join(active, ".agnostic-ai", "local", "handoffs", "feat-local.md"), "# Handoff\ntool: codex | branch: feat/local | head: abc1234\n")
+		for _, target := range handoffHookTargets {
+			out := handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", "")
+			handoffAssertReply(t, target, out, "Task handoff available: .agnostic-ai/local/handoffs/feat-local.md (branch feat/local). Ask to resume the handoff.")
+		}
+	})
+
+	t.Run("task-handoff-slug-collision-and-bare-fallback", func(t *testing.T) {
+		source := project(t)
+		handlers := syncHooks(t, source)
+		main := project(t)
+		handoffInitGit(t, main)
+		handoffGit(t, main, "branch", "-M", "collision-main")
+		handoffWrite(t, filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-a.md"), "# Handoff\ntool: codex | branch: feat-a | head: abc1234\n")
+		active := filepath.Join(t.TempDir(), "collision checkout")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/a", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		handoffWrite(t, filepath.Join(active, ".agnostic-ai", "local", "HANDOFF.md"), "LEGACY_FALLBACK\n")
+		for _, target := range handoffHookTargets {
+			out := handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", "")
+			handoffAssertReply(t, target, out, "Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff.")
+		}
+		// A bare main checkout has no shared project folder; the linked checkout owns the fallback.
+		bare := t.TempDir()
+		handoffGit(t, bare, "init", "--bare")
+		linked := filepath.Join(t.TempDir(), "bare linked checkout")
+		handoffGit(t, bare, "fetch", main, "HEAD")
+		handoffGit(t, bare, "worktree", "add", "-b", "feat/bare", linked, "FETCH_HEAD")
+		handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), fixture)
+		handoffWrite(t, filepath.Join(linked, ".gitignore"), ".agnostic-ai/local/\n")
+		handoffWrite(t, filepath.Join(linked, ".agnostic-ai", "local", "handoffs", "feat-bare.md"), "# Handoff\ntool: codex | branch: feat/bare | head: abc1234\n")
+		for _, target := range handoffHookTargets {
+			out := handoffExecute(t, target, handlers[target]["SessionStart"], linked, "{}", "foreign", "")
+			handoffAssertReply(t, target, out, "Task handoff available: .agnostic-ai/local/handoffs/feat-bare.md (branch feat/bare). Ask to resume the handoff.")
+		}
+	})
+
 	t.Run("claude-native-worktree-directory", func(t *testing.T) {
 		for _, layout := range []string{"external-with-config", "nested-without-config"} {
 			t.Run(layout, func(t *testing.T) {
