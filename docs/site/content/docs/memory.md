@@ -98,10 +98,22 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the share
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash.
 - Hooks you wrote yourself stay.
 - It keeps the first 6,000 bytes, personal memory first, then project memory. Facts past that never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, so `memory lint` also warns there once they pass 6,000 bytes.
+- It leaves out hidden characters, such as zero-width and bidirectional controls and Unicode tags, before it counts the bytes. Every other tool still reads them, so remove what `memory lint` reports.
 
 ### Claude Code's own memory {#claude-code-s-own-memory}
 
 Claude Code also saves facts by itself. Sync points that memory at your personal memory folder (`autoMemoryDirectory` in `.claude/settings.local.json`), so its saves land where every other tool reads them. Sync keeps a value you set yourself, and Git never commits the file. Claude Code uses the setting once you trust the folder.
+
+Facts Claude Code saved before come along. The first sync that points Claude at personal memory copies them from Claude's own folder (`~/.claude/projects/<project>/memory/`) when personal memory is still empty, and leaves that folder as it is. Otherwise `agnostic-ai lint` names the folder and how many of its facts no longer load (LINT043), and this copies them over:
+
+```bash
+agnostic-ai memory import --from claude --dry-run
+agnostic-ai memory import --from claude
+```
+
+Every tool reads personal memory, so the dry run lists each fact with its description first; `--only <file>` copies just the ones you pick.
+
+`--path` copies from any folder with the same layout, such as Gemini CLI's `~/.gemini/tmp/<project>/memory/` or Qoder's `~/.qoder/projects/<project>/memory/`. See [memory import](@/docs/cli-reference/maintain.md#memory).
 
 ### Each tool's own memory {#each-tools-own-memory}
 
@@ -142,6 +154,8 @@ project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
 
+Switching keeps your facts: `agnostic-ai lint` names the ones left in the other folder, and `agnostic-ai memory import --from checkout` copies them into the new one (`--from repo` when you switch back).
+
 That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one of them instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/configuration.md#gitignore).
 
 What each tool does with personal memory in this mode:
@@ -169,7 +183,7 @@ Cloud agents start from a fresh clone, so they never see personal memory.
 
 ## Check and repair
 
-`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, and text that looks like a secret. They skip personal memory when its folder is missing, so CI never checks it.
+`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, text that looks like a secret, and hidden characters a reviewer cannot see. They skip personal memory when its folder is missing, so CI never checks it.
 
 ```bash
 agnostic-ai memory lint     # run only the memory checks

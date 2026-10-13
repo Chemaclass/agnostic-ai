@@ -137,7 +137,18 @@
 # Keep the established 8 KB build allowance.
 # Combined with #2087, measured 19165344, up 4096 from main
 # e48c1499 (19161248). Keep the established 8 KB build allowance.
+# #2100 measured 19251360 on Go 1.27.2, up 86016 from main 3891b845
+# (19165344): memory import copies earlier facts safely (Git checks, a
+# store lock, atomic writes) and lets users pick facts, the first sync
+# seeds them from Claude Code's own store, and LINT043 names stores left
+# behind. Keep the established 8 KB build allowance.
 # #2103 measured 19181728 on Go 1.27.2, up 16384 from main 766b81b9
 # (19165344): built-in rules for one tool stay out of entry files other
 # tools share, and out of sync --global. Keep the established 8 KB allowance.
-19191400
+# #2112 after Gemini routing measured 19271840, up 90112 from main
+# 5d2c14be (19181728): safe memory import, resolved private destinations,
+# and worktree seeding. Keep the established 8 KB build allowance.
+# #2114 measured 19280032, up 8192 from main b3525196 (19271840):
+# hidden-character checks and cleaned hook context. Keep the established
+# 8 KB build allowance.
+19290000
