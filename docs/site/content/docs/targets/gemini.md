@@ -12,6 +12,8 @@ target_id = "gemini"
 
 agnostic-ai writes `GEMINI.md`, native subagents, commands, and skills under `.gemini/`, and merges MCP, hooks, and settings into `.gemini/settings.json`.
 
+Gemini CLI's own docs say Antigravity CLI replaced it for unpaid-tier and Google One users on June 18, 2026. Gemini CLI still ships and this target is unchanged. To write for Antigravity, add the [`antigravity`](@/docs/targets/antigravity.md) target.
+
 ## Set up this tool
 
 Add `gemini` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
