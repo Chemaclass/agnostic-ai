@@ -133,6 +133,8 @@ memory:
   personal: repo
 ```
 
+[`init --memory`](@/docs/cli-reference/start.md#init) starts repo mode for new Git projects with managed ignores, through the local override file.
+
 See [one store per repository](@/docs/memory.md#one-store-per-repository) for what sync writes and which tools can save there.
 
 ## `requires`

@@ -16,11 +16,15 @@ import (
 // root. gitignoreEnabled adds `gitignore: { enabled: true }` so `sync`
 // writes the managed block listing every adapter-emitted path. version
 // pins the schema comment to that release.
-func renderConfig(base string, targets []string, gitignoreEnabled bool, version string) string {
+func renderConfig(base string, targets []string, gitignoreEnabled bool, version string, memoryEnabled bool) string {
 	var sb strings.Builder
 	sb.WriteString("# yaml-language-server: $schema=" + schemaURL(version) + "\n")
 	sb.WriteString("version: 1\n")
-	sb.WriteString("builtins: [handoff]\n")
+	if memoryEnabled {
+		sb.WriteString("builtins: [handoff, memory]\n")
+	} else {
+		sb.WriteString("builtins: [handoff]\n")
+	}
 	if !isDefaultBase(base) {
 		prefix := ""
 		if base != "." {
@@ -91,6 +95,7 @@ type scaffoldOptions struct {
 	// rendered config so subsequent `sync` runs maintain the managed
 	// .gitignore block.
 	GitignoreEnabled bool
+	MemoryEnabled    bool
 	// Version is the running build's version, which pins the schema URL.
 	Version string
 }
@@ -136,6 +141,16 @@ func ensureNoExistingConfig(root, cfgPath string) error {
 // without touching disk.
 func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 	fmt.Printf("create: %s\n", cfgPath)
+	if opts.MemoryEnabled && opts.GitignoreEnabled {
+		if inside, err := gitRevParse(opts.Root, "--is-inside-work-tree"); err == nil && inside == "true" {
+			path := filepath.Join(opts.Root, config.LocalOverrideFileName)
+			if _, err := os.Lstat(path); os.IsNotExist(err) {
+				fmt.Printf("create: %s\n", path)
+			} else if err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+		}
+	}
 	for _, k := range declaredSourceDirs(opts.Base) {
 		fmt.Printf("mkdir:  %s\n", filepath.Join(opts.Root, opts.Base, k))
 	}
@@ -198,7 +213,7 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 			return err
 		}
 	}
-	cfgBody := renderConfig(opts.Base, opts.Targets, opts.GitignoreEnabled, opts.Version)
+	cfgBody := renderConfig(opts.Base, opts.Targets, opts.GitignoreEnabled, opts.Version, opts.MemoryEnabled)
 	if err := os.WriteFile(cfgPath, []byte(cfgBody), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}
@@ -210,6 +225,11 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 	gicfg := &config.Config{}
 	if err := updateGitignore(opts.Root, gicfg, buildManagedBlock(gicfg, nil, nil)); err != nil {
 		return err
+	}
+	if opts.MemoryEnabled && opts.GitignoreEnabled && gitIgnores(opts.Root, config.LocalOverrideFileName) {
+		if _, err := writeNewFile(filepath.Join(opts.Root, config.LocalOverrideFileName), []byte("memory:\n  personal: repo\n")); err != nil {
+			return err
+		}
 	}
 	if opts.Demo {
 		if err := writeDemoFiles(opts.Root, baseDir); err != nil {
