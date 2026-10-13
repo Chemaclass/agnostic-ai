@@ -8,16 +8,21 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
+- The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
 
 ### By tool
-
-#### Crush
-
-- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
 #### Qoder
 
 - Import project MCP servers from `.qoder/settings.json`, including JSONC, so fresh checkouts can recreate them (#2087).
+
+#### Copilot
+
+- Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
+
+#### Crush
+
+- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
 #### Windsurf / Devin
 

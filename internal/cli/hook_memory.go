@@ -157,14 +157,16 @@ func memoryContext(indexes, scopes []memoryIndex) string {
 
 // memoryHookReply wraps text in the reply each target reads as context.
 func memoryHookReply(target, text string) (string, error) {
+	hookSpecific := map[string]string{"hookEventName": "SessionStart", "additionalContext": text}
 	var reply any
 	switch target {
-	case "gemini":
-		reply = map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
+	case "gemini", "qoder":
+		reply = map[string]any{"hookSpecificOutput": hookSpecific}
 	case "cursor":
 		reply = map[string]string{"additional_context": text}
 	case "copilot":
-		reply = map[string]string{"additionalContext": text}
+		// Copilot CLI reads the top-level key and VS Code the nested one.
+		reply = map[string]any{"additionalContext": text, "hookSpecificOutput": hookSpecific}
 	default:
 		return text, nil
 	}

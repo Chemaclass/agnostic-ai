@@ -80,7 +80,7 @@ To recall what the project knows about a topic, or to clean memory up (merge dup
 | OpenCode, Kilo Code | The config lists both files |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
-Aider and Kiro get only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself:
+Aider and Kiro get only the rule, because both show a missing file: Aider with an error, Kiro with a visible marker in its steering content. Once both `MEMORY.md` files exist, add them yourself:
 
 - Aider, in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
 - Kiro, in a steering file: `#[[file:.agnostic-ai/memory/MEMORY.md]]`
@@ -102,7 +102,27 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the share
 
 Claude Code also saves facts by itself. Sync points that memory at your personal memory folder (`autoMemoryDirectory` in `.claude/settings.local.json`), so its saves land where every other tool reads them. Sync keeps a value you set yourself, and Git never commits the file. Claude Code uses the setting once you trust the folder.
 
-Codex, Gemini CLI, and Qoder have their own memory too, off by default. Leave it off so they save here. Windsurf's older Cascade agent keeps its own memories in `~/.codeium/windsurf/memories/`, and no project setting moves them.
+### Each tool's own memory {#each-tools-own-memory}
+
+Your tool's own memory can stay on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
+
+| Tool | Its own memory | Default |
+| --- | --- | --- |
+| Claude Code | Auto memory: notes for each repository, on your machine | On (`autoMemoryEnabled`); sync points it at your personal memory folder |
+| Codex | Memories: notes built from past sessions, one store for the machine | Off (`memories` under `[features]`) |
+| Gemini CLI | Edits its own Markdown memory files: `GEMINI.md` files and private notes for each project. Auto Memory proposes notes from past sessions. Sync generates the project's `GEMINI.md`, so the next sync overwrites what Gemini saves there; ask it to save project facts in shared memory | Editing is always on, with no setting. Auto Memory is off (`experimental.autoMemory`) |
+| Copilot | Copilot Memory, hosted: repository facts and your preferences, dropped after 28 days unused. The VS Code memory tool: notes on your machine | Copilot Memory is on for individual plans; organization admins enable it first. CLI: `/memory on` or `/memory off`. The VS Code tool is built in |
+| Qoder | CLI Auto-Memory: notes the agent keeps on your machine. The IDE has a separate memory | CLI: off (`autoMemoryEnabled`). IDE: not documented |
+| Kilo Code | Kilo Memory: project notes outside the repository, no personal memory | Off (Settings > Context, or `/memory on`) |
+| Kiro | Memory: notes Kiro creates and refines for a repository | Not documented (`/memories`, then `config`) |
+| Augment | Agent Memories in the IDE, which you approve one by one | Not documented |
+| Trae | Memories, global and for each project, as local Markdown files | Not documented |
+| Goose | Memory extension: files in `.goose/memory/` and `~/.config/goose/memory/` | Not documented (Extensions) |
+| Jules | Memory in the Jules cloud for each repository | Not documented (repository settings) |
+| Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |
+| Cursor | None documented | Not applicable |
+
+To keep one store instead, turn a tool's memory off with the setting the Default column names, where there is one.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
