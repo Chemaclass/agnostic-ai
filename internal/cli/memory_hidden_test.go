@@ -122,7 +122,7 @@ func TestHiddenIn_ListsEachCharacterOnceInCodePointOrder(t *testing.T) {
 	}
 }
 
-func TestHiddenIn_KeepsAJoinerBetweenTwoVisibleNonASCIICharacters(t *testing.T) {
+func TestHiddenIn_KeepsAJoiningControlBetweenTwoVisibleNonASCIICharacters(t *testing.T) {
 	for name, text := range map[string]string{
 		"family":            familyEmoji,
 		"rainbow flag":      rainbowFlag,
@@ -133,6 +133,7 @@ func TestHiddenIn_KeepsAJoinerBetweenTwoVisibleNonASCIICharacters(t *testing.T) 
 		"keycap":            keycapOne,
 		"inside a sentence": "Ship it " + familyEmoji + " and " + rainbowFlag + ".",
 		"non-Latin letters": "\U000005D0\U0000200D\U000005D1",
+		"Persian word":      "\U000006CC\U0000200C\U0000062E",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := hiddenIn(text); len(got) != 0 {
@@ -148,6 +149,7 @@ func TestHiddenIn_KeepsAJoinerBetweenTwoVisibleNonASCIICharacters(t *testing.T) 
 func TestHiddenIn_ReportsAJoinerThatIsNotBetweenTwoVisibleNonASCIICharacters(t *testing.T) {
 	cases := []struct{ name, text, want string }{
 		{"between ASCII letters", "a\U0000200Db", "ab"},
+		{"non-joiner between ASCII letters", "a\U0000200Cb", "ab"},
 		{"at the start", "\U0000200D" + manEmoji, manEmoji},
 		{"at the end", manEmoji + "\U0000200D", manEmoji},
 		{"after an emoji and before ASCII", manEmoji + "\U0000200Da", manEmoji + "a"},

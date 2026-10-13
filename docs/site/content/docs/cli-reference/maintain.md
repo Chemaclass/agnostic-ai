@@ -133,7 +133,7 @@ agnostic-ai hook memory --target codex
 
 - Codex and Factory get plain text. Cursor gets `{"additional_context": ...}`. Gemini CLI and Qoder get `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}`. Copilot gets that object plus a top-level `additionalContext`: VS Code reads the object, and Copilot CLI reads the top-level key.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
-- Hidden characters, such as zero-width and bidirectional controls and Unicode tags, are left out before the cut, so they do not count toward the 6,000 bytes. `memory lint` reports them. A zero-width joiner inside an emoji stays.
+- Hidden characters, such as zero-width and bidirectional controls and Unicode tags, are left out before the cut, so they do not count toward the 6,000 bytes. `memory lint` reports them. A zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word, stays.
 - With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
 
 | Flag | Description |

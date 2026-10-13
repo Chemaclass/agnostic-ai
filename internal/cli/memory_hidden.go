@@ -12,8 +12,15 @@ import (
 const memoryHiddenShown = 5
 
 // zeroWidthJoiner glues the parts of an emoji sequence, such as a family or
-// the rainbow flag, so it counts as hidden only outside one.
-const zeroWidthJoiner = '\U0000200D'
+// the rainbow flag, and zeroWidthNonJoiner shapes Persian and other
+// scripts, so each counts as hidden only outside a run of visible
+// non-ASCII characters.
+const (
+	zeroWidthNonJoiner = '\U0000200C'
+	zeroWidthJoiner    = '\U0000200D'
+)
+
+func isJoiningControl(r rune) bool { return r == zeroWidthNonJoiner || r == zeroWidthJoiner }
 
 // hiddenCharacters are the characters a reviewer cannot see in a diff and a
 // model still reads: zero-width and joining controls, bidirectional
@@ -38,8 +45,9 @@ var hiddenCharacters = &unicode.RangeTable{
 
 func isHiddenCharacter(r rune) bool { return unicode.Is(hiddenCharacters, r) }
 
-// joinsSymbols reports whether a zero-width joiner between before and after
-// sits inside an emoji sequence: both neighbors are visible, not ASCII.
+// joinsSymbols reports whether a joining control between before and after
+// sits inside an emoji sequence or a word: both neighbors are visible, not
+// ASCII.
 func joinsSymbols(before, after rune) bool {
 	symbol := func(r rune) bool { return r >= utf8.RuneSelf && !isHiddenCharacter(r) }
 	return symbol(before) && symbol(after)
@@ -56,7 +64,7 @@ func eachHidden(text string, found func(offset int, r rune)) {
 			if next := offset + size; next < len(text) {
 				after, _ = utf8.DecodeRuneInString(text[next:])
 			}
-			if r != zeroWidthJoiner || !joinsSymbols(before, after) {
+			if !isJoiningControl(r) || !joinsSymbols(before, after) {
 				found(offset, r)
 			}
 		}
