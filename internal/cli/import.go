@@ -13,15 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
-// rulesDirImporters maps a source name to the rules directory the
-// importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly; cline, windsurf, junie, trae, and qoder also have
-// dedicated importers (import_cline.go, import_windsurf.go,
-// import_junie.go, import_trae.go, import_qoder.go) because each
-// additionally reconstructs something beyond flat rule files: skills
-// from a native `SKILL.md` folder tree, and commands from a native
-// commands directory (trae, qoder); qoder also reconstructs native
-// agents from `.qoder/agents/`.
+// rulesDirImporters holds sources handled by the flat rules importer.
 var rulesDirImporters = map[string]string{}
 
 // importSourceNames lists every source runImport dispatches. Both the
