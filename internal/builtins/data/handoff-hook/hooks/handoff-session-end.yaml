@@ -83,10 +83,12 @@ command: |
     fi
     mkdir -p "$handoff_parent" || return 1
     handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
+    handoff_detached=
+    [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
     if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
        ! printf "# Automatic handoff
   tool: %s | date: %s | branch: %s | head: %s
-  worktree: %s
+  worktree: %s%s
 
   ## Git status
 
@@ -95,7 +97,7 @@ command: |
   ## Last five commits
 
   %s
-  " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
+  " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_detached" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
        ! chmod 600 "$handoff_temp" ||
        ! mv -f "$handoff_temp" "$handoff_path"; then
       handoff_cleanup
@@ -237,10 +239,12 @@ commandWindows: |
     fi
     mkdir -p "$handoff_parent" || return 1
     handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
+    handoff_detached=
+    [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
     if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
        ! printf "# Automatic handoff
   tool: %s | date: %s | branch: %s | head: %s
-  worktree: %s
+  worktree: %s%s
 
   ## Git status
 
@@ -249,7 +253,7 @@ commandWindows: |
   ## Last five commits
 
   %s
-  " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
+  " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_detached" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
        ! chmod 600 "$handoff_temp" ||
        ! mv -f "$handoff_temp" "$handoff_path"; then
       handoff_cleanup
@@ -392,10 +396,12 @@ x-factory:
       fi
       mkdir -p "$handoff_parent" || return 1
       handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
+      handoff_detached=
+      [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
       if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
          ! printf "# Automatic handoff
     tool: %s | date: %s | branch: %s | head: %s
-    worktree: %s
+    worktree: %s%s
 
     ## Git status
 
@@ -404,7 +410,7 @@ x-factory:
     ## Last five commits
 
     %s
-    " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
+    " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_detached" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
          ! chmod 600 "$handoff_temp" ||
          ! mv -f "$handoff_temp" "$handoff_path"; then
         handoff_cleanup
@@ -709,10 +715,12 @@ x-claude:
       fi
       mkdir -p "$handoff_parent" || return 1
       handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
+      handoff_detached=
+      [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
       if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
          ! printf "# Automatic handoff
     tool: %s | date: %s | branch: %s | head: %s
-    worktree: %s
+    worktree: %s%s
 
     ## Git status
 
@@ -721,7 +729,7 @@ x-claude:
     ## Last five commits
 
     %s
-    " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
+    " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_worktree" "$handoff_detached" "$handoff_status" "$handoff_commits" >"$handoff_temp" ||
          ! chmod 600 "$handoff_temp" ||
          ! mv -f "$handoff_temp" "$handoff_path"; then
         handoff_cleanup

@@ -128,6 +128,30 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	})
 
+	t.Run("detached-snapshots-have-distinct-task-identities", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handoffGit(t, main, "branch", "-M", "detached-main")
+		handlers := syncHooks(t, main)["claude"]
+		first := filepath.Join(t.TempDir(), "first detached")
+		handoffGit(t, main, "worktree", "add", "--detach", first)
+		firstHead := strings.TrimSpace(handoffGit(t, first, "rev-parse", "HEAD"))
+		handoffWrite(t, filepath.Join(main, "tracked.txt"), "next detached commit\n")
+		handoffGit(t, main, "add", "tracked.txt")
+		handoffGit(t, main, "commit", "-m", "second detached head")
+		second := filepath.Join(t.TempDir(), "second detached")
+		handoffGit(t, main, "worktree", "add", "--detach", second)
+		named := filepath.Join(t.TempDir(), "named detached branch")
+		handoffGit(t, main, "worktree", "add", "-b", "detached", named)
+		for _, dir := range []string{first, second, named} {
+			handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), fixture)
+			handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionEnd"], dir, "{}", "foreign", ""), "")
+		}
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], main, "{}", "foreign", ""), "3 task handoffs available. Ask to resume a task handoff.")
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], named, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached.auto.md (branch detached). Ask to resume the handoff.")
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], first, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached-"+firstHead+".auto.md (branch detached-"+firstHead+"). Ask to resume the handoff.")
+	})
+
 	t.Run("named-detached-branch-keeps-its-auto-file", func(t *testing.T) {
 		dir := project(t)
 		handoffInitGit(t, dir)
