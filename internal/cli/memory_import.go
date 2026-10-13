@@ -489,7 +489,7 @@ func guardStoreFromGit(store string) error {
 	}
 	here, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil || strings.TrimSpace(string(here)) != strings.TrimSpace(string(top)) {
-		return fmt.Errorf("Git in %s would track %s; ignore that folder there first", strings.TrimSpace(string(top)), filepath.ToSlash(store))
+		return fmt.Errorf("%s: the Git repository in %s would track it; ignore the folder there first", filepath.ToSlash(store), strings.TrimSpace(string(top)))
 	}
 	rel, err := filepath.Rel(canonicalDir(strings.TrimSpace(string(top))), canonicalDir(store))
 	if err != nil {
@@ -499,7 +499,7 @@ func guardStoreFromGit(store string) error {
 		return err
 	}
 	if gitWouldTrack(repo, probe) {
-		return fmt.Errorf("Git would still track %s; ignore it in .gitignore", filepath.ToSlash(store))
+		return fmt.Errorf("%s: Git would still track it; ignore the folder in .gitignore", filepath.ToSlash(store))
 	}
 	return nil
 }
