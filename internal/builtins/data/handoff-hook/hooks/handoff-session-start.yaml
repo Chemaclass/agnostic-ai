@@ -35,8 +35,8 @@ command: |
       handoff_suffix=${handoff_root#"$handoff_checkout"}
       handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
       if [ -d "$handoff_candidate" ]; then
-        handoff_candidate=$(cd "$handoff_candidate" && pwd -P) || return 1
-        if git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+        if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
+           git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
           handoff_shared=$handoff_candidate
         fi
       fi
@@ -156,8 +156,8 @@ commandWindows: |
       handoff_suffix=${handoff_root#"$handoff_checkout"}
       handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
       if [ -d "$handoff_candidate" ]; then
-        handoff_candidate=$(cd "$handoff_candidate" && pwd -P) || return 1
-        if git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+        if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
+           git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
           handoff_shared=$handoff_candidate
         fi
       fi
@@ -278,8 +278,8 @@ x-factory:
         handoff_suffix=${handoff_root#"$handoff_checkout"}
         handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
         if [ -d "$handoff_candidate" ]; then
-          handoff_candidate=$(cd "$handoff_candidate" && pwd -P) || return 1
-          if git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+          if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
+             git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
             handoff_shared=$handoff_candidate
           fi
         fi
@@ -562,8 +562,8 @@ x-claude:
         handoff_suffix=${handoff_root#"$handoff_checkout"}
         handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
         if [ -d "$handoff_candidate" ]; then
-          handoff_candidate=$(cd "$handoff_candidate" && pwd -P) || return 1
-          if git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+          if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
+             git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
             handoff_shared=$handoff_candidate
           fi
         fi

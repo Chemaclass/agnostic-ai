@@ -115,6 +115,32 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	})
 
+	t.Run("task-handoff-unreadable-shared-store-falls-back", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "sandbox fallback checkout")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/private", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+		handoffWrite(t, filepath.Join(store, "feat-private.md"), "# Handoff\ntool: codex | branch: feat/private | head: abc1234\n")
+		handoffWrite(t, filepath.Join(active, ".agnostic-ai", "local", "handoffs", "feat-private.md"), "# Handoff\ntool: codex | branch: feat/private | head: abc1234\n")
+		if err := os.Chmod(store, 0); err != nil {
+			t.Skipf("directory permissions unsupported: %v", err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(store, 0o755) })
+		if f, err := os.Open(store); err == nil {
+			_ = f.Close()
+			t.Skip("this platform or user can still read a mode-000 directory")
+		} else if !os.IsPermission(err) {
+			t.Fatalf("probe shared store permissions: %v", err)
+		}
+		for _, target := range handoffHookTargets {
+			out := handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", "")
+			handoffAssertReply(t, target, out, "Task handoff available: .agnostic-ai/local/handoffs/feat-private.md (branch feat/private). Ask to resume the handoff.")
+		}
+	})
+
 	t.Run("task-handoff-local-fallback", func(t *testing.T) {
 		main := project(t)
 		handoffInitGit(t, main)
