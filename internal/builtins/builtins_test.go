@@ -137,7 +137,8 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 		t.Errorf("skill asset dir = %q", skill.SkillAssetDir())
 	}
 	template := "# Handoff\n" +
-		"tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234\n\n" +
+		"tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234\n" +
+		"worktree: /path/to/checkout | status: active | pr: none\n\n" +
 		"## Goal\n## Acceptance\n## Done\n## In progress\n## Next steps\n" +
 		"## Open decisions\n## Gotchas\n## Verify\n"
 	if !strings.Contains(skill.Body, template) {
@@ -149,6 +150,8 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 		"git branch --show-current", "git rev-parse HEAD", "git status --short",
 		"secrets", "tokens", ".env", "memory store", "HANDOFF.auto.md", "newer",
 		"drift", "confirmation", "overwrites", "session start",
+		"git worktree list --porcelain", "handoffs/", "0600", "temporary file", "rename",
+		"branch-slug", "check-ignore", "removed",
 		"nearest ancestor", "agnostic-ai.yaml", "agnostic.config.yaml",
 	} {
 		if !strings.Contains(skill.Body, rule) {
@@ -223,8 +226,8 @@ func TestMaterialize_NewerAutoSnapshotKeepsManualTaskDetails(t *testing.T) {
 	for _, rule := range []string{
 		"Keep the manual Goal and Next steps",
 		"additional recent git evidence",
-		"Compare the manual header",
-		"cannot hide drift",
+		"Compare the chosen manual header",
+		"even when a snapshot is newer",
 	} {
 		if !strings.Contains(bundle.Skills[0].Body, rule) {
 			t.Errorf("resume instructions are missing %q", rule)

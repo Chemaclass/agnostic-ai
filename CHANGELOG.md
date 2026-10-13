@@ -10,6 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Share personal memory across worktrees, seed empty stores when switching modes, and start new projects with `init --memory` (#2104, #2109).
 
+- Keep one private handoff per branch across linked worktrees, with task notices and legacy handoff fallback (#2117).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 - The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
@@ -48,10 +49,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Gemini CLI
 
 - With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md`, which sync overwrites (#2103).
-
-#### Crush
-
-- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
 #### Windsurf / Devin
 
