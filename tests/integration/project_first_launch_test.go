@@ -55,7 +55,7 @@ func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
 		mustWrite(t, filepath.Join(dir, ".agnostic-ai/rules/example.md"), "---\nname: example\ndescription: Example rule.\n---\nKeep the public API stable.\n")
 		mustWrite(t, filepath.Join(dir, "package.json"), "{\"private\":true,\"packageManager\":\"pnpm@10.0.0\",\"devDependencies\":{\"agnostic-ai\":\"99.1.0\"}}\n")
 		mustWrite(t, filepath.Join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\nfixtureVersion: 99.1.0\n")
-		diagnostic := filepath.Join(t.TempDir(), "launcher-error.json")
+		diagnostic := filepath.Join(t.TempDir(), "launcher.jsonl")
 		t.Setenv("AGNOSTIC_LIFECYCLE_LAUNCH_DIAGNOSTIC", diagnostic)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		cmd := exec.CommandContext(ctx, binary, "project", "--bootstrap")
@@ -67,9 +67,9 @@ func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
 		cancel()
 		if err != nil {
 			if receipt, readErr := os.ReadFile(diagnostic); readErr == nil {
-				t.Logf("original launcher result:\n%s", receipt)
+				t.Logf("original launcher stages:\n%s", receipt)
 			} else if runtime.GOOS == "windows" {
-				t.Logf("launcher result unavailable: %v", readErr)
+				t.Logf("launcher stages unavailable: %v", readErr)
 			}
 			t.Fatalf("fresh install %d: %v (context: %v)\n%s", i, err, contextErr, output.data)
 		}
