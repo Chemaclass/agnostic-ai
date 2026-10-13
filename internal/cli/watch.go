@@ -634,16 +634,22 @@ func isPersonalMemoryPath(root, path string) bool {
 }
 
 func isHandoffPath(root, path string) bool {
-	name := filepath.Base(path)
-	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" && !strings.HasPrefix(name, "HANDOFF.auto.md.") {
-		return false
-	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return false
 	}
-	expected, err := filepath.Abs(filepath.Join(root, defaultProjectUser, name))
-	return err == nil && absPath == expected
+	local, err := filepath.Abs(filepath.Join(root, defaultProjectUser))
+	if err != nil {
+		return false
+	}
+	name := filepath.Base(absPath)
+	if filepath.Dir(absPath) == filepath.Join(local, "handoffs") {
+		return filepath.Ext(name) == ".md" || strings.Contains(name, ".md.")
+	}
+	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" && !strings.HasPrefix(name, "HANDOFF.auto.md.") {
+		return false
+	}
+	return filepath.Dir(absPath) == local
 }
 
 // watchDirs returns the config files and source directories to watch.

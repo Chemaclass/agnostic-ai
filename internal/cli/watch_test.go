@@ -1452,7 +1452,7 @@ func TestResyncForChanges_IgnoresHandoffBeforeLoadingConfig(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	writeTestFile(t, config.ConfigFileName, "invalid: [")
-	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3"} {
+	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3", "handoffs/feat-a.md", "handoffs/.feat-a.md.a1B2c3.tmp", "handoffs/feat-a.md.a1B2c3.tmp"} {
 		path := filepath.Join(dir, defaultProjectUser, name)
 		if err := resyncForChanges(dir, []string{"claude"}, []string{path}, false, false, "off", 1); err != nil {
 			t.Errorf("ignored %s loaded broken config: %v", name, err)
@@ -1503,7 +1503,7 @@ func TestResyncForChanges_HandoffNamedRuleSyncs(t *testing.T) {
 func TestIsIgnoredEvent_HandoffPaths(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3"} {
+	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3", "handoffs/feat-a.md", "handoffs/.feat-a.md.a1B2c3.tmp", "handoffs/feat-a.md.a1B2c3.tmp"} {
 		for _, op := range []fsnotify.Op{fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove, fsnotify.Create | fsnotify.Write} {
 			for _, path := range []string{filepath.Join(defaultProjectUser, name), filepath.Join(dir, defaultProjectUser, name)} {
 				root := "."
