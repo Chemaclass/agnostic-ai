@@ -143,6 +143,8 @@ To keep one store instead, turn a tool's memory off with the setting the Default
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
+For a new Git project, `agnostic-ai init --memory` enables shared memory and starts personal memory in repo mode when managed ignores are on. It keeps an existing `agnostic-ai.local.yaml`. Teammates who clone and sync choose their own mode. Without Git or with `--gitignore=off`, it enables memory in checkout mode.
+
 By default each checkout has its own personal memory, so deleting a worktree deletes what it learned. A worktree Claude Code creates starts with a copy when sync manages `.worktreeinclude`; any other starts empty. Claude Code itself reads the main checkout's `.claude/settings.local.json` in a worktree, so its own memory uses the main checkout's personal memory once sync has run there. To keep one personal memory for every worktree of a repository, add this to `agnostic-ai.local.yaml` and sync:
 
 ```yaml
