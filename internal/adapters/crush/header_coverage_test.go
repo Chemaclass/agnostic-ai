@@ -97,13 +97,14 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{
 				"type": "http", "url": "https://example.test/mcp",
 				"oauth": true, "oauth_client_id": "client-abc", "oauth_callback_port": 8090,
-				"sessionless":   true,
+				"sessionless":     true,
+				"channel_enabled": true, "channel_reply": channelReply(),
 				"enabled_tools": []any{"read_file"}, "disabled_tools": []any{"delete_file"},
 			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",
-			Meta: map[string]any{"command": "x", "disabled": true},
+			Meta: map[string]any{"command": "x", "disabled": true, "channel_enabled": false},
 		},
 		{
 			Kind: spec.KindHook, Name: "no-rm-rf",

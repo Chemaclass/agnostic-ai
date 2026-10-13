@@ -54,13 +54,32 @@ Servers merge into the `mcp` key of `crush.json`:
 
 The oauth fields are optional and need Crush v0.87.0. `sse` stays `sse`, because Crush uses a different transport for it than for `http`. A spec's `remote` type defaults to `http`.
 
-Every transport also accepts these fields from [Crush's `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json):
+Every transport also accepts these fields from [Crush's `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/v0.98.1/schema.json):
 
 - `disabled` is written as is.
 - `sessionless` marks a server that sends no `Mcp-Session-Id`, so Crush skips the subscription stream (Crush v0.91.2). When unset, Crush detects known cases such as GitHub MCP.
 - `enabled_tools` and `disabled_tools` choose which tools the agent gets.
+- `channel_enabled` opts into incoming MCP messages (Crush v0.97.0). An explicit `false` stays false.
+- `channel_reply` sets automatic replies: `user` routes direct messages, `group` routes group messages. Each route requires `tool` and `target_param`; optional `target_meta` chooses the incoming message attribute with the reply target. It defaults to `sender` for direct messages and `group` for group messages. `message_param` names the reply text argument (default `message`), and `suppress_tools` lists tools that prevent a duplicate automatic reply.
 
-Crush rejects unknown MCP keys, so MCP entries take no `x-crush` keys. Skills still do.
+Set the channel fields at the top level or under `x-crush`, which wins. Import keeps them at the top level. Sync checks channel types, required route fields and unknown nested keys before writing `crush.json`. Other `x-crush` MCP keys are ignored because Crush rejects unknown MCP fields. Skills still accept `x-crush` frontmatter.
+
+```yaml
+name: chat
+command: channel-server
+x-crush:
+  channel_enabled: true
+  channel_reply:
+    user:
+      tool: send_message_to_user
+      target_param: user_id
+    group:
+      tool: send_message_to_group
+      target_param: group_id
+      target_meta: room
+    message_param: message
+    suppress_tools: [send]
+```
 
 ### Hooks
 

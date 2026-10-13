@@ -119,7 +119,7 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](
 - **Worktree cleanup** verifies repository ownership and preserves dirty or locked checkouts with [`hook worktree-remove`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-remove).
 - **Claude setup refresh** reruns configured setup in one registered linked worktree with [`hook worktree-refresh`](https://agnostic-ai.org/docs/cli-reference/maintain/#hook-worktree-refresh).
 - **Model roles** name a choice once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
-- **MCP servers** use environment references for credentials. Mark plain settings with `!literal`. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
+- **MCP servers** use environment references for credentials. Mark plain settings with `!literal`. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references). [Crush channels](https://agnostic-ai.org/docs/targets/crush/#mcp) keep incoming-message opt-in and automatic reply routes through import and sync.
   `import qoder` reads project MCP servers from `.qoder/settings.json`, including JSONC.
   OpenCode V2 imports keep native server settings, OAuth and separate timeouts through sync and fresh checkouts. See [OpenCode](https://agnostic-ai.org/docs/targets/opencode/).
 - **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).

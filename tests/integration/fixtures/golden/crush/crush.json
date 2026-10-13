@@ -6,5 +6,29 @@
         "name": "neutral-hook"
       }
     ]
+  },
+  "mcp": {
+    "crush-channels": {
+      "channel_enabled": true,
+      "channel_reply": {
+        "group": {
+          "target_meta": "room",
+          "target_param": "group_id",
+          "tool": "send_group"
+        },
+        "message_param": "text",
+        "suppress_tools": [
+          "send",
+          "reply"
+        ],
+        "user": {
+          "target_meta": "sender_id",
+          "target_param": "user_id",
+          "tool": "send_user"
+        }
+      },
+      "command": "channel-server",
+      "type": "stdio"
+    }
   }
 }

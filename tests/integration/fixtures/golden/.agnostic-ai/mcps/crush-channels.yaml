@@ -1,0 +1,16 @@
+name: crush-channels
+targets: [crush]
+command: channel-server
+x-crush:
+  channel_enabled: true
+  channel_reply:
+    user:
+      tool: send_user
+      target_param: user_id
+      target_meta: sender_id
+    group:
+      tool: send_group
+      target_param: group_id
+      target_meta: room
+    message_param: text
+    suppress_tools: [send, reply]
