@@ -226,8 +226,8 @@ func TestMaterialize_NewerAutoSnapshotKeepsManualTaskDetails(t *testing.T) {
 	for _, rule := range []string{
 		"Keep the manual Goal and Next steps",
 		"additional recent git evidence",
-		"Compare the manual header",
-		"cannot hide drift",
+		"Compare the chosen manual header",
+		"even when a snapshot is newer",
 	} {
 		if !strings.Contains(bundle.Skills[0].Body, rule) {
 			t.Errorf("resume instructions are missing %q", rule)
