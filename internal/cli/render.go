@@ -170,11 +170,12 @@ func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, sin
 	}
 	var appendix string
 	inliner := adapters.EntryPointRuleInliner(cfg, target)
+	inlined, _ := withoutPartialBuiltinRules(single, adapters.EntryPointReaders(cfg, target))
 	switch {
 	case adapters.InlinesRulesIntoEntryPoint(target) && !adapters.HasLegacyRulesFile(cfg, target):
-		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(single, target, cfg))
+		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(inlined, target, cfg))
 	case inliner != "":
-		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(single, inliner, cfg))
+		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(inlined, inliner, cfg))
 	case adapters.ImportsRulesIntoEntryPoint(cfg, target):
 		appendix = adapters.RenderRulesImportAppendix(cfg, target, adapters.EntryPointRules(single, target, cfg))
 	}

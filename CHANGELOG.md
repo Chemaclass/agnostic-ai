@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
 - The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
@@ -19,6 +20,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Copilot
 
 - Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
+
+#### Gemini CLI
+
+- With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md`, which sync overwrites (#2103).
 
 #### Crush
 
