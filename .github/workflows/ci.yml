@@ -21,7 +21,7 @@ permissions:
 
 # The pull request number is set only for pull_request, so every push to a
 # PR shares one group and cancels the previous run instead of paying for a
-# second full 11-check matrix that nobody reads. Pushes to main fall back
+# second full matrix that nobody reads. Pushes to main fall back
 # to `run_id`, which is unique per run, so a main run never queues behind
 # or cancels another and every commit on the default branch keeps its own
 # full run.
@@ -63,9 +63,24 @@ jobs:
         run: go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Test
-        if: matrix.os == 'macos-latest' || (matrix.os == 'windows-latest' && inputs.full_windows == true)
+        if: matrix.os == 'windows-latest' && inputs.full_windows == true
         shell: bash
         run: go test -vet=all -timeout=10m -count=1 -race ./...
+
+      - name: macOS unit tests
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          module=$(go list -m)
+          all_packages=$(go list ./...)
+          packages=()
+          while IFS= read -r package; do
+            case "$package" in
+              "$module/tests/integration"|"$module/tests/integration/"*) ;;
+              *) packages+=("$package") ;;
+            esac
+          done <<< "$all_packages"
+          go test -vet=all -timeout=10m -count=1 -race "${packages[@]}"
 
       - name: Windows smoke
         if: matrix.os == 'windows-latest' && inputs.full_windows != true
@@ -81,6 +96,25 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
+
+  macos-integration:
+    name: Test integration (macos-latest)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        run: go test -vet=all -timeout=10m -count=1 -race ./tests/integration/...
 
 
   opencode-hooks:
