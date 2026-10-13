@@ -572,6 +572,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
+	if !dryRun {
+		preparePersonalMemorySync(root, cfg)
+	}
 	effectiveTargets := targets
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets

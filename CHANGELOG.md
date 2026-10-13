@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Share one personal store across worktrees in repo mode; switching modes copies facts into an empty store (#2104).
+
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
@@ -20,6 +22,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Crush
 
 - Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
+
+#### Antigravity
+
+- Sync writes the new `SessionStart` hook event to `.agents/hooks.json`, and `hook run` accepts a `PreToolUse` reply of `auto_approve` as allow, with a note that `allow` only defers to the default policy (#2124, #2125).
 
 #### Qoder
 
