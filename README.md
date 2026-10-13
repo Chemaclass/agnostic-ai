@@ -30,6 +30,8 @@ From your project root, with Node 18 or newer:
 ```bash
 npm install -g agnostic-ai
 agnostic-ai init --from all
+# Enable shared memory when creating a project:
+# agnostic-ai init --memory
 agnostic-ai sync --plan
 ```
 
