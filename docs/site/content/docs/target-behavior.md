@@ -142,7 +142,7 @@ A new adapter is about 50 lines plus one registry entry. See [adding adapters](h
 | **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | `~/.gemini/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
 | **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` | `~/.qoder/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
 | **copilot** | `~/.copilot/copilot-instructions.md` | inlined | `~/.copilot/hooks/agnostic-ai.json` | `~/.copilot/skills/<name>/` | `~/.copilot/agents/<name>.agent.md` | - |
-| **cline** | `~/.agents/AGENTS.md` | inlined | - | `~/.cline/skills/<name>/` | `~/.cline/agents/<name>.yml` | - |
+| **cline** | `~/.agents/AGENTS.md` | inlined | `~/.cline/hooks/<event>` | `~/.cline/skills/<name>/` | `~/.cline/agents/<name>.yml` | - |
 | **windsurf** | `~/.config/devin/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | `~/.config/devin/agents/<name>.md` | - |
 | **amp** | `~/.config/amp/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
 | **zed** | `~/.config/zed/AGENTS.md` | inlined | - | `~/.agents/skills/<name>/` | - | - |
@@ -183,10 +183,10 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - Continue's one documented home setting is the `rules:` list in the `config.yaml` it rewrites itself.
 - Jules documents nothing at user level.
 
-Hooks reach eight tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, and Copilot. The other tools have no user-level hook output:
+Hooks reach nine tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, and Cline SDK/CLI. The other tools have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
 - Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones. OpenCode defaults to V1; each hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux. On Windows, V2 refuses matching callbacks; use OpenCode V1 with the default V1 hooks.
-- Cline hooks are project-level only.
+- Cline global hooks write `~/.cline/hooks/<Event>` for the SDK and CLI. The VS Code extension reads only its Documents `Cline/Hooks/` folder at user level. See [Cline global hooks](@/docs/targets/cline.md#global-hooks).
 
 An unsupported feature, such as a hook for a tool without hooks, is skipped with a warning by default. Change that with `on-unsupported` in [configuration](@/docs/configuration.md).

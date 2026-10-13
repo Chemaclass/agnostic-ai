@@ -16,6 +16,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Cline
+
+- Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
+
 #### Claude Code
 
 - Claude Code loads personal memory natively; subagents read the same store, with an import fallback when native loading is off (#2116).

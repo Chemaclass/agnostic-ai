@@ -234,11 +234,13 @@ var globalTargets = map[string]globalTarget{
 		},
 	},
 	"cline": {
-		rootEnv:      "CLINE_DIR",
-		root:         globalPathHome + ".cline",
-		agents:       globalPathHome + ".cline/agents",
-		instructions: globalPathHome + ".agents/AGENTS.md",
-		skills:       globalPathHome + ".cline/skills",
+		hooksDir:       globalPathHome + ".cline/hooks",
+		hookScriptsDir: globalPathHome + ".cline/hook-scripts",
+		rootEnv:        "CLINE_DIR",
+		root:           globalPathHome + ".cline",
+		agents:         globalPathHome + ".cline/agents",
+		instructions:   globalPathHome + ".agents/AGENTS.md",
+		skills:         globalPathHome + ".cline/skills",
 	},
 	"windsurf": {
 		agents:        globalPathHome + ".config/devin/agents",

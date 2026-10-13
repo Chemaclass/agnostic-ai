@@ -135,7 +135,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 func globalImportTargets(args []string) ([]string, error) {
 	importable := func(name string) bool {
 		g, ok := globalTargets[name]
-		return ok && (g.settings.path != "" || g.mcp.path != "" || g.hooksDir != "")
+		return ok && (g.settings.path != "" || g.mcp.path != "" || g.hooksDir != "" && name != "cline")
 	}
 	if len(args) == 0 || (len(args) == 1 && args[0] == "all") {
 		var out []string
