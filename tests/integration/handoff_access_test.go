@@ -26,7 +26,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 		t.Fatalf("build CLI: %v\n%s", err, output)
 	}
 	for _, target := range []string{"codex", "qoder", "claude"} {
-		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config"} {
+		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
@@ -94,6 +94,16 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if err := os.Remove(path); err != nil {
 							t.Fatal(err)
 						}
+						if mode == "adopted missing symlink config" {
+							if err := os.Remove(destination); err != nil {
+								t.Fatal(err)
+							}
+						} else if mode == "adopted directory symlink config" {
+							if err := os.Remove(destination); err != nil {
+								t.Fatal(err)
+							}
+							handoffWrite(t, filepath.Join(destination, "keep.txt"), "private directory\n")
+						}
 						if err := os.Symlink(destination, path); err != nil {
 							if runtime.GOOS == "windows" {
 								t.Skipf("symlink unavailable: %v", err)
@@ -118,10 +128,13 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if !strings.HasPrefix(transition, "check") && err != nil {
 							t.Errorf("%s: %v\n%s", transition, err, output)
 						}
-						if got, err := os.ReadFile(path); err != nil || string(got) != original {
-							t.Fatalf("%s changed adopted native config: %v\n%s", transition, err, got)
+						unreadable := mode == "adopted missing symlink config" || mode == "adopted directory symlink config"
+						if !unreadable {
+							if got, err := os.ReadFile(path); err != nil || string(got) != original {
+								t.Fatalf("%s changed adopted native config: %v\n%s", transition, err, got)
+							}
 						}
-						if mode == "adopted symlink config" {
+						if strings.Contains(mode, "symlink config") {
 							if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink == 0 {
 								t.Fatalf("%s replaced native config symlink: %v", transition, err)
 							}
