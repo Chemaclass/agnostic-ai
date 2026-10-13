@@ -21,7 +21,7 @@ type handoffWorktree struct {
 }
 type listedHandoff struct {
 	path, branch, worktree, head, date, status, pr, dirty string
-	automatic, detached                                   bool
+	automatic, detached, detachedExplicit                 bool
 	modified                                              time.Time
 }
 
@@ -304,7 +304,11 @@ func (note *listedHandoff) readWorktreeHeader(text string) {
 		return
 	}
 	if note.automatic {
-		value, note.detached = strings.CutSuffix(value, " | detached: true")
+		if path, ok := strings.CutSuffix(value, " | detached: true"); ok {
+			value, note.detached, note.detachedExplicit = path, true, true
+		} else if path, ok := strings.CutSuffix(value, " | detached: false"); ok {
+			value, note.detachedExplicit = path, true
+		}
 	} else if prAt := strings.LastIndex(value, " | pr: "); prAt >= 0 {
 		beforePR := value[:prAt]
 		if statusAt := strings.LastIndex(beforePR, " | status: "); statusAt >= 0 {
@@ -342,7 +346,13 @@ func handoffTaskBranch(note listedHandoff, worktrees []handoffWorktree) string {
 		return note.branch
 	}
 	key := "detached-" + note.head
-	if note.detached || filepath.Base(note.path) == key+".auto.md" {
+	if note.detachedExplicit {
+		if note.detached {
+			return key
+		}
+		return note.branch
+	}
+	if filepath.Base(note.path) == key+".auto.md" {
 		return key
 	}
 	if filepath.IsAbs(note.worktree) {

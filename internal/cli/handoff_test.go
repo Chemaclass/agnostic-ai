@@ -410,3 +410,30 @@ func TestHandoffList_PreservesMetadataLabelsInsideWorktreePaths(t *testing.T) {
 		t.Errorf("path metadata text changed detached snapshot: %s", out)
 	}
 }
+
+func TestHandoffList_FinalFalseMarkerPreservesLiteralDetachedPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows paths cannot contain a pipe or colon")
+	}
+	main, _, _ := handoffListProject(t)
+	linked := filepath.Join(t.TempDir(), "wt | detached: true")
+	git(t, main, "worktree", "add", "-q", "-b", "detached", linked)
+	head := git(t, linked, "rev-parse", "HEAD")
+	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+	mustWriteFile(t, filepath.Join(store, "detached.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: false\n")
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, linked) || strings.Contains(out, "detached-"+head) || strings.Contains(out, "removed") || strings.Contains(out, " | detached: false") {
+		t.Errorf("final false marker lost named branch or literal path: %s", out)
+	}
+	git(t, linked, "checkout", "--detach", "-q", "HEAD")
+	out, err = runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "detached-"+head) || !strings.Contains(out, "removed") {
+		t.Errorf("explicit false marker became a detached snapshot after checkout reuse: %s", out)
+	}
+}
