@@ -157,6 +157,7 @@ func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff
 			if !ok {
 				continue
 			}
+			note.branch = handoffTaskBranch(note, worktrees)
 			previous, exists := notes[note.branch]
 			if !exists || previous.automatic && !note.automatic || previous.automatic == note.automatic && handoffNewer(note, previous) {
 				notes[note.branch] = note
@@ -265,6 +266,8 @@ func readHandoffHeader(path string) (listedHandoff, bool, error) {
 			switch key {
 			case "branch":
 				note.branch = value
+			case "worktree":
+				note.worktree = value
 			case "head":
 				note.head = value
 			case "date":
@@ -283,14 +286,48 @@ func readHandoffHeader(path string) (listedHandoff, bool, error) {
 }
 
 func handoffNewer(a, b listedHandoff) bool {
-	for _, format := range []string{time.RFC3339, "2006-01-02T15:04Z"} {
-		at, ae := time.Parse(format, a.date)
-		bt, be := time.Parse(format, b.date)
-		if ae == nil && be == nil && !at.Equal(bt) {
-			return at.After(bt)
-		}
+	at, aok := handoffDate(a.date)
+	bt, bok := handoffDate(b.date)
+	if aok && bok && !at.Equal(bt) {
+		return at.After(bt)
 	}
 	return a.modified.After(b.modified)
+}
+
+func handoffDate(value string) (time.Time, bool) {
+	for _, format := range []string{time.RFC3339, "2006-01-02T15:04Z"} {
+		if parsed, err := time.Parse(format, value); err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func handoffTaskBranch(note listedHandoff, worktrees []handoffWorktree) string {
+	if !note.automatic || note.branch != "detached" || note.head == "-" {
+		return note.branch
+	}
+	key := "detached-" + note.head
+	if filepath.Base(note.path) == key+".auto.md" {
+		return key
+	}
+	if filepath.IsAbs(note.worktree) {
+		path := canonicalDir(note.worktree)
+		for _, worktree := range worktrees {
+			if worktree.path == path {
+				if worktree.branch == "" && !worktree.bare {
+					return key
+				}
+				return note.branch
+			}
+		}
+	}
+	if !slices.ContainsFunc(worktrees, func(worktree handoffWorktree) bool { return worktree.branch == "detached" }) && slices.ContainsFunc(worktrees, func(worktree handoffWorktree) bool {
+		return worktree.branch == "" && !worktree.bare && worktree.head == note.head
+	}) {
+		return key
+	}
+	return note.branch
 }
 
 func handoffBranchMerged(root string, note listedHandoff, main handoffWorktree) bool {

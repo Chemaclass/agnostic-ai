@@ -14,6 +14,7 @@ import (
 func handoffListProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	main := setupGitRepo(t)
+	git(t, main, "config", "maintenance.auto", "false")
 	mustWriteFile(t, filepath.Join(main, ".gitignore"), "**/.agnostic-ai/local/\n")
 	git(t, main, "add", ".gitignore")
 	git(t, main, "commit", "-qm", "fixture")
@@ -230,5 +231,76 @@ func TestHandoffList_UsesFileTimeWhenHeaderDatesTie(t *testing.T) {
 	}
 	if !strings.Contains(out, "#6") || strings.Contains(out, "blocked") {
 		t.Errorf("newer fallback note lost: %s", out)
+	}
+}
+
+func TestHandoffList_ComparesMixedHeaderDateFormats(t *testing.T) {
+	main, _, b := handoffListProject(t)
+	head := git(t, main, "rev-parse", "HEAD")
+	shared := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-b.md")
+	local := filepath.Join(b, ".agnostic-ai", "local", "handoffs", "feat-b.md")
+	writeListHandoff(t, shared, "feat/b", b, head, "blocked", "#1")
+	body := strings.Replace(readText(t, shared), "2026-10-13T09:00Z", "2026-10-13T08:00:00Z", 1)
+	mustWriteFile(t, shared, body)
+	writeListHandoff(t, local, "feat/b", b, head, "ready", "#6")
+	older := time.Unix(100, 0)
+	newer := time.Unix(200, 0)
+	if err := os.Chtimes(shared, newer, newer); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(local, older, older); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, b)
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "#6") || strings.Contains(out, "blocked") {
+		t.Errorf("newer minute-format note lost to copied RFC3339 note: %s", out)
+	}
+}
+
+func TestHandoffList_JoinsLegacyDetachedSnapshotWithLiveWorktree(t *testing.T) {
+	_, a, _ := handoffListProject(t)
+	git(t, a, "checkout", "--detach", "-q", "HEAD")
+	head := git(t, a, "rev-parse", "HEAD")
+	mustWriteFile(t, filepath.Join(a, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T09:00Z | branch: detached | head: "+head+"\n\n## Git status\n")
+	testutil.Chdir(t, a)
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, a) || strings.Contains(out, "removed") || !strings.Contains(out, "clean") {
+		t.Errorf("live detached snapshot treated as removed: %s", out)
+	}
+	main := git(t, a, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	main = filepath.Dir(main)
+	named := filepath.Join(t.TempDir(), "named-detached")
+	git(t, main, "worktree", "add", "-q", "-b", "detached", named)
+	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+	for _, entry := range []struct{ file, path string }{{"detached-" + head + ".auto.md", a}, {"detached.auto.md", named}} {
+		mustWriteFile(t, filepath.Join(store, entry.file), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+entry.path+"\n")
+	}
+	out, err = runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, a) || !strings.Contains(out, named) || !strings.Contains(out, "detached-"+head) {
+		t.Errorf("named and detached tasks conflated: %s", out)
+	}
+}
+
+func TestHandoffList_SkipsAutomaticUpgradeEvenInAnInteractiveRelease(t *testing.T) {
+	for _, key := range []string{envNoUpdateCheck, envUpgradeInProgress, "CI", "AGNOSTIC_AI_TARGET"} {
+		t.Setenv(key, "")
+	}
+	root := NewRootCmd("0.83.0")
+	command, _, err := root.Find([]string{"handoff", "list"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if automaticUpgradeAllowed(command, "0.83.0", true) {
+		t.Error("read-only handoff list can make an automatic network check")
 	}
 }
