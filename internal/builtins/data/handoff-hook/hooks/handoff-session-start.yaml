@@ -24,19 +24,19 @@ command: |
     handoff_root=$(git rev-parse --show-toplevel) || return 1
   }
   handoff_task_notice() {
-    handoff_checkout=$(git -C "$handoff_root" rev-parse --show-toplevel) || return 1
+    handoff_checkout=$(CDPATH= cd "$handoff_root" && git rev-parse --show-toplevel) || return 1
     handoff_checkout=$(cd "$handoff_checkout" && pwd -P) || return 1
-    handoff_branch=$(git -C "$handoff_root" branch --show-current) || return 1
+    handoff_branch=$(CDPATH= cd "$handoff_root" && git branch --show-current) || return 1
     [ -n "$handoff_branch" ] || return 1
-    handoff_main=$(git -C "$handoff_root" -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
+    handoff_main=$(CDPATH= cd "$handoff_root" && git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
     handoff_shared=
-    if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+    if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
       handoff_main=$(cd "$handoff_main" && pwd -P) || return 1
       handoff_suffix=${handoff_root#"$handoff_checkout"}
       handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
       if [ -d "$handoff_candidate" ]; then
         if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-           git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+           (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
           handoff_shared=$handoff_candidate
         fi
       fi
@@ -46,7 +46,7 @@ command: |
       handoff_count=0
       for handoff_file in "$handoff_shared"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-        git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+        (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
@@ -61,7 +61,7 @@ command: |
         handoff_slug=${handoff_file##*/}
         handoff_slug=${handoff_slug%.md}
         case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-        git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+        (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
         handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
         case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
         handoff_display=$handoff_branch
@@ -145,19 +145,19 @@ commandWindows: |
     handoff_root=$(git rev-parse --show-toplevel) || return 1
   }
   handoff_task_notice() {
-    handoff_checkout=$(git -C "$handoff_root" rev-parse --show-toplevel) || return 1
+    handoff_checkout=$(CDPATH= cd "$handoff_root" && git rev-parse --show-toplevel) || return 1
     handoff_checkout=$(cd "$handoff_checkout" && pwd -P) || return 1
-    handoff_branch=$(git -C "$handoff_root" branch --show-current) || return 1
+    handoff_branch=$(CDPATH= cd "$handoff_root" && git branch --show-current) || return 1
     [ -n "$handoff_branch" ] || return 1
-    handoff_main=$(git -C "$handoff_root" -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
+    handoff_main=$(CDPATH= cd "$handoff_root" && git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
     handoff_shared=
-    if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+    if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
       handoff_main=$(cd "$handoff_main" && pwd -P) || return 1
       handoff_suffix=${handoff_root#"$handoff_checkout"}
       handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
       if [ -d "$handoff_candidate" ]; then
         if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-           git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+           (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
           handoff_shared=$handoff_candidate
         fi
       fi
@@ -167,7 +167,7 @@ commandWindows: |
       handoff_count=0
       for handoff_file in "$handoff_shared"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-        git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+        (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
@@ -182,7 +182,7 @@ commandWindows: |
         handoff_slug=${handoff_file##*/}
         handoff_slug=${handoff_slug%.md}
         case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-        git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+        (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
         handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
         case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
         handoff_display=$handoff_branch
@@ -267,19 +267,19 @@ x-factory:
       handoff_root=$(git rev-parse --show-toplevel) || return 1
     }
     handoff_task_notice() {
-      handoff_checkout=$(git -C "$handoff_root" rev-parse --show-toplevel) || return 1
+      handoff_checkout=$(CDPATH= cd "$handoff_root" && git rev-parse --show-toplevel) || return 1
       handoff_checkout=$(cd "$handoff_checkout" && pwd -P) || return 1
-      handoff_branch=$(git -C "$handoff_root" branch --show-current) || return 1
+      handoff_branch=$(CDPATH= cd "$handoff_root" && git branch --show-current) || return 1
       [ -n "$handoff_branch" ] || return 1
-      handoff_main=$(git -C "$handoff_root" -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
+      handoff_main=$(CDPATH= cd "$handoff_root" && git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
       handoff_shared=
-      if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+      if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
         handoff_main=$(cd "$handoff_main" && pwd -P) || return 1
         handoff_suffix=${handoff_root#"$handoff_checkout"}
         handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
         if [ -d "$handoff_candidate" ]; then
           if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-             git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+             (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
             handoff_shared=$handoff_candidate
           fi
         fi
@@ -289,7 +289,7 @@ x-factory:
         handoff_count=0
         for handoff_file in "$handoff_shared"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-          git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+          (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
@@ -304,7 +304,7 @@ x-factory:
           handoff_slug=${handoff_file##*/}
           handoff_slug=${handoff_slug%.md}
           case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-          git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+          (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
           handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
           case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
           handoff_display=$handoff_branch
@@ -551,19 +551,19 @@ x-claude:
       handoff_root=$handoff_git
     }
     handoff_task_notice() {
-      handoff_checkout=$(git -C "$handoff_root" rev-parse --show-toplevel) || return 1
+      handoff_checkout=$(CDPATH= cd "$handoff_root" && git rev-parse --show-toplevel) || return 1
       handoff_checkout=$(cd "$handoff_checkout" && pwd -P) || return 1
-      handoff_branch=$(git -C "$handoff_root" branch --show-current) || return 1
+      handoff_branch=$(CDPATH= cd "$handoff_root" && git branch --show-current) || return 1
       [ -n "$handoff_branch" ] || return 1
-      handoff_main=$(git -C "$handoff_root" -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
+      handoff_main=$(CDPATH= cd "$handoff_root" && git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
       handoff_shared=
-      if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+      if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
         handoff_main=$(cd "$handoff_main" && pwd -P) || return 1
         handoff_suffix=${handoff_root#"$handoff_checkout"}
         handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
         if [ -d "$handoff_candidate" ]; then
           if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-             git -C "$handoff_main" check-ignore -q -- "$handoff_candidate/handoff.md"; then
+             (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
             handoff_shared=$handoff_candidate
           fi
         fi
@@ -573,7 +573,7 @@ x-claude:
         handoff_count=0
         for handoff_file in "$handoff_shared"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-          git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+          (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
@@ -588,7 +588,7 @@ x-claude:
           handoff_slug=${handoff_file##*/}
           handoff_slug=${handoff_slug%.md}
           case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-          git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+          (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
           handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
           case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
           handoff_display=$handoff_branch

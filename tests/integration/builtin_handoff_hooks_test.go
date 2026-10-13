@@ -97,6 +97,17 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			name := strings.ReplaceAll(branch, "/", "-") + ".md"
 			handoffWrite(t, filepath.Join(store, name), "# Handoff\ntool: codex | date: 2026-10-13T12:00Z | branch: "+branch+" | head: abc1234\nworktree: "+active+" | status: active | pr: none\n\nTASK_CONTENT_MUST_NOT_LOAD\n")
 		}
+		realGit, err := exec.LookPath("git")
+		if err != nil {
+			t.Fatal(err)
+		}
+		shim := t.TempDir()
+		marker := filepath.Join(shim, "git-used")
+		script := "#!/bin/sh\nfor arg do\ncase \"$arg\" in /*) exit 128 ;; esac\ndone\nprintf used > " + handoffShellQuote(filepath.ToSlash(marker)) + "\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
+		handoffWrite(t, filepath.Join(shim, "git"), script)
+		if err := os.Chmod(filepath.Join(shim, "git"), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		for _, target := range handoffHookTargets {
 			t.Run(target, func(t *testing.T) {
 				handler := handlers[target]["SessionStart"]
@@ -113,6 +124,18 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				if strings.Contains(out, "TASK_CONTENT_MUST_NOT_LOAD") {
 					t.Error("startup read task contents")
 				}
+				t.Run("native-git-rejects-shell-paths", func(t *testing.T) {
+					if err := os.Remove(marker); err != nil && !os.IsNotExist(err) {
+						t.Fatal(err)
+					}
+					out := handoffExecute(t, target, handler, active, "{}", "foreign", shim)
+					handoffAssertReply(t, target, out, "Task handoff available: .agnostic-ai/local/handoffs/feat-b.md (branch feat/b). Ask to resume the handoff.")
+					out = handoffExecute(t, target, handler, main, "{}", "foreign", shim)
+					handoffAssertReply(t, target, out, "2 task handoffs available. Ask to resume a task handoff.")
+					if _, err := os.Stat(marker); err != nil {
+						t.Errorf("native Git boundary was not exercised: %v", err)
+					}
+				})
 			})
 		}
 		handoffGit(t, main, "worktree", "remove", "--force", active)
