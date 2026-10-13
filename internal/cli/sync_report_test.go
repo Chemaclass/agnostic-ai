@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -135,7 +136,33 @@ func gitRepo(t *testing.T) (string, func(args ...string)) {
 		}
 	}
 	git("init", "-q")
+	git("config", "maintenance.auto", "false")
 	return dir, git
+}
+
+func TestGitRepo_DoesNotStartAutomaticMaintenance(t *testing.T) {
+	dir, git := gitRepo(t)
+	trace := filepath.Join(t.TempDir(), "git-trace.jsonl")
+	t.Setenv("GIT_TRACE2_EVENT", trace)
+	mustWriteFile(t, filepath.Join(dir, "tracked.md"), "fixture\n")
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	data, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatalf("read Git trace: %v", err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		var event struct {
+			Event string   `json:"event"`
+			Argv  []string `json:"argv"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("parse Git trace: %v", err)
+		}
+		if event.Event == "child_start" && strings.Contains(strings.Join(event.Argv, " "), "maintenance run --auto") {
+			t.Errorf("fixture started automatic maintenance: %v", event.Argv)
+		}
+	}
 }
 
 func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
