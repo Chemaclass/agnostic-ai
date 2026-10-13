@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -204,5 +205,30 @@ func TestHandoffList_ReadsIndividuallyIgnoredLegacyFileWithoutTaskStore(t *testi
 	}
 	if !strings.Contains(out, "abc1234") {
 		t.Errorf("individually ignored legacy missing: %s", out)
+	}
+}
+
+func TestHandoffList_UsesFileTimeWhenHeaderDatesTie(t *testing.T) {
+	main, _, b := handoffListProject(t)
+	head := git(t, main, "rev-parse", "HEAD")
+	shared := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-b.md")
+	local := filepath.Join(b, ".agnostic-ai", "local", "handoffs", "feat-b.md")
+	writeListHandoff(t, shared, "feat/b", b, head, "blocked", "#1")
+	writeListHandoff(t, local, "feat/b", b, head, "ready", "#6")
+	old := time.Unix(100, 0)
+	newer := time.Unix(200, 0)
+	if err := os.Chtimes(shared, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(local, newer, newer); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, b)
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "#6") || strings.Contains(out, "blocked") {
+		t.Errorf("newer fallback note lost: %s", out)
 	}
 }

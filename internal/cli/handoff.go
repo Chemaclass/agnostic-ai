@@ -286,7 +286,7 @@ func handoffNewer(a, b listedHandoff) bool {
 	for _, format := range []string{time.RFC3339, "2006-01-02T15:04Z"} {
 		at, ae := time.Parse(format, a.date)
 		bt, be := time.Parse(format, b.date)
-		if ae == nil && be == nil {
+		if ae == nil && be == nil && !at.Equal(bt) {
 			return at.After(bt)
 		}
 	}
