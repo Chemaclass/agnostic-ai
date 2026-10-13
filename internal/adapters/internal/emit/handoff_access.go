@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -179,7 +181,26 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 
 func priorOwnedHandoffRoot(path, target string, data []byte, unreadable bool, sum string) bool {
 	if target == "codex" {
-		return sum != ""
+		if sum == "" {
+			return false
+		}
+		if unreadable {
+			return true
+		}
+		var doc struct {
+			Sandbox struct {
+				WritableRoots []string `toml:"writable_roots"`
+			} `toml:"sandbox_workspace_write"`
+		}
+		if _, err := toml.Decode(string(data), &doc); err != nil {
+			return false
+		}
+		for _, dir := range doc.Sandbox.WritableRoots {
+			if strings.HasSuffix(filepath.ToSlash(dir), "/.agnostic-ai/local/handoffs") {
+				return true
+			}
+		}
+		return false
 	}
 	items := PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})
 	if len(items) == 0 {
