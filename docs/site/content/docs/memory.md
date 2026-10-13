@@ -70,6 +70,8 @@ Every tool gets the `shared-memory-policy` rule, which tells it when to read, sa
 
 To recall what the project knows about a topic, or to clean memory up (merge duplicates, drop stale facts), ask your tool to use the `shared-memory` skill. You confirm each change.
 
+Gemini CLI also gets the `gemini-memory-tiers` rule. It maps Gemini CLI's own memory tiers to these folders, so Gemini CLI stops saving team facts to the `GEMINI.md` that sync writes over. See [Gemini CLI](@/docs/targets/gemini.md#shared-memory).
+
 ## How each tool loads it {#how-each-tool-loads-it}
 
 | Tool | How |

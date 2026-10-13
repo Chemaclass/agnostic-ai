@@ -1,10 +1,12 @@
 package integration
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -224,7 +226,45 @@ func TestBuiltinMemory(t *testing.T) {
 		dir := project(t, []byte(config))
 		run(t, dir, "sync", "--gitignore=off")
 		run(t, dir, "sync", "--check", "--gitignore=off")
+		if got := filesNaming(t, dir, "gemini-memory-tiers"); !slices.Equal(got, []string{"GEMINI.md"}) {
+			t.Errorf("the Gemini CLI memory tiers rule should reach GEMINI.md alone, found it in %v", got)
+		}
 	})
+}
+
+// filesNaming lists, sorted and relative to dir, the files sync wrote
+// that contain text. The source folder and links are skipped.
+func filesNaming(t *testing.T, dir, text string) []string {
+	t.Helper()
+	var found []string
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() && entry.Name() == ".agnostic-ai" {
+			return filepath.SkipDir
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(data), text) {
+			rel, err := filepath.Rel(dir, path)
+			if err != nil {
+				return err
+			}
+			found = append(found, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(found)
+	return found
 }
 
 func testContextListMemory(t *testing.T, project func(*testing.T, []byte) string, run func(*testing.T, string, ...string) string, file, targets string) {
