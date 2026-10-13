@@ -131,9 +131,9 @@
 // rather than by event (antigravity.google/docs/hooks?tab=ide). Each spec
 // becomes its own named definition holding the one event it names, so
 // `enabled: false` (the definition's own field, the inverse of the
-// portable `disabled: true`) disables that spec alone. Five events run:
+// portable `disabled: true`) disables that spec alone. Six events run:
 // PreToolUse and PostToolUse hold `{matcher, hooks}` groups, while
-// PreInvocation, PostInvocation and Stop hold a handler list directly
+// SessionStart, PreInvocation, PostInvocation and Stop hold a handler list directly
 // and ignore the matcher, so this adapter writes each shape where the
 // vendor documents it. The hook payload's `transcriptPath` resolves
 // under `~/.gemini/antigravity-ide`, the IDE's own app-data directory,
