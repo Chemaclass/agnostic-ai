@@ -996,6 +996,10 @@ func NativeMemoryDir(target, root string) (string, bool, error) {
 // store, queued by an adapter (re-exported from the emit layer).
 type MemorySeed = emit.MemorySeed
 
+func RequestMemorySeed(seed MemorySeed) {
+	emit.RequestMemorySeed(seed)
+}
+
 // TakeMemorySeeds returns the seeds adapters queued and clears the queue.
 func TakeMemorySeeds() []MemorySeed { return emit.TakeMemorySeeds() }
 

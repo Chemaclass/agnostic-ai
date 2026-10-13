@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,36 @@ import (
 )
 
 var stagedCheckCases = []string{"clean", "yaml-comment", "semantic-config", "spec-change", "deleted-output", "deleted-spec"}
+
+func TestStagedCheckFixture_DoesNotStartAutomaticMaintenance(t *testing.T) {
+	trace := filepath.Join(t.TempDir(), "git-trace.jsonl")
+	t.Setenv("GIT_TRACE2_EVENT", trace)
+	writeStagedCheckFixture(t, t.TempDir(), 4, 120)
+	data, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatalf("read Git trace: %v", err)
+	}
+	sawCommit := false
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		var event struct {
+			Event string   `json:"event"`
+			Name  string   `json:"name"`
+			Argv  []string `json:"argv"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("parse Git trace: %v", err)
+		}
+		if event.Event == "cmd_name" && event.Name == "commit" {
+			sawCommit = true
+		}
+		if event.Event == "child_start" && strings.Contains(strings.Join(event.Argv, " "), "maintenance run --auto") {
+			t.Errorf("fixture started automatic maintenance: %v", event.Argv)
+		}
+	}
+	if !sawCommit {
+		t.Error("Git trace did not record the fixture commit")
+	}
+}
 
 func TestStagedCheckBenchmarkControls(t *testing.T) {
 	for _, scenario := range stagedCheckCases {
@@ -101,6 +132,7 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 	tb.Setenv("GIT_CONFIG_GLOBAL", gitConfig)
 	tb.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	stagedCheckGit(tb, root, "init", "-q")
+	stagedCheckGit(tb, root, "config", "maintenance.auto", "false")
 	stagedCheckGit(tb, root, "config", "core.autocrlf", "false")
 	stagedCheckGit(tb, root, "config", "core.symlinks", "true")
 	writeBenchFile(tb, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")
