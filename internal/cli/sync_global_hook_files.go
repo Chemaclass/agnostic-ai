@@ -9,11 +9,15 @@ import (
 	"path/filepath"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func addGlobalHookFiles(home, source, target string, g globalTarget, hooks []spec.Entry, onUnsupported string, add func(string, []byte, fs.FileMode) error) error {
+	if target == "cline" {
+		return addGlobalClineHookFiles(home, source, g, hooks, onUnsupported, add)
+	}
 	if target != "kiro" {
 		return fmt.Errorf("%s: native global hook directory rendering is unsupported", target)
 	}
@@ -93,6 +97,37 @@ func addGlobalHookFiles(home, source, target string, g globalTarget, hooks []spe
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 		if err := add(path, raw, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addGlobalClineHookFiles(home, source string, g globalTarget, hooks []spec.Entry, onUnsupported string, add func(string, []byte, fs.FileMode) error) error {
+	dir, scriptsDir := g.path(home, g.hooksDir), g.path(home, g.hookScriptsDir)
+	if err := adapters.ReportHookProjectRoot("cline", hooks, onUnsupported, true); err != nil {
+		return err
+	}
+	if wrapper, ok := adapters.PortableHookWrapperScript(hooks, "cline", scriptsDir); ok {
+		if err := add(wrapper.Path, wrapper.Body, wrapper.Mode); err != nil {
+			return err
+		}
+	}
+	for _, hook := range hooks {
+		for _, command := range globalHookCommands(hook.Meta["command"]) {
+			scripts, err := adapters.NeutralHookScripts(command, "cline", filepath.Join(source, "scripts"), scriptsDir, len(stringSliceFromAny(hook.Meta["args"])) > 0)
+			if err != nil {
+				return err
+			}
+			for _, script := range scripts {
+				if err := add(script.Path, script.Body, script.Mode); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for _, file := range cline.GlobalHookFiles(hooks, filepath.ToSlash(scriptsDir)) {
+		if err := add(filepath.Join(dir, file.Path), file.Body, file.Mode); err != nil {
 			return err
 		}
 	}
