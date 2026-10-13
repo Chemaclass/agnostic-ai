@@ -61,10 +61,15 @@ jobs:
         if: matrix.os == 'macos-latest' || (matrix.os == 'windows-latest' && inputs.full_windows == true)
         run: go vet ./...
 
-      - name: Test
-        if: matrix.os != 'windows-latest' || inputs.full_windows == true
+      - name: Test with coverage
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Test
+        if: matrix.os == 'macos-latest' || (matrix.os == 'windows-latest' && inputs.full_windows == true)
+        shell: bash
+        run: go test -timeout=10m -count=1 -race ./...
 
       - name: Windows smoke
         if: matrix.os == 'windows-latest' && inputs.full_windows != true
