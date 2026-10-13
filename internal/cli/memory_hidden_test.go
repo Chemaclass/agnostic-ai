@@ -160,7 +160,11 @@ func TestHiddenIn_ReportsAJoinerThatIsNotBetweenTwoVisibleNonASCIICharacters(t *
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := hiddenIn(tc.text); !slices.Contains(got, 0x200D) {
+			want := zeroWidthJoiner
+			if strings.ContainsRune(tc.text, zeroWidthNonJoiner) {
+				want = zeroWidthNonJoiner
+			}
+			if got := hiddenIn(tc.text); !slices.Contains(got, want) {
 				t.Errorf("the joiner in %q was not reported: %U", tc.text, got)
 			}
 			if got := stripHidden(tc.text); got != tc.want {
