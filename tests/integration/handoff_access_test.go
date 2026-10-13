@@ -26,7 +26,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 		t.Fatalf("build CLI: %v\n%s", err, output)
 	}
 	for _, target := range []string{"codex", "qoder", "claude"} {
-		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config"} {
+		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
@@ -44,6 +44,27 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					config += "sync:\n  unmanaged: [" + file + "]\n"
 				}
 				handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+				if mode == "owned unavailable store" {
+					for _, unavailable := range []bool{false, true} {
+						if unavailable {
+							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n")
+						}
+						cmd := exec.Command(binary, "sync")
+						cmd.Dir = linked
+						if output, err := cmd.CombinedOutput(); err != nil {
+							t.Fatalf("sync with unavailable=%v: %v\n%s", unavailable, err, output)
+						}
+						content, err := os.ReadFile(filepath.Join(linked, file))
+						if err != nil && (!unavailable || !os.IsNotExist(err)) {
+							t.Fatal(err)
+						}
+						root := filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))
+						if strings.Contains(string(content), root) == unavailable {
+							t.Errorf("unavailable=%v: native access was not reconciled: %s", unavailable, content)
+						}
+					}
+					return
+				}
 				if strings.HasPrefix(mode, "adopted ") {
 					first := exec.Command(binary, "sync")
 					first.Dir = linked
