@@ -259,3 +259,88 @@ func TestSessionRetention_RejectsEmptyNativeDocumentsBeforeWriting(t *testing.T)
 		}
 	}
 }
+
+func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T) {
+	for _, backup := range []bool{false, true} {
+		t.Run(fmt.Sprintf("backup=%t", backup), func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(home, ".claude", "settings.json")
+			original := "{\n  \"cleanupPeriodDays\": 0, \"theme\": \"dark\"\n}\n"
+			mustWriteGlobalTest(t, path, original)
+			settings := filepath.Join(source, "settings", "retention.yaml")
+			mustWriteGlobalTest(t, settings, "session-retention-days: 3650\n")
+			args := []string{"--only", "claude"}
+			if backup {
+				args = append(args, "--backup")
+			}
+			_, notes, err := runGlobalAgentTest(args...)
+			if err != nil {
+				t.Errorf("sync should preserve native zero: %v\n%s", err, notes)
+			}
+			if !strings.Contains(notes, "invalid") || !strings.Contains(notes, "manual") {
+				t.Errorf("missing manual correction note: %s", notes)
+			}
+			if got := readGlobalTest(t, path); got != original {
+				t.Errorf("portable retention enabled paused native cleanup: %s", got)
+			}
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, notes, err := runGlobalAgentTest("--only", "claude"); err != nil {
+				t.Errorf("remove portable retention: %v\n%s", err, notes)
+			}
+			if got := readGlobalTest(t, path); got != original {
+				t.Errorf("removal changed untouched native zero: %s", got)
+			}
+		})
+	}
+}
+
+func TestSessionRetention_ClaudeUserEditedZeroStaysPaused(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	settings := filepath.Join(source, "settings", "retention.yaml")
+	mustWriteGlobalTest(t, path, "{\"cleanupPeriodDays\":30}\n")
+	mustWriteGlobalTest(t, settings, "session-retention-days: 3650\n")
+	if _, notes, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+		t.Fatalf("initial managed sync: %v\n%s", err, notes)
+	}
+	edited := "{ \"cleanupPeriodDays\": 0, \"theme\": \"dark\" }\n"
+	mustWriteGlobalTest(t, path, edited)
+	_, notes, err := runGlobalAgentTest("--only", "claude", "--backup")
+	if err != nil {
+		t.Errorf("sync should preserve user edit: %v\n%s", err, notes)
+	}
+	if !strings.Contains(notes, "invalid") || !strings.Contains(notes, "manual") {
+		t.Errorf("missing manual correction note: %s", notes)
+	}
+	if got := readGlobalTest(t, path); got != edited {
+		t.Errorf("sync overwrote user zero: %s", got)
+	}
+	if err := os.Remove(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, notes, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Errorf("release ownership: %v\n%s", err, notes)
+	}
+	if got := readGlobalTest(t, path); got != edited {
+		t.Errorf("restoration overwrote user zero: %s", got)
+	}
+}
+
+func TestSessionRetention_ClaudeExplicitOverlayCanCorrectNativeZero(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	mustWriteGlobalTest(t, path, "{\"cleanupPeriodDays\":0}\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\nx-claude:\n  cleanupPeriodDays: 7\n")
+	if _, notes, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+		t.Fatalf("explicit native correction: %v\n%s", err, notes)
+	}
+	values, err := settingsValues(path, "json", []byte(readGlobalTest(t, path)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, present := settingsLookup(values, "cleanupPeriodDays", "json"); !present || !sameSetting(got, float64(7)) {
+		t.Errorf("explicit native overlay lost: %v", got)
+	}
+}
