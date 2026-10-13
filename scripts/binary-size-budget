@@ -170,4 +170,7 @@
 # personal session retention and exact native-value restoration.
 # Go 1.27.2, linux/amd64, CGO disabled, using make size-check flags.
 # Keep the established 8 KB build allowance.
-19350000
+#2127 with Cline global hooks measured 19345568 on Go 1.27.2, up
+# 28672 from main d20fe354 (19316896): portable session retention,
+# original setting tokens, and state version 7. Keep the 8 KB allowance.
+19354000
