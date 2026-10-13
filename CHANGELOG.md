@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
 
 ### By tool

@@ -255,6 +255,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A line in a memory index or fact file looks like a credential, such as a token by its prefix, a URL password, or a `Bearer` token. Every tool reads memory as plain text, and project memory is committed. The finding names the line, never the value.",
 		Fix:      "Remove the secret from the file and from Git history if it was committed, and rotate it.",
 	},
+	"LINT044": {
+		Severity: lintError,
+		Title:    "Hidden character in a memory file",
+		Cause:    "A line in a memory index or fact file holds a character a reviewer cannot see: a zero-width character, a bidirectional control, a line or paragraph separator, an invisible operator, a soft hyphen, a byte order mark, or a Unicode tag. They can hide text from a pull request, and project memory is committed, so anyone who can push changes what every tool reads. The finding is an error in project memory and a warning in personal memory. It names the line and the code points, never the text. The session-start hook leaves these characters out of the context it prints; tools that load the file whole still read them.",
+		Fix:      "Delete the characters, or retype the line. A zero-width joiner between two non-ASCII characters, as in a family emoji, is not reported.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",
