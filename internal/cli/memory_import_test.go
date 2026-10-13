@@ -462,3 +462,109 @@ func TestLockMemoryStore_WaitsForTheImportHoldingIt(t *testing.T) {
 		t.Error("second lock taken while the first was held")
 	}
 }
+
+func TestMemoryImport_BuildsAnIndexLineWhenTheSourceLineLooksLikeASecret(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{
+		"MEMORY.md": "- [Deploy](tabs.md): deploy with ghp_" + strings.Repeat("a", 36) + "\n",
+		"tabs.md":   tabsFact,
+	})
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	index := readText(t, filepath.Join(personalStore, "MEMORY.md"))
+	if strings.Contains(index, "ghp_") || !strings.Contains(index, "- [tabs](tabs.md): user prefers tabs\n") {
+		t.Errorf("index:\n%s", index)
+	}
+	if !strings.Contains(out, "Built a new index line for 1 fact(s)") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestLintMemory_ForgetsAFactTheUserDeletedAfterImport(t *testing.T) {
+	native := importProject(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact, "ci-ubuntu.md": ciFact})
+	writeStore(t, personalStore, map[string]string{"MEMORY.md": ""})
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+	if err := os.Remove(filepath.Join(personalStore, "tabs.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	out, _ := runRoot(t, "memory", "lint")
+
+	if strings.Contains(out, "LINT043") {
+		t.Errorf("a fact deleted after import still counts:\n%s", out)
+	}
+}
+
+func TestSync_CheckSeedsNothing(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+
+	_, _ = runRoot(t, "sync", "--check")
+
+	if _, err := os.Stat(personalStore); err == nil {
+		t.Error("sync --check seeded the personal store")
+	}
+}
+
+func TestSync_NamesTheSeedCountAndSource(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact, "ci-ubuntu.md": ciFact})
+	var notes strings.Builder
+	adapters.SetWarner(&notes)
+	t.Cleanup(func() { adapters.SetWarner(os.Stderr) })
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(notes.String(), "claude: copied 2 fact(s) from "+filepath.ToSlash(native)) {
+		t.Errorf("notes:\n%s", notes.String())
+	}
+}
+
+// repoStoreWithFacts writes facts into the repository store of the
+// project in the working directory, then leaves repo mode.
+func repoStoreWithFacts(t *testing.T, files map[string]string) string {
+	t.Helper()
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+	repo := filepath.FromSlash(memoryPaths(t)["personal"])
+	writeStore(t, repo, files)
+	if err := os.Remove("agnostic-ai.local.yaml"); err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+
+func TestMemoryImport_CopiesTheRepoStoreIntoTheCheckout(t *testing.T) {
+	importProject(t)
+	repoStoreWithFacts(t, map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+
+	if out, err := runRoot(t, "memory", "import", "--from", "repo"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+		t.Errorf("tabs.md = %q", got)
+	}
+}
+
+func TestLintMemory_ReportsTheRepoStoreInCheckoutMode(t *testing.T) {
+	importProject(t)
+	repoStoreWithFacts(t, map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+
+	out, _ := runRoot(t, "memory", "lint")
+
+	if !strings.Contains(out, "LINT043") || !strings.Contains(out, "memory import --from repo") {
+		t.Errorf("output:\n%s", out)
+	}
+}

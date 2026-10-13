@@ -1144,8 +1144,11 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 			return err
 		}
 		// The first sync to point Claude away from its own store brings
-		// that store's facts along, or they would stop loading.
-		if !owned {
+		// that store's facts along, or they would stop loading. A linked
+		// worktree skips it: Claude Code reads the main checkout's
+		// settings there, so its own store stopped changing once the main
+		// checkout pointed it at personal memory.
+		if !owned && !inLinkedWorktree(".") {
 			if native, err := (Adapter{}).NativeMemoryDir("."); err == nil {
 				emit.RequestMemorySeed(emit.MemorySeed{Target: target, From: native, To: store})
 			}

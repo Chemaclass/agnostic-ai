@@ -159,9 +159,19 @@ type memoryImportPlan struct {
 	present []memoryCopy
 	// kept names the facts the target holds with other content.
 	kept []string
+	// relined names the facts whose source index line looks like a secret,
+	// so they get a line built from their own frontmatter instead.
+	relined []string
 	// skipped names each file left out, with the reason.
-	skipped []string
+	skipped []memorySkip
+	// label names the source in the record of handled facts.
+	label string
 }
+
+// memorySkip is a source file import leaves out, and why.
+type memorySkip struct{ file, reason string }
+
+func (s memorySkip) String() string { return s.file + ": " + s.reason }
 
 // importMemory copies the facts in source into the personal store at
 // target while holding the store's lock. With intoEmpty it copies nothing
@@ -198,7 +208,7 @@ func importMemory(source, target, label string, intoEmpty bool) (memoryImportPla
 // index that link no fact become one more fact, so notes a tool kept in
 // its index come along too.
 func planMemoryImport(source, target, label string) (memoryImportPlan, error) {
-	plan := memoryImportPlan{source: source, target: target}
+	plan := memoryImportPlan{source: source, target: target, label: label}
 	entries, err := os.ReadDir(source)
 	if err != nil {
 		return plan, fmt.Errorf("%s: %w", source, err)
@@ -210,12 +220,12 @@ func planMemoryImport(source, target, label string) (memoryImportPlan, error) {
 			continue
 		}
 		if !e.Type().IsRegular() {
-			plan.skipped = append(plan.skipped, name+": not a regular file")
+			plan.skipped = append(plan.skipped, memorySkip{name, "not a regular file"})
 			continue
 		}
 		body, err := readMemoryFact(filepath.Join(source, name))
 		if err != nil {
-			plan.skipped = append(plan.skipped, name+": "+err.Error())
+			plan.skipped = append(plan.skipped, memorySkip{name, err.Error()})
 			continue
 		}
 		facts = append(facts, memoryCopy{file: name, body: body})
@@ -233,8 +243,12 @@ func planMemoryImport(source, target, label string) (memoryImportPlan, error) {
 	}
 	for _, f := range facts {
 		if line := memorySecretLine(string(f.body)); line > 0 {
-			plan.skipped = append(plan.skipped, fmt.Sprintf("%s: line %d looks like a secret", f.file, line))
+			plan.skipped = append(plan.skipped, memorySkip{f.file, fmt.Sprintf("line %d looks like a secret", line)})
 			continue
+		}
+		if memorySecretIn(f.line) {
+			f.line = parseMemoryTopic(f.file, string(f.body)).indexLine()
+			plan.relined = append(plan.relined, f.file)
 		}
 		existing, err := os.ReadFile(filepath.Join(target, f.file))
 		switch {
@@ -377,7 +391,70 @@ func (p memoryImportPlan) apply() error {
 			written = append(written, c)
 		}
 	}
-	return appendMemoryIndexLines(p.target, append(written, p.present...))
+	if err := appendMemoryIndexLines(p.target, append(written, p.present...)); err != nil {
+		return err
+	}
+	return p.record()
+}
+
+// memoryImportRecord is the file in a personal store that lists, as
+// <source>/<file>, each fact an import looked at, so LINT043 no longer
+// counts a fact the user deleted or merged after it came over.
+const memoryImportRecord = ".imported"
+
+// record adds each fact the plan handled to the store's record.
+func (p memoryImportPlan) record() error {
+	var names []string
+	for _, c := range append(slices.Clone(p.copies), p.present...) {
+		names = append(names, c.file)
+	}
+	names = append(names, p.kept...)
+	for _, s := range p.skipped {
+		names = append(names, s.file)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	path := filepath.Join(p.target, memoryImportRecord)
+	have := importedFacts(p.target)
+	var add strings.Builder
+	for _, name := range names {
+		entry := p.label + "/" + name
+		if !have[entry] {
+			have[entry] = true
+			add.WriteString(entry + "\n")
+		}
+	}
+	if add.Len() == 0 {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	_, err = f.WriteString(add.String())
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}
+
+// importedFacts reads the record of handled facts in store.
+func importedFacts(store string) map[string]bool {
+	out := map[string]bool{}
+	data, err := os.ReadFile(filepath.Join(store, memoryImportRecord))
+	if err != nil {
+		return out
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			out[line] = true
+		}
+	}
+	return out
 }
 
 // writeNewFile writes body to path only when no file is there, and never
@@ -579,6 +656,12 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 			_, _ = fmt.Fprintf(w, "  %s\n", name)
 		}
 	}
+	if len(p.relined) > 0 {
+		_, _ = fmt.Fprintf(w, "Built a new index line for %d fact(s), since the source line looks like a secret:\n", len(p.relined))
+		for _, name := range p.relined {
+			_, _ = fmt.Fprintf(w, "  %s\n", name)
+		}
+	}
 	if len(p.skipped) > 0 {
 		_, _ = fmt.Fprintf(w, "Skipped %d file(s):\n", len(p.skipped))
 		for _, s := range p.skipped {
@@ -645,6 +728,7 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 	if err != nil {
 		return nil, err
 	}
+	handled := importedFacts(personal)
 	type darkStore struct{ dir, from, why string }
 	var candidates []darkStore
 	if slices.Contains(readers.cfg.Targets, memorySourceClaude) && claudeReadsPersonalMemory(readers.cfg, root, personal) {
@@ -671,7 +755,7 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		}
 		missing := 0
 		for _, f := range facts {
-			if !slices.Contains(have, f) {
+			if !slices.Contains(have, f) && !handled[c.from+"/"+f] {
 				missing++
 			}
 		}

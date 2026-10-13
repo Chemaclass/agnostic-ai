@@ -185,3 +185,22 @@ func TestEmit_ExcludesLocalSettingsFromGit(t *testing.T) {
 		t.Errorf("settings.local.json is not ignored: %v", err)
 	}
 }
+
+func TestEmit_QueuesNoSeedInALinkedWorktree(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	repo := canonicalPath(t.TempDir())
+	gitIn(t, repo, "init", "-q")
+	gitIn(t, repo, "commit", "-q", "--allow-empty", "-m", "init")
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitIn(t, repo, "worktree", "add", "-q", linked)
+	testutil.Chdir(t, linked)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+		t.Errorf("a linked worktree queued %+v", seeds)
+	}
+}

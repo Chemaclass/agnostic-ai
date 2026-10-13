@@ -101,7 +101,7 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the share
 
 Claude Code also saves facts by itself. Sync points that memory at your personal memory folder (`autoMemoryDirectory` in `.claude/settings.local.json`), so its saves land where every other tool reads them. Sync keeps a value you set yourself, and Git never commits the file. Claude Code uses the setting once you trust the folder.
 
-Facts Claude Code saved before come along. The first sync that points Claude at personal memory copies them from Claude's own folder (`~/.claude/projects/<project>/memory/`) when personal memory is still empty, and leaves that folder as it is. Otherwise `agnostic-ai lint` names the facts that no longer load (LINT043), and this copies them over:
+Facts Claude Code saved before come along. The first sync that points Claude at personal memory copies them from Claude's own folder (`~/.claude/projects/<project>/memory/`) when personal memory is still empty, and leaves that folder as it is. Otherwise `agnostic-ai lint` names the folder and how many of its facts no longer load (LINT043), and this copies them over:
 
 ```bash
 agnostic-ai memory import --from claude
