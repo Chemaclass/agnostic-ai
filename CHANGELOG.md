@@ -23,6 +23,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Kiro loads both memory lists in every session through a steering include, so you no longer add the include by hand (#2108).
 
+#### Gemini CLI
+
+- With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md`, which sync overwrites (#2103).
+
 #### Crush
 
 - Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).

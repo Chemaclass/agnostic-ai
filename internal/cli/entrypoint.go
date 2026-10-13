@@ -148,17 +148,19 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		plain := !cfg.Sync.TargetOverview
 		unchanged := content
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
+			inlined, left := withoutPartialBuiltinRules(b, consumers[path])
+			notePartialBuiltinRules(path, left, consumers[path], inliners)
 			var rulesAppendix string
 			for i, target := range inliners {
-				next := adapters.RenderRulesAppendix(adapters.EntryPointRules(b, target, cfg))
+				next := adapters.RenderRulesAppendix(adapters.EntryPointRules(inlined, target, cfg))
 				if i > 0 && next != rulesAppendix {
 					return nil, fmt.Errorf("%s: target-specific root rules differ between readers; use compatible target conditions or separate worktrees", path)
 				}
 				rulesAppendix = next
 			}
-			adapters.NoteEntryPointVars(cfg, b, inliners[0])
+			adapters.NoteEntryPointVars(cfg, inlined, inliners[0])
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
-			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix, Sources: ruleInstructionSources(adapters.EntryPointRules(b, inliners[0], cfg))})
+			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix, Sources: ruleInstructionSources(adapters.EntryPointRules(inlined, inliners[0], cfg))})
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer, cfg)))
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
@@ -414,6 +416,50 @@ func pathRuleInliners(cfg *config.Config, consumers []string) []string {
 		}
 	}
 	return out
+}
+
+// withoutPartialBuiltinRules returns b without each built-in rule that
+// some readers of one entry-point file get and others do not, and the
+// rules it left out. One file shows every reader the same text, and a
+// built-in never fails sync, so such a rule stays out of the file. A
+// project rule stays in, so sync still stops on it.
+func withoutPartialBuiltinRules(b spec.Bundle, readers []string) (spec.Bundle, []spec.Entry) {
+	kept := make([]spec.Entry, 0, len(b.Rules))
+	var left []spec.Entry
+	for _, r := range b.Rules {
+		skips := func(t string) bool { return !r.EmitsTo(t) }
+		if r.Layer == layerNameBuiltin && slices.ContainsFunc(readers, r.EmitsTo) && slices.ContainsFunc(readers, skips) {
+			left = append(left, r)
+			continue
+		}
+		kept = append(kept, r)
+	}
+	b.Rules = kept
+	return b, left
+}
+
+// notePartialBuiltinRules tells each reader of path that inlines rules
+// which built-in rule meant for it the file leaves out, and keeps that
+// rule off the list of what the reader reads.
+func notePartialBuiltinRules(path string, left []spec.Entry, readers, inliners []string) {
+	for _, r := range left {
+		var others []string
+		for _, t := range readers {
+			if !r.EmitsTo(t) {
+				others = append(others, t)
+			}
+		}
+		verb := "reads"
+		if len(others) > 1 {
+			verb = "read"
+		}
+		for _, t := range inliners {
+			if r.EmitsTo(t) {
+				adapters.NoteProject(fmt.Sprintf("%s: built-in rule %s is left out of %s, which %s also %s; give %s its own file to load it", t, r.Name, path, strings.Join(others, ", "), verb, t))
+				adapters.NoteEntryOmitted(t, spec.KindRule, r.Name)
+			}
+		}
+	}
 }
 
 // pathLegacyRulesFileImporter returns the first consumer of an

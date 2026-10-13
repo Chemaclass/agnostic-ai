@@ -279,8 +279,14 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 	// not by any adapter's Emit, so the capture sweep above never sees
 	// them. Credit them explicitly.
 	if e.Kind == spec.KindRule && ruleReachesAppendix(b, e) {
+		single := singleEntryBundle(e)
 		for path, tgts := range inlinedRuleEntryPoints(cfg, adapters.Names()) {
 			for _, t := range tgts {
+				// A rule limited to other targets, or a built-in rule left
+				// out of a file its readers disagree on, never reaches t.
+				if _, ok := entryPointRuleFile(cfg, t, e, single); !ok {
+					continue
+				}
 				addContribution(&configured, &extra, configuredSet, contribution{
 					Target: t, Path: path, Section: e.Name, Mode: "section",
 				})

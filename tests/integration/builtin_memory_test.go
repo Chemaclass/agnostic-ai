@@ -240,7 +240,7 @@ func TestBuiltinMemory(t *testing.T) {
 			} else {
 				compareGolden(t, expectedDir, output, "builtin-memory-kiro")
 			}
-			if got := filesHolding(t, dir, "#[[file:"); !slices.Equal(got, []string{kiroMemoryIndexRule}) {
+			if got := filesNaming(t, dir, "#[[file:"); !slices.Equal(got, []string{kiroMemoryIndexRule}) {
 				t.Errorf("files with a Kiro include = %v, want only %s", got, kiroMemoryIndexRule)
 			}
 			_, err = os.Stat(filepath.Join(dir, ".kiro", "steering", "shared-memory-policy.md"))
@@ -301,29 +301,30 @@ func TestBuiltinMemory(t *testing.T) {
 		dir := project(t, []byte(config))
 		run(t, dir, "sync", "--gitignore=off")
 		run(t, dir, "sync", "--check", "--gitignore=off")
-		if got := filesHolding(t, dir, "#[[file:"); !slices.Equal(got, []string{kiroMemoryIndexRule}) {
+		if got := filesNaming(t, dir, "#[[file:"); !slices.Equal(got, []string{kiroMemoryIndexRule}) {
 			t.Errorf("files with a Kiro include = %v, want only %s", got, kiroMemoryIndexRule)
+		}
+		if got := filesNaming(t, dir, "gemini-memory-tiers"); !slices.Equal(got, []string{"GEMINI.md"}) {
+			t.Errorf("the Gemini CLI memory tiers rule should reach GEMINI.md alone, found it in %v", got)
 		}
 	})
 }
 
-// kiroMemoryIndexRule is the steering file the memory built-in writes
-// for Kiro alone: Kiro's include syntax means nothing to other tools.
 const kiroMemoryIndexRule = ".kiro/steering/kiro-memory-index.md"
 
-// filesHolding returns the files under dir, sorted and relative to it,
-// that contain text.
-func filesHolding(t *testing.T, dir, text string) []string {
+// filesNaming lists, sorted and relative to dir, the files sync wrote
+// that contain text. The source folder and links are skipped.
+func filesNaming(t *testing.T, dir, text string) []string {
 	t.Helper()
 	var found []string
 	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() {
-			if entry.Name() == ".git" {
-				return fs.SkipDir
-			}
+		if entry.IsDir() && (entry.Name() == ".agnostic-ai" || entry.Name() == ".git") {
+			return filepath.SkipDir
+		}
+		if !entry.Type().IsRegular() {
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -342,6 +343,7 @@ func filesHolding(t *testing.T, dir, text string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	slices.Sort(found)
 	return found
 }
 
