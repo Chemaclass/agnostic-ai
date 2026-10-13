@@ -119,16 +119,24 @@ func loadMemoryStore(s memoryStore) (memoryContents, bool, error) {
 	if index != "" {
 		c.index = strings.Split(strings.TrimSuffix(index, "\n"), "\n")
 	}
-	for i, line := range c.index {
+	c.entries = memoryIndexEntries(c.index)
+	return c, true, nil
+}
+
+// memoryIndexEntries returns the index lines that link a file in the
+// store, numbered from 1.
+func memoryIndexEntries(index []string) []memoryEntry {
+	var out []memoryEntry
+	for i, line := range index {
 		m := memoryIndexEntry.FindStringSubmatch(line)
 		if m == nil {
 			continue
 		}
 		if target, ok := memoryLinkTarget(m[2]); ok {
-			c.entries = append(c.entries, memoryEntry{line: i + 1, text: strings.TrimRight(line, " \t"), title: m[1], target: target})
+			out = append(out, memoryEntry{line: i + 1, text: strings.TrimRight(line, " \t"), title: m[1], target: target})
 		}
 	}
-	return c, true, nil
+	return out
 }
 
 func readMemoryFile(path string) (string, error) {
@@ -189,8 +197,12 @@ const memoryDroppedShown = 10
 
 // memoryReaders splits the targets that load the memory indexes: hook
 // targets get them through `hook memory`, cut at memoryContextLimit;
-// whole targets import, list, or read them in full.
-type memoryReaders struct{ hook, whole []string }
+// whole targets import, list, or read them in full. cfg is the project
+// config, set only with the memory built-in on.
+type memoryReaders struct {
+	hook, whole []string
+	cfg         *config.Config
+}
 
 // projectMemoryReaders returns how each target of cfg loads memory. With
 // the memory built-in off no target loads it.
@@ -199,6 +211,7 @@ func projectMemoryReaders(cfg *config.Config, bundle spec.Bundle) memoryReaders 
 	if cfg == nil || !slices.Contains(cfg.Builtins, memoryBuiltin) {
 		return r
 	}
+	r.cfg = cfg
 	for _, target := range cfg.Targets {
 		if slices.ContainsFunc(bundle.HooksFor(target), func(e spec.Entry) bool { return e.Name == memoryHookName }) {
 			r.hook = append(r.hook, target)
@@ -223,7 +236,8 @@ func memoryLintReaders() (memoryReaders, error) {
 }
 
 // lintMemory checks every memory store that exists (LINT039 to LINT042),
-// and the indexes' size for the targets that load them.
+// the indexes' size for the targets that load them, and stores whose
+// facts no longer load (LINT043).
 func lintMemory(readers memoryReaders) ([]lintFinding, error) {
 	stores, err := memoryStores()
 	if err != nil {
@@ -247,7 +261,11 @@ func lintMemory(readers memoryReaders) ([]lintFinding, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(out, size...), nil
+	dark, err := lintMemoryDarkStores(readers, ".")
+	if err != nil {
+		return nil, err
+	}
+	return append(append(out, size...), dark...), nil
 }
 
 // lintMemorySize warns when the indexes pass memoryContextLimit
@@ -476,11 +494,7 @@ func (c memoryContents) rebuildIndex() string {
 		if seen[t.file] {
 			continue
 		}
-		line := "- [" + t.title() + "](" + t.file + ")"
-		if d := strings.TrimSpace(t.description); d != "" {
-			line += ": " + d
-		}
-		lines = append(lines, line)
+		lines = append(lines, t.indexLine())
 	}
 	if len(lines) == 0 {
 		return ""
@@ -504,15 +518,25 @@ func (t memoryTopic) title() string {
 	return strings.TrimSuffix(t.file, ".md")
 }
 
+// indexLine is the index line a fact gets from its frontmatter:
+// `- [name](file.md): description`.
+func (t memoryTopic) indexLine() string {
+	line := "- [" + t.title() + "](" + t.file + ")"
+	if d := strings.TrimSpace(t.description); d != "" {
+		line += ": " + d
+	}
+	return line
+}
+
 func newMemoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "memory",
-		Short: "Check, list, and rebuild the shared memory",
+		Short: "Check, list, rebuild, and import the shared memory",
 		Long: "Works on the shared memory stores in the working directory: project memory in " +
 			filepath.ToSlash(defaultMemoryStores[0].dir) + "/ and personal memory in " + filepath.ToSlash(defaultMemoryStores[1].dir) +
 			"/, or in the repository store with memory.personal: repo. A store whose folder is missing is skipped.",
 	}
-	cmd.AddCommand(newMemoryLintCmd(), newMemoryIndexCmd(), newMemoryListCmd(), newMemoryPathCmd())
+	cmd.AddCommand(newMemoryLintCmd(), newMemoryIndexCmd(), newMemoryListCmd(), newMemoryPathCmd(), newMemoryImportCmd())
 	return cmd
 }
 
@@ -522,7 +546,7 @@ func newMemoryLintCmd() *cobra.Command {
 		Use:   "lint",
 		Short: "Run only the memory lint checks",
 		Long: "Reports an index over 100 lines, or indexes over 6,000 bytes together, naming the facts the session-start hook drops (LINT039), an index line whose file is missing (LINT040), " +
-			"a fact no index line links (LINT041), and a line that looks like a secret (LINT042). " +
+			"a fact no index line links (LINT041), a line that looks like a secret (LINT042), and a store whose facts no longer load (LINT043). " +
 			"`lint` and `doctor` report the same findings. Exit code 1 on error findings, or on " +
 			"warnings with --strict. --json prints the findings in the `lint --json` format.",
 		Example: `  agnostic-ai memory lint
@@ -540,11 +564,11 @@ func newMemoryLintCmd() *cobra.Command {
 			if asJSON {
 				return printLintJSON(cmd, "memory lint", findings, strict)
 			}
-			if stores, err := memoryStores(); err != nil || !anyMemoryStore(stores) {
-				cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(defaultMemoryStores[0].dir), filepath.ToSlash(defaultMemoryStores[1].dir))
-				return nil
-			}
 			if len(findings) == 0 {
+				if stores, err := memoryStores(); err != nil || !anyMemoryStore(stores) {
+					cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(defaultMemoryStores[0].dir), filepath.ToSlash(defaultMemoryStores[1].dir))
+					return nil
+				}
 				cmd.Println("ok, no memory findings")
 				return nil
 			}

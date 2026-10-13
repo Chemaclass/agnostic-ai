@@ -255,6 +255,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A line in a memory index or fact file looks like a credential, such as a token by its prefix, a URL password, or a `Bearer` token. Every tool reads memory as plain text, and project memory is committed. The finding names the line, never the value.",
 		Fix:      "Remove the secret from the file and from Git history if it was committed, and rotate it.",
 	},
+	"LINT043": {
+		Severity: lintWarn,
+		Title:    "Memory facts no longer load",
+		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. The finding compares file names only.",
+		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",

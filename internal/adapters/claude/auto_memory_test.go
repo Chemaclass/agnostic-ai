@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -71,6 +72,98 @@ func TestEmit_KeepsTheUsersOwnAutoMemoryDirectory(t *testing.T) {
 	doc := readLocalSettings(t)
 	if doc["autoMemoryDirectory"] != "~/notes" || doc["theme"] != "dark" {
 		t.Errorf("user settings changed: %v", doc)
+	}
+}
+
+func claimAutoMemoryDirectory(t *testing.T) {
+	t.Helper()
+	emit.PriorMergedKeys = func(string) []emit.MergedKey {
+		return []emit.MergedKey{{Path: []string{autoMemoryDirectoryKey}}}
+	}
+	t.Cleanup(func() { emit.PriorMergedKeys = nil })
+}
+
+func TestEmit_QueuesASeedFromClaudesOwnStoreTheFirstTimeItPointsClaudeAway(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	t.Setenv("CLAUDE_CODE_PROJECT_DIR_NAME", "")
+	testutil.TempCwd(t)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	native, err := Adapter{}.NativeMemoryDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := readLocalSettings(t)["autoMemoryDirectory"]
+	seeds := emit.TakeMemorySeeds()
+	if len(seeds) != 1 || seeds[0].From != native || filepath.ToSlash(seeds[0].To) != store || seeds[0].Target != "claude" {
+		t.Errorf("seeds = %+v, want one from %s to %v", seeds, native, store)
+	}
+}
+
+func TestEmit_QueuesNoSeedInADryRun(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, true); err != nil {
+		t.Fatal(err)
+	}
+
+	if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+		t.Errorf("dry run queued %+v", seeds)
+	}
+}
+
+func TestEmit_QueuesNoSeedOnceSyncOwnsTheKey(t *testing.T) {
+	testutil.TempCwd(t)
+	claimAutoMemoryDirectory(t)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+		t.Errorf("a later sync queued %+v", seeds)
+	}
+}
+
+func TestEmit_NamesTheFactsClaudeStopsReadingWhenTheBuiltinGoesAway(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	store := filepath.Join(dir, ".agnostic-ai", "local", "memory")
+	if err := os.MkdirAll(store, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"MEMORY.md", "tabs.md", "ci.md"} {
+		if err := os.WriteFile(filepath.Join(store, name), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	settings := `{"autoMemoryDirectory": "` + filepath.ToSlash(store) + `"}`
+	if err := os.WriteFile(filepath.Join(".claude", "settings.local.json"), []byte(settings), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	claimAutoMemoryDirectory(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	var log strings.Builder
+	prev := emit.Warner
+	emit.Warner = &log
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.FlushCoverageNotes()
+	if !strings.Contains(log.String(), "no longer reads the 2 fact(s) in "+filepath.ToSlash(store)) {
+		t.Errorf("notes:\n%s", log.String())
 	}
 }
 

@@ -1118,11 +1118,13 @@ const autoMemoryDirectoryKey = "autoMemoryDirectory"
 // (#1846). A value the user set stays theirs. CLAUDE.md still imports the
 // personal index: Claude ignores the key until the workspace is trusted.
 func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
+	path := filepath.Join(dir, "settings.local.json")
 	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
+		noteDroppedAutoMemory(path)
 		return nil
 	}
-	path := filepath.Join(dir, "settings.local.json")
-	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
+	owned := emit.ClaimsKey(path, autoMemoryDirectoryKey)
+	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !owned {
 		return nil
 	}
 	store, err := emit.PersonalMemoryDir(cfg, ".")
@@ -1141,6 +1143,36 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
 			return err
 		}
+		// The first sync to point Claude away from its own store brings
+		// that store's facts along, or they would stop loading.
+		if !owned {
+			if native, err := (Adapter{}).NativeMemoryDir("."); err == nil {
+				emit.RequestMemorySeed(emit.MemorySeed{Target: target, From: native, To: store})
+			}
+		}
 	}
 	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
+}
+
+// noteDroppedAutoMemory names, on the sync that drops the key with the
+// memory built-in, the facts Claude Code stops reading from the store the
+// key named. A later sync no longer claims the key and stays quiet.
+func noteDroppedAutoMemory(path string) {
+	if !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var doc map[string]any
+	if json.Unmarshal(data, &doc) != nil {
+		return
+	}
+	store, _ := doc[autoMemoryDirectoryKey].(string)
+	facts, err := emit.MemoryFactFiles(filepath.FromSlash(store))
+	if store == "" || err != nil || len(facts) == 0 {
+		return
+	}
+	emit.NoteProject(fmt.Sprintf("claude: with the memory built-in off, Claude Code no longer reads the %d fact(s) in %s; add memory to builtins to load them again", len(facts), store))
 }

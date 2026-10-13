@@ -113,7 +113,7 @@ It works only when top-level `autoMemoryEnabled` is on in [settings](https://doc
 
 Qoder's own memory store is separate from the field above ([Qoder memory](https://docs.qoder.com/cli/memory)). It lives at `~/.qoder/projects/<project>/memory/` (project) and `~/.qoder/memory/` (user). Each is a `MEMORY.md` index plus one file per topic. `/memory` shows them. `/memory manage` views, edits, or deletes a topic. A session loads the first 200 lines or about 25KB of each active `MEMORY.md`.
 
-Auto memory is off by default. agnostic-ai never reads or writes that store. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
+Auto memory is off by default. agnostic-ai never writes that store. To copy its facts into [shared personal memory](@/docs/memory.md), run `agnostic-ai memory import --path ~/.qoder/projects/<project>/memory`. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
 ## Import
 

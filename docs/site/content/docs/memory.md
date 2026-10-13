@@ -101,6 +101,14 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the share
 
 Claude Code also saves facts by itself. Sync points that memory at your personal memory folder (`autoMemoryDirectory` in `.claude/settings.local.json`), so its saves land where every other tool reads them. Sync keeps a value you set yourself, and Git never commits the file. Claude Code uses the setting once you trust the folder.
 
+Facts Claude Code saved before come along. The first sync that points Claude at personal memory copies them from Claude's own folder (`~/.claude/projects/<project>/memory/`) when personal memory is still empty, and leaves that folder as it is. Otherwise `agnostic-ai lint` names the facts that no longer load (LINT043), and this copies them over:
+
+```bash
+agnostic-ai memory import --from claude
+```
+
+`--path` copies from any folder with the same layout, such as Gemini CLI's `~/.gemini/tmp/<project>/memory/` or Qoder's `~/.qoder/projects/<project>/memory/`. See [memory import](@/docs/cli-reference/maintain.md#memory).
+
 Codex, Gemini CLI, and Qoder have their own memory too, off by default. Leave it off so they save here. Windsurf's older Cascade agent keeps its own memories in `~/.codeium/windsurf/memories/`, and no project setting moves them.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
@@ -119,6 +127,8 @@ $ agnostic-ai memory path
 project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
+
+Switching keeps your facts: `agnostic-ai lint` names the ones left in the other folder, and `agnostic-ai memory import --from checkout` copies them into the new one (`--from repo` when you switch back).
 
 That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one of them instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/configuration.md#gitignore).
 

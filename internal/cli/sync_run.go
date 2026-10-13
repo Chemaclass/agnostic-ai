@@ -566,6 +566,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	adapters.TakeResolvedAliases()
+	adapters.TakeMemorySeeds()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -785,6 +786,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		} else if changed {
 			report.updated = append(report.updated, worktreeIncludeFile)
 		}
+	}
+
+	if !dryRun {
+		runMemorySeeds()
 	}
 
 	// Concurrent emission appends capability warnings / coverage notes in

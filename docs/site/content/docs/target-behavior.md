@@ -94,7 +94,7 @@ The [spec format guide](@/docs/spec-format/_index.md) defines every portable kin
 
 [Claude Code](@/docs/targets/claude.md) (`~/.claude/projects/<project>/memory/`) and [Qoder](@/docs/targets/qoder.md) (`~/.qoder/projects/<project>/memory/`) each keep a memory store on your machine: a `MEMORY.md` index plus one topic file per memory.
 
-With the [`memory` built-in](@/docs/memory.md) on, sync points Claude Code's store at the shared personal store by writing `autoMemoryDirectory` to `.claude/settings.local.json`. Without it, agnostic-ai does not touch either store. The contents are one person's corrections and session context, not a project convention.
+With the [`memory` built-in](@/docs/memory.md) on, sync points Claude Code's store at the shared personal store by writing `autoMemoryDirectory` to `.claude/settings.local.json`, and copies Claude's earlier facts into personal memory while it is empty. agnostic-ai never writes either store; [`memory import`](@/docs/cli-reference/maintain.md#memory) reads one to copy its facts on request. The contents are one person's corrections and session context, not a project convention.
 
 Put durable team knowledge in a spec:
 

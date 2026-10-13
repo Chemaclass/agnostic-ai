@@ -51,7 +51,8 @@ func newImportCmd() *cobra.Command {
 			"each proposed change, which sources wrote it, and where sources disagree. " +
 			"A spec the tool shows unchanged stays as it is. An import that would replace an " +
 			"existing spec with different content, or lose `::target` blocks the tool " +
-			"does not show, stops before writing anything and lists each one; `--overwrite` replaces them.",
+			"does not show, stops before writing anything and lists each one; `--overwrite` replaces them. " +
+			"A tool's own memory store is not imported here: `agnostic-ai memory import` copies its facts into personal memory.",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
   agnostic-ai import claude
