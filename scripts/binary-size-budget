@@ -166,4 +166,8 @@
 # #2117 auto measured 19366048 on Go 1.27.2, up 32768 from
 # 567baf1e (19333280): shared automatic handoff snapshots and detached task identity.
 # Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 measured 19333280 on Go 1.27.2, up 20480 from
+# 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
 19375000
