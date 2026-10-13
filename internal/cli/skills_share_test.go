@@ -454,3 +454,39 @@ func TestSync_SharedSkills_EnablingAfterPlainSyncKeepsCanonical(t *testing.T) {
 		}
 	}
 }
+
+func TestSharedSkillsReconcile_PreservesNativeFileSymlinks(t *testing.T) {
+	for _, mode := range []string{"enabled", "disabled", "unmanaged"} {
+		t.Run(mode, func(t *testing.T) {
+			testutil.TempCwd(t)
+			path := filepath.Join(".codex", "config.toml")
+			original := "[sandbox_workspace_write]\nwritable_roots = [\"private-handoffs\"]\n"
+			destination := filepath.Join(t.TempDir(), "native settings")
+			mustWriteFile(t, destination, original)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(destination, path); err != nil {
+				if runtime.GOOS == "windows" {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			state := &sharedSkillsState{enabled: mode != "disabled", coversAll: true}
+			if mode == "unmanaged" {
+				state.unmanaged = []string{path}
+			}
+			sess, err := state.reconcile([]string{path}, false)
+			if err != nil {
+				t.Fatalf("reconcile native settings: %v", err)
+			}
+			sess.Commit()
+			if got, err := os.Readlink(path); err != nil || got != destination {
+				t.Errorf("native file link changed: %q, %v", got, err)
+			}
+			if got := readFile(t, destination); got != original {
+				t.Errorf("native settings changed: %q", got)
+			}
+		})
+	}
+}
