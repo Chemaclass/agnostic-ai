@@ -136,6 +136,7 @@ func gitRepo(t *testing.T) (string, func(args ...string)) {
 		}
 	}
 	git("init", "-q")
+	git("config", "maintenance.auto", "false")
 	return dir, git
 }
 
