@@ -172,4 +172,7 @@
 # #2117 automatic snapshots with retention and Cline measured 19402912 on Go1.27.2,
 # up 61440 from main cd938228 (19341472). Same release flags;
 # keep the established 8 KB build allowance.
-19440000
+# #2117 list with retention and Cline measured 19468448 on Go1.27.2,
+# up 126976 from main cd938228 (19341472). Same release flags;
+# keep the established 8 KB build allowance.
+19477000
