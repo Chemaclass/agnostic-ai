@@ -231,7 +231,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	bundle, err := spec.LoadLayered(layers)
+	bundle, err := loadGlobalBundle(layers)
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	for _, rule := range bundle.Rules {
-		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
+		if conditionalGlobalRule(rule) {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
 	}
@@ -662,6 +662,10 @@ func pruneEmptyGlobalDirs(removals, trees []string) {
 			}
 		}
 	}
+}
+
+func conditionalGlobalRule(rule spec.Entry) bool {
+	return rule.Scope != "" || hasGlobalRuleCondition(rule.Meta)
 }
 
 func hasGlobalRuleCondition(meta map[string]any) bool {

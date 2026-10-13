@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -30,6 +31,21 @@ func globalLayers(source string, names []string) ([]spec.Layer, error) {
 		{Name: "global", Root: source, Sources: sources},
 		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
 	}...), nil
+}
+
+// loadGlobalBundle loads layers as the global scope reads them. Home
+// instructions reach every tool in every project, so built-in rules
+// scoped to tools or paths, such as the Kiro memory include, are left to
+// project sync.
+func loadGlobalBundle(layers []spec.Layer) (spec.Bundle, error) {
+	b, err := spec.LoadLayered(layers)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	b.Rules = slices.DeleteFunc(b.Rules, func(rule spec.Entry) bool {
+		return rule.Layer == layerNameBuiltin && conditionalGlobalRule(rule)
+	})
+	return b, nil
 }
 
 // globalSourceRoot resolves the source root as sync --global does,
@@ -124,7 +140,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
-	b, err := spec.LoadLayered(layers)
+	b, err := loadGlobalBundle(layers)
 	if err != nil {
 		return checkScope{}, err
 	}
@@ -156,7 +172,7 @@ func (s checkScope) emptyHint() string {
 func lintGlobalRules(rules []spec.Entry) []validationIssue {
 	var out []validationIssue
 	for _, rule := range rules {
-		if rule.Scope == "" && !hasGlobalRuleCondition(rule.Meta) {
+		if !conditionalGlobalRule(rule) {
 			continue
 		}
 		out = append(out, validationIssue{
