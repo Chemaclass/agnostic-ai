@@ -166,4 +166,7 @@
 # #2117 list measured 19427488 on Go 1.27.2, up 61440 from
 # 2cb6bbfe (19366048): the task listing command and bounded local Git state lookup.
 # Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
-19436000
+# #2117 list with writer guards measured 19431584 on Go1.27.2,
+# up 98304 from main 2e6c2ec9 (19333280). Same release flags;
+# keep the established 8 KB build allowance.
+19440000
