@@ -31,7 +31,10 @@ command: |
     handoff_record_head=${handoff_record_head%%" | "*}
     handoff_key=branch:$handoff_record_branch
     handoff_extra=$(sed -n "3{p;q;}" "$handoff_file") || return 1
-    case "$handoff_extra" in *" | detached: true") handoff_key=detached:$handoff_record_head ;; esac
+    case "$handoff_extra" in
+      *" | detached: true") handoff_key=detached:$handoff_record_head; return 0 ;;
+      *" | detached: false") return 0 ;;
+    esac
     if [ "$handoff_record_branch" = detached ] &&
        [ "${handoff_file##*/}" = "detached-$handoff_record_head.auto.md" ]; then
       handoff_key=detached:$handoff_record_head
@@ -186,7 +189,10 @@ commandWindows: |
     handoff_record_head=${handoff_record_head%%" | "*}
     handoff_key=branch:$handoff_record_branch
     handoff_extra=$(sed -n "3{p;q;}" "$handoff_file") || return 1
-    case "$handoff_extra" in *" | detached: true") handoff_key=detached:$handoff_record_head ;; esac
+    case "$handoff_extra" in
+      *" | detached: true") handoff_key=detached:$handoff_record_head; return 0 ;;
+      *" | detached: false") return 0 ;;
+    esac
     if [ "$handoff_record_branch" = detached ] &&
        [ "${handoff_file##*/}" = "detached-$handoff_record_head.auto.md" ]; then
       handoff_key=detached:$handoff_record_head
@@ -342,7 +348,10 @@ x-factory:
       handoff_record_head=${handoff_record_head%%" | "*}
       handoff_key=branch:$handoff_record_branch
       handoff_extra=$(sed -n "3{p;q;}" "$handoff_file") || return 1
-      case "$handoff_extra" in *" | detached: true") handoff_key=detached:$handoff_record_head ;; esac
+      case "$handoff_extra" in
+        *" | detached: true") handoff_key=detached:$handoff_record_head; return 0 ;;
+        *" | detached: false") return 0 ;;
+      esac
       if [ "$handoff_record_branch" = detached ] &&
          [ "${handoff_file##*/}" = "detached-$handoff_record_head.auto.md" ]; then
         handoff_key=detached:$handoff_record_head
@@ -660,7 +669,10 @@ x-claude:
       handoff_record_head=${handoff_record_head%%" | "*}
       handoff_key=branch:$handoff_record_branch
       handoff_extra=$(sed -n "3{p;q;}" "$handoff_file") || return 1
-      case "$handoff_extra" in *" | detached: true") handoff_key=detached:$handoff_record_head ;; esac
+      case "$handoff_extra" in
+        *" | detached: true") handoff_key=detached:$handoff_record_head; return 0 ;;
+        *" | detached: false") return 0 ;;
+      esac
       if [ "$handoff_record_branch" = detached ] &&
          [ "${handoff_file##*/}" = "detached-$handoff_record_head.auto.md" ]; then
         handoff_key=detached:$handoff_record_head

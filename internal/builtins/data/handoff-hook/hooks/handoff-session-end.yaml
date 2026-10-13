@@ -83,7 +83,7 @@ command: |
     fi
     mkdir -p "$handoff_parent" || return 1
     handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
-    handoff_detached=
+    handoff_detached=" | detached: false"
     [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
     if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
        ! printf "# Automatic handoff
@@ -239,7 +239,7 @@ commandWindows: |
     fi
     mkdir -p "$handoff_parent" || return 1
     handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
-    handoff_detached=
+    handoff_detached=" | detached: false"
     [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
     if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
        ! printf "# Automatic handoff
@@ -396,7 +396,7 @@ x-factory:
       fi
       mkdir -p "$handoff_parent" || return 1
       handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
-      handoff_detached=
+      handoff_detached=" | detached: false"
       [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
       if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
          ! printf "# Automatic handoff
@@ -715,7 +715,7 @@ x-claude:
       fi
       mkdir -p "$handoff_parent" || return 1
       handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
-      handoff_detached=
+      handoff_detached=" | detached: false"
       [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
       if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
          ! printf "# Automatic handoff
