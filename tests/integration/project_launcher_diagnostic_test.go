@@ -148,7 +148,7 @@ func assertLifecycleDiagnosticPhases(t *testing.T, path string, want ...string) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	decoder := json.NewDecoder(file)
 	for _, phase := range want {
 		var receipt struct {
