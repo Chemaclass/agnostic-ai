@@ -251,6 +251,13 @@ func OmittedEntry(target string, kind spec.Kind, name string) bool {
 	return emit.OmittedEntry(target, kind, name)
 }
 
+// NoteEntryOmitted records that target's output leaves out the spec of
+// kind named name (re-exported from the emit layer). Call it next to
+// the coverage note that says why.
+func NoteEntryOmitted(target string, kind spec.Kind, name string) {
+	emit.NoteEntryOmitted(target, kind, name)
+}
+
 // FlushCoverageNotes prints any buffered coverage notes, grouped by
 // kind, then clears the buffer. Call once at the end of a sync pass.
 func FlushCoverageNotes() { emit.FlushCoverageNotes() }
@@ -344,6 +351,12 @@ const ProjectLocalEntryPointPath = emit.ProjectLocalEntryPointPath
 // without an entry-point convention.
 func EntryPointPath(cfg *config.Config, target string) string {
 	return emit.EntryPointPath(cfg, target)
+}
+
+// EntryPointReaders returns, sorted, target and every configured target
+// that reads the same entry-point file (re-exported from the emit layer).
+func EntryPointReaders(cfg *config.Config, target string) []string {
+	return emit.EntryPointReaders(cfg, target)
 }
 
 // ConventionalEntryPointPaths returns the distinct conventional root
@@ -955,6 +968,44 @@ func RepoMemoryFiles(cfg *config.Config, target string) []string {
 	}
 	return filer.RepoMemoryFiles(cfg)
 }
+
+// NativeMemoryStorer is an adapter whose tool keeps its own memory store
+// on this machine, as a MEMORY.md index beside one file per fact.
+type NativeMemoryStorer interface {
+	// NativeMemoryDir returns the store the tool uses for the project at
+	// root when no setting moves it.
+	NativeMemoryDir(root string) (string, error)
+}
+
+// NativeMemoryDir returns the native memory store of target for the
+// project at root, and false when the target keeps none.
+func NativeMemoryDir(target, root string) (string, bool, error) {
+	adapter, err := Resolve(target)
+	if err != nil {
+		return "", false, nil
+	}
+	storer, ok := adapter.(NativeMemoryStorer)
+	if !ok {
+		return "", false, nil
+	}
+	dir, err := storer.NativeMemoryDir(root)
+	return dir, true, err
+}
+
+// MemorySeed is a copy of a tool's earlier facts into the empty personal
+// store, queued by an adapter (re-exported from the emit layer).
+type MemorySeed = emit.MemorySeed
+
+// TakeMemorySeeds returns the seeds adapters queued and clears the queue.
+func TakeMemorySeeds() []MemorySeed { return emit.TakeMemorySeeds() }
+
+// MemoryFactFiles returns the fact files in a memory store, by name
+// (re-exported from the emit layer).
+func MemoryFactFiles(dir string) ([]string, error) { return emit.MemoryFactFiles(dir) }
+
+// ExcludeFromGit adds pattern to the repository's info/exclude
+// (re-exported from the emit layer).
+func ExcludeFromGit(pattern string) error { return emit.ExcludeFromGit(pattern) }
 
 // AppendMemoryBlock appends the memory block to body, replacing any
 // earlier one (re-exported from the emit layer).

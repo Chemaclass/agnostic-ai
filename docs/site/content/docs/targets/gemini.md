@@ -62,6 +62,20 @@ PowerShell reads folded args the same way unless one holds an apostrophe. A quot
 Older versions wrote `.aiexclude`, which Gemini CLI never reads. Sync removes a generated one.
 {% </details> %}
 
+## Shared memory
+
+Gemini CLI saves facts by editing its memory files itself, and has no setting to turn that off. On its own, it saves team facts to `GEMINI.md`, which sync writes over. With `builtins: [memory]`, sync adds the `gemini-memory-tiers` rule to `GEMINI.md`. Gemini CLI keeps its own memory, with one change for the file sync owns:
+
+| Gemini CLI tier | Saves to |
+| --- | --- |
+| Project instructions: team conventions, architecture rules, workflows | `.agnostic-ai/memory/`, after you confirm, instead of `GEMINI.md` |
+| Private project memory: your machine and local setup | its own private memory (`~/.gemini/tmp/<project>/memory/`), plus a copy in your personal memory folder |
+| Global personal memory: preferences for every project | `~/.gemini/GEMINI.md`, outside the block `sync --global` writes, plus a copy in your personal memory folder |
+
+The copies are how other tools read what Gemini CLI learns. If it edits `GEMINI.md` anyway, the next sync keeps the edit in `GEMINI.md.bak` and suggests saving it as a fact in `.agnostic-ai/memory/`.
+
+When Gemini CLI's instructions file is one another target also reads, such as `AGENTS.md`, sync leaves the rule out of that file and prints a note. `sync --global` leaves it out too, because the global block reaches every tool. See [shared memory](@/docs/memory.md).
+
 ## Config keys
 
 | Key | Default | Notes |

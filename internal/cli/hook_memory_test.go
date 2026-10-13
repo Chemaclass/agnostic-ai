@@ -62,18 +62,29 @@ func TestHookMemory_ReadsTheTargetFromTheHookEnvironment(t *testing.T) {
 	}
 }
 
-func TestHookMemory_RepliesWithAdditionalContextForCopilot(t *testing.T) {
+// Copilot CLI reads the top-level key and VS Code the nested one.
+func TestHookMemory_RepliesWithBothContextKeysForCopilot(t *testing.T) {
 	memoryHookProject(t, "- [Quote \"x\" and \\ path](q.md): café\n")
 
 	out := runHookMemory(t, "--target", "copilot")
 	var reply struct {
-		AdditionalContext string `json:"additionalContext"`
+		AdditionalContext  string `json:"additionalContext"`
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
 	}
 	if err := json.Unmarshal([]byte(out), &reply); err != nil {
 		t.Fatalf("invalid JSON %q: %v", out, err)
 	}
 	if !strings.Contains(reply.AdditionalContext, `Quote "x" and \ path`) || !strings.Contains(reply.AdditionalContext, "café") {
 		t.Errorf("context lost text: %q", reply.AdditionalContext)
+	}
+	if reply.HookSpecificOutput.HookEventName != "SessionStart" {
+		t.Errorf("hookEventName = %q, want SessionStart", reply.HookSpecificOutput.HookEventName)
+	}
+	if reply.HookSpecificOutput.AdditionalContext != reply.AdditionalContext {
+		t.Errorf("nested context differs from the top-level one:\n%q\n%q", reply.HookSpecificOutput.AdditionalContext, reply.AdditionalContext)
 	}
 }
 
@@ -256,6 +267,24 @@ func TestHookMemory_RepliesWithHookSpecificContextForGemini(t *testing.T) {
 	}
 	if reply.HookSpecificOutput.HookEventName != "SessionStart" || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "CI is Ubuntu only") {
 		t.Errorf("gemini reply = %+v", reply)
+	}
+}
+
+func TestHookMemory_RepliesWithHookSpecificContextForQoder(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+
+	var reply struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	out := runHookMemory(t, "--target", "qoder")
+	if err := json.Unmarshal([]byte(out), &reply); err != nil {
+		t.Fatalf("invalid JSON %q: %v", out, err)
+	}
+	if reply.HookSpecificOutput.HookEventName != "SessionStart" || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "CI is Ubuntu only") {
+		t.Errorf("qoder reply = %+v", reply)
 	}
 }
 

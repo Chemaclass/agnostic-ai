@@ -17,16 +17,17 @@ import (
 // Sync writes this checkout's absolute path in its local settings.
 const autoMemoryDirectoryKey = "autoMemoryDirectory"
 
-// emitAutoMemoryDirectory points Claude Code's auto memory at the shared
-// personal store, so what Claude saves on its own reaches every tool
-// (#1846) and Claude Code loads the personal index itself. A value the
-// user set stays theirs.
 func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
-	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
+	path := filepath.Join(dir, "settings.local.json")
+	if sess.IsUnmanaged(path) {
 		return nil
 	}
-	path := filepath.Join(dir, "settings.local.json")
-	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
+	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
+		noteDroppedAutoMemory(path)
+		return nil
+	}
+	owned := emit.ClaimsKey(path, autoMemoryDirectoryKey)
+	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !owned {
 		return nil
 	}
 	store, err := emit.PersonalMemoryDir(cfg, ".")
@@ -36,9 +37,8 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 	if err := sess.CreateRepoMemoryStore(cfg, store, dryRun); err != nil {
 		return err
 	}
-	value, err := autoMemoryDirectoryValue(store)
-	if err != nil {
-		return err
+	if store, err = filepath.Abs(store); err != nil {
+		return fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
 	}
 	// The file holds this checkout's absolute path, so it must never be
 	// committed, even when sync creates it before Claude Code ignores it.
@@ -46,18 +46,14 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
 			return err
 		}
+		// Linked worktrees share native memory until the main checkout redirects it.
+		if !owned && !mainWorktreeRedirectsAutoMemory(".", dir) {
+			if native, err := (Adapter{}).NativeMemoryDir("."); err == nil {
+				emit.RequestMemorySeed(emit.MemorySeed{Target: target, From: native, To: store})
+			}
+		}
 	}
-	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: value}, dryRun)
-}
-
-// autoMemoryDirectoryValue is the autoMemoryDirectory value sync writes
-// for the personal store.
-func autoMemoryDirectoryValue(store string) (string, error) {
-	abs, err := filepath.Abs(store)
-	if err != nil {
-		return "", fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
-	}
-	return filepath.ToSlash(abs), nil
+	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
 }
 
 func AutoMemoryLoadsPersonalIndex(cfg *config.Config) (bool, error) {
@@ -110,14 +106,18 @@ func (Adapter) NativePersonalMemoryDir(cfg *config.Config, root string) (string,
 		return "", nil
 	}
 	var named string
-	if json.Unmarshal(value, &named) != nil || !filepath.IsAbs(filepath.FromSlash(named)) {
+	if json.Unmarshal(value, &named) != nil {
+		return "", nil
+	}
+	home, _ := os.UserHomeDir()
+	named = autoMemoryDirectoryPath(named, home)
+	if named == "" {
 		return "", nil
 	}
 	absStore, err := filepath.Abs(store)
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
 	}
-	named = filepath.FromSlash(named)
 	if emit.SamePath(named, absStore) {
 		return store, nil
 	}
@@ -263,4 +263,73 @@ func userSettingsPath() string {
 		return ""
 	}
 	return filepath.Join(home, ".claude", "settings.json")
+}
+
+func autoMemoryDirectoryPath(dir, home string) string {
+	if rest, ok := strings.CutPrefix(dir, "~/"); ok {
+		if home == "" {
+			return ""
+		}
+		return filepath.Join(home, filepath.FromSlash(rest))
+	}
+	if filepath.IsAbs(dir) {
+		return filepath.Clean(dir)
+	}
+	return ""
+}
+
+func mainWorktreeRedirectsAutoMemory(root, dir string) bool {
+	if !inLinkedWorktree(root) {
+		return false
+	}
+	main := memoryProjectRoot(root)
+	native, err := (Adapter{}).NativeMemoryDir(root)
+	if err != nil {
+		return false
+	}
+	home, _ := os.UserHomeDir()
+	for _, name := range []string{"settings.local.json", "settings.json"} {
+		settingsDir := dir
+		if !filepath.IsAbs(settingsDir) {
+			settingsDir = filepath.Join(main, settingsDir)
+		}
+		path := filepath.Join(settingsDir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var doc map[string]any
+		data, _ = emit.StripJSONC(data)
+		if json.Unmarshal(data, &doc) != nil {
+			continue
+		}
+		store, _ := doc[autoMemoryDirectoryKey].(string)
+		if store = autoMemoryDirectoryPath(store, home); store != "" {
+			return canonicalPath(store) != canonicalPath(native)
+		}
+	}
+	return false
+}
+
+// noteDroppedAutoMemory names, on the sync that drops the key with the
+// memory built-in, the facts Claude Code stops reading from the store the
+// key named. A later sync no longer claims the key and stays quiet.
+func noteDroppedAutoMemory(path string) {
+	if !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var doc map[string]any
+	if json.Unmarshal(data, &doc) != nil {
+		return
+	}
+	store, _ := doc[autoMemoryDirectoryKey].(string)
+	facts, err := emit.MemoryFactFiles(filepath.FromSlash(store))
+	if store == "" || err != nil || len(facts) == 0 {
+		return
+	}
+	emit.NoteProject(fmt.Sprintf("claude: with the memory built-in off, Claude Code no longer reads the %d fact(s) in %s; add memory to builtins to load them again", len(facts), store))
 }

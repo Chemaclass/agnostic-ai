@@ -3,12 +3,15 @@ package emit
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -78,6 +81,52 @@ func MainCheckoutAt(projectRoot string) (root, project string, ok bool) {
 	}
 	root = filepath.Dir(common)
 	return root, filepath.Join(root, filepath.FromSlash(strings.TrimSuffix(prefix, "\r"))), true
+}
+
+// MemorySeed asks sync to copy the facts in From into the personal store
+// To once every target has emitted, when To holds no Markdown file yet.
+// Target names the tool that keeps From.
+type MemorySeed struct{ Target, From, To string }
+
+var memorySeeds struct {
+	mu    sync.Mutex
+	queue []MemorySeed
+}
+
+// RequestMemorySeed queues a seed. Adapters only ask: the copy belongs to
+// the CLI, which owns the fact checks and runs it after a real sync only.
+func RequestMemorySeed(seed MemorySeed) {
+	memorySeeds.mu.Lock()
+	defer memorySeeds.mu.Unlock()
+	memorySeeds.queue = append(memorySeeds.queue, seed)
+}
+
+// TakeMemorySeeds returns the queued seeds and clears the queue.
+func TakeMemorySeeds() []MemorySeed {
+	memorySeeds.mu.Lock()
+	defer memorySeeds.mu.Unlock()
+	out := memorySeeds.queue
+	memorySeeds.queue = nil
+	return out
+}
+
+// MemoryFactFiles returns the fact files in dir, by name: every regular
+// Markdown file but the MEMORY.md index. A missing dir has none.
+func MemoryFactFiles(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", dir, err)
+	}
+	var out []string
+	for _, e := range entries {
+		if e.Type().IsRegular() && filepath.Ext(e.Name()) == ".md" && e.Name() != "MEMORY.md" {
+			out = append(out, e.Name())
+		}
+	}
+	return out, nil
 }
 
 // CreateRepoMemoryStore creates the repo store dir, private to the user,

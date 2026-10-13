@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -371,5 +372,204 @@ func TestAutoMemoryLoadsPersonalIndex_WorktreeBlockFollowsTheDirectorySource(t *
 				t.Errorf("got %v, %v; want %v", got, err, !tracked)
 			}
 		})
+	}
+}
+
+func claimAutoMemoryDirectory(t *testing.T) {
+	t.Helper()
+	emit.PriorMergedKeys = func(string) []emit.MergedKey {
+		return []emit.MergedKey{{Path: []string{autoMemoryDirectoryKey}}}
+	}
+	t.Cleanup(func() { emit.PriorMergedKeys = nil })
+}
+
+func TestEmit_QueuesASeedFromClaudesOwnStoreTheFirstTimeItPointsClaudeAway(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	t.Setenv("CLAUDE_CODE_PROJECT_DIR_NAME", "")
+	testutil.TempCwd(t)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	native, err := Adapter{}.NativeMemoryDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := readLocalSettings(t)["autoMemoryDirectory"]
+	seeds := emit.TakeMemorySeeds()
+	if len(seeds) != 1 || seeds[0].From != native || filepath.ToSlash(seeds[0].To) != store || seeds[0].Target != "claude" {
+		t.Errorf("seeds = %+v, want one from %s to %v", seeds, native, store)
+	}
+}
+
+func TestEmit_QueuesNoSeedInADryRun(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, true); err != nil {
+		t.Fatal(err)
+	}
+
+	if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+		t.Errorf("dry run queued %+v", seeds)
+	}
+}
+
+func TestEmit_QueuesNoSeedOnceSyncOwnsTheKey(t *testing.T) {
+	testutil.TempCwd(t)
+	claimAutoMemoryDirectory(t)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+		t.Errorf("a later sync queued %+v", seeds)
+	}
+}
+
+func TestEmit_NamesTheFactsClaudeStopsReadingWhenTheBuiltinGoesAway(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	store := filepath.Join(dir, ".agnostic-ai", "local", "memory")
+	if err := os.MkdirAll(store, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"MEMORY.md", "tabs.md", "ci.md"} {
+		if err := os.WriteFile(filepath.Join(store, name), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	settings := `{"autoMemoryDirectory": "` + filepath.ToSlash(store) + `"}`
+	if err := os.WriteFile(filepath.Join(".claude", "settings.local.json"), []byte(settings), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	claimAutoMemoryDirectory(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	var log strings.Builder
+	prev := emit.Warner
+	emit.Warner = &log
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.FlushCoverageNotes()
+	if !strings.Contains(log.String(), "no longer reads the 2 fact(s) in "+filepath.ToSlash(store)) {
+		t.Errorf("notes:\n%s", log.String())
+	}
+}
+
+// The file holds an absolute checkout path, so sync keeps it out of Git
+// even before Claude Code ignores it.
+
+func TestEmit_QueuesNoSeedWhenTheMainWorktreeRedirectsAutoMemory(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	repo := canonicalPath(t.TempDir())
+	gitIn(t, repo, "init", "-q")
+	gitIn(t, repo, "commit", "-q", "--allow-empty", "-m", "init")
+	if err := os.MkdirAll(filepath.Join(repo, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	settings, err := json.Marshal(map[string]string{autoMemoryDirectoryKey: filepath.Join(repo, ".agnostic-ai", "local", "memory")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".claude", "settings.local.json"), append([]byte("// Claude settings\n"), settings...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitIn(t, repo, "worktree", "add", "-q", linked)
+	testutil.Chdir(t, linked)
+	emit.TakeMemorySeeds()
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+		t.Errorf("a linked worktree queued %+v", seeds)
+	}
+}
+
+func TestEmit_QueuesASeedWhenTheMainWorktreeStillUsesNativeMemory(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	repo := canonicalPath(t.TempDir())
+	gitIn(t, repo, "init", "-q")
+	gitIn(t, repo, "commit", "-q", "--allow-empty", "-m", "init")
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitIn(t, repo, "worktree", "add", "-q", linked)
+	testutil.Chdir(t, linked)
+	emit.TakeMemorySeeds()
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	native, err := Adapter{}.NativeMemoryDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seeds := emit.TakeMemorySeeds()
+	if len(seeds) != 1 || seeds[0].From != native {
+		t.Errorf("seeds = %+v, want native store %s", seeds, native)
+	}
+}
+
+func TestEmit_QueuesNoSeedWhenTheMainWorktreeRedirectsToAHomeRelativeStore(t *testing.T) {
+	cases := []struct {
+		name, scope string
+		comments    bool
+	}{
+		{"local JSONC", "settings.local.json", true},
+		{"project JSONC", "settings.json", true},
+		{"local JSON", "settings.local.json", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+			repo := canonicalPath(t.TempDir())
+			gitIn(t, repo, "init", "-q")
+			gitIn(t, repo, "commit", "-q", "--allow-empty", "-m", "init")
+			if err := os.MkdirAll(filepath.Join(repo, ".claude"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			settings := []byte("{\n\"autoMemoryDirectory\": \"~/notes\"\n}\n")
+			if tc.comments {
+				settings = append([]byte("// Claude settings\n"), settings...)
+			}
+			if err := os.WriteFile(filepath.Join(repo, ".claude", tc.scope), settings, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			linked := filepath.Join(t.TempDir(), "linked")
+			gitIn(t, repo, "worktree", "add", "-q", linked)
+			testutil.Chdir(t, linked)
+			emit.TakeMemorySeeds()
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+				t.Fatal(err)
+			}
+			if seeds := emit.TakeMemorySeeds(); len(seeds) != 0 {
+				t.Errorf("main home-relative store queued %+v", seeds)
+			}
+		})
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_HomeRelativePersonalStoreUsesNativeMemory(t *testing.T) {
+	autoMemoryProject(t)
+	root, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", root)
+	t.Setenv("USERPROFILE", root)
+	writeClaudeSettings(t, filepath.Join(".claude", "settings.local.json"), `{"autoMemoryDirectory":"~/.agnostic-ai/local/memory"}`)
+	if got, err := AutoMemoryLoadsPersonalIndex(&config.Config{Builtins: []string{"memory"}}); err != nil || !got {
+		t.Errorf("got %v, %v; want home-relative personal store to use native memory", got, err)
 	}
 }

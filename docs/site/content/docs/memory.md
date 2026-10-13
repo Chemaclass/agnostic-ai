@@ -70,6 +70,8 @@ Every tool gets the `shared-memory-policy` rule, which tells it when to read, sa
 
 To recall what the project knows about a topic, or to clean memory up (merge duplicates, drop stale facts), ask your tool to use the `shared-memory` skill. You confirm each change.
 
+Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own memory, saves team facts here instead of in the `GEMINI.md` that sync writes over, and copies its private facts to personal memory. See [Gemini CLI](@/docs/targets/gemini.md#shared-memory).
+
 ## How each tool loads it {#how-each-tool-loads-it}
 
 | Tool | How |
@@ -80,7 +82,7 @@ To recall what the project knows about a topic, or to clean memory up (merge dup
 | OpenCode, Kilo Code | The config lists both files |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
-Aider and Kiro get only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself:
+Aider and Kiro get only the rule, because both show a missing file: Aider with an error, Kiro with a visible marker in its steering content. Once both `MEMORY.md` files exist, add them yourself:
 
 - Aider, in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
 - Kiro, in a steering file: `#[[file:.agnostic-ai/memory/MEMORY.md]]`
@@ -105,7 +107,38 @@ Claude Code then loads your personal list as its own memory: the first 200 lines
 
 `CLAUDE.md` imports both lists, and the hook adds nothing, when auto memory is off (`autoMemoryEnabled: false` in a settings file, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` in your shell or a settings `env` block), or when your own `autoMemoryDirectory` points to another folder. It also keeps the personal import when any settings file sets `permissions.blockReadsOutsideWorkingDirectories: true` and the folder comes from repository-supplied settings (for example, a tracked local file or a local file outside Git), or when `sync.unmanaged` prevents sync from setting the folder. Run `agnostic-ai sync` after you change these settings.
 
-Codex, Gemini CLI, and Qoder have their own memory too, off by default. Leave it off so they save here. Windsurf's older Cascade agent keeps its own memories in `~/.codeium/windsurf/memories/`, and no project setting moves them.
+Facts Claude Code saved before come along. The first sync that points Claude at personal memory copies them from Claude's own folder (`~/.claude/projects/<project>/memory/`) when personal memory is still empty, and leaves that folder as it is. Otherwise `agnostic-ai lint` names the folder and how many of its facts no longer load (LINT043), and this copies them over:
+
+```bash
+agnostic-ai memory import --from claude --dry-run
+agnostic-ai memory import --from claude
+```
+
+Every tool reads personal memory, so the dry run lists each fact with its description first; `--only <file>` copies just the ones you pick.
+
+`--path` copies from any folder with the same layout, such as Gemini CLI's `~/.gemini/tmp/<project>/memory/` or Qoder's `~/.qoder/projects/<project>/memory/`. See [memory import](@/docs/cli-reference/maintain.md#memory).
+
+### Each tool's own memory {#each-tools-own-memory}
+
+Your tool's own memory can stay on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
+
+| Tool | Its own memory | Default |
+| --- | --- | --- |
+| Claude Code | Auto memory: notes for each repository, on your machine | On (`autoMemoryEnabled`); sync points it at your personal memory folder |
+| Codex | Memories: notes built from past sessions, one store for the machine | Off (`memories` under `[features]`) |
+| Gemini CLI | Edits its own Markdown memory files: `GEMINI.md` files and private notes for each project. Auto Memory proposes notes from past sessions. Sync generates the project's `GEMINI.md`, so the `gemini-memory-tiers` rule sends Gemini's team facts to shared memory instead, and has it copy private facts there too | Editing is always on, with no setting. Auto Memory is off (`experimental.autoMemory`) |
+| Copilot | Copilot Memory, hosted: repository facts and your preferences, dropped after 28 days unused. The VS Code memory tool: notes on your machine | Copilot Memory is on for individual plans; organization admins enable it first. CLI: `/memory on` or `/memory off`. The VS Code tool is built in |
+| Qoder | CLI Auto-Memory: notes the agent keeps on your machine. The IDE has a separate memory | CLI: off (`autoMemoryEnabled`). IDE: not documented |
+| Kilo Code | Kilo Memory: project notes outside the repository, no personal memory | Off (Settings > Context, or `/memory on`) |
+| Kiro | Memory: notes Kiro creates and refines for a repository | Not documented (`/memories`, then `config`) |
+| Augment | Agent Memories in the IDE, which you approve one by one | Not documented |
+| Trae | Memories, global and for each project, as local Markdown files | Not documented |
+| Goose | Memory extension: files in `.goose/memory/` and `~/.config/goose/memory/` | Not documented (Extensions) |
+| Jules | Memory in the Jules cloud for each repository | Not documented (repository settings) |
+| Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |
+| Cursor | None documented | Not applicable |
+
+To keep one store instead, turn a tool's memory off with the setting the Default column names, where there is one.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
@@ -123,6 +156,8 @@ $ agnostic-ai memory path
 project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
+
+Switching keeps your facts: `agnostic-ai lint` names the ones left in the other folder, and `agnostic-ai memory import --from checkout` copies them into the new one (`--from repo` when you switch back).
 
 That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one of them instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/configuration.md#gitignore).
 

@@ -6,7 +6,9 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
+- The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
 
 ### By tool
 
@@ -21,6 +23,18 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Qoder
 
 - Import project MCP servers from `.qoder/settings.json`, including JSONC, so fresh checkouts can recreate them (#2087).
+
+#### Copilot
+
+- Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
+
+#### Gemini CLI
+
+- With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md`, which sync overwrites (#2103).
+
+#### Crush
+
+- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
 #### Windsurf / Devin
 

@@ -75,7 +75,7 @@ Each list shows three paths. `-v` lists all. `config` in the spec line means `ag
 
 **Tracked despite ignored.** A generated path that git both tracks and ignores was usually committed before it moved into the managed `.gitignore` block. `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` shows the same finding and never fails on it alone.
 
-**Hand edits.** `sync` writes the spec's version over an output that was edited by hand since the last sync, so the specs stay the one source. It first saves the edit as `<path>.bak` and prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back. Move the edit into `.agnostic-ai/` to keep it. `--keep-edits` leaves the edit in place instead.
+**Hand edits.** `sync` writes the spec's version over an output that was edited by hand since the last sync, so the specs stay the one source. It first saves the edit as `<path>.bak` and prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back. Move the edit into `.agnostic-ai/` to keep it. With the [`memory` built-in](@/docs/memory.md), the line for an instructions file such as `GEMINI.md` also suggests saving a fact in `.agnostic-ai/memory/`, since a tool's own memory may have written the edit. `--keep-edits` leaves the edit in place instead.
 
 {% <details summary="Hand edits: backups, merged settings, fresh clones"> %}
 - When `<path>.bak` already exists, sync leaves the new edit in place and says so. An earlier backup is never replaced.
