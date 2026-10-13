@@ -26,7 +26,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 		t.Fatalf("build CLI: %v\n%s", err, output)
 	}
 	for _, target := range []string{"codex", "qoder", "claude"} {
-		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config"} {
+		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config", "tracked MCP without handoff", "committed MCP without handoff"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
@@ -42,6 +42,38 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 				config := "version: 1\nbuiltins: [handoff]\ntargets: [" + target + "]\ngitignore:\n  enabled: true\n"
 				if mode == "unmanaged config" {
 					config += "sync:\n  unmanaged: [" + file + "]\n"
+				}
+				if strings.Contains(mode, "MCP without handoff") {
+					if target != "codex" {
+						t.Skip("Codex owns its whole native MCP config")
+					}
+					config = "version: 1\nbuiltins: []\ntargets: [codex]\ngitignore:\n  enabled: false\n"
+					if mode == "committed MCP without handoff" {
+						config = "version: 1\nbuiltins: []\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [mcps]\n"
+					}
+					handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+					spec := filepath.Join(linked, ".agnostic-ai/mcps/service.yaml")
+					handoffWrite(t, spec, "name: service\ncommand: original-server\n")
+					first := exec.Command(binary, "sync")
+					first.Dir = linked
+					if output, err := first.CombinedOutput(); err != nil {
+						t.Fatalf("create tracked MCP config: %v\n%s", err, output)
+					}
+					path := filepath.Join(linked, file)
+					if !strings.Contains(handoffRead(t, path), "original-server") {
+						t.Fatal("first sync did not write the MCP server")
+					}
+					handoffGit(t, linked, "add", "-f", file)
+					handoffWrite(t, spec, "name: service\ncommand: updated-server\n")
+					second := exec.Command(binary, "sync")
+					second.Dir = linked
+					if output, err := second.CombinedOutput(); err != nil {
+						t.Fatalf("update tracked MCP config: %v\n%s", err, output)
+					}
+					if content := handoffRead(t, path); !strings.Contains(content, "updated-server") || strings.Contains(content, "original-server") {
+						t.Errorf("handoff guard suppressed ordinary MCP update: %s", content)
+					}
+					return
 				}
 				handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
 				if mode == "owned unavailable store" {
