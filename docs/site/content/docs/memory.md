@@ -103,13 +103,13 @@ Claude Code also saves facts by itself. Sync points that memory at your personal
 
 ### Each tool's own memory {#each-tools-own-memory}
 
-Your tool's own memory can stay on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory; Claude Code's own saves land there already.
+Your tool's own memory can stay on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
 
 | Tool | Its own memory | Default |
 | --- | --- | --- |
 | Claude Code | Auto memory: notes for each repository, on your machine | On (`autoMemoryEnabled`); sync points it at your personal memory folder |
 | Codex | Memories: notes built from past sessions, one store for the machine | Off (`memories` under `[features]`) |
-| Gemini CLI | Edits its own Markdown memory files: `GEMINI.md` files and private notes for each project. Auto Memory proposes notes from past sessions | Editing is always on, with no setting. Auto Memory is off (`experimental.autoMemory`) |
+| Gemini CLI | Edits its own Markdown memory files: `GEMINI.md` files and private notes for each project. Auto Memory proposes notes from past sessions. Sync generates the project's `GEMINI.md`, so the next sync overwrites what Gemini saves there; ask it to save project facts in shared memory | Editing is always on, with no setting. Auto Memory is off (`experimental.autoMemory`) |
 | Copilot | Copilot Memory, hosted: repository facts and your preferences, dropped after 28 days unused. The VS Code memory tool: notes on your machine | Copilot Memory is on for individual plans; organization admins enable it first. CLI: `/memory on` or `/memory off`. The VS Code tool is built in |
 | Qoder | CLI Auto-Memory: notes the agent keeps on your machine. The IDE has a separate memory | CLI: off (`autoMemoryEnabled`). IDE: not documented |
 | Kilo Code | Kilo Memory: project notes outside the repository, no personal memory | Off (Settings > Context, or `/memory on`) |
@@ -121,7 +121,7 @@ Your tool's own memory can stay on. Shared memory adds what none of them gives a
 | Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |
 | Cursor | None documented | Not applicable |
 
-To keep one store instead, turn a tool's memory off with the setting in the Default column.
+To keep one store instead, turn a tool's memory off with the setting the Default column names, where there is one.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
