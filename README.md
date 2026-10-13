@@ -30,8 +30,6 @@ From your project root, with Node 18 or newer:
 ```bash
 npm install -g agnostic-ai
 agnostic-ai init --from all
-# Enable shared memory when creating a project:
-# agnostic-ai init --memory
 agnostic-ai sync --plan
 ```
 
@@ -42,6 +40,8 @@ agnostic-ai sync
 ```
 
 `init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
+
+To enable shared memory during setup, run `agnostic-ai init --from all --memory`.
 
 Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. It also writes [Copilot user hooks](https://agnostic-ai.org/docs/targets/copilot/#hooks), [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
 
