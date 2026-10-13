@@ -160,4 +160,7 @@
 # #2104 measured 19312800, up 8192 from main 124d29e9 (19304608):
 # worktree mode inheritance and guarded mode migration.
 # Keep the established 8 KB build allowance.
-19322000
+# #2109 measured 19316896, up 4096 from the shared-memory tree
+# (19312800): opt-in shared memory during init.
+# Keep the established 8 KB build allowance.
+19326000
