@@ -95,7 +95,7 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the share
 
 - It runs the `agnostic-ai` on your PATH. Keep that one at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/maintain.md#upgrade); an older one loads no memory, and with none on PATH nothing loads.
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
-- On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash.
+- On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. The Claude Code subagent hook needs it too.
 - Hooks you wrote yourself stay.
 - It keeps the first 6,000 bytes, personal memory first, then project memory. Facts past that never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, so `memory lint` also warns there once they pass 6,000 bytes.
 - It leaves out hidden characters, such as zero-width and bidirectional controls and Unicode tags, before it counts the bytes. Every other tool still reads them, so remove what `memory lint` reports.
