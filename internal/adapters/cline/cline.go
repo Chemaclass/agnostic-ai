@@ -28,8 +28,8 @@
 // (sdk/packages/shared/src/storage/paths.ts:476), and all three
 // shipping readers resolve the directory through it. Skills stay at
 // `.cline/skills/`, confirmed by `resolveSkillsConfigSearchPaths` in
-// the same file, which also scans `.clinerules/skills` and
-// `.agents/skills`.
+// the same file, which also scans `.clinerules/skills`,
+// `.claude/skills` and `.agents/skills`.
 //
 // Emission stays at `.cline/skills/` even though `.agents/skills` is
 // now scanned too. `.cline/skills` is the path the docs recommend, the
