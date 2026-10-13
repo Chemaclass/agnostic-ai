@@ -144,6 +144,44 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	})
 
+	assertSharedStoreFallback := func(t *testing.T, prepare func(main, store string)) {
+		t.Helper()
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "private checkout")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/private", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		handoffWrite(t, filepath.Join(active, ".agnostic-ai", "local", "HANDOFF.md"), "LOCAL_FALLBACK\n")
+		prepare(main, filepath.Join(main, ".agnostic-ai", "local", "handoffs"))
+		for _, target := range handoffHookTargets {
+			out := handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", "")
+			handoffAssertReply(t, target, out, "Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff.")
+		}
+	}
+	t.Run("task-handoff-external-shared-store-rejected", func(t *testing.T) {
+		assertSharedStoreFallback(t, func(main, store string) {
+			external := t.TempDir()
+			handoffGit(t, external, "init")
+			handoffWrite(t, filepath.Join(external, ".gitignore"), "*.md\n")
+			handoffWrite(t, filepath.Join(external, "feat-private.md"), "# Handoff\ntool: codex | branch: feat/private | head: abc1234\n")
+			if err := os.MkdirAll(filepath.Dir(store), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(external, store); err != nil {
+				t.Skipf("directory symlinks unavailable: %v", err)
+			}
+		})
+	})
+	t.Run("task-handoff-shared-store-nested-git-preserves-tracked-guard", func(t *testing.T) {
+		assertSharedStoreFallback(t, func(main, store string) {
+			handoffWrite(t, filepath.Join(store, "feat-private.md"), "# Handoff\ntool: codex | branch: feat/private | head: abc1234\n")
+			handoffGit(t, main, "add", "-f", "--", ".agnostic-ai/local/handoffs/feat-private.md")
+			handoffGit(t, store, "init")
+			handoffWrite(t, filepath.Join(store, ".gitignore"), "*.md\n")
+		})
+	})
+
 	t.Run("task-handoff-unreadable-shared-store-falls-back", func(t *testing.T) {
 		main := project(t)
 		handoffInitGit(t, main)

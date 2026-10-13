@@ -36,7 +36,11 @@ command: |
       handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
       if [ -d "$handoff_candidate" ]; then
         if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-           (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
+           case "$handoff_candidate" in
+             "${handoff_main%/}/"*) handoff_shared_relative=${handoff_candidate#"${handoff_main%/}/"} ;;
+             *) false ;;
+           esac &&
+           (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/handoff.md"); then
           handoff_shared=$handoff_candidate
         fi
       fi
@@ -46,7 +50,7 @@ command: |
       handoff_count=0
       for handoff_file in "$handoff_shared"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-        (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
+        (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/${handoff_file##*/}") || continue
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
@@ -56,12 +60,18 @@ command: |
     fi
     for handoff_store in "$handoff_shared" "$handoff_local"; do
       [ -n "$handoff_store" ] || continue
+      handoff_ignore_root=$handoff_store
+      handoff_ignore_prefix=
+      if [ "$handoff_store" = "$handoff_shared" ]; then
+        handoff_ignore_root=$handoff_main
+        handoff_ignore_prefix=$handoff_shared_relative/
+      fi
       for handoff_file in "$handoff_store"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
         handoff_slug=${handoff_file##*/}
         handoff_slug=${handoff_slug%.md}
         case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-        (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
+        (CDPATH= cd "$handoff_ignore_root" && git check-ignore -q -- "$handoff_ignore_prefix${handoff_file##*/}") || continue
         handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
         case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
         handoff_display=$handoff_branch
@@ -157,7 +167,11 @@ commandWindows: |
       handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
       if [ -d "$handoff_candidate" ]; then
         if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-           (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
+           case "$handoff_candidate" in
+             "${handoff_main%/}/"*) handoff_shared_relative=${handoff_candidate#"${handoff_main%/}/"} ;;
+             *) false ;;
+           esac &&
+           (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/handoff.md"); then
           handoff_shared=$handoff_candidate
         fi
       fi
@@ -167,7 +181,7 @@ commandWindows: |
       handoff_count=0
       for handoff_file in "$handoff_shared"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-        (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
+        (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/${handoff_file##*/}") || continue
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
@@ -177,12 +191,18 @@ commandWindows: |
     fi
     for handoff_store in "$handoff_shared" "$handoff_local"; do
       [ -n "$handoff_store" ] || continue
+      handoff_ignore_root=$handoff_store
+      handoff_ignore_prefix=
+      if [ "$handoff_store" = "$handoff_shared" ]; then
+        handoff_ignore_root=$handoff_main
+        handoff_ignore_prefix=$handoff_shared_relative/
+      fi
       for handoff_file in "$handoff_store"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
         handoff_slug=${handoff_file##*/}
         handoff_slug=${handoff_slug%.md}
         case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-        (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
+        (CDPATH= cd "$handoff_ignore_root" && git check-ignore -q -- "$handoff_ignore_prefix${handoff_file##*/}") || continue
         handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
         case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
         handoff_display=$handoff_branch
@@ -279,7 +299,11 @@ x-factory:
         handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
         if [ -d "$handoff_candidate" ]; then
           if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-             (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
+             case "$handoff_candidate" in
+               "${handoff_main%/}/"*) handoff_shared_relative=${handoff_candidate#"${handoff_main%/}/"} ;;
+               *) false ;;
+             esac &&
+             (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/handoff.md"); then
             handoff_shared=$handoff_candidate
           fi
         fi
@@ -289,7 +313,7 @@ x-factory:
         handoff_count=0
         for handoff_file in "$handoff_shared"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-          (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
+          (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/${handoff_file##*/}") || continue
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
@@ -299,12 +323,18 @@ x-factory:
       fi
       for handoff_store in "$handoff_shared" "$handoff_local"; do
         [ -n "$handoff_store" ] || continue
+        handoff_ignore_root=$handoff_store
+        handoff_ignore_prefix=
+        if [ "$handoff_store" = "$handoff_shared" ]; then
+          handoff_ignore_root=$handoff_main
+          handoff_ignore_prefix=$handoff_shared_relative/
+        fi
         for handoff_file in "$handoff_store"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
           handoff_slug=${handoff_file##*/}
           handoff_slug=${handoff_slug%.md}
           case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-          (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
+          (CDPATH= cd "$handoff_ignore_root" && git check-ignore -q -- "$handoff_ignore_prefix${handoff_file##*/}") || continue
           handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
           case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
           handoff_display=$handoff_branch
@@ -563,7 +593,11 @@ x-claude:
         handoff_candidate=$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs
         if [ -d "$handoff_candidate" ]; then
           if handoff_candidate=$(cd "$handoff_candidate" && pwd -P) &&
-             (CDPATH= cd "$handoff_candidate" && git check-ignore -q -- handoff.md); then
+             case "$handoff_candidate" in
+               "${handoff_main%/}/"*) handoff_shared_relative=${handoff_candidate#"${handoff_main%/}/"} ;;
+               *) false ;;
+             esac &&
+             (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/handoff.md"); then
             handoff_shared=$handoff_candidate
           fi
         fi
@@ -573,7 +607,7 @@ x-claude:
         handoff_count=0
         for handoff_file in "$handoff_shared"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-          (CDPATH= cd "$handoff_shared" && git check-ignore -q -- "${handoff_file##*/}") || continue
+          (CDPATH= cd "$handoff_main" && git check-ignore -q -- "$handoff_shared_relative/${handoff_file##*/}") || continue
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
@@ -583,12 +617,18 @@ x-claude:
       fi
       for handoff_store in "$handoff_shared" "$handoff_local"; do
         [ -n "$handoff_store" ] || continue
+        handoff_ignore_root=$handoff_store
+        handoff_ignore_prefix=
+        if [ "$handoff_store" = "$handoff_shared" ]; then
+          handoff_ignore_root=$handoff_main
+          handoff_ignore_prefix=$handoff_shared_relative/
+        fi
         for handoff_file in "$handoff_store"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
           handoff_slug=${handoff_file##*/}
           handoff_slug=${handoff_slug%.md}
           case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-          (CDPATH= cd "$handoff_store" && git check-ignore -q -- "${handoff_file##*/}") || continue
+          (CDPATH= cd "$handoff_ignore_root" && git check-ignore -q -- "$handoff_ignore_prefix${handoff_file##*/}") || continue
           handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
           case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
           handoff_display=$handoff_branch
