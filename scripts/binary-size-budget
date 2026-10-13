@@ -170,4 +170,7 @@
 # #2117 measured 19333280 on Go 1.27.2, up 20480 from
 # 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
 # Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
-19375000
+# #2117 corrected automatic writers measured 19370144 on Go1.27.2,
+# up 36864 from main 2e6c2ec9 (19333280). Same release flags;
+# keep the established 8 KB build allowance.
+19379000
