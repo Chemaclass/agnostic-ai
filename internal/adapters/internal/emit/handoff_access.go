@@ -80,6 +80,10 @@ func (s *Session) HandoffConfigWritable(cfg *config.Config, path, target string)
 	if !HandoffConfigFile(cfg, path, target) || s.IsUnmanaged(path) {
 		return false
 	}
+	return handoffConfigPathWritable(path)
+}
+
+func handoffConfigPathWritable(path string) bool {
 	// The output belongs to the current checkout, not the main checkout.
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
@@ -115,6 +119,45 @@ func (s *Session) HandoffConfigWritable(cfg *config.Config, path, target string)
 	}
 	return bytes.Contains(data, []byte(ProvenanceMarker)) || len(priorMergedKeys(path)) > 0 ||
 		PriorOutputSum != nil && PriorOutputSum(path) != ""
+}
+
+func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string) (bool, error) {
+	claims := priorMergedKeys(path)
+	sum := ""
+	if PriorOutputSum != nil {
+		sum = PriorOutputSum(path)
+	}
+	data, err := os.ReadFile(path)
+	priorHandoff := (len(claims) > 0 || sum != "") && bytes.Contains(data, []byte("/.agnostic-ai/local/handoffs"))
+	if !HandoffConfigFile(cfg, path, target) && !priorHandoff {
+		return false, nil
+	}
+	if s.IsUnmanaged(path) {
+		return true, nil
+	}
+	if handoffConfigPathWritable(path) {
+		return false, nil
+	}
+	NoteProject(fmt.Sprintf("%s: %s stays as configured; its handoff permissions are not writable", target, filepath.ToSlash(path)))
+	if os.IsNotExist(err) || len(claims) == 0 && sum == "" {
+		return true, nil
+	}
+	if err != nil {
+		return true, fmt.Errorf("read %s: %w", path, err)
+	}
+	// Keep the output and its claims in the ledger without following a refused write.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.capturing {
+		s.captured = append(s.captured, CapturedFile{Path: path, Content: string(data), Merged: len(claims) > 0, Keys: claims})
+	}
+	if s.recording {
+		s.recorded = append(s.recorded, path)
+	}
+	if s.detailing {
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(data), Action: "skip", Sum: sum, Merged: len(claims) > 0, Keys: claims})
+	}
+	return true, nil
 }
 
 func (s *Session) CreateHandoffStore(dir string, dryRun bool) error {

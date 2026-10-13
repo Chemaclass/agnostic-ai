@@ -19,6 +19,9 @@ const autoMemoryDirectoryKey = "autoMemoryDirectory"
 
 func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
 	path := filepath.Join(dir, "settings.local.json")
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	keys := map[string]any{}
 	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.additionalDirectories", dryRun)
 	if err != nil {

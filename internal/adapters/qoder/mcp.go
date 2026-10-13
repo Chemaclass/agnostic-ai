@@ -56,6 +56,9 @@ const mcpWebSocketGapReason = "WebSocket transport is not supported; Qoder's ws 
 //
 // No file is written when MCP, hook, and settings inputs all render empty.
 func emitSettings(sess *emit.Session, cfg *config.Config, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	keys := map[string]any{}
 	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	if servers := buildMCPMap(mcps); len(servers) > 0 {

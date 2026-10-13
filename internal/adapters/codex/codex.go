@@ -389,6 +389,9 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	}
 	noteIgnoredConfigFields(codexCfg)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	roots, err := memoryWritableRoots(sess, cfg, path, dryRun)
 	if err != nil {
 		return err
