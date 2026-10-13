@@ -182,7 +182,7 @@ func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff
 			if state, ok := dirty[worktree.path]; ok {
 				note.dirty = state
 			} else {
-				raw, err := handoffGit(worktree.path, "status", "--porcelain")
+				raw, err := handoffGit(worktree.path, "status", "--porcelain", "--untracked-files=all")
 				state := "unknown"
 				if err == nil {
 					state = "clean"

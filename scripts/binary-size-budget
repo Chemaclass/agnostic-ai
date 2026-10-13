@@ -170,4 +170,8 @@
 # #2117 measured 19333280 on Go 1.27.2, up 20480 from
 # 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
 # Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 list measured 19427488 on Go 1.27.2, up 61440 from
+# 2cb6bbfe (19366048): the task listing command and bounded local Git state lookup.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
 19453000
