@@ -166,4 +166,8 @@
 # #2117 access measured 19443872 on Go 1.27.2, up 16384 from
 # 3a2fed2a (19427488): native sandbox access to the shared handoff store.
 # Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 measured 19333280 on Go 1.27.2, up 20480 from
+# 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
 19453000
