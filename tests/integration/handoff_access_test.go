@@ -73,6 +73,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					}
 					path := filepath.Join(linked, file)
 					original := handoffRead(t, path)
+					linkDestination := ""
 					if !strings.Contains(original, filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))) {
 						t.Fatal("first sync did not create handoff access")
 					}
@@ -90,6 +91,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						handoffGit(t, linked, "add", "-f", file)
 					} else {
 						destination := filepath.Join(t.TempDir(), "native settings")
+						linkDestination = destination
 						handoffWrite(t, destination, original)
 						if err := os.Remove(path); err != nil {
 							t.Fatal(err)
@@ -135,6 +137,16 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 							}
 						}
 						if strings.Contains(mode, "symlink config") {
+							if got, err := os.Readlink(path); err != nil || got != linkDestination {
+								t.Fatalf("%s changed native config link target: %q, %v", transition, got, err)
+							}
+							if mode == "adopted missing symlink config" {
+								if _, err := os.Stat(linkDestination); !os.IsNotExist(err) {
+									t.Fatalf("%s created missing native config target: %v", transition, err)
+								}
+							} else if mode == "adopted directory symlink config" && handoffRead(t, filepath.Join(linkDestination, "keep.txt")) != "private directory\n" {
+								t.Fatalf("%s changed the native config target directory", transition)
+							}
 							if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink == 0 {
 								t.Fatalf("%s replaced native config symlink: %v", transition, err)
 							}
