@@ -324,6 +324,9 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintRuleFolderScope(b.Rules)...)
 	findings = append(findings, lintMidWildcard(b.Settings)...)
 	findings = append(findings, lintBareCapabilities(b.Settings, targets)...)
+	for _, issue := range sessionRetentionIssues(b.Settings) {
+		findings = append(findings, lintFinding{Code: "LINT045", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	findings = append(findings, lintNativeSpecPaths(b)...)
 	findings = append(findings, lintSpecRefs(targets, support, b)...)

@@ -33,7 +33,7 @@ const (
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
 	// Version 6 records the hooks file containers sync created.
-	globalStateVersion = 6
+	globalStateVersion = 7
 )
 
 type globalSyncOptions struct {
@@ -62,7 +62,8 @@ type globalState struct {
 	// Settings records the value written per target and native key of
 	// its user settings file, so a later sync changes or removes only
 	// keys it placed.
-	Settings map[string]map[string]any `json:"settings,omitempty"`
+	Settings         map[string]map[string]any          `json:"settings,omitempty"`
+	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
 	MCP map[string]map[string]any `json:"mcp,omitempty"`
@@ -234,6 +235,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	own := ownSpecs(bundle)
 	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
+	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
 	if err := stopOnIssues(issues); err != nil {
 		return err
 	}
@@ -715,7 +717,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -739,6 +741,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, original := range old.SessionRetention {
+		if !slices.Contains(targets, target) {
+			next.SessionRetention[target] = original
 		}
 	}
 	for target, servers := range old.MCP {
@@ -1104,10 +1111,14 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if g.settings.path != "" {
 			path := g.path(home, g.settings.path)
 			previous := old.Settings[target]
+			var original *globalRetentionOriginal
+			if saved, present := old.SessionRetention[target]; present {
+				original = &saved
+			}
 			// Keys recorded in a file the root no longer resolves to go
 			// from that file, and the new one starts unowned.
 			if moved := old.SettingsPaths[target]; moved != "" && moved != path {
-				m, err := mergeGlobalSettings(moved, g.settings.format, baseFor(moved), nil, previous)
+				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, g.settings.retention, target, false, warn)
 				if err != nil {
 					return nil, next, err
 				}
@@ -1115,10 +1126,14 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 					return nil, next, err
 				}
 				previous = nil
+				original = nil
 			}
-			m, err := mergeGlobalSettings(path, g.settings.format, baseFor(path), want, previous)
+			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
 			if err != nil {
 				return nil, next, err
+			}
+			if retention != nil {
+				next.SessionRetention[target] = *retention
 			}
 			if len(m.owned) > 0 {
 				next.Settings[target] = m.owned

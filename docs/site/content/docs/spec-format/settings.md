@@ -63,7 +63,31 @@ effort:
 | `permissions.default-mode` | no | unset | Claude Code's starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other tools raise a sync note. |
 | `model` | no | empty | Default model: a string, a map per target with an optional `default` (like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort)), or a [tier](@/docs/spec-format/agents.md#model-tiers) name. A target with no entry and no `default` gets no model. |
 | `effort` | no | empty | Default reasoning effort: a single value, or a map per target with an optional `default` (like [agent `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort)). An agent's own `effort` is separate. |
+| `session-retention-days` | no | unset | Personal session age limit, an integer of 1 or more. Only `sync --global` writes it. See [session retention](#session-retention). |
 | `protected` | no | unset | Files agents must not edit without asking: `paths`, `decision` (`ask` or `deny`), and `reason`. See [protected paths](#protected-paths). |
+
+## Session retention
+
+Keep this personal setting under `~/.agnostic-ai/settings/`, outside team project specs:
+
+```yaml
+# ~/.agnostic-ai/settings/retention.yaml
+session-retention-days: 3650
+```
+
+`sync --global` writes the tool's own age limit. Unset leaves native retention alone. Integers below 1, strings, and fractions fail validation (LINT045). Project sync prints a note and writes no retention key.
+
+| Tool | User settings file | Native key |
+|------|--------------------|------------|
+| Claude Code | `~/.claude/settings.json` | `cleanupPeriodDays: 3650` |
+| Gemini CLI | `~/.gemini/settings.json` | `general.sessionRetention.maxAge: "3650d"` |
+| Qoder CLI | `~/.qoder/settings.json` | `general.sessionRetention.maxAge: "3650d"` |
+
+An `x-claude.cleanupPeriodDays` value wins. An existing invalid Claude value, including `cleanupPeriodDays: 0`, stays unchanged even with `--backup`: it can pause cleanup, so sync asks for manual correction before applying portable retention. An explicit `x-claude` correction remains available. If Gemini or Qoder has `general.sessionRetention.enabled: false`, sync leaves its age limit alone and prints a note. It never sets the cleanup switch or `maxCount`. Gemini's existing `maxCount` can still remove younger sessions. Other targets print a coverage note. Kilo's deletion switch and Factory's organization setting are outside this field.
+
+Lowering the age limit warns that older sessions will be deleted, including when removing this field restores a shorter native limit. Native values set outside agnostic-ai still require `--backup` before replacement. Removing the field restores the original value's bytes, including a value that already matched; a file sync created is removed when empty. A native value changed by hand stays yours. Sync records restoration data in ownership state version 7; older releases refuse that state rather than discard it. `explain --global settings/retention.yaml` lists the mapped keys.
+
+agnostic-ai changes settings only. It does not read, copy, or archive transcripts. Claude Code also applies this cutoff to some other session data and orphaned worktrees. Desktop and Cowork transcripts have a separate setting. See [Claude cleanup](https://code.claude.com/docs/en/claude-directory), [Gemini configuration](https://geminicli.com/docs/reference/configuration/), and [Qoder settings](https://docs.qoder.com/cli/settings-reference).
 
 ## Protected paths
 
