@@ -1,0 +1,16 @@
+---
+name: kiro-memory-index
+description: Load memory indexes through Kiro's steering include.
+alwaysApply: true
+targets: [kiro]
+---
+
+Each line of a memory index links a fact file in the folder of that index. Open it when its line is relevant. A reference Kiro cannot resolve means that folder has no index.
+
+Project memory, `.agnostic-ai/memory/MEMORY.md`:
+
+#[[file:.agnostic-ai/memory/MEMORY.md]]
+
+Personal memory, `.agnostic-ai/local/memory/MEMORY.md`:
+
+#[[file:.agnostic-ai/local/memory/MEMORY.md]]
