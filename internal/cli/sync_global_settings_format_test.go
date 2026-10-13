@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -293,7 +294,7 @@ func TestSyncGlobal_UpgradeKeepsUserEnvOnTargetWithoutHookHistory(t *testing.T) 
 		t.Fatal(err)
 	}
 	statePath := filepath.Join(source, "state", "global.json")
-	mustWriteGlobalTest(t, statePath, strings.Replace(readGlobalTest(t, statePath), `"version": 6`, `"version": 5`, 1))
+	mustWriteGlobalTest(t, statePath, strings.Replace(readGlobalTest(t, statePath), fmt.Sprintf(`"version": %d`, globalStateVersion), `"version": 5`, 1))
 	settings := filepath.Join(home, ".claude", "settings.json")
 	original := `{"model":"x","env":{}}`
 	mustWriteGlobalTest(t, settings, original)
