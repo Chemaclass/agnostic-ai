@@ -86,6 +86,26 @@ func TestRender_ShowsTheGeminiMemoryRuleWhereSyncWritesIt(t *testing.T) {
 	}
 }
 
+func TestExplain_CreditsTheGeminiMemoryRuleOnlyWhereSyncWritesIt(t *testing.T) {
+	for _, tc := range []struct {
+		name, cfg string
+		inGemini  bool
+	}{
+		{"own file", "version: 1\ntargets: [gemini, codex]\nbuiltins: [memory]\n", true},
+		{"shared file", geminiSharesAgents, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setupMemoryConfig(t, tc.cfg)
+
+			out, _ := runCLI(t, "explain", "builtin:gemini-memory-tiers")
+
+			if strings.Contains(out, "GEMINI.md") != tc.inGemini || strings.Contains(out, "AGENTS.md") {
+				t.Errorf("explain should credit the rule to GEMINI.md only when Gemini CLI reads it alone:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestWhy_LeavesTheGeminiMemoryRuleOutOfAFileCodexReads(t *testing.T) {
 	setupMemoryConfig(t, geminiSharesAgents)
 	runSyncOK(t)
