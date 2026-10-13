@@ -163,4 +163,7 @@
 # #2109 measured 19316896, up 4096 from the shared-memory tree
 # (19312800): opt-in shared memory during init.
 # Keep the established 8 KB build allowance.
-19326000
+# #2117 access measured 19443872 on Go 1.27.2, up 16384 from
+# 3a2fed2a (19427488): native sandbox access to the shared handoff store.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+19453000
