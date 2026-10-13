@@ -137,4 +137,7 @@
 # Keep the established 8 KB build allowance.
 # Combined with #2087, measured 19165344, up 4096 from main
 # e48c1499 (19161248). Keep the established 8 KB build allowance.
-19175000
+# #2103 measured 19181728 on Go 1.27.2, up 16384 from main 766b81b9
+# (19165344): built-in rules for one tool stay out of entry files other
+# tools share, and out of sync --global. Keep the established 8 KB allowance.
+19191400
