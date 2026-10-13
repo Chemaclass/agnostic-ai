@@ -163,4 +163,7 @@
 # #2109 measured 19316896, up 4096 from the shared-memory tree
 # (19312800): opt-in shared memory during init.
 # Keep the established 8 KB build allowance.
-19326000
+# #2117 list measured 19427488 on Go 1.27.2, up 61440 from
+# 2cb6bbfe (19366048): the task listing command and bounded local Git state lookup.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+19436000
