@@ -179,3 +179,16 @@ func TestHookRun_AntigravityDoesNotCountRepliesThatDependOnSavedPermissions(t *t
 		t.Errorf("force_ask ignores saved permissions and must count as block: %v\n%s", err, out)
 	}
 }
+
+func TestHookRun_AntigravityAcceptsAutoApproveAsAllow(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	antigravityProject(t, antigravityHookSpec, "#!/bin/sh\ncat >/dev/null\necho '{\"decision\":\"auto_approve\"}'\n")
+
+	out, err := runHookRun(t, "protect-files", "--target", "antigravity", "--bash", "ls", "--expect", "allow", "--include-assumed")
+	if err != nil || !strings.Contains(out, "antigravity: allow (exit 0") || strings.Contains(out, "documents no decision") {
+		t.Errorf("auto_approve must read as allow: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "replied auto_approve: Antigravity approves a call the default policy would prompt for") {
+		t.Errorf("auto_approve must carry its note:\n%s", out)
+	}
+}

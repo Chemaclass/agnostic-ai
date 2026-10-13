@@ -15,8 +15,9 @@ func TestReadAntigravity_CountsOnlyTheDocumentedReplies(t *testing.T) {
 		want      Decision
 		uncounted bool
 	}{
-		"allow allows": {"PreToolUse", Result{Stdout: `{"decision":"allow"}`}, Allow, false},
-		"deny blocks":  {"PreToolUse", Result{Stdout: `{"decision":"deny","reason":"no"}`}, Block, false},
+		"allow allows":        {"PreToolUse", Result{Stdout: `{"decision":"allow"}`}, Allow, false},
+		"auto_approve allows": {"PreToolUse", Result{Stdout: `{"decision":"auto_approve"}`}, Allow, false},
+		"deny blocks":         {"PreToolUse", Result{Stdout: `{"decision":"deny","reason":"no"}`}, Block, false},
 		"deny_unless_prior_grant hangs on a grant": {"PreToolUse", Result{Stdout: `{"decision":"deny_unless_prior_grant"}`}, Block, true},
 		"ask hangs on Always Allow":                {"PreToolUse", Result{Stdout: `{"decision":"ask"}`}, Block, true},
 		"force_ask blocks too":                     {"PreToolUse", Result{Stdout: `{"decision":"force_ask"}`}, Block, false},
@@ -58,6 +59,17 @@ func TestReadAntigravity_CountsOnlyTheDocumentedReplies(t *testing.T) {
 	}
 	if AntigravityNote("PreToolUse", Result{Stdout: `{"decision":"force_ask"}`}) == "" {
 		t.Error("force_ask must explain why it reads as block")
+	}
+	for decision, want := range map[string]string{
+		"allow":        "replied allow: Antigravity defers to the next hook or the default policy; read as allow",
+		"auto_approve": "replied auto_approve: Antigravity approves a call the default policy would prompt for, and honors the user's own rules; read as allow",
+	} {
+		if got := AntigravityNote("PreToolUse", Result{Stdout: `{"decision":"` + decision + `"}`}); got != want {
+			t.Errorf("%s: AntigravityNote = %q, want %q", decision, got, want)
+		}
+	}
+	if got := AntigravityNote("Stop", Result{Stdout: `{"decision":"allow"}`}); got != "" {
+		t.Errorf("only PreToolUse reads allow as a deferral: note = %q", got)
 	}
 }
 

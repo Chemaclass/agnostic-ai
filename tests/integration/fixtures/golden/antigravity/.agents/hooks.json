@@ -1,4 +1,12 @@
 {
+  "antigravity-session-start": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": ".agents/hooks/shared-guard.sh"
+      }
+    ]
+  },
   "neutral-antigravity-hook": {
     "PreInvocation": [
       {
