@@ -382,7 +382,7 @@ func handoffBranchMerged(root string, note listedHandoff, main handoffWorktree) 
 		return false
 	}
 	for _, char := range note.head {
-		if !(char >= '0' && char <= '9' || char >= 'a' && char <= 'f' || char >= 'A' && char <= 'F') {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') && (char < 'A' || char > 'F') {
 			return false
 		}
 	}
