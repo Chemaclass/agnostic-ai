@@ -192,3 +192,15 @@ func TestHookRun_AntigravityAcceptsAutoApproveAsAllow(t *testing.T) {
 		t.Errorf("auto_approve must carry its note:\n%s", out)
 	}
 }
+
+func TestHookRun_AntigravityDoesNotCountPolicyDependentAllow(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	antigravityProject(t, antigravityHookSpec, "#!/bin/sh\ncat >/dev/null\necho '{\"decision\":\"allow\"}'\n")
+	out, err := runHookRun(t, "protect-files", "--target", "antigravity", "--bash", "ls", "--expect", "allow", "--include-assumed")
+	if err == nil || !strings.Contains(err.Error(), "--expect checks nothing") {
+		t.Errorf("a policy deferral must not pass --expect allow: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "not counted: replied allow:") {
+		t.Errorf("the unchecked policy deferral must be explained:\n%s", out)
+	}
+}
