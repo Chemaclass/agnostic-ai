@@ -6,7 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Keep one private handoff per branch across linked worktrees, with task notices and legacy handoff fallback (#2117).
+- Keep private manual handoffs and automatic Git snapshots per branch across linked worktrees, with task notices and legacy handoff fallback (#2117).
 
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).

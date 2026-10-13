@@ -44,9 +44,16 @@ command: |
     handoff_local=$handoff_dir/handoffs
     if [ "$handoff_checkout" = "$handoff_main" ] && [ -n "$handoff_shared" ]; then
       handoff_count=0
+      handoff_seen=" "
       for handoff_file in "$handoff_shared"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
         git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+        handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+        case "$handoff_header" in *" | branch: "*" | head: "*) ;; *) continue ;; esac
+        handoff_key=${handoff_header#*" | branch: "}
+        handoff_key=${handoff_key%%" | head: "*}
+        case "$handoff_seen" in *" $handoff_key "*) continue ;; esac
+        handoff_seen="$handoff_seen$handoff_key "
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
@@ -54,20 +61,28 @@ command: |
         return 0
       fi
     fi
-    for handoff_store in "$handoff_shared" "$handoff_local"; do
-      [ -n "$handoff_store" ] || continue
-      for handoff_file in "$handoff_store"/*.md; do
-        [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-        handoff_slug=${handoff_file##*/}
-        handoff_slug=${handoff_slug%.md}
-        case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-        git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
-        handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
-        case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
-        handoff_display=$handoff_branch
-        case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
-        handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
-        return 0
+    for handoff_kind in manual auto; do
+      for handoff_store in "$handoff_shared" "$handoff_local"; do
+        [ -n "$handoff_store" ] || continue
+        for handoff_file in "$handoff_store"/*.md; do
+          [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
+          handoff_slug=${handoff_file##*/}
+          handoff_slug=${handoff_slug%.md}
+          case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
+          git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+          handoff_title=$(sed -n "1{p;q;}" "$handoff_file") || continue
+          case "$handoff_kind:$handoff_title" in manual:"# Handoff"|auto:"# Automatic handoff") ;; *) continue ;; esac
+          handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+          case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
+          handoff_display=$handoff_branch
+          case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
+          if [ "$handoff_kind" = auto ]; then
+            handoff_message="Git snapshot available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+          else
+            handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+          fi
+          return 0
+        done
       done
     done
     return 1
@@ -165,9 +180,16 @@ commandWindows: |
     handoff_local=$handoff_dir/handoffs
     if [ "$handoff_checkout" = "$handoff_main" ] && [ -n "$handoff_shared" ]; then
       handoff_count=0
+      handoff_seen=" "
       for handoff_file in "$handoff_shared"/*.md; do
         [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
         git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+        handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+        case "$handoff_header" in *" | branch: "*" | head: "*) ;; *) continue ;; esac
+        handoff_key=${handoff_header#*" | branch: "}
+        handoff_key=${handoff_key%%" | head: "*}
+        case "$handoff_seen" in *" $handoff_key "*) continue ;; esac
+        handoff_seen="$handoff_seen$handoff_key "
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
@@ -175,20 +197,28 @@ commandWindows: |
         return 0
       fi
     fi
-    for handoff_store in "$handoff_shared" "$handoff_local"; do
-      [ -n "$handoff_store" ] || continue
-      for handoff_file in "$handoff_store"/*.md; do
-        [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-        handoff_slug=${handoff_file##*/}
-        handoff_slug=${handoff_slug%.md}
-        case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-        git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
-        handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
-        case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
-        handoff_display=$handoff_branch
-        case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
-        handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
-        return 0
+    for handoff_kind in manual auto; do
+      for handoff_store in "$handoff_shared" "$handoff_local"; do
+        [ -n "$handoff_store" ] || continue
+        for handoff_file in "$handoff_store"/*.md; do
+          [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
+          handoff_slug=${handoff_file##*/}
+          handoff_slug=${handoff_slug%.md}
+          case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
+          git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+          handoff_title=$(sed -n "1{p;q;}" "$handoff_file") || continue
+          case "$handoff_kind:$handoff_title" in manual:"# Handoff"|auto:"# Automatic handoff") ;; *) continue ;; esac
+          handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+          case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
+          handoff_display=$handoff_branch
+          case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
+          if [ "$handoff_kind" = auto ]; then
+            handoff_message="Git snapshot available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+          else
+            handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+          fi
+          return 0
+        done
       done
     done
     return 1
@@ -287,9 +317,16 @@ x-factory:
       handoff_local=$handoff_dir/handoffs
       if [ "$handoff_checkout" = "$handoff_main" ] && [ -n "$handoff_shared" ]; then
         handoff_count=0
+        handoff_seen=" "
         for handoff_file in "$handoff_shared"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
           git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+          handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+          case "$handoff_header" in *" | branch: "*" | head: "*) ;; *) continue ;; esac
+          handoff_key=${handoff_header#*" | branch: "}
+          handoff_key=${handoff_key%%" | head: "*}
+          case "$handoff_seen" in *" $handoff_key "*) continue ;; esac
+          handoff_seen="$handoff_seen$handoff_key "
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
@@ -297,20 +334,28 @@ x-factory:
           return 0
         fi
       fi
-      for handoff_store in "$handoff_shared" "$handoff_local"; do
-        [ -n "$handoff_store" ] || continue
-        for handoff_file in "$handoff_store"/*.md; do
-          [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-          handoff_slug=${handoff_file##*/}
-          handoff_slug=${handoff_slug%.md}
-          case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-          git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
-          handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
-          case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
-          handoff_display=$handoff_branch
-          case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
-          handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
-          return 0
+      for handoff_kind in manual auto; do
+        for handoff_store in "$handoff_shared" "$handoff_local"; do
+          [ -n "$handoff_store" ] || continue
+          for handoff_file in "$handoff_store"/*.md; do
+            [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
+            handoff_slug=${handoff_file##*/}
+            handoff_slug=${handoff_slug%.md}
+            case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
+            git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+            handoff_title=$(sed -n "1{p;q;}" "$handoff_file") || continue
+            case "$handoff_kind:$handoff_title" in manual:"# Handoff"|auto:"# Automatic handoff") ;; *) continue ;; esac
+            handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+            case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
+            handoff_display=$handoff_branch
+            case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
+            if [ "$handoff_kind" = auto ]; then
+              handoff_message="Git snapshot available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+            else
+              handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+            fi
+            return 0
+          done
         done
       done
       return 1
@@ -571,9 +616,16 @@ x-claude:
       handoff_local=$handoff_dir/handoffs
       if [ "$handoff_checkout" = "$handoff_main" ] && [ -n "$handoff_shared" ]; then
         handoff_count=0
+        handoff_seen=" "
         for handoff_file in "$handoff_shared"/*.md; do
           [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
           git -C "$handoff_main" check-ignore -q -- "$handoff_file" || continue
+          handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+          case "$handoff_header" in *" | branch: "*" | head: "*) ;; *) continue ;; esac
+          handoff_key=${handoff_header#*" | branch: "}
+          handoff_key=${handoff_key%%" | head: "*}
+          case "$handoff_seen" in *" $handoff_key "*) continue ;; esac
+          handoff_seen="$handoff_seen$handoff_key "
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
@@ -581,20 +633,28 @@ x-claude:
           return 0
         fi
       fi
-      for handoff_store in "$handoff_shared" "$handoff_local"; do
-        [ -n "$handoff_store" ] || continue
-        for handoff_file in "$handoff_store"/*.md; do
-          [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
-          handoff_slug=${handoff_file##*/}
-          handoff_slug=${handoff_slug%.md}
-          case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
-          git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
-          handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
-          case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
-          handoff_display=$handoff_branch
-          case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
-          handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
-          return 0
+      for handoff_kind in manual auto; do
+        for handoff_store in "$handoff_shared" "$handoff_local"; do
+          [ -n "$handoff_store" ] || continue
+          for handoff_file in "$handoff_store"/*.md; do
+            [ -f "$handoff_file" ] && [ ! -L "$handoff_file" ] || continue
+            handoff_slug=${handoff_file##*/}
+            handoff_slug=${handoff_slug%.md}
+            case "$handoff_slug" in *[!A-Za-z0-9._-]*) continue ;; esac
+            git -C "$handoff_store" check-ignore -q -- "$handoff_file" || continue
+            handoff_title=$(sed -n "1{p;q;}" "$handoff_file") || continue
+            case "$handoff_kind:$handoff_title" in manual:"# Handoff"|auto:"# Automatic handoff") ;; *) continue ;; esac
+            handoff_header=$(sed -n "2{p;q;}" "$handoff_file") || continue
+            case "$handoff_header" in *" | branch: $handoff_branch | head: "*) ;; *) continue ;; esac
+            handoff_display=$handoff_branch
+            case "$handoff_display" in *[!A-Za-z0-9._/-]*) handoff_display=$handoff_slug ;; esac
+            if [ "$handoff_kind" = auto ]; then
+              handoff_message="Git snapshot available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+            else
+              handoff_message="Task handoff available: .agnostic-ai/local/handoffs/$handoff_slug.md (branch $handoff_display). Ask to resume the handoff."
+            fi
+            return 0
+          done
         done
       done
       return 1
