@@ -23,7 +23,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Kiro
 
-- Kiro loads both memory lists in every session through a steering include, so you no longer add the include by hand (#2108).
+- Kiro loads project memory and checkout personal memory through a steering include, so you no longer add the include by hand (#2108).
 
 #### Gemini CLI
 

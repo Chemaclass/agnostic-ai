@@ -233,12 +233,24 @@ func TestBuiltinMemory(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			expectedDir := filepath.Join(packageDir, "fixtures", "golden", "builtin-memory-kiro")
+			expectedName := "builtin-memory-kiro"
+			if c.localConfig != nil {
+				expectedName += "-repo"
+			}
+			expectedDir := filepath.Join(packageDir, "fixtures", "golden", expectedName)
 			output := map[string]string{kiroMemoryIndexRule: string(index)}
-			if os.Getenv("UPDATE_GOLDEN") == "1" && c.name == "kiro" {
+			if c.localConfig != nil {
+				if !strings.Contains(string(index), "#[[file:.agnostic-ai/memory/MEMORY.md]]") {
+					t.Errorf("repo mode lacks project include:\n%s", index)
+				}
+				if strings.Contains(string(index), ".agnostic-ai/local/memory/MEMORY.md") {
+					t.Errorf("repo mode names the checkout personal store:\n%s", index)
+				}
+			}
+			if os.Getenv("UPDATE_GOLDEN") == "1" && (c.name == "kiro" || c.localConfig != nil) {
 				updateGolden(t, expectedDir, output)
 			} else {
-				compareGolden(t, expectedDir, output, "builtin-memory-kiro")
+				compareGolden(t, expectedDir, output, expectedName)
 			}
 			if got := filesNaming(t, dir, "#[[file:"); !slices.Equal(got, []string{kiroMemoryIndexRule}) {
 				t.Errorf("files with a Kiro include = %v, want only %s", got, kiroMemoryIndexRule)
@@ -256,6 +268,72 @@ func TestBuiltinMemory(t *testing.T) {
 			run(t, dir, "sync", "--check", "--gitignore=off")
 		})
 	}
+
+	t.Run("kiro-repo-mode-leaves-a-retained-checkout-index-out", func(t *testing.T) {
+		dir := project(t, []byte("version: 1\ntargets: [kiro]\nbuiltins: [memory]\n"))
+		if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v\n%s", err, out)
+		}
+		stale := filepath.Join(dir, ".agnostic-ai", "local", "memory", "MEMORY.md")
+		if err := os.MkdirAll(filepath.Dir(stale), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(stale, []byte("- [Checkout fact](checkout.md): retained checkout fact\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run(t, dir, "sync", "--gitignore=off")
+		if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.local.yaml"), repoMode, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run(t, dir, "sync", "--gitignore=off")
+		rule, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(kiroMemoryIndexRule)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rendered := run(t, dir, "render", "builtin:kiro-memory-index", "--target", "kiro")
+		for _, output := range []string{string(rule), rendered} {
+			if !strings.Contains(output, "#[[file:.agnostic-ai/memory/MEMORY.md]]") {
+				t.Errorf("repo mode lacks project include:\n%s", output)
+			}
+			if strings.Contains(output, ".agnostic-ai/local/memory/MEMORY.md") {
+				t.Errorf("repo mode still loads retained checkout memory:\n%s", output)
+			}
+		}
+		if _, err := os.Stat(stale); err != nil {
+			t.Errorf("switch removed retained checkout index: %v", err)
+		}
+		run(t, dir, "sync", "--check", "--gitignore=off")
+	})
+
+	t.Run("kiro-repo-mode-keeps-a-project-owned-memory-rule", func(t *testing.T) {
+		dir := project(t, []byte("version: 1\ntargets: [kiro]\nbuiltins: [memory]\n"))
+		if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v\n%s", err, out)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.local.yaml"), repoMode, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, ".agnostic-ai", "rules", "kiro-memory-index.md")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		body := "A project-owned include.\n\nPersonal memory, `.agnostic-ai/local/memory/MEMORY.md`:\n\n#[[file:.agnostic-ai/local/memory/MEMORY.md]]\n"
+		if err := os.WriteFile(path, []byte("---\nname: kiro-memory-index\nalwaysApply: true\ntargets: [kiro]\n---\n\n"+body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run(t, dir, "sync", "--gitignore=off")
+		written, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(kiroMemoryIndexRule)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rendered := run(t, dir, "render", ".agnostic-ai/rules/kiro-memory-index.md", "--target", "kiro")
+		for _, output := range []string{string(written), rendered} {
+			if !strings.Contains(output, body) {
+				t.Errorf("project-owned memory rule was changed:\n%s", output)
+			}
+		}
+		run(t, dir, "sync", "--check", "--gitignore=off")
+	})
 
 	t.Run("kiro-include-needs-no-index-and-leaves-with-the-built-in", func(t *testing.T) {
 		dir := project(t, []byte("version: 1\ntargets: [kiro]\nbuiltins: [memory]\n"))

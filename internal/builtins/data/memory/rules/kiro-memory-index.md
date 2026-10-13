@@ -1,6 +1,6 @@
 ---
 name: kiro-memory-index
-description: Load both memory indexes through Kiro's steering include.
+description: Load memory indexes through Kiro's steering include.
 alwaysApply: true
 targets: [kiro]
 ---
