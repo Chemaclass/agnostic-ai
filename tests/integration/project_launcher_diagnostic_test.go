@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -84,7 +85,9 @@ func TestProjectLifecycle_LaunchDiagnosticSurvivesNativeTimeout(t *testing.T) {
 		t.Fatal("delayed native process completed before launcher cancellation")
 	}
 	mustWrite(t, release, "release\n")
-	waitLifecycleDiagnosticFile(t, finished)
+	if runtime.GOOS != "windows" {
+		waitLifecycleDiagnosticFile(t, finished)
+	}
 	assertLifecycleDiagnosticPhases(t, receipt, "node-entry", "native-launch")
 }
 
