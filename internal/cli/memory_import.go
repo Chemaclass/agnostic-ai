@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -70,15 +71,24 @@ func newMemoryImportCmd() *cobra.Command {
 			if canonicalDir(source) == canonicalDir(target) {
 				return fmt.Errorf("%s is the personal memory store itself; nothing to import", filepath.ToSlash(source))
 			}
-			plan, err := planMemoryImport(source, target)
+			label := from
+			if label == "" {
+				label = "imported"
+			}
+			if dryRun {
+				plan, err := planMemoryImport(source, target, label)
+				if err != nil {
+					return err
+				}
+				plan.print(cmd.OutOrStdout(), true)
+				return nil
+			}
+			plan, _, err := importMemory(source, target, label, false)
 			if err != nil {
 				return err
 			}
-			plan.print(cmd.OutOrStdout(), dryRun)
-			if dryRun {
-				return nil
-			}
-			return plan.apply()
+			plan.print(cmd.OutOrStdout(), false)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Store to copy from: "+strings.Join(memoryImportSources, ", ")+".")
@@ -131,7 +141,7 @@ func memoryImportSource(root, from, path string) (string, error) {
 // lines, so a larger file is not one.
 const memoryFactMaxBytes = 1 << 20
 
-// memoryCopy is one fact file import copies, with the index line it gets.
+// memoryCopy is one fact file import writes, with the index line it gets.
 type memoryCopy struct {
 	file string
 	body []byte
@@ -141,24 +151,59 @@ type memoryCopy struct {
 // memoryImportPlan is what import copies from one store into another.
 type memoryImportPlan struct {
 	source, target string
-	copies         []memoryCopy
-	// same counts the facts the target already has, byte for byte.
-	same int
-	// kept names the facts the target already has with other content.
+	// copies are the facts the target lacks.
+	copies []memoryCopy
+	// present are the facts the target holds byte for byte. Import adds
+	// the index line of each one the target index lacks, which also
+	// finishes an import that stopped part way.
+	present []memoryCopy
+	// kept names the facts the target holds with other content.
 	kept []string
 	// skipped names each file left out, with the reason.
 	skipped []string
 }
 
+// importMemory copies the facts in source into the personal store at
+// target while holding the store's lock. With intoEmpty it copies nothing
+// once the store holds a Markdown file, and reports false. label names the
+// source in the fact that keeps its index notes.
+func importMemory(source, target, label string, intoEmpty bool) (memoryImportPlan, bool, error) {
+	if intoEmpty && hasMarkdownFile(target) {
+		return memoryImportPlan{}, false, nil
+	}
+	if err := guardStoreFromGit(target); err != nil {
+		return memoryImportPlan{}, false, err
+	}
+	if err := os.MkdirAll(target, 0o700); err != nil {
+		return memoryImportPlan{}, false, fmt.Errorf("%s: %w", target, err)
+	}
+	unlock, err := lockMemoryStore(target)
+	if err != nil {
+		return memoryImportPlan{}, false, err
+	}
+	defer unlock()
+	if intoEmpty && hasMarkdownFile(target) {
+		return memoryImportPlan{}, false, nil
+	}
+	plan, err := planMemoryImport(source, target, label)
+	if err != nil {
+		return plan, false, err
+	}
+	return plan, true, plan.apply()
+}
+
 // planMemoryImport compares the fact files in source with the store at
-// target by file name, and reads the source index line of each fact it
-// will copy. A source fact with no line gets one from its frontmatter.
-func planMemoryImport(source, target string) (memoryImportPlan, error) {
+// target by file name, and reads the source index line of each fact. A
+// fact with no line gets one from its frontmatter. Lines of the source
+// index that link no fact become one more fact, so notes a tool kept in
+// its index come along too.
+func planMemoryImport(source, target, label string) (memoryImportPlan, error) {
 	plan := memoryImportPlan{source: source, target: target}
 	entries, err := os.ReadDir(source)
 	if err != nil {
 		return plan, fmt.Errorf("%s: %w", source, err)
 	}
+	var facts []memoryCopy
 	for _, e := range entries {
 		name := e.Name()
 		if e.IsDir() || filepath.Ext(name) != ".md" || name == memoryIndexFile {
@@ -173,33 +218,41 @@ func planMemoryImport(source, target string) (memoryImportPlan, error) {
 			plan.skipped = append(plan.skipped, name+": "+err.Error())
 			continue
 		}
-		if line := memorySecretLine(string(body)); line > 0 {
-			plan.skipped = append(plan.skipped, fmt.Sprintf("%s: line %d looks like a secret", name, line))
-			continue
-		}
-		existing, err := os.ReadFile(filepath.Join(target, name))
-		if err == nil {
-			if bytes.Equal(bytes.ReplaceAll(existing, []byte("\r\n"), []byte("\n")), bytes.ReplaceAll(body, []byte("\r\n"), []byte("\n"))) {
-				plan.same++
-			} else {
-				plan.kept = append(plan.kept, name)
-			}
-			continue
-		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			return plan, fmt.Errorf("%s: %w", filepath.Join(target, name), err)
-		}
-		plan.copies = append(plan.copies, memoryCopy{file: name, body: body})
+		facts = append(facts, memoryCopy{file: name, body: body})
 	}
 	lines := sourceIndexLines(source)
-	for i, c := range plan.copies {
-		if line, ok := lines[c.file]; ok {
-			plan.copies[i].line = line
+	for i, f := range facts {
+		if line, ok := lines[f.file]; ok {
+			facts[i].line = line
 		} else {
-			plan.copies[i].line = parseMemoryTopic(c.file, string(c.body)).indexLine()
+			facts[i].line = parseMemoryTopic(f.file, string(f.body)).indexLine()
+		}
+	}
+	if notes := sourceIndexNotes(source); len(notes) > 0 {
+		facts = append(facts, memoryNotesFact(label, notes))
+	}
+	for _, f := range facts {
+		if line := memorySecretLine(string(f.body)); line > 0 {
+			plan.skipped = append(plan.skipped, fmt.Sprintf("%s: line %d looks like a secret", f.file, line))
+			continue
+		}
+		existing, err := os.ReadFile(filepath.Join(target, f.file))
+		switch {
+		case err == nil && bytes.Equal(normalizeNewlines(existing), normalizeNewlines(f.body)):
+			plan.present = append(plan.present, f)
+		case err == nil:
+			plan.kept = append(plan.kept, f.file)
+		case errors.Is(err, fs.ErrNotExist):
+			plan.copies = append(plan.copies, f)
+		default:
+			return plan, fmt.Errorf("%s: %w", filepath.Join(target, f.file), err)
 		}
 	}
 	return plan, nil
+}
+
+func normalizeNewlines(b []byte) []byte {
+	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 }
 
 // readMemoryFact reads one fact file, refusing a symlink on the way and a
@@ -238,16 +291,21 @@ func memorySecretLine(text string) int {
 	return 0
 }
 
-// sourceIndexLines returns, for each fact file the index in dir links,
-// the first index line that links it. A missing or linked index has none.
-func sourceIndexLines(dir string) map[string]string {
-	out := map[string]string{}
+// sourceIndex returns the lines of the index in dir, or nil when it is
+// missing or not a regular file.
+func sourceIndex(dir string) []string {
 	body, err := readMemoryFact(filepath.Join(dir, memoryIndexFile))
 	if err != nil {
-		return out
+		return nil
 	}
-	text := strings.ReplaceAll(string(body), "\r\n", "\n")
-	for _, e := range memoryIndexEntries(strings.Split(text, "\n")) {
+	return strings.Split(strings.TrimRight(string(normalizeNewlines(body)), "\n"), "\n")
+}
+
+// sourceIndexLines returns, for each fact file the index in dir links,
+// the first index line that links it.
+func sourceIndexLines(dir string) map[string]string {
+	out := map[string]string{}
+	for _, e := range memoryIndexEntries(sourceIndex(dir)) {
 		if _, seen := out[e.target]; !seen {
 			out[e.target] = e.text
 		}
@@ -255,84 +313,244 @@ func sourceIndexLines(dir string) map[string]string {
 	return out
 }
 
-// apply copies the planned facts into the target store and appends their
-// index lines. It never replaces a file, so a fact created since the plan
-// stays as it is.
-func (p memoryImportPlan) apply() error {
-	if len(p.copies) == 0 {
-		return nil
+// sourceIndexNotes returns the lines of the index in dir that link no
+// fact and are not blank, or nil when headings are all there is.
+func sourceIndexNotes(dir string) []string {
+	index := sourceIndex(dir)
+	linked := map[int]bool{}
+	for _, e := range memoryIndexEntries(index) {
+		linked[e.line] = true
 	}
-	if err := keepStoreOutOfGit(p.target); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(p.target, 0o700); err != nil {
-		return fmt.Errorf("%s: %w", p.target, err)
-	}
-	var added []string
-	for _, c := range p.copies {
-		path := filepath.Join(p.target, c.file)
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-		if errors.Is(err, fs.ErrExist) {
+	var notes []string
+	prose := false
+	for i, line := range index {
+		if linked[i+1] || strings.TrimSpace(line) == "" || memoryConflictMarker(line) {
 			continue
 		}
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		_, err = f.Write(c.body)
-		if closeErr := f.Close(); err == nil {
-			err = closeErr
-		}
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		added = append(added, c.file)
+		notes = append(notes, strings.TrimRight(line, " \t"))
+		prose = prose || !strings.HasPrefix(strings.TrimSpace(line), "#")
 	}
-	return appendMemoryIndexLines(p.target, p.copies, added)
-}
-
-// keepStoreOutOfGit adds the checkout's personal store to the
-// repository's info/exclude when Git would track it, so facts that were
-// private to a tool never reach a commit. A store outside the repository
-// needs nothing.
-func keepStoreOutOfGit(store string) error {
-	err := exec.Command("git", "check-ignore", "-q", filepath.Join(store, memoryIndexFile)).Run()
-	var exit *exec.ExitError
-	if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+	if !prose {
 		return nil
 	}
-	return adapters.ExcludeFromGit("**/" + filepath.ToSlash(defaultMemoryStores[1].dir) + "/")
+	return notes
 }
 
-// appendMemoryIndexLines adds the index line of each added fact the
-// target index does not link yet, keeping every line it has.
-func appendMemoryIndexLines(target string, copies []memoryCopy, added []string) error {
+// memoryNotesLabels describes each import source in the fact that keeps
+// the notes from its index.
+var memoryNotesLabels = map[string]string{
+	memorySourceClaude:   "Claude Code's own memory",
+	memorySourceCheckout: "the checkout's personal memory",
+	memorySourceRepo:     "the repository's personal memory",
+}
+
+// memoryNotesFact keeps the notes of a source index as one fact, since
+// the target index holds only links.
+func memoryNotesFact(label string, notes []string) memoryCopy {
+	what, ok := memoryNotesLabels[label]
+	if !ok {
+		label, what = "imported", "the imported memory"
+	}
+	name := label + "-index-notes"
+	description := "Notes kept in the MEMORY.md of " + what
+	body := "---\nname: " + name + "\ndescription: " + description + "\nmetadata:\n  type: reference\n---\n\n" + strings.Join(notes, "\n") + "\n"
+	file := name + ".md"
+	return memoryCopy{file: file, body: []byte(body), line: "- [" + name + "](" + file + "): " + description}
+}
+
+// apply writes the planned facts into the target store and adds the index
+// line of each fact there that its index lacks. It never replaces a file:
+// a fact written since the plan stays as it is.
+func (p memoryImportPlan) apply() error {
+	repo := existingAncestor(p.target)
+	var written []memoryCopy
+	for _, c := range p.copies {
+		path := filepath.Join(p.target, c.file)
+		if gitWouldTrack(repo, path) {
+			return fmt.Errorf("%s: Git would track it; ignore %s first", filepath.ToSlash(path), filepath.ToSlash(p.target))
+		}
+		created, err := writeNewFile(path, c.body)
+		if err != nil {
+			return err
+		}
+		if created {
+			written = append(written, c)
+		}
+	}
+	return appendMemoryIndexLines(p.target, append(written, p.present...))
+}
+
+// writeNewFile writes body to path only when no file is there, and never
+// leaves part of a file: the bytes go to a temporary file first, then a
+// hard link puts it in place, which fails when path exists.
+func writeNewFile(path string, body []byte) (bool, error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", filepath.Dir(path), err)
+	}
+	name := tmp.Name()
+	defer func() { _ = os.Remove(name) }()
+	_, err = tmp.Write(body)
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Chmod(name, 0o644)
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", name, err)
+	}
+	err = os.Link(name, path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrExist) {
+		return false, nil
+	}
+	// A file system without hard links: create the file exclusively, and
+	// remove it again if the write fails.
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, fs.ErrExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", path, err)
+	}
+	_, err = f.Write(body)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(path)
+		return false, fmt.Errorf("%s: %w", path, err)
+	}
+	return true, nil
+}
+
+// appendMemoryIndexLines appends the index line of each fact the target
+// index does not link yet. Appending, not rewriting, keeps every line a
+// tool adds to the index at the same time.
+func appendMemoryIndexLines(target string, facts []memoryCopy) error {
 	path := filepath.Join(target, memoryIndexFile)
 	current, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	text := strings.ReplaceAll(string(current), "\r\n", "\n")
 	linked := map[string]bool{}
-	for _, e := range memoryIndexEntries(strings.Split(text, "\n")) {
+	for _, e := range memoryIndexEntries(strings.Split(string(normalizeNewlines(current)), "\n")) {
 		linked[e.target] = true
 	}
-	var lines []string
-	for _, c := range copies {
-		if slices.Contains(added, c.file) && !linked[c.file] {
-			lines = append(lines, c.line)
+	var add strings.Builder
+	if len(current) > 0 && current[len(current)-1] != '\n' {
+		add.WriteString("\n")
+	}
+	lines := 0
+	for _, f := range facts {
+		if !linked[f.file] {
+			linked[f.file] = true
+			add.WriteString(f.line + "\n")
+			lines++
 		}
 	}
-	if len(lines) == 0 {
+	if lines == 0 {
 		return nil
 	}
-	if text != "" && !strings.HasSuffix(text, "\n") {
-		text += "\n"
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
 	}
-	text += strings.Join(lines, "\n") + "\n"
-	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+	_, err = file.WriteString(add.String())
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	return nil
+}
+
+// guardStoreFromGit keeps facts that were private to a tool out of Git. It
+// refuses a store with files Git tracks, and adds the store to
+// info/exclude when Git would track new files there, if the store is in
+// the working directory's repository. A store outside any repository
+// needs nothing.
+func guardStoreFromGit(store string) error {
+	repo := existingAncestor(store)
+	if out, err := exec.Command("git", "-C", repo, "ls-files", "--", store).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
+		return fmt.Errorf("%s holds files Git tracks, so imported facts would reach a commit; untrack them with `git rm -r --cached %s`", filepath.ToSlash(store), filepath.ToSlash(store))
+	}
+	probe := filepath.Join(store, memoryIndexFile)
+	if !gitWouldTrack(repo, probe) {
+		return nil
+	}
+	top, err := exec.Command("git", "-C", repo, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return fmt.Errorf("%s: %w", repo, err)
+	}
+	here, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil || strings.TrimSpace(string(here)) != strings.TrimSpace(string(top)) {
+		return fmt.Errorf("Git in %s would track %s; ignore that folder there first", strings.TrimSpace(string(top)), filepath.ToSlash(store))
+	}
+	rel, err := filepath.Rel(canonicalDir(strings.TrimSpace(string(top))), canonicalDir(store))
+	if err != nil {
+		return fmt.Errorf("%s: %w", store, err)
+	}
+	if err := adapters.ExcludeFromGit("/" + filepath.ToSlash(rel) + "/"); err != nil {
+		return err
+	}
+	if gitWouldTrack(repo, probe) {
+		return fmt.Errorf("Git would still track %s; ignore it in .gitignore", filepath.ToSlash(store))
+	}
+	return nil
+}
+
+// gitWouldTrack reports whether the repository holding dir would track a
+// new file at path: Git reports the path as not ignored. Outside a
+// repository it reports false.
+func gitWouldTrack(dir, path string) bool {
+	err := exec.Command("git", "-C", dir, "check-ignore", "-q", path).Run()
+	var exit *exec.ExitError
+	return errors.As(err, &exit) && exit.ExitCode() == 1
+}
+
+// existingAncestor returns path, or its nearest parent that exists.
+func existingAncestor(path string) string {
+	for {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return path
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return path
+		}
+		path = parent
+	}
+}
+
+// memoryStoreLockWait bounds how long import waits for another import
+// into the same store.
+const memoryStoreLockWait = 5 * time.Second
+
+// lockMemoryStore holds the lock file inside store until the returned
+// func runs, so two imports never append index lines at once.
+func lockMemoryStore(store string) (func(), error) {
+	path := filepath.Join(store, ".lock")
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	deadline := time.Now().Add(memoryStoreLockWait)
+	for {
+		err := tryLockProjectFile(file)
+		if err == nil {
+			return func() { _ = file.Close() }, nil
+		}
+		if !projectLockContended(err) || time.Now().After(deadline) {
+			_ = file.Close()
+			return nil, fmt.Errorf("lock %s: %w", path, err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // print reports the plan, or what it would do with dryRun.
@@ -348,9 +566,9 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 		for _, c := range p.copies {
 			_, _ = fmt.Fprintf(w, "  %s\n", c.file)
 		}
-	case p.same > 0 && len(p.kept)+len(p.skipped) == 0:
+	case len(p.present) > 0 && len(p.kept)+len(p.skipped) == 0:
 		_, _ = fmt.Fprintf(w, "Nothing to copy: %s has every fact in %s.\n", to, from)
-	case p.same+len(p.kept)+len(p.skipped) == 0:
+	case len(p.present)+len(p.kept)+len(p.skipped) == 0:
 		_, _ = fmt.Fprintf(w, "No facts in %s.\n", from)
 	default:
 		_, _ = fmt.Fprintf(w, "Nothing copied from %s.\n", from)
@@ -374,25 +592,18 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 // file yet, and notes the result.
 func runMemorySeeds() {
 	for _, seed := range adapters.TakeMemorySeeds() {
-		if hasMarkdownFile(seed.To) {
-			continue
-		}
 		if info, err := os.Stat(seed.From); err != nil || !info.IsDir() {
 			continue
 		}
-		plan, err := planMemoryImport(seed.From, seed.To)
-		if err == nil && len(plan.copies) == 0 {
-			continue
-		}
-		if err == nil {
-			err = plan.apply()
-		}
+		plan, done, err := importMemory(seed.From, seed.To, seed.Target, true)
 		from := filepath.ToSlash(seed.From)
 		if err != nil {
 			adapters.NoteProject(fmt.Sprintf("%s: could not copy the facts in %s into personal memory: %v; run `agnostic-ai memory import --from %s`", seed.Target, from, err, seed.Target))
 			continue
 		}
-		adapters.NoteProject(fmt.Sprintf("%s: copied %d fact(s) from %s into personal memory, which was empty; the source is unchanged", seed.Target, len(plan.copies), from))
+		if done && len(plan.copies) > 0 {
+			adapters.NoteProject(fmt.Sprintf("%s: copied %d fact(s) from %s into personal memory, which was empty; the source is unchanged", seed.Target, len(plan.copies), from))
+		}
 	}
 }
 
@@ -411,8 +622,9 @@ func hasMarkdownFile(dir string) bool {
 // lintMemoryDarkStores reports each memory store whose facts no tool reads
 // any longer, and that the personal store lacks by file name (LINT043):
 // Claude Code's own store once sync points Claude at personal memory, and
-// the personal store of the other memory.personal mode. It compares file
-// names only, never contents.
+// the personal store of the other memory.personal mode. It counts facts by
+// file name, and notes kept in a store's index as one more, and never
+// prints what a fact says.
 func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, error) {
 	if readers.cfg == nil {
 		return nil, nil
@@ -453,6 +665,9 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		facts, err := adapters.MemoryFactFiles(c.dir)
 		if err != nil {
 			return nil, err
+		}
+		if len(sourceIndexNotes(c.dir)) > 0 {
+			facts = append(facts, memoryNotesFact(c.from, nil).file)
 		}
 		missing := 0
 		for _, f := range facts {

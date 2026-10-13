@@ -97,7 +97,7 @@ agnostic-ai lint --strict
 | LINT040 | Error, project only. A memory index line links a fact file that does not exist. Restore the file, or run [`memory index`](@/docs/cli-reference/maintain.md#memory) to drop the line. |
 | LINT041 | Warning, project only. A memory fact file has no index line, so no tool loads it. [`memory index`](@/docs/cli-reference/maintain.md#memory) adds one. `lint --strict` fails. |
 | LINT042 | Error, project only. A line in a memory index or fact file looks like a credential, such as a prefixed token, a URL password, or a `Bearer` token. The finding names the line, never the value. |
-| LINT043 | Warning, project only. A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own store once sync points Claude at personal memory, or the other personal folder after a `memory.personal` switch. The finding names the folder and the [`memory import`](@/docs/cli-reference/maintain.md#memory) command that copies the facts. It compares file names only. `lint --strict` fails. |
+| LINT043 | Warning, project only. A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own store once sync points Claude at personal memory, or the other personal folder after a `memory.personal` switch. The finding names the folder and the [`memory import`](@/docs/cli-reference/maintain.md#memory) command that copies the facts. It counts facts by file name, and notes kept in that store's index as one more, and never prints what a fact says. `lint --strict` fails. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either. |
 
 More warnings:

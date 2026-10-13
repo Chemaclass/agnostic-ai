@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -123,8 +124,9 @@ func TestMemoryImport_KeepsAFactPersonalMemoryAlreadyHas(t *testing.T) {
 	if !strings.Contains(out, "Kept 1 fact(s)") || !strings.Contains(out, "  tabs.md") || strings.Contains(out, "ci-ubuntu.md") {
 		t.Errorf("output:\n%s", out)
 	}
-	if got := readText(t, filepath.Join(personalStore, "MEMORY.md")); got != "- [Tabs](tabs.md): mine\n" {
-		t.Errorf("index changed:\n%s", got)
+	want := "- [Tabs](tabs.md): mine\n- [ci-ubuntu](ci-ubuntu.md): CI runs on Ubuntu\n"
+	if got := readText(t, filepath.Join(personalStore, "MEMORY.md")); got != want {
+		t.Errorf("index = %q, want the unlinked identical fact added: %q", got, want)
 	}
 }
 
@@ -328,5 +330,135 @@ func TestMemoryImport_KeepsTheCheckoutStoreOutOfGit(t *testing.T) {
 
 	if err := exec.Command("git", "check-ignore", "-q", filepath.Join(personalStore, "tabs.md")).Run(); err != nil {
 		t.Errorf("personal store is not ignored after import: %v", err)
+	}
+}
+
+func gitCommitAll(t *testing.T) {
+	t.Helper()
+	for _, args := range [][]string{{"add", "-A", "-f", "."}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x"}} {
+		if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+}
+
+func TestMemoryImport_RefusesAStoreGitTracks(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	writeStore(t, personalStore, map[string]string{"MEMORY.md": "- [CI](ci-ubuntu.md): CI\n", "ci-ubuntu.md": ciFact})
+	gitCommitAll(t)
+
+	_, err := runRoot(t, "memory", "import", "--from", "claude")
+
+	if err == nil || !strings.Contains(err.Error(), "Git tracks") {
+		t.Errorf("err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(personalStore, "tabs.md")); err == nil {
+		t.Error("import wrote into a tracked store")
+	}
+}
+
+func TestMemoryImport_FinishesAnImportThatStoppedPartWay(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+	writeStore(t, personalStore, map[string]string{"tabs.md": tabsFact})
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if got := readText(t, filepath.Join(personalStore, "MEMORY.md")); got != "- [Tabs](tabs.md): tabs\n" {
+		t.Errorf("index:\n%s", got)
+	}
+}
+
+func TestMemoryImport_KeepsNotesFromTheSourceIndex(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{
+		"MEMORY.md": "# Memory\n\n- [Tabs](tabs.md): tabs\nAlways run the tests before a push.\n",
+		"tabs.md":   tabsFact,
+	})
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	notes := readText(t, filepath.Join(personalStore, "claude-index-notes.md"))
+	if !strings.Contains(notes, "# Memory\nAlways run the tests before a push.\n") || !strings.Contains(notes, "type: reference") {
+		t.Errorf("notes fact:\n%s", notes)
+	}
+	if index := readText(t, filepath.Join(personalStore, "MEMORY.md")); !strings.Contains(index, "(claude-index-notes.md)") {
+		t.Errorf("index:\n%s", index)
+	}
+}
+
+func TestMemoryImport_SkipsAnIndexWithOnlyHeadings(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"MEMORY.md": "# Memory\n- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(filepath.Join(personalStore, "claude-index-notes.md")); err == nil {
+		t.Error("headings alone became a notes fact")
+	}
+}
+
+func TestLintMemory_CountsNotesInClaudesIndex(t *testing.T) {
+	native := importProject(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeStore(t, native, map[string]string{"MEMORY.md": "Prefer small pull requests.\n"})
+	writeStore(t, personalStore, map[string]string{"ci-ubuntu.md": ciFact})
+
+	out, _ := runRoot(t, "memory", "lint")
+
+	if !strings.Contains(out, "LINT043") || !strings.Contains(out, "1 fact(s) here no longer load") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestWriteNewFile_NeverReplacesAFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tabs.md")
+	writeFile(t, path, "mine\n")
+
+	created, err := writeNewFile(path, []byte("theirs\n"))
+
+	if err != nil || created {
+		t.Fatalf("created = %v, err = %v", created, err)
+	}
+	if got := readText(t, path); got != "mine\n" {
+		t.Errorf("file = %q", got)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
+		t.Errorf("temporary file left behind: %v", entries)
+	}
+}
+
+func TestLockMemoryStore_WaitsForTheImportHoldingIt(t *testing.T) {
+	store := t.TempDir()
+	unlock, err := lockMemoryStore(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	released := make(chan struct{})
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		close(released)
+		unlock()
+	}()
+
+	second, err := lockMemoryStore(store)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second()
+	select {
+	case <-released:
+	default:
+		t.Error("second lock taken while the first was held")
 	}
 }
