@@ -93,6 +93,36 @@ func TestEmitHooks_NonToolEventHoldsHandlersDirectly(t *testing.T) {
 	}
 }
 
+// SessionStart is documented in the same simple shape as PreInvocation:
+// "For SessionStart, PreInvocation, PostInvocation, and Stop, the structure
+// is simpler (a list of handlers directly under the event key) and the
+// matcher is ignored".
+func TestEmitHooks_SessionStartHoldsHandlersDirectly(t *testing.T) {
+	doc, _ := emitHooksBundle(t, []spec.Entry{{
+		Kind: spec.KindHook, Name: "init",
+		Meta: map[string]any{"event": "SessionStart", "command": "./scripts/init.sh"},
+	}})
+
+	def, ok := doc["init"].(map[string]any)
+	if !ok {
+		t.Fatalf("no init definition written: %v", doc)
+	}
+	handlers, ok := def["SessionStart"].([]any)
+	if !ok || len(handlers) != 1 {
+		t.Fatalf("SessionStart is not a one-handler array: %v", def)
+	}
+	handler := handlers[0].(map[string]any)
+	if handler["type"] != "command" || handler["command"] != "./scripts/init.sh" {
+		t.Errorf("handler = %v, want type command and the spec's command", handler)
+	}
+	if _, nested := handler["hooks"]; nested {
+		t.Errorf("handler is wrapped in a matcher group: %v", handler)
+	}
+	if _, matcher := handler["matcher"]; matcher {
+		t.Errorf("handler carries a matcher Antigravity ignores: %v", handler)
+	}
+}
+
 // `enabled` belongs to the hook definition, alongside the event keys,
 // and is the inverse of the portable `disabled: true`.
 func TestEmitHooks_DisabledSpecWritesEnabledFalse(t *testing.T) {
