@@ -202,7 +202,7 @@ func TestBuiltins_LintAndLSPKeepUserFindings(t *testing.T) {
 }
 
 func TestBuiltins_InitOptsIn(t *testing.T) {
-	got := renderConfig("", []string{"claude"}, false, "dev")
+	got := renderConfig("", []string{"claude"}, false, "dev", false)
 	if !strings.Contains(got, "builtins: [handoff]") {
 		t.Errorf("init config omitted handoff:\n%s", got)
 	}

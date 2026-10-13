@@ -211,6 +211,16 @@ func importMemory(source, target, label string, only []string, intoEmpty bool) (
 	if err != nil {
 		return plan, false, err
 	}
+	if intoEmpty && (label == memorySourceCheckout || label == memorySourceRepo) {
+		handled := importedFacts(target)
+		plan.copies = slices.DeleteFunc(plan.copies, func(fact memoryCopy) bool {
+			record := fact.record
+			if record == "" {
+				record = fact.file
+			}
+			return handled[label+"/"+record]
+		})
+	}
 	return plan, true, plan.apply()
 }
 
@@ -933,4 +943,34 @@ func claudeReadsPersonalMemory(cfg *config.Config, root, personal string) bool {
 	}
 	dir, _ := doc["autoMemoryDirectory"].(string)
 	return dir != "" && canonicalDir(filepath.FromSlash(dir)) == canonicalDir(personal)
+}
+
+func preparePersonalMemorySync(root string, cfg *config.Config) {
+	if !slices.Contains(cfg.Builtins, "memory") {
+		return
+	}
+	if !cfg.RepoPersonalMemory() {
+		if raw, err := exec.Command("git", "-C", root, "worktree", "list", "--porcelain").Output(); err == nil {
+			count := 0
+			for _, entry := range strings.Split(strings.TrimSpace(string(raw)), "\n\n") {
+				lines := strings.Split(entry, "\n")
+				if !slices.Contains(lines, "bare") && !slices.ContainsFunc(lines, func(line string) bool { return line == "prunable" || strings.HasPrefix(line, "prunable ") }) {
+					count++
+				}
+			}
+			if count > 1 {
+				adapters.NoteProject("Personal memory is separate in each checkout; set memory.personal: repo in agnostic-ai.local.yaml to share it across worktrees")
+			}
+		}
+	}
+	repo, err := adapters.PersonalMemoryDir(&config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}, root)
+	if err != nil {
+		return
+	}
+	checkout := filepath.Join(root, defaultMemoryStores[1].dir)
+	from, to, label := repo, checkout, memorySourceRepo
+	if cfg.RepoPersonalMemory() {
+		from, to, label = checkout, repo, memorySourceCheckout
+	}
+	adapters.RequestMemorySeed(adapters.MemorySeed{Target: label, From: from, To: to})
 }

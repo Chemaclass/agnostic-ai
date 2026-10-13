@@ -58,6 +58,7 @@ echo "claude,codex" | agnostic-ai init
 | Flag | Description |
 |------|-------------|
 | `[dir]` | Base directory for the source folders (`.` for the old root layout). Writes matching `sources:` paths; the default `.agnostic-ai/` writes none. |
+| `--memory` | Enable shared memory. In Git with managed ignores, write `memory.personal: repo` to a new `agnostic-ai.local.yaml`. Existing local config keeps its content. See [repo memory](@/docs/memory.md#one-store-per-repository) for the Kilo Code setup. |
 | `--demo` | Add example specs, one per source folder plus the `memory-curator` skill, so the first `sync` writes output. The [`no-force-push` hook](@/docs/spec-format/hooks.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. The two [spec guard hooks](@/docs/spec-format/hooks.md#spec-guard) report spec lint errors and unsynced specs to the agent. Never overwrites files. |
 | `--preset <name>` | Add starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
