@@ -2,6 +2,7 @@ package emit
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -127,8 +128,24 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 	if PriorOutputSum != nil {
 		sum = PriorOutputSum(path)
 	}
-	data, err := os.ReadFile(path)
-	priorHandoff := (len(claims) > 0 || sum != "") && bytes.Contains(data, []byte("/.agnostic-ai/local/handoffs"))
+	if !HandoffConfigFile(cfg, path, target) && len(claims) == 0 && sum == "" {
+		return false, nil
+	}
+	var data []byte
+	var err error
+	info, statErr := os.Lstat(path)
+	link := statErr == nil && info.Mode()&os.ModeSymlink != 0
+	if link {
+		if destination, statErr := os.Stat(path); statErr != nil {
+			err = statErr
+		} else if !destination.Mode().IsRegular() {
+			err = fs.ErrInvalid
+		}
+	}
+	if err == nil {
+		data, err = os.ReadFile(path)
+	}
+	priorHandoff := priorOwnedHandoffRoot(path, target, data, err != nil, sum)
 	if !HandoffConfigFile(cfg, path, target) && !priorHandoff {
 		return false, nil
 	}
@@ -139,16 +156,16 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 		return false, nil
 	}
 	NoteProject(fmt.Sprintf("%s: %s stays as configured; its handoff permissions are not writable", target, filepath.ToSlash(path)))
-	if os.IsNotExist(err) || len(claims) == 0 && sum == "" {
+	if len(claims) == 0 && sum == "" {
 		return true, nil
 	}
-	if err != nil {
+	if err != nil && !link {
 		return true, fmt.Errorf("read %s: %w", path, err)
 	}
 	// Keep the output and its claims in the ledger without following a refused write.
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.capturing {
+	if s.capturing && err == nil {
 		s.captured = append(s.captured, CapturedFile{Path: path, Content: string(data), Merged: len(claims) > 0, Keys: claims})
 	}
 	if s.recording {
@@ -158,6 +175,34 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(data), Action: "skip", Sum: sum, Merged: len(claims) > 0, Keys: claims})
 	}
 	return true, nil
+}
+
+func priorOwnedHandoffRoot(path, target string, data []byte, unreadable bool, sum string) bool {
+	if target == "codex" {
+		return sum != ""
+	}
+	items := PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})
+	if len(items) == 0 {
+		return false
+	}
+	if unreadable {
+		return true
+	}
+	data, _ = StripJSONC(data)
+	var doc struct {
+		Permissions struct {
+			AdditionalDirectories []string `json:"additionalDirectories"`
+		} `json:"permissions"`
+	}
+	if json.Unmarshal(data, &doc) != nil {
+		return false
+	}
+	for _, dir := range doc.Permissions.AdditionalDirectories {
+		if strings.HasSuffix(filepath.ToSlash(dir), "/.agnostic-ai/local/handoffs") && slices.Contains(items, ContentSum(canonicalJSON(dir))) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Session) CreateHandoffStore(dir string, dryRun bool) error {
