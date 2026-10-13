@@ -59,6 +59,7 @@ command: |
   }
   handoff_write_snapshot() {
     handoff_path=$1
+    handoff_owner=$3
     handoff_parent=$(dirname "$handoff_path") || return 1
     handoff_existing=$handoff_parent
     while [ ! -d "$handoff_existing" ]; do
@@ -68,12 +69,16 @@ command: |
       [ "$handoff_next" != "$handoff_existing" ] || return 1
       handoff_existing=$handoff_next
     done
-    handoff_real=$(cd "$handoff_existing" && pwd -P && printf ".") || return 1
+    handoff_real=$(CDPATH= cd "$handoff_existing" && pwd -P && printf ".") || return 1
     handoff_real=${handoff_real%?}
     handoff_real=${handoff_real%?}
     handoff_path=$handoff_real${handoff_path#"$handoff_existing"}
     handoff_parent=$(dirname "$handoff_path") || return 1
-    git -C "$handoff_existing" check-ignore -q -- "$handoff_path" || return 1
+    case "$handoff_path" in
+      "${handoff_owner%/}/"*) handoff_relative=${handoff_path#"${handoff_owner%/}/"} ;;
+      *) return 1 ;;
+    esac
+    (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "$handoff_relative") || return 1
     [ ! -L "$handoff_path" ] || return 1
     if [ "$2" = task ] && [ -e "$handoff_path" ]; then
       [ -f "$handoff_path" ] || return 1
@@ -85,7 +90,7 @@ command: |
     handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
     handoff_detached=" | detached: false"
     [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
-    if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
+    if ! (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "${handoff_temp#"${handoff_owner%/}/"}") ||
        ! printf "# Automatic handoff
   tool: %s | date: %s | branch: %s | head: %s
   worktree: %s%s
@@ -140,19 +145,19 @@ command: |
     [ "$handoff_branch_status" -ne 1 ] || handoff_slug=detached-$handoff_head
     handoff_main=$(git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
     handoff_shared_done=false
-    if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+    if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
       if handoff_main=$(cd "$handoff_main" && pwd -P); then
         handoff_suffix=${handoff_root#"$handoff_checkout"}
-        if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task; then
+        if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task "$handoff_main"; then
           handoff_shared_done=true
         fi
       fi
     fi
     handoff_dir=$handoff_root/.agnostic-ai/local
     if [ "$handoff_shared_done" != true ]; then
-      handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task
+      handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task "$handoff_checkout"
     fi
-    handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy
+    handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy "$handoff_checkout"
   }
   handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
   handoff_snapshot "$@" </dev/null 2>/dev/null
@@ -215,6 +220,7 @@ commandWindows: |
   }
   handoff_write_snapshot() {
     handoff_path=$1
+    handoff_owner=$3
     handoff_parent=$(dirname "$handoff_path") || return 1
     handoff_existing=$handoff_parent
     while [ ! -d "$handoff_existing" ]; do
@@ -224,12 +230,16 @@ commandWindows: |
       [ "$handoff_next" != "$handoff_existing" ] || return 1
       handoff_existing=$handoff_next
     done
-    handoff_real=$(cd "$handoff_existing" && pwd -P && printf ".") || return 1
+    handoff_real=$(CDPATH= cd "$handoff_existing" && pwd -P && printf ".") || return 1
     handoff_real=${handoff_real%?}
     handoff_real=${handoff_real%?}
     handoff_path=$handoff_real${handoff_path#"$handoff_existing"}
     handoff_parent=$(dirname "$handoff_path") || return 1
-    git -C "$handoff_existing" check-ignore -q -- "$handoff_path" || return 1
+    case "$handoff_path" in
+      "${handoff_owner%/}/"*) handoff_relative=${handoff_path#"${handoff_owner%/}/"} ;;
+      *) return 1 ;;
+    esac
+    (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "$handoff_relative") || return 1
     [ ! -L "$handoff_path" ] || return 1
     if [ "$2" = task ] && [ -e "$handoff_path" ]; then
       [ -f "$handoff_path" ] || return 1
@@ -241,7 +251,7 @@ commandWindows: |
     handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
     handoff_detached=" | detached: false"
     [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
-    if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
+    if ! (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "${handoff_temp#"${handoff_owner%/}/"}") ||
        ! printf "# Automatic handoff
   tool: %s | date: %s | branch: %s | head: %s
   worktree: %s%s
@@ -296,19 +306,19 @@ commandWindows: |
     [ "$handoff_branch_status" -ne 1 ] || handoff_slug=detached-$handoff_head
     handoff_main=$(git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
     handoff_shared_done=false
-    if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+    if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
       if handoff_main=$(cd "$handoff_main" && pwd -P); then
         handoff_suffix=${handoff_root#"$handoff_checkout"}
-        if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task; then
+        if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task "$handoff_main"; then
           handoff_shared_done=true
         fi
       fi
     fi
     handoff_dir=$handoff_root/.agnostic-ai/local
     if [ "$handoff_shared_done" != true ]; then
-      handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task
+      handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task "$handoff_checkout"
     fi
-    handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy
+    handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy "$handoff_checkout"
   }
   handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
   handoff_snapshot "$@" </dev/null 2>/dev/null
@@ -374,6 +384,7 @@ x-factory:
     }
     handoff_write_snapshot() {
       handoff_path=$1
+      handoff_owner=$3
       handoff_parent=$(dirname "$handoff_path") || return 1
       handoff_existing=$handoff_parent
       while [ ! -d "$handoff_existing" ]; do
@@ -383,12 +394,16 @@ x-factory:
         [ "$handoff_next" != "$handoff_existing" ] || return 1
         handoff_existing=$handoff_next
       done
-      handoff_real=$(cd "$handoff_existing" && pwd -P && printf ".") || return 1
+      handoff_real=$(CDPATH= cd "$handoff_existing" && pwd -P && printf ".") || return 1
       handoff_real=${handoff_real%?}
       handoff_real=${handoff_real%?}
       handoff_path=$handoff_real${handoff_path#"$handoff_existing"}
       handoff_parent=$(dirname "$handoff_path") || return 1
-      git -C "$handoff_existing" check-ignore -q -- "$handoff_path" || return 1
+      case "$handoff_path" in
+        "${handoff_owner%/}/"*) handoff_relative=${handoff_path#"${handoff_owner%/}/"} ;;
+        *) return 1 ;;
+      esac
+      (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "$handoff_relative") || return 1
       [ ! -L "$handoff_path" ] || return 1
       if [ "$2" = task ] && [ -e "$handoff_path" ]; then
         [ -f "$handoff_path" ] || return 1
@@ -400,7 +415,7 @@ x-factory:
       handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
       handoff_detached=" | detached: false"
       [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
-      if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
+      if ! (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "${handoff_temp#"${handoff_owner%/}/"}") ||
          ! printf "# Automatic handoff
     tool: %s | date: %s | branch: %s | head: %s
     worktree: %s%s
@@ -455,19 +470,19 @@ x-factory:
       [ "$handoff_branch_status" -ne 1 ] || handoff_slug=detached-$handoff_head
       handoff_main=$(git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
       handoff_shared_done=false
-      if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+      if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
         if handoff_main=$(cd "$handoff_main" && pwd -P); then
           handoff_suffix=${handoff_root#"$handoff_checkout"}
-          if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task; then
+          if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task "$handoff_main"; then
             handoff_shared_done=true
           fi
         fi
       fi
       handoff_dir=$handoff_root/.agnostic-ai/local
       if [ "$handoff_shared_done" != true ]; then
-        handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task
+        handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task "$handoff_checkout"
       fi
-      handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy
+      handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy "$handoff_checkout"
     }
     handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
     handoff_snapshot "$@" </dev/null 2>/dev/null
@@ -693,6 +708,7 @@ x-claude:
     }
     handoff_write_snapshot() {
       handoff_path=$1
+      handoff_owner=$3
       handoff_parent=$(dirname "$handoff_path") || return 1
       handoff_existing=$handoff_parent
       while [ ! -d "$handoff_existing" ]; do
@@ -702,12 +718,16 @@ x-claude:
         [ "$handoff_next" != "$handoff_existing" ] || return 1
         handoff_existing=$handoff_next
       done
-      handoff_real=$(cd "$handoff_existing" && pwd -P && printf ".") || return 1
+      handoff_real=$(CDPATH= cd "$handoff_existing" && pwd -P && printf ".") || return 1
       handoff_real=${handoff_real%?}
       handoff_real=${handoff_real%?}
       handoff_path=$handoff_real${handoff_path#"$handoff_existing"}
       handoff_parent=$(dirname "$handoff_path") || return 1
-      git -C "$handoff_existing" check-ignore -q -- "$handoff_path" || return 1
+      case "$handoff_path" in
+        "${handoff_owner%/}/"*) handoff_relative=${handoff_path#"${handoff_owner%/}/"} ;;
+        *) return 1 ;;
+      esac
+      (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "$handoff_relative") || return 1
       [ ! -L "$handoff_path" ] || return 1
       if [ "$2" = task ] && [ -e "$handoff_path" ]; then
         [ -f "$handoff_path" ] || return 1
@@ -719,7 +739,7 @@ x-claude:
       handoff_temp=$(mktemp "$handoff_path.XXXXXX") || return 1
       handoff_detached=" | detached: false"
       [ "$handoff_branch_status" -ne 1 ] || handoff_detached=" | detached: true"
-      if ! git -C "$handoff_existing" check-ignore -q -- "$handoff_temp" ||
+      if ! (CDPATH= cd "$handoff_owner" && git check-ignore -q -- "${handoff_temp#"${handoff_owner%/}/"}") ||
          ! printf "# Automatic handoff
     tool: %s | date: %s | branch: %s | head: %s
     worktree: %s%s
@@ -774,19 +794,19 @@ x-claude:
       [ "$handoff_branch_status" -ne 1 ] || handoff_slug=detached-$handoff_head
       handoff_main=$(git -c core.quotePath=false worktree list --porcelain | sed -n "1s/^worktree //p")
       handoff_shared_done=false
-      if [ -n "$handoff_main" ] && [ "$(git -C "$handoff_main" rev-parse --is-bare-repository)" = false ]; then
+      if [ -n "$handoff_main" ] && [ "$(CDPATH= cd "$handoff_main" && git rev-parse --is-bare-repository)" = false ]; then
         if handoff_main=$(cd "$handoff_main" && pwd -P); then
           handoff_suffix=${handoff_root#"$handoff_checkout"}
-          if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task; then
+          if handoff_write_snapshot "$handoff_main$handoff_suffix/.agnostic-ai/local/handoffs/$handoff_slug.auto.md" task "$handoff_main"; then
             handoff_shared_done=true
           fi
         fi
       fi
       handoff_dir=$handoff_root/.agnostic-ai/local
       if [ "$handoff_shared_done" != true ]; then
-        handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task
+        handoff_write_snapshot "$handoff_dir/handoffs/$handoff_slug.auto.md" task "$handoff_checkout"
       fi
-      handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy
+      handoff_write_snapshot "$handoff_dir/HANDOFF.auto.md" legacy "$handoff_checkout"
     }
     handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
     handoff_snapshot "$@" 2>/dev/null
