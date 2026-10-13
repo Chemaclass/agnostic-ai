@@ -11,13 +11,17 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
-#### Crush
-
-- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
-
 #### Qoder
 
 - Import project MCP servers from `.qoder/settings.json`, including JSONC, so fresh checkouts can recreate them (#2087).
+
+#### Copilot
+
+- Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
+
+#### Crush
+
+- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
 #### Windsurf / Devin
 

@@ -131,7 +131,7 @@ Prints the `MEMORY.md` fact lists for a `session-start` hook, so the tool adds t
 agnostic-ai hook memory --target codex
 ```
 
-- Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}`, Copilot `{"additionalContext": ...}`, and Gemini CLI `{"hookSpecificOutput": {"additionalContext": ...}}`.
+- Codex and Factory get plain text. Cursor gets `{"additional_context": ...}`. Gemini CLI and Qoder get `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}`. Copilot gets that object plus a top-level `additionalContext`: VS Code reads the object, and Copilot CLI reads the top-level key.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
 - With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
 
