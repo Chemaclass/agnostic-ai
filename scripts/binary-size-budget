@@ -129,7 +129,12 @@
 # #2068 with merged #2062 measured 19153056 on Go 1.27.2,
 # up 24576 from main 70ccdb86 (19128480 bytes).
 # Keep the established CI build allowance.
+# #2087 measured 19161248 on Go 1.27.2, up 8192 from main
+# ebe5835c (19153056): Qoder project MCP import and OAuth secret checks.
+# Keep the established 8 KB build allowance.
 # #2086 measured 19165344 on Go 1.27.2, up 12288 from main
 # 38016ea0 (19153056): validated Crush MCP channels and reply routes.
 # Keep the established 8 KB build allowance.
+# Combined with #2087, measured 19165344, up 4096 from main
+# e48c1499 (19161248). Keep the established 8 KB build allowance.
 19175000

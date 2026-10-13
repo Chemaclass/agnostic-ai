@@ -117,7 +117,9 @@ Auto memory is off by default. agnostic-ai never reads or writes that store. See
 
 ## Import
 
-`import qoder` reads rules, agents, skill folders, commands, and portable settings fields, which go to `settings/qoder.yaml`. Rule activation is kept. Hooks and MCP servers in `.qoder/settings.json` are not read.
+`import qoder` reads rules, agents, skill folders, commands, MCP servers, and portable settings fields. It reads `mcpServers` from project `.qoder/settings.json`, including JSONC, into the configured MCP source directory. Environment and header credentials become environment references. A server with a literal OAuth credential is left out, and import names the field to fix. Portable settings go to `settings/qoder.yaml`. Rule activation is kept.
+
+Hooks, personal settings, and the separate project `.mcp.json` are not imported.
 
 ## Protected paths
 
