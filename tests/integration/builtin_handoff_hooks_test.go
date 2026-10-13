@@ -100,6 +100,12 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		for _, target := range handoffHookTargets {
 			t.Run(target, func(t *testing.T) {
 				handler := handlers[target]["SessionStart"]
+				defer func() {
+					if t.Failed() {
+						handoffTraceStartup(t, target, handler, active)
+						handoffTraceStartup(t, target, handler, main)
+					}
+				}()
 				out := handoffExecute(t, target, handler, active, "{}", "foreign", "")
 				handoffAssertReply(t, target, out, "Task handoff available: .agnostic-ai/local/handoffs/feat-b.md (branch feat/b). Ask to resume the handoff.")
 				out = handoffExecute(t, target, handler, main, "{}", "foreign", "")
@@ -973,6 +979,28 @@ func handoffExecute(t *testing.T, target string, h handoffNativeHandler, dir, st
 
 func handoffExecuteInput(t *testing.T, target string, h handoffNativeHandler, dir string, stdin io.Reader, inherited, shimDir string) string {
 	t.Helper()
+	stdout, stderr := handoffRunInput(t, target, h, dir, stdin, inherited, shimDir)
+	if stderr != "" {
+		t.Errorf("%s stderr: %s", target, stderr)
+	}
+	return stdout
+}
+
+func handoffTraceStartup(t *testing.T, target string, h handoffNativeHandler, dir string) {
+	t.Helper()
+	trace := func(command string) string {
+		command = strings.ReplaceAll(command, "handoff_notice() {\n", "handoff_notice() {\n  set -x\n")
+		command = strings.ReplaceAll(command, "handoff_notice </dev/null 2>/dev/null", "handoff_notice </dev/null")
+		return strings.ReplaceAll(command, "handoff_notice 2>/dev/null", "handoff_notice")
+	}
+	h.Command = trace(h.Command)
+	h.CommandWindows = trace(h.CommandWindows)
+	stdout, stderr := handoffRunInput(t, target, h, dir, strings.NewReader("{}"), "foreign", "")
+	t.Logf("%s startup trace in %s:\nstdout: %s\nstderr: %s", target, dir, stdout, stderr)
+}
+
+func handoffRunInput(t *testing.T, target string, h handoffNativeHandler, dir string, stdin io.Reader, inherited, shimDir string) (string, string) {
+	t.Helper()
 	shell, args := "bash", []string{"-c", h.Command}
 	if target == "codex" {
 		shell = "sh"
@@ -1043,10 +1071,7 @@ func handoffExecuteInput(t *testing.T, target string, h handoffNativeHandler, di
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("direct %s command failed: %v\nstdout: %s\nstderr: %s", target, err, &stdout, &stderr)
 	}
-	if stderr.Len() != 0 {
-		t.Errorf("%s stderr: %s", target, &stderr)
-	}
-	return stdout.String()
+	return stdout.String(), stderr.String()
 }
 
 func handoffAssertReply(t *testing.T, target, out, message string) {
