@@ -150,6 +150,8 @@ memory:
   personal: repo
 ```
 
+A linked worktree without its own `agnostic-ai.local.yaml` follows the main checkout's `memory.personal` setting. Its own local file takes precedence. Other settings stay local to each checkout, and teammates choose their own mode. In checkout mode, sync names this option when linked worktrees exist.
+
 Personal memory then lives in `~/.agnostic-ai/local/memory/<repository name>-<hash>/` (under `$AGNOSTIC_AI_HOME` when set). Sync creates it, readable only by you, and it works when `~/.agnostic-ai` is a link to another folder. Moving or recloning the repository starts a new folder. To see it:
 
 ```
@@ -158,7 +160,7 @@ project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
 
-Switching keeps your facts: `agnostic-ai lint` names the ones left in the other folder, and `agnostic-ai memory import --from checkout` copies them into the new one (`--from repo` when you switch back).
+The first sync after a mode change copies facts into the new store when it holds no Markdown file, and prints the count. The old store stays unchanged. With facts already in the new store, `agnostic-ai lint` names the ones left behind; `agnostic-ai memory import --from checkout` copies them over (`--from repo` when you switch back). Dry runs, checks, and previews never copy facts.
 
 That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one of them instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/configuration.md#gitignore).
 
