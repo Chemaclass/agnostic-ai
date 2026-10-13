@@ -37,6 +37,7 @@ augment	docs	https://docs.augmentcode.com/cli/skills.md	200	markdown-mirror	7326
 augment	docs	https://docs.augmentcode.com/cli/subagents.md	200	markdown-mirror	c38d57d164aab595ffe41e7b6d00ab09f57ee2dcb0b87eec5fd06b20dbb45589	2026-10-02
 augment	docs	https://docs.augmentcode.com/setup-augment/guidelines.md	200	markdown-mirror	a87a75f9a174307bf26692afce87c7ac8c9257939e59e735a9dd5cef1f94c38f	2026-10-02
 claude	changelog	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md	200	raw-github	0383b383e05c30b7592c512ea3356104cbc3a799d028d36204033175ff256a51	2026-10-10
+claude	docs	https://code.claude.com/docs/en/claude-directory	200	html	d45d17ebe4de01e2dd409785910d6659771d477c8205bc57018e54ea3dc87346	2026-10-13
 claude	docs	https://code.claude.com/docs/en/desktop	200	html	c0e6c0835fe463cc0af3dc5e0d0682e5c1d39f17075722a933593de4fa8ff23c	2026-10-12
 claude	docs	https://code.claude.com/docs/en/hooks	200	html	7cebf6263b0405c73b237788b0457b8bc25d052d4b633c9bc91da2fc41d7c542	2026-10-12
 claude	docs	https://code.claude.com/docs/en/mcp	200	html	dfee4cc37c4bba43cd891d81c74f8faedfb8b75e960c6075bdfda84a5e3b4a93	2026-10-11
@@ -116,6 +117,7 @@ gemini	code	https://github.com/google-gemini/gemini-cli/blob/main/packages/core/
 gemini	code	https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/hooks/types.ts	200	raw-github	3d0dce53a6f36e6ca90761d6769c3431e109e12aaa31e9e29ae169faf955bf70	2026-09-30
 gemini	docs	https://geminicli.com/docs/cli/custom-commands/	200	html	123f90a573900919ec5d8ec2c194698cc4393ba79b3f7055fe97b5f2eb3df2c7	2026-09-22
 gemini	docs	https://geminicli.com/docs/cli/gemini-ignore/	200	html	b3d622a0ccef10ba1b546cf769fe46204223131574a4c1f6f718d313725d2314	2026-09-22
+gemini	docs	https://geminicli.com/docs/cli/session-management/	200	html	968dc1928ba9716450e9e56181381c11165ff6abea3326983819c1623444f24e	2026-10-13
 gemini	docs	https://geminicli.com/docs/cli/skills/	200	html	3667820eb0e04c18f458cc7005caed54c98082d4395b39b082f8ce6028c50cbe	2026-09-22
 gemini	docs	https://geminicli.com/docs/core/subagents.md	200	markdown-mirror	4b9baa88628b0a2bdaea87dc6b9a5c5dd2d998274ba9a93cc6ed23c53b8ee2db	2026-09-22
 gemini	docs	https://geminicli.com/docs/hooks/reference/	200	html	51790ee211df1c1d8efe80b8688b336de19d8ce675360f80640a09d53f87c900	2026-09-22

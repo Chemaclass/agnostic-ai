@@ -779,6 +779,8 @@ permissions:
 
 Other targets report a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 
+Set personal transcript age limits with `session-retention-days` in a home settings spec. Global sync maps it to Claude Code, Gemini CLI, and Qoder CLI; project sync leaves it out. It is unset by default and does not enable disabled cleanup. See [session retention](@/docs/spec-format/settings.md#session-retention) for the native keys, deletion warning, and restoration rules.
+
 Each item wins over the one before it:
 
 1. `settings/*.yaml` in the home.

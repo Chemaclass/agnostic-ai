@@ -134,6 +134,7 @@ var globalTargets = map[string]globalTarget{
 			path: globalPathHome + ".claude/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
 			permissionMode: "permissions.defaultMode",
+			retention:      "cleanupPeriodDays",
 			reserved: map[string]string{
 				"hooks":       "sync --global writes hooks from hook specs",
 				"permissions": "use permissions.default-mode for the user default mode; sync --global does not write permission rule lists",
@@ -184,6 +185,7 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".gemini/settings.json", format: "json", key: "mcpServers"},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".gemini/settings.json", format: "json",
+			retention: "general.sessionRetention.maxAge",
 			// Gemini sets thinking per model under modelConfigs, with no
 			// default effort key, so a portable effort raises a note.
 			model: "model.name",
@@ -206,7 +208,8 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".qoder/settings.json", format: "json", key: "mcpServers"},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".qoder/settings.json", format: "json",
-			model: "model.name", effort: "model.reasoningEffort", effortLevel: qoderUserEffortLevels,
+			retention: "general.sessionRetention.maxAge",
+			model:     "model.name", effort: "model.reasoningEffort", effortLevel: qoderUserEffortLevels,
 			reserved: map[string]string{
 				"hooks":       "sync --global writes hooks from hook specs",
 				"mcpServers":  "sync --global writes MCP servers from MCP specs",
