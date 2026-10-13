@@ -26,7 +26,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 		t.Fatalf("build CLI: %v\n%s", err, output)
 	}
 	for _, target := range []string{"codex", "qoder", "claude"} {
-		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview"} {
+		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
@@ -44,6 +44,60 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					config += "sync:\n  unmanaged: [" + file + "]\n"
 				}
 				handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+				if strings.HasPrefix(mode, "adopted ") {
+					first := exec.Command(binary, "sync")
+					first.Dir = linked
+					if output, err := first.CombinedOutput(); err != nil {
+						t.Fatalf("create owned handoff access: %v\n%s", err, output)
+					}
+					path := filepath.Join(linked, file)
+					original := handoffRead(t, path)
+					if !strings.Contains(original, filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))) {
+						t.Fatal("first sync did not create handoff access")
+					}
+					if mode == "adopted tracked config" {
+						handoffGit(t, linked, "add", "-f", file)
+					} else {
+						destination := filepath.Join(t.TempDir(), "native settings")
+						handoffWrite(t, destination, original)
+						if err := os.Remove(path); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Symlink(destination, path); err != nil {
+							if runtime.GOOS == "windows" {
+								t.Skipf("symlink unavailable: %v", err)
+							}
+							t.Fatal(err)
+						}
+					}
+					for _, transition := range []string{"check", "sync", "unavailable store", "removal", "check removal"} {
+						if transition == "unavailable store" {
+							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n")
+						}
+						if transition == "removal" {
+							handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff]", "builtins: []", 1))
+						}
+						args := []string{"sync"}
+						if strings.HasPrefix(transition, "check") {
+							args = append(args, "--check")
+						}
+						cmd := exec.Command(binary, args...)
+						cmd.Dir = linked
+						output, err := cmd.CombinedOutput()
+						if !strings.HasPrefix(transition, "check") && err != nil {
+							t.Errorf("%s: %v\n%s", transition, err, output)
+						}
+						if got, err := os.ReadFile(path); err != nil || string(got) != original {
+							t.Fatalf("%s changed adopted native config: %v\n%s", transition, err, got)
+						}
+						if mode == "adopted symlink config" {
+							if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink == 0 {
+								t.Fatalf("%s replaced native config symlink: %v", transition, err)
+							}
+						}
+					}
+					return
+				}
 				original := ""
 				if mode == "handwritten config" || mode == "tracked config" || mode == "unmanaged config" {
 					original = "{\"permissions\":{\"additionalDirectories\":[\"user-root\"]}}\n"
