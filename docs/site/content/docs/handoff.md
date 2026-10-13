@@ -26,11 +26,12 @@ Most tools get it as a skill. Tools set to `emit-skills-as-commands` also get a 
 
 ## Leave a session
 
-Ask the current tool to "write a handoff". It saves `.agnostic-ai/local/HANDOFF.md` at the project root, up to about 100 lines:
+Ask the current tool to "write a handoff", or "write a handoff for feat/x". It saves one note per branch, up to about 100 lines. Linked worktrees share `.agnostic-ai/local/handoffs/` in the main checkout, so a note survives when its worktree is removed. For `feat/x`, the filename is `feat-x.md`:
 
 ```markdown
 # Handoff
 tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
+worktree: /path/to/checkout | status: active | pr: none
 
 ## Goal
 ## Acceptance
@@ -42,9 +43,9 @@ tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
 ## Verify
 ```
 
-Each new handoff replaces the old one. It never includes secrets or the tool's own memory.
+A new handoff replaces only that branch's previous note. Its header names the real branch, worktree, status (`active`, `blocked`, or `ready`), and PR (`#N` or `none`). The filename replaces characters outside letters, numbers, `.`, `_`, and `-` with `-`. If two branch names produce the same filename, the skill asks before replacing a note. It writes through a private temporary file and renames it into place, with mode 0600. It never includes secrets or the tool's own memory.
 
-The project root is the nearest folder with `agnostic-ai.yaml`, or the Git repository root when there is none. A subproject with its own config keeps its own handoff.
+The project root is the nearest folder with `agnostic-ai.yaml`, or the Git repository root when there is none. A subproject with its own config keeps its own store at the same relative path in the main checkout. If that checkout is bare, its store is not ignored by Git, or a write fails, the skill uses the current checkout's ignored store. It stops if neither destination is safe.
 
 ## Save what you learned
 
@@ -81,7 +82,7 @@ It is off by default and works with these tools:
 
 The snapshot goes to `.agnostic-ai/local/HANDOFF.auto.md`. It holds the tool, date, branch, HEAD, `git status --short`, and the last five commit messages. It never reads your handoff note, diffs, transcripts, or tool memory. Outside a git repository, or before the first commit, no snapshot is saved.
 
-When a new session starts and a handoff file exists, the tool shows a notice suggesting you resume. Nothing resumes until you ask.
+When a new session starts in a linked worktree, the notice names its branch's handoff. In the main checkout, it reports the number of task handoffs. The hooks still show the old messages for `.agnostic-ai/local/HANDOFF.md` and `HANDOFF.auto.md` when no task handoff matches. Nothing resumes until you ask.
 
 Claude hooks use the working directory (`cwd`) supplied by the tool's event, including linked Git worktrees (additional checkouts of the same repository), even when the hook process runs in the main checkout. Config discovery stays inside the selected checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
 
@@ -111,13 +112,15 @@ A project `agnostic-ai sync` adds `.agnostic-ai/local/` to the ignore file. With
 
 ## Resume in another tool
 
-Open the other tool in the same checkout and say "resume the handoff" or "continue where Codex left off". The skill reports the goal and next steps, then compares the branch and HEAD with git. If they differ, it asks before continuing.
+Open the other tool and say "resume the handoff" or "continue where Codex left off". The skill finds notes for the current branch in the shared store, the checkout store, and the old `HANDOFF.md`, choosing the newest match. It reports the goal and next steps, then checks the branch, HEAD, and working changes against Git. Unexpected drift needs confirmation before continuing.
 
-If `HANDOFF.auto.md` is newer, the skill takes the git state from it and the task details from `HANDOFF.md`.
+From the main checkout, ask to resume a named branch. If no note matches the current branch, the skill lists local task headers and asks which to resume. A missing worktree appears as removed; its note stays available. A tool in that task's live worktree can resume its matching note without a branch mismatch prompt.
+
+The old `.agnostic-ai/local/HANDOFF.md` still works. If `HANDOFF.auto.md` is newer and belongs to the same branch, the skill uses its Git state alongside the manual task details. Automatic snapshots still stay in each checkout.
 
 ## Limits and overrides
 
-Handoffs stay on one machine. The `.agnostic-ai/local/` folder is not committed, so teammates and other checkouts never see it.
+Handoffs stay on one machine. The shared store reaches linked worktrees of that repository, but is ignored by Git and does not reach teammates. A fallback note stays in its checkout. Listing task handoffs uses the skill; there is no separate list command.
 
 To replace the built-in, create your own skill named `handoff` in the project. `agnostic-ai list` shows which one wins. If a global built-in clashes with your project skill, rename yours or turn the built-in off in the global config.
 
