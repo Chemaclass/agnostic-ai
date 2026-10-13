@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit
-          go test -timeout=5m -count=1 ./internal/cli -run '^TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$'
+          go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestInit_Memory)'
           go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*|TestBuiltinHandoffHooks)$'
 
       - name: Upload coverage to Codecov
