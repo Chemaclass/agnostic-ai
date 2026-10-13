@@ -26,6 +26,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Antigravity
 
 - Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies with native permission limits (#2124, #2125).
+- `hook run` excludes policy-dependent `allow` replies from Antigravity expectation checks (#2125).
 
 #### Qoder
 
