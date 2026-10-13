@@ -261,6 +261,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. It counts facts by file name, and notes kept in that store's index as one more, and never prints what a fact says.",
 		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is.",
 	},
+	"LINT044": {
+		Severity: lintError,
+		Title:    "Hidden character in a memory file",
+		Cause:    "A line in a memory index or fact file holds a character a reviewer cannot see: a zero-width character, a bidirectional control, a line or paragraph separator, an invisible operator, a soft hyphen, a byte order mark, or a Unicode tag. They can hide text from a pull request, and project memory is committed, so anyone who can push changes what every tool reads. The finding is an error in project memory and a warning in personal memory. It names the line and the code points, never the text. The session-start hook leaves these characters out of the context it prints; tools that load the file whole still read them.",
+		Fix:      "Delete the characters, or retype the line. A zero-width joiner or non-joiner between two non-ASCII characters, as in a family emoji or a Persian word, is not reported.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",

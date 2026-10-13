@@ -148,4 +148,7 @@
 # #2112 after Gemini routing measured 19271840, up 90112 from main
 # 5d2c14be (19181728): safe memory import, resolved private destinations,
 # and worktree seeding. Keep the established 8 KB build allowance.
-19282000
+# #2114 measured 19280032, up 8192 from main b3525196 (19271840):
+# hidden-character checks and cleaned hook context. Keep the established
+# 8 KB build allowance.
+19290000

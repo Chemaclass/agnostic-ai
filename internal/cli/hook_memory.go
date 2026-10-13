@@ -16,10 +16,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// memoryContextLimit keeps the session-start context under every hook
-// target's cap: Codex keeps 2,500 tokens by default and Claude Code
-// 10,000 characters. At 6,000 bytes, text over the Codex cap needs
-// fewer than 2.4 bytes per token, which dense non-Latin text can reach.
+// memoryContextLimit is one budget for every hook target, so they all load
+// the same facts. Codex estimates tokens as bytes divided by 4
+// (APPROX_BYTES_PER_TOKEN in codex-rs/utils/string/src/truncate.rs), so
+// 6,000 bytes count as 1,500 tokens against its 2,500-token default.
+// Claude Code does not run this hook.
 const memoryContextLimit = 6000
 
 func newHookMemoryCmd() *cobra.Command {
@@ -151,6 +152,12 @@ func (m memoryIndex) header() string {
 	return "\n" + m.name + ", `" + m.path + "`:\n\n"
 }
 
+// body is the index text the hook prints: no hidden characters, so the
+// size cut measures what the model gets, and no trailing newlines.
+func (m memoryIndex) body() string {
+	return strings.TrimRight(stripHidden(m.text), "\n")
+}
+
 // personalMemoryIndex returns the personal index of the project at root,
 // in the checkout unless its config sets memory.personal: repo. A config
 // that does not load is returned as the error, since it may set repo mode.
@@ -182,7 +189,7 @@ func memoryContext(indexes, scopes []memoryIndex) string {
 		if i == 0 {
 			head = len(text)
 		}
-		text += strings.TrimRight(index.text, "\n") + "\n"
+		text += index.body() + "\n"
 	}
 	if len(text) <= memoryContextLimit {
 		return text

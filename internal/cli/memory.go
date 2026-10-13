@@ -235,9 +235,6 @@ func memoryLintReaders() (memoryReaders, error) {
 	return projectMemoryReaders(cfg, bundle), nil
 }
 
-// lintMemory checks every memory store that exists (LINT039 to LINT042),
-// the indexes' size for the targets that load them, and stores whose
-// facts no longer load (LINT043).
 func lintMemory(readers memoryReaders) ([]lintFinding, error) {
 	stores, err := memoryStores()
 	if err != nil {
@@ -339,9 +336,10 @@ func lintMemoryWholeSize(whole []string, files []memoryIndex, of []memoryContent
 
 // droppedFrom returns, once each, the files of the facts whose every
 // index line context, the hook output, cuts. A line cut partway still
-// shows its link, so it counts as kept.
+// shows its link, so it counts as kept. It compares the index as the hook
+// prints it, hidden characters left out.
 func (c memoryContents) droppedFrom(context string, index memoryIndex) []string {
-	lines := strings.Split(strings.TrimRight(index.text, "\n"), "\n")
+	lines := strings.Split(index.body(), "\n")
 	kept := 0
 	if at := strings.Index(context, index.header()); at >= 0 {
 		shown := strings.Split(context[at+len(index.header()):], "\n")
@@ -410,6 +408,7 @@ func (c memoryContents) lint() []lintFinding {
 	}
 	for _, path := range files {
 		out = append(out, lintMemorySecrets(path)...)
+		out = append(out, lintMemoryHidden(path, c.hiddenSeverity())...)
 	}
 	return out
 }
@@ -546,7 +545,7 @@ func newMemoryLintCmd() *cobra.Command {
 		Use:   "lint",
 		Short: "Run only the memory lint checks",
 		Long: "Reports an index over 100 lines, or indexes over 6,000 bytes together, naming the facts the session-start hook drops (LINT039), an index line whose file is missing (LINT040), " +
-			"a fact no index line links (LINT041), a line that looks like a secret (LINT042), and a store whose facts no longer load (LINT043). " +
+			"a fact no index line links (LINT041), a line that looks like a secret (LINT042), a store whose facts no longer load (LINT043), and a line with hidden characters (LINT044). " +
 			"`lint` and `doctor` report the same findings. Exit code 1 on error findings, or on " +
 			"warnings with --strict. --json prints the findings in the `lint --json` format.",
 		Example: `  agnostic-ai memory lint
