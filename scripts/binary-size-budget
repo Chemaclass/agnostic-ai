@@ -172,4 +172,7 @@
 #2126 with init repo memory measured 19325088 on Go 1.27.2, up
 # 8192 from main d20fe354 (19316896): Cline global hooks reuse the
 # project renderer. Keep the established 8 KB build allowance.
-19342000
+# #2126 with shared handoffs measured 19341472 on Go 1.27.2, up
+# 8192 from main 2e6c2ec9 (19333280). Same Linux build flags;
+# keep the established 8 KB build allowance.
+19350000
