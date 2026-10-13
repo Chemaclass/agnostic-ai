@@ -7,12 +7,16 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
-- Share personal memory across worktrees in repo mode; start a new project with `init --memory` (#2104, #2109).
+- Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 - The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
 
 ### By tool
+
+#### Cline
+
+- Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
 
 #### Claude Code
 
