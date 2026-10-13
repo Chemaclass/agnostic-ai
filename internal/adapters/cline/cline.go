@@ -100,6 +100,8 @@
 // Hooks emit as one extensionless executable script per event under
 // `.clinerules/hooks/`, named after the event, the one layout both the
 // VS Code extension and the SDK runtime run (see defaultHooksDir).
+// Global sync writes `~/.cline/hooks/<Event>` for the SDK and CLI.
+// The VS Code extension reads global hooks from Documents instead.
 // Cline discovers a hook by file name and
 // nothing else: `HookConfigFileName` declares ten names
 // (sdk/packages/core/src/hooks/hook-file-config.ts:17), an extension

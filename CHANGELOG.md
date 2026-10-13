@@ -15,6 +15,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Cline
+
+- Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
+
 #### Claude Code
 
 - Claude Code loads personal memory natively; subagents read the same store, with an import fallback when native loading is off (#2116).
@@ -25,7 +29,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Antigravity
 
-- Sync writes the new `SessionStart` hook event to `.agents/hooks.json`, and `hook run` accepts a `PreToolUse` reply of `auto_approve` as allow, with a note that `allow` only defers to the default policy (#2124, #2125).
+- Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies with native permission limits (#2124, #2125).
 
 #### Qoder
 

@@ -94,6 +94,19 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		}
 	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
+	for _, file := range renderHookFiles(hooks, "") {
+		if err := sess.WriteExecutableFile(filepath.Join(dir, file.Path), string(file.Body), dryRun); err != nil {
+			return err
+		}
+	}
+	return materializeHookScripts(sess, hooks, dryRun)
+}
+
+func GlobalHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
+	return renderHookFiles(hooks, scriptsDir)
+}
+
+func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScript {
 	commands := map[string][]hookCommand{}
 	var order []string
 	var unmapped, matchers, timeouts, inert int
@@ -125,7 +138,14 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 			order = append(order, canonical)
 		}
 		for _, cmd := range cmds {
-			commands[canonical] = append(commands[canonical], hookCommand{command: emit.WrapPortableHook(h, target, emit.ShellHookCommand(cmd, target, h.Meta)), tools: tools})
+			command := emit.WrapPortableHook(h, target, emit.ShellHookCommand(cmd, target, h.Meta))
+			if globalScriptsDir != "" {
+				rewrite := func(value string) string { return emit.RewriteGlobalHookPath(value, target, globalScriptsDir, h.Meta) }
+				command = emit.PortableHookCommand(h, target, emit.ExecFormCommand(rewrite(cmd), emit.HookArgs(target, h.Meta)), func(value string) string {
+					return emit.RewriteGlobalHookPath(value, target, globalScriptsDir)
+				})
+			}
+			commands[canonical] = append(commands[canonical], hookCommand{command: command, tools: tools})
 		}
 	}
 
@@ -138,14 +158,12 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	emit.NoteSurfaceGap(target, spec.KindHook, inert, "the Cline hook runtime",
 		"PreCompact is a file name Cline lists but maps to no runtime event today, so the script is discovered and never run")
 
+	var files []emit.HookScript
 	for _, event := range order {
-		path := filepath.Join(dir, event)
 		body := hookShebang + emit.WithHeader(hookScript(commands[event]), emit.FormatShell)
-		if err := sess.WriteExecutableFile(path, body, dryRun); err != nil {
-			return err
-		}
+		files = append(files, emit.HookScript{Path: event, Body: []byte(body), Mode: 0o755})
 	}
-	return materializeHookScripts(sess, hooks, dryRun)
+	return files
 }
 
 // hookScript renders the body of one event script. Cline never reads
