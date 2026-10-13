@@ -568,3 +568,107 @@ func TestLintMemory_ReportsTheRepoStoreInCheckoutMode(t *testing.T) {
 		t.Errorf("output:\n%s", out)
 	}
 }
+
+func TestMemoryImport_NeverWritesThroughALinkedIndex(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+	writeStore(t, personalStore, map[string]string{})
+	if err := os.Symlink(filepath.Join(native, "MEMORY.md"), filepath.Join(personalStore, "MEMORY.md")); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	before := readText(t, filepath.Join(native, "MEMORY.md"))
+
+	_, err := runRoot(t, "memory", "import", "--from", "claude")
+
+	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Errorf("err = %v", err)
+	}
+	if after := readText(t, filepath.Join(native, "MEMORY.md")); after != before {
+		t.Errorf("source index changed:\n%s", after)
+	}
+}
+
+func TestMemoryImport_IgnoresTheWholeStoreWhenOnlyMarkdownIsIgnored(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	writeFile(t, ".gitignore", "*.md\n")
+
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	for _, name := range []string{".imported", ".lock"} {
+		if err := exec.Command("git", "check-ignore", "-q", filepath.Join(personalStore, name)).Run(); err != nil {
+			t.Errorf("%s is not ignored: %v", name, err)
+		}
+	}
+}
+
+func TestLintMemory_StillCountsAFactImportCouldNotRead(t *testing.T) {
+	native := importProject(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact, "token.md": "deploy with ghp_" + strings.Repeat("a", 36) + "\n"})
+	writeStore(t, personalStore, map[string]string{"MEMORY.md": ""})
+	if out, err := runRoot(t, "memory", "import", "--from", "claude"); err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	out, _ := runRoot(t, "memory", "lint")
+
+	if !strings.Contains(out, "LINT043") || !strings.Contains(out, "1 fact(s) here no longer load") {
+		t.Errorf("the skipped fact should still count:\n%s", out)
+	}
+}
+
+func TestMemoryImport_CopiesOnlyTheFactsYouPick(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact, "ci-ubuntu.md": ciFact})
+
+	out, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "tabs.md")
+	if err != nil {
+		t.Fatalf("memory import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(filepath.Join(personalStore, "ci-ubuntu.md")); err == nil {
+		t.Error("a fact outside --only was copied")
+	}
+	if got := readText(t, filepath.Join(personalStore, "tabs.md")); got != tabsFact {
+		t.Errorf("tabs.md = %q", got)
+	}
+}
+
+func TestMemoryImport_RejectsAnOnlyNameTheSourceLacks(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+
+	_, err := runRoot(t, "memory", "import", "--from", "claude", "--only", "nope.md")
+
+	if err == nil || !strings.Contains(err.Error(), "--only nope.md") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestMemoryImport_SaysEveryToolReadsWhatItCopies(t *testing.T) {
+	native := importProject(t)
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+
+	dry, err := runRoot(t, "memory", "import", "--from", "claude", "--dry-run")
+	if err != nil {
+		t.Fatalf("dry run: %v\n%s", err, dry)
+	}
+	real, err := runRoot(t, "memory", "import", "--from", "claude")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, real)
+	}
+
+	if !strings.Contains(dry, "tabs.md: user prefers tabs") || !strings.Contains(dry, "Every tool reads personal memory. Check each fact above") {
+		t.Errorf("dry run:\n%s", dry)
+	}
+	if !strings.Contains(real, "these facts now guide all of them") {
+		t.Errorf("import:\n%s", real)
+	}
+}

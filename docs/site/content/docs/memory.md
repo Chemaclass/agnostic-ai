@@ -104,8 +104,11 @@ Claude Code also saves facts by itself. Sync points that memory at your personal
 Facts Claude Code saved before come along. The first sync that points Claude at personal memory copies them from Claude's own folder (`~/.claude/projects/<project>/memory/`) when personal memory is still empty, and leaves that folder as it is. Otherwise `agnostic-ai lint` names the folder and how many of its facts no longer load (LINT043), and this copies them over:
 
 ```bash
+agnostic-ai memory import --from claude --dry-run
 agnostic-ai memory import --from claude
 ```
+
+Every tool reads personal memory, so the dry run lists each fact with its description first; `--only <file>` copies just the ones you pick.
 
 `--path` copies from any folder with the same layout, such as Gemini CLI's `~/.gemini/tmp/<project>/memory/` or Qoder's `~/.qoder/projects/<project>/memory/`. See [memory import](@/docs/cli-reference/maintain.md#memory).
 

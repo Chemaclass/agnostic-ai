@@ -31,6 +31,7 @@ var memoryImportSources = []string{memorySourceClaude, memorySourceCheckout, mem
 
 func newMemoryImportCmd() *cobra.Command {
 	var from, path string
+	var only []string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "import",
@@ -39,11 +40,15 @@ func newMemoryImportCmd() *cobra.Command {
 			"--from claude reads Claude Code's own auto memory store, where Claude saved before sync pointed it at personal memory. " +
 			"--from checkout and --from repo read the other personal store after a memory.personal switch. " +
 			"--path reads any folder with a MEMORY.md and one Markdown file per fact, such as Gemini CLI's ~/.gemini/tmp/<project>/memory or Qoder's ~/.qoder/projects/<project>/memory. " +
+			"Every tool reads personal memory, so read the facts --dry-run lists and pass --only <file> to copy just some. " +
 			"The source never changes. A fact whose file name personal memory already has stays as it is, " +
 			"and a symlink or a file with a line that looks like a secret is skipped; the report names each.",
 		Example: `  # Bring over what Claude Code saved before sync redirected it
   agnostic-ai memory import --from claude --dry-run
   agnostic-ai memory import --from claude
+
+  # Copy only the facts every tool should read
+  agnostic-ai memory import --from claude --only tabs.md --only ci-ubuntu.md
 
   # After switching memory.personal to repo
   agnostic-ai memory import --from checkout`,
@@ -76,14 +81,14 @@ func newMemoryImportCmd() *cobra.Command {
 				label = "imported"
 			}
 			if dryRun {
-				plan, err := planMemoryImport(source, target, label)
+				plan, err := planMemoryImport(source, target, label, only)
 				if err != nil {
 					return err
 				}
 				plan.print(cmd.OutOrStdout(), true)
 				return nil
 			}
-			plan, _, err := importMemory(source, target, label, false)
+			plan, _, err := importMemory(source, target, label, only, false)
 			if err != nil {
 				return err
 			}
@@ -93,6 +98,7 @@ func newMemoryImportCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&from, "from", "", "Store to copy from: "+strings.Join(memoryImportSources, ", ")+".")
 	cmd.Flags().StringVar(&path, "path", "", "Folder to copy from, holding MEMORY.md and one Markdown file per fact.")
+	cmd.Flags().StringSliceVar(&only, "only", nil, "Copy only this fact file; repeat the flag for more.")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be copied and write nothing.")
 	return cmd
 }
@@ -177,7 +183,7 @@ func (s memorySkip) String() string { return s.file + ": " + s.reason }
 // target while holding the store's lock. With intoEmpty it copies nothing
 // once the store holds a Markdown file, and reports false. label names the
 // source in the fact that keeps its index notes.
-func importMemory(source, target, label string, intoEmpty bool) (memoryImportPlan, bool, error) {
+func importMemory(source, target, label string, only []string, intoEmpty bool) (memoryImportPlan, bool, error) {
 	if intoEmpty && hasMarkdownFile(target) {
 		return memoryImportPlan{}, false, nil
 	}
@@ -195,7 +201,7 @@ func importMemory(source, target, label string, intoEmpty bool) (memoryImportPla
 	if intoEmpty && hasMarkdownFile(target) {
 		return memoryImportPlan{}, false, nil
 	}
-	plan, err := planMemoryImport(source, target, label)
+	plan, err := planMemoryImport(source, target, label, only)
 	if err != nil {
 		return plan, false, err
 	}
@@ -207,7 +213,7 @@ func importMemory(source, target, label string, intoEmpty bool) (memoryImportPla
 // fact with no line gets one from its frontmatter. Lines of the source
 // index that link no fact become one more fact, so notes a tool kept in
 // its index come along too.
-func planMemoryImport(source, target, label string) (memoryImportPlan, error) {
+func planMemoryImport(source, target, label string, only []string) (memoryImportPlan, error) {
 	plan := memoryImportPlan{source: source, target: target, label: label}
 	entries, err := os.ReadDir(source)
 	if err != nil {
@@ -240,6 +246,14 @@ func planMemoryImport(source, target, label string) (memoryImportPlan, error) {
 	}
 	if notes := sourceIndexNotes(source); len(notes) > 0 {
 		facts = append(facts, memoryNotesFact(label, notes))
+	}
+	if len(only) > 0 {
+		for _, name := range only {
+			if !slices.ContainsFunc(facts, func(f memoryCopy) bool { return f.file == name }) {
+				return plan, fmt.Errorf("--only %s: %s has no such fact file", name, filepath.ToSlash(source))
+			}
+		}
+		facts = slices.DeleteFunc(facts, func(f memoryCopy) bool { return !slices.Contains(only, f.file) })
 	}
 	for _, f := range facts {
 		if line := memorySecretLine(string(f.body)); line > 0 {
@@ -376,6 +390,11 @@ func memoryNotesFact(label string, notes []string) memoryCopy {
 // line of each fact there that its index lacks. It never replaces a file:
 // a fact written since the plan stays as it is.
 func (p memoryImportPlan) apply() error {
+	for _, name := range []string{memoryIndexFile, memoryImportRecord} {
+		if err := requireRegularOrAbsent(filepath.Join(p.target, name)); err != nil {
+			return err
+		}
+	}
 	repo := existingAncestor(p.target)
 	var written []memoryCopy
 	for _, c := range p.copies {
@@ -398,8 +417,9 @@ func (p memoryImportPlan) apply() error {
 }
 
 // memoryImportRecord is the file in a personal store that lists, as
-// <source>/<file>, each fact an import looked at, so LINT043 no longer
-// counts a fact the user deleted or merged after it came over.
+// <source>/<file>, each fact an import copied or found already there, so
+// LINT043 no longer counts a fact the user deleted or merged after it came
+// over. A skipped fact stays out, so LINT043 keeps naming it.
 const memoryImportRecord = ".imported"
 
 // record adds each fact the plan handled to the store's record.
@@ -409,9 +429,6 @@ func (p memoryImportPlan) record() error {
 		names = append(names, c.file)
 	}
 	names = append(names, p.kept...)
-	for _, s := range p.skipped {
-		names = append(names, s.file)
-	}
 	if len(names) == 0 {
 		return nil
 	}
@@ -455,6 +472,22 @@ func importedFacts(store string) map[string]bool {
 		}
 	}
 	return out
+}
+
+// requireRegularOrAbsent refuses a path that is a link or anything but a
+// regular file, so import never writes through it into another file.
+func requireRegularOrAbsent(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file; import never writes through a link", filepath.ToSlash(path))
+	}
+	return nil
 }
 
 // writeNewFile writes body to path only when no file is there, and never
@@ -556,8 +589,18 @@ func guardStoreFromGit(store string) error {
 	if out, err := exec.Command("git", "-C", repo, "ls-files", "--", store).Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
 		return fmt.Errorf("%s holds files Git tracks, so imported facts would reach a commit; untrack them with `git rm -r --cached %s`", filepath.ToSlash(store), filepath.ToSlash(store))
 	}
-	probe := filepath.Join(store, memoryIndexFile)
-	if !gitWouldTrack(repo, probe) {
+	// Import writes facts, the index, its record, its lock, and temporary
+	// files; a rule that ignores only Markdown leaves the rest committable.
+	probes := []string{memoryIndexFile, memoryImportRecord, ".lock", ".fact.md.0.tmp"}
+	trackable := func() bool {
+		for _, name := range probes {
+			if gitWouldTrack(repo, filepath.Join(store, name)) {
+				return true
+			}
+		}
+		return false
+	}
+	if !trackable() {
 		return nil
 	}
 	top, err := exec.Command("git", "-C", repo, "rev-parse", "--show-toplevel").Output()
@@ -575,7 +618,7 @@ func guardStoreFromGit(store string) error {
 	if err := adapters.ExcludeFromGit("/" + filepath.ToSlash(rel) + "/"); err != nil {
 		return err
 	}
-	if gitWouldTrack(repo, probe) {
+	if trackable() {
 		return fmt.Errorf("%s: Git would still track it; ignore the folder in .gitignore", filepath.ToSlash(store))
 	}
 	return nil
@@ -641,7 +684,16 @@ func (p memoryImportPlan) print(w io.Writer, dryRun bool) {
 	case len(p.copies) > 0:
 		_, _ = fmt.Fprintf(w, "%s %d fact(s) from %s to %s:\n", verb, len(p.copies), from, to)
 		for _, c := range p.copies {
-			_, _ = fmt.Fprintf(w, "  %s\n", c.file)
+			if d := strings.TrimSpace(parseMemoryTopic(c.file, string(c.body)).description); d != "" {
+				_, _ = fmt.Fprintf(w, "  %s: %s\n", c.file, d)
+			} else {
+				_, _ = fmt.Fprintf(w, "  %s\n", c.file)
+			}
+		}
+		if dryRun {
+			_, _ = fmt.Fprintln(w, "Every tool reads personal memory. Check each fact above, and pass --only <file> to copy just some.")
+		} else {
+			_, _ = fmt.Fprintln(w, "Every tool reads personal memory, so these facts now guide all of them. Review them with `agnostic-ai memory list`; delete a file to remove one.")
 		}
 	case len(p.present) > 0 && len(p.kept)+len(p.skipped) == 0:
 		_, _ = fmt.Fprintf(w, "Nothing to copy: %s has every fact in %s.\n", to, from)
@@ -678,14 +730,17 @@ func runMemorySeeds() {
 		if info, err := os.Stat(seed.From); err != nil || !info.IsDir() {
 			continue
 		}
-		plan, done, err := importMemory(seed.From, seed.To, seed.Target, true)
+		plan, done, err := importMemory(seed.From, seed.To, seed.Target, nil, true)
 		from := filepath.ToSlash(seed.From)
 		if err != nil {
 			adapters.NoteProject(fmt.Sprintf("%s: could not copy the facts in %s into personal memory: %v; run `agnostic-ai memory import --from %s`", seed.Target, from, err, seed.Target))
 			continue
 		}
 		if done && len(plan.copies) > 0 {
-			adapters.NoteProject(fmt.Sprintf("%s: copied %d fact(s) from %s into personal memory, which was empty; the source is unchanged", seed.Target, len(plan.copies), from))
+			adapters.NoteProject(fmt.Sprintf("%s: copied %d fact(s) from %s into personal memory, which was empty; every tool reads them now, so review them with `agnostic-ai memory list`; the source is unchanged", seed.Target, len(plan.copies), from))
+		}
+		if done && len(plan.skipped) > 0 {
+			adapters.NoteProject(fmt.Sprintf("%s: skipped %d fact(s) in %s; `agnostic-ai memory import --from %s --dry-run` says why", seed.Target, len(plan.skipped), from, seed.Target))
 		}
 	}
 }
