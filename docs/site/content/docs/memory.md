@@ -103,25 +103,25 @@ Claude Code also saves facts by itself. Sync points that memory at your personal
 
 ### Each tool's own memory {#each-tools-own-memory}
 
-Your tool's own memory can stay on. The `shared-memory-policy` rule has each tool also save shared facts in the folders above, so other tools see them.
+Your tool's own memory can stay on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory; Claude Code's own saves land there already.
 
-| Tool | Its own memory | Default | What shared memory adds | Share what it learns |
-| --- | --- | --- | --- | --- |
-| Claude Code | Auto memory: notes for each repository, on your machine | On in local sessions (`autoMemoryEnabled`) | Other tools read what Claude saves; project memory adds team facts | Sync points its saves at your personal memory folder |
-| Codex | Memories: notes built from past sessions, one store for the machine | Off (`memories` under `[features]`) | Facts for one project that other tools and your team read | Ask it to save the fact in shared memory |
-| Gemini CLI | Edits Markdown memory files itself: `GEMINI.md` files and private notes for each project. Auto Memory proposes notes from past sessions for you to review | Editing is always on, with no setting. Auto Memory is off (`experimental.autoMemory`) | Facts that other tools and your team read | Ask it to save the fact in shared memory |
-| Copilot | Hosted Copilot Memory (repository facts and your preferences) and the VS Code memory tool (notes on your machine) | Copilot Memory: on for individual plans; an admin enables it first for organization and enterprise plans. CLI: `/memory on` or `/memory off`. VS Code tool: built in, no setting documented | Facts that stay until you edit them (Copilot Memory drops unused facts after 28 days), read by other tools and your team | Ask it to save the fact in shared memory |
-| Qoder | CLI Auto-Memory: notes the agent chooses to keep, on your machine. The IDE has a separate memory | CLI: off (`autoMemoryEnabled`). IDE: not documented (Settings > Memory has Global and Project switches) | Facts that other tools and your team read | Ask it to save the fact in shared memory |
-| Kilo Code | Kilo Memory: project notes stored outside the repository, no personal memory | Off (Project memory switch in Settings > Context, or `/memory on`) | Personal memory, which Kilo lacks, and team facts in Git | Ask it to save the fact in shared memory |
-| Kiro | Memory: Kiro creates and refines memories for a repository by itself, including after a session ends | Not documented (CLI: `/memories`, then `config`) | Facts that other tools and your team read | Ask it to save the fact in shared memory |
-| Augment | Agent Memories in the IDE: Augment suggests them as you work, and you approve, edit, or discard each one | Not documented | Facts for your whole team; Augment keeps memories for each developer | Ask it to save the fact in shared memory |
-| Trae | Memories, global and for each project, as local Markdown files | Not documented | Facts that other tools and your team read | Ask it to save the fact in shared memory |
-| Goose | Memory extension: files in `.goose/memory/` and `~/.config/goose/memory/`, all loaded when a session starts | Not documented (Memory switch under Extensions) | Facts that other tools and your team read | Ask it to save the fact in shared memory |
-| Jules | Memory in the Jules cloud for each repository | Not documented (Knowledge switch in repository settings) | Facts that other tools and your team read | Ask it to save the fact in shared memory |
-| Windsurf (Devin) | Devin Local keeps no memory. Cloud Devin has its own Memory | Cloud Devin Memory: on (Customize > Memory). Whether it reaches Devin Desktop, Devin Local, or the CLI: not documented | Memory for Devin Local, which keeps none | Ask it to save the fact in shared memory |
-| Cursor | None documented | Not applicable | Memory, since Cursor documents none | Ask it to save the fact in shared memory |
+| Tool | Its own memory | Default |
+| --- | --- | --- |
+| Claude Code | Auto memory: notes for each repository, on your machine | On (`autoMemoryEnabled`); sync points it at your personal memory folder |
+| Codex | Memories: notes built from past sessions, one store for the machine | Off (`memories` under `[features]`) |
+| Gemini CLI | Edits its own Markdown memory files: `GEMINI.md` files and private notes for each project. Auto Memory proposes notes from past sessions | Editing is always on, with no setting. Auto Memory is off (`experimental.autoMemory`) |
+| Copilot | Copilot Memory, hosted: repository facts and your preferences, dropped after 28 days unused. The VS Code memory tool: notes on your machine | Copilot Memory is on for individual plans; organization admins enable it first. CLI: `/memory on` or `/memory off`. The VS Code tool is built in |
+| Qoder | CLI Auto-Memory: notes the agent keeps on your machine. The IDE has a separate memory | CLI: off (`autoMemoryEnabled`). IDE: not documented |
+| Kilo Code | Kilo Memory: project notes outside the repository, no personal memory | Off (Settings > Context, or `/memory on`) |
+| Kiro | Memory: notes Kiro creates and refines for a repository | Not documented (`/memories`, then `config`) |
+| Augment | Agent Memories in the IDE, which you approve one by one | Not documented |
+| Trae | Memories, global and for each project, as local Markdown files | Not documented |
+| Goose | Memory extension: files in `.goose/memory/` and `~/.config/goose/memory/` | Not documented (Extensions) |
+| Jules | Memory in the Jules cloud for each repository | Not documented (repository settings) |
+| Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |
+| Cursor | None documented | Not applicable |
 
-If you want one store instead, the Default column names each tool's own setting.
+To keep one store instead, turn a tool's memory off with the setting in the Default column.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
