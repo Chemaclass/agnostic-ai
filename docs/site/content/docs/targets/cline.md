@@ -89,6 +89,14 @@ Cline's workflows doc page now redirects to the [rules page](https://docs.cline.
 | `outputs.cline.hooks-dir` | `.clinerules/hooks` | the VS Code extension reads only `.clinerules/hooks`; the Cline CLI also reads `.cline/hooks` |
 | `outputs.cline.workflows-dir` | empty | opt-in; set it to `.clinerules/workflows`, the only path both hosts read |
 
+## Global hooks
+
+`agnostic-ai sync --global --only cline` writes one executable `~/.cline/hooks/<Event>` for each event in the global hook specs. `CLINE_DIR` moves that root. Commands for the same event share one script. Shared command bodies and portable wrappers live in `~/.cline/hook-scripts/`, outside the hook discovery folder.
+
+These user hooks run in the Cline SDK and CLI. The VS Code extension reads global hooks from the system Documents folder's `Cline/Hooks/`, which sync does not write. The [config reference](https://docs.cline.bot/getting-started/config) lists both locations; the [SDK path resolver](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/storage/paths.ts) and [extension loader](https://github.com/cline/cline/blob/main/apps/vscode/src/core/storage/disk.ts) show the reader difference.
+
+Global sync preserves unrelated event files and stops on a conflicting hand-written event file. Removing a global spec removes its unchanged generated script. `import --global cline` does not import hook scripts.
+
 ## Import
 
 - **Rules**: from `.clinerules/` and `.cline/rules/`. Identical duplicates become one rule. Different files with the same destination conflict. The reserved `skills`, `workflows`, and `hooks` subfolders are skipped. Native `paths` arrays are kept in `x-cline.paths`, including brace globs and empty arrays that turn off activation. Rules still follow the [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) sorting of older layouts.
