@@ -160,4 +160,8 @@
 # #2104 measured 19312800, up 8192 from main 124d29e9 (19304608):
 # worktree mode inheritance and guarded mode migration.
 # Keep the established 8 KB build allowance.
-19322000
+# #2127 measured 19341472, up 28672 from main 1880e7a2 (19312800):
+# personal session retention and exact native-value restoration.
+# Go 1.27.2, linux/amd64, CGO disabled, using make size-check flags.
+# Keep the established 8 KB build allowance.
+19350000
