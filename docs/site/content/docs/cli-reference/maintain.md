@@ -57,7 +57,7 @@ agnostic-ai memory path     # print each memory folder's absolute path
 agnostic-ai memory import --from claude   # copy facts from another memory store
 ```
 
-- `memory lint` reports [LINT039 to LINT043](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same format as `lint --json`, with `command` set to `memory lint`.
+- `memory lint` reports [LINT039 to LINT044](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same format as `lint --json`, with `command` set to `memory lint`.
 - `memory index` drops merge conflict markers, links to missing files, and repeated links. Every other line stays in place, headings and notes included. It then adds a `- [name](file.md): description` line from the YAML fields at the top of each fact without one. Run it after two tools edit the index at once.
 - The type comes from `metadata.type`, or from a top-level `type` as Claude Code's auto memory writes it.
 - With no memory folder, `memory lint` says so and exits 0.
@@ -139,6 +139,7 @@ agnostic-ai hook memory --target codex
 
 - Codex and Factory get plain text. Cursor gets `{"additional_context": ...}`. Gemini CLI and Qoder get `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}`. Copilot gets that object plus a top-level `additionalContext`: VS Code reads the object, and Copilot CLI reads the top-level key.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
+- Hidden characters, such as zero-width and bidirectional controls and Unicode tags, are left out before the cut, so they do not count toward the 6,000 bytes. `memory lint` reports them. A zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word, stays.
 - With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
 
 | Flag | Description |
