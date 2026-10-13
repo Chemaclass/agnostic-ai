@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -20,7 +21,7 @@ type handoffWorktree struct {
 }
 type listedHandoff struct {
 	path, branch, worktree, head, date, status, pr, dirty string
-	automatic                                             bool
+	automatic, detached                                   bool
 	modified                                              time.Time
 }
 
@@ -239,8 +240,10 @@ func handoffNoSymlinks(root, path string) bool {
 	return true
 }
 
+var handoffHeaderField = regexp.MustCompile(`(?:^| \| )(tool|date|branch|head):[ \t]*`)
+
 func readHandoffHeader(path string) (listedHandoff, bool, error) {
-	note := listedHandoff{path: path, automatic: strings.HasSuffix(path, ".auto.md"), status: "-", pr: "-", head: "-", date: "-"}
+	note := listedHandoff{path: path, status: "-", pr: "-", head: "-", date: "-"}
 	file, err := os.Open(path)
 	if err != nil {
 		return note, false, fmt.Errorf("%s: %w", path, err)
@@ -254,28 +257,38 @@ func readHandoffHeader(path string) (listedHandoff, bool, error) {
 	scan := bufio.NewScanner(io.LimitReader(file, 16*1024))
 	scan.Buffer(make([]byte, 1024), 16*1024)
 	for line := 0; line < 3 && scan.Scan(); line++ {
-		for _, part := range strings.Split(scan.Text(), "|") {
-			key, value, ok := strings.Cut(strings.TrimSpace(part), ":")
-			if !ok {
-				continue
+		text := strings.TrimSpace(scan.Text())
+		if line == 0 {
+			switch text {
+			case "# Handoff":
+			case "# Automatic handoff":
+				note.automatic = true
+			default:
+				return note, false, nil
 			}
-			value = strings.TrimSpace(value)
+			continue
+		}
+		if line == 2 {
+			note.readWorktreeHeader(text)
+			continue
+		}
+		fields := handoffHeaderField.FindAllStringSubmatchIndex(text, -1)
+		for i, field := range fields {
+			end := len(text)
+			if i+1 < len(fields) {
+				end = fields[i+1][0]
+			}
+			value := strings.TrimSpace(text[field[1]:end])
 			if value == "" {
 				continue
 			}
-			switch key {
+			switch text[field[2]:field[3]] {
 			case "branch":
 				note.branch = value
-			case "worktree":
-				note.worktree = value
 			case "head":
 				note.head = value
 			case "date":
 				note.date = value
-			case "status":
-				note.status = value
-			case "pr":
-				note.pr = value
 			}
 		}
 	}
@@ -283,6 +296,27 @@ func readHandoffHeader(path string) (listedHandoff, bool, error) {
 		return note, false, fmt.Errorf("%s: read header: %w", path, err)
 	}
 	return note, note.branch != "", nil
+}
+
+func (note *listedHandoff) readWorktreeHeader(text string) {
+	value, ok := strings.CutPrefix(text, "worktree: ")
+	if !ok {
+		return
+	}
+	if note.automatic {
+		value, note.detached = strings.CutSuffix(value, " | detached: true")
+	} else if prAt := strings.LastIndex(value, " | pr: "); prAt >= 0 {
+		beforePR := value[:prAt]
+		if statusAt := strings.LastIndex(beforePR, " | status: "); statusAt >= 0 {
+			status := strings.TrimSpace(beforePR[statusAt+len(" | status: "):])
+			pr := strings.TrimSpace(value[prAt+len(" | pr: "):])
+			if status != "" && pr != "" {
+				note.status, note.pr = status, pr
+				value = beforePR[:statusAt]
+			}
+		}
+	}
+	note.worktree = strings.TrimSpace(value)
 }
 
 func handoffNewer(a, b listedHandoff) bool {
@@ -308,7 +342,7 @@ func handoffTaskBranch(note listedHandoff, worktrees []handoffWorktree) string {
 		return note.branch
 	}
 	key := "detached-" + note.head
-	if filepath.Base(note.path) == key+".auto.md" {
+	if note.detached || filepath.Base(note.path) == key+".auto.md" {
 		return key
 	}
 	if filepath.IsAbs(note.worktree) {

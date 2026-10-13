@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -302,5 +303,110 @@ func TestHandoffList_SkipsAutomaticUpgradeEvenInAnInteractiveRelease(t *testing.
 	}
 	if automaticUpgradeAllowed(command, "0.83.0", true) {
 		t.Error("read-only handoff list can make an automatic network check")
+	}
+}
+
+func TestHandoffList_ManualAutoSuffixKeepsAuthoritativeTaskFields(t *testing.T) {
+	main, _, _ := handoffListProject(t)
+	linked := filepath.Join(t.TempDir(), "auto-suffix")
+	git(t, main, "worktree", "add", "-q", "-b", "feat.auto", linked)
+	head := git(t, linked, "rev-parse", "HEAD")
+	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+	writeListHandoff(t, filepath.Join(store, "feat.auto.md"), "feat.auto", linked, head, "blocked", "#72")
+	mustWriteFile(t, filepath.Join(store, "feat.auto.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: feat.auto | head: "+head+"\nworktree: "+linked+"\n")
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "#72") || !strings.Contains(out, "blocked") {
+		t.Errorf("manual .auto branch lost to newer snapshot: %s", out)
+	}
+}
+
+func TestHandoffList_PreservesPipesInBranchesAndWorktreeHeaders(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows paths cannot contain a pipe")
+	}
+	main, _, _ := handoffListProject(t)
+	linked := filepath.Join(t.TempDir(), "wt | pipe")
+	git(t, main, "worktree", "add", "-q", "-b", "feat|bar", linked)
+	head := git(t, linked, "rev-parse", "HEAD")
+	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+	writeListHandoff(t, filepath.Join(store, "feat-bar.md"), "feat|bar", linked, head, "active", "none")
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "feat|bar") || !strings.Contains(out, linked) || strings.Contains(out, "removed") {
+		t.Errorf("pipe branch failed live join: %s", out)
+	}
+	git(t, linked, "checkout", "--detach", "-q", "HEAD")
+	named := filepath.Join(t.TempDir(), "named-detached")
+	git(t, main, "worktree", "add", "-q", "-b", "detached", named)
+	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+"\n")
+	testutil.Chdir(t, linked)
+	out, err = runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "detached-"+head+" ") && strings.Contains(line, linked) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("pipe-containing worktree header failed detached join: %s", out)
+	}
+}
+
+func TestHandoffList_ExplicitDetachedMarkerSurvivesNamedBranchReuse(t *testing.T) {
+	_, linked, _ := handoffListProject(t)
+	git(t, linked, "checkout", "--detach", "-q", "HEAD")
+	head := git(t, linked, "rev-parse", "HEAD")
+	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: true\n")
+	git(t, linked, "checkout", "-q", "-b", "detached")
+	testutil.Chdir(t, linked)
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "detached-"+head) || !strings.Contains(out, "removed") {
+		t.Errorf("explicit detached snapshot joined a reused named branch: %s", out)
+	}
+}
+
+func TestHandoffList_PreservesMetadataLabelsInsideWorktreePaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows paths cannot contain a pipe or colon")
+	}
+	main, _, _ := handoffListProject(t)
+	linked := filepath.Join(t.TempDir(), "wt | branch: bogus | status: misleading")
+	git(t, main, "worktree", "add", "-q", "-b", "path-labels", linked)
+	head := git(t, linked, "rev-parse", "HEAD")
+	store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+	writeListHandoff(t, filepath.Join(store, "path-labels.md"), "path-labels", linked, head, "blocked", "#73")
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "path-labels") || !strings.Contains(out, linked) || !strings.Contains(out, "blocked") || !strings.Contains(out, "#73") || strings.Contains(out, "removed") {
+		t.Errorf("path metadata text changed task identity or path: %s", out)
+	}
+	git(t, linked, "checkout", "--detach", "-q", "HEAD")
+	mustWriteFile(t, filepath.Join(linked, ".agnostic-ai", "local", "HANDOFF.auto.md"), "# Automatic handoff\ntool: codex | date: 2026-10-13T10:00:00Z | branch: detached | head: "+head+"\nworktree: "+linked+" | detached: true\n")
+	testutil.Chdir(t, linked)
+	out, err = runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "detached-"+head+" ") && strings.Contains(line, linked) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("path metadata text changed detached snapshot: %s", out)
 	}
 }
