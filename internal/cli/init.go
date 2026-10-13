@@ -27,7 +27,7 @@ const defaultBaseDir = ".agnostic-ai"
 var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
-	var demo, all, dryRun bool
+	var demo, all, dryRun, memory bool
 	gitignore := switchValue(true)
 	var preset, fromCLI string
 	cmd := &cobra.Command{
@@ -45,6 +45,7 @@ func newInitCmd() *cobra.Command {
 			"In a terminal, when the project has existing tool config, init offers to import it as --from all does. " +
 			"The managed .gitignore block is on by default; pass --gitignore=off to commit generated outputs instead. " +
 			"Pass --demo to seed example specs: a minimal one per source folder, the spec guard hooks, plus the memory-curator skill. " +
+			"Pass --memory to enable shared memory, with repo mode for Git projects that ignore generated outputs. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
 		Example: `  # Default: scaffold under .agnostic-ai/, prompt for targets when TTY
@@ -58,6 +59,9 @@ func newInitCmd() *cobra.Command {
 
   # Skip the prompt, enable every supported target
   agnostic-ai init --all
+
+  # Share personal memory across worktrees
+  agnostic-ai init --memory
 
   # Non-interactive: pipe the target list
   echo "claude,codex" | agnostic-ai init
@@ -143,6 +147,7 @@ func newInitCmd() *cobra.Command {
 				Demo:             demo,
 				DryRun:           dryRun,
 				GitignoreEnabled: gitignoreEnabled,
+				MemoryEnabled:    memory,
 				Version:          cmd.Root().Version,
 			}
 			// The import preview needs the scaffold a real run would write,
@@ -185,6 +190,8 @@ func newInitCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,
 		"Seed example specs, one per source folder plus the memory-curator skill.")
+	cmd.Flags().BoolVar(&memory, "memory", false,
+		"Enable shared memory; use repo mode in Git projects with managed ignores.")
 	cmd.Flags().BoolVarP(&all, "all", "a", false,
 		"Skip the target picker and enable every supported target.")
 	cmd.Flags().StringVar(&preset, "preset", "",
