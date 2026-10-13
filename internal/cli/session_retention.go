@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"io"
+	"maps"
+	"math"
 	"os"
 	"slices"
 	"strconv"
@@ -87,6 +89,18 @@ func mergeGlobalRetention(path, format string, base []byte, want []globalSetting
 	values, err := settingsValues(path, format, data)
 	if err != nil {
 		return globalSettingsMerge{}, nil, err
+	}
+	if target == "claude" && portable && slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key && setting.field == sessionRetentionField }) {
+		if have, present := settingsLookup(values, key, format); present {
+			days, number := have.(float64)
+			if !number || days < 1 || math.Trunc(days) != days {
+				want = slices.DeleteFunc(slices.Clone(want), func(setting globalSetting) bool { return setting.field == sessionRetentionField })
+				previous = maps.Clone(previous)
+				delete(previous, key)
+				original = nil
+				adapters.NoteSettingsFieldNoOp(target, sessionRetentionField, 1, "native cleanupPeriodDays is invalid and can pause cleanup; manual correction is required before applying portable retention")
+			}
+		}
 	}
 	if enabled, present := settingsLookup(values, "general.sessionRetention.enabled", format); target != "claude" && present && enabled == false {
 		want = slices.DeleteFunc(slices.Clone(want), func(setting globalSetting) bool { return setting.field == sessionRetentionField })
