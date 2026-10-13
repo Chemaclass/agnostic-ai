@@ -6,9 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Let Codex, Qoder, and Claude Code write shared handoffs from linked worktrees through ignored native settings (#2117).
-
-- Keep one private handoff per branch across linked worktrees, with task notices and legacy handoff fallback (#2117).
+- Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state (#2117).
 - Share personal memory across worktrees in repo mode; start a new project with `init --memory` (#2104, #2109).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
