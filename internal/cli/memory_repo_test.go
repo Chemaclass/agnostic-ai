@@ -924,10 +924,12 @@ func TestSync_RepoMemoryFilesReturnToAnOlderBlock(t *testing.T) {
 }
 
 func TestMemoryWorktree_InheritsOnlyMainPersonalModeAndSharesEveryCommand(t *testing.T) {
+	isolateGit(t)
 	repoMemoryProject(t, true)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
 	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\noutputs:\n  codex:\n    file: MAIN-ONLY.md\n")
 	main, _ := os.Getwd()
+	git(t, main, "config", "maintenance.auto", "false")
 	git(t, main, "add", "agnostic-ai.yaml")
 	git(t, main, "commit", "-qm", "memory fixture")
 	linked := filepath.Join(t.TempDir(), "linked")
@@ -1004,10 +1006,12 @@ func TestSync_MemoryModeSwitchSeedsEmptyStoreBothWays(t *testing.T) {
 }
 
 func TestSync_CheckoutModeWithLinkedWorktreesNamesRepoMode(t *testing.T) {
+	isolateGit(t)
 	repoMemoryProject(t, true)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\n")
 	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
 	main, _ := os.Getwd()
+	git(t, main, "config", "maintenance.auto", "false")
 	git(t, main, "add", "agnostic-ai.yaml")
 	git(t, main, "commit", "-qm", "memory fixture")
 	linked := filepath.Join(t.TempDir(), "linked")
