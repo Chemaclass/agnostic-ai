@@ -241,7 +241,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	b = emit.WithoutForeignClaudeModels(caps, b)
 	dir := emit.OutputRulesDir(cfg, target, defaultSteeringDir)
-	if err := emitRules(sess, b.Rules, dir, dryRun); err != nil {
+	if err := emitRules(sess, b.Rules, dir, cfg, dryRun); err != nil {
 		return err
 	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
@@ -275,8 +275,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // emitRules writes one `<dir>/<name>.md` per rule. Rules that target a
 // glob or a source-layout scope render `inclusion: fileMatch`;
 // everything else renders `inclusion: always`.
-func emitRules(sess *emit.Session, rules []spec.Entry, dir string, dryRun bool) error {
+func emitRules(sess *emit.Session, rules []spec.Entry, dir string, cfg *config.Config, dryRun bool) error {
 	for _, r := range rules {
+		if cfg.RepoPersonalMemory() && r.Layer == "builtin" && r.Name == "kiro-memory-index" {
+			r.Body, _, _ = strings.Cut(r.Body, "\nPersonal memory, `.agnostic-ai/local/memory/MEMORY.md`:\n")
+			r.Body = strings.TrimRight(r.Body, "\n") + "\n"
+		}
 		path := filepath.Join(dir, r.Name+".md")
 		body := emit.WithHeader(renderRule(r), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {

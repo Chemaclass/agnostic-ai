@@ -151,4 +151,7 @@
 # #2114 measured 19280032, up 8192 from main b3525196 (19271840):
 # hidden-character checks and cleaned hook context. Keep the established
 # 8 KB build allowance.
-19290000
+# #2115 measured 19284128, up 4096 from main 3564b706 (19280032):
+# Kiro selects the personal include from its configured memory mode.
+# Keep the established 8 KB build allowance.
+19294000

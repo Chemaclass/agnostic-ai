@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -367,6 +368,50 @@ func TestMaterialize_ProcessHelper(t *testing.T) {
 	}
 	if err := cleanup(); err != nil {
 		t.Error(fmt.Errorf("cleanup %s: %w", root, err))
+	}
+}
+
+func TestMaterialize_MemoryIncludesBothIndexesForKiroAlone(t *testing.T) {
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("memory")
+	if err != nil {
+		t.Fatalf("materialize memory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Errorf("cleanup %s: %v", root, err)
+		}
+	})
+	bundle, err := spec.LoadLayered([]spec.Layer{{Name: "builtin", Root: root, Sources: config.Sources{Rules: "rules"}}})
+	if err != nil {
+		t.Fatalf("load memory layer: %v", err)
+	}
+	var include spec.Entry
+	var names []string
+	for _, rule := range bundle.Rules {
+		names = append(names, rule.Name)
+		if rule.Name == "kiro-memory-index" {
+			include = rule
+		}
+	}
+	if include.Name == "" {
+		t.Fatalf("memory rules = %v, want a kiro-memory-index rule", names)
+	}
+	if include.Meta["alwaysApply"] != true {
+		t.Errorf("alwaysApply = %v, want true", include.Meta["alwaysApply"])
+	}
+	for _, target := range adapters.Names() {
+		if got, want := include.EmitsTo(target), target == "kiro"; got != want {
+			t.Errorf("EmitsTo(%s) = %t, want %t", target, got, want)
+		}
+	}
+	for _, index := range []string{".agnostic-ai/memory/MEMORY.md", ".agnostic-ai/local/memory/MEMORY.md"} {
+		if got := strings.Count(include.Body, "#[[file:"+index+"]]"); got != 1 {
+			t.Errorf("body includes %s %d times, want once:\n%s", index, got, include.Body)
+		}
+	}
+	if got := strings.Count(include.Body, "#[["); got != 2 {
+		t.Errorf("body has %d includes, want the two indexes only:\n%s", got, include.Body)
 	}
 }
 

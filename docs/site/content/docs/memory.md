@@ -80,12 +80,12 @@ Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own me
 | Codex, Copilot, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
+| Kiro | A steering file includes project memory and, in checkout mode, personal memory |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
-Aider and Kiro get only the rule, because both show a missing file: Aider with an error, Kiro with a visible marker in its steering content. Once both `MEMORY.md` files exist, add them yourself:
+With `memory.personal: repo`, Kiro includes only the project list and finds personal memory with `agnostic-ai memory path`. Kiro shows a marker for an included list that has no file yet and loads the rest. The marker goes away once a tool saves a fact there. If you added the include to a steering file by hand, remove it. With `sync --global`, Kiro gets only the rule, because a home file cannot name a project's lists.
 
-- Aider, in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
-- Kiro, in a steering file: `#[[file:.agnostic-ai/memory/MEMORY.md]]`
+Aider gets only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
 
 ### When a session starts {#load-at-session-start}
 
@@ -172,7 +172,7 @@ What each tool does with personal memory in this mode:
 | Cursor | Loads | Loads; the CLI saves, the editor asks first |
 | OpenCode | Nothing | Loads and saves |
 | Windsurf | Finds it with `agnostic-ai memory path` | Same; Devin CLI saves without asking |
-| Kilo Code, every other tool | Finds it with `agnostic-ai memory path` | Same |
+| Kilo Code, Kiro, every other tool | Finds it with `agnostic-ai memory path` | Same |
 
 Project memory loads the same way in both columns.
 

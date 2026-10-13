@@ -29,6 +29,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
 
+#### Kiro
+
+- Kiro loads project memory and checkout personal memory through a steering include, so you no longer add the include by hand (#2108).
+
 #### Gemini CLI
 
 - With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md`, which sync overwrites (#2103).
