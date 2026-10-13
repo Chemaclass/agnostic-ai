@@ -152,6 +152,28 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], first, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached-"+firstHead+".auto.md (branch detached-"+firstHead+"). Ask to resume the handoff.")
 	})
 
+	t.Run("named-detached-path-marker-remains-path-text", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows paths cannot contain the colon in the literal marker")
+		}
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "named checkout | detached: true")
+		handoffGit(t, main, "worktree", "add", "-b", "detached", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "detached.auto.md")
+		for _, target := range handoffHookTargets {
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionEnd"], active, "{}", "foreign", ""), "")
+			snapshot := handoffRead(t, path)
+			want := "worktree: " + strings.TrimSpace(handoffGit(t, active, "rev-parse", "--show-toplevel")) + " | detached: false"
+			if !strings.Contains(snapshot, want) {
+				t.Errorf("named branch lacks final false marker:\n%s", snapshot)
+			}
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached.auto.md (branch detached). Ask to resume the handoff.")
+		}
+	})
+
 	t.Run("named-detached-branch-keeps-its-auto-file", func(t *testing.T) {
 		dir := project(t)
 		handoffInitGit(t, dir)
