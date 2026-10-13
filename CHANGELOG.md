@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in the full plain-text documentation for coding agents (#2083).
+- The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
 
 ### By tool
 
