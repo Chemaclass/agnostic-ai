@@ -21,6 +21,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
+#### Antigravity
+
+- Sync writes the new `SessionStart` hook event to `.agents/hooks.json`, and `hook run` accepts a `PreToolUse` reply of `auto_approve` as allow, with a note that `allow` only defers to the default policy (#2124, #2125).
+
 #### Qoder
 
 - Import project MCP servers from `.qoder/settings.json`, including JSONC, so fresh checkouts can recreate them (#2087).

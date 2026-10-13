@@ -92,13 +92,13 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Stop", "PostCompaction",
 		"SessionStart", "SessionEnd",
 	),
-	// The five under Hook Event Names on
+	// The six under Hook Event Names on
 	// antigravity.google/docs/hooks?tab=ide. PreToolUse and PostToolUse
-	// take a matcher; the other three take a handler list directly and
-	// ignore it (#629).
+	// take a matcher; the other four take a handler list directly and
+	// ignore it (#629, #2124).
 	"antigravity": setOf(
 		"PreToolUse", "PostToolUse",
-		"PreInvocation", "PostInvocation",
+		"SessionStart", "PreInvocation", "PostInvocation",
 		"Stop",
 	),
 	// The 27 events in docs.qoder.com/cli/hooks-reference's own Event
