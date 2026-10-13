@@ -26,7 +26,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 		t.Fatalf("build CLI: %v\n%s", err, output)
 	}
 	for _, target := range []string{"codex", "qoder", "claude"} {
-		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store"} {
+		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
@@ -76,7 +76,17 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					if !strings.Contains(original, filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))) {
 						t.Fatal("first sync did not create handoff access")
 					}
-					if mode == "adopted tracked config" {
+					if mode == "adopted escaped tracked config" {
+						if target == "codex" {
+							t.Skip("JSON escaping applies to Claude and Qoder")
+						}
+						original = strings.ReplaceAll(original, "/", `\/`)
+						if !json.Valid([]byte(original)) {
+							t.Fatal("escaped native settings are not valid JSON")
+						}
+						handoffWrite(t, path, original)
+					}
+					if strings.Contains(mode, "tracked config") {
 						handoffGit(t, linked, "add", "-f", file)
 					} else {
 						destination := filepath.Join(t.TempDir(), "native settings")
