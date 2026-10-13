@@ -896,7 +896,7 @@ A tool that lacks the input a flag needs is listed as not run, and the other too
 
 | Target | Sample event |
 |---|---|
-| Claude Code | `--edit` calls the first of `Write`, `Edit`, and `MultiEdit` the matcher matches, with an absolute `tool_input.file_path`. |
+| Claude Code | `--edit` calls the first of `Write`, `Edit`, and `MultiEdit` the matcher matches, with an absolute `tool_input.file_path`. `SubagentStart` needs no input and starts the first of `general-purpose`, `Explore`, and `Plan` the matcher matches. |
 | Codex | `--edit` calls `apply_patch` with an `*** Add File:` or `*** Update File:` patch in `tool_input.command`, and `Edit` and `Write` match it. |
 | Gemini | `--edit` calls the first of `write_file` and `replace` the matcher matches, with an absolute `tool_input.file_path`; `--bash` calls `run_shell_command`. The tool matcher is an unanchored regular expression, and a `SessionStart` source must match exactly. |
 | Trae | `--bash` calls `RunCommand`. Trae lists no edit tool input, so `--edit` lists Trae as not run. The matcher is an unanchored regular expression. |

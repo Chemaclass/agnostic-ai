@@ -13,6 +13,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Claude Code
+
+- Claude Code loads personal memory natively; subagents read the same store, with an import fallback when native loading is off (#2116).
+
+#### Crush
+
+- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
+
 #### Qoder
 
 - Import project MCP servers from `.qoder/settings.json`, including JSONC, so fresh checkouts can recreate them (#2087).

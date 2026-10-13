@@ -61,6 +61,28 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return filepath.Join(stores, RepoSlug(strings.TrimSpace(string(out)))), nil
 }
 
+// MainCheckout returns the root of the repository's main checkout and
+// the working directory's folder in it, the folder a linked worktree has
+// at the same place under its own root. ok is false outside Git and in a
+// repository with no main checkout, such as a bare one.
+func MainCheckout() (root, project string, ok bool) {
+	return MainCheckoutAt(".")
+}
+
+func MainCheckoutAt(projectRoot string) (root, project string, ok bool) {
+	out, err := exec.Command("git", "-C", projectRoot, "rev-parse", "--path-format=absolute", "--git-common-dir", "--show-prefix").Output()
+	if err != nil {
+		return "", "", false
+	}
+	common, prefix, _ := strings.Cut(strings.TrimRight(string(out), "\r\n"), "\n")
+	common = strings.TrimSuffix(common, "\r")
+	if filepath.Base(common) != ".git" {
+		return "", "", false
+	}
+	root = filepath.Dir(common)
+	return root, filepath.Join(root, filepath.FromSlash(strings.TrimSuffix(prefix, "\r"))), true
+}
+
 // MemorySeed asks sync to copy the facts in From into the personal store
 // To once every target has emitted, when To holds no Markdown file yet.
 // Target names the tool that keeps From.
@@ -292,13 +314,17 @@ const (
 
 // RenderMemoryBlock returns the sentinel-marked block that imports the
 // project memory index into the entry-point file at
-// entryPath, relative or absolute, with personalIndex. Sync runs from
-// the project root. A project-relative import is relative to that file,
-// as `@path` lines resolve, or absolute when no relative path exists
-// (another Windows volume). An absolute personalIndex stays absolute.
+// entryPath, relative or absolute, then personalIndex unless it is
+// empty. Sync runs from the project root. A project-relative import is
+// relative to that file, as `@path` lines resolve, or absolute when no
+// relative path exists (another Windows volume). An absolute
+// personalIndex stays absolute.
 func RenderMemoryBlock(entryPath, personalIndex string) string {
 	var lines []string
 	for _, index := range []string{ProjectMemoryIndexPath, personalIndex} {
+		if index == "" {
+			continue
+		}
 		ref := index
 		if !filepath.IsAbs(index) {
 			ref = memoryIndexRef(entryPath, index)
@@ -307,6 +333,15 @@ func RenderMemoryBlock(entryPath, personalIndex string) string {
 		lines = append(lines, "@"+strings.ReplaceAll(filepath.ToSlash(ref), " ", `\ `))
 	}
 	return MemoryStartMarker + "\n\n## Shared memory\n\n" + strings.Join(lines, "\n") + "\n\n" + MemoryEndMarker + "\n"
+}
+
+// MemoryBlockImportsPersonal reports whether the memory block in body
+// imports a personal index: RenderMemoryBlock writes the project index
+// first and a personal one after it.
+func MemoryBlockImportsPersonal(body string) bool {
+	_, block, _ := strings.Cut(body, MemoryStartMarker)
+	block, _, _ = strings.Cut(block, MemoryEndMarker)
+	return strings.Count(block, "\n@") > 1
 }
 
 func memoryIndexRef(entryPath, indexPath string) string {
@@ -322,6 +357,12 @@ func memoryIndexRef(entryPath, indexPath string) string {
 		return ref
 	}
 	return index
+}
+
+// SamePath reports whether the absolute paths a and b name one file once
+// symlinks in their existing parts resolve.
+func SamePath(a, b string) bool {
+	return realPath(filepath.Clean(a)) == realPath(filepath.Clean(b))
 }
 
 // realPath resolves symlinks in the longest existing prefix of the

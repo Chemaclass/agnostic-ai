@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -577,9 +578,21 @@ const memoryBuiltin = "memory"
 // reader of path cannot follow `@` lines. Those readers find the index
 // through the always-on shared-memory rule instead, so the block never
 // reaches a file resolve-imports rewrites.
+//
+// Claude Code, the one reader that follows `@` lines, loads the personal
+// index itself once sync points its auto memory there: labeled as
+// memory, cut at 200 lines, and cleaned of hidden characters. The block
+// then imports the project index alone.
 func memoryBlockFor(cfg *config.Config, path string, readers []string) (string, error) {
 	if !slices.Contains(cfg.Builtins, memoryBuiltin) || len(readers) == 0 || !pathSupportsFileImports(readers) {
 		return "", nil
+	}
+	native, err := claude.AutoMemoryLoadsPersonalIndex(cfg)
+	if err != nil {
+		return "", err
+	}
+	if native {
+		return adapters.RenderMemoryBlock(path, ""), nil
 	}
 	dir, err := adapters.PersonalMemoryDirFor(cfg, path, readers...)
 	if err != nil {

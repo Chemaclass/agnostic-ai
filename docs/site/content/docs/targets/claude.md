@@ -43,7 +43,7 @@ CLAUDE.md                # entry-point pointer body (written by sync)
   - When another target writes the root `AGENTS.md` (Codex, Amp, Warp, OpenCode, Zed, and others), `CLAUDE.md` is `@AGENTS.md` plus your `::target claude` blocks. A full copy stays when the files would differ (a rules appendix in `AGENTS.md`, or a `::target` block Claude Code skips).
   - If `CLAUDE.md` already imports `AGENTS.md` and no other target writes it, sync keeps that layout and writes the shared body to `AGENTS.md`.
   - A session started in a subfolder treats the root `@AGENTS.md` as an outside import: interactive ones ask once, non-interactive `claude -p` skips it.
-  - With `builtins: [memory]`, `CLAUDE.md` ends with imports of the project and personal memory indexes. See [shared memory](@/docs/memory.md).
+  - With `builtins: [memory]`, `CLAUDE.md` ends with an import of the project memory index. When Claude Code's auto memory loads the personal index, a `SubagentStart` hook adds that same index to each subagent. Otherwise, `CLAUDE.md` keeps the personal import. See [Claude Code's own memory](@/docs/memory.md#claude-code-s-own-memory).
 - **Rules**: Claude Code loads every `.md` file under `.claude/rules/` (recursively) at session start. `globs` (or a native `paths` list) writes `paths:` frontmatter, which scopes the rule to matching files. A comma-separated string gives one entry per pattern. The portable `scope`, `globs`, and `alwaysApply` keys are dropped once translated.
 
   Scope and patterns combine: `scope: src/a` with `globs: tests/a/**` writes `src/a/**` and `tests/a/**`. To filter by file only, omit `scope` and keep the source outside a folder that implies one.

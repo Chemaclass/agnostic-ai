@@ -137,15 +137,36 @@ func TestBuiltinMemory(t *testing.T) {
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})
 
-	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
-		hookFixture, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-hook", "agnostic-ai.yaml"))
-		if err != nil {
+	hookFixture, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-hook", "agnostic-ai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// subagentContext runs the Claude Code subagent hook and reports
+	// whether it adds context.
+	subagentContext := func(t *testing.T, dir string) bool {
+		t.Helper()
+		out := run(t, dir, "hook", "run", "memory-subagent-start", "--target", "claude", "--format", "json")
+		if !strings.Contains(out, `"decision": "allow"`) {
+			t.Errorf("the subagent hook must allow:\n%s", out)
+		}
+		return strings.Contains(out, `"adds_context": true`)
+	}
+	personalIndex := func(t *testing.T, dir string) {
+		t.Helper()
+		store := filepath.Join(dir, ".agnostic-ai", "local", "memory")
+		if err := os.MkdirAll(store, 0o755); err != nil {
 			t.Fatal(err)
 		}
+		if err := os.WriteFile(filepath.Join(store, "MEMORY.md"), []byte("- [Prefers tabs](tabs.md): the user indents with tabs\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json"}
+		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json"}
 		output := map[string]string{}
 		for _, path := range paths {
 			data, err := os.ReadFile(filepath.Join(dir, path))
@@ -187,12 +208,43 @@ func TestBuiltinMemory(t *testing.T) {
 				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
 			}
 		}
+		// CLAUDE.md gives Claude Code subagents the project index, and
+		// Claude Code's auto memory loads the personal one, which never
+		// reaches a subagent.
+		if claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md")); strings.Contains(string(claude), "local/memory") {
+			t.Fatalf("CLAUDE.md imports the personal index:\n%s", claude)
+		}
+		if subagentContext(t, dir) {
+			t.Error("the subagent hook repeats the project index CLAUDE.md imports")
+		}
+		personalIndex(t, dir)
+		if !subagentContext(t, dir) {
+			t.Error("the personal index does not reach Claude Code subagents")
+		}
 		t.Setenv("PATH", filepath.Dir(sh))
 		for _, target := range targets {
 			out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json")
 			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
+		}
+		if subagentContext(t, dir) {
+			t.Error("without agnostic-ai on PATH the subagent hook must allow quietly")
+		}
+		run(t, dir, "sync", "--check", "--gitignore=off")
+	})
+
+	t.Run("claude-keeps-the-personal-import-when-auto-memory-is-off", func(t *testing.T) {
+		t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
+		dir := project(t, hookFixture)
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		run(t, dir, "sync", "--gitignore=off")
+		if claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md")); !strings.Contains(string(claude), "\n@.agnostic-ai/local/memory/MEMORY.md\n") {
+			t.Fatalf("CLAUDE.md lost the personal import:\n%s", claude)
+		}
+		personalIndex(t, dir)
+		if runtime.GOOS != "windows" && subagentContext(t, dir) {
+			t.Error("the subagent hook repeats the personal index CLAUDE.md imports")
 		}
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})

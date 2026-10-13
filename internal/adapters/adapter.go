@@ -918,10 +918,28 @@ func RenderMemoryBlock(entryPath, personalIndex string) string {
 	return emit.RenderMemoryBlock(entryPath, personalIndex)
 }
 
+// MemoryBlockImportsPersonal reports whether the memory block in body
+// imports a personal index (re-exported from the emit layer).
+func MemoryBlockImportsPersonal(body string) bool {
+	return emit.MemoryBlockImportsPersonal(body)
+}
+
 // PersonalMemoryDir returns the personal store of the project at root
 // (re-exported from the emit layer).
 func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return emit.PersonalMemoryDir(cfg, root)
+}
+
+type nativePersonalMemory interface {
+	NativePersonalMemoryDir(cfg *config.Config, root string) (string, error)
+}
+
+func NativePersonalMemoryDirFor(name string, cfg *config.Config, root string) (string, error) {
+	adapter, ok := registry[name].(nativePersonalMemory)
+	if !ok {
+		return "", nil
+	}
+	return adapter.NativePersonalMemoryDir(cfg, root)
 }
 
 // PersonalMemoryDirFor returns the personal store the project files of

@@ -131,13 +131,14 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 
 ## hook memory
 
-Prints the `MEMORY.md` fact lists for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
+Prints the `MEMORY.md` fact lists for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you, and runs it on Claude Code when a subagent starts.
 
 ```bash
 agnostic-ai hook memory --target codex
 ```
 
 - Codex and Factory get plain text. Cursor gets `{"additional_context": ...}`. Gemini CLI and Qoder get `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}`. Copilot gets that object plus a top-level `additionalContext`: VS Code reads the object, and Copilot CLI reads the top-level key.
+- Claude Code gets `{"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": ...}}` with personal memory only, since `CLAUDE.md` gives subagents the project list. It prints nothing when `CLAUDE.md` imports the personal list too.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
 - Hidden characters, such as zero-width and bidirectional controls and Unicode tags, are left out before the cut, so they do not count toward the 6,000 bytes. `memory lint` reports them. A zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word, stays.
 - With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.

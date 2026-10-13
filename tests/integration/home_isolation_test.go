@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-// TestMain points HOME at a temp dir and unsets CODEX_HOME, so no test
-// reads the user's own tool config, such as ~/.codex/config.toml. The Go
-// caches and `go env -w` settings stay where they were: they can default
-// under HOME, and the tests that build the binary would start cold or
-// lose a private proxy.
+// TestMain points HOME at a temp dir and unsets the variables that move
+// or turn off a tool's own config, so no test reads the user's own, such
+// as ~/.codex/config.toml. The Go caches and `go env -w` settings stay
+// where they were: they can default under HOME, and the tests that build
+// the binary would start cold or lose a private proxy.
 func TestMain(m *testing.M) {
 	code, err := runIsolated(m)
 	if err != nil {
@@ -40,8 +40,10 @@ func runIsolated(m *testing.M) (code int, err error) {
 			return 1, err
 		}
 	}
-	if err := os.Unsetenv("CODEX_HOME"); err != nil {
-		return 1, err
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
+		if err := os.Unsetenv(key); err != nil {
+			return 1, err
+		}
 	}
 	return m.Run(), nil
 }

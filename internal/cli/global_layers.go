@@ -114,6 +114,9 @@ func loadCheckScope(global bool) (checkScope, error) {
 		targets = globalTargetNames()
 	}
 	scope.targets, scope.hookTargets = targets, globalHookTargets(targets)
+	scope.bundle.Hooks = slices.DeleteFunc(slices.Clone(scope.bundle.Hooks), func(hook spec.Entry) bool {
+		return hook.Layer == layerNameBuiltin && !slices.ContainsFunc(scope.hookTargets, hook.EmitsTo)
+	})
 	return scope, nil
 }
 

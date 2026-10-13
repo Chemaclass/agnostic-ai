@@ -43,3 +43,26 @@ func TestLintGlobal_MemoryBuiltinRulesAreNotConditionalRules(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckScopeGlobal_SkipsInactiveBuiltinHooksAndKeepsUserHooks(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro]\nbuiltins: [memory]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "user-subagent.yaml"), "name: user-subagent\ntargets: [claude]\nevent: SubagentStart\ncommand: echo user-hook\n")
+
+	scope, err := loadCheckScope(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundUser := false
+	for _, hook := range scope.bundle.Hooks {
+		if hook.Name == "memory-subagent-start" {
+			t.Error("Claude-only builtin hook reaches the Kiro check scope")
+		}
+		if hook.Name == "user-subagent" {
+			foundUser = true
+		}
+	}
+	if !foundUser {
+		t.Error("user hook was removed from global validation")
+	}
+}
