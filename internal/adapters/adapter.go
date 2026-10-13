@@ -251,6 +251,13 @@ func OmittedEntry(target string, kind spec.Kind, name string) bool {
 	return emit.OmittedEntry(target, kind, name)
 }
 
+// NoteEntryOmitted records that target's output leaves out the spec of
+// kind named name (re-exported from the emit layer). Call it next to
+// the coverage note that says why.
+func NoteEntryOmitted(target string, kind spec.Kind, name string) {
+	emit.NoteEntryOmitted(target, kind, name)
+}
+
 // FlushCoverageNotes prints any buffered coverage notes, grouped by
 // kind, then clears the buffer. Call once at the end of a sync pass.
 func FlushCoverageNotes() { emit.FlushCoverageNotes() }
@@ -344,6 +351,12 @@ const ProjectLocalEntryPointPath = emit.ProjectLocalEntryPointPath
 // without an entry-point convention.
 func EntryPointPath(cfg *config.Config, target string) string {
 	return emit.EntryPointPath(cfg, target)
+}
+
+// EntryPointReaders returns, sorted, target and every configured target
+// that reads the same entry-point file (re-exported from the emit layer).
+func EntryPointReaders(cfg *config.Config, target string) []string {
+	return emit.EntryPointReaders(cfg, target)
 }
 
 // ConventionalEntryPointPaths returns the distinct conventional root

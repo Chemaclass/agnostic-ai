@@ -858,7 +858,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		keptf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
-		keptf("%s overwrote a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+		keptf("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, effectiveTargets, p))
 	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).BackupBlockedEdits) {
 		keptf("%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
@@ -1052,6 +1052,22 @@ func fileSum(path string) string {
 		return ""
 	}
 	return adapters.ContentSum(string(data))
+}
+
+// overwrittenEditAdvice says where a hand edit that sync saved as a
+// backup belongs. A tool's own memory can save a fact to an entry point,
+// so with shared memory on, that advice names the memory folder too.
+func overwrittenEditAdvice(cfg *config.Config, targets []string, path string) string {
+	advice := "move the edit into .agnostic-ai/"
+	if !slices.Contains(cfg.Builtins, memoryBuiltin) {
+		return advice
+	}
+	for _, p := range entryPointPaths(cfg, targets) {
+		if filepath.ToSlash(p) == path {
+			return advice + ", or save a fact in .agnostic-ai/memory/"
+		}
+	}
+	return advice
 }
 
 // sessionPaths collects the paths paths returns for each session,
