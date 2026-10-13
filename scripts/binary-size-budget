@@ -160,6 +160,12 @@
 # #2104 measured 19312800, up 8192 from main 124d29e9 (19304608):
 # worktree mode inheritance and guarded mode migration.
 # Keep the established 8 KB build allowance.
+# #2109 measured 19316896, up 4096 from the shared-memory tree
+# (19312800): opt-in shared memory during init.
+# Keep the established 8 KB build allowance.
+# #2126 measured 19320992 on Go 1.27.2, up 8192 from
+# 5e78c4a5 (19312800): Cline global hook scripts and their helper directory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
 # #2127 measured 19341472, up 28672 from main 1880e7a2 (19312800):
 # personal session retention and exact native-value restoration.
 # Go 1.27.2, linux/amd64, CGO disabled, using make size-check flags.
