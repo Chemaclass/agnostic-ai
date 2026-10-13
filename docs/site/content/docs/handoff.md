@@ -49,7 +49,7 @@ The project root is the nearest folder with `agnostic-ai.yaml`, or the Git repos
 
 ## Save what you learned
 
-After writing the handoff, the skill suggests lessons worth keeping. Each one shows its scope and the exact change. You approve each before it is saved.
+The lead asks each delegate to write a handoff for its branch before returning. After writing the handoff, the skill suggests lessons worth keeping. Each one shows its scope and the exact change. You approve each before it is saved.
 
 | Scope | File | Then run |
 | --- | --- | --- |
@@ -80,13 +80,13 @@ It is off by default and works with these tools:
 | [Qoder CLI](https://docs.qoder.com/cli/hooks-reference.md) | `PreCompact`, `SessionEnd` | `SessionStart` |
 | [Factory / Droid](https://docs.factory.com/harness/hooks) | `PreCompact`, `SessionEnd` | `SessionStart` |
 
-The snapshot goes to `.agnostic-ai/local/HANDOFF.auto.md`. It holds the tool, date, branch, HEAD, `git status --short`, and the last five commit messages. It never reads your handoff note, diffs, transcripts, or tool memory. Outside a git repository, or before the first commit, no snapshot is saved.
+The snapshot goes to `handoffs/<branch-slug>.auto.md` in the same shared store as manual task notes. It holds the tool, date, branch, HEAD, absolute worktree path, `git status --short`, and the last five commit messages. It writes mode 0600 through a temporary file and atomic rename, and falls back to the checkout store when the shared store is unavailable or not ignored. Each hook also keeps `.agnostic-ai/local/HANDOFF.auto.md` as a compatibility copy when that path is ignored. It never reads your handoff note, diffs, transcripts, or tool memory. Outside a git repository, or before the first commit, no snapshot is saved.
 
-When a new session starts in a linked worktree, the notice names its branch's handoff. In the main checkout, it reports the number of task handoffs. The hooks still show the old messages for `.agnostic-ai/local/HANDOFF.md` and `HANDOFF.auto.md` when no task handoff matches. Nothing resumes until you ask.
+When a new session starts in a linked worktree, the notice names its branch's handoff. In the main checkout, it reports the number of branches with handoffs. A manual note and automatic snapshot for the same branch count as one task. Detached snapshots use their HEAD as the task key and mark the worktree header with `detached: true`, so different detached tasks and a branch named `detached` stay separate. Manual notes take priority over snapshots in the notice. The hooks still show the old messages for `.agnostic-ai/local/HANDOFF.md` and `HANDOFF.auto.md` when no task handoff matches. Nothing resumes until you ask.
 
 Claude hooks use the working directory (`cwd`) supplied by the tool's event, including linked Git worktrees (additional checkouts of the same repository), even when the hook process runs in the main checkout. Config discovery stays inside the selected checkout. Empty input or an event without `cwd` uses the process directory. Invalid or ambiguous input saves nothing. Input is limited to 64 KiB, 32 nested containers, and a two-second read deadline.
 
-Claude hooks need Bash and `awk`; the other hooks need `sh`. All need Git. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
+Claude hooks need Bash; the other hooks need `sh`. All need Git and `awk`. On Windows, use Git for Windows with its Unix tools on PATH. Start Claude Code from the project root so it loads `.claude/settings.json`.
 
 Each tool's own hook settings still apply: approve Codex hooks with `/hooks`, and approve Gemini project hooks when asked. A tool may stop before the snapshot finishes when it exits or compacts.
 
@@ -116,7 +116,7 @@ Open the other tool and say "resume the handoff" or "continue where Codex left o
 
 From the main checkout, ask to resume a named branch. If no note matches the current branch, the skill lists local task headers and asks which to resume. A missing worktree appears as removed; its note stays available. A tool in that task's live worktree can resume its matching note without a branch mismatch prompt.
 
-The old `.agnostic-ai/local/HANDOFF.md` still works. If `HANDOFF.auto.md` is newer and belongs to the same branch, the skill uses its Git state alongside the manual task details. Automatic snapshots still stay in each checkout.
+The old `.agnostic-ai/local/HANDOFF.md` and `HANDOFF.auto.md` still work. The skill finds matching automatic snapshots in the shared store, the checkout store, and the legacy path. When the newest snapshot is newer than the manual note, it adds that Git evidence while keeping the manual goal, next steps, status, and PR. A shared snapshot survives removal of its worktree.
 
 ## Limits and overrides
 
