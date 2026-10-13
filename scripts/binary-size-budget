@@ -195,4 +195,7 @@
 # #2127 with Cline and shared handoffs measured 19366048 on
 # Go 1.27.2, up 32768 from main 2e6c2ec9 (19333280).
 # Same release build flags; keep the established 8 KB allowance.
-19453000
+# #2117 sandbox access with retention and Cline measured 19488928
+# on Go1.27.2, up 147456 from main cd938228 (19341472).
+# Same release flags; keep the established 8 KB build allowance.
+19498000
