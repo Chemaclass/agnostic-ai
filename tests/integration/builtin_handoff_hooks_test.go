@@ -128,6 +128,80 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	})
 
+	t.Run("automatic-snapshots-preserve-repository-boundaries", func(t *testing.T) {
+		const protected = "# Automatic handoff\ntool: codex | branch: feat/probe | head: abc1234\nworktree: protected | detached: false\n\nPROTECTED_SENTINEL\n"
+		cases := []struct {
+			name        string
+			relativeGit bool
+			prepare     func(t *testing.T, main, store string)
+		}{
+			{name: "native-git-rejects-shell-paths", relativeGit: true},
+			{name: "external-shared-store", prepare: func(t *testing.T, main, store string) {
+				external := t.TempDir()
+				handoffGit(t, external, "init")
+				handoffWrite(t, filepath.Join(external, ".gitignore"), "*\n")
+				handoffWrite(t, filepath.Join(external, "feat-probe.auto.md"), protected)
+				if err := os.MkdirAll(filepath.Dir(store), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(external, store); err != nil {
+					t.Skipf("directory symlinks unavailable: %v", err)
+				}
+			}},
+			{name: "parent-tracked-note-with-nested-git", prepare: func(t *testing.T, main, store string) {
+				handoffWrite(t, filepath.Join(store, "feat-probe.auto.md"), protected)
+				handoffGit(t, main, "add", "-f", "--", ".agnostic-ai/local/handoffs/feat-probe.auto.md")
+				handoffGit(t, store, "init")
+				handoffWrite(t, filepath.Join(store, ".gitignore"), "*\n")
+			}},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				main := project(t)
+				handoffInitGit(t, main)
+				handlers := syncHooks(t, main)
+				active := filepath.Join(t.TempDir(), "automatic probe checkout")
+				handoffGit(t, main, "worktree", "add", "-b", "feat/probe", active)
+				handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+				store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+				if tc.prepare != nil {
+					tc.prepare(t, main, store)
+				}
+				shim, marker := "", ""
+				if tc.relativeGit {
+					shim, marker = handoffGitPathShim(t)
+				}
+				for _, target := range handoffHookTargets {
+					event := "PreCompact"
+					if target == "gemini" {
+						event = "PreCompress"
+					}
+					for _, event := range []string{event, "SessionEnd"} {
+						handoffAssertReply(t, target, handoffExecute(t, target, handlers[target][event], active, "{}", "foreign", shim), "")
+						path := filepath.Join(store, "feat-probe.auto.md")
+						if tc.prepare != nil {
+							if got := handoffRead(t, path); got != protected {
+								t.Errorf("%s %s changed protected snapshot: %q", target, event, got)
+							}
+							path = filepath.Join(active, ".agnostic-ai", "local", "handoffs", "feat-probe.auto.md")
+						}
+						if got := handoffRead(t, path); !strings.Contains(got, "branch: feat/probe") || !strings.Contains(got, "tool: "+target) {
+							t.Errorf("%s %s snapshot header: %q", target, event, got)
+						}
+						if got := handoffRead(t, filepath.Join(active, ".agnostic-ai", "local", "HANDOFF.auto.md")); !strings.Contains(got, "tool: "+target) {
+							t.Errorf("%s %s legacy snapshot header: %q", target, event, got)
+						}
+					}
+				}
+				if tc.relativeGit {
+					if _, err := os.Stat(marker); err != nil {
+						t.Errorf("native Git boundary was not exercised: %v", err)
+					}
+				}
+			})
+		}
+	})
+
 	t.Run("detached-snapshots-have-distinct-task-identities", func(t *testing.T) {
 		main := project(t)
 		handoffInitGit(t, main)
@@ -220,17 +294,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			name := strings.ReplaceAll(branch, "/", "-") + ".md"
 			handoffWrite(t, filepath.Join(store, name), "# Handoff\ntool: codex | date: 2026-10-13T12:00Z | branch: "+branch+" | head: abc1234\nworktree: "+active+" | status: active | pr: none\n\nTASK_CONTENT_MUST_NOT_LOAD\n")
 		}
-		realGit, err := exec.LookPath("git")
-		if err != nil {
-			t.Fatal(err)
-		}
-		shim := t.TempDir()
-		marker := filepath.Join(shim, "git-used")
-		script := "#!/bin/sh\nfor arg do\ncase \"$arg\" in /*) exit 128 ;; esac\ndone\nprintf used > " + handoffShellQuote(filepath.ToSlash(marker)) + "\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
-		handoffWrite(t, filepath.Join(shim, "git"), script)
-		if err := os.Chmod(filepath.Join(shim, "git"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		shim, marker := handoffGitPathShim(t)
 		for _, target := range handoffHookTargets {
 			t.Run(target, func(t *testing.T) {
 				handler := handlers[target]["SessionStart"]
@@ -1318,6 +1382,22 @@ func handoffGit(t *testing.T, dir string, args ...string) string {
 	}
 	return string(out)
 }
+func handoffGitPathShim(t *testing.T) (string, string) {
+	t.Helper()
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shim := t.TempDir()
+	marker := filepath.Join(shim, "git-used")
+	script := "#!/bin/sh\nfor arg do\ncase \"$arg\" in /*) exit 128 ;; esac\ndone\nprintf used > " + handoffShellQuote(filepath.ToSlash(marker)) + "\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
+	handoffWrite(t, filepath.Join(shim, "git"), script)
+	if err := os.Chmod(filepath.Join(shim, "git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return shim, marker
+}
+
 func handoffWrite(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
