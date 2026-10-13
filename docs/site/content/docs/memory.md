@@ -160,7 +160,7 @@ project   ~/code/app/.agnostic-ai/memory
 personal  ~/.agnostic-ai/local/memory/app-fbcd84e8
 ```
 
-The first sync after a mode change copies facts into the new store when it holds no Markdown file, and prints the count. The old store stays unchanged. With facts already in the new store, `agnostic-ai lint` names the ones left behind; `agnostic-ai memory import --from checkout` copies them over (`--from repo` when you switch back). Dry runs, checks, and previews never copy facts.
+The first sync after a mode change copies facts into the new store when it holds no Markdown file, and prints the count. The old store stays unchanged. With facts already in the new store, `agnostic-ai lint` names the ones left behind; `agnostic-ai memory import --from checkout` copies them over (`--from repo` when you switch back). Dry runs, checks, and previews never copy facts. Later syncs keep imported facts you deleted out of the store; an explicit `memory import` can bring them back.
 
 That folder is outside the project, so some tools need its full path in their config. Sync writes that path only to files Git ignores, which needs the [`.gitignore` block](@/docs/configuration.md#gitignore) (`gitignore.enabled: true`, which `agnostic-ai init` sets). The block lists those files, such as `.codex/config.toml`, whenever their tool and the `memory` built-in are on, so the committed `.gitignore` and `.worktreeinclude` stay the same for teammates without the setting, and a new Claude Code worktree copies them. If one of those files is already in Git, run `agnostic-ai sync --untrack`. To commit one of them instead, such as a hand-written `.codex/config.toml`, add its path to [`gitignore.allow`](@/docs/configuration.md#gitignore).
 

@@ -1077,3 +1077,45 @@ func TestSync_MemoryModeSwitchKeepsExistingFactsAndNonmutatingModes(t *testing.T
 		})
 	}
 }
+
+func TestSync_MemoryModeSwitchLeavesDeletedHandledFactsGone(t *testing.T) {
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	target := memoryPaths(t)["personal"]
+	writeStore(t, filepath.Join(".agnostic-ai", "local", "memory"), map[string]string{"tabs.md": tabsFact, "MEMORY.md": "The scratch orchard has blue leaves.\n"})
+	if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+		t.Fatal(err)
+	}
+	if !importedFacts(target)["checkout/tabs.md"] {
+		t.Fatal("initial sync did not record copied fact")
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".md" {
+			if err := os.Remove(filepath.Join(target, entry.Name())); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+		t.Fatal(err)
+	}
+	entries, err = os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".md" {
+			t.Errorf("unchanged sync restored deleted file %s", entry.Name())
+		}
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "checkout"); err != nil {
+		t.Fatalf("intentional reimport: %v %s", err, out)
+	}
+	if got := readText(t, filepath.Join(target, "tabs.md")); got != tabsFact {
+		t.Errorf("intentional import did not restore fact: %s", got)
+	}
+}

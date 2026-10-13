@@ -211,6 +211,16 @@ func importMemory(source, target, label string, only []string, intoEmpty bool) (
 	if err != nil {
 		return plan, false, err
 	}
+	if intoEmpty && (label == memorySourceCheckout || label == memorySourceRepo) {
+		handled := importedFacts(target)
+		plan.copies = slices.DeleteFunc(plan.copies, func(fact memoryCopy) bool {
+			record := fact.record
+			if record == "" {
+				record = fact.file
+			}
+			return handled[label+"/"+record]
+		})
+	}
 	return plan, true, plan.apply()
 }
 
