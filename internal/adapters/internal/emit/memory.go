@@ -63,7 +63,11 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 // at the same place under its own root. ok is false outside Git and in a
 // repository with no main checkout, such as a bare one.
 func MainCheckout() (root, project string, ok bool) {
-	out, err := exec.Command("git", "rev-parse", "--path-format=absolute", "--git-common-dir", "--show-prefix").Output()
+	return MainCheckoutAt(".")
+}
+
+func MainCheckoutAt(projectRoot string) (root, project string, ok bool) {
+	out, err := exec.Command("git", "-C", projectRoot, "rev-parse", "--path-format=absolute", "--git-common-dir", "--show-prefix").Output()
 	if err != nil {
 		return "", "", false
 	}

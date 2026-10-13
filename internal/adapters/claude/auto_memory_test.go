@@ -125,6 +125,12 @@ func TestAutoMemoryLoadsPersonalIndex_FollowsWhatClaudeCodeReads(t *testing.T) {
 		want     bool
 	}{
 		{name: "sync writes the folder", want: true},
+		{name: "repo settings blocked", settings: map[string]string{local: `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`}},
+		{name: "project settings blocked", settings: map[string]string{project: `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`}},
+		{name: "off in settings environment", settings: map[string]string{local: `{"env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"1"}}`}},
+		{name: "settings environment overrides shell", env: "0", settings: map[string]string{local: `{"env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"1"}}`}},
+		{name: "local false cannot lift project block", settings: map[string]string{local: `{"permissions":{"blockReadsOutsideWorkingDirectories":false}}`, project: `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`}},
+		{name: "local environment wins over user", settings: map[string]string{local: `{"env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"1"}}`, "user": `{"env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"0"}}`}},
 		{name: "off in local settings", settings: map[string]string{local: `{"autoMemoryEnabled": false}`}},
 		{name: "off in project settings", settings: map[string]string{project: `{"autoMemoryEnabled": false}`}},
 		{name: "off in user settings", settings: map[string]string{"user": `{"autoMemoryEnabled": false}`}},
@@ -282,5 +288,88 @@ func TestAutoMemoryLoadsPersonalIndex_FalseWithoutTheMemoryBuiltin(t *testing.T)
 
 	if got, err := AutoMemoryLoadsPersonalIndex(&config.Config{}); err != nil || got {
 		t.Errorf("got %v, %v; want false", got, err)
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_UnmanagedMissingSettingsKeepTheImport(t *testing.T) {
+	autoMemoryProject(t)
+	cfg := &config.Config{Builtins: []string{"memory"}, Sync: config.SyncConfig{Unmanaged: []string{".claude/settings.local.json"}}}
+	if got, err := AutoMemoryLoadsPersonalIndex(cfg); err != nil || got {
+		t.Errorf("got %v, %v; want missing unmanaged settings to keep the import", got, err)
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_PermissionsBlockOnlyRepositorySuppliedDirectories(t *testing.T) {
+	for _, c := range []struct {
+		name                                 string
+		git, tracked, ignored, missing, want bool
+	}{
+		{name: "outside git"},
+		{name: "untracked local settings", git: true, want: true},
+		{name: "ignored local settings", git: true, ignored: true, want: true},
+		{name: "tracked local settings", git: true, tracked: true},
+		{name: "sync will create untracked local settings", git: true, missing: true, want: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			user := autoMemoryProject(t)
+			writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+			if c.git {
+				if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+					t.Fatalf("git init: %v %s", err, out)
+				}
+			}
+			path := filepath.Join(".claude", "settings.local.json")
+			if !c.missing {
+				wd, err := os.Getwd()
+				if err != nil {
+					t.Fatal(err)
+				}
+				value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(wd, ".agnostic-ai", "local", "memory"))})
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeClaudeSettings(t, path, string(value))
+			}
+			if c.ignored {
+				writeClaudeSettings(t, ".gitignore", ".claude/settings.local.json\n")
+			}
+			if c.tracked {
+				if out, err := exec.Command("git", "add", "-f", path).CombinedOutput(); err != nil {
+					t.Fatalf("git add: %v %s", err, out)
+				}
+			}
+			got, err := AutoMemoryLoadsPersonalIndex(&config.Config{Builtins: []string{"memory"}})
+			if err != nil || got != c.want {
+				t.Errorf("got %v, %v; want %v", got, err, c.want)
+			}
+		})
+	}
+}
+
+func TestAutoMemoryLoadsPersonalIndex_WorktreeBlockFollowsTheDirectorySource(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Claude Code reads the local settings of the starting folder on Windows")
+	}
+	for _, tracked := range []bool{false, true} {
+		t.Run(map[bool]string{false: "untracked main settings", true: "tracked main settings"}[tracked], func(t *testing.T) {
+			user := autoMemoryProject(t)
+			writeClaudeSettings(t, filepath.Join(user, "settings.json"), `{"permissions":{"blockReadsOutsideWorkingDirectories":true}}`)
+			main, worktree := gitWorktree(t)
+			value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(filepath.Join(main, ".agnostic-ai", "local", "memory"))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeClaudeSettings(t, filepath.Join(main, ".claude", "settings.local.json"), string(value))
+			if tracked {
+				if out, err := exec.Command("git", "-C", main, "add", "-f", ".claude/settings.local.json").CombinedOutput(); err != nil {
+					t.Fatalf("git add: %v %s", err, out)
+				}
+			}
+			testutil.Chdir(t, worktree)
+			got, err := AutoMemoryLoadsPersonalIndex(&config.Config{Builtins: []string{"memory"}})
+			if err != nil || got == tracked {
+				t.Errorf("got %v, %v; want %v", got, err, !tracked)
+			}
+		})
 	}
 }

@@ -12,7 +12,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
-- Load personal memory as Claude Code's own memory, capped at 200 lines; a hook gives it to subagents, and `CLAUDE.md` imports project memory only (#2107).
+- Claude Code loads personal memory natively; subagents read the same store, with an import fallback when native loading is off (#2116).
 
 #### Crush
 

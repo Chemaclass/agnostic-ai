@@ -4,17 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// autoMemoryDirectoryKey is Claude Code's setting for where auto memory
-// lives. It takes an absolute path only, so sync writes it to the
-// personal, git-ignored settings.local.json (code.claude.com/docs/en/memory).
+// Sync writes this checkout's absolute path in its local settings.
 const autoMemoryDirectoryKey = "autoMemoryDirectory"
 
 // emitAutoMemoryDirectory points Claude Code's auto memory at the shared
@@ -60,56 +60,123 @@ func autoMemoryDirectoryValue(store string) (string, error) {
 	return filepath.ToSlash(abs), nil
 }
 
-// AutoMemoryLoadsPersonalIndex reports whether Claude Code's auto memory
-// loads a personal memory index after sync: the memory built-in is on,
-// no setting or variable sync can read turns auto memory off, and the
-// autoMemoryDirectory Claude Code reads names a personal store, as sync
-// writes it, as the user set it, or as a worktree Claude Code created
-// copied it from the main checkout.
 func AutoMemoryLoadsPersonalIndex(cfg *config.Config) (bool, error) {
+	dir, err := New().NativePersonalMemoryDir(cfg, ".")
+	return dir != "", err
+}
+
+func (Adapter) NativePersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
-		return false, nil
+		return "", nil
 	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s: %w", root, err)
+	}
+	root = absRoot
 	dir := emit.OutputDir(cfg, target, defaultDir)
 	path := filepath.Join(dir, "settings.local.json")
-	mainSettings, mainStore := mainCheckout(path)
-	first, own := readAutoMemorySettings(mainSettings), readAutoMemorySettings(path)
-	if !autoMemoryOn(first, own, readAutoMemorySettings(filepath.Join(dir, "settings.json")), readAutoMemorySettings(userSettingsPath())) {
-		return false, nil
+	settingsPath := path
+	if !filepath.IsAbs(settingsPath) {
+		settingsPath = filepath.Join(root, path)
+	}
+	mainSettings, mainStore := mainCheckout(root, settingsPath)
+	projectPath := filepath.Join(dir, "settings.json")
+	if !filepath.IsAbs(projectPath) {
+		projectPath = filepath.Join(root, projectPath)
+	}
+	first, own := readAutoMemorySettings(mainSettings), readAutoMemorySettings(settingsPath)
+	scopes := []autoMemorySettings{first, own, readAutoMemorySettings(projectPath), readAutoMemorySettings(userSettingsPath())}
+	if !autoMemoryOn(scopes...) {
+		return "", nil
+	}
+	store, err := emit.PersonalMemoryDir(cfg, root)
+	if err != nil {
+		return "", err
 	}
 	value := first.directory
+	directorySource := mainSettings
 	if value == nil {
-		if own.directory == nil || emit.ClaimsKey(path, autoMemoryDirectoryKey) {
-			return true, nil
+		directorySource = settingsPath
+		if !cfg.IsUnmanaged(path) && (own.directory == nil || emit.ClaimsKey(path, autoMemoryDirectoryKey)) {
+			if autoMemoryDirectoryBlocked(scopes, directorySource) {
+				return "", nil
+			}
+			return store, nil
 		}
 		value = own.directory
 	}
+	if autoMemoryDirectoryBlocked(scopes, directorySource) {
+		return "", nil
+	}
 	var named string
 	if json.Unmarshal(value, &named) != nil || !filepath.IsAbs(filepath.FromSlash(named)) {
-		return false, nil
+		return "", nil
 	}
-	store, err := emit.PersonalMemoryDir(cfg, ".")
+	absStore, err := filepath.Abs(store)
 	if err != nil {
-		return false, err
-	}
-	if store, err = filepath.Abs(store); err != nil {
-		return false, fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
+		return "", fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
 	}
 	named = filepath.FromSlash(named)
-	return emit.SamePath(named, store) || mainStore != "" && emit.SamePath(named, mainStore), nil
+	if emit.SamePath(named, absStore) {
+		return store, nil
+	}
+	if mainStore != "" && emit.SamePath(named, mainStore) {
+		return mainStore, nil
+	}
+	return "", nil
 }
 
-// mainCheckout returns the local settings file Claude Code reads before
-// the project's own at path, at the root of the repository's main
-// checkout, or "" when there is none. In a linked worktree it also
-// returns the project's personal store in the main checkout, which a
-// worktree Claude Code creates copies into its own settings.
-func mainCheckout(path string) (settings, store string) {
-	root, project, ok := emit.MainCheckout()
+func autoMemoryDirectoryBlocked(scopes []autoMemorySettings, source string) bool {
+	for _, scope := range scopes {
+		if scope.blockRepoDirectory != nil && *scope.blockRepoDirectory {
+			return repositorySuppliedLocalSettings(source)
+		}
+	}
+	return false
+}
+
+func repositorySuppliedLocalSettings(path string) bool {
+	parent := filepath.Dir(path)
+	if info, err := os.Lstat(parent); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return true
+	}
+	for {
+		if _, err := os.Stat(parent); err == nil {
+			break
+		} else if !os.IsNotExist(err) {
+			return true
+		}
+		next := filepath.Dir(parent)
+		if next == parent {
+			return true
+		}
+		parent = next
+	}
+	out, err := exec.Command("git", "-C", parent, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return true
+	}
+	root := strings.TrimSpace(string(out))
+	relative, err := filepath.Rel(root, path)
+	if err != nil {
+		return true
+	}
+	cmd := exec.Command("git", "-C", root, "ls-files", "--error-unmatch", "--", filepath.ToSlash(relative))
+	if err := cmd.Run(); err != nil {
+		if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func mainCheckout(rootPath, path string) (settings, store string) {
+	root, project, ok := emit.MainCheckoutAt(rootPath)
 	if !ok {
 		return "", ""
 	}
-	if wd, err := os.Getwd(); err == nil && !emit.SamePath(project, wd) {
+	if wd, err := filepath.Abs(rootPath); err == nil && !emit.SamePath(project, wd) {
 		store = filepath.Join(project, filepath.Dir(filepath.FromSlash(emit.PersonalMemoryIndexPath)))
 	}
 	// Claude Code reads the starting folder's file alone on Windows and
@@ -124,15 +191,13 @@ func mainCheckout(path string) (settings, store string) {
 	return settings, store
 }
 
-// autoMemorySettings holds the auto memory keys of one Claude Code
-// settings file. A nil field is unset.
 type autoMemorySettings struct {
-	enabled   *bool
-	directory json.RawMessage
+	enabled            *bool
+	directory          json.RawMessage
+	blockRepoDirectory *bool
+	disableEnvironment *string
 }
 
-// readAutoMemorySettings reads the auto memory keys of the Claude Code
-// settings file at path. A missing or unreadable file sets none.
 func readAutoMemorySettings(path string) autoMemorySettings {
 	var s autoMemorySettings
 	data, err := os.ReadFile(path)
@@ -149,15 +214,30 @@ func readAutoMemorySettings(path string) autoMemorySettings {
 		s.enabled = enabled
 	}
 	s.directory = doc[autoMemoryDirectoryKey]
+	var permissions struct {
+		BlockReads *bool `json:"blockReadsOutsideWorkingDirectories"`
+	}
+	if json.Unmarshal(doc["permissions"], &permissions) == nil {
+		s.blockRepoDirectory = permissions.BlockReads
+	}
+	var environment map[string]string
+	if json.Unmarshal(doc["env"], &environment) == nil {
+		if value, ok := environment["CLAUDE_CODE_DISABLE_AUTO_MEMORY"]; ok {
+			s.disableEnvironment = &value
+		}
+	}
 	return s
 }
 
-// autoMemoryOn reports whether Claude Code runs auto memory with these
-// settings, highest precedence first. CLAUDE_CODE_DISABLE_AUTO_MEMORY
-// decides before any file: 0 forces it on, and any other value counts as
-// off, so a value sync cannot read keeps the personal import.
 func autoMemoryOn(scopes ...autoMemorySettings) bool {
-	switch os.Getenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY") {
+	disabled := os.Getenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+	for _, scope := range scopes {
+		if scope.disableEnvironment != nil {
+			disabled = *scope.disableEnvironment
+			break
+		}
+	}
+	switch disabled {
 	case "":
 	case "0":
 		return true

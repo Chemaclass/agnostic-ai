@@ -45,7 +45,7 @@ func newHookMemoryCmd() *cobra.Command {
 			if target == "claude" && claudeImportsPersonalMemory(root) {
 				return nil
 			}
-			indexes, scopes, configErr := memoryHookIndexes(root)
+			indexes, scopes, configErr := memoryHookIndexesForTarget(root, target)
 			if target == "claude" {
 				indexes, scopes = personalIndexes(indexes), personalIndexes(scopes)
 			}
@@ -76,7 +76,28 @@ func newHookMemoryCmd() *cobra.Command {
 // load is returned as the error, with only the project scope: the
 // personal folder is then unknown, and the checkout one may be wrong.
 func memoryHookIndexes(root string) (indexes, scopes []memoryIndex, err error) {
+	return memoryHookIndexesForTarget(root, "")
+}
+
+func memoryHookIndexesForTarget(root, target string) (indexes, scopes []memoryIndex, err error) {
 	personal, err := personalMemoryIndex(root)
+	if err == nil && target == "claude" {
+		cfg, configErr := config.Load(root)
+		if configErr == nil {
+			dir, nativeErr := adapters.NativePersonalMemoryDirFor("claude", cfg, root)
+			if nativeErr != nil {
+				err = nativeErr
+			} else if dir != "" {
+				path := filepath.Join(dir, "MEMORY.md")
+				relative, relErr := filepath.Rel(root, path)
+				if relErr == nil && filepath.ToSlash(relative) == adapters.PersonalMemoryIndexPath {
+					personal.path = adapters.PersonalMemoryIndexPath
+				} else {
+					personal.path = filepath.ToSlash(path)
+				}
+			}
+		}
+	}
 	scopes = []memoryIndex{
 		// Personal first: it is short, and a long project index must
 		// not push the user's own corrections out of the limit.

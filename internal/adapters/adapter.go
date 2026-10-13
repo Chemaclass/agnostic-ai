@@ -917,6 +917,18 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return emit.PersonalMemoryDir(cfg, root)
 }
 
+type nativePersonalMemory interface {
+	NativePersonalMemoryDir(cfg *config.Config, root string) (string, error)
+}
+
+func NativePersonalMemoryDirFor(name string, cfg *config.Config, root string) (string, error) {
+	adapter, ok := registry[name].(nativePersonalMemory)
+	if !ok {
+		return "", nil
+	}
+	return adapter.NativePersonalMemoryDir(cfg, root)
+}
+
 // PersonalMemoryDirFor returns the personal store the project files of
 // targets may name (re-exported from the emit layer).
 func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (string, error) {

@@ -356,3 +356,32 @@ func TestHookMemory_AddsNothingForClaudeWhenTheEntryPointImportsThePersonalIndex
 		})
 	}
 }
+
+func TestHookMemory_ClaudeWorktreeReadsTheNativeMainCheckoutStore(t *testing.T) {
+	main := setupGitRepo(t)
+	writeFile(t, filepath.Join(main, "agnostic-ai.yaml"), claudeMemoryConfig)
+	git(t, main, "add", ".")
+	git(t, main, "commit", "-qm", "memory fixture")
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(t, main, "worktree", "add", "-q", "--detach", linked)
+	store := filepath.Join(main, ".agnostic-ai", "local", "memory")
+	value, err := json.Marshal(map[string]string{"autoMemoryDirectory": filepath.ToSlash(store)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(linked, ".claude", "settings.local.json"), string(value))
+	writeFile(t, filepath.Join(store, "MEMORY.md"), "Main checkout personal fact\n")
+	writeFile(t, filepath.Join(linked, ".agnostic-ai", "local", "memory", "MEMORY.md"), "Wrong worktree fact\n")
+	writeFile(t, filepath.Join(linked, "CLAUDE.md"), adapters.AppendMemoryBlock("# Project\n", adapters.RenderMemoryBlock("CLAUDE.md", "")))
+	testutil.Chdir(t, linked)
+	for _, cwd := range []string{linked, filepath.Join(linked, "nested")} {
+		if err := os.MkdirAll(cwd, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		testutil.Chdir(t, cwd)
+		out := runHookMemory(t, "--target", "claude")
+		if !strings.Contains(out, "Main checkout personal fact") || strings.Contains(out, "Wrong worktree fact") {
+			t.Errorf("hook from %s must use Claude's native store: %s", cwd, out)
+		}
+	}
+}
