@@ -1,8 +1,8 @@
 ---
 name: gemini-memory-tiers
-description: Where Gemini CLI's memory tiers map in a project that shares memory.
+description: Keep Gemini CLI's memory tiers, and save team facts outside the generated GEMINI.md.
 alwaysApply: true
 targets: [gemini]
 ---
 
-This project shares memory with other AI coding tools, so your memory tiers map to its files. Project instructions tier (team conventions, architecture rules, repo workflows): propose the fact and, once the user confirms, save it in `.agnostic-ai/memory/` with a line in its `MEMORY.md`; never edit `GEMINI.md`, which `agnostic-ai sync` generates and overwrites. Private project memory tier (your machine, local setup, not committed): the personal memory folder the shared-memory-policy rule names. Global personal memory tier (preferences across projects): `~/.gemini/GEMINI.md`, outside any `agnostic-ai` block. One fact, one file, as your routing rules say.
+This project shares memory with other AI coding tools. Keep your own memory tiers, with one change: `agnostic-ai sync` generates this project's `GEMINI.md` and overwrites it, so never save a fact there. Save a team convention, architecture rule, or repo workflow in `.agnostic-ai/memory/` instead, with a line in its `MEMORY.md`, once the user confirms it. Private project facts and cross-project preferences still go to your private project memory and `~/.gemini/GEMINI.md` (outside any `agnostic-ai` block); also save each one in the personal memory folder the shared-memory-policy rule names, so other tools read it. That copy is the shared layer, not one of your tiers.
