@@ -133,22 +133,7 @@ type antigravityRead struct {
 	uncounted string
 }
 
-// readAntigravity follows the reply contract. PreToolUse needs a
-// `decision`: "allow" "Allows the tool call to proceed, delegating to the
-// next hook or default policy"; "auto_approve" "Automatically approves the
-// tool call when the default policy would otherwise prompt, while honoring
-// explicit user-configured rules"; "deny" "Hard blocks execution immediately";
-// "ask" "Prompts you for approval, but respects “Always Allow”
-// settings"; "force_ask" "Always prompts you for approval"; and
-// "deny_unless_prior_grant" "Denies execution unless the resource was
-// previously approved in a prior grant". Stop needs one too: "continue"
-// keeps the agent running and "Any other value allows the stop".
-// PostToolUse "Returns an empty JSON object {}", and PreInvocation and
-// PostInvocation return optional fields. Anything else, a non-zero exit
-// included, is a result the page does not describe. ask and
-// deny_unless_prior_grant depend on saved permissions hook run cannot
-// see, so they are not counted either. allow and auto_approve read as
-// allow, with a note on each, since neither is a promise the tool runs.
+// readAntigravity excludes outcomes that depend on unseen permissions or policy.
 func readAntigravity(event string, r Result) antigravityRead {
 	switch {
 	case r.TimedOut:
@@ -182,7 +167,7 @@ func readAntigravity(event string, r Result) antigravityRead {
 	case decision == "force_ask":
 		return antigravityRead{decision: Block, note: "replied force_ask: Antigravity asks the user before the tool runs; read as block"}
 	case decision == "allow":
-		return antigravityRead{decision: Allow, note: "replied allow: Antigravity defers to the next hook or the default policy; read as allow"}
+		return antigravityRead{decision: Allow, uncounted: "replied allow: defers to the next hook or default policy; hook run cannot determine whether the tool runs"}
 	case decision == "auto_approve":
 		return antigravityRead{decision: Allow, note: "replied auto_approve: Antigravity approves a call the default policy would prompt for, and honors the user's own rules; read as allow"}
 	}
