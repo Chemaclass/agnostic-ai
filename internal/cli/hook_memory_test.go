@@ -10,6 +10,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -77,7 +78,7 @@ func TestHookMemory_RepliesWithAdditionalContextForCopilot(t *testing.T) {
 }
 
 func TestHookMemory_PrintsNothingWithoutAStore(t *testing.T) {
-	for _, target := range []string{"codex", "cursor", "copilot", "qoder", "factory"} {
+	for _, target := range []string{"codex", "cursor", "copilot", "qoder", "factory", "claude"} {
 		memoryHookProject(t, "")
 		if got := runHookMemory(t, "--target", target); got != "" {
 			t.Errorf("%s: got %q, want nothing", target, got)
@@ -296,5 +297,62 @@ func TestHookMemory_KeepsThePersonalIndexWhenTheProjectIndexIsLong(t *testing.T)
 
 	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, "Prefers tabs") {
 		t.Errorf("personal index dropped:\n%s", got[:300])
+	}
+}
+
+// claudeMemoryProject is a Claude Code project with both memory indexes,
+// whose entry point at path imports the project index, and the personal
+// one too when importsPersonal is set.
+func claudeMemoryProject(t *testing.T, config, path string, importsPersonal bool) {
+	t.Helper()
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", config)
+	writeFile(t, filepath.Join(".agnostic-ai", "memory", "MEMORY.md"), sampleIndex)
+	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Prefers tabs](tabs.md): the user indents with tabs\n")
+	personal := ""
+	if importsPersonal {
+		personal = adapters.PersonalMemoryIndexPath
+	}
+	writeFile(t, path, adapters.AppendMemoryBlock("# Project\n", adapters.RenderMemoryBlock(path, personal)))
+}
+
+const claudeMemoryConfig = "version: 1\ntargets: [claude]\nbuiltins: [memory]\n"
+
+// Claude Code's own memory never reaches a subagent, and CLAUDE.md gives
+// it the project index, so the subagent hook adds the personal one.
+func TestHookMemory_GivesClaudeSubagentsThePersonalIndexAlone(t *testing.T) {
+	claudeMemoryProject(t, claudeMemoryConfig, "CLAUDE.md", false)
+
+	var reply struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	out := runHookMemory(t, "--target", "claude")
+	if err := json.Unmarshal([]byte(out), &reply); err != nil {
+		t.Fatalf("invalid JSON %q: %v", out, err)
+	}
+	got := reply.HookSpecificOutput
+	if got.HookEventName != "SubagentStart" || !strings.Contains(got.AdditionalContext, "Personal memory, `.agnostic-ai/local/memory/MEMORY.md`") ||
+		!strings.Contains(got.AdditionalContext, "Prefers tabs") || strings.Contains(got.AdditionalContext, "CI is Ubuntu only") {
+		t.Errorf("claude reply = %+v", got)
+	}
+}
+
+// A CLAUDE.md that still imports the personal index gives it to every
+// subagent already.
+func TestHookMemory_AddsNothingForClaudeWhenTheEntryPointImportsThePersonalIndex(t *testing.T) {
+	for name, c := range map[string]struct{ config, path string }{
+		"root CLAUDE.md":    {claudeMemoryConfig, "CLAUDE.md"},
+		"moved entry point": {claudeMemoryConfig + "outputs:\n  claude:\n    file: .claude/CLAUDE.md\n", filepath.Join(".claude", "CLAUDE.md")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			claudeMemoryProject(t, c.config, c.path, true)
+
+			if got := runHookMemory(t, "--target", "claude"); got != "" {
+				t.Errorf("got %q, want nothing", got)
+			}
+		})
 	}
 }

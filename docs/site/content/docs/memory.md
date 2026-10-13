@@ -74,7 +74,7 @@ To recall what the project knows about a topic, or to clean memory up (merge dup
 
 | Tool | How |
 | --- | --- |
-| Claude Code | `CLAUDE.md` imports both lists |
+| Claude Code | `CLAUDE.md` imports the project list, and [Claude Code's own memory](#claude-code-s-own-memory) loads the personal list |
 | Codex, Copilot, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
@@ -101,11 +101,15 @@ Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the share
 
 Claude Code also saves facts by itself. Sync points that memory at your personal memory folder (`autoMemoryDirectory` in `.claude/settings.local.json`), so its saves land where every other tool reads them. Sync keeps a value you set yourself, and Git never commits the file. Claude Code uses the setting once you trust the folder.
 
+Claude Code then loads your personal list as its own memory: the first 200 lines or 25KB, with hidden characters cleaned out. `CLAUDE.md` imports only the project list. Claude Code's own memory never reaches a subagent, so a `SubagentStart` hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) and adds the personal list when each subagent starts.
+
+`CLAUDE.md` imports both lists, and the hook adds nothing, when auto memory is off (`autoMemoryEnabled: false` in `~/.claude/settings.json`, `.claude/settings.json`, or `.claude/settings.local.json`, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`), or when your own `autoMemoryDirectory` points to another folder. Run `agnostic-ai sync` after you change either.
+
 Codex, Gemini CLI, and Qoder have their own memory too, off by default. Leave it off so they save here. Windsurf's older Cascade agent keeps its own memories in `~/.codeium/windsurf/memories/`, and no project setting moves them.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
-By default each checkout has its own personal memory, so deleting a worktree deletes what it learned. A worktree Claude Code creates starts with a copy when sync manages `.worktreeinclude`; any other starts empty. To keep one personal memory for every worktree of a repository, add this to `agnostic-ai.local.yaml` and sync:
+By default each checkout has its own personal memory, so deleting a worktree deletes what it learned. A worktree Claude Code creates starts with a copy when sync manages `.worktreeinclude`; any other starts empty. Claude Code itself reads the main checkout's `.claude/settings.local.json` in a worktree, so its own memory uses the main checkout's personal memory once sync has run there. To keep one personal memory for every worktree of a repository, add this to `agnostic-ai.local.yaml` and sync:
 
 ```yaml
 memory:
@@ -126,7 +130,7 @@ What each tool does with personal memory in this mode:
 
 | Tool | Without the `.gitignore` block | With it |
 | --- | --- | --- |
-| Claude Code | Loads and saves | Same, after you allow the import once |
+| Claude Code | Loads and saves | Same |
 | Copilot, Factory | Loads | Loads |
 | Codex, Gemini CLI, Qoder | Loads | Loads and saves |
 | Cursor | Loads | Loads; the CLI saves, the editor asks first |

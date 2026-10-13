@@ -62,15 +62,22 @@ func readText(t *testing.T, path string) string {
 	return string(data)
 }
 
+// localSettingsStore returns the repo store sync names in Claude Code's
+// personal settings.
+func localSettingsStore(t *testing.T, parent string) string {
+	t.Helper()
+	return repoStore(t, parent, readText(t, filepath.Join(".claude", "settings.local.json")))
+}
+
 func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 	parent := repoMemoryProject(t, true)
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
 
-	claude := readText(t, "CLAUDE.md")
-	store := repoStore(t, parent, claude)
-	if !strings.Contains(claude, "\n@"+store+"/MEMORY.md\n") || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
+	store := localSettingsStore(t, parent)
+	// Claude Code's auto memory loads the store's index itself.
+	if claude := readText(t, "CLAUDE.md"); strings.Contains(claude, store) || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("CLAUDE.md imports:\n%s", claude)
 	}
 	var local map[string]any
@@ -111,10 +118,28 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 	}
 }
 
+func TestSync_RepoPersonalMemoryReachesClaudeThroughCLAUDEmdWithAutoMemoryOff(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	store := localSettingsStore(t, parent)
+	if claude := readText(t, "CLAUDE.md"); !strings.Contains(claude, "\n@"+store+"/MEMORY.md\n") || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
+		t.Errorf("CLAUDE.md imports:\n%s", claude)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check after sync: %v", err)
+	}
+}
+
 // With no managed .gitignore block the outputs may be committed, so they
-// keep the checkout store and never carry an absolute path.
+// keep the checkout store and never carry an absolute path. Auto memory
+// is off, so CLAUDE.md imports personal memory itself.
 func TestSync_RepoPersonalMemoryStaysOutOfCommittableFiles(t *testing.T) {
 	parent := repoMemoryProject(t, false)
+	t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +309,7 @@ func TestSync_CreatesThePrivateRepoStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	store := filepath.FromSlash(localSettingsStore(t, parent))
 	info, err := os.Stat(store)
 	if err != nil || !info.IsDir() {
 		t.Fatalf("store %s not created: %v", store, err)
@@ -299,7 +324,7 @@ func TestHookMemory_ReadsTheRepoStore(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	store := filepath.FromSlash(localSettingsStore(t, parent))
 	writeFile(t, filepath.Join(store, "MEMORY.md"), "- [Tabs](tabs.md): the user wants tabs\n")
 	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Stale](stale.md): checkout store\n")
 
@@ -314,7 +339,7 @@ func TestMemoryList_ReadsTheRepoStore(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	store := filepath.FromSlash(localSettingsStore(t, parent))
 	writeFile(t, filepath.Join(store, "tabs.md"), "---\nname: Tabs\ndescription: tabs\nmetadata:\n  type: user\n---\nTabs.\n")
 	writeFile(t, filepath.Join(store, "MEMORY.md"), "- [Tabs](tabs.md): the user wants tabs\n")
 
@@ -376,6 +401,8 @@ func TestSync_RepoPersonalMemoryHonorsAllowedOutputPaths(t *testing.T) {
 	for _, path := range []string{"CLAUDE.md", ".codex/config.toml", ".gemini/settings.json", "opencode.json", "kilo.jsonc"} {
 		t.Run(path, func(t *testing.T) {
 			parent := repoMemoryProject(t, true)
+			// With auto memory off, ignored CLAUDE.md names the store.
+			t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
 			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, gemini, opencode, kilo]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n  allow: ["+path+"]\n")
 			if err := runSync(t); err != nil {
 				t.Fatal(err)

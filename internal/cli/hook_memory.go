@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -28,7 +29,8 @@ func newHookMemoryCmd() *cobra.Command {
 		Short: "Print the shared memory index from inside a session-start hook",
 		Long: "Prints the project's shared memory index (.agnostic-ai/memory/MEMORY.md) in the reply " +
 			"format the target adds to the model's context. Names the personal repo store even before " +
-			"its first index exists. Prints nothing when checkout memory has no index.",
+			"its first index exists. Prints nothing when checkout memory has no index. " +
+			"For claude, a subagent-start hook, it prints the personal index alone, and nothing when CLAUDE.md imports it.",
 		Example: `  # Hook command that does nothing when the binary is missing
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook memory`,
 		Args: cobra.NoArgs,
@@ -40,7 +42,13 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
+			if target == "claude" && claudeImportsPersonalMemory(root) {
+				return nil
+			}
 			indexes, scopes, configErr := memoryHookIndexes(root)
+			if target == "claude" {
+				indexes, scopes = personalIndexes(indexes), personalIndexes(scopes)
+			}
 			text := ""
 			if len(indexes) > 0 {
 				text = memoryContext(indexes, scopes)
@@ -94,6 +102,28 @@ func memoryHookIndexes(root string) (indexes, scopes []memoryIndex, err error) {
 // memoryIndex is one scope's index as the hook prints it. path is
 // relative to the project root, or absolute for the repo store.
 type memoryIndex struct{ name, path, text string }
+
+// personalIndexes leaves out the project index, which Claude Code
+// subagents load through CLAUDE.md. Claude Code's own memory never
+// reaches them, so the personal index comes from the hook.
+func personalIndexes(indexes []memoryIndex) []memoryIndex {
+	return slices.DeleteFunc(slices.Clone(indexes), func(index memoryIndex) bool {
+		return index.path == adapters.ProjectMemoryIndexPath
+	})
+}
+
+// claudeImportsPersonalMemory reports whether the Claude Code entry point
+// of the project at root imports a personal index, as sync keeps it when
+// auto memory does not load that index, so every subagent reads it there.
+func claudeImportsPersonalMemory(root string) bool {
+	cfg, _ := config.Load(root)
+	path := adapters.EntryPointPath(cfg, "claude")
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	data, err := os.ReadFile(path)
+	return err == nil && adapters.MemoryBlockImportsPersonal(string(data))
+}
 
 // header introduces the index in the context the hook prints.
 func (m memoryIndex) header() string {
@@ -154,6 +184,10 @@ func memoryHookReply(target, text string) (string, error) {
 	switch target {
 	case "gemini":
 		reply = map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
+	case "claude":
+		// The built-in runs it for subagents only; the session itself loads
+		// personal memory through auto memory or CLAUDE.md.
+		reply = map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": text}}
 	case "cursor":
 		reply = map[string]string{"additional_context": text}
 	case "copilot":

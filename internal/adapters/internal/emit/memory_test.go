@@ -19,6 +19,30 @@ func TestRenderMemoryBlock_ImportsTheIndexFromTheProjectRoot(t *testing.T) {
 	}
 }
 
+func TestRenderMemoryBlock_ImportsTheProjectIndexAloneWithoutAPersonalOne(t *testing.T) {
+	got := RenderMemoryBlock("CLAUDE.md", "")
+
+	want := MemoryStartMarker + "\n\n## Shared memory\n\n@.agnostic-ai/memory/MEMORY.md\n\n" + MemoryEndMarker + "\n"
+	if got != want {
+		t.Errorf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
+func TestMemoryBlockImportsPersonal_ReadsTheBlockSyncWrote(t *testing.T) {
+	for name, c := range map[string]struct {
+		body string
+		want bool
+	}{
+		"both indexes":                   {AppendMemoryBlock("# Shared\n", RenderMemoryBlock(".claude/CLAUDE.md", PersonalMemoryIndexPath)), true},
+		"project index only":             {AppendMemoryBlock("# Shared\n", RenderMemoryBlock("CLAUDE.md", "")), false},
+		"imports outside a memory block": {"# Shared\n\n@.agnostic-ai/memory/MEMORY.md\n@.agnostic-ai/local/memory/MEMORY.md\n", false},
+	} {
+		if got := MemoryBlockImportsPersonal(c.body); got != c.want {
+			t.Errorf("%s: got %v, want %v", name, got, c.want)
+		}
+	}
+}
+
 func TestRenderMemoryBlock_ImportsRelativeToANestedEntryPoint(t *testing.T) {
 	got := RenderMemoryBlock(".claude/CLAUDE.md", PersonalMemoryIndexPath)
 

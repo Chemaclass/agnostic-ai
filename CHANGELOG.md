@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Claude Code
+
+- Load personal memory as Claude Code's own memory, capped at 200 lines; a hook gives it to subagents, and `CLAUDE.md` imports project memory only (#2107).
+
 #### Crush
 
 - Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).

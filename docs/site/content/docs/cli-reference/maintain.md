@@ -125,13 +125,14 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 
 ## hook memory
 
-Prints the `MEMORY.md` fact lists for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
+Prints the `MEMORY.md` fact lists for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you, and runs it on Claude Code when a subagent starts.
 
 ```bash
 agnostic-ai hook memory --target codex
 ```
 
 - Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}`, Copilot `{"additionalContext": ...}`, and Gemini CLI `{"hookSpecificOutput": {"additionalContext": ...}}`.
+- Claude Code gets `{"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": ...}}` with personal memory only, since `CLAUDE.md` gives subagents the project list. It prints nothing when `CLAUDE.md` imports the personal list too.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
 - With no project, it prints nothing. With `memory.personal: repo`, it names the personal folder even before an index exists; in checkout mode, no index means no output. It finds the project the same way the `shared-memory` skill does.
 
