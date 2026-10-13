@@ -137,9 +137,9 @@
 # Keep the established 8 KB build allowance.
 # Combined with #2087, measured 19165344, up 4096 from main
 # e48c1499 (19161248). Keep the established 8 KB build allowance.
-# #2100 measured 19230880 on Go 1.27.2, up 65536 from main 3891b845
+# #2100 measured 19251360 on Go 1.27.2, up 86016 from main 3891b845
 # (19165344): memory import copies earlier facts safely (Git checks, a
-# store lock, atomic writes), the first sync seeds them from Claude Code's
-# own store, and LINT043 names stores left behind.
-# Keep the established 8 KB build allowance.
-19240500
+# store lock, atomic writes) and lets users pick facts, the first sync
+# seeds them from Claude Code's own store, and LINT043 names stores left
+# behind. Keep the established 8 KB build allowance.
+19262000
