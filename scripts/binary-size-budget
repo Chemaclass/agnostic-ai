@@ -157,4 +157,7 @@
 # #2116 measured 19304608, up 20480 from the validated Kiro tree
 # (19284128): native Claude memory availability and worktree subagent
 # context. Keep the established 8 KB build allowance.
-19314000
+# #2104 measured 19312800, up 8192 from main 124d29e9 (19304608):
+# worktree mode inheritance and guarded mode migration.
+# Keep the established 8 KB build allowance.
+19322000
