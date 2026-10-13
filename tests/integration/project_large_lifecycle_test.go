@@ -283,7 +283,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 		t.Setenv("AGNOSTIC_LIFECYCLE_TEST_EXECUTABLE", helper)
 		t.Setenv("AGNOSTIC_LIFECYCLE_OLD_BINARY", binary)
 		t.Setenv("AGNOSTIC_LIFECYCLE_NEW_BINARY", matching)
-		diagnostic := filepath.Join(t.TempDir(), "launcher-error.json")
+		diagnostic := filepath.Join(t.TempDir(), "launcher.jsonl")
 		t.Setenv("AGNOSTIC_LIFECYCLE_LAUNCH_DIAGNOSTIC", diagnostic)
 		bootstrap := func(dir string) {
 			t.Helper()
@@ -293,7 +293,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 			}
 			if runtime.GOOS == "windows" {
 				receipt, receiptErr := os.ReadFile(diagnostic)
-				t.Logf("original launcher failure receipt: %v\n%s", receiptErr, receipt)
+				t.Logf("original launcher stage receipt: %v\n%s", receiptErr, receipt)
 				probe := func(command string, args ...string) (string, error) {
 					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 					defer cancel()
@@ -941,33 +941,7 @@ func TestProjectLifecycleInstallerProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	if runtime.GOOS == "windows" {
-		mustWrite(t, filepath.Join("node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), `const { spawnSync } = require('node:child_process');
-const path = require('node:path');
-const fs = require('node:fs');
-const result = spawnSync(path.join(__dirname, 'fixture.exe'), process.argv.slice(2), { stdio: 'inherit' });
-if (result.error || result.status !== 0) {
-  const streams = [0, 1, 2].map(fd => {
-    try {
-      const stat = fs.fstatSync(fd);
-      return { fd, character: stat.isCharacterDevice(), pipe: stat.isFIFO(), file: stat.isFile() };
-    } catch (error) {
-      return { fd, error: error.code };
-    }
-  });
-  const error = result.error;
-  try {
-    fs.writeFileSync(process.env.AGNOSTIC_LIFECYCLE_LAUNCH_DIAGNOSTIC, JSON.stringify({
-      status: result.status, signal: result.signal,
-      error: error && { code: error.code, errno: error.errno, syscall: error.syscall, message: error.message },
-      args: process.argv.slice(2), node: process.execPath, cwd: process.cwd(), streams,
-    }, null, 2));
-  } catch (receiptError) {
-    console.error("Cannot save launcher error:", receiptError.message);
-  }
-}
-if (result.error) throw result.error;
-process.exit(result.status === null ? 1 : result.status);
-`)
+		writeLifecycleNodeLauncher(t, filepath.Join("node_modules", "agnostic-ai", "bin", "agnostic-ai.js"), "fixture.exe")
 	}
 
 }
