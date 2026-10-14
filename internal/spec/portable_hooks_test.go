@@ -204,6 +204,9 @@ func TestBundleFor_TranslatesPortableHooksAndDropsTheRest(t *testing.T) {
 	if got := b.For("codex").Hooks; len(got) != 1 || got[0].Name != "status" || got[0].Meta["event"] != "SessionStart" {
 		t.Errorf("codex hooks = %+v, want only status", got)
 	}
+	if got := b.For("trae").Hooks; len(got) != 1 || got[0].Name != "status" || got[0].Meta["event"] != "SessionStart" {
+		t.Errorf("trae hooks = %+v, want only status", got)
+	}
 	if got := b.HooksFor("kiro"); len(got) != 1 || got[0].Name != "guard" || got[0].Meta["matcher"] != "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$" {
 		t.Errorf("kiro hooks = %+v, want only guard", got)
 	}
@@ -257,6 +260,7 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 	want := map[string]row{
 		"claude":    {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|MultiEdit|Write|NotebookEdit", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
 		"codex":     {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|Write", "-", "-", "mcp__s__.*"},
+		"trae":      {"SessionStart - - - - - -", "-", "-", "-", "-", "-"},
 		"gemini":    {"SessionStart BeforeAgent BeforeTool AfterTool AfterTool AfterAgent SessionEnd", "^run_shell_command$", "^(write_file|replace)$", "^(read_file|read_many_files)$", "^(web_fetch|google_web_search)$", "-"},
 		"factory":   {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^Execute$", "^(Create|Edit|ApplyPatch)$", "^Read$", "^(FetchUrl|WebSearch)$", "-"},
 		"kiro":      {"- - PreToolUse - - - -", "^(execute_bash|execute_pwsh)$", "^(fs_write|fs_append|str_replace|delete_file)$", "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$", "^(web_fetch|remote_web_search)$", "@s/*"},
