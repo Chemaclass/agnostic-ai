@@ -1269,7 +1269,7 @@ func handoffRunInput(t *testing.T, target string, h handoffNativeHandler, dir st
 			t.Fatal(err)
 		}
 		root := filepath.Dir(filepath.Dir(git))
-		if strings.HasPrefix(strings.ToLower(filepath.Base(filepath.Dir(filepath.Dir(git)))), "mingw") {
+		if slices.Contains([]string{"mingw64", "mingw32", "ucrt64", "clang64", "clang32", "clangarm64"}, strings.ToLower(filepath.Base(filepath.Dir(filepath.Dir(git))))) {
 			root = filepath.Dir(root)
 		}
 		bash := filepath.Join(root, "usr", "bin", "bash.exe")
