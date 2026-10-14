@@ -380,3 +380,20 @@ func TestDisplay_HelperPathsAndReferencesRemainVisible(t *testing.T) {
 		}
 	}
 }
+
+func TestDisplay_ReviewPostingRulesAndEnvironmentNamesStayVisible(t *testing.T) {
+	body := "output:\n  on_pass: approve\n  on_fail: request_changes\nreviewers:\n  - name: bugs\n    environment: api-environment\n    claude_code:\n      model: claude-opus-5-5\n"
+	got := Display(".ellipsis/code-review.yaml", body)
+	if got.Hidden || got.Text != body {
+		t.Errorf("approval settings and an environment name are not credentials:\n%s", got.Text)
+	}
+	body = "reviewers:\n  - name: bugs\n    environment:\n      repositories:\n        - name: api-repo\n"
+	if got := Display(".ellipsis/code-review.yaml", body); got.Hidden || got.Text != body {
+		t.Errorf("repository names are not credentials:\n%s", got.Text)
+	}
+	body = "environment:\n  NPM_TOKEN: PREVIEW_SECRET_A\n  repositories: PREVIEW_SECRET_B\non_pass: approve\npassword: PREVIEW_SECRET_C\n"
+	got = Display("native.yaml", body)
+	if strings.Contains(got.Text, "PREVIEW_SECRET_") || !strings.Contains(got.Text, "on_pass: approve") {
+		t.Errorf("env values and real passwords stay hidden:\n%s", got.Text)
+	}
+}

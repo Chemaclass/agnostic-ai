@@ -61,6 +61,9 @@ func NameStrength(name string, key bool) CredentialStrength {
 	switch {
 	case n == 0:
 		return NoCredential
+	case n >= 2 && words[n-2] == "on" && words[n-1] == "pass":
+		// A code review's `on_pass` says what to post when a check passes.
+		return NoCredential
 	case strongCredentialWords[words[n-1]]:
 		return StrongCredential
 	case weakCredentialWords[words[n-1]], key && (words[n-1] == "cred" || words[n-1] == "auth"):

@@ -20,11 +20,14 @@ var (
 	// file. Ellipsis fails a sync on an unknown field, so any other key
 	// stops the file here instead of there.
 	settingsKeys = []string{"ellipsis", "pull_requests", "reviewer", "output", "budget"}
+	// headerKeys are the keys of the file's `ellipsis` block.
+	headerKeys = []string{"kind", "name", "description", "enabled", "metadata"}
 )
 
 // reviewConfig is the x-ellipsis block after validation.
 type reviewConfig struct {
 	name         string
+	header       map[string]any
 	pullRequests map[string]any
 	reviewer     map[string]any
 	engine       string
@@ -64,7 +67,11 @@ func (f *reviewConfig) readHeader(x map[string]any) []string {
 		return []string{"x-ellipsis.ellipsis must be a mapping"}
 	}
 	var problems []string
+	f.header = map[string]any{}
 	for _, key := range sortedKeys(block) {
+		if key != "kind" && key != "name" {
+			f.header[key] = block[key]
+		}
 		switch key {
 		case "kind":
 			if block[key] != fileKind {
@@ -76,8 +83,20 @@ func (f *reviewConfig) readHeader(x map[string]any) []string {
 			} else {
 				problems = append(problems, "x-ellipsis.ellipsis.name must be a non-empty string")
 			}
+		case "description":
+			if _, ok := block[key].(string); !ok {
+				problems = append(problems, "x-ellipsis.ellipsis.description must be a string")
+			}
+		case "enabled":
+			if _, ok := block[key].(bool); !ok {
+				problems = append(problems, "x-ellipsis.ellipsis.enabled must be a boolean")
+			}
+		case "metadata":
+			if _, ok := block[key].(map[string]any); !ok {
+				problems = append(problems, "x-ellipsis.ellipsis.metadata must be a mapping")
+			}
 		default:
-			problems = append(problems, fmt.Sprintf("x-ellipsis.ellipsis.%s is not an Ellipsis key (use kind, name)", key))
+			problems = append(problems, fmt.Sprintf("x-ellipsis.ellipsis.%s is not an Ellipsis key (use %s)", key, strings.Join(headerKeys, ", ")))
 		}
 	}
 	return problems

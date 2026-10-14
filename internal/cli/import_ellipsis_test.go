@@ -16,6 +16,10 @@ const handWrittenEllipsis = `# Review every push to the API.
 ellipsis:
   kind: code_review
   name: api-review
+  description: Review every push to the API
+  enabled: false
+  metadata:
+    team: api
 
 pull_requests:
   draft: false
@@ -82,10 +86,13 @@ func TestImportEllipsis_HandWrittenFileKeepsEveryField(t *testing.T) {
 		t.Errorf("the prompt alone belongs in the review spec:\n%s", review)
 	}
 	settings := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis.yaml"))
-	for _, want := range []string{"x-ellipsis:", "api-review", "api-environment", "approve", "request_changes", "services/**", "claude-opus-5-5"} {
+	for _, want := range []string{"x-ellipsis:", "api-review", "Review every push to the API", "enabled: false", "team: api", "api-environment", "approve", "request_changes", "services/**", "claude-opus-5-5"} {
 		if !strings.Contains(settings, want) {
 			t.Errorf("settings spec lost %q:\n%s", want, settings)
 		}
+	}
+	if strings.Contains(settings, "kind:") {
+		t.Errorf("kind is implied and must not be copied:\n%s", settings)
 	}
 	if strings.Contains(settings, "Find bugs") {
 		t.Errorf("the prompt must not be copied into settings:\n%s", settings)
@@ -97,6 +104,9 @@ func TestImportEllipsis_HandWrittenFileKeepsEveryField(t *testing.T) {
 	gotYAML, _ := yaml.Marshal(got)
 	if string(wantYAML) != string(gotYAML) {
 		t.Errorf("import then sync changed the file's meaning\n--- want ---\n%s\n--- got ---\n%s", wantYAML, gotYAML)
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ellipsisFile)), "enabled: false") {
+		t.Error("a paused file must stay paused after import and sync")
 	}
 	if _, err := runCLI(t, "sync", "--check"); err != nil {
 		t.Errorf("sync --check after import and sync: %v", err)

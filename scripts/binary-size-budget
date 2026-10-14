@@ -263,4 +263,7 @@
 # #2187 measured 19738784 on Go1.27.2, up 40960 from main fbcf93e5
 # (19697824): the Ellipsis review target, its import, and the x-ellipsis
 # settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
-19746976
+# #2196 review fixes measured 19742880, up 4096: the import keeps every
+# ellipsis key, a broken reviewer keeps the deployed file, and previews show
+# on_pass. Same Linux amd64 release flags; retain the 8 KB allowance.
+19751072

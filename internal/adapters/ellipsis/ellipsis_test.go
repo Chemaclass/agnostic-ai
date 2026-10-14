@@ -300,7 +300,7 @@ reviewers:
 	}
 }
 
-func TestEmit_LaterSettingsSpecWinsPerKey(t *testing.T) {
+func TestEmit_LaterSettingsSpecReplacesEachTopLevelBlock(t *testing.T) {
 	testutil.TempCwd(t)
 	first := settings(map[string]any{"reviewer": reviewer(nil), "budget": map[string]any{"session": 3}})
 	second := settings(map[string]any{"budget": map[string]any{"session": 9}})
@@ -332,5 +332,25 @@ func TestEmit_NameIsRegistered(t *testing.T) {
 	got := New().Capabilities()
 	if len(got) != 2 || !slices.Contains(got, spec.KindReview) || !slices.Contains(got, spec.KindSettings) {
 		t.Errorf("Capabilities() = %v, want review and settings only", got)
+	}
+}
+
+func TestEmit_PassesThroughEveryEllipsisBlockKey(t *testing.T) {
+	testutil.TempCwd(t)
+	x := map[string]any{
+		"reviewer": reviewer(nil),
+		"ellipsis": map[string]any{
+			"name":        "api-review",
+			"description": "Review the API",
+			"enabled":     false,
+			"metadata":    map[string]any{"team": "api"},
+		},
+	}
+	if err := emitBundle(t, &config.Config{}, review("r", "", "Check."), settings(x)); err != nil {
+		t.Fatal(err)
+	}
+	want := "ellipsis:\n  kind: code_review\n  name: api-review\n  description: Review the API\n  enabled: false\n  metadata:\n    team: api\nreviewers:\n"
+	if got := readReview(t, reviewFile); !strings.Contains(got, want) {
+		t.Errorf("ellipsis block not written as set:\n%s", got)
 	}
 }

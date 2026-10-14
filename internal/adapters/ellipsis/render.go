@@ -15,7 +15,11 @@ var reviewerOrder = []string{"name", "paths", "claude_code", "codex", "environme
 // settings keep their own values and sort by key, so a sync is stable.
 func render(f *reviewConfig, prompt string) (string, error) {
 	top := mapping()
-	add(top, "ellipsis", orderedMap(map[string]any{"kind": fileKind, "name": f.name}, []string{"kind", "name"}))
+	header := map[string]any{"kind": fileKind, "name": f.name}
+	for k, v := range f.header {
+		header[k] = v
+	}
+	add(top, "ellipsis", orderedMap(header, headerKeys))
 	if f.pullRequests != nil {
 		add(top, "pull_requests", orderedMap(f.pullRequests, nil))
 	}

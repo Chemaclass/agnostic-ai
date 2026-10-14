@@ -1,6 +1,7 @@
 package ellipsis
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -29,6 +30,10 @@ var brokenSettings = []struct {
 		"claude_code": map[string]any{"model": "claude-opus-5-5", "prompt": "Find bugs."}}}, "prompt comes from the review specs"},
 	{"unknown top-level key", map[string]any{"reviewer": reviewer(nil), "triggers": map[string]any{}}, "x-ellipsis.triggers"},
 	{"wrong kind", map[string]any{"reviewer": reviewer(nil), "ellipsis": map[string]any{"kind": "agent"}}, "code_review"},
+	{"description is not a string", map[string]any{"reviewer": reviewer(nil), "ellipsis": map[string]any{"description": 3}}, "x-ellipsis.ellipsis.description must be a string"},
+	{"enabled is not a boolean", map[string]any{"reviewer": reviewer(nil), "ellipsis": map[string]any{"enabled": "no"}}, "x-ellipsis.ellipsis.enabled must be a boolean"},
+	{"metadata is not a mapping", map[string]any{"reviewer": reviewer(nil), "ellipsis": map[string]any{"metadata": "x"}}, "x-ellipsis.ellipsis.metadata must be a mapping"},
+	{"unknown ellipsis key", map[string]any{"reviewer": reviewer(nil), "ellipsis": map[string]any{"owner": "x"}}, "x-ellipsis.ellipsis.owner"},
 	{"output is not a mapping", map[string]any{"reviewer": reviewer(nil), "output": "approve"}, "x-ellipsis.output must be a mapping"},
 }
 
@@ -142,5 +147,42 @@ func TestEmit_PortableSettingsFieldsAreNotedAsIgnored(t *testing.T) {
 	}
 	if got := readReview(t, reviewFile); strings.Contains(got, "read(src") {
 		t.Errorf("portable permissions leaked into the review file:\n%s", got)
+	}
+}
+
+func TestEmit_ProblemsRewriteTheGeneratedFileUnchanged(t *testing.T) {
+	testutil.TempCwd(t)
+	captureNotes(t)
+	good := []spec.Entry{review("r", "", "Check."), settings(map[string]any{"reviewer": reviewer(nil)})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(good), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	before := readReview(t, reviewFile)
+	bad := []spec.Entry{review("r", "", "Changed."), settings(map[string]any{"reviewer": map[string]any{"name": "project-review", "claude_code": map[string]any{}}})}
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := New().Emit(sess, spec.NewBundle(bad), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	files := sess.StopCapture()
+	if len(files) != 1 || filepath.ToSlash(files[0].Path) != reviewFile || files[0].Content != before {
+		t.Errorf("a reviewer with problems must keep the deployed file as it is, got %+v", files)
+	}
+}
+
+func TestEmit_NoReviewerKeyLeavesTheFileToTheSweep(t *testing.T) {
+	testutil.TempCwd(t)
+	captureNotes(t)
+	good := []spec.Entry{review("r", "", "Check."), settings(map[string]any{"reviewer": reviewer(nil)})}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(good), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := New().Emit(sess, spec.NewBundle([]spec.Entry{review("r", "", "Check.")}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if files := sess.StopCapture(); len(files) != 0 {
+		t.Errorf("without a reviewer key nothing may be kept, got %+v", files)
 	}
 }

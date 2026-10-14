@@ -47,7 +47,7 @@ To keep an existing file, start with [`agnostic-ai import ellipsis`](#import).
 .ellipsis/code-review.yaml     # one review file, one reviewer
 ```
 
-Sync writes the file only when a review spec reaches Ellipsis and the reviewer is complete. No review, no file. Reviews without a usable reviewer print a sync note that names the missing key, and write nothing. With `on-unsupported: error`, sync stops instead; with `silent`, it says nothing.
+Sync writes the file only when a review spec reaches Ellipsis and the reviewer is complete. No review, no file. Reviews without a usable reviewer print a sync note that names the missing key, and write nothing. If a reviewer is set but incomplete, the file already deployed stays as it was; with no `x-ellipsis.reviewer` at all, sync removes it like any other leftover. With `on-unsupported: error`, sync stops instead; with `silent`, it says nothing.
 
 ## How specs map to the file
 
@@ -55,13 +55,13 @@ Sync writes the file only when a review spec reaches Ellipsis and the reviewer i
 |--------|-------------|
 | Review specs with no scope | The start of the reviewer's `prompt` |
 | A review spec scoped to `services/api` | A later section of the same prompt |
-| `x-ellipsis.ellipsis` | `ellipsis`. `kind` is always `code_review`; `name` defaults to `code-review` |
+| `x-ellipsis.ellipsis` | `ellipsis`. `kind` is always `code_review`; `name` defaults to `code-review`; `description`, `enabled` (`false` pauses the file), and `metadata` are copied as written |
 | `x-ellipsis.pull_requests` | `pull_requests`, copied as written |
 | `x-ellipsis.reviewer` | The one entry of `reviewers`, with the `prompt` filled in from the review specs |
 | `x-ellipsis.output` | `output`, copied as written |
 | `x-ellipsis.budget` | `budget`, copied as written |
 
-The reviewer needs a `name`, one engine block (`claude_code` or `codex`), and that block's `model`. Ellipsis names the model for every session, so none is guessed. Other native reviewer keys, such as `paths`, `environment`, `skills`, `permissions`, `budget`, and `comments`, pass through. A later settings spec wins key by key.
+The reviewer needs a `name`, one engine block (`claude_code` or `codex`), and that block's `model`. Ellipsis names the model for every session, so none is guessed. Other native reviewer keys, such as `paths`, `environment`, `skills`, `permissions`, `budget`, and `comments`, pass through. A later settings spec replaces each top-level `x-ellipsis` block it sets (`ellipsis`, `pull_requests`, `reviewer`, `output`, `budget`) as a whole.
 
 Nothing is added for you. With no `output` block, Ellipsis stays silent on a pass and comments on a failure, and never approves. Automatic approval needs `output.on_pass: approve` in your settings.
 

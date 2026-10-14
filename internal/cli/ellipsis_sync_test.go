@@ -253,3 +253,29 @@ func TestEllipsisSync_GitignoreCommitKeepsTheFileTrackable(t *testing.T) {
 		t.Errorf("without commit, the generated folder is ignored:\n%s", ignore)
 	}
 }
+
+func TestEllipsisSync_ReviewerWithProblemsKeepsTheDeployedFile(t *testing.T) {
+	dir := ellipsisProject(t, ellipsisOnly)
+	execCLI(t, "sync")
+	path := filepath.Join(dir, ellipsisFile)
+	before := readFile(t, path)
+	settings := filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis.yaml")
+	writeFile(t, settings, "x-ellipsis:\n  reviewer:\n    name: project-review\n    claude_code: {}\n")
+	notes := captureNotes(t)
+	out, err := cliOutput(t, "sync")
+	if err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if got := readFile(t, path); got != before {
+		t.Errorf("a broken reviewer changed the deployed file:\n%s", got)
+	}
+	if strings.Contains(out, "removed") || !strings.Contains(notes.String(), "claude_code.model") {
+		t.Errorf("sync should note the problem and remove nothing:\n%s\n%s", out, notes)
+	}
+
+	writeFile(t, settings, "x-ellipsis:\n  budget:\n    session: 3\n")
+	execCLI(t, "sync")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("with no reviewer key the file is removed (%v)", err)
+	}
+}
