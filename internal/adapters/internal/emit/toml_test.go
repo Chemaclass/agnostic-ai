@@ -1,8 +1,10 @@
 package emit
 
 import (
+	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestWriteTOMLString_EscapesQuotesAndBackslashes(t *testing.T) {
@@ -119,17 +121,75 @@ func TestEscapeTOMLBasic(t *testing.T) {
 func TestWriteTOMLInlineTable_KeepsScalarTypes(t *testing.T) {
 	t.Parallel()
 	var sb strings.Builder
-	ok := WriteTOMLInlineTable(&sb, "features", map[string]any{"shell_tool": false, "memories": true, "name": "x", "n": 2})
-	want := `features = { memories = true, n = 2, name = "x", shell_tool = false }` + "\n"
-	if !ok || sb.String() != want {
-		t.Errorf("got %v %q want %q", ok, sb.String(), want)
+	skipped := WriteTOMLInlineTable(&sb, "features", map[string]any{"shell_tool": false, "memories": true, "name": "x", "n": 2, "ratio": 2.0, "my key": 1})
+	want := `features = { memories = true, "my key" = 1, n = 2, name = "x", ratio = 2.0, shell_tool = false }` + "\n"
+	if len(skipped) != 0 || sb.String() != want {
+		t.Errorf("got %v %q want %q", skipped, sb.String(), want)
 	}
 }
 
-func TestWriteTOMLInlineTable_RejectsNestedValues(t *testing.T) {
+func TestWriteTOMLInlineTable_SkipsOnlyUnencodableKeys(t *testing.T) {
 	t.Parallel()
 	var sb strings.Builder
-	if WriteTOMLInlineTable(&sb, "k", map[string]any{"a": "b", "c": map[string]any{"d": "e"}}) || sb.Len() != 0 {
-		t.Errorf("nested value must write nothing, got %q", sb.String())
+	skipped := WriteTOMLInlineTable(&sb, "k", map[string]any{"off": false, "bad": math.NaN(), "gone": nil, "ints": []any{1, 2}})
+	if want := `k = { ints = [1, 2], off = false }` + "\n"; sb.String() != want {
+		t.Errorf("got %q want %q", sb.String(), want)
+	}
+	if len(skipped) != 1 || skipped[0] != "bad" {
+		t.Errorf("skipped = %v, want [bad]", skipped)
+	}
+}
+
+func TestTOMLLiteral_Shapes(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		v    any
+		want string
+		ok   bool
+	}{
+		"whole float": {2.0, "2.0", true},
+		"fraction":    {1.5, "1.5", true},
+		"nan":         {math.NaN(), "", false},
+		"inf":         {math.Inf(-1), "", false},
+		"control":     {"a\tb\nc\x01", `"a\tb\nc\u0001"`, true},
+		"nested":      {map[string]any{"a": map[string]any{"b": true}}, "{ a = { b = true } }", true},
+		"date":        {time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), "2026-01-02T03:04:05Z", true},
+		"channel":     {make(chan int), "", false},
+	}
+	for name, c := range cases {
+		got, ok := TOMLLiteral(c.v)
+		if got != c.want || ok != c.ok {
+			t.Errorf("%s: got %q %v, want %q %v", name, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestTOMLKey(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]string{"plain_key-1": "plain_key-1", "my key": `"my key"`, "a.b": `"a.b"`, "": `""`} {
+		if got := TOMLKey(in); got != want {
+			t.Errorf("TOMLKey(%q) = %s, want %s", in, got, want)
+		}
+	}
+}
+
+func TestWriteTOMLValue_FloatsStayFloats(t *testing.T) {
+	t.Parallel()
+	var sb strings.Builder
+	if !WriteTOMLValue(&sb, "k", 2.0) || sb.String() != "k = 2.0\n" {
+		t.Errorf("got %q", sb.String())
+	}
+	sb.Reset()
+	if WriteTOMLValue(&sb, "k", math.Inf(1)) || sb.Len() != 0 {
+		t.Errorf("infinity must be skipped, got %q", sb.String())
+	}
+}
+
+func TestWriteTOMLString_EscapesControlCharacters(t *testing.T) {
+	t.Parallel()
+	var sb strings.Builder
+	WriteTOMLString(&sb, "k", "a\nb\tc\x00")
+	if want := `k = "a\nb\tc\u0000"` + "\n"; sb.String() != want {
+		t.Errorf("got %q want %q", sb.String(), want)
 	}
 }

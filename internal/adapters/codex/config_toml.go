@@ -296,21 +296,7 @@ func writeMCPToolTables(sb *strings.Builder, server string, meta map[string]any)
 // characters TOML allows unquoted, otherwise a quoted key. MCP tool
 // names come from a vendor's tool list, so they can carry characters a
 // bare key rejects.
-func tomlKeySegment(s string) string {
-	for _, r := range s {
-		bare := r == '-' || r == '_' ||
-			(r >= '0' && r <= '9') ||
-			(r >= 'a' && r <= 'z') ||
-			(r >= 'A' && r <= 'Z')
-		if !bare {
-			return `"` + emit.EscapeTOMLBasic(s) + `"`
-		}
-	}
-	if s == "" {
-		return `""`
-	}
-	return s
-}
+func tomlKeySegment(s string) string { return emit.TOMLKey(s) }
 
 // writeMCPNumberField writes `key = v` only when v decoded as a Go
 // numeric type (int, int64, or float64). The vendor documents

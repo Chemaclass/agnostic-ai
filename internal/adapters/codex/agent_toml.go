@@ -32,6 +32,13 @@ import (
 // so they round-trip byte-equivalently. See writeXCodexExtras for the
 // scalar-vs-table emission order.
 func agentTOML(a spec.Entry) string {
+	body, _ := agentTOMLWithSkips(a)
+	return body
+}
+
+// agentTOMLWithSkips is agentTOML plus the `x-codex` key paths it could
+// not encode as TOML.
+func agentTOMLWithSkips(a spec.Entry) (string, tomlSkips) {
 	meta := emit.ResolveMeta(a.Meta, target)
 
 	description := stringOr(meta, "description", a.Name)
@@ -70,8 +77,9 @@ func agentTOML(a spec.Entry) string {
 	if names := stringSlice(meta["nickname_candidates"]); len(names) > 0 {
 		emit.WriteTOMLStringArray(&sb, "nickname_candidates", names)
 	}
-	writeXCodexExtras(&sb, a.Meta)
-	return sb.String()
+	var skips tomlSkips
+	writeXCodexExtras(&sb, &skips, a.Meta)
+	return sb.String(), skips
 }
 
 // agentSandboxMode is the sandbox_mode an agent file carries: an
@@ -100,11 +108,25 @@ var codexAgentEmittedKeys = map[string]bool{
 	"nickname_candidates":    true,
 }
 
+// tomlSkips collects the x-codex key paths the encoder could not write,
+// so sync can name them instead of dropping them silently.
+type tomlSkips []string
+
+func (s *tomlSkips) add(path string, keys ...string) {
+	if len(keys) == 0 {
+		*s = append(*s, path)
+		return
+	}
+	for _, k := range keys {
+		*s = append(*s, path+"."+k)
+	}
+}
+
 // writeTOMLTable renders a map as a TOML table. Scalar values lead,
 // followed by nested maps as child tables and arrays of maps as
 // `[[path.key]]` tables, so each emitted document is valid and
-// deterministic.
-func writeTOMLTable(sb *strings.Builder, path string, values map[string]any) {
+// deterministic. path is already TOML-quoted.
+func writeTOMLTable(sb *strings.Builder, skips *tomlSkips, path string, values map[string]any) {
 	sb.WriteString("\n[" + path + "]\n")
 	var scalarKeys, tableKeys, arrayKeys []string
 	for key, value := range values {
@@ -122,17 +144,18 @@ func writeTOMLTable(sb *strings.Builder, path string, values map[string]any) {
 	slices.Sort(tableKeys)
 	slices.Sort(arrayKeys)
 	for _, key := range scalarKeys {
-		writeTOMLAny(sb, key, values[key])
+		writeTOMLAny(sb, skips, path, key, values[key])
 	}
 	for _, key := range tableKeys {
-		writeTOMLTable(sb, path+"."+key, values[key].(map[string]any))
+		writeTOMLTable(sb, skips, path+"."+emit.TOMLKey(key), values[key].(map[string]any))
 	}
 	for _, key := range arrayKeys {
 		for _, item := range values[key].([]any) {
-			sb.WriteString("\n[[" + path + "." + key + "]]\n")
+			itemPath := path + "." + emit.TOMLKey(key)
+			sb.WriteString("\n[[" + itemPath + "]]\n")
 			inner := item.(map[string]any)
 			for _, ik := range slices.Sorted(maps.Keys(inner)) {
-				writeTOMLAny(sb, ik, inner[ik])
+				writeTOMLAny(sb, skips, itemPath, ik, inner[ik])
 			}
 		}
 	}
@@ -177,7 +200,7 @@ func isTableArray(v any) bool {
 // Nested-table values emit last so the file stays TOML-valid: bare
 // key-value pairs must come before any `[section]` header inside the
 // document.
-func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
+func writeXCodexExtras(sb *strings.Builder, skips *tomlSkips, raw map[string]any) {
 	x, ok := raw["x-codex"].(map[string]any)
 	if !ok {
 		return
@@ -202,18 +225,18 @@ func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
 	slices.Sort(inlineKeys)
 	slices.Sort(tableKeys)
 	for _, k := range inlineKeys {
-		writeTOMLAny(sb, k, x[k])
+		writeTOMLAny(sb, skips, "", k, x[k])
 	}
 	for _, k := range tableKeys {
 		if k == "tools" {
-			writeTOMLTable(sb, k, x[k].(map[string]any))
+			writeTOMLTable(sb, skips, emit.TOMLKey(k), x[k].(map[string]any))
 			continue
 		}
 		if isNestedTableMap(x[k]) {
-			writeNestedTableMap(sb, k, x[k].(map[string]any))
+			writeNestedTableMap(sb, skips, emit.TOMLKey(k), x[k].(map[string]any))
 			continue
 		}
-		writeTOMLTable(sb, k, x[k].(map[string]any))
+		writeTOMLTable(sb, skips, emit.TOMLKey(k), x[k].(map[string]any))
 	}
 }
 
@@ -235,58 +258,47 @@ func isNestedTableMap(v any) bool {
 }
 
 // writeNestedTableMap renders one `[key.inner]` block per inner key,
-// sorted by name. Each block's scalar fields go through writeTOMLAny so
-// strings, arrays, and inline tables of strings round-trip without
-// inventing new encodings.
-func writeNestedTableMap(sb *strings.Builder, key string, m map[string]any) {
+// sorted by name. Each block's fields go through writeTOMLAny so
+// strings, arrays, and inline tables round-trip without inventing new
+// encodings. key is already TOML-quoted.
+func writeNestedTableMap(sb *strings.Builder, skips *tomlSkips, key string, m map[string]any) {
 	for _, name := range slices.Sorted(maps.Keys(m)) {
 		inner, _ := m[name].(map[string]any)
-		sb.WriteString("\n[" + key + "." + name + "]\n")
+		path := key + "." + emit.TOMLKey(name)
+		sb.WriteString("\n[" + path + "]\n")
 		for _, ik := range slices.Sorted(maps.Keys(inner)) {
-			writeTOMLAny(sb, ik, inner[ik])
+			writeTOMLAny(sb, skips, path, ik, inner[ik])
 		}
 	}
 }
 
 // writeTOMLAny emits `key = <value>` for the shapes commonly used in
-// agent TOML pass-through. Unsupported shapes are silently skipped to
-// keep output valid; the importer can capture them but the emitter
-// declines to invent encodings.
-func writeTOMLAny(sb *strings.Builder, key string, v any) {
-	switch val := v.(type) {
-	case string:
-		emit.WriteTOMLString(sb, key, val)
-	case bool:
-		fmt.Fprintf(sb, "%s = %t\n", key, val)
-	case int:
-		fmt.Fprintf(sb, "%s = %d\n", key, val)
-	case int64:
-		fmt.Fprintf(sb, "%s = %d\n", key, val)
-	case float64:
-		fmt.Fprintf(sb, "%s = %v\n", key, val)
-	case []string:
-		emit.WriteTOMLStringArray(sb, key, val)
-	case []any:
-		if ss := stringSlice(val); ss != nil {
-			emit.WriteTOMLStringArray(sb, key, ss)
-		}
-	case map[string]string:
-		emit.WriteTOMLInlineStringTable(sb, key, val)
-	case map[string]any:
-		if !emit.WriteTOMLInlineTable(sb, key, val) {
-			emit.WriteTOMLInlineStringTable(sb, key, toStringMap(val))
-		}
+// agent TOML pass-through. A nil value (a YAML null deletion marker) is
+// left out; a value TOML cannot hold, such as a non-finite float, is
+// left out and recorded in skips under its dotted path. Keys that are
+// not bare-safe are quoted.
+func writeTOMLAny(sb *strings.Builder, skips *tomlSkips, path, key string, v any) {
+	if v == nil {
+		return
 	}
+	if m, ok := v.(map[string]any); ok {
+		skipped := emit.WriteTOMLInlineTable(sb, emit.TOMLKey(key), m)
+		skips.add(joinPath(path, key), skipped...)
+		return
+	}
+	lit, ok := emit.TOMLLiteral(v)
+	if !ok {
+		skips.add(joinPath(path, key))
+		return
+	}
+	sb.WriteString(emit.TOMLKey(key) + " = " + lit + "\n")
 }
 
-func toStringMap(m map[string]any) map[string]string {
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		if s, ok := v.(string); ok {
-			out[k] = s
-		}
+func joinPath(path, key string) string {
+	if path == "" {
+		return key
 	}
-	return out
+	return path + "." + key
 }
 
 // xCodexString returns meta["x-codex"][key] as a string. Returns ""
@@ -335,8 +347,12 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	inertSessionSettings := map[string]int{}
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
-		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
+		body, skips := agentTOMLWithSkips(a)
+		if err := sess.WriteFile(path, emit.WithHeader(body, emit.FormatTOML), dryRun); err != nil {
 			return err
+		}
+		if len(skips) > 0 {
+			emit.NoteProject(fmt.Sprintf("codex agent %s: left out x-codex values TOML cannot hold (%s)", a.Name, strings.Join(skips, ", ")))
 		}
 		if len(emit.StringSlice(a.Meta["tools"])) > 0 {
 			droppedAgentTools = append(droppedAgentTools, a)
