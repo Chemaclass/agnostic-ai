@@ -192,7 +192,7 @@ func specSums(cfg *config.Config, b spec.Bundle, targets []string) specBaseline 
 		}
 		caps := adapter.Capabilities()
 		for _, e := range b.For(target).All() {
-			if len(caps) > 0 && !slices.Contains(caps, e.Kind) && !(e.Kind == spec.KindAgent && adapters.WritesAgentsAsSkills(cfg, target)) {
+			if len(caps) > 0 && !slices.Contains(caps, e.Kind) && (e.Kind != spec.KindAgent || !adapters.WritesAgentsAsSkills(cfg, target)) {
 				continue
 			}
 			key := specKey(e)
