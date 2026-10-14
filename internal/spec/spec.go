@@ -106,7 +106,8 @@ type Entry struct {
 	ModelTier string
 	// PortableOn is the `on:` a hook was translated from by NativeHook,
 	// or "" for a hook written in the native form.
-	PortableOn string
+	HookAssetDirs map[string]string
+	PortableOn    string
 	// PortableMatch is the `match:` it was translated from, and
 	// PortableDecision whether it set `decision: stdout`.
 	PortableMatch    string

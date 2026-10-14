@@ -61,10 +61,10 @@ func NeutralHookScripts(command, target, sourceDir, outputDir string, literal ..
 }
 
 func NeutralHookScriptsFor(hook spec.Entry, command, target, sourceDir, outputDir string, literal ...bool) ([]HookScript, error) {
-	if hook.Layer != "builtin" {
+	if hook.HookAssetDir(command, target) == "" {
 		return NeutralHookScripts(command, target, sourceDir, outputDir, literal...)
 	}
-	sourceDir = filepath.Join(filepath.Dir(filepath.Dir(hook.Path)), "scripts")
+	sourceDir = hook.HookAssetDir(command, target)
 	scripts, err := NeutralHookScripts(command, target, sourceDir, outputDir, literal...)
 	if err != nil {
 		return nil, err
