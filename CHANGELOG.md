@@ -14,6 +14,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `import` leaves a spec alone when its frontmatter and body parse the same as the native copy, so a folded or quoted `description` is neither an AAI-203 conflict nor rewritten (#2182).
 - `sync --check` no longer says sync saves a `.bak` for a merged config such as `opencode.json`; it says sync keeps keys you added there and resets the ones it writes (#2176).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
+- `import --dry-run` no longer reports false changes or a false `::target` loss with `memory.personal: repo`; it now matches the real import (#2181).
 
 ### By tool
 

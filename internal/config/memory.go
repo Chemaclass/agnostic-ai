@@ -46,16 +46,94 @@ func validateMemory(m MemoryConfig, base map[string]any, basePath, source string
 	return nil
 }
 
-func inheritPersonalMemory(cfg *Config, root string) (string, error) {
+// gitLayout is what Git says about a project's repository.
+type gitLayout struct{ gitDir, commonDir, prefix string }
+
+func readGitLayout(root string) (gitLayout, bool) {
 	layout, err := gitquery.LayoutAt(root)
 	if err != nil {
+		return gitLayout{}, false
+	}
+	return gitLayout{strings.TrimSpace(layout.GitDir), strings.TrimSpace(layout.CommonDir), strings.TrimSpace(layout.Prefix)}, true
+}
+
+// ProjectGit is what Git answers for a project whose copy has no .git:
+// the shared Git dir that names the repo store, and the memory.personal
+// a linked worktree inherits from the main checkout's local config.
+type ProjectGit struct {
+	CommonDir string
+	// Personal and PersonalFrom are empty when nothing is inherited.
+	Personal, PersonalFrom string
+}
+
+// ReadProjectGit asks Git once about the project at root. ok is false
+// outside a repository; an inherited config that does not load is an error.
+func ReadProjectGit(root string) (git ProjectGit, ok bool, err error) {
+	layout, ok := readGitLayout(root)
+	if !ok {
+		return ProjectGit{}, false, nil
+	}
+	var inherited Config
+	from, err := inheritFromMainCheckout(layout, &inherited)
+	if err != nil {
+		return ProjectGit{}, false, err
+	}
+	return ProjectGit{CommonDir: layout.commonDir, Personal: inherited.Memory.Personal, PersonalFrom: from}, true, nil
+}
+
+type projectGitOverride struct {
+	root string
+	git  ProjectGit
+	set  bool
+}
+
+var projectGitCopy projectGitOverride
+
+// UseProjectGit makes the copy at copyRoot answer as git until the returned function runs; one preview at a time.
+func UseProjectGit(copyRoot string, git ProjectGit) (clear func()) {
+	projectGitCopy = projectGitOverride{root: copyRoot, git: git, set: true}
+	return func() { projectGitCopy = projectGitOverride{} }
+}
+
+// ProjectGitFor returns the answer set for the project at root.
+func ProjectGitFor(root string) (ProjectGit, bool) {
+	if !projectGitCopy.set {
+		return ProjectGit{}, false
+	}
+	a, errA := filepath.Abs(root)
+	b, errB := filepath.Abs(projectGitCopy.root)
+	if errA != nil || errB != nil {
+		return ProjectGit{}, false
+	}
+	if a != b {
+		ra, errA := filepath.EvalSymlinks(a)
+		rb, errB := filepath.EvalSymlinks(b)
+		if errA != nil || errB != nil || ra != rb {
+			return ProjectGit{}, false
+		}
+	}
+	return projectGitCopy.git, true
+}
+
+func inheritPersonalMemory(cfg *Config, root string) (string, error) {
+	if git, ok := ProjectGitFor(root); ok {
+		if git.Personal != "" {
+			cfg.Memory.Personal = git.Personal
+		}
+		return git.PersonalFrom, nil
+	}
+	layout, ok := readGitLayout(root)
+	if !ok {
 		return "", nil
 	}
-	gitDir, common := strings.TrimSpace(layout.GitDir), strings.TrimSpace(layout.CommonDir)
-	if gitDir == common || filepath.Base(common) != ".git" {
+	return inheritFromMainCheckout(layout, cfg)
+}
+
+func inheritFromMainCheckout(layout gitLayout, cfg *Config) (string, error) {
+	if layout.gitDir == layout.commonDir || filepath.Base(layout.commonDir) != ".git" {
 		return "", nil
 	}
-	path := filepath.Join(filepath.Dir(common), filepath.FromSlash(strings.TrimSpace(layout.Prefix)), LocalOverrideFileName)
+	path := filepath.Join(filepath.Dir(layout.commonDir), filepath.FromSlash(layout.prefix), LocalOverrideFileName)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return "", nil
 	} else if err != nil {
