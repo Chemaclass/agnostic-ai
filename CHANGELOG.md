@@ -16,6 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Codex
 
+- Report agent approval policies, model providers, and MCP servers that Codex ignores; configure them in the parent session (#2156).
 - Accept `fork` as a session-start source in hook diagnostics (#2158).
 
 #### Augment
