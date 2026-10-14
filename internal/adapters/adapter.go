@@ -102,6 +102,10 @@ func SetPriorMergedKeys(prior func(path string) []MergedKey) { emit.PriorMergedK
 // created a merged file, rather than merging into one that was there.
 func SetPriorMergedCreated(prior func(path string) bool) { emit.PriorMergedCreated = prior }
 
+// SetPriorMergedRecorded tells the merge writers whether the last sync
+// recorded a file as a merged write.
+func SetPriorMergedRecorded(prior func(path string) bool) { emit.PriorMergedRecorded = prior }
+
 // Session mirrors emit.Session so the cli and cmd layers — which cannot
 // import the internal emit tree — can construct one emission session per
 // sync run and drive its capture / recording / backup / transaction

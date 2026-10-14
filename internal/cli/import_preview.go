@@ -146,6 +146,14 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
 	defer func() { _ = os.Chdir(project) }()
+	// The copy has no .git, so repo memory resolves from the project's.
+	git, hasGit, err := config.ReadProjectGit(project)
+	if err != nil {
+		return rec, err
+	}
+	if hasGit {
+		defer config.UseProjectGit(shadow, git)()
+	}
 	if prepare != nil {
 		if err := prepare(); err != nil {
 			return rec, err

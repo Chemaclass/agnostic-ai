@@ -247,7 +247,12 @@
 # (19624096): one cached Git layout and file lookup per run instead of
 # repeated git processes. Same Linux amd64 release flags; retain the
 # 8 KB allowance.
+# #2184 measured 19632288 on Go1.27.2, up 8192 from main 038fdee4
+# (19624096): Devin permission lists are claimed per rule. Same Linux
+# amd64 release flags; retain the 8 KB allowance.
+# Combined with #2179 and #2181, #2184 measured 19656864; retain the 8 KB allowance.
 # #2183 measured 19652768 on Go1.27.2, up 4096 from main: built-in specs
 # leave .sync-state alone and the summary names only configured targets.
 # Same Linux amd64 release flags; retain the 8 KB allowance.
-19660960
+# Combined with #2184, #2183 measured 19660960; retain the 8 KB allowance.
+19669152
