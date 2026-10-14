@@ -790,7 +790,7 @@ func TestHandoffAccess_RefusesParenthesisInDevinCheckoutPath(t *testing.T) {
 	if strings.Contains(string(content), "main(1)") {
 		t.Errorf("parenthesis path became a Write rule: %s", content)
 	}
-	if !strings.Contains(string(output), "glob characters") {
+	if !strings.Contains(string(output), "pattern characters") {
 		t.Errorf("missing fallback note: %s", output)
 	}
 	if _, err := os.Stat(filepath.Join(main, ".agnostic-ai/local/handoffs")); !os.IsNotExist(err) {
