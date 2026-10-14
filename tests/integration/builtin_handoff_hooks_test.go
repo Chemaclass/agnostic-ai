@@ -84,6 +84,203 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 	})
 
+	t.Run("shared-auto-snapshots-survive-worktrees", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handoffGit(t, main, "branch", "-M", "auto-main")
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "automatic checkout")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/auto", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-auto.auto.md")
+		for _, target := range handoffHookTargets {
+			event := "PreCompact"
+			if target == "gemini" {
+				event = "PreCompress"
+			}
+			for _, event := range []string{event, "SessionEnd"} {
+				handoffAssertReply(t, target, handoffExecute(t, target, handlers[target][event], active, "{}", "foreign", ""), "")
+				snapshot := handoffRead(t, path)
+				if !strings.Contains(snapshot, "branch: feat/auto") || !strings.Contains(snapshot, "worktree: "+strings.TrimSpace(handoffGit(t, active, "rev-parse", "--show-toplevel"))) || !strings.Contains(snapshot, "tool: "+target) {
+					t.Errorf("shared snapshot header:\n%s", snapshot)
+				}
+				info, err := os.Stat(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+					t.Errorf("snapshot mode = %o", info.Mode().Perm())
+				}
+			}
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/feat-auto.auto.md (branch feat/auto). Ask to resume the handoff.")
+		}
+		manual := "# Handoff\ntool: codex | branch: feat/auto | head: abc1234\nworktree: " + active + " | status: ready | pr: #123\n"
+		handoffWrite(t, filepath.Join(filepath.Dir(path), "feat-auto.md"), manual)
+		for _, target := range handoffHookTargets {
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], main, "{}", "foreign", ""), "1 task handoffs available. Ask to resume a task handoff.")
+		}
+		if got := handoffRead(t, filepath.Join(filepath.Dir(path), "feat-auto.md")); got != manual {
+			t.Errorf("snapshot replaced manual task: %q", got)
+		}
+		handoffGit(t, main, "worktree", "remove", "--force", active)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("removed worktree lost automatic snapshot: %v", err)
+		}
+	})
+
+	t.Run("automatic-snapshots-preserve-repository-boundaries", func(t *testing.T) {
+		const protected = "# Automatic handoff\ntool: codex | branch: feat/probe | head: abc1234\nworktree: protected | detached: false\n\nPROTECTED_SENTINEL\n"
+		cases := []struct {
+			name        string
+			relativeGit bool
+			prepare     func(t *testing.T, main, store string)
+		}{
+			{name: "native-git-rejects-shell-paths", relativeGit: true},
+			{name: "external-shared-store", prepare: func(t *testing.T, main, store string) {
+				external := t.TempDir()
+				handoffGit(t, external, "init")
+				handoffWrite(t, filepath.Join(external, ".gitignore"), "*\n")
+				handoffWrite(t, filepath.Join(external, "feat-probe.auto.md"), protected)
+				if err := os.MkdirAll(filepath.Dir(store), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(external, store); err != nil {
+					t.Skipf("directory symlinks unavailable: %v", err)
+				}
+			}},
+			{name: "parent-tracked-note-with-nested-git", prepare: func(t *testing.T, main, store string) {
+				handoffWrite(t, filepath.Join(store, "feat-probe.auto.md"), protected)
+				handoffGit(t, main, "add", "-f", "--", ".agnostic-ai/local/handoffs/feat-probe.auto.md")
+				handoffGit(t, store, "init")
+				handoffWrite(t, filepath.Join(store, ".gitignore"), "*\n")
+			}},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				main := project(t)
+				handoffInitGit(t, main)
+				handlers := syncHooks(t, main)
+				active := filepath.Join(t.TempDir(), "automatic probe checkout")
+				handoffGit(t, main, "worktree", "add", "-b", "feat/probe", active)
+				handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+				store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+				if tc.prepare != nil {
+					tc.prepare(t, main, store)
+				}
+				shim, marker := "", ""
+				if tc.relativeGit {
+					shim, marker = handoffGitPathShim(t)
+				}
+				for _, target := range handoffHookTargets {
+					event := "PreCompact"
+					if target == "gemini" {
+						event = "PreCompress"
+					}
+					for _, event := range []string{event, "SessionEnd"} {
+						handoffAssertReply(t, target, handoffExecute(t, target, handlers[target][event], active, "{}", "foreign", shim), "")
+						path := filepath.Join(store, "feat-probe.auto.md")
+						if tc.prepare != nil {
+							if got := handoffRead(t, path); got != protected {
+								t.Errorf("%s %s changed protected snapshot: %q", target, event, got)
+							}
+							path = filepath.Join(active, ".agnostic-ai", "local", "handoffs", "feat-probe.auto.md")
+						}
+						if got := handoffRead(t, path); !strings.Contains(got, "branch: feat/probe") || !strings.Contains(got, "tool: "+target) {
+							t.Errorf("%s %s snapshot header: %q", target, event, got)
+						}
+						if got := handoffRead(t, filepath.Join(active, ".agnostic-ai", "local", "HANDOFF.auto.md")); !strings.Contains(got, "tool: "+target) {
+							t.Errorf("%s %s legacy snapshot header: %q", target, event, got)
+						}
+					}
+				}
+				if tc.relativeGit {
+					if _, err := os.Stat(marker); err != nil {
+						t.Errorf("native Git boundary was not exercised: %v", err)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("detached-snapshots-have-distinct-task-identities", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handoffGit(t, main, "branch", "-M", "detached-main")
+		handlers := syncHooks(t, main)["claude"]
+		first := filepath.Join(t.TempDir(), "first detached")
+		handoffGit(t, main, "worktree", "add", "--detach", first)
+		firstHead := strings.TrimSpace(handoffGit(t, first, "rev-parse", "HEAD"))
+		handoffWrite(t, filepath.Join(main, "tracked.txt"), "next detached commit\n")
+		handoffGit(t, main, "add", "tracked.txt")
+		handoffGit(t, main, "commit", "-m", "second detached head")
+		second := filepath.Join(t.TempDir(), "second detached")
+		handoffGit(t, main, "worktree", "add", "--detach", second)
+		named := filepath.Join(t.TempDir(), "named detached branch")
+		handoffGit(t, main, "worktree", "add", "-b", "detached", named)
+		for _, dir := range []string{first, second, named} {
+			handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), fixture)
+			handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionEnd"], dir, "{}", "foreign", ""), "")
+		}
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], main, "{}", "foreign", ""), "3 task handoffs available. Ask to resume a task handoff.")
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], named, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached.auto.md (branch detached). Ask to resume the handoff.")
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], first, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached-"+firstHead+".auto.md (branch detached-"+firstHead+"). Ask to resume the handoff.")
+	})
+
+	t.Run("named-detached-path-marker-remains-path-text", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows paths cannot contain the colon in the literal marker")
+		}
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "named checkout | detached: true")
+		handoffGit(t, main, "worktree", "add", "-b", "detached", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "detached.auto.md")
+		for _, target := range handoffHookTargets {
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionEnd"], active, "{}", "foreign", ""), "")
+			snapshot := handoffRead(t, path)
+			want := "worktree: " + strings.TrimSpace(handoffGit(t, active, "rev-parse", "--show-toplevel")) + " | detached: false"
+			if !strings.Contains(snapshot, want) {
+				t.Errorf("named branch lacks final false marker:\n%s", snapshot)
+			}
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], active, "{}", "foreign", ""), "Git snapshot available: .agnostic-ai/local/handoffs/detached.auto.md (branch detached). Ask to resume the handoff.")
+		}
+	})
+
+	t.Run("named-detached-branch-keeps-its-auto-file", func(t *testing.T) {
+		dir := project(t)
+		handoffInitGit(t, dir)
+		handoffGit(t, dir, "branch", "-M", "detached")
+		handler := syncHooks(t, dir)["claude"]["SessionEnd"]
+		handoffAssertReply(t, "claude", handoffExecute(t, "claude", handler, dir, "{}", "foreign", ""), "")
+		path := filepath.Join(dir, ".agnostic-ai", "local", "handoffs", "detached.auto.md")
+		if snapshot := handoffRead(t, path); !strings.Contains(snapshot, "branch: detached") {
+			t.Errorf("named branch snapshot:\n%s", snapshot)
+		}
+	})
+
+	t.Run("shared-auto-unignored-store-falls-back", func(t *testing.T) {
+		t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+		main := project(t)
+		handoffInitGit(t, main)
+		handlers := syncHooks(t, main)
+		active := filepath.Join(t.TempDir(), "automatic fallback checkout")
+		handoffGit(t, main, "worktree", "add", "-b", "feat/fallback", active)
+		handoffWrite(t, filepath.Join(active, "agnostic-ai.yaml"), fixture)
+		handoffWrite(t, filepath.Join(main, ".gitignore"), ".agnostic-ai/local/handoffs/*.auto.md\n.env\n")
+		for _, target := range handoffHookTargets {
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionEnd"], active, "{}", "foreign", ""), "")
+			path := filepath.Join(active, ".agnostic-ai", "local", "handoffs", "feat-fallback.auto.md")
+			if snapshot := handoffRead(t, path); !strings.Contains(snapshot, "worktree: "+strings.TrimSpace(handoffGit(t, active, "rev-parse", "--show-toplevel"))) {
+				t.Errorf("fallback snapshot header:\n%s", snapshot)
+			}
+		}
+		if _, err := os.Stat(filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-fallback.auto.md")); !os.IsNotExist(err) {
+			t.Errorf("snapshot reached unignored shared store: %v", err)
+		}
+	})
+
 	t.Run("task-handoffs-across-worktrees", func(t *testing.T) {
 		main := project(t)
 		handoffInitGit(t, main)
@@ -97,17 +294,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			name := strings.ReplaceAll(branch, "/", "-") + ".md"
 			handoffWrite(t, filepath.Join(store, name), "# Handoff\ntool: codex | date: 2026-10-13T12:00Z | branch: "+branch+" | head: abc1234\nworktree: "+active+" | status: active | pr: none\n\nTASK_CONTENT_MUST_NOT_LOAD\n")
 		}
-		realGit, err := exec.LookPath("git")
-		if err != nil {
-			t.Fatal(err)
-		}
-		shim := t.TempDir()
-		marker := filepath.Join(shim, "git-used")
-		script := "#!/bin/sh\nfor arg do\ncase \"$arg\" in /*) exit 128 ;; esac\ndone\nprintf used > " + handoffShellQuote(filepath.ToSlash(marker)) + "\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
-		handoffWrite(t, filepath.Join(shim, "git"), script)
-		if err := os.Chmod(filepath.Join(shim, "git"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		shim, marker := handoffGitPathShim(t)
 		for _, target := range handoffHookTargets {
 			t.Run(target, func(t *testing.T) {
 				handler := handlers[target]["SessionStart"]
@@ -476,7 +663,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				} else {
 					body = handoffAssertTransport(t, h.Command)
 				}
-				if event != "SessionStart" && (!strings.Contains(body, "cd \"$handoff_root\" || return 1") || strings.Contains(body, "git -C")) {
+				if event != "SessionStart" && (!strings.Contains(body, "cd \"$handoff_root\" || return 1")) {
 					t.Errorf("%s %s does not run Git from the resolved root", target, event)
 				}
 				if target == "factory" && !strings.Contains(h.Command, "| sh -c \"read -r handoff_transport; exec sh -s factory\"; exit 0") {
@@ -646,6 +833,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			if refreshed := handoffRead(t, filepath.Join(dir, ".agnostic-ai", "local", "HANDOFF.auto.md")); !strings.Contains(refreshed, "second.txt") {
 				t.Errorf("SessionEnd did not refresh snapshot:\n%s", refreshed)
 			}
+			handoffRemoveTaskSnapshot(t, dir)
 			for _, files := range []struct {
 				name         string
 				manual, auto bool
@@ -675,6 +863,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 					h.Command = h.CommandWindows
 					out := handoffExecute(t, target, h, cwd, string(stdin), inherited, "")
 					handoffAssertReply(t, target, out, "")
+					handoffRemoveTaskSnapshot(t, dir)
 					start := handlers["SessionStart"]
 					start.Command = start.CommandWindows
 					message := "Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."
@@ -695,6 +884,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		for _, configName := range []string{"agnostic-ai.yaml", "agnostic.config.yaml"} {
 			child := filepath.Join(dir, configName+" child")
 			handoffWrite(t, filepath.Join(child, configName), "version: 1\n")
+			handoffWrite(t, filepath.Join(child, ".gitignore"), ".agnostic-ai/local/\n")
 			cwd := filepath.Join(child, "nested")
 			if err := os.MkdirAll(cwd, 0o755); err != nil {
 				t.Fatal(err)
@@ -703,6 +893,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 			if snapshot := handoffRead(t, filepath.Join(child, ".agnostic-ai", "local", "HANDOFF.auto.md")); !strings.Contains(snapshot, "head: ") {
 				t.Errorf("child snapshot = %s", snapshot)
 			}
+			handoffRemoveTaskSnapshot(t, child)
 			handoffAssertReply(t, "claude", handoffExecute(t, "claude", handlers["SessionStart"], cwd, "{}", "", ""), "Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff.")
 		}
 		if got := handoffRead(t, filepath.Join(dir, ".agnostic-ai", "local", "HANDOFF.auto.md")); got != "PARENT_SENTINEL\n" {
@@ -874,6 +1065,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 							t.Errorf("checkout snapshot = %s", snapshot)
 						}
 						handoffAssertLocal(t, dir, manual, snapshot)
+						handoffRemoveTaskSnapshot(t, dir)
 						message := "Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."
 						handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], cwd, "{}", "foreign", ""), message)
 						for _, path := range []string{filepath.Join(home, ".agnostic-ai", "local"), filepath.Join(home, "local")} {
@@ -1190,6 +1382,22 @@ func handoffGit(t *testing.T, dir string, args ...string) string {
 	}
 	return string(out)
 }
+func handoffGitPathShim(t *testing.T) (string, string) {
+	t.Helper()
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shim := t.TempDir()
+	marker := filepath.Join(shim, "git-used")
+	script := "#!/bin/sh\nfor arg do\ncase \"$arg\" in /*) exit 128 ;; esac\ndone\nprintf used > " + handoffShellQuote(filepath.ToSlash(marker)) + "\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
+	handoffWrite(t, filepath.Join(shim, "git"), script)
+	if err := os.Chmod(filepath.Join(shim, "git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return shim, marker
+}
+
 func handoffWrite(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -1232,4 +1440,22 @@ func handoffAssertLocal(t *testing.T, dir, manual, auto string) {
 
 func handoffShellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func handoffRemoveTaskSnapshot(t *testing.T, dir string) {
+	t.Helper()
+	branch := strings.TrimSpace(handoffGit(t, dir, "branch", "--show-current"))
+	if branch == "" {
+		branch = "detached-" + strings.TrimSpace(handoffGit(t, dir, "rev-parse", "HEAD"))
+	}
+	slug := strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || strings.ContainsRune("._-", r) {
+			return r
+		}
+		return '-'
+	}, branch)
+	path := filepath.Join(dir, ".agnostic-ai", "local", "handoffs", slug+".auto.md")
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("remove task snapshot for legacy notice case: %v", err)
+	}
 }

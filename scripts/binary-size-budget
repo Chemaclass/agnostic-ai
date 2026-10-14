@@ -163,26 +163,20 @@
 # #2109 measured 19316896, up 4096 from the shared-memory tree
 # (19312800): opt-in shared memory during init.
 # Keep the established 8 KB build allowance.
+# #2117 auto measured 19366048 on Go 1.27.2, up 32768 from
+# 567baf1e (19333280): shared automatic handoff snapshots and detached task identity.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
 # #2117 measured 19333280 on Go 1.27.2, up 20480 from
 # 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
 # Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
-# #2126 measured 19320992 on Go 1.27.2, up 8192 from
-# 5e78c4a5 (19312800): Cline global hook scripts and their helper directory.
-# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
-#2126 with init repo memory measured 19325088 on Go 1.27.2, up
-# 8192 from main d20fe354 (19316896): Cline global hooks reuse the
-# project renderer. Keep the established 8 KB build allowance.
-# #2126 with shared handoffs measured 19341472 on Go 1.27.2, up
-# 8192 from main 2e6c2ec9 (19333280). Same Linux build flags;
+# #2117 corrected automatic writers measured 19370144 on Go1.27.2,
+# up 36864 from main 2e6c2ec9 (19333280). Same release flags;
 # keep the established 8 KB build allowance.
-# #2127 measured 19341472, up 28672 from main 1880e7a2 (19312800):
-# personal session retention and exact native-value restoration.
-# Go 1.27.2, linux/amd64, CGO disabled, using make size-check flags.
-# Keep the established 8 KB build allowance.
-#2127 with Cline global hooks measured 19345568 on Go 1.27.2, up
-# 28672 from main d20fe354 (19316896): portable session retention,
-# original setting tokens, and state version 7. Keep the 8 KB allowance.
-# #2127 with Cline and shared handoffs measured 19366048 on
-# Go 1.27.2, up 32768 from main 2e6c2ec9 (19333280).
-# Same release build flags; keep the established 8 KB allowance.
-19375000
+# #2117 automatic snapshots with Cline measured 19378336 on Go1.27.2,
+# up 36864 from main cd938228 (19341472). Same release flags;
+# keep the established 8 KB build allowance.
+# #2117 automatic snapshots with retention and Cline measured 19402912 on Go1.27.2,
+# up 61440 from main cd938228 (19341472). Same release flags;
+# keep the established 8 KB build allowance.
+19412000
