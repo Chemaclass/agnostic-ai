@@ -71,19 +71,19 @@ type ProjectGit struct {
 	Personal, PersonalFrom string
 }
 
-// ReadProjectGit asks Git once about the project at root. It reports
-// false outside a repository or when the inherited config does not load.
-func ReadProjectGit(root string) (ProjectGit, bool) {
+// ReadProjectGit asks Git once about the project at root. ok is false
+// outside a repository; an inherited config that does not load is an error.
+func ReadProjectGit(root string) (git ProjectGit, ok bool, err error) {
 	layout, ok := readGitLayout(root)
 	if !ok {
-		return ProjectGit{}, false
+		return ProjectGit{}, false, nil
 	}
 	var inherited Config
 	from, err := inheritFromMainCheckout(layout, &inherited)
 	if err != nil {
-		return ProjectGit{}, false
+		return ProjectGit{}, false, err
 	}
-	return ProjectGit{CommonDir: layout.commonDir, Personal: inherited.Memory.Personal, PersonalFrom: from}, true
+	return ProjectGit{CommonDir: layout.commonDir, Personal: inherited.Memory.Personal, PersonalFrom: from}, true, nil
 }
 
 type projectGitOverride struct {
