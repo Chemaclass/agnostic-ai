@@ -274,10 +274,10 @@ var lintCodes = map[string]lintCode{
 		Fix:      "Delete the characters, or retype the line. A zero-width joiner or non-joiner between two non-ASCII characters, as in a family emoji or a Persian word, is not reported.",
 	},
 	"LINT046": {
-		Severity: lintError,
+		Severity: lintWarn,
 		Title:    "Repeated frontmatter key",
-		Cause:    "A spec's frontmatter, or a YAML spec such as a hook or MCP server, writes one top-level key more than once. The loader keeps the last value and drops the others, and other YAML parsers and editors with a YAML schema reject the file.",
-		Fix:      "Delete the repeated lines and keep the one with the value you want.",
+		Cause:    "A spec's frontmatter, or a YAML spec such as a hook or MCP server, writes one top-level key more than once. The loader keeps the last value and drops the others, so sync still works, but other YAML parsers and editors with a YAML schema reject the file. `import cursor` in 0.83.0 left a repeated `workspaces` key.",
+		Fix:      "Delete the extra lines and keep the one with the value you want. `lint --strict` fails until you do.",
 	},
 	"LINT036": {
 		Severity: lintError,

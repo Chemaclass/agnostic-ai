@@ -11,8 +11,8 @@ import (
 
 // An import of a skill that lists `workspaces` found the workspace copy
 // Cursor holds and appended the key a second time on every run. The
-// spec must stay as written, and lint must call a repeated key an error
-// (#2202).
+// spec must stay as written, and lint must warn about a repeated key,
+// failing only under --strict (#2202).
 func TestImportCursor_WorkspacesKeyIsNotAppendedAgain(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
@@ -45,5 +45,6 @@ func TestImportCursor_WorkspacesKeyIsNotAppendedAgain(t *testing.T) {
 
 	repeated := strings.Replace(skill, "description: Web skill.\n", "description: Web skill.\nworkspaces: [apps/web]\n", 1)
 	write(spec, repeated)
-	runCmdExpectErr(t, "lint")
+	runCmd(t, "lint")
+	runCmdExpectErr(t, "lint", "--strict")
 }

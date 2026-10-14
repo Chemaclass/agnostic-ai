@@ -17,10 +17,10 @@ func TestLintDuplicateKeys_ReportsEachRepeatedKeyOnce(t *testing.T) {
 		t.Fatalf("findings = %v, want one", got)
 	}
 	f := got[0]
-	if f.Code != "LINT046" || f.Severity != lintError || f.Path != "skills/a/SKILL.md" {
+	if f.Code != "LINT046" || f.Severity != lintWarn || f.Path != "skills/a/SKILL.md" {
 		t.Errorf("finding = %+v", f)
 	}
-	for _, want := range []string{"`workspaces`", "`name`"} {
+	for _, want := range []string{"keys `workspaces`, `name` are written more than once", "Remove the extra lines"} {
 		if !strings.Contains(f.Message, want) {
 			t.Errorf("message %q lacks %s", f.Message, want)
 		}
@@ -28,7 +28,8 @@ func TestLintDuplicateKeys_ReportsEachRepeatedKeyOnce(t *testing.T) {
 }
 
 // The repeat an `import cursor` of 0.83.0 left in a skill is a lint
-// error, where it used to read "ok, 1 spec(s) clean" (#2202).
+// warning, where it used to read "ok, 1 spec(s) clean". It fails only
+// under --strict, so a project that carries one still passes CI (#2202).
 func TestLint_FlagsARepeatedFrontmatterKey(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
@@ -36,23 +37,28 @@ func TestLint_FlagsARepeatedFrontmatterKey(t *testing.T) {
 	mustWriteFile(t, ".agnostic-ai/skills/web/SKILL.md", "---\nname: web\nworkspaces: [apps/web]\ndescription: Web skill.\nworkspaces: [apps/web]\n---\n\nBody.\n")
 	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "event: PostToolUse\ncommand: a\ncommand: b\n")
 	out, err := runCLI(t, "lint")
-	if err == nil {
-		t.Fatalf("lint passed:\n%s", out)
+	if err != nil {
+		t.Fatalf("lint failed on a warning:\n%s", out)
 	}
 	for _, want := range []string{
-		"LINT046 [error] " + ".agnostic-ai/skills/web/SKILL.md",
-		"LINT046 [error] " + ".agnostic-ai/hooks/fmt.yaml",
-		"`workspaces`",
-		"`command`",
+		"LINT046 [warn] " + ".agnostic-ai/skills/web/SKILL.md",
+		"LINT046 [warn] " + ".agnostic-ai/hooks/fmt.yaml",
+		"key `workspaces` is written more than once",
+		"key `command` is written more than once",
+		"Remove the extra line to fix it",
 	} {
 		if !strings.Contains(strings.ReplaceAll(out, "\\", "/"), want) {
 			t.Errorf("lint output lacks %q:\n%s", want, out)
 		}
 	}
 
+	if out, err := runCLI(t, "lint", "--strict"); err == nil {
+		t.Errorf("lint --strict passed with a repeated key:\n%s", out)
+	}
+
 	mustWriteFile(t, ".agnostic-ai/skills/web/SKILL.md", "---\nname: web\nworkspaces: [apps/web]\ndescription: Web skill.\n---\n\nBody.\n")
 	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "event: PostToolUse\ncommand: a\n")
-	if out, err := runCLI(t, "lint"); err != nil {
+	if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT046") {
 		t.Errorf("lint after removing the repeats: %v\n%s", err, out)
 	}
 }
