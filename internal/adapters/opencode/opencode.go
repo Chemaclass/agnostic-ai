@@ -191,9 +191,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if handoff != "" {
 		directories = append(directories, handoff+"/**")
 	}
-	var kept []string
-	if handoffKept != "" {
-		kept = append(kept, handoffKept+"/**")
+	kept := make([]string, len(handoffKept))
+	for i, dir := range handoffKept {
+		kept[i] = dir + "/**"
 	}
 	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun)
 }
