@@ -15,6 +15,7 @@ func TestNativeHook_TranslatesEveryEventAndToolKind(t *testing.T) {
 		target, on, match, event, matcher string
 	}{
 		{"claude", "session-start", "", "SessionStart", ""},
+		{"windsurf", "session-start", "", "SessionStart", ""},
 		{"claude", "prompt-submit", "", "UserPromptSubmit", ""},
 		{"claude", "before-tool", "shell", "PreToolUse", "Bash"},
 		{"claude", "after-tool", "edit", "PostToolUse", "Edit|MultiEdit|Write|NotebookEdit"},
