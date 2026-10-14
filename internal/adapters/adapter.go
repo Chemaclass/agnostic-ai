@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
@@ -938,30 +939,53 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return emit.PersonalMemoryDir(cfg, root)
 }
 
-// SyncGrantedRoots returns the directories sync grants write access to
-// outside the checkout: the repo store of personal memory and the shared
-// handoff store. Each names one machine, so an import leaves it out of
-// the specs. A directory comes back as sync writes it and again with
-// its links resolved.
-func SyncGrantedRoots(cfg *config.Config, root string) []string {
-	var dirs []string
-	if cfg != nil && slices.Contains(cfg.Builtins, emit.MemoryBuiltin) && cfg.RepoPersonalMemory() {
-		if dir, err := emit.PersonalMemoryDir(cfg, root); err == nil {
-			dirs = append(dirs, dir)
+// GrantedRoots names the directories sync grants write access to outside
+// the checkout: stores of personal memory and the shared handoff store.
+// Each is a path on one machine, so an import leaves it out of the specs.
+type GrantedRoots struct {
+	// Dirs are the stores of this project, as sync writes them.
+	Dirs []string
+	// Stores are the folders that hold every project's repo memory store.
+	Stores []string
+}
+
+// SyncGrantedRoots returns the roots of the project at root. It names the
+// repo memory store whatever memory.personal says now, since sync may have
+// written it before the mode changed.
+func SyncGrantedRoots(cfg *config.Config, root string) GrantedRoots {
+	var granted GrantedRoots
+	add := func(list *[]string, dir string) {
+		*list = append(*list, filepath.ToSlash(dir))
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			*list = append(*list, filepath.ToSlash(resolved))
 		}
+	}
+	repo := &config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}
+	if dir, err := emit.PersonalMemoryDir(repo, root); err == nil {
+		add(&granted.Dirs, dir)
+	}
+	if stores, err := emit.RepoMemoryStores(); err == nil {
+		add(&granted.Stores, stores)
 	}
 	if dir := emit.SharedHandoffWriteRoot(cfg); dir != "" {
-		dirs = append(dirs, dir)
+		add(&granted.Dirs, dir)
 	}
-	var roots []string
-	for _, dir := range dirs {
-		roots = append(roots, filepath.ToSlash(dir))
-		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
-			roots = append(roots, filepath.ToSlash(resolved))
+	return granted
+}
+
+// Has reports whether dir is a root sync grants: a store of this
+// project, any repo memory store, or a shared handoff store.
+func (g GrantedRoots) Has(dir string) bool {
+	dir = filepath.ToSlash(filepath.Clean(dir))
+	if slices.Contains(g.Dirs, dir) || strings.HasSuffix(dir, "/.agnostic-ai/local/handoffs") {
+		return true
+	}
+	for _, stores := range g.Stores {
+		if strings.HasPrefix(dir, stores+"/") {
+			return true
 		}
 	}
-	slices.Sort(roots)
-	return slices.Compact(roots)
+	return false
 }
 
 type nativePersonalMemory interface {

@@ -3,7 +3,7 @@ package codex
 import "testing"
 
 func TestRemoveWritableRoots(t *testing.T) {
-	drop := []string{"/home/me/store"}
+	drop := func(root string) bool { return root == "/home/me/store" }
 	for _, tc := range []struct {
 		name, in, want string
 		ok             bool
@@ -39,6 +39,24 @@ func TestRemoveWritableRoots(t *testing.T) {
 			ok:   true,
 		},
 		{
+			name: "a header with a trailing comment",
+			in:   "[sandbox_workspace_write] # sandbox\nwritable_roots = [\"/opt/a\", \"/home/me/store\"]\n",
+			want: "[sandbox_workspace_write] # sandbox\nwritable_roots = [\"/opt/a\"]\n",
+			ok:   true,
+		},
+		{
+			name: "a quoted header",
+			in:   "[\"sandbox_workspace_write\"]\nwritable_roots = [\"/opt/a\", \"/home/me/store\"]\n",
+			want: "[\"sandbox_workspace_write\"]\nwritable_roots = [\"/opt/a\"]\n",
+			ok:   true,
+		},
+		{
+			name: "CRLF line breaks",
+			in:   "model = \"x\"\r\n[sandbox_workspace_write]\r\nwritable_roots = [\"/opt/a\", \"/home/me/store\"]\r\nnetwork_access = true\r\n",
+			want: "model = \"x\"\r\n[sandbox_workspace_write]\r\nwritable_roots = [\"/opt/a\"]\r\nnetwork_access = true\r\n",
+			ok:   true,
+		},
+		{
 			name: "a root the edit cannot read",
 			in:   "sandbox_workspace_write.writable_roots = [\"/home/me/store\"]\n",
 			want: "sandbox_workspace_write.writable_roots = [\"/home/me/store\"]\n",
@@ -70,6 +88,18 @@ func TestAddWritableRoots(t *testing.T) {
 			name: "adds the key to a table without it",
 			in:   "[sandbox_workspace_write]\nnetwork_access = true\n",
 			want: "[sandbox_workspace_write]\nwritable_roots = [\"/home/me/store\", \"/opt/a\"]\nnetwork_access = true\n",
+			ok:   true,
+		},
+		{
+			name: "a multi-line array keeps its layout and comments",
+			in:   "[sandbox_workspace_write]\nwritable_roots = [\n  \"/opt/a\", # shared\n]\n",
+			want: "[sandbox_workspace_write]\nwritable_roots = [\n  \"/opt/a\", # shared\n  \"/home/me/store\",\n]\n",
+			ok:   true,
+		},
+		{
+			name: "a multi-line array without a final comma",
+			in:   "[sandbox_workspace_write]\nwritable_roots = [\n  \"/opt/a\"\n]\n",
+			want: "[sandbox_workspace_write]\nwritable_roots = [\"/opt/a\", \"/home/me/store\"]\n",
 			ok:   true,
 		},
 		{

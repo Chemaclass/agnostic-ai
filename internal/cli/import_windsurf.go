@@ -7,7 +7,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -271,7 +270,7 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 	if err != nil {
 		return err
 	}
-	settings, err := importWindsurfPermissions(root, importSourcePath(root, src.Settings), adapters.SyncGrantedRoots(cfg, root))
+	settings, err := importWindsurfPermissions(root, importSourcePath(root, src.Settings), importSyncRoots(cfg, root))
 	if err != nil {
 		return err
 	}

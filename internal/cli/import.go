@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
@@ -178,7 +177,7 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromCodexWithOpts(root, src, importCodexOpts{
 			Shred:     cfg.Import.Codex.Shred,
 			RulesFile: codexRulesFileFromCfg(cfg),
-			SyncRoots: adapters.SyncGrantedRoots(cfg, root),
+			SyncRoots: importSyncRoots(cfg, root),
 		})
 	case "cursor":
 		return importFromCursor(root, src)

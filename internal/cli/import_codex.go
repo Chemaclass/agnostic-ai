@@ -32,7 +32,7 @@ type importCodexOpts struct {
 	RulesFile string
 	// SyncRoots are the directories sync itself grants write access to.
 	// The overlay leaves them out, since each names one machine.
-	SyncRoots []string
+	SyncRoots adapters.GrantedRoots
 }
 
 // shredEnabled reports whether H2 sharding is on (default true).

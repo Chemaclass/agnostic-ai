@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 // Devin's committed project policy comes back as a Settings spec, with
@@ -21,7 +23,7 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 	}`)
 
 	dst := filepath.Join(root, "settings")
-	n, err := importWindsurfPermissions(root, dst, nil)
+	n, err := importWindsurfPermissions(root, dst, adapters.GrantedRoots{})
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
@@ -55,11 +57,11 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 // nothing rather than an empty spec.
 func TestImportWindsurfPermissions_QuietWithoutAPolicy(t *testing.T) {
 	root := t.TempDir()
-	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings"), nil); err != nil || n != 0 {
+	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings"), adapters.GrantedRoots{}); err != nil || n != 0 {
 		t.Fatalf("absent config: got (%d, %v), want (0, nil)", n, err)
 	}
 	writeFile(t, filepath.Join(root, ".devin", "config.json"), `{"read_config_from": {"claude": true}}`)
-	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings"), nil); err != nil || n != 0 {
+	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings"), adapters.GrantedRoots{}); err != nil || n != 0 {
 		t.Fatalf("config without permissions: got (%d, %v), want (0, nil)", n, err)
 	}
 }
@@ -111,7 +113,7 @@ func TestImportWindsurfPermissions_DropsTheSyncGrantedStores(t *testing.T) {
 	}`)
 
 	dst := filepath.Join(root, "settings")
-	if _, err := importWindsurfPermissions(root, dst, []string{"/home/me/store"}); err != nil {
+	if _, err := importWindsurfPermissions(root, dst, adapters.GrantedRoots{Dirs: []string{"/home/me/store"}}); err != nil {
 		t.Fatalf("import: %v", err)
 	}
 	got := readFileString(t, filepath.Join(dst, "permissions.yaml"))

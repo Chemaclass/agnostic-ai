@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -65,26 +66,116 @@ func TestImport_AfterSyncInRepoModeWritesNoMachinePath(t *testing.T) {
 	}
 }
 
-func TestImport_DryRunAfterSyncInRepoModeWritesNoMachinePath(t *testing.T) {
+// syncedCodexProject syncs a repo-mode project for Codex and returns the
+// repo store sync granted.
+func syncedCodexProject(t *testing.T) string {
+	t.Helper()
 	parent := repoMemoryProject(t, true)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := repoStore(t, parent, readText(t, filepath.Join(".codex", "config.toml")))
+	return repoStore(t, parent, readText(t, filepath.Join(".codex", "config.toml")))
+}
+
+func addCodexRoot(t *testing.T, store, root string) {
+	t.Helper()
+	configPath := filepath.Join(".codex", "config.toml")
+	text := readText(t, configPath)
+	edited := strings.Replace(text, "writable_roots = [\""+store+"\"]", "writable_roots = [\""+root+"\", \""+store+"\"]", 1)
+	if edited == text {
+		t.Fatalf("config.toml has no writable_roots line:\n%s", text)
+	}
+	writeFile(t, configPath, edited)
+}
+
+// runLogged runs a command and returns what it logged.
+func runLogged(t *testing.T, args ...string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+	root := NewRootCmd("test")
+	root.SetOut(&buf)
+	root.SetErr(&buf)
+	root.SetArgs(args)
+	var err error
+	printed := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("%v: %v", args, err)
+	}
+	return buf.String() + printed
+}
+
+func TestImport_DryRunDiffAfterSyncInRepoModeWritesNoMachinePath(t *testing.T) {
+	store := syncedCodexProject(t)
+	addCodexRoot(t, store, "/opt/shared")
 
 	out := captureStdout(t, func() {
 		root := NewRootCmd("test")
-		root.SetArgs([]string{"import", "codex", "--dry-run"})
+		root.SetArgs([]string{"import", "codex", "--dry-run", "--diff"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
 	})
+	if !strings.Contains(out, "/opt/shared") {
+		t.Fatalf("the diff does not show the overlay:\n%s", out)
+	}
 	if strings.Contains(filepath.ToSlash(out), store) {
-		t.Errorf("dry run shows the repo memory store %s:\n%s", store, out)
+		t.Errorf("the diff shows the repo memory store %s:\n%s", store, out)
 	}
 	if _, err := os.Stat(filepath.Join(".agnostic-ai", "overlays", "codex.config.toml")); err == nil {
 		t.Error("dry run wrote the codex overlay")
+	}
+}
+
+func TestImport_CodexDropsTheStoreAfterLeavingRepoMode(t *testing.T) {
+	store := syncedCodexProject(t)
+	addCodexRoot(t, store, "/opt/shared")
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+
+	if err := importArgs([]string{"codex"}); err != nil {
+		t.Fatal(err)
+	}
+	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	if strings.Contains(overlay, store) || !strings.Contains(overlay, "/opt/shared") {
+		t.Errorf("overlay after leaving repo mode:\n%s", overlay)
+	}
+}
+
+func TestImport_CodexCleansAnOverlayThatNamesTheStore(t *testing.T) {
+	store := syncedCodexProject(t)
+	overlayPath := filepath.Join(".agnostic-ai", "overlays", "codex.config.toml")
+	writeFile(t, overlayPath, "[sandbox_workspace_write]\nwritable_roots = [\""+store+"\"]\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "x.md"), "---\nname: x\ndescription: x\n---\nx\n")
+
+	runLogged(t, "sync")
+
+	configPath := filepath.Join(".codex", "config.toml")
+	writeFile(t, configPath, readText(t, configPath)+"# edited\n")
+	runLogged(t, "import", "codex", "--overwrite")
+	if overlay := readText(t, overlayPath); strings.Contains(overlay, store) {
+		t.Errorf("overlay still names the store:\n%s", overlay)
+	}
+	runLogged(t, "sync")
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}
+
+func TestImport_CodexSaysWhenItRewritesTheOverlayWithoutComments(t *testing.T) {
+	store := syncedCodexProject(t)
+	configPath := filepath.Join(".codex", "config.toml")
+	writeFile(t, configPath, "# my settings\nsandbox_workspace_write.writable_roots = [\"/opt/shared\", \""+store+"\"]\n")
+
+	printed := runLogged(t, "import", "codex")
+	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	if strings.Contains(overlay, store) || !strings.Contains(overlay, "/opt/shared") {
+		t.Errorf("overlay:\n%s", overlay)
+	}
+	if !strings.Contains(printed, "lost its comments") {
+		t.Errorf("no note about the lost comments:\n%s", printed)
 	}
 }
 

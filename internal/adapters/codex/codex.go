@@ -407,6 +407,7 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	if overlayKeys["sandbox_workspace_write"] {
 		// TOML allows one table, so the overlay's roots and sync's share it.
 		roots = nil
+		noteOverlayGrants(overlay, grants)
 		if merged, ok := addWritableRoots(overlay, grants); ok {
 			overlay = merged
 		} else {

@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -11,21 +12,18 @@ import (
 )
 
 const (
-	sandboxTableHeader = "[sandbox_workspace_write]"
-	writableRootsKey   = "writable_roots"
+	sandboxTable     = "sandbox_workspace_write"
+	writableRootsKey = "writable_roots"
 )
 
-// RemoveWritableRoots drops each root in drop from the writable_roots of
+// RemoveWritableRoots drops each root that drop accepts from the writable_roots of
 // the [sandbox_workspace_write] table in raw, and leaves every other byte
 // as it was. A table left empty goes too. It reports false when the roots
 // sit in a form this edit does not read (a dotted key or an inline table),
 // so the caller keeps its own copy of the roots.
-func RemoveWritableRoots(raw string, drop []string) (string, bool) {
-	drop = slashed(drop)
+func RemoveWritableRoots(raw string, drop func(root string) bool) (string, bool) {
 	return editWritableRoots(raw, func(roots []string) []string {
-		return slices.DeleteFunc(slices.Clone(roots), func(root string) bool {
-			return slices.Contains(drop, filepath.ToSlash(root))
-		})
+		return slices.DeleteFunc(slices.Clone(roots), drop)
 	}, false)
 }
 
@@ -45,6 +43,21 @@ func addWritableRoots(raw string, add []string) (string, bool) {
 		}
 		return out
 	}, true)
+}
+
+// noteOverlayGrants warns about each root of the overlay that sync grants
+// by itself: it names one machine, and a project that shares the overlay
+// should not carry it.
+func noteOverlayGrants(overlay string, grants []string) {
+	var doc writableRootsDoc
+	if _, err := toml.Decode(overlay, &doc); err != nil {
+		return
+	}
+	for _, root := range doc.Sandbox.WritableRoots {
+		if slices.Contains(slashed(grants), filepath.ToSlash(root)) {
+			emit.NoteProject(fmt.Sprintf("codex: %s lists %q, which sync grants by itself and which names one machine; remove it from that overlay", configOverlayPath, filepath.ToSlash(root)))
+		}
+	}
 }
 
 func slashed(paths []string) []string {
@@ -67,7 +80,7 @@ func editWritableRoots(raw string, edit func([]string) []string, insert bool) (s
 	if err != nil {
 		return raw, false
 	}
-	held := meta.IsDefined("sandbox_workspace_write", writableRootsKey)
+	held := meta.IsDefined(sandboxTable, writableRootsKey)
 	if !held && !insert {
 		return raw, true
 	}
@@ -86,17 +99,23 @@ func editWritableRoots(raw string, edit func([]string) []string, insert bool) (s
 		return raw, false
 	}
 
+	eol := ""
+	if keyStart >= 0 && strings.HasSuffix(lines[keyEnd-1], "\r") || keyStart < 0 && strings.HasSuffix(lines[header], "\r") {
+		eol = "\r"
+	}
 	var out []string
 	switch {
+	case insert && held && appendToArray(lines, keyStart, keyEnd, want[len(before.Sandbox.WritableRoots):], eol) != nil:
+		out = appendToArray(lines, keyStart, keyEnd, want[len(before.Sandbox.WritableRoots):], eol)
 	case len(want) == 0 && tableOnlyHolds(lines, header, end, keyStart, keyEnd):
 		out = append(slices.Clone(lines[:header]), lines[end:]...)
 	case len(want) == 0:
 		out = append(slices.Clone(lines[:keyStart]), lines[keyEnd:]...)
 	case keyStart < 0:
-		out = append(slices.Clone(lines[:header+1]), renderWritableRoots(want))
+		out = append(slices.Clone(lines[:header+1]), renderWritableRoots(want)+eol)
 		out = append(out, lines[header+1:]...)
 	default:
-		out = append(slices.Clone(lines[:keyStart]), renderWritableRoots(want))
+		out = append(slices.Clone(lines[:keyStart]), renderWritableRoots(want)+eol)
 		out = append(out, lines[keyEnd:]...)
 	}
 	text := strings.Join(out, "\n")
@@ -106,6 +125,27 @@ func editWritableRoots(raw string, edit func([]string) []string, insert bool) (s
 		return raw, false
 	}
 	return text, true
+}
+
+// appendToArray returns lines with each root on a line of its own before
+// the bracket closing a multi-line writable_roots array, in the layout of
+// its last entry. It returns nil for an array it cannot extend that way.
+func appendToArray(lines []string, keyStart, keyEnd int, roots []string, eol string) []string {
+	last := keyEnd - 1
+	if last-keyStart < 2 || !strings.HasPrefix(strings.TrimSpace(lines[last]), "]") || len(roots) == 0 {
+		return nil
+	}
+	entry := lines[last-1]
+	code := strings.TrimRight(entry[:codeEnd(entry)], " \t\r")
+	if !strings.HasSuffix(code, ",") || strings.TrimSpace(code) == "" {
+		return nil
+	}
+	indent := entry[:len(entry)-len(strings.TrimLeft(entry, " \t"))]
+	out := slices.Clone(lines[:last])
+	for _, root := range roots {
+		out = append(out, indent+strings.TrimSuffix(strings.TrimPrefix(renderWritableRoots([]string{root}), writableRootsKey+" = ["), "]")+","+eol)
+	}
+	return append(out, lines[last:]...)
 }
 
 func renderWritableRoots(roots []string) string {
@@ -126,10 +166,10 @@ func findSandboxTable(lines []string) (header, end int) {
 			continue
 		}
 		inString = openTripleQuote(line)
-		trimmed := strings.TrimSpace(line)
+		trimmed := strings.TrimSpace(line[:codeEnd(line)])
 		isHeader := strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")
 		switch {
-		case header < 0 && trimmed == sandboxTableHeader:
+		case header < 0 && isSandboxHeader(trimmed):
 			header = i
 		case header >= 0 && isHeader:
 			return header, i
@@ -139,6 +179,40 @@ func findSandboxTable(lines []string) (header, end int) {
 		return -1, -1
 	}
 	return header, len(lines)
+}
+
+// isSandboxHeader reports whether a line, without its comment, opens the
+// sandbox table, quoted or not.
+func isSandboxHeader(trimmed string) bool {
+	inner, ok := strings.CutPrefix(trimmed, "[")
+	if !ok || strings.HasPrefix(inner, "[") {
+		return false
+	}
+	inner = strings.TrimSpace(strings.TrimSuffix(inner, "]"))
+	if len(inner) >= 2 && (inner[0] == '"' || inner[0] == '\'') && inner[len(inner)-1] == inner[0] {
+		inner = inner[1 : len(inner)-1]
+	}
+	return inner == sandboxTable
+}
+
+// codeEnd returns the index where the comment of line starts, or its length.
+func codeEnd(line string) int {
+	var quote byte
+	for i := 0; i < len(line); i++ {
+		switch c := line[i]; {
+		case quote == '"' && c == '\\':
+			i++
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '#':
+			return i
+		}
+	}
+	return len(line)
 }
 
 func openTripleQuote(line string) string {

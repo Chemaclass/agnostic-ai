@@ -169,3 +169,37 @@ func memoryNoteWarner(t *testing.T) *bytes.Buffer {
 	t.Cleanup(func() { emit.Warner = prev; emit.ResetCoverageNotes() })
 	return &notes
 }
+
+func TestEmit_RepoMemoryWarnsWhenTheOverlayNamesTheStoreSyncGrants(t *testing.T) {
+	testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	cfg := &config.Config{Builtins: []string{emit.MemoryBuiltin}, Gitignore: config.Gitignore{Enabled: true}, Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}
+	dir, err := emit.PersonalMemoryDir(cfg, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configOverlayPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := fmt.Sprintf("[sandbox_workspace_write]\nwritable_roots = [\"/opt/a\", %q]\n", filepath.ToSlash(dir))
+	if err := os.WriteFile(configOverlayPath, []byte(overlay), 0644); err != nil {
+		t.Fatal(err)
+	}
+	notes := memoryNoteWarner(t)
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	for _, want := range []string{configOverlayPath, filepath.ToSlash(dir), "sync grants by itself"} {
+		if !strings.Contains(notes.String(), want) {
+			t.Errorf("missing %q in note: %s", want, notes.String())
+		}
+	}
+	data, err := os.ReadFile(defaultConfigFile)
+	if err != nil || strings.Count(string(data), filepath.ToSlash(dir)) != 1 || !strings.Contains(string(data), "/opt/a") {
+		t.Errorf("config.toml names the store %d times (%v):\n%s", strings.Count(string(data), filepath.ToSlash(dir)), err, data)
+	}
+}
