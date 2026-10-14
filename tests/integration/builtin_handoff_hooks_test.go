@@ -1359,6 +1359,7 @@ func handoffAssertReply(t *testing.T, target, out, message string) {
 func handoffInitGit(t *testing.T, dir string) []string {
 	t.Helper()
 	handoffGit(t, dir, "init")
+	handoffGit(t, dir, "config", "maintenance.auto", "false")
 	handoffGit(t, dir, "config", "user.name", "Handoff Test")
 	handoffGit(t, dir, "config", "user.email", "handoff@example.invalid")
 	handoffGit(t, dir, "config", "core.autocrlf", "false")
