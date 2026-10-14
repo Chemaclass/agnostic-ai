@@ -211,7 +211,7 @@ func memoryHookReply(target, text string) (string, error) {
 	hookSpecific := map[string]string{"hookEventName": "SessionStart", "additionalContext": text}
 	var reply any
 	switch target {
-	case "gemini", "qoder":
+	case "gemini", "qoder", "windsurf":
 		reply = map[string]any{"hookSpecificOutput": hookSpecific}
 	case "claude":
 		// The built-in runs it for subagents only; the session itself loads
@@ -235,10 +235,11 @@ func memoryHookReply(target, text string) (string, error) {
 // hookProjectDirEnv names the variable a target sets to the workspace
 // when its hooks run elsewhere, such as Cursor's user hooks in ~/.cursor/.
 var hookProjectDirEnv = map[string]string{
-	"gemini":  "GEMINI_PROJECT_DIR",
-	"cursor":  "CURSOR_PROJECT_DIR",
-	"qoder":   "QODER_PROJECT_DIR",
-	"factory": "FACTORY_PROJECT_DIR",
+	"gemini":   "GEMINI_PROJECT_DIR",
+	"cursor":   "CURSOR_PROJECT_DIR",
+	"qoder":    "QODER_PROJECT_DIR",
+	"factory":  "FACTORY_PROJECT_DIR",
+	"windsurf": "DEVIN_PROJECT_DIR",
 }
 
 // memoryProjectRoot finds the project the shared-memory skill uses: the

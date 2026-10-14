@@ -78,6 +78,7 @@ Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own me
 | --- | --- |
 | Claude Code | `CLAUDE.md` imports the project list, and [Claude Code's own memory](#claude-code-s-own-memory) loads the personal list |
 | Codex, Copilot, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
+| Devin CLI (`windsurf`) | A SessionStart command adds both lists through tagged context; the rule remains a fallback |
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
 | Kiro | A steering file includes project memory and, in checkout mode, personal memory |
@@ -89,7 +90,9 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 ### When a session starts {#load-at-session-start}
 
-On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts.
+On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, and Devin CLI, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts.
+
+Devin CLI uses an explicit POSIX `sh` launcher and a 10-second timeout. It starts from `DEVIN_PROJECT_DIR` even when its process runs elsewhere. Native Windows hook execution is undocumented.
 
 Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the shared memory policy and skill to read the project index before a task. Local sessions and self-hosted workers run the hook; user-level hooks are unavailable in cloud agents. See [Cursor's cloud hook support](https://cursor.com/docs/hooks#cloud-agent-support).
 

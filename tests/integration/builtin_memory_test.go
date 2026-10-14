@@ -191,8 +191,19 @@ func TestBuiltinMemory(t *testing.T) {
 			t.Fatal(err)
 		}
 		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "windsurf"}
+		devinPayload := filepath.Join(t.TempDir(), "session-start.json")
+		if err := os.WriteFile(devinPayload, []byte(`{"hook_event_name":"SessionStart","session_id":"memory-fixture"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		memoryHookResult := func(target string) string {
+			args := []string{"hook", "run", "memory-session-start", "--target", target, "--format", "json"}
+			if target == "windsurf" {
+				args = append(args, "--payload", devinPayload)
+			}
+			return run(t, dir, args...)
+		}
 		for _, target := range targets {
-			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
+			if out := memoryHookResult(target); !strings.Contains(out, `"adds_context": false`) {
 				t.Errorf("%s: an empty store adds context:\n%s", target, out)
 			}
 		}
@@ -204,7 +215,7 @@ func TestBuiltinMemory(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, target := range targets {
-			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
+			if out := memoryHookResult(target); !strings.Contains(out, `"adds_context": true`) {
 				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
 			}
 		}
