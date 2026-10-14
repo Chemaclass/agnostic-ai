@@ -79,7 +79,7 @@ Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own me
 | Claude Code | `CLAUDE.md` imports the project list, and [Claude Code's own memory](#claude-code-s-own-memory) loads the personal list |
 | Codex, Copilot, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
-| Auggie CLI on Unix | An executable `SessionStart` script adds both lists |
+| Auggie CLI (macOS, Linux, Windows WSL) | An executable `SessionStart` script adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
 | Kiro | A steering file includes project memory and, in checkout mode, personal memory |
 | Every other tool | A rule tells the tool to read both lists before a task |

@@ -72,9 +72,9 @@ Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported event
 
 ### Shared memory
 
-With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on Unix. The script finds the project from its working directory and returns both memory indexes through `hookSpecificOutput.additionalContext`. The same script is installed for `sync --global`.
+With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on its [supported platforms](https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli#system-requirements): macOS, Linux, and Windows WSL. The script finds the project from its working directory and returns both memory indexes through `hookSpecificOutput.additionalContext`. The same script is installed for `sync --global`.
 
-Windows and the IDE keep the memory rule as their fallback. See [shared memory](@/docs/memory.md#load-at-session-start) for the context limit and how to keep the tool's own memory.
+The IDE keeps the memory rule. See [shared memory](@/docs/memory.md#load-at-session-start) for the context limit and how to keep the tool's own memory.
 
 ### Permissions
 
