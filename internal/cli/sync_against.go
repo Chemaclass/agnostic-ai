@@ -627,11 +627,12 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 // at prefix there, and returns each path sync would write with its
 // content. Only the config, `.agnostic-ai/`, the configured source
 // directories, and the files reviews inline with `@path` are exported;
-// every other tracked directory is created empty, since scoped outputs
-// depend on which directories exist. A file sync merges into, such as a
-// settings file, is not exported, so its render can differ from the
-// committed bytes and never counts as proof. The working directory is
-// restored. A project directory ref does not hold renders nothing.
+// the directories a spec can scope to are created empty (renderDirs),
+// since scoped outputs depend on which directories exist. A file sync
+// merges into, such as a settings file, is not exported, so its render
+// can differ from the committed bytes and never counts as proof. The
+// working directory is restored. A project directory ref does not hold
+// renders nothing.
 func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]string, error) {
 	origin, err := os.Getwd()
 	if err != nil {
@@ -651,7 +652,7 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	if _, err := gitOutput(toplevel, env, "read-tree", ref); err != nil {
 		return nil, err
 	}
-	listed, err := gitOutput(toplevel, env, "ls-files", "-z")
+	listed, err := gitOutput(toplevel, env, "ls-files", "--stage", "-z")
 	if err != nil {
 		return nil, err
 	}
@@ -661,22 +662,24 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 			roots = append(roots, strings.TrimSuffix(filepath.ToSlash(filepath.Clean(s)), "/")+"/")
 		}
 	}
-	var specs []string
-	dirs := map[string]bool{}
-	for _, f := range strings.Split(listed, "\x00") {
-		rel, ok := strings.CutPrefix(f, prefix)
-		if f == "" || !ok {
+	var files, specs []string
+	linkedSpec := false
+	for _, rec := range strings.Split(listed, "\x00") {
+		meta, f, ok := strings.Cut(rec, "\t")
+		rel, inProject := strings.CutPrefix(f, prefix)
+		if !ok || !inProject {
 			continue
 		}
-		dirs[path.Dir(f)] = true
+		files = append(files, f)
 		for _, r := range roots {
 			if rel == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
 				specs = append(specs, f)
+				linkedSpec = linkedSpec || strings.HasPrefix(meta, gitSymlinkMode+" ")
 				break
 			}
 		}
 	}
-	for d := range dirs {
+	for _, d := range renderDirs(prefix, files, specs, linkedSpec) {
 		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(d)), 0o755); err != nil {
 			return nil, err
 		}
@@ -705,6 +708,51 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 		return nil, err
 	}
 	return plannedOutputs()
+}
+
+// gitSymlinkMode is the index mode of a symlink entry.
+const gitSymlinkMode = "120000"
+
+// renderDirs lists the directories renderRef creates empty under its
+// export: the project directory and the ones a spec can scope to. A rule
+// or skill folder such as `rules/backend/` scopes to `backend/` only when
+// that directory exists (spec.assignScopes), the one place a render reads
+// a project directory the export did not check out. Every other tracked
+// directory stays out, since a large repository spends seconds creating
+// and removing thousands of them for each commit rendered. A spec
+// symlink may point anywhere, so one brings back every tracked directory.
+// files and specs are paths from the repository root, and prefix is the
+// project directory within it.
+func renderDirs(prefix string, files, specs []string, linkedSpec bool) []string {
+	tracked := trackedDirs(files)
+	var out []string
+	seen := map[string]bool{}
+	add := func(d string) {
+		if d != "" && tracked[d] && !seen[d] {
+			seen[d] = true
+			out = append(out, d)
+		}
+	}
+	if linkedSpec {
+		for d := range tracked {
+			add(d)
+		}
+		return out
+	}
+	add(strings.TrimSuffix(prefix, "/"))
+	for _, f := range specs {
+		dir := path.Dir(strings.TrimPrefix(f, prefix))
+		if dir == "." {
+			continue
+		}
+		segs := strings.Split(dir, "/")
+		for i := range segs {
+			for j := i + 1; j <= len(segs); j++ {
+				add(prefix + strings.Join(segs[i:j], "/"))
+			}
+		}
+	}
+	return out
 }
 
 // underRoots reports whether rel is one of roots, a root directory
