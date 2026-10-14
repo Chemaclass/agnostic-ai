@@ -11,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func nativeMemoryRules(rules []spec.Entry, cfg *config.Config, dir string) ([]spec.Entry, error) {
+func nativeMemoryRules(rules []spec.Entry, cfg *config.Config, entryDir func(spec.Entry) string) ([]spec.Entry, error) {
 	out := slices.Clone(rules)
 	for i, entry := range out {
 		if entry.BodySourceLayer() != "builtin" || entry.Name != "antigravity-memory-index" {
@@ -26,7 +26,7 @@ func nativeMemoryRules(rules []spec.Entry, cfg *config.Config, dir string) ([]sp
 			if !strings.Contains(entry.Body, old) {
 				continue
 			}
-			ref, err := nativeMemoryIndexRef(dir, index)
+			ref, err := nativeMemoryIndexRef(entryDir(entry), index)
 			if err != nil {
 				return nil, err
 			}

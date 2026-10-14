@@ -221,9 +221,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
+	rulesOpts := emit.RulesDirOpts{
+		Dir:         rulesDir,
+		SkipAgents:  true,
+		SkipSkills:  true,
+		FormatRule:  rule,
+		ScopeAtRoot: true,
+	}
 	native := b
 	var err error
-	native.Rules, err = nativeMemoryRules(b.Rules, cfg, rulesDir)
+	native.Rules, err = nativeMemoryRules(b.Rules, cfg, func(entry spec.Entry) string {
+		return emit.RulesDirectoryEntryDir(rulesOpts, entry)
+	})
 	if err != nil {
 		return err
 	}
@@ -234,13 +243,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	// places a scoped rule's copy of the rules directory inside the
 	// scope (`<scope>/.agents/rules/<name>.md`), matching the vendor's
 	// own directory-scoped discovery (#1114).
-	if err := sess.RulesDirectory(native, emit.RulesDirOpts{
-		Dir:         rulesDir,
-		SkipAgents:  true,
-		SkipSkills:  true,
-		FormatRule:  rule,
-		ScopeAtRoot: true,
-	}, dryRun); err != nil {
+	if err := sess.RulesDirectory(native, rulesOpts, dryRun); err != nil {
 		return err
 	}
 	noteOversizedRules(native.Rules)
@@ -283,7 +286,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	if path := emit.OutputRulesFile(cfg, target, ""); path != "" {
-		b.Rules, err = nativeMemoryRules(b.Rules, cfg, filepath.Dir(path))
+		b.Rules, err = nativeMemoryRules(b.Rules, cfg, func(spec.Entry) string {
+			return filepath.Dir(path)
+		})
 		if err != nil {
 			return err
 		}
