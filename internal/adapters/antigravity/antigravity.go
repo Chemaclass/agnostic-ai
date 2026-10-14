@@ -60,7 +60,7 @@
 //
 // `sync --global` writes skills to `~/.gemini/config/skills/`. The
 // vendor's IDE tab rows that path as the global scope and calls
-// `~/.gemini/antigravity/skills/` legacy, while its Antigravity 2.0 tab
+// `~/.gemini/antigravity/skills/` legacy, while its Antigravity app section
 // names the config path with no legacy alternative at all
 // (antigravity.google/docs/skills?tab=ide). See
 // internal/cli/global_targets.go.
