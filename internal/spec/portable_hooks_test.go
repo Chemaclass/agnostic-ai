@@ -266,7 +266,7 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		"goose":     {"SessionStart - PreToolUse - - Stop SessionEnd", "^shell$", "^(write|edit)$", "-", "-", "-"},
 		"augment":   {"SessionStart - PreToolUse - - - SessionEnd", "^launch-process$", "^(str-replace-editor|save-file)$", "-", "^(web-fetch|web-search)$", "-"},
 		"crush":     {"- - PreToolUse - - - -", "^bash$", "^(edit|multiedit|write)$", "-", "-", "-"},
-		"windsurf":  {"- UserPromptSubmit PreToolUse - - Stop -", "^exec$", "^(edit|write|apply_patch)$", "^read$", "^(webfetch|web_search)$", "-"},
+		"windsurf":  {"SessionStart UserPromptSubmit PreToolUse - - Stop -", "^exec$", "^(edit|write|apply_patch)$", "^read$", "^(webfetch|web_search)$", "-"},
 		"cursor":    {"sessionStart beforeSubmitPrompt preToolUse - - - sessionEnd", "^Shell$", "^Write$", "^Read$", "-", "-"},
 		"copilot":   {"SessionStart - PreToolUse - - - SessionEnd", "Bash", "Edit|Write", "Read", "WebFetch|WebSearch", "-"},
 		"cline":     {"- - PreToolUse - - - -", "run_commands|execute_command", "editor|apply_patch|replace_in_file|write_to_file", "read_files|read_file", "fetch_web_content|web_fetch|web_search", "-"},

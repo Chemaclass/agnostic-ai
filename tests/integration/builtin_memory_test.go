@@ -234,7 +234,7 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 		t.Setenv("PATH", filepath.Dir(sh))
 		for _, target := range targets {
-			out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json")
+			out := memoryHookResult(target)
 			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
