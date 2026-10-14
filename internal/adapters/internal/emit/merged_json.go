@@ -415,17 +415,30 @@ func (s *Session) ReleaseMergedJSON(path string, keys []MergedKey, created, forc
 	return MergedUnchanged, nil, nil
 }
 
-// withoutItems drops the entries whose sums are in items from the JSON
-// list raw. It keeps the value unless the list ends up empty, and leaves
-// anything but a list alone.
+// withoutItems drops from the JSON list raw one entry per item, the one
+// with that sum. It keeps the value unless the list ends up empty, and
+// leaves anything but a list alone.
 func withoutItems(raw json.RawMessage, items []string) (value any, keep, changed bool) {
 	// Raw entries keep the user's key order in what stays.
 	var list []json.RawMessage
 	if err := json.Unmarshal(raw, &list); err != nil {
 		return nil, true, false
 	}
-	kept := slices.DeleteFunc(slices.Clone(list), func(entry json.RawMessage) bool {
-		return slices.Contains(items, ContentSum(canonicalJSON(entry)))
+	// Each claimed item takes out one entry, the last equal one, since
+	// sync appends its own after the user's: a copy the user added
+	// beside it stays.
+	pending := slices.Clone(items)
+	drop := make([]bool, len(list))
+	for i := len(list) - 1; i >= 0; i-- {
+		if at := slices.Index(pending, ContentSum(canonicalJSON(list[i]))); at >= 0 {
+			drop[i] = true
+			pending = slices.Delete(pending, at, at+1)
+		}
+	}
+	index := -1
+	kept := slices.DeleteFunc(slices.Clone(list), func(json.RawMessage) bool {
+		index++
+		return drop[index]
 	})
 	if len(kept) == len(list) {
 		return nil, true, false

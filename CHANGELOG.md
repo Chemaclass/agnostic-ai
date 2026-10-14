@@ -85,6 +85,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Allow writes to the shared handoff store in linked worktrees while keeping memory and user permission rules; a main checkout path with glob characters or parentheses gets no rule (#2155).
 - Every handoff grant you added by hand stays, with or without a permissions spec, including after you turn handoff off (#2176).
+- A permissions spec no longer replaces the whole `allow`, `deny`, or `ask` list in `.devin/config.json`; rules you added by hand stay, and only the rules your specs write leave with them (#2184).
 - A personal memory folder path with pattern characters, including parentheses, gets no write rule, and sync says so (#2171).
 - Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).
 - Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
