@@ -162,6 +162,27 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	}
 
+	t.Run("trae-native-memory-hook-adds-the-index-to-context", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Trae hook diagnostics model its Unix launcher")
+		}
+		dir := project(t, []byte("version: 1\ntargets: [trae]\nbuiltins: [memory]\n"))
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		personalIndex(t, dir)
+		run(t, dir, "sync", "--gitignore=off")
+		data, err := os.ReadFile(filepath.Join(dir, ".trae", "hooks.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "SessionStart") || !strings.Contains(string(data), "hook memory --target trae") {
+			t.Errorf("native Trae memory startup command must be emitted:\n%s", data)
+		}
+		out := run(t, dir, "hook", "run", "memory-trae-session-start", "--target", "trae", "--format", "json")
+		if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, "Prefers tabs") {
+			t.Errorf("the unique native Trae hook must load the actual index:\n%s", out)
+		}
+	})
+
 	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
