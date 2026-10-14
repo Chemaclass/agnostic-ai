@@ -11,6 +11,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Keep private handoffs and Git snapshots across worktrees, and list every saved task with `handoff list` (#2117).
 - The session-start handoff notice says "1 task handoff available" for a single note (#2203).
 - A no-op sync changes only the timestamp in `.sync-state`, and the change summary names only specs a configured target emits (#2183).
+- The sync change summary counts a shared file such as `AGENTS.md` for every target that reads it (#2204).
 - `import --dry-run` matches the real import, and `import` treats frontmatter that parses the same as unchanged (#2181, #2182).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` (#2127).
 

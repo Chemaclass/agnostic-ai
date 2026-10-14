@@ -269,4 +269,8 @@
 # #2188 measured 19857568 on Go1.27.2, up 114688 from main 610ad66c
 # (19742880): the Ellipsis environment and MCP output, its import, and the
 # settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
-19865760
+# #2204 measured 19869856 on Go1.27.2, up 8192 from main b9f4806c
+# (19861664): the sync summary counts a shared entry-point file for each
+# target that reads it. Same Linux amd64 release flags; retain the 8 KB
+# allowance.
+19878048

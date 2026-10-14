@@ -35,13 +35,20 @@ import (
 // their content is about to be replaced. This is the same heuristic
 // the importer uses to skip files it did not write.
 func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) error {
+	_, err := writeEntryPointFiles(sess, cfg, b, targets, dryRun)
+	return err
+}
+
+// writeEntryPointFiles is writeAgnosticEntryPoints returning the files it
+// wrote, so the sync report can credit each file to the targets that read it.
+func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) ([]entryPointFile, error) {
 	body, err := resolveAgnosticBody(sess, dryRun)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	files, err := renderEntryPointFiles(cfg, b, targets, body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, f := range files {
 		// A user-owned file is expected to be hand-authored. sess still
@@ -50,10 +57,10 @@ func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec
 			warnOnHandAuthoredEntryPoint(f.Path, body)
 		}
 		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
-			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
+			return nil, fmt.Errorf("write entry-point %s: %w", f.Path, err)
 		}
 	}
-	return nil
+	return files, nil
 }
 
 // entryPointFile pairs an entry-point path with the exact content sync
