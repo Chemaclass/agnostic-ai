@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Start far fewer Git processes in `sync` and `sync --check`: a no-op check on a small project drops from 18 to 2 and runs about 2.7x faster (#2179).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` and `sync --global` (#2127).
 - Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
 - Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
