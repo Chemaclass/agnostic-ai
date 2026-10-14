@@ -2,10 +2,14 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -53,5 +57,33 @@ func TestHookRun_VSCodeRuntimeRejectsOtherTargets(t *testing.T) {
 	_, err := runHookRun(t, "guard", "--target", "codex", "--runtime", "vscode")
 	if err == nil || !strings.Contains(err.Error(), "runtime vscode requires --target cline") {
 		t.Errorf("runtime must reject an incompatible target: %v", err)
+	}
+}
+
+func TestSync_ClineUnixRemovesLedgeredWindowsCompanion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("checks a Windows-to-Unix sync")
+	}
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: TaskStart\ntarget: cline\ncommand: 'true'\nx-cline:\n  runtime: vscode\n  commandWindows: 'Write-Output fixture'\n")
+	syncProject(t)
+	path := filepath.Join(".clinerules", "hooks", "TaskStart.ps1")
+	body := "\U0000FEFF" + header.With("Write-Output fixture\n", header.FormatShell)
+	mustWriteFile(t, path, body)
+	state := readStateFile(dir)
+	state.Outputs = append(state.Outputs, path)
+	if state.OutputSums == nil {
+		state.OutputSums = map[string]string{}
+	}
+	state.OutputSums[path] = adapters.ContentSum(body)
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, stateFilePath(dir), string(data))
+	syncProject(t)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("Unix sync must remove the owned Windows companion: %v", err)
 	}
 }

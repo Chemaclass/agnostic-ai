@@ -3,6 +3,7 @@ package cline
 import (
 	"encoding/json"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -11,16 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// defaultHooksDir is where hook scripts land. Cline has two hook
-// runtimes. The VS Code extension runs only `.clinerules/hooks/<Event>`,
-// an executable file with no extension, through `/bin/sh` and so its
-// shebang (apps/vscode/src/core/hooks/hook-factory.ts:1022-1033,
-// HookProcess.ts:70-77). The SDK runtime the Cline CLI runs scans
-// `.clinerules/hooks` and `.cline/hooks` for any `<Event>` file with an
-// allowed extension, "" included (hook-file-config.ts:49-117), and runs
-// all of them. One extensionless file in `.clinerules/hooks` is the only
-// layout both runtimes run, and run once. Override with
-// `outputs.cline.hooks-dir`.
+// VS Code discovers extensionless executable hooks on Unix and .ps1 hooks on Windows.
 const defaultHooksDir = ".clinerules/hooks"
 
 // hookShebang is the event script's first line. The extension execs the
@@ -94,7 +86,17 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		}
 	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
-	for _, file := range renderHookFiles(hooks, "") {
+	files := renderHookFiles(hooks, "")
+	if runtime.GOOS == "windows" {
+		files = append(files, renderWindowsHookFiles(hooks)...)
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file.Path, ".ps1") {
+			if err := sess.WriteFile(filepath.Join(dir, file.Path), string(file.Body), dryRun); err != nil {
+				return err
+			}
+			continue
+		}
 		if err := sess.WriteExecutableFile(filepath.Join(dir, file.Path), string(file.Body), dryRun); err != nil {
 			return err
 		}
@@ -103,7 +105,21 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 }
 
 func GlobalHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
-	return renderHookFiles(hooks, scriptsDir)
+	return renderHookFiles(GlobalSDKHooks(hooks), scriptsDir)
+}
+
+func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
+	filtered := make([]spec.Entry, 0, len(hooks))
+	omitted := 0
+	for _, hook := range hooks {
+		if hook.Meta["runtime"] == "vscode" {
+			omitted++
+			continue
+		}
+		filtered = append(filtered, hook)
+	}
+	emit.NoteSurfaceGap(target, spec.KindHook, omitted, "global SDK hooks", "VS Code-only hooks require project sync; the SDK does not consume TaskStart context by default")
+	return filtered
 }
 
 func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScript {

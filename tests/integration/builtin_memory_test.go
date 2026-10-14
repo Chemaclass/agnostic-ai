@@ -166,7 +166,7 @@ func TestBuiltinMemory(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json"}
+		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".clinerules/hooks/TaskStart"}
 		output := map[string]string{}
 		for _, path := range paths {
 			data, err := os.ReadFile(filepath.Join(dir, path))
@@ -207,6 +207,12 @@ func TestBuiltinMemory(t *testing.T) {
 			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
 				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
 			}
+		}
+		if out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--runtime", "vscode", "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
+			t.Errorf("Cline VS Code diagnostic did not read the index:\n%s", out)
+		}
+		if out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--format", "json"); strings.Contains(out, `"adds_context": true`) {
+			t.Errorf("default Cline SDK diagnostic must remain detached:\n%s", out)
 		}
 		// CLAUDE.md gives Claude Code subagents the project index, and
 		// Claude Code's auto memory loads the personal one, which never

@@ -201,6 +201,7 @@ If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, 
 | `--edit <path>` | Send a `PreToolUse` or `PostToolUse` event that edits this file. |
 | `--bash <command>` | Send a `PreToolUse` or `PostToolUse` event that runs this shell command. |
 | `--prompt <text>` | Prompt text for `UserPromptSubmit`. |
+| `--runtime vscode` | Model Cline VS Code TaskStart on Unix. Requires `--target cline`; default Cline diagnostics model the SDK. Windows launcher selection is not modeled. |
 | `--payload <file>` | Send this JSON file to every tool, for events the flags above do not cover. |
 | `--expect allow\|block` | Fail unless every tool gives this result. |
 | `--include-assumed` | Count tools whose shell, timeout, or working directory is a guess (Cursor, Copilot, Factory, Antigravity, Cline, Kiro, Windsurf) toward `--expect` and the comparison between tools. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |

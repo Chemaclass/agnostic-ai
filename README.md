@@ -41,7 +41,7 @@ agnostic-ai sync
 
 `init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
 
-To enable shared memory during setup, run `agnostic-ai init --from all --memory`.
+To enable shared memory during setup, run `agnostic-ai init --from all --memory`. Cline VS Code gets a project TaskStart memory hook; its SDK and CLI keep the shared rule as the fallback.
 
 Use `agnostic-ai sync --global` for your personal specs in `~/.agnostic-ai/`. Set [`session-retention-days`](https://agnostic-ai.org/docs/spec-format/settings/#session-retention) there for one session age limit across Claude Code, Gemini CLI, and Qoder CLI. It writes [Cline SDK/CLI user hooks](https://agnostic-ai.org/docs/targets/cline/#global-hooks) to `~/.cline/hooks/`. It also writes [Copilot user hooks](https://agnostic-ai.org/docs/targets/copilot/#hooks), [Kiro CLI V3 hooks](https://agnostic-ai.org/docs/targets/kiro/) and the user MCP files for [Antigravity](https://agnostic-ai.org/docs/targets/antigravity/) and [Warp](https://agnostic-ai.org/docs/targets/warp/). See [global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration) for paths and supported tools.
 
