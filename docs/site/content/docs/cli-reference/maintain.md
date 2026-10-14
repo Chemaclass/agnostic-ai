@@ -11,6 +11,18 @@ group = "Reference"
 
 Choose the command for the change you need: `upgrade` installs a CLI release, `migrate` updates old spec formats, and `project` checks or prepares the project's installed CLI. Use `revert` to restore generated-file backups and `cleanup` to remove those backups after review.
 
+## handoff list
+
+List saved task handoffs across the repository's worktrees:
+
+```bash
+agnostic-ai handoff list
+```
+
+Each branch gets one row with its live worktree (or `removed`), saved HEAD and date, current working changes (`clean`, `dirty`, or `unknown`), task status, PR, and handoff file. The newest manual note takes precedence over automatic snapshots; a snapshot is shown when no manual note exists. Missing status or PR fields show `-`. Legacy `HANDOFF.md` and `HANDOFF.auto.md` remain readable.
+
+It reads bounded headers from ignored stores and keeps configured subprojects separate. A bare main checkout or an unignored shared store uses the current checkout's ignored store. The command prints a removal suggestion only when local Git ancestry proves the branch is merged into the main checkout's branch and no live working changes are pending. Squash merges need your review because ancestry cannot prove them. It does not fetch or delete files.
+
 ## revert
 
 Undo a `sync --backup`. For every generated file and tool instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes it. It also restores a nested `CLAUDE.md` that sync deleted. Files without a `.bak` stay unless you pass `--force`.
