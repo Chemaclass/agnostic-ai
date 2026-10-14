@@ -39,7 +39,7 @@
 // `sync` reports a coverage note naming the truncation so the author
 // hears it before Antigravity cuts the file, not after. The count is
 // taken on the bytes that land, frontmatter, provenance header, and
-// heading included (target-audit 2026-09-24, #1114). A separate
+// heading included, plus the expanded built-in memory index bodies. A separate
 // 20,000-token budget covers every `always_on` rule together: past it,
 // Antigravity demotes its largest rules from inline text to a
 // `path: description` pointer, so this adapter raises no note for that
@@ -246,7 +246,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.RulesDirectory(native, rulesOpts, dryRun); err != nil {
 		return err
 	}
-	noteOversizedRules(native.Rules)
+	if err := noteOversizedRules(native.Rules, func(entry spec.Entry) string {
+		return emit.RulesDirectoryEntryDir(rulesOpts, entry)
+	}); err != nil {
+		return err
+	}
 	noteInvalidTriggerOverrides(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {

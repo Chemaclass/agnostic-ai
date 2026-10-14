@@ -1,7 +1,11 @@
 package antigravity
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -51,4 +55,56 @@ func nativeMemoryIndexRef(dir, index string) (string, error) {
 		ref = path
 	}
 	return filepath.ToSlash(ref), nil
+}
+
+func nativeMemoryRuleBytes(entry spec.Entry, dir string) (int, error) {
+	size := len(rule(entry))
+	if entry.BodySourceLayer() != "builtin" || entry.Name != "antigravity-memory-index" {
+		return size, nil
+	}
+	for _, index := range []struct{ label, path string }{
+		{"Project memory", emit.ProjectMemoryIndexPath},
+		{"Personal memory", emit.PersonalMemoryIndexPath},
+	} {
+		ref, err := nativeMemoryIndexRef(dir, index.path)
+		if err != nil {
+			return 0, err
+		}
+		include := "@[" + index.label + "](" + ref + ")"
+		count := strings.Count(entry.Body, include)
+		if count == 0 {
+			continue
+		}
+		path := filepath.FromSlash(ref)
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(dir, path)
+		}
+		body, err := os.ReadFile(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", path, err)
+		}
+		size += count * (len(nativeMemoryIndexBody(body)) - len(include))
+	}
+	return size, nil
+}
+
+func nativeMemoryIndexBody(data []byte) []byte {
+	line, rest, ok := bytes.Cut(data, []byte("\n"))
+	if !ok || !bytes.Equal(bytes.TrimSuffix(line, []byte("\r")), []byte("---")) {
+		return data
+	}
+	for len(rest) > 0 {
+		line, tail, ok := bytes.Cut(rest, []byte("\n"))
+		if bytes.Equal(bytes.TrimSuffix(line, []byte("\r")), []byte("---")) {
+			return tail
+		}
+		if !ok {
+			break
+		}
+		rest = tail
+	}
+	return data
 }
