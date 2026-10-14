@@ -243,4 +243,8 @@
 # (19611808): OpenCode permission keys are claimed per tool, and a
 # replaced hand key is backed up. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19624096
+# #2179 measured 19640480 on Go1.27.2, up 16384 from main ba45a3f8
+# (19624096): one cached Git layout and file lookup per run instead of
+# repeated git processes. Same Linux amd64 release flags; retain the
+# 8 KB allowance.
+19648672
