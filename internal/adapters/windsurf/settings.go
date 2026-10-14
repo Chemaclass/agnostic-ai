@@ -34,9 +34,6 @@ const rulesUntranslatedReason = "rule(s) outside Devin's Read/Write/Exec/Fetch/m
 // accepts in a project config, plus any sibling inside `permissions`
 // itself that a newer CLI writes there. Only `permissions` is ever set.
 func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, path string, dryRun bool) error {
-	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
-		return err
-	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "model", specsWithModel(settings), modelUserOnlyReason)
 	permissions, dropped := devinPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, permissionsKey, dropped, rulesUntranslatedReason)

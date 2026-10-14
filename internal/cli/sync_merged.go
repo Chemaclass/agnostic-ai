@@ -31,6 +31,9 @@ func init() {
 	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
 		return slices.Clone(priorStateFile().Merged[path].Keys)
 	})
+	adapters.SetPriorMergedCreated(func(path string) bool {
+		return priorStateFile().Merged[path].Created
+	})
 	adapters.SetPriorOutputSum(func(path string) string {
 		return priorStateFile().OutputSums[path]
 	})

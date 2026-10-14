@@ -83,10 +83,10 @@ func (s *Session) HandoffConfigWritable(cfg *config.Config, path, target string)
 	if !HandoffConfigFile(cfg, path, target) || s.IsUnmanaged(path) {
 		return false
 	}
-	return handoffConfigPathWritable(path)
+	return handoffConfigPathWritable(path, target)
 }
 
-func handoffConfigPathWritable(path string) bool {
+func handoffConfigPathWritable(path, target string) bool {
 	if !handoffConfigAncestorsWritable(path) {
 		return false
 	}
@@ -114,7 +114,28 @@ func handoffConfigPathWritable(path string) bool {
 	if err != nil {
 		return false
 	}
-	return bytes.Contains(data, []byte(ProvenanceMarker)) || len(priorMergedKeys(path)) > 0 ||
+	if bytes.Contains(data, []byte(ProvenanceMarker)) {
+		return true
+	}
+	if target == "opencode" || target == "windsurf" {
+		// These files also hold MCP servers and permission specs, so a
+		// merged key says nothing about who wrote the file. A file sync
+		// created, or a grant it wrote itself, does.
+		if PriorMergedCreated != nil && PriorMergedCreated(path) {
+			return true
+		}
+		if target == "opencode" {
+			// An edited grant is still the file's own claim.
+			for _, pattern := range PriorClaimedEntries(path, []string{"permission", "external_directory"}) {
+				if strings.HasSuffix(pattern, "/.agnostic-ai/local/handoffs/**") {
+					return true
+				}
+			}
+			return false
+		}
+		return priorOwnedHandoffRoot(path, target, data, false, "")
+	}
+	return len(priorMergedKeys(path)) > 0 ||
 		PriorOutputSum != nil && PriorOutputSum(path) != ""
 }
 
@@ -148,17 +169,20 @@ func handoffConfigAncestorsWritable(path string) bool {
 	return true
 }
 
+// PreserveHandoffConfig holds back a whole config file that carries only
+// the handoff grant. OpenCode and Devin are not held: their file also
+// carries MCP servers and permission specs, and HandoffAccessRoot skips
+// just the grant.
 func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string) (bool, error) {
+	if target == "opencode" || target == "windsurf" {
+		return false, nil
+	}
 	claims := priorMergedKeys(path)
 	sum := ""
 	if PriorOutputSum != nil {
 		sum = PriorOutputSum(path)
 	}
-	// OpenCode and Devin share this file with MCP servers and permission
-	// specs, so only a grant sync already wrote can hold the whole file.
-	// HandoffAccessRoot refuses a new grant on its own.
-	handoffFile := HandoffConfigFile(cfg, path, target) && target != "opencode" && target != "windsurf"
-	if !handoffFile && len(claims) == 0 && sum == "" {
+	if !HandoffConfigFile(cfg, path, target) && len(claims) == 0 && sum == "" {
 		return false, nil
 	}
 	var data []byte
@@ -180,13 +204,13 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 		data, err = os.ReadFile(path)
 	}
 	priorHandoff := priorOwnedHandoffRoot(path, target, data, err != nil, sum)
-	if !handoffFile && !priorHandoff {
+	if !HandoffConfigFile(cfg, path, target) && !priorHandoff {
 		return false, nil
 	}
 	if s.IsUnmanaged(path) {
 		return true, nil
 	}
-	if handoffConfigPathWritable(path) {
+	if handoffConfigPathWritable(path, target) {
 		return false, nil
 	}
 	NoteProject(fmt.Sprintf("%s: %s stays as configured; its handoff permissions are not writable", target, filepath.ToSlash(path)))

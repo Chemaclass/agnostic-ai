@@ -176,9 +176,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
-	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
-		return err
-	}
 	memory, err := emit.MemoryIndexPaths(cfg, path, target)
 	if err != nil {
 		return err

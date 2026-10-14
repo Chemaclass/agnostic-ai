@@ -98,6 +98,10 @@ func ParsesMerged(path string) bool { return emit.ParsesMerged(path) }
 // the last sync recorded for a merged file.
 func SetPriorMergedKeys(prior func(path string) []MergedKey) { emit.PriorMergedKeys = prior }
 
+// SetPriorMergedCreated tells the merge writers whether the last sync
+// created a merged file, rather than merging into one that was there.
+func SetPriorMergedCreated(prior func(path string) bool) { emit.PriorMergedCreated = prior }
+
 // Session mirrors emit.Session so the cli and cmd layers — which cannot
 // import the internal emit tree — can construct one emission session per
 // sync run and drive its capture / recording / backup / transaction
