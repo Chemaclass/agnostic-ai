@@ -213,7 +213,7 @@ func memoryHookReply(target, text string) (string, error) {
 	switch target {
 	case "cline":
 		reply = map[string]string{"contextModification": text}
-	case "gemini", "qoder":
+	case "gemini", "qoder", "augment":
 		reply = map[string]any{"hookSpecificOutput": hookSpecific}
 	case "claude":
 		// The built-in runs it for subagents only; the session itself loads

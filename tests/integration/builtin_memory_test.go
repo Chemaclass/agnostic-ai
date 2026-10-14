@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -196,11 +197,166 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	})
 
+	t.Run("augment-cli-runs-the-executable-memory-script-from-a-nested-folder", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Augment dispatches .sh scripts directly on Unix")
+		}
+		dir := project(t, []byte("version: 1\ntargets: [augment]\nbuiltins: [memory]\n"))
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		run(t, dir, "sync", "--gitignore=off")
+		var doc struct {
+			Hooks map[string][]struct {
+				Hooks []struct {
+					Command string `json:"command"`
+				} `json:"hooks"`
+			} `json:"hooks"`
+		}
+		data, err := os.ReadFile(filepath.Join(dir, ".augment", "settings.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		groups := doc.Hooks["SessionStart"]
+		if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+			t.Fatalf("Augment SessionStart does not have one script: %+v", groups)
+		}
+		command := groups[0].Hooks[0].Command
+		if filepath.ToSlash(command) != ".augment/hooks/memory-augment-session-start.sh" {
+			t.Fatalf("Augment command is not the emitted script path: %q", command)
+		}
+		handoffWrite(t, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"), "- [Probe](probe.md): AUGMENT_MEMORY_PROBE_2106\n")
+		personalIndex(t, dir)
+		nested := filepath.Join(dir, "nested", "session directory")
+		if err := os.MkdirAll(nested, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(filepath.Join(dir, filepath.FromSlash(command)))
+		cmd.Dir = nested
+		cmd.Stdin = strings.NewReader(`{"hook_event_name":"SessionStart","workspace_roots":[]}`)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("direct Augment script: %v\n%s", err, out)
+		}
+		var reply struct {
+			HookSpecificOutput struct {
+				HookEventName     string `json:"hookEventName"`
+				AdditionalContext string `json:"additionalContext"`
+			} `json:"hookSpecificOutput"`
+		}
+		if err := json.Unmarshal(out, &reply); err != nil {
+			t.Fatalf("Augment context is not JSON: %v\n%s", err, out)
+		}
+		if reply.HookSpecificOutput.HookEventName != "SessionStart" || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "AUGMENT_MEMORY_PROBE_2106") || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "Prefers tabs") {
+			t.Errorf("Augment script lost project or personal memory: %+v", reply)
+		}
+		run(t, dir, "sync", "--check", "--gitignore=off")
+	})
+
+	t.Run("antigravity-local-override-keeps-memory-routing", func(t *testing.T) {
+		authoredBody := "Authored replacement.\n\n@[Project memory](../../.agnostic-ai/memory/MEMORY.md)\n\nPersonal memory, `.agnostic-ai/local/memory/MEMORY.md`:\n\n@[Personal memory](../../.agnostic-ai/local/memory/MEMORY.md)\n"
+		for _, test := range []struct {
+			name string
+			body string
+		}{
+			{"metadata-only-inherits-native-memory", ""},
+			{"authored-body-is-preserved", authoredBody},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				dir := project(t, []byte("version: 1\ntargets: [antigravity]\nbuiltins: [memory]\noutputs:\n  antigravity:\n    rules-dir: custom/deep/rules\n"))
+				t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+				t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(t.TempDir(), "absent-gitconfig"))
+				if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+					t.Fatalf("git init: %v\n%s", err, out)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.local.yaml"), []byte("memory:\n  personal: repo\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				override := filepath.Join(dir, ".agnostic-ai", "local", "rules", "antigravity-memory-index.md")
+				if err := os.MkdirAll(filepath.Dir(override), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				source := "---\nname: antigravity-memory-index\ndescription: Personal wording\n---\n\n" + test.body
+				if err := os.WriteFile(override, []byte(source), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				run(t, dir, "sync", "--gitignore=off")
+				path := filepath.Join(dir, "custom", "deep", "rules", "antigravity-memory-index.md")
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				text := string(data)
+				if test.body != "" {
+					if !strings.Contains(text, test.body) {
+						t.Errorf("authored replacement body must stay unchanged:\n%s", text)
+					}
+					return
+				}
+				if !strings.Contains(text, "](../../../.agnostic-ai/memory/MEMORY.md)") {
+					t.Errorf("inherited project include must resolve from the configured output directory:\n%s", text)
+				}
+				if strings.Contains(text, ".agnostic-ai/local/memory/MEMORY.md") {
+					t.Errorf("repo-personal mode must omit the inherited checkout include:\n%s", text)
+				}
+			})
+		}
+	})
+
+	t.Run("antigravity-scoped-local-override", func(t *testing.T) {
+		authoredBody := "Authored replacement.\n\n@[Project memory](../../.agnostic-ai/memory/MEMORY.md)\n"
+		for _, test := range []struct {
+			name string
+			body string
+		}{
+			{"metadata-only-inherits-native-memory", ""},
+			{"authored-body-is-preserved", authoredBody},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				dir := project(t, []byte("version: 1\ntargets: [antigravity]\nbuiltins: [memory]\n"))
+				if err := os.MkdirAll(filepath.Join(dir, "backend"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				override := filepath.Join(dir, ".agnostic-ai", "local", "rules", "antigravity-memory-index.md")
+				if err := os.MkdirAll(filepath.Dir(override), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				source := "---\nname: antigravity-memory-index\nscope: backend\n---\n\n" + test.body
+				if err := os.WriteFile(override, []byte(source), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				run(t, dir, "sync", "--gitignore=off")
+				path := filepath.Join(dir, "backend", ".agents", "rules", "antigravity-memory-index.md")
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				text := string(data)
+				if test.body != "" {
+					if !strings.Contains(text, test.body) {
+						t.Errorf("authored scoped replacement body must stay unchanged:\n%s", text)
+					}
+					return
+				}
+				index := filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md")
+				ref, err := filepath.Rel(filepath.Dir(path), index)
+				if err != nil {
+					t.Fatal(err)
+				}
+				include := "@[Project memory](" + filepath.ToSlash(ref) + ")"
+				if !strings.Contains(text, include) {
+					t.Errorf("inherited include must resolve from the emitted scoped directory, want %q:\n%s", include, text)
+				}
+			})
+		}
+	})
+
 	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".clinerules/hooks/TaskStart"}
+		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".augment/settings.json", ".augment/hooks/memory-augment-session-start.sh", ".clinerules/hooks/TaskStart"}
 		output := map[string]string{}
 		for _, path := range paths {
 			data, err := os.ReadFile(filepath.Join(dir, path))
@@ -224,7 +380,7 @@ func TestBuiltinMemory(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory"}
+		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "augment"}
 		for _, target := range targets {
 			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
 				t.Errorf("%s: an empty store adds context:\n%s", target, out)
