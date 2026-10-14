@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Sync no longer records built-in specs under their temporary copy's path in `.sync-state`, and its change summary names only specs a configured target emits; the first sync with an older binary after this one may print a one-time summary line (#2183).
 - Start far fewer Git processes in `sync` and `sync --check`: a no-op check on a small project drops from 18 to 2 and runs about 2.7x faster (#2179).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` and `sync --global` (#2127).
 - Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
@@ -20,6 +21,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Codex
 
+- The "hook is untrusted" note shows the start and end of a long inline hook script instead of all of it (#2183).
 - Report agent approval policies, model providers, and MCP servers that Codex ignores; configure them in the parent session (#2156).
 - Accept `fork` as a session-start source in hook diagnostics (#2158).
 - Keep boolean `x-codex.features` switches and `skills.config` entries in agent files when you sync or import them (#2165).

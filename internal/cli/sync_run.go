@@ -77,6 +77,8 @@ type syncStateFile struct {
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
+	// SpecTargets lists the targets that emitted each spec in SpecSums.
+	SpecTargets map[string][]string `json:"spec_targets,omitempty"`
 	// SpecFileSums maps each spec file, slash-form and relative to the
 	// project, to the sha256 of its raw bytes when sync rendered it or
 	// import wrote it, so import can tell a spec a tool already reads
@@ -115,6 +117,7 @@ type syncLedger struct {
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
 	specSums     map[string]string
+	specTargets  map[string][]string
 	specFileSums map[string]specFileSum
 	modelAliases map[string]map[string]string
 	backups      map[string]string
@@ -254,6 +257,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Unledgered:     ledger.unledgered,
 		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
+		SpecTargets:    ledger.specTargets,
 		SpecFileSums:   ledger.specFileSums,
 		ModelAliases:   ledger.modelAliases,
 		Backups:        ledger.backups,
@@ -880,13 +884,13 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// reports as a failed run but never undoes them (see writesCompleted
 	// above).
 	writesCompleted = true
-	sums := specSums(cfg, b)
-	report.specs = diffSpecSums(prev.SpecSums, sums)
+	base := specSums(cfg, b, cfg.Targets)
+	report.specs = diffSpecSums(specBaseline{prev.SpecSums, prev.SpecTargets}, base, bundleSpecKeys(b))
 	// A partial run leaves other targets on older specs; keep the old
 	// baseline so the run that updates them still names the change.
-	ledger.specSums = prev.SpecSums
+	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.specSums = sums
+		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
 	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
@@ -1340,10 +1344,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	// Warnings and notes go into the JSON, not to the terminal, so keep
 	// the previous digests: the next plain sync still prints them.
-	ledger.specSums = prev.SpecSums
+	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
 	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.specSums = specSums(cfg, b)
+		base := specSums(cfg, b, cfg.Targets)
+		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = prev.SpecFileSums
 	if len(out.Errors) == 0 {
