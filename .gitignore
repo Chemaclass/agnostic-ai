@@ -99,6 +99,7 @@ desktop.ini
 /.github/skills/
 /.mcp.json
 /opencode.json
+/.ellipsis/
 # Codex / Amp / Warp share the open AGENTS.md standard and emit
 # hierarchically; Gemini emits GEMINI.md hierarchically too.
 **/AGENTS.md

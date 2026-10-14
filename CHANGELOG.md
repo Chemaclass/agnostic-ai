@@ -83,6 +83,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
+#### Ellipsis
+
+- Add the opt-in `ellipsis` target: review specs and an `x-ellipsis` settings block write `.ellipsis/code-review.yaml`; `import ellipsis` reads a hand-written one (#2196).
+
 ### Site
 
 - Use the current Antigravity app name and explain that OpenCode V2 no longer reads the Claude instructions fallback (#2159).

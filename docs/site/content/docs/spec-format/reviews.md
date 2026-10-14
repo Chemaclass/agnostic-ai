@@ -20,8 +20,11 @@ group = "Reference"
 | [Cursor](@/docs/targets/cursor.md) (Bugbot) | `.cursor/BUGBOT.md`, and `<scope>/.cursor/BUGBOT.md` for scoped specs |
 | [Codex](@/docs/targets/codex.md) (code review) | a `## Code Review Rules` section of the root or scoped `AGENTS.md` |
 | [Goose](@/docs/targets/goose.md) (`goose review`) | `.agents/REVIEW.md`, and `<scope>/.agents/REVIEW.md` for scoped specs |
+| [Ellipsis](@/docs/targets/ellipsis.md) (code review) | one reviewer's prompt in `.ellipsis/code-review.yaml`; scoped specs become sections that apply only to changes in their directory |
 
 Other tools report review specs as unsupported.
+
+Ellipsis also needs the reviewer, its model, and any review posting rules from a [settings spec](@/docs/spec-format/settings.md) under `x-ellipsis`. Without a reviewer, sync writes no file and says what is missing. See [Ellipsis](@/docs/targets/ellipsis.md).
 
 Write checks a reviewer can verify against changed files. For each reported issue, ask for the file and line, the effect on behavior, and a suggested fix. Keep general coding instructions in [rules](@/docs/spec-format/rules.md).
 

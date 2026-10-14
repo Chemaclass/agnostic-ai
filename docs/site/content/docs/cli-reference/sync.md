@@ -61,14 +61,14 @@ For a normal edit, change the source under `.agnostic-ai/`, preview with `agnost
 
 Sync skips paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) and reports them as `~ skip (unmanaged) <path>`.
 
-**Summary.** `sync` ends with what it changed. With nothing to do, it prints `✓ 25 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
+**Summary.** `sync` ends with what it changed. With nothing to do, it prints `✓ 26 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
 
 ```
   ~ rule testing → 9 files in 9 targets
   + .cursor/rules/testing.mdc  .kiro/steering/testing.md  (+1 more)
   ~ AGENTS.md  CLAUDE.md  GEMINI.md  (+2 more)
   ! 1 file to commit: .openhands/setup.sh
-✓ synced 25 targets · 3 created · 6 updated · 49ms
+✓ synced 26 targets · 3 created · 6 updated · 49ms
 ```
 
 Each list shows three paths. `-v` lists all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files that git tracks or does not ignore. It is absent outside a git repository.

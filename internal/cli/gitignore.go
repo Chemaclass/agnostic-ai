@@ -509,7 +509,7 @@ func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[
 				add(adapters.EntryPointPath(cfg, t))
 				add(adapters.SharedInstructionsMirror(t))
 			}
-			files, err := captureAdapterFiles(sess, adapter, bundleOfKind(b, kind), cfg)
+			files, err := captureAdapterFiles(sess, adapter, bundleOfKind(b, kind, t), cfg)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %s: %w", kind, t, err)
 			}
@@ -523,8 +523,13 @@ func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[
 	return committed, nil
 }
 
-// bundleOfKind returns b with only the specs of one gitignore.commit kind.
-func bundleOfKind(b spec.Bundle, kind string) spec.Bundle {
+// reviewSettingsTargets take the reviewer for their review file from the
+// settings specs' x-<target> block, so no review file renders without them.
+var reviewSettingsTargets = map[string]bool{"ellipsis": true}
+
+// bundleOfKind returns b with only the specs of one gitignore.commit kind,
+// plus the settings a target needs to render that kind.
+func bundleOfKind(b spec.Bundle, kind, target string) spec.Bundle {
 	var only spec.Bundle
 	switch kind {
 	case config.GitignoreInstructions:
@@ -543,6 +548,9 @@ func bundleOfKind(b spec.Bundle, kind string) spec.Bundle {
 		only.Settings = b.Settings
 	case "reviews":
 		only.Reviews = b.Reviews
+		if reviewSettingsTargets[target] {
+			only.Settings = b.Settings
+		}
 	case "environments":
 		only.Environments = b.Environments
 	case "ignores":

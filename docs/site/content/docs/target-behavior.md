@@ -124,7 +124,7 @@ Per run:
 agnostic-ai sync -t claude,cursor,copilot
 ```
 
-The flag replaces the configured list for this run. Unknown targets log a warning and are skipped. Five targets are opt-in. `-t amp,warp,jules,goose,augment` enables them for one run. The [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects, else the CLIs on `PATH`, else `claude` and `codex`.
+The flag replaces the configured list for this run. Unknown targets log a warning and are skipped. Six targets are opt-in. `-t amp,warp,jules,goose,augment,ellipsis` enables them for one run. The [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects, else the CLIs on `PATH`, else `claude` and `codex`.
 
 ## New targets
 
@@ -132,7 +132,7 @@ A new adapter is about 50 lines plus one registry entry. See [adding adapters](h
 
 ## Global output
 
-`sync --global` writes user-level configuration for 22 of the 25 targets, separate from project files. A dash means global sync writes nothing for that kind.
+`sync --global` writes user-level configuration for 22 of the 26 targets, separate from project files. A dash means global sync writes nothing for that kind.
 
 | Target | Instructions | Rules | Hooks | Skills | Agents | Session retention |
 |--------|--------------|-------|-------|--------|--------|-------------------|

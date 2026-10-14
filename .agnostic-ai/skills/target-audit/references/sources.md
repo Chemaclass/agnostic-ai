@@ -359,3 +359,11 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: `disable`/`hidden`/`steps`/`temperature`/`top_p` are `x-kilo` only by design (#562).
 - decision: a `skills-dir` outside the three default trees writes `skills.paths` (#861).
 - decision: `.kilocodeignore` is emitted natively; no invented permission translation (#773). MCP OAuth objects beyond `oauth:false` stay out (#775).
+
+## ellipsis
+
+- docs: https://www.ellipsis.dev/docs/code-review.md · /docs/code-review/schema.md (the five top-level blocks and the reviewer fields) · /docs/models.md (engine names and model IDs) · /docs/permissions.md · /docs/agents/triggers.md (the pull request filters `pull_requests` reuses); every docs page has a `.md` copy without navigation
+- changelog: https://github.com/ellipsis-dev/cli/releases (the docs have no changelog page; the CLI releases are the closest dated record)
+- watch: a second file path or a file kind other than `code_review`, a new top-level block, a reviewer key beside `claude_code` and `codex`, `output` defaults, and the 64-reviewer limit. Unknown fields fail the vendor's sync, so a new required field is a finding.
+- decision: one reviewer, with scoped reviews as conditional prompt sections, because the vendor's per-reviewer `paths` filter needs several reviewers (#2187). Revisit after a real pull request trial.
+- decision: reviewer, model, filters, posting, and budget come from `x-ellipsis` on a settings spec, copied as written; the prompt comes only from review specs.

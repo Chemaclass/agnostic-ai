@@ -53,10 +53,10 @@ function test_batches_covers_every_target_exactly_once() {
 }
 
 function test_batches_spreads_the_remainder_evenly() {
-  # 25 targets over 4 groups is 7/6/6/6, never 6/6/6/7 or a 4-wide gap.
+  # 26 targets over 4 groups is 7/7/6/6, never 6/6/7/7 or a 4-wide gap.
   local sizes
   sizes=$(batches 4 | sed 's/^[0-9]*: //' | awk '{ print NF }' | tr '\n' ' ')
-  assert_equals "7 6 6 6 " "$sizes"
+  assert_equals "7 7 6 6 " "$sizes"
 }
 
 function test_batches_clamps_a_count_above_the_target_total() {

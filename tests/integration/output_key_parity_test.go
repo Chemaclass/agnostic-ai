@@ -77,6 +77,17 @@ var probeKinds = map[string]string{
 	"factory.conf-file":  "settings",
 }
 
+// probeCompanions are entries a probe needs beside its own to write
+// anything. Ellipsis renders a review only with the settings spec that
+// names its reviewer.
+var probeCompanions = map[string][]spec.Entry{
+	"ellipsis.review-file": {{Kind: spec.KindSettings, Name: "reviewer", Path: "settings/ellipsis.yaml", Meta: map[string]any{
+		"x-ellipsis": map[string]any{"reviewer": map[string]any{
+			"name": "probe", "claude_code": map[string]any{"model": "claude-opus-5-5"},
+		}},
+	}}},
+}
+
 func probeKind(target, key, fallback string) string {
 	if kind, ok := probeKinds[target+"."+key]; ok {
 		return kind
@@ -130,7 +141,7 @@ func outputKeyProbeEntry(kind string) spec.Entry {
 	return spec.Entry{}
 }
 
-func emittedPaths(t *testing.T, target string, cfg *config.Config, e spec.Entry) []string {
+func emittedPaths(t *testing.T, target string, cfg *config.Config, entries ...spec.Entry) []string {
 	t.Helper()
 	adapter, err := adapters.Resolve(target)
 	if err != nil {
@@ -138,7 +149,7 @@ func emittedPaths(t *testing.T, target string, cfg *config.Config, e spec.Entry)
 	}
 	sess := adapters.NewSession()
 	sess.StartCapture()
-	if err := adapters.EmitWithProvenance(sess, adapter, spec.NewBundle([]spec.Entry{e}), cfg, true); err != nil {
+	if err := adapters.EmitWithProvenance(sess, adapter, spec.NewBundle(entries), cfg, true); err != nil {
 		sess.StopCapture()
 		t.Fatalf("%s: emit failed: %v", target, err)
 	}
@@ -201,11 +212,12 @@ func TestOutputKeys_DocumentedKeysMoveTheirOutput(t *testing.T) {
 			if entry.Kind == spec.KindRule {
 				owned.Unmanaged = []string{"AGENTS.md"}
 			}
-			before := emittedPaths(t, target, &config.Config{Sync: owned}, entry)
+			entries := append([]spec.Entry{entry}, probeCompanions[target+"."+key]...)
+			before := emittedPaths(t, target, &config.Config{Sync: owned}, entries...)
 
 			out := config.Output{}
 			probe.set(&out, overrideValue(target, key))
-			after := emittedPaths(t, target, &config.Config{Outputs: map[string]config.Output{target: out}, Sync: owned}, entry)
+			after := emittedPaths(t, target, &config.Config{Outputs: map[string]config.Output{target: out}, Sync: owned}, entries...)
 
 			moved := strings.Join(before, ",") != strings.Join(after, ",")
 			reason, documentedNoOp := documentedNoOpKeys[target+"."+key]

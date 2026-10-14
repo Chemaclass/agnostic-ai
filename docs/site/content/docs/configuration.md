@@ -242,7 +242,7 @@ Each release fixes the ids. An upgrade can change them, and the next `sync` prin
 
 ## `targets`
 
-Default: every tool except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). `-t/--target` overrides the list for one run.
+Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, and `ellipsis` (20 in total). `-t/--target` overrides the list for one run.
 
 A likely typo of a built-in target, such as `cursr`, fails before any file is written. Any other unknown name logs a warning and is skipped, since it may be an external adapter missing from this machine's PATH.
 
@@ -548,6 +548,7 @@ gitignore:
 - Kinds: `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`. An unknown kind fails config loading.
 - `instructions` covers entry-point files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) and rule outputs, root and scoped. Every other kind is named after its spec source.
 - A file written by several kinds, such as `.claude/settings.json`, is committed when any of them is listed.
+- `ellipsis:reviews` also counts the settings spec that holds `x-ellipsis`, because `.ellipsis/code-review.yaml` needs both ([Ellipsis](@/docs/targets/ellipsis.md#keep-the-file-in-git)).
 - A file that only the config or an [overlay](#watched-inputs) produces belongs to no kind and stays ignored.
 
 Prefix a kind with a target to commit it for that target only:
@@ -651,7 +652,7 @@ Only `project` uses custom `sources` paths. `$AGNOSTIC_AI_HOME` is not a project
 
 ## Global configuration
 
-`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets. [Global output](@/docs/target-behavior.md#global-output) lists the paths. It works from any directory and loads no packs or project specs.
+`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 26 targets. [Global output](@/docs/target-behavior.md#global-output) lists the paths. It works from any directory and loads no packs or project specs.
 
 The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
