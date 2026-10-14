@@ -167,6 +167,17 @@ func TargetHook(target string, h spec.Entry) spec.Entry {
 		return h
 	}
 	resolved := ResolveMeta(h.Meta, target)
+	if command, exists := override["command"]; exists {
+		dir := ""
+		if commands := HookCommands(command); len(commands) > 0 {
+			dir = h.HookAssetDir(commands[0], target)
+		}
+		h.HookAssetDirs = maps.Clone(h.HookAssetDirs)
+		if h.HookAssetDirs == nil {
+			h.HookAssetDirs = map[string]string{}
+		}
+		h.HookAssetDirs["command"] = dir
+	}
 	meta := maps.Clone(h.Meta)
 	for _, key := range targetHookKeys {
 		value, ok := resolved[key]

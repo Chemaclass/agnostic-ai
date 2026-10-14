@@ -14,6 +14,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Augment
+
+- Auggie CLI on Unix loads shared memory through an executable session-start script; the IDE keeps the memory rule (#2106).
+
 #### Cline
 
 - Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
