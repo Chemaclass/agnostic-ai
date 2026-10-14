@@ -44,3 +44,5 @@ opencode-v2-manual-only-skill	opencode	disable-model-invocation Set to true for 
 copilot-user-hook-directory	copilot	By default this is `~/.copilot/hooks/` on macOS and Linux, or `%USERPROFILE%\.copilot\hooks\` on Windows.	no	issue:2065
 claude-mods-prompt-autocomplete	claude	prompt.autocomplete The user types in the prompt box and a word ends at the cursor.	yes	signal:cap-inprocess-agent-session-extensions
 antigravity-session-start-hook	antigravity	SessionStart Fires once when a new conversation session starts, before the first model invocation. Handlers are a list directly under the event key in the project hooks file.	yes	2124
+kiro-project-sandbox-file	kiro	Both clients read `sandbox.json` at global and project levels. A repository you clone cannot use its project file to open network access or disable an active global sandbox policy.	yes	signal:cap-kiro-local-command-sandbox
+claude-idle-compaction-setting	claude	Idle compaction compacts a long conversation that you've stepped away from, shortly before its prompt cache expires. Scope: Any file. Default: true.	yes	signal:cap-claude-idle-compaction
