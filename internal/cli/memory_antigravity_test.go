@@ -14,12 +14,15 @@ func TestSync_AntigravityMemoryIncludesAreStaticAndTargeted(t *testing.T) {
 	}{
 		{"checkout", "", ".agents/rules/antigravity-memory-index.md", true},
 		{"custom directory", "outputs:\n  antigravity:\n    rules-dir: native/custom/rules\n", "native/custom/rules/antigravity-memory-index.md", true},
-		{"repo personal", "memory:\n  personal: repo\n", ".agents/rules/antigravity-memory-index.md", false},
+		{"repo personal", "", ".agents/rules/antigravity-memory-index.md", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			globalAgentTestHome(t)
 			root := setupMemoryConfig(t, "version: 1\ntargets: [antigravity, codex]\nbuiltins: [memory]\n"+tc.extra)
 			gitInit(t, root)
+			if !tc.personal {
+				writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+			}
 			if out, err := runCLI(t, "sync"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
