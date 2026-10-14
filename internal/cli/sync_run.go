@@ -1601,8 +1601,12 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		}
 		for _, f := range r.Edited {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync%s\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), githubData(r.sharedNote(f.Path)))
+			effect := "move the edit into .agnostic-ai/, then run agnostic-ai sync"
+			if f.Merged {
+				effect = "sync keeps the keys it did not write and resets the ones it writes; move those edits into .agnostic-ai/, then run agnostic-ai sync"
+			}
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; %s%s\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), effect, githubData(r.sharedNote(f.Path)))
 		}
 		orphanHint := "is no longer generated and its ownership could not be proven; run agnostic-ai doctor --fix to choose removal, or list it under sync.unmanaged"
 		if r.Unledgered {
