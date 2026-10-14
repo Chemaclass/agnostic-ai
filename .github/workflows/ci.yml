@@ -98,10 +98,18 @@ jobs:
           fail_ci_if_error: false
 
   windows-handoffs:
-    name: Test handoffs (windows-latest)
+    name: Test handoffs (windows-latest, ${{ matrix.suite }})
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && inputs.full_windows != true
     runs-on: windows-latest
     timeout-minutes: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: hooks
+            tests: '^TestBuiltinHandoffHooks$'
+          - suite: permissions
+            tests: '^TestHandoffAccess_'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -114,7 +122,7 @@ jobs:
 
       - name: Test
         shell: bash
-        run: go test -timeout=5m -count=1 ./tests/integration -run '^(TestBuiltinHandoffHooks$|TestHandoffAccess_)'
+        run: go test -timeout=5m -count=1 ./tests/integration -run '${{ matrix.tests }}'
 
   macos-integration:
     name: Test integration (macos-latest)
