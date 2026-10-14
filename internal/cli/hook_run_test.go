@@ -258,12 +258,24 @@ func TestHookRun_UnknownHookAndTargetOutsideTheHook(t *testing.T) {
 
 func TestHookRun_CodexAcceptsForkSessionSource(t *testing.T) {
 	skipWithoutPOSIXShell(t)
-	hookRunProject(t, "name: guard\nevent: SessionStart\nmatcher: startup|fork\ncommand: 'true'\n")
-	out, err := runHookRun(t, "guard", "--target", "codex")
-	if err != nil {
-		t.Fatalf("hook run: %v\n%s", err, out)
-	}
-	if strings.Contains(out, "does not match") || strings.Contains(out, "not run") {
-		t.Errorf("fork source was rejected:\n%s", out)
+	for _, tc := range []struct {
+		matcher string
+		source  string
+	}{
+		{"fork", "fork"},
+		{"^fork$", "fork"},
+		{"startup|fork", "startup"},
+	} {
+		t.Run(tc.matcher, func(t *testing.T) {
+			hookRunProject(t, "name: guard\nevent: SessionStart\nmatcher: '"+tc.matcher+"'\n"+
+				`command: 'grep -q "\"source\":\"`+tc.source+`\"" && echo matched-source'`+"\n")
+			out, err := runHookRun(t, "guard", "--target", "codex", "--expect", "allow")
+			if err != nil {
+				t.Fatalf("hook run: %v\n%s", err, out)
+			}
+			if !strings.Contains(out, "stdout: matched-source") || !strings.Contains(out, "event: SessionStart ("+tc.source+")") || strings.Contains(out, "does not match") {
+				t.Errorf("matched source was not run:\n%s", out)
+			}
+		})
 	}
 }
