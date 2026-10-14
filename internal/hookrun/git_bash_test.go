@@ -31,7 +31,7 @@ func TestArgv_ClaudeOnWindowsUsesGitBashElsePowerShell(t *testing.T) {
 func TestGitBashBeside_FindsBashInTheGitInstall(t *testing.T) {
 	root := t.TempDir()
 	bash := filepath.Join(root, "Git", "bin", "bash.exe")
-	for _, path := range []string{bash, filepath.Join(root, "Git", "cmd", "git.exe"), filepath.Join(root, "Git", "mingw64", "bin", "git.exe"), filepath.Join(root, "bin", "bash.exe")} {
+	for _, path := range []string{bash, filepath.Join(root, "Git", "cmd", "git.exe"), filepath.Join(root, "Git", "mingw64", "bin", "git.exe"), filepath.Join(root, "Git", "ucrt64", "bin", "git.exe"), filepath.Join(root, "bin", "bash.exe")} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -39,7 +39,7 @@ func TestGitBashBeside_FindsBashInTheGitInstall(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, git := range []string{filepath.Join(root, "Git", "cmd", "git.exe"), filepath.Join(root, "Git", "mingw64", "bin", "git.exe")} {
+	for _, git := range []string{filepath.Join(root, "Git", "cmd", "git.exe"), filepath.Join(root, "Git", "mingw64", "bin", "git.exe"), filepath.Join(root, "Git", "ucrt64", "bin", "git.exe")} {
 		if got := gitBashBeside(git); got != bash {
 			t.Errorf("gitBashBeside(%s) = %q, want %q", git, got, bash)
 		}

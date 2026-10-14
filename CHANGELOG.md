@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- On Windows, hooks find Git Bash when Git for Windows keeps `git` under `ucrt64` instead of `mingw64` (#2199).
 - Share personal memory across worktrees (`init --memory`), keep facts Claude Code saved, and flag hidden characters in memory (#2104, #2109, #2100, #2105).
 - Keep private handoffs and Git snapshots across worktrees, and list every saved task with `handoff list` (#2117).
 - Sync starts far fewer Git processes (a no-op check runs about 2.7x faster) and leaves `.sync-state` alone when nothing changed (#2179, #2183).
