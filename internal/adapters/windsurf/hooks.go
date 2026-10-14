@@ -141,7 +141,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		if claudeToolNames[matcher] {
 			claudeMatchers++
 		}
-		timeout := emit.HookIntMeta(emit.ResolveMeta(h.Meta, target), "timeout")
+		timeout := emit.HookIntMeta(h.Meta, "timeout")
 		k := matcherKey{event: event, matcher: matcher}
 
 		if hookType, _ := h.Meta["type"].(string); hookType == "prompt" {
