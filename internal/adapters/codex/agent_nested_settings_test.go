@@ -172,3 +172,32 @@ func TestAgentTOML_ReportsSkippedValues(t *testing.T) {
 		t.Errorf("skips = %q, want features.bad,ratio", got)
 	}
 }
+
+func TestAgentTOML_FullyWrittenValuesAreNotReported(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindAgent, Name: "limited", Meta: map[string]any{"x-codex": map[string]any{
+		"features": map[string]any{"shell_tool": false},
+		"empty":    map[string]any{},
+		"cleared":  map[string]any{"gone": nil},
+	}}}
+	body, skips := agentTOMLWithSkips(entry)
+	if len(skips) != 0 {
+		t.Errorf("skips = %v, want none", skips)
+	}
+	if !strings.Contains(body, "features = { shell_tool = false }") {
+		t.Errorf("features lost: %s", body)
+	}
+	if strings.Contains(body, "empty") || strings.Contains(body, "cleared") {
+		t.Errorf("empty or null-only maps must write nothing: %s", body)
+	}
+}
+
+func TestAgentTOML_SkipPathsUseRawKeys(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindAgent, Name: "limited", Meta: map[string]any{"x-codex": map[string]any{
+		"features": map[string]any{"my key": math.NaN()},
+		"skills":   map[string]any{"config": []any{map[string]any{"path": "a", "bad": math.Inf(1)}}, "my sub": map[string]any{"x": math.NaN()}},
+	}}}
+	_, skips := agentTOMLWithSkips(entry)
+	if got := strings.Join(skips, ","); got != "features.my key,skills.my sub.x,skills.config.bad" {
+		t.Errorf("skips = %q", got)
+	}
+}

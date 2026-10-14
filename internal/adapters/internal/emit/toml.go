@@ -73,10 +73,12 @@ func WriteTOMLInlineStringTable(sb *strings.Builder, key string, m map[string]st
 // nested tables keep their TOML type. Keys are sorted and quoted when
 // they are not bare-safe. A value TOMLLiteral cannot encode is left out
 // and its key is returned in skipped; nil values (YAML null) are left
-// out silently. An empty map writes `key = {}`.
+// out silently. A map with nothing left to write writes nothing.
 func WriteTOMLInlineTable(sb *strings.Builder, key string, m map[string]any) (skipped []string) {
 	lit, skipped := inlineTable(m)
-	sb.WriteString(key + " = " + lit + "\n")
+	if lit != "{}" {
+		sb.WriteString(key + " = " + lit + "\n")
+	}
 	return skipped
 }
 
@@ -119,6 +121,9 @@ func TOMLLiteral(v any) (string, bool) {
 	case int64:
 		return strconv.FormatInt(t, 10), true
 	case uint64:
+		if t > math.MaxInt64 {
+			return "", false
+		}
 		return strconv.FormatUint(t, 10), true
 	case float64:
 		return tomlFloat(t)
@@ -192,31 +197,19 @@ func TOMLKey(s string) string {
 // emits malformed TOML.
 func WriteTOMLValue(sb *strings.Builder, key string, v any) bool {
 	switch t := v.(type) {
-	case string:
-		WriteTOMLString(sb, key, t)
-	case bool:
-		fmt.Fprintf(sb, "%s = %t\n", key, t)
-	case int:
-		fmt.Fprintf(sb, "%s = %d\n", key, t)
-	case int64:
-		fmt.Fprintf(sb, "%s = %d\n", key, t)
-	case float64:
-		lit, ok := tomlFloat(t)
-		if !ok {
-			return false
-		}
-		sb.WriteString(key + " = " + lit + "\n")
-	case []string:
-		WriteTOMLStringArray(sb, key, t)
+	case string, bool, int, int64, float64, []string:
 	case []any:
-		ss := StringSlice(t)
-		if len(ss) != len(t) {
+		if len(StringSlice(t)) != len(t) {
 			return false // a non-string element: skip the whole array
 		}
-		WriteTOMLStringArray(sb, key, ss)
 	default:
 		return false
 	}
+	lit, ok := TOMLLiteral(v)
+	if !ok {
+		return false
+	}
+	sb.WriteString(TOMLKey(key) + " = " + lit + "\n")
 	return true
 }
 

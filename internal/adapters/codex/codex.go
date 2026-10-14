@@ -24,7 +24,7 @@
 // portable Settings model fills `model` unless outputs.codex.config.model
 // sets a target-specific value; an imported overlay still has final
 // precedence for backward compatibility. MCP servers use one
-// `[mcp_servers.<name>]` table each). A name is quoted (`tomlKeySegment`)
+// `[mcp_servers.<name>]` table each). A name is quoted (`emit.TOMLKey`)
 // when it carries a character a bare TOML key rejects; Codex CLI
 // 0.152.0 widened the accepted server-name charset to include `:`,
 // `@`, `/`, and `.` for package-style names such as

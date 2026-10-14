@@ -193,3 +193,13 @@ func TestWriteTOMLString_EscapesControlCharacters(t *testing.T) {
 		t.Errorf("got %q want %q", sb.String(), want)
 	}
 }
+
+func TestTOMLLiteral_RejectsUint64AboveInt64(t *testing.T) {
+	t.Parallel()
+	if got, ok := TOMLLiteral(uint64(math.MaxInt64) + 1); ok {
+		t.Errorf("wrote %q, TOML integers stop at int64", got)
+	}
+	if got, ok := TOMLLiteral(uint64(5)); !ok || got != "5" {
+		t.Errorf("got %q %v", got, ok)
+	}
+}

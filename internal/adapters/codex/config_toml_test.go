@@ -439,7 +439,7 @@ func TestEmit_MCP_PerToolTables(t *testing.T) {
 // unquoted `[mcp_servers.<name>]` header for that name is invalid TOML
 // ("Invalid group name ... Try quoting it"), which commonly aborts the
 // whole config parse and takes every other MCP server down with it.
-// The header must quote the server name exactly like tomlKeySegment
+// The header must quote the server name exactly like emit.TOMLKey
 // already quotes a tool name. This covers all three call sites: the
 // server table itself, its per-tool sub-table, and its oauth
 // sub-table. See #706.

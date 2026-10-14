@@ -29,7 +29,8 @@ import (
 // Agent-scoped `mcp_servers` and other nested-table fields pass through
 // `x-codex` verbatim: the importer captures them under `x-codex.<key>`,
 // and the emitter renders nested-table maps as `[<key>.<inner>]` blocks
-// so they round-trip byte-equivalently. See writeXCodexExtras for the
+// so they round-trip. A table of plain values (`[features]`) comes back
+// as an inline table with the same values. See writeXCodexExtras for the
 // scalar-vs-table emission order.
 func agentTOML(a spec.Entry) string {
 	body, _ := agentTOMLWithSkips(a)
@@ -112,22 +113,32 @@ var codexAgentEmittedKeys = map[string]bool{
 // so sync can name them instead of dropping them silently.
 type tomlSkips []string
 
-func (s *tomlSkips) add(path string, keys ...string) {
-	if len(keys) == 0 {
-		*s = append(*s, path)
-		return
+// tomlPath is a table path as raw keys. toml() quotes it for headers;
+// the raw form names a key in a note.
+type tomlPath []string
+
+func (p tomlPath) child(key string) tomlPath {
+	return append(slices.Clone(p), key)
+}
+
+func (p tomlPath) toml() string {
+	quoted := make([]string, len(p))
+	for i, k := range p {
+		quoted[i] = emit.TOMLKey(k)
 	}
-	for _, k := range keys {
-		*s = append(*s, path+"."+k)
-	}
+	return strings.Join(quoted, ".")
+}
+
+func (p tomlPath) note(key string) string {
+	return strings.Join(p.child(key), ".")
 }
 
 // writeTOMLTable renders a map as a TOML table. Scalar values lead,
 // followed by nested maps as child tables and arrays of maps as
 // `[[path.key]]` tables, so each emitted document is valid and
-// deterministic. path is already TOML-quoted.
-func writeTOMLTable(sb *strings.Builder, skips *tomlSkips, path string, values map[string]any) {
-	sb.WriteString("\n[" + path + "]\n")
+// deterministic.
+func writeTOMLTable(sb *strings.Builder, skips *tomlSkips, path tomlPath, values map[string]any) {
+	sb.WriteString("\n[" + path.toml() + "]\n")
 	var scalarKeys, tableKeys, arrayKeys []string
 	for key, value := range values {
 		_, isMap := value.(map[string]any)
@@ -147,12 +158,12 @@ func writeTOMLTable(sb *strings.Builder, skips *tomlSkips, path string, values m
 		writeTOMLAny(sb, skips, path, key, values[key])
 	}
 	for _, key := range tableKeys {
-		writeTOMLTable(sb, skips, path+"."+emit.TOMLKey(key), values[key].(map[string]any))
+		writeTOMLTable(sb, skips, path.child(key), values[key].(map[string]any))
 	}
 	for _, key := range arrayKeys {
+		itemPath := path.child(key)
 		for _, item := range values[key].([]any) {
-			itemPath := path + "." + emit.TOMLKey(key)
-			sb.WriteString("\n[[" + itemPath + "]]\n")
+			sb.WriteString("\n[[" + itemPath.toml() + "]]\n")
 			inner := item.(map[string]any)
 			for _, ik := range slices.Sorted(maps.Keys(inner)) {
 				writeTOMLAny(sb, skips, itemPath, ik, inner[ik])
@@ -225,25 +236,25 @@ func writeXCodexExtras(sb *strings.Builder, skips *tomlSkips, raw map[string]any
 	slices.Sort(inlineKeys)
 	slices.Sort(tableKeys)
 	for _, k := range inlineKeys {
-		writeTOMLAny(sb, skips, "", k, x[k])
+		writeTOMLAny(sb, skips, nil, k, x[k])
 	}
 	for _, k := range tableKeys {
 		if k == "tools" {
-			writeTOMLTable(sb, skips, emit.TOMLKey(k), x[k].(map[string]any))
+			writeTOMLTable(sb, skips, tomlPath{k}, x[k].(map[string]any))
 			continue
 		}
 		if isNestedTableMap(x[k]) {
-			writeNestedTableMap(sb, skips, emit.TOMLKey(k), x[k].(map[string]any))
+			writeNestedTableMap(sb, skips, tomlPath{k}, x[k].(map[string]any))
 			continue
 		}
-		writeTOMLTable(sb, skips, emit.TOMLKey(k), x[k].(map[string]any))
+		writeTOMLTable(sb, skips, tomlPath{k}, x[k].(map[string]any))
 	}
 }
 
 // isNestedTableMap reports whether v is a non-empty map[string]any whose
 // values are themselves map[string]any. Such values must emit as
 // `[<key>.<inner>]` tables rather than inline tables so codex-side
-// schemas (`mcp_servers`, `skills.config`) decode correctly.
+// schemas such as `mcp_servers` decode correctly.
 func isNestedTableMap(v any) bool {
 	m, ok := v.(map[string]any)
 	if !ok || len(m) == 0 {
@@ -260,12 +271,12 @@ func isNestedTableMap(v any) bool {
 // writeNestedTableMap renders one `[key.inner]` block per inner key,
 // sorted by name. Each block's fields go through writeTOMLAny so
 // strings, arrays, and inline tables round-trip without inventing new
-// encodings. key is already TOML-quoted.
-func writeNestedTableMap(sb *strings.Builder, skips *tomlSkips, key string, m map[string]any) {
+// encodings.
+func writeNestedTableMap(sb *strings.Builder, skips *tomlSkips, key tomlPath, m map[string]any) {
 	for _, name := range slices.Sorted(maps.Keys(m)) {
 		inner, _ := m[name].(map[string]any)
-		path := key + "." + emit.TOMLKey(name)
-		sb.WriteString("\n[" + path + "]\n")
+		path := key.child(name)
+		sb.WriteString("\n[" + path.toml() + "]\n")
 		for _, ik := range slices.Sorted(maps.Keys(inner)) {
 			writeTOMLAny(sb, skips, path, ik, inner[ik])
 		}
@@ -273,32 +284,26 @@ func writeNestedTableMap(sb *strings.Builder, skips *tomlSkips, key string, m ma
 }
 
 // writeTOMLAny emits `key = <value>` for the shapes commonly used in
-// agent TOML pass-through. A nil value (a YAML null deletion marker) is
-// left out; a value TOML cannot hold, such as a non-finite float, is
-// left out and recorded in skips under its dotted path. Keys that are
-// not bare-safe are quoted.
-func writeTOMLAny(sb *strings.Builder, skips *tomlSkips, path, key string, v any) {
+// agent TOML pass-through. A nil value (a YAML null deletion marker) and
+// a map with nothing to write are left out; a value TOML cannot hold,
+// such as a non-finite float, is left out and recorded in skips under
+// its raw dotted path. Keys that are not bare-safe are quoted.
+func writeTOMLAny(sb *strings.Builder, skips *tomlSkips, path tomlPath, key string, v any) {
 	if v == nil {
 		return
 	}
 	if m, ok := v.(map[string]any); ok {
-		skipped := emit.WriteTOMLInlineTable(sb, emit.TOMLKey(key), m)
-		skips.add(joinPath(path, key), skipped...)
+		for _, skipped := range emit.WriteTOMLInlineTable(sb, emit.TOMLKey(key), m) {
+			*skips = append(*skips, path.child(key).note(skipped))
+		}
 		return
 	}
 	lit, ok := emit.TOMLLiteral(v)
 	if !ok {
-		skips.add(joinPath(path, key))
+		*skips = append(*skips, path.note(key))
 		return
 	}
 	sb.WriteString(emit.TOMLKey(key) + " = " + lit + "\n")
-}
-
-func joinPath(path, key string) string {
-	if path == "" {
-		return key
-	}
-	return path + "." + key
 }
 
 // xCodexString returns meta["x-codex"][key] as a string. Returns ""
