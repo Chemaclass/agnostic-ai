@@ -220,7 +220,11 @@ func TestBuiltinMemory(t *testing.T) {
 			t.Fatal(err)
 		}
 		memoryHookResult := func(target string) string {
-			args := []string{"hook", "run", "memory-session-start", "--target", target, "--format", "json"}
+			name := "memory-session-start"
+			if target == "windsurf" {
+				name = "memory-windsurf-session-start"
+			}
+			args := []string{"hook", "run", name, "--target", target, "--format", "json"}
 			if target == "windsurf" {
 				args = append(args, "--payload", devinPayload)
 			}

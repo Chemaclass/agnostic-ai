@@ -118,7 +118,7 @@ var portableHookTargets = map[string]nativeHookNames{
 		tools:  map[string]string{"shell": "^bash$", "edit": "^(edit|multiedit|write)$", "any": ""},
 	},
 	"windsurf": {
-		events: pickEvents("session-start", "prompt-submit", "before-tool", "stop"),
+		events: pickEvents("prompt-submit", "before-tool", "stop"),
 		tools:  map[string]string{"shell": "^exec$", "edit": "^(edit|write|apply_patch)$", "read": "^read$", "web": "^(webfetch|web_search)$", "any": ""},
 	},
 	"cursor": {
