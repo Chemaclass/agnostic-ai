@@ -61,7 +61,7 @@ Antigravity expands includes before checking its 24,000-byte rule limit. All alw
   - A portable `tools` list is dropped with a sync note. Antigravity has its own names (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...), and an unknown one can hang the subagent. Set `x-antigravity.tools` instead.
   - `model` is a tier (`inherit`, `flash`, `pro`), so any other value is dropped the same way.
   - Other documented keys (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`, `skills`/`plugins`) go under `x-antigravity`.
-- **Skills**: Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --global` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity 2.0.
+- **Skills**: Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --global` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
 - **MCP**: one `mcpServers` object in `.agents/mcp_config.json` ([docs](https://antigravity.google/docs/mcp?tab=ide)).
   - Remote servers use `serverUrl`, not the legacy `url` / `httpUrl` or the `url` form that Claude Code and Cursor share. stdio servers have `command`, `args`, `env`, and `cwd`. Remote ones add `headers`.
   - Both kinds accept `disabled` by that name (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)), unlike Codex and Kilo, which write `enabled: false`.
@@ -78,7 +78,7 @@ Antigravity expands includes before checking its 24,000-byte rule limit. All alw
 - Sync removes the `.agent/rules` and `.agent/skills` files it wrote, unless `outputs.antigravity.rules-dir` / `skills-dir` opts back into the legacy path.
 - Agents used to be flattened into `.agents/rules/agent-<name>.md`, which the subagent loader does not read. Sync removes the copy it wrote for every current agent.
 - Sync removes a flat agent profile it wrote when no enabled tool still writes it. With Goose or OpenHands enabled, it stays as their output.
-- The IDE still loads `~/.gemini/antigravity/skills/`, which older versions wrote, but Antigravity 2.0 does not. Move those skills or re-run `sync --global`.
+- The IDE still loads `~/.gemini/antigravity/skills/`, which older versions wrote, but the Antigravity app does not. Move those skills or re-run `sync --global`.
 {% </details> %}
 
 ## Config keys

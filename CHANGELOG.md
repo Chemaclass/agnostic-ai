@@ -68,6 +68,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- Use the current Antigravity app name and explain that OpenCode V2 no longer reads the Claude instructions fallback (#2159).
 - The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
 - Clarify setup, daily use, tool support and contributor guides; include every user guide in full plain-text docs for coding agents (#2083).
 
