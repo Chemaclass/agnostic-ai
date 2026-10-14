@@ -45,12 +45,12 @@ func TestRunCrush_InterruptsBeforeKillingOnTimeout(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "hooks"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	script := "#!/bin/sh\ntrap 'exit 2' INT\nwhile :; do sleep 0.05; done\n"
+	script := "#!/bin/sh\ntrap 'printf \"interrupted\\n\"; exit 2' INT\nprintf 'ready\\n'\nwhile :; do :; done\n"
 	if err := os.WriteFile(filepath.Join(dir, "hooks", "slow.sh"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	r := RunCrush("hooks/slow.sh", dir, os.Environ(), nil, time.Second, runtime.GOOS)
-	if r.TimedOut || r.Exit != 2 || DecideHandler("crush", "PreToolUse", Handler{}, r) != Block {
+	if r.TimedOut || r.Exit != 2 || DecideHandler("crush", "PreToolUse", Handler{}, r) != Block || r.Stdout != "ready\ninterrupted\n" {
 		t.Errorf("result = %+v", r)
 	}
 }
