@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"os"
 	"path/filepath"
 	"strings"
