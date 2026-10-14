@@ -64,8 +64,9 @@ type Entry struct {
 	// Layer names the source layer this entry came from
 	// ("pack:<name>", "project", "project-user"). Empty when loaded
 	// outside the layered loader (legacy path).
-	Layer string
-	Meta  map[string]any
+	Layer     string
+	bodyLayer string
+	Meta      map[string]any
 	// MetaKeys preserves the order in which keys appeared in the source
 	// frontmatter (or pure YAML for hooks/MCPs). Adapters pass this to
 	// emit.DocumentOrdered / emit.FrontmatterOrdered so a round-trip
@@ -118,6 +119,13 @@ type Entry struct {
 type AssetFile struct {
 	Rel  string
 	Mode fs.FileMode
+}
+
+func (e Entry) BodySourceLayer() string {
+	if e.bodyLayer != "" {
+		return e.bodyLayer
+	}
+	return e.Layer
 }
 
 // SkillAssetDir returns the folder whose sibling files ship with a skill,
@@ -812,6 +820,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 		}
 		for i := range entries {
 			entries[i].Layer = layer.Name
+			entries[i].bodyLayer = layer.Name
 		}
 		*l.into = entries
 	}

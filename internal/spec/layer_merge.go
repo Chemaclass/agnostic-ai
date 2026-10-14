@@ -29,6 +29,7 @@ func extendEntry(base, over Entry) Entry {
 	switch {
 	case strings.TrimSpace(over.Body) == "":
 		out.Body = base.Body
+		out.bodyLayer = base.BodySourceLayer()
 	default:
 		out.Body = expandParent(over.Body, base.Body)
 	}

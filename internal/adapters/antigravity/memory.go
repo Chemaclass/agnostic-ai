@@ -14,7 +14,7 @@ import (
 func nativeMemoryRules(rules []spec.Entry, cfg *config.Config, dir string) ([]spec.Entry, error) {
 	out := slices.Clone(rules)
 	for i, entry := range out {
-		if entry.Layer != "builtin" || entry.Name != "antigravity-memory-index" {
+		if entry.BodySourceLayer() != "builtin" || entry.Name != "antigravity-memory-index" {
 			continue
 		}
 		if cfg.RepoPersonalMemory() {
