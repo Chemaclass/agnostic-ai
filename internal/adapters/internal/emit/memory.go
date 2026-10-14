@@ -412,7 +412,7 @@ func PersonalMemoryGrantable(target, dir, consequence string) bool {
 	if unsafe == "" || !strings.ContainsAny(dir, unsafe) {
 		return true
 	}
-	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains pattern characters (%s), so sync leaves it out of the config; %s. Move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir), unsafe, consequence))
+	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains pattern characters (%s), so sync writes no write grant for it; %s. Move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir), unsafe, consequence))
 	return false
 }
 
