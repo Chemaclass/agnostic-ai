@@ -92,7 +92,7 @@ func TestHookRun_ClineVSCodeCanonicalizesNativeEvent(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: ' taskstart '\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: taskstart\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
 	syncProject(t)
 	out, err := runHookRun(t, "memory", "--target", "cline", "--runtime", "vscode", "--format", "json")
 	if err != nil {

@@ -1,6 +1,7 @@
 package cline
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -53,5 +55,64 @@ func TestGlobalHooks_ExcludeVSCodeOnlyMemoryHook(t *testing.T) {
 	files := GlobalHookFiles(hooks, "/cline-global/hook-scripts")
 	if len(files) != 1 || files[0].Path != "PreToolUse" {
 		t.Fatalf("VS Code-only memory hook must not reach SDK global hooks: %+v", files)
+	}
+}
+
+func nativeBuiltinClineMemoryHook(t *testing.T) spec.Entry {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("LocalAppData", filepath.Join(home, "cache"))
+	root, cleanup, err := builtins.Materialize("memory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Error(err)
+		}
+	})
+	bundle, err := spec.LoadLayered([]spec.Layer{{Name: "builtin", Root: root, Sources: config.Sources{Hooks: "hooks"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, hook := range bundle.Hooks {
+		if hook.Name != "memory-cline-task-start" {
+			continue
+		}
+		hook.Meta = maps.Clone(hook.Meta)
+		// Isolate native metadata resolution from the unsupported portable event.
+		delete(hook.Meta, "on")
+		hook.Meta["event"] = "TaskStart"
+		return emit.TargetHook("cline", hook)
+	}
+	t.Fatal("memory builtin lacks its Cline hook")
+	return spec.Entry{}
+}
+
+func TestGlobalHooks_ActualBuiltinVSCodeMarkerOmitsSDKOutput(t *testing.T) {
+	hook := nativeBuiltinClineMemoryHook(t)
+	if files := GlobalHookFiles([]spec.Entry{hook}, "/cline-global/hook-scripts"); len(files) != 0 {
+		t.Fatalf("actual builtin VS Code marker must omit global SDK hooks: %+v", files)
+	}
+}
+
+func TestRenderWindowsHooks_ActualBuiltinReadsNativeOverride(t *testing.T) {
+	hook := nativeBuiltinClineMemoryHook(t)
+	override, ok := hook.Meta["x-cline"].(map[string]any)
+	if !ok {
+		t.Fatal("builtin lacks native Cline override")
+	}
+	override = maps.Clone(override)
+	override["commandWindows"] = "Write-Output native-windows-command"
+	hook.Meta["x-cline"] = override
+	hook = emit.TargetHook("cline", hook)
+	files := renderWindowsHookFiles([]spec.Entry{hook})
+	if len(files) != 1 || files[0].Path != "TaskStart.ps1" {
+		t.Fatalf("actual builtin must render one native Windows companion: %+v", files)
+	}
+	if !strings.Contains(string(files[0].Body), "Write-Output native-windows-command") || strings.Contains(string(files[0].Body), "hook memory --target cline") {
+		t.Errorf("Windows native override must win: %s", files[0].Body)
 	}
 }
