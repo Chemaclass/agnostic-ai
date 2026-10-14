@@ -55,6 +55,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Windsurf / Devin
 
+- Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).
 - Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
 
 ### Site

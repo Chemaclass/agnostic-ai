@@ -163,6 +163,30 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	}
 
+	t.Run("devin-native-memory-hook-adds-context", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			return
+		}
+		dir := project(t, []byte("version: 1\ntargets: [windsurf]\nbuiltins: [memory]\n"))
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		run(t, dir, "sync", "--gitignore=off")
+		store := filepath.Join(dir, ".agnostic-ai", "memory")
+		if err := os.MkdirAll(store, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(store, "MEMORY.md"), []byte("- [Native recall](recall.md): the project uses native startup context\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		payload := filepath.Join(t.TempDir(), "session-start.json")
+		if err := os.WriteFile(payload, []byte(`{"hook_event_name":"SessionStart","session_id":"native-memory-fixture"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		out := run(t, dir, "hook", "run", "memory-windsurf-session-start", "--target", "windsurf", "--payload", payload, "--format", "json")
+		if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, "native startup context") {
+			t.Errorf("native memory hook did not add the project index: %s", out)
+		}
+	})
+
 	clineSDKPayload := func(t *testing.T, dir string) string {
 		t.Helper()
 		path := filepath.Join(dir, "cline-sdk-task-start.json")
@@ -356,7 +380,7 @@ func TestBuiltinMemory(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".augment/settings.json", ".augment/hooks/memory-augment-session-start.sh", ".clinerules/hooks/TaskStart"}
+		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".augment/settings.json", ".augment/hooks/memory-augment-session-start.sh", ".clinerules/hooks/TaskStart", ".devin/hooks.v1.json"}
 		output := map[string]string{}
 		for _, path := range paths {
 			data, err := os.ReadFile(filepath.Join(dir, path))
@@ -380,9 +404,24 @@ func TestBuiltinMemory(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "augment"}
+		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "augment", "windsurf"}
+		devinPayload := filepath.Join(t.TempDir(), "session-start.json")
+		if err := os.WriteFile(devinPayload, []byte(`{"hook_event_name":"SessionStart","session_id":"memory-fixture"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		memoryHookResult := func(target string) string {
+			name := "memory-session-start"
+			if target == "windsurf" {
+				name = "memory-windsurf-session-start"
+			}
+			args := []string{"hook", "run", name, "--target", target, "--format", "json"}
+			if target == "windsurf" {
+				args = append(args, "--payload", devinPayload)
+			}
+			return run(t, dir, args...)
+		}
 		for _, target := range targets {
-			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
+			if out := memoryHookResult(target); !strings.Contains(out, `"adds_context": false`) {
 				t.Errorf("%s: an empty store adds context:\n%s", target, out)
 			}
 		}
@@ -394,7 +433,7 @@ func TestBuiltinMemory(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, target := range targets {
-			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
+			if out := memoryHookResult(target); !strings.Contains(out, `"adds_context": true`) {
 				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
 			}
 		}
@@ -419,7 +458,7 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 		t.Setenv("PATH", filepath.Dir(sh))
 		for _, target := range targets {
-			out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json")
+			out := memoryHookResult(target)
 			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}

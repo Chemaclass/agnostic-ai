@@ -1,0 +1,14 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "sh -c 'root=\"${DEVIN_PROJECT_DIR:-$PWD}\"; root=\"$(cd \"$root\" \u0026\u0026 pwd)\" || exit 1; dir=\"$root\"; while :; do if [ -f \"$dir/agnostic-ai.yaml\" ] || [ -f \"$dir/agnostic.config.yaml\" ]; then root=\"$dir\"; break; fi; parent=\"$(dirname \"$dir\")\"; if [ \"$parent\" = \"$dir\" ]; then root=\"$(git -C \"$root\" rev-parse --show-toplevel 2\u003e/dev/null)\" || exit 0; break; fi; dir=\"$parent\"; done; bin=agnostic-ai; if [ -x \"$root/node_modules/.bin/agnostic-ai\" ]; then bin=\"$root/node_modules/.bin/agnostic-ai\"; else command -v \"$bin\" \u003e/dev/null 2\u003e\u00261 || exit 0; fi; AGNOSTIC_AI_NO_UPDATE_CHECK=1 \"$bin\" project --help \u003e/dev/null 2\u003e\u00261 || { echo \"agnostic-ai: upgrade the selected package to a release supporting project; update its declared version and requires explicitly\" \u003e\u00262; exit 1; }; cd \"$root\" || exit 1; exec \"$bin\" project -- hook memory --target windsurf'",
+          "timeout": 10
+        }
+      ]
+    }
+  ]
+}

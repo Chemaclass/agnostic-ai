@@ -225,4 +225,7 @@
 # #2106 Cline with Augment and Antigravity measured 19562656, up 49152
 # from main cb4df9bc (19513504), using Go1.27.2 Linux amd64 release flags.
 # CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2106 Devin combined memory measured 19562656, up 49152
+# from main cb4df9bc (19513504), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
 19571000

@@ -214,7 +214,7 @@ func projectMemoryReaders(cfg *config.Config, bundle spec.Bundle) memoryReaders 
 	r.cfg = cfg
 	for _, target := range cfg.Targets {
 		if slices.ContainsFunc(bundle.HooksFor(target), func(e spec.Entry) bool {
-			return e.Name == memoryHookName || target == "cline" && e.Name == "memory-cline-task-start"
+			return e.Name == memoryHookName || target == "cline" && e.Name == "memory-cline-task-start" || target == "windsurf" && e.Name == "memory-windsurf-session-start"
 		}) {
 			r.hook = append(r.hook, target)
 		} else {
