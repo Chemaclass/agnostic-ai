@@ -100,8 +100,8 @@ func TestAgentTOML_UnusualValuesKeepSiblingSwitches(t *testing.T) {
 	if levels, _ := features["levels"].([]any); len(levels) != 2 {
 		t.Errorf("integer array lost: %#v", features["levels"])
 	}
-	if _, ok := features["since"].(time.Time); !ok {
-		t.Errorf("datetime lost: %#v", features["since"])
+	if _, ok := features["since"]; ok {
+		t.Errorf("a datetime is timezone-dependent and must be skipped: %s", body)
 	}
 }
 
@@ -199,5 +199,34 @@ func TestAgentTOML_SkipPathsUseRawKeys(t *testing.T) {
 	_, skips := agentTOMLWithSkips(entry)
 	if got := strings.Join(skips, ","); got != "features.my key,skills.my sub.x,skills.config.bad" {
 		t.Errorf("skips = %q", got)
+	}
+}
+
+func TestAgentTOML_DatetimesAreReported(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindAgent, Name: "limited", Meta: map[string]any{"x-codex": map[string]any{
+		"features": map[string]any{"shell_tool": false, "since": time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+	}}}
+	body, skips := agentTOMLWithSkips(entry)
+	if !strings.Contains(body, "shell_tool = false") || strings.Contains(body, "since") {
+		t.Errorf("unexpected body: %s", body)
+	}
+	if got := strings.Join(skips, ","); got != "features.since" {
+		t.Errorf("skips = %q, want features.since", got)
+	}
+}
+
+func TestAgentTOML_BadLeafInNestedMapDropsOnlyThatLeaf(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindAgent, Name: "limited", Meta: map[string]any{"x-codex": map[string]any{
+		"skills": map[string]any{"config": []any{map[string]any{
+			"path":  "a",
+			"extra": map[string]any{"p": map[string]any{"q": 1, "r": math.NaN()}},
+		}}},
+	}}}
+	body, skips := agentTOMLWithSkips(entry)
+	if !strings.Contains(body, "extra = { p = { q = 1 } }") {
+		t.Errorf("sibling leaf q lost: %s", body)
+	}
+	if got := strings.Join(skips, ","); got != "skills.config.extra.p.r" {
+		t.Errorf("skips = %q, want skills.config.extra.p.r", got)
 	}
 }

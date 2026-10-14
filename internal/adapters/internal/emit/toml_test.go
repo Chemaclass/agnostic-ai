@@ -153,7 +153,7 @@ func TestTOMLLiteral_Shapes(t *testing.T) {
 		"inf":         {math.Inf(-1), "", false},
 		"control":     {"a\tb\nc\x01", `"a\tb\nc\u0001"`, true},
 		"nested":      {map[string]any{"a": map[string]any{"b": true}}, "{ a = { b = true } }", true},
-		"date":        {time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), "2026-01-02T03:04:05Z", true},
+		"date":        {time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), "", false},
 		"channel":     {make(chan int), "", false},
 	}
 	for name, c := range cases {
@@ -173,10 +173,10 @@ func TestTOMLKey(t *testing.T) {
 	}
 }
 
-func TestWriteTOMLValue_FloatsStayFloats(t *testing.T) {
+func TestWriteTOMLValue_FloatsKeepLegacyBytes(t *testing.T) {
 	t.Parallel()
 	var sb strings.Builder
-	if !WriteTOMLValue(&sb, "k", 2.0) || sb.String() != "k = 2.0\n" {
+	if !WriteTOMLValue(&sb, "k", 2.0) || sb.String() != "k = 2\n" {
 		t.Errorf("got %q", sb.String())
 	}
 	sb.Reset()

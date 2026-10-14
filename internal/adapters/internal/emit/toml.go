@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // WriteTOMLString writes `key = "value"` with backslashes and double
@@ -92,10 +91,16 @@ func inlineTable(m map[string]any) (string, []string) {
 		if m[k] == nil {
 			continue
 		}
-		lit, ok := TOMLLiteral(m[k])
+		lit, inner, ok := literal(m[k])
 		if !ok {
 			skipped = append(skipped, k)
 			continue
+		}
+		for _, p := range inner {
+			skipped = append(skipped, k+"."+p)
+		}
+		if lit == "{}" && len(inner) > 0 {
+			continue // every leaf of this nested table was dropped
 		}
 		parts = append(parts, TOMLKey(k)+" = "+lit)
 	}
@@ -106,57 +111,66 @@ func inlineTable(m map[string]any) (string, []string) {
 }
 
 // TOMLLiteral renders v as a single-line TOML value: strings, bools,
-// integers, finite floats (a whole float keeps its `.0`), time.Time,
-// string and mixed arrays, and nested maps as inline tables. It returns
-// false for anything else, including NaN and infinities, which TOML
-// spells differently from Go.
+// integers, finite floats (a whole float keeps its `.0`), string and
+// mixed arrays, and nested maps as inline tables. It returns false for
+// anything else, including NaN, infinities, and dates (whose offset
+// would depend on the machine's timezone), and for a map or array that
+// holds such a value.
 func TOMLLiteral(v any) (string, bool) {
+	lit, skipped, ok := literal(v)
+	return lit, ok && len(skipped) == 0
+}
+
+// literal is TOMLLiteral that keeps going inside maps: a map drops only
+// its unencodable leaves and lists their dotted paths in skipped. An
+// array cannot drop an element without shifting the rest, so an array
+// with an unencodable element is unencodable as a whole (ok false).
+func literal(v any) (lit string, skipped []string, ok bool) {
 	switch t := v.(type) {
 	case string:
-		return `"` + EscapeTOMLSingleLine(t) + `"`, true
+		return `"` + EscapeTOMLSingleLine(t) + `"`, nil, true
 	case bool:
-		return strconv.FormatBool(t), true
+		return strconv.FormatBool(t), nil, true
 	case int:
-		return strconv.Itoa(t), true
+		return strconv.Itoa(t), nil, true
 	case int64:
-		return strconv.FormatInt(t, 10), true
+		return strconv.FormatInt(t, 10), nil, true
 	case uint64:
 		if t > math.MaxInt64 {
-			return "", false
+			return "", nil, false
 		}
-		return strconv.FormatUint(t, 10), true
+		return strconv.FormatUint(t, 10), nil, true
 	case float64:
-		return tomlFloat(t)
-	case time.Time:
-		return t.Format(time.RFC3339Nano), true
+		lit, ok := tomlFloat(t)
+		return lit, nil, ok
 	case []string:
 		items := make([]string, len(t))
 		for i, s := range t {
 			items[i] = `"` + EscapeTOMLSingleLine(s) + `"`
 		}
-		return "[" + strings.Join(items, ", ") + "]", true
+		return "[" + strings.Join(items, ", ") + "]", nil, true
 	case []any:
 		items := make([]string, len(t))
 		for i, x := range t {
-			lit, ok := TOMLLiteral(x)
-			if !ok {
-				return "", false
+			lit, inner, ok := literal(x)
+			if !ok || len(inner) > 0 {
+				return "", nil, false
 			}
 			items[i] = lit
 		}
-		return "[" + strings.Join(items, ", ") + "]", true
+		return "[" + strings.Join(items, ", ") + "]", nil, true
 	case map[string]string:
 		m := make(map[string]any, len(t))
 		for k, s := range t {
 			m[k] = s
 		}
 		lit, _ := inlineTable(m)
-		return lit, true
+		return lit, nil, true
 	case map[string]any:
 		lit, skipped := inlineTable(t)
-		return lit, len(skipped) == 0
+		return lit, skipped, true
 	}
-	return "", false
+	return "", nil, false
 }
 
 func tomlFloat(f float64) (string, bool) {
@@ -197,7 +211,14 @@ func TOMLKey(s string) string {
 // emits malformed TOML.
 func WriteTOMLValue(sb *strings.Builder, key string, v any) bool {
 	switch t := v.(type) {
-	case string, bool, int, int64, float64, []string:
+	case string, bool, int, int64, []string:
+	case float64:
+		if math.IsNaN(t) || math.IsInf(t, 0) {
+			return false
+		}
+		// Whole floats keep the bare-integer bytes config.toml has always had.
+		sb.WriteString(TOMLKey(key) + " = " + strconv.FormatFloat(t, 'f', -1, 64) + "\n")
+		return true
 	case []any:
 		if len(StringSlice(t)) != len(t) {
 			return false // a non-string element: skip the whole array
