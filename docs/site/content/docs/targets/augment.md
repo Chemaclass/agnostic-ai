@@ -70,6 +70,12 @@ Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported event
 - `matcher` is optional on `PreToolUse` and `PostToolUse` (vendor default `.*`) and left out on the session events.
 - Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a sync note.
 
+### Shared memory
+
+With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on Unix. The script finds the project from its working directory and returns both memory indexes through `hookSpecificOutput.additionalContext`. The same script is installed for `sync --global`.
+
+Windows and the IDE keep the memory rule as their fallback. See [shared memory](@/docs/memory.md#load-at-session-start) for the context limit and how to keep the tool's own memory.
+
 ### Permissions
 
 Settings specs merge into the same file under `toolPermissions`, which Auggie CLI and Cosmos cloud agents follow. Augment recommends committing `.augment/settings.json` so the policy applies to every cloud agent in the repo ([permissions docs](https://docs.augmentcode.com/cli/permissions)).

@@ -155,6 +155,10 @@ func NeutralHookScripts(command, target, sourceDir, outputDir string, literal ..
 	return emit.NeutralHookScripts(command, target, sourceDir, outputDir, literal...)
 }
 
+func NeutralHookScriptsFor(hook spec.Entry, command, target, sourceDir, outputDir string, literal ...bool) ([]HookScript, error) {
+	return emit.NeutralHookScriptsFor(hook, command, target, sourceDir, outputDir, literal...)
+}
+
 func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {
 	return emit.RewriteGlobalHookRoot(command, target, metadata...)
 }
