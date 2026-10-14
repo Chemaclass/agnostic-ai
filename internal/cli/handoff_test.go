@@ -48,7 +48,7 @@ func TestHandoffList_JoinsLiveAndRemovedWorktreesWithoutDuplicatingSnapshots(t *
 	if err != nil {
 		t.Fatalf("handoff list: %v %s", err, out)
 	}
-	for _, value := range []string{"feat/a", "feat/b", a, "removed", head[:7], "dirty", "blocked", "ready", "#17", "2026-10-13T09:00Z"} {
+	for _, value := range []string{"feat/a", "feat/b", canonicalDir(a), "removed", head[:7], "dirty", "blocked", "ready", "#17", "2026-10-13T09:00Z"} {
 		if !strings.Contains(out, value) {
 			t.Errorf("missing %q: %s", value, out)
 		}
@@ -199,7 +199,7 @@ func TestHandoffList_BareMainUsesCurrentCheckoutStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "feat/bare") || !strings.Contains(out, linked) {
+	if !strings.Contains(out, "feat/bare") || !strings.Contains(out, canonicalDir(linked)) {
 		t.Errorf("bare fallback missing: %s", out)
 	}
 }
@@ -302,7 +302,7 @@ func TestHandoffList_JoinsLegacyDetachedSnapshotWithLiveWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, a) || strings.Contains(out, "removed") || !strings.Contains(out, "clean") {
+	if !strings.Contains(out, canonicalDir(a)) || strings.Contains(out, "removed") || !strings.Contains(out, "clean") {
 		t.Errorf("live detached snapshot treated as removed: %s", out)
 	}
 	main := git(t, a, "rev-parse", "--path-format=absolute", "--git-common-dir")
@@ -317,7 +317,7 @@ func TestHandoffList_JoinsLegacyDetachedSnapshotWithLiveWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, a) || !strings.Contains(out, named) || !strings.Contains(out, "detached-"+head) {
+	if !strings.Contains(out, canonicalDir(a)) || !strings.Contains(out, canonicalDir(named)) || !strings.Contains(out, "detached-"+head) {
 		t.Errorf("named and detached tasks conflated: %s", out)
 	}
 }
@@ -367,7 +367,7 @@ func TestHandoffList_PreservesPipesInBranchesAndWorktreeHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "feat|bar") || !strings.Contains(out, linked) || strings.Contains(out, "removed") {
+	if !strings.Contains(out, "feat|bar") || !strings.Contains(out, canonicalDir(linked)) || strings.Contains(out, "removed") {
 		t.Errorf("pipe branch failed live join: %s", out)
 	}
 	git(t, linked, "checkout", "--detach", "-q", "HEAD")
@@ -420,7 +420,7 @@ func TestHandoffList_PreservesMetadataLabelsInsideWorktreePaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "path-labels") || !strings.Contains(out, linked) || !strings.Contains(out, "blocked") || !strings.Contains(out, "#73") || strings.Contains(out, "removed") {
+	if !strings.Contains(out, "path-labels") || !strings.Contains(out, canonicalDir(linked)) || !strings.Contains(out, "blocked") || !strings.Contains(out, "#73") || strings.Contains(out, "removed") {
 		t.Errorf("path metadata text changed task identity or path: %s", out)
 	}
 	git(t, linked, "checkout", "--detach", "-q", "HEAD")
@@ -455,7 +455,7 @@ func TestHandoffList_FinalFalseMarkerPreservesLiteralDetachedPath(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, linked) || strings.Contains(out, "detached-"+head) || strings.Contains(out, "removed") || strings.Contains(out, " | detached: false") {
+	if !strings.Contains(out, canonicalDir(linked)) || strings.Contains(out, "detached-"+head) || strings.Contains(out, "removed") || strings.Contains(out, " | detached: false") {
 		t.Errorf("final false marker lost named branch or literal path: %s", out)
 	}
 	git(t, linked, "checkout", "--detach", "-q", "HEAD")
@@ -465,5 +465,26 @@ func TestHandoffList_FinalFalseMarkerPreservesLiteralDetachedPath(t *testing.T) 
 	}
 	if strings.Contains(out, "detached-"+head) || !strings.Contains(out, "removed") {
 		t.Errorf("explicit false marker became a detached snapshot after checkout reuse: %s", out)
+	}
+}
+
+func TestHandoffList_CanonicalizesLiveWorktreeAliases(t *testing.T) {
+	main, active, _ := handoffListProject(t)
+	alias := filepath.Join(t.TempDir(), "checkout-alias")
+	if err := os.Symlink(active, alias); err != nil {
+		t.Skipf("directory symlinks unavailable: %v", err)
+	}
+	path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-a.md")
+	writeListHandoff(t, path, "feat/a", alias, git(t, active, "rev-parse", "HEAD"), "blocked", "#17")
+	testutil.Chdir(t, alias)
+	out, err := runRoot(t, "handoff", "list")
+	if err != nil {
+		t.Fatalf("handoff list from alias: %v %s", err, out)
+	}
+	if !strings.Contains(out, "feat/a") || !strings.Contains(out, canonicalDir(active)) || !strings.Contains(out, "blocked") || !strings.Contains(out, "#17") {
+		t.Errorf("canonical worktree metadata missing: %s", out)
+	}
+	if strings.Contains(out, alias) || strings.Contains(out, "removed") {
+		t.Errorf("alias was not joined to the live worktree: %s", out)
 	}
 }
