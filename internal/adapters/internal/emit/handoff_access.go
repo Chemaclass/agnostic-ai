@@ -230,6 +230,48 @@ func priorOwnedHandoffRoot(path, target string, data []byte, unreadable bool, su
 		}
 		return false
 	}
+	if target == "opencode" {
+		entries := PriorClaimedEntries(path, []string{"permission", "external_directory"})
+		if unreadable {
+			return len(entries) > 0
+		}
+		data, _ = StripJSONC(data)
+		var doc struct {
+			Permission struct {
+				ExternalDirectory map[string]string `json:"external_directory"`
+			} `json:"permission"`
+		}
+		if json.Unmarshal(data, &doc) != nil {
+			return false
+		}
+		for _, pattern := range entries {
+			if strings.HasSuffix(pattern, "/.agnostic-ai/local/handoffs/**") && doc.Permission.ExternalDirectory[pattern] == "allow" {
+				return true
+			}
+		}
+		return false
+	}
+	if target == "windsurf" {
+		items := PriorClaimedItems(path, []string{"permissions", "allow"})
+		if unreadable {
+			return len(items) > 0
+		}
+		data, _ = StripJSONC(data)
+		var doc struct {
+			Permissions struct {
+				Allow []string `json:"allow"`
+			} `json:"permissions"`
+		}
+		if json.Unmarshal(data, &doc) != nil {
+			return false
+		}
+		for _, rule := range doc.Permissions.Allow {
+			if strings.HasPrefix(rule, "Write(") && strings.HasSuffix(rule, "/.agnostic-ai/local/handoffs/**)") && slices.Contains(items, ContentSum(canonicalJSON(rule))) {
+				return true
+			}
+		}
+		return false
+	}
 	items := PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})
 	if len(items) == 0 {
 		return false

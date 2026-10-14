@@ -49,7 +49,7 @@ The project root is the nearest folder with `agnostic-ai.yaml`, or the Git repos
 
 ## Write from a linked worktree
 
-With `handoff` or `handoff-hook` enabled, sync adds the main checkout's ignored handoff store to the generated Codex, Qoder, and Claude Code write directories. Codex uses `sandbox_workspace_write.writable_roots`; Qoder and Claude Code use `permissions.additionalDirectories`. Claude Code keeps this setting in `settings.local.json`, separate from its memory setting.
+With `handoff` or `handoff-hook` enabled, sync adds the main checkout's ignored handoff store to the generated Codex, Qoder, Claude Code, OpenCode, and Devin CLI write permissions. Codex uses `sandbox_workspace_write.writable_roots`; Qoder and Claude Code use `permissions.additionalDirectories`. Claude Code keeps this setting in `settings.local.json`, separate from its memory setting. OpenCode adds `"<store>/**": "allow"` to `permission.external_directory`; Devin CLI adds `Write(<store>/**)` to `permissions.allow`. Existing tool restrictions still apply.
 
 The absolute path stays in ignored native configuration. Sync preserves tracked, hand-written, and unmanaged configuration and reports the directory to add by hand. An explicit Codex sandbox table in an imported overlay also keeps its entries. If the main store is not ignored, is tracked, has a symlink, or cannot be opened or created, sync grants no shared access and the handoff skill uses its safe checkout fallback. Dry runs and checks create no store.
 

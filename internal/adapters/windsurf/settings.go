@@ -33,13 +33,10 @@ const rulesUntranslatedReason = "rule(s) outside Devin's Read/Write/Exec/Fetch/m
 // a sync: `read_config_from` and `hooks`, the only other keys Devin
 // accepts in a project config, plus any sibling inside `permissions`
 // itself that a newer CLI writes there. Only `permissions` is ever set.
-//
-// With `memory.personal: repo`, the allow list also takes a Write rule
-// for the personal memory store (mergeMemoryAllow).
-//
-// No file is written when no rule translated, so a project with only a
-// portable `model` never gains a `.devin/config.json` at all.
 func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, path string, dryRun bool) error {
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "model", specsWithModel(settings), modelUserOnlyReason)
 	permissions, dropped := devinPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, permissionsKey, dropped, rulesUntranslatedReason)
@@ -58,6 +55,13 @@ func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, p
 	memory, err := memoryWriteRules(sess, cfg, path, dryRun)
 	if err != nil {
 		return err
+	}
+	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.allow", dryRun)
+	if err != nil {
+		return err
+	}
+	if handoff != "" {
+		memory = append(memory, "Write("+handoff+"/**)")
 	}
 	mergeMemoryAllow(sess, keys, path, memory, dryRun)
 	if len(keys) == 0 {

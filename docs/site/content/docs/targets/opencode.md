@@ -120,6 +120,8 @@ With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) inde
 
 With `memory.personal: repo`, sync also adds `"<folder>/**": "allow"` to `permission.external_directory`, so OpenCode saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own entries stay in the order you wrote them, and the folder entry goes last, since OpenCode applies the last rule that matches. A bare action you set there, such as `"deny"`, becomes the `"*"` entry. A bare `"permission": "deny"` becomes `{"*": "deny"}`, which means the same and stays after repo mode ends.
 
+With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree) under `permission.external_directory`. Existing memory and user permission rules stay. Tracked, hand-written, and unmanaged configuration stays unchanged; sync reports the permission to add by hand.
+
 ## Import
 
 `agnostic-ai import opencode` reads:

@@ -176,6 +176,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	memory, err := emit.MemoryIndexPaths(cfg, path, target)
 	if err != nil {
 		return err
@@ -183,6 +186,13 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
 	if err != nil {
 		return err
+	}
+	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "permission.external_directory", dryRun)
+	if err != nil {
+		return err
+	}
+	if handoff != "" {
+		directories = append(directories, handoff+"/**")
 	}
 	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, path, dryRun)
 }
@@ -219,7 +229,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 	// The block is read twice, once to decide whether the file is
 	// written at all and once to merge it in.
 	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
-	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && emit.SettingsModel(settings, target) == "" {
+	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && len(directories) == 0 && emit.SettingsModel(settings, target) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
