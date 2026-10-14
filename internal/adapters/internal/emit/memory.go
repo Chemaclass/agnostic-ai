@@ -50,15 +50,21 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if !cfg.RepoPersonalMemory() {
 		return filepath.Join(root, filepath.Dir(filepath.FromSlash(PersonalMemoryIndexPath))), nil
 	}
-	layout, err := gitquery.LayoutAt(root)
-	if err != nil {
-		return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
+	common := ""
+	if git, ok := config.ProjectGitFor(root); ok {
+		common = git.CommonDir
+	} else {
+		layout, err := gitquery.LayoutAt(root)
+		if err != nil {
+			return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
+		}
+		common = strings.TrimSpace(layout.CommonDir)
 	}
 	stores, err := repoMemoryStores()
 	if err != nil {
 		return "", fmt.Errorf("memory.personal: repo: %w", err)
 	}
-	return filepath.Join(stores, RepoSlug(strings.TrimSpace(layout.CommonDir))), nil
+	return filepath.Join(stores, RepoSlug(common)), nil
 }
 
 // MainCheckout returns the root of the repository's main checkout and
