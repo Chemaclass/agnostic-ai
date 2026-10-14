@@ -235,4 +235,8 @@
 # (19570848): agent TOML keeps nested booleans, arrays of tables, quoted
 # keys, and names the values it leaves out. Same Linux amd64 release
 # flags; retain the 8 KB allowance.
-19595424
+# #2155 measured 19603616 on Go1.27.2, up 16384 from main 7efb85b9
+# (19587232): OpenCode and Devin write grants for the shared handoff store,
+# with ownership checks for hand-written and tracked config. Same Linux
+# amd64 release flags; retain the 8 KB allowance.
+19611808
