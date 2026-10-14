@@ -19,16 +19,46 @@ const autoMemoryDirectoryKey = "autoMemoryDirectory"
 
 func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
 	path := filepath.Join(dir, "settings.local.json")
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
+	keys := map[string]any{}
+	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.additionalDirectories", dryRun)
+	if err != nil {
+		return err
+	}
 	if sess.IsUnmanaged(path) {
 		return nil
 	}
+	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
+	var planned []any
+	if handoff != "" {
+		planned = emit.WithoutUserItems(path, []string{"permissions", "additionalDirectories"}, existing, []any{handoff})
+	}
+	if handoff != "" || len(emit.PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})) > 0 {
+		merged, claims := emit.MergeOwnedLists(path, []string{"permissions"}, map[string][]any{"additionalDirectories": existing}, map[string][]any{"additionalDirectories": planned})
+		list := merged["additionalDirectories"]
+		value := emit.CarriedJSONValue(list)
+		if len(claims["additionalDirectories"]) > 0 {
+			value = emit.ClaimedJSONItems(list, claims["additionalDirectories"])
+		} else if len(list) == 0 {
+			value = emit.RemoveJSONKey
+		}
+		keys["permissions"] = map[string]any{"additionalDirectories": value}
+	}
+	flush := func() error {
+		if len(keys) == 0 {
+			return nil
+		}
+		return sess.MergeJSONFileNested(path, keys, []string{"permissions"}, dryRun)
+	}
 	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
 		noteDroppedAutoMemory(path)
-		return nil
+		return flush()
 	}
 	owned := emit.ClaimsKey(path, autoMemoryDirectoryKey)
 	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !owned {
-		return nil
+		return flush()
 	}
 	store, err := emit.PersonalMemoryDir(cfg, ".")
 	if err != nil {
@@ -53,7 +83,8 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 			}
 		}
 	}
-	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
+	keys[autoMemoryDirectoryKey] = filepath.ToSlash(store)
+	return flush()
 }
 
 func AutoMemoryLoadsPersonalIndex(cfg *config.Config) (bool, error) {

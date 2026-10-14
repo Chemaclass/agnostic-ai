@@ -132,7 +132,7 @@ func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overla
 // store of personal memory once memory.personal is repo.
 func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
-	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+	if !emit.RepoMemoryFile(cfg, path, nil, target) && !emit.HandoffConfigFile(cfg, path, target) {
 		return nil
 	}
 	return []string{path}
