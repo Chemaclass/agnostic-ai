@@ -203,3 +203,43 @@ func TestHandoffConfigWritable_RejectsNativeParentLinkedToCheckoutRoot(t *testin
 		t.Errorf("writability check changed root settings: %v", err)
 	}
 }
+
+func TestPreserveHandoffConfig_MissingFileInAliasedCheckoutCanBeGenerated(t *testing.T) {
+	root := t.TempDir()
+	alias := filepath.Join(t.TempDir(), "checkout alias")
+	if err := os.Symlink(root, alias); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, alias)
+	t.Setenv("PWD", alias)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cwd != alias {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows Getwd does not use the PWD alias")
+		}
+		t.Fatalf("Getwd = %q, want PWD alias %q", cwd, alias)
+	}
+	oldSum := PriorOutputSum
+	t.Cleanup(func() { PriorOutputSum = oldSum })
+	PriorOutputSum = func(string) string { return ContentSum("owned native config") }
+	path := filepath.Join(".codex", "config.toml")
+	preserved, err := NewSession().PreserveHandoffConfig(&config.Config{}, path, "codex")
+	if err != nil || preserved {
+		t.Errorf("missing config in aliased checkout should regenerate: preserved=%v, err=%v", preserved, err)
+	}
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Errorf("preservation created a native config: %v", err)
+	}
+	gitIn(t, root, "init", "-q")
+	cfg := &config.Config{Builtins: []string{"handoff"}}
+	cfg.Gitignore.Enabled = true
+	if got := NewSession().HandoffConfigWritable(cfg, path, "codex"); !got {
+		t.Error("Git checkout root alias blocked native settings generation")
+	}
+}
