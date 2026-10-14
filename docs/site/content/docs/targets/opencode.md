@@ -70,6 +70,8 @@ opencode.json                             # when MCP entries exist (merged with 
   - `mcp__<server>__<tool>` becomes `<server>_<tool>` (`mcp__github__create_issue` becomes `github_create_issue: deny`), the key OpenCode uses for MCP tools ([agents docs](https://opencode.ai/docs/agents/)). The server name keeps its hyphens.
   - Scoped `WebFetch` or `WebSearch` rules (those keys take a bare action) and denying a whole MCP server (`github_*` has no portable spelling) raise a sync note.
   - `x-opencode.permission` writes OpenCode's own map and replaces the translated rules for that tool.
+  - Sync owns only the tool keys your specs produce. A key you wrote in `permission` that no spec sets, such as `"edit": "ask"`, stays, and a bare `"permission": "ask"` stays as the `"*"` entry. A tool key leaves with its spec while you have not edited it. When a spec starts setting a key you wrote, sync saves the file as `opencode.json.bak` first.
+  - A project synced before this change has one record for the whole `permission` value. If you edit another key in the same sync where a spec drops a tool, that tool stays as yours, since sync kept only a checksum of what it wrote.
   - `import opencode` reads the map back, except namespaced MCP keys, where the server name cannot be told from the tool name.
 
 {% <details summary="Old .opencode/AGENTS.md leftovers"> %}
