@@ -87,6 +87,19 @@ func (r *driftReport) addChanged(f adapters.CapturedFile, disk []byte, sums map[
 	r.Stale = append(r.Stale, f)
 }
 
+// splitMerged separates the files that sync merges into from the ones it
+// writes whole.
+func splitMerged(files []adapters.CapturedFile) (plain, merged []adapters.CapturedFile) {
+	for _, f := range files {
+		if f.Merged {
+			merged = append(merged, f)
+		} else {
+			plain = append(plain, f)
+		}
+	}
+	return plain, merged
+}
+
 // changed returns the files the next sync rewrites: stale, then edited.
 func (r driftReport) changed() []adapters.CapturedFile {
 	return append(append([]adapters.CapturedFile{}, r.Stale...), r.Edited...)
@@ -565,9 +578,16 @@ func printDrift(reports []driftReport) bool {
 				summaryf("      - %s\n", r.label(f.Path))
 			}
 		}
-		if len(r.Edited) > 0 {
-			summaryf("    %d file(s) edited locally since last sync (sync saves each as <path>.bak, then writes the spec version; move the edits into .agnostic-ai/):\n", len(r.Edited))
-			for _, f := range r.Edited {
+		plain, merged := splitMerged(r.Edited)
+		if len(plain) > 0 {
+			summaryf("    %d file(s) edited locally since last sync (sync saves each as <path>.bak, then writes the spec version; move the edits into .agnostic-ai/):\n", len(plain))
+			for _, f := range plain {
+				summaryf("      - %s\n", r.label(f.Path))
+			}
+		}
+		if len(merged) > 0 {
+			summaryf("    %d merged file(s) edited since last sync (sync keeps the keys it did not write and resets the ones it writes, with no .bak; move those edits into .agnostic-ai/):\n", len(merged))
+			for _, f := range merged {
 				summaryf("      - %s\n", r.label(f.Path))
 			}
 		}
