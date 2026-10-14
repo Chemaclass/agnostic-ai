@@ -72,12 +72,32 @@ func (r *syncReport) addWrites(target string, writes []adapters.WrittenFile) {
 			continue
 		}
 		if target != "" {
-			if r.targets == nil {
-				r.targets = map[string]bool{}
-			}
-			r.targets[target] = true
+			r.markTarget(target)
 		}
 	}
+}
+
+func (r *syncReport) markTarget(target string) {
+	if r.targets == nil {
+		r.targets = map[string]bool{}
+	}
+	r.targets[target] = true
+}
+
+// entryWritesRead returns the entry-point writes target reads. Sync writes a
+// shared file such as AGENTS.md once and records it under no target, so each
+// reader claims it here.
+func entryWritesRead(target string, writes []adapters.WrittenFile, files []entryPointFile) []adapters.WrittenFile {
+	var out []adapters.WrittenFile
+	for _, w := range writes {
+		for _, f := range files {
+			if filepath.ToSlash(f.Path) == filepath.ToSlash(w.Path) && slices.Contains(f.Readers, target) {
+				out = append(out, w)
+				break
+			}
+		}
+	}
+	return out
 }
 
 func (r *syncReport) changedPaths() []string {

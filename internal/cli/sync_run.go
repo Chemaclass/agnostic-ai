@@ -706,6 +706,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	var gitignoreEntries []string
 	complete := true
 	var emitted []string
+	var emitRows []emitRow
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
@@ -722,7 +723,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		report.addWrites(e.target, e.writes)
 		if verbose {
 			created, updated, skipped := classifyDetailedWrites(e.writes)
-			verbosef("→ %s: %d created, %d updated, %d unchanged in %dms\n", e.target, created, updated, skipped, e.dur.Milliseconds())
+			emitRows = append(emitRows, emitRow{target: e.target, created: created, updated: updated, skipped: skipped, dur: e.dur})
 		}
 	}
 
@@ -733,7 +734,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		mainSess.StartRecording()
 	}
 	mainSess.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(mainSess, cfg, b, effectiveTargets, dryRun); err != nil {
+	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, dryRun)
+	if err != nil {
 		mainSess.StopDetailedRecording()
 		if gitignoreOn {
 			mainSess.StopRecording()
@@ -747,6 +749,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
+		creditEntryPointReaders(&report, emitRows, effectiveTargets, entryWrites, entryFiles)
+		for _, row := range emitRows {
+			verbosef("→ %s: %d created, %d updated, %d unchanged in %dms\n", row.target, row.created, row.updated, row.skipped, row.dur.Milliseconds())
+		}
 		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
 		if err != nil {
 			return err
@@ -1092,6 +1098,33 @@ func sessionPaths(sessions []*adapters.Session, paths func(*adapters.Session) []
 		}
 	}
 	return sortedKeys(seen)
+}
+
+// emitRow is one target's verbose summary line, held until the entry-point
+// files are written so it can count the ones that target reads.
+type emitRow struct {
+	target                    string
+	created, updated, skipped int
+	dur                       time.Duration
+}
+
+// creditEntryPointReaders counts each entry-point file for every synced
+// target that reads it: in the report's target total, and in that target's
+// verbose row.
+func creditEntryPointReaders(report *syncReport, rows []emitRow, targets []string, writes []adapters.WrittenFile, files []entryPointFile) {
+	for _, target := range targets {
+		created, updated, skipped := classifyDetailedWrites(entryWritesRead(target, writes, files))
+		if created+updated > 0 {
+			report.markTarget(target)
+		}
+		for i := range rows {
+			if rows[i].target == target {
+				rows[i].created += created
+				rows[i].updated += updated
+				rows[i].skipped += skipped
+			}
+		}
+	}
 }
 
 func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, skipped int) {
