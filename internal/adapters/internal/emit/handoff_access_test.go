@@ -137,14 +137,15 @@ func TestPreserveHandoffConfig_MissingFileUnderLinkedParentStaysPrivate(t *testi
 			root := t.TempDir()
 			testutil.Chdir(t, root)
 			destination := t.TempDir()
-			if mode == "inside" {
+			switch mode {
+			case "inside":
 				destination = filepath.Join(root, "private")
 				if err := os.Mkdir(destination, 0o700); err != nil {
 					t.Fatal(err)
 				}
-			} else if mode == "dangling" {
+			case "dangling":
 				destination = filepath.Join(destination, "missing")
-			} else if mode == "checkout root" {
+			case "checkout root":
 				destination = root
 			}
 			if err := os.Symlink(destination, "native"); err != nil {

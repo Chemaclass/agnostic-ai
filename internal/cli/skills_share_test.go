@@ -463,9 +463,10 @@ func TestSharedSkillsReconcile_PreservesNativeFileSymlinks(t *testing.T) {
 				path := filepath.Join(".codex", "config.toml")
 				original := "[sandbox_workspace_write]\nwritable_roots = [\"private-handoffs\"]\n"
 				destination := filepath.Join(t.TempDir(), "native settings")
-				if targetState == "regular file" {
+				switch targetState {
+				case "regular file":
 					mustWriteFile(t, destination, original)
-				} else if targetState == "directory" {
+				case "directory":
 					if err := os.Mkdir(destination, 0o755); err != nil {
 						t.Fatal(err)
 					}

@@ -128,11 +128,12 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if err := os.Remove(path); err != nil {
 							t.Fatal(err)
 						}
-						if mode == "adopted missing symlink config" {
+						switch mode {
+						case "adopted missing symlink config":
 							if err := os.Remove(destination); err != nil {
 								t.Fatal(err)
 							}
-						} else if mode == "adopted directory symlink config" {
+						case "adopted directory symlink config":
 							if err := os.Remove(destination); err != nil {
 								t.Fatal(err)
 							}
