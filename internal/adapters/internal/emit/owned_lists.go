@@ -31,7 +31,8 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 		wholeOwned = unchangedSince(prior, keyPath, whole)
 	}
 	// A file an older version wrote whole, unchanged since, is all sync's.
-	if len(prior) == 0 && PriorOutputSum != nil {
+	// A merged write recorded with nothing claimed is not that.
+	if len(prior) == 0 && PriorOutputSum != nil && (PriorMergedRecorded == nil || !PriorMergedRecorded(path)) {
 		if sum := PriorOutputSum(path); sum != "" {
 			if existing, err := os.ReadFile(path); err == nil && ContentSum(string(existing)) == sum {
 				wholeOwned = true

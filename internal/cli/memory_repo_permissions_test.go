@@ -290,7 +290,7 @@ func TestSync_RetiredSettingsKeepAUserEditBesideTheStoreRule(t *testing.T) {
 		{"windsurf", filepath.Join(".devin", "config.json"), func(doc map[string]any) {
 			permissions := doc["permissions"].(map[string]any)
 			permissions["allow"] = append(permissions["allow"].([]any), "Exec(make)")
-		}, []string{`"Exec(make)"`, `"Read(src/**)"`}},
+		}, []string{`"Exec(make)"`}},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			parent := repoMemoryProject(t, true)
@@ -351,7 +351,7 @@ func TestSync_RetiringASpecAndRepoModeTogetherDropsTheStoreRule(t *testing.T) {
 		{"windsurf", filepath.Join(".devin", "config.json"), func(doc map[string]any) {
 			permissions := doc["permissions"].(map[string]any)
 			permissions["allow"] = append(permissions["allow"].([]any), "Exec(make)")
-		}, []string{`"Exec(make)"`, `"Read(src/**)"`}},
+		}, []string{`"Exec(make)"`}},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			parent := repoMemoryProject(t, true)

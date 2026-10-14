@@ -11,6 +11,9 @@ import (
 // permissionsKey is the project-config key holding the three rule lists.
 const permissionsKey = "permissions"
 
+// permissionLists names the three rule lists inside permissions.
+var permissionLists = []string{"allow", "deny", "ask"}
+
 // modelUserOnlyReason explains why a portable `model` never reaches
 // `.devin/config.json`: Devin marks the whole `agent` block user only,
 // and its project-config section lists the three keys that are not.
@@ -64,7 +67,7 @@ func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, p
 	for i, dir := range handoffKept {
 		kept[i] = writeRule(dir)
 	}
-	mergeAllowRules(sess, keys, path, writeRules, kept, dryRun)
+	mergePermissionLists(sess, keys, path, writeRules, kept, dryRun)
 	if len(keys) == 0 {
 		return nil
 	}
@@ -90,7 +93,7 @@ func specsWithModel(settings []spec.Entry) int {
 func devinPermissions(settings []spec.Entry) (map[string]any, int) {
 	dropped := map[int]bool{}
 	out := map[string]any{}
-	for _, list := range []string{"allow", "deny", "ask"} {
+	for _, list := range permissionLists {
 		seen := map[string]bool{}
 		var values []string
 		for i, entry := range settings {

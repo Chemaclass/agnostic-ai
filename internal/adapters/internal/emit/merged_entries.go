@@ -37,6 +37,11 @@ var PriorMergedKeys func(path string) []MergedKey
 // path. The CLI sets it from the ledger.
 var PriorMergedCreated func(path string) bool
 
+// PriorMergedRecorded reports whether the last sync recorded the file at
+// path as a merged write, even with no value of its own claimed in it.
+// The CLI sets it from the ledger.
+var PriorMergedRecorded func(path string) bool
+
 func priorMergedKeys(path string) []MergedKey {
 	if PriorMergedKeys == nil {
 		return nil

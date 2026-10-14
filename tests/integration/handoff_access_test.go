@@ -1193,3 +1193,71 @@ func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
 		})
 	}
 }
+
+func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	for _, place := range []string{"main checkout", "linked worktree"} {
+		t.Run(place, func(t *testing.T) {
+			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			main := t.TempDir()
+			handoffInitGit(t, main)
+			dir := main
+			if place == "linked worktree" {
+				dir = filepath.Join(t.TempDir(), "linked")
+				handoffGit(t, main, "worktree", "add", "-b", "devin-deny", dir)
+			}
+			physicalMain, err := filepath.EvalSymlinks(main)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store := filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs")) + "/**"
+			handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: [windsurf]\ngitignore:\n  enabled: true\n")
+			specPath := filepath.Join(dir, ".agnostic-ai/settings/perms.yaml")
+			handoffWrite(t, specPath, "name: perms\npermissions:\n  deny: [\"Bash(rm:*)\"]\n")
+			path := filepath.Join(dir, ".devin/config.json")
+			handoffWrite(t, path, "{\"permissions\":{\"deny\":[\"Exec(curl)\",\"Write("+store+")\"]}}\n")
+			run := func(args ...string) {
+				t.Helper()
+				cmd := exec.Command(binary, args...)
+				cmd.Dir = dir
+				if output, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("%v: %v\n%s", args, err, output)
+				}
+			}
+			denies := func() []string {
+				t.Helper()
+				var doc struct {
+					Permissions struct {
+						Deny []string `json:"deny"`
+					} `json:"permissions"`
+				}
+				if err := json.Unmarshal([]byte(handoffRead(t, path)), &doc); err != nil {
+					t.Fatal(err)
+				}
+				return doc.Permissions.Deny
+			}
+			run("sync")
+			run("sync", "--check")
+			got := denies()
+			if len(got) != 3 || got[0] != "Exec(curl)" || got[1] != "Write("+store+")" || got[2] != "Exec(rm)" {
+				t.Fatalf("deny = %v, want both hand entries then the spec's", got)
+			}
+			handoffWrite(t, specPath, "name: perms\npermissions:\n  deny: [\"Bash(sudo:*)\"]\n")
+			run("sync")
+			run("sync", "--check")
+			got = denies()
+			if len(got) != 3 || got[2] != "Exec(sudo)" {
+				t.Fatalf("deny after a spec change = %v, want the hand entries and Exec(sudo)", got)
+			}
+			if err := os.Remove(specPath); err != nil {
+				t.Fatal(err)
+			}
+			run("sync")
+			run("sync", "--check")
+			got = denies()
+			if len(got) != 2 || got[0] != "Exec(curl)" || got[1] != "Write("+store+")" {
+				t.Errorf("deny after the spec left = %v, want only the hand entries", got)
+			}
+		})
+	}
+}

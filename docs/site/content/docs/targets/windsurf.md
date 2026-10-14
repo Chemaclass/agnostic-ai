@@ -83,6 +83,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
   - [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Devin CLI's event data on an [assumed shell, working directory, and timeout](@/docs/spec-format/hooks.md#assumed-results). `--edit` is listed as not run, because Devin does not document the edit tools' input.
 - **Settings**: portable `permissions` are merged into `.devin/config.json`, the committed project policy ([permissions reference](https://docs.devin.ai/cli/reference/permissions)).
   - Project configs accept only `permissions`, `read_config_from`, and `hooks` ([config file reference](https://docs.devin.ai/cli/reference/configuration/config-file)). Sync sets only `permissions`, so other keys, and other entries inside it, are kept.
+  - In `allow`, `deny`, and `ask`, sync owns only the rules your specs write. A rule you add by hand stays, and a rule leaves with its spec.
   - An `x-windsurf` block on a settings spec is merged into the same file, which is how you set `read_config_from` and `hooks`. Its `permissions` are merged per spec and per list with the translated rules.
   - A portable `model` is not written and gets a sync note, because Devin's `agent` block works only in your personal config.
   - Translation: `Read(glob)` and `Write(glob)` are copied as written, `Edit(glob)` becomes `Write(glob)`, `Bash(prefix:*)` becomes `Exec(prefix)`, `WebFetch(pattern)` becomes `Fetch(pattern)`, and `mcp__<server>__<tool>` is copied as written.

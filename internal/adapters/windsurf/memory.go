@@ -46,62 +46,124 @@ func writeRule(dir string) string {
 	return "Write(" + filepath.ToSlash(dir) + "/**)"
 }
 
-// mergeAllowRules adds rules to permissions.allow. An allow list
-// settings produce is sync's whole, so the rules join it. Otherwise the
-// list is the user's: sync keeps their rules and claims only its own.
-// Either way the rules sync adds are recorded on their own, so they
-// leave by themselves, and only while unchanged, once no longer wanted.
-// kept holds a refused handoff rule already in the file.
-func mergeAllowRules(sess *emit.Session, keys map[string]any, path string, rules, kept []string, dryRun bool) {
+// mergePermissionLists merges the lists settings produce into
+// permissions.allow, .deny, and .ask, with rules, the store rules sync
+// adds, joining allow. Each list is the user's: sync keeps their rules
+// in file order and claims only its own, so a rule leaves by itself, and
+// only while unchanged, once no spec or store wants it. kept holds a
+// refused handoff rule already in the file.
+func mergePermissionLists(sess *emit.Session, keys map[string]any, path string, rules, kept []string, dryRun bool) {
 	permissions, _ := keys[permissionsKey].(map[string]any)
-	if allow, ok := permissions["allow"].([]string); ok {
-		// A refused rule rides along as it stands. It stays sync's only
-		// if sync wrote it and nobody changed it.
-		var added []string
-		for _, rule := range kept {
-			if !slices.Contains(allow, rule) {
-				allow = append(allow, rule)
-			}
+	for _, list := range permissionLists {
+		var planned, stay []string
+		if values, ok := permissions[list].([]string); ok {
+			planned = slices.Clone(values)
 		}
-		added = append(added, emit.StillClaimedItems(path, []string{permissionsKey, "allow"}, kept)...)
-		for _, rule := range rules {
-			if !slices.Contains(allow, rule) {
-				allow = append(allow, rule)
-				added = append(added, rule)
-			}
+		if list == "allow" {
+			planned = append(planned, rules...)
+			stay = kept
 		}
-		permissions["allow"] = emit.ClaimedJSONWithItems(allow, added)
-		return
+		merged, ok := mergePermissionList(sess, path, list, planned, stay, dryRun)
+		if !ok {
+			delete(permissions, list)
+			continue
+		}
+		if permissions == nil {
+			permissions = map[string]any{}
+			keys[permissionsKey] = permissions
+		}
+		permissions[list] = merged
 	}
+	if len(permissions) == 0 {
+		delete(keys, permissionsKey)
+	}
+}
+
+// mergePermissionList returns the merge value for one rule list, or
+// false when nothing is planned for it and its earlier claims should
+// release.
+func mergePermissionList(sess *emit.Session, path, list string, planned, kept []string, dryRun bool) (any, bool) {
+	keyPath := []string{permissionsKey, list}
 	// A refused rule sync wrote itself stays sync's while it is unchanged.
-	rules = append(slices.Clone(rules), emit.StillClaimedItems(path, []string{permissionsKey, "allow"}, kept)...)
-	if len(rules) == 0 {
-		// A rule an earlier sync recorded goes with its claim.
-		return
+	planned = append(planned, emit.StillClaimedItems(path, keyPath, kept)...)
+	if len(planned) == 0 {
+		return nil, false
 	}
-	// A list the last sync wrote whole from a spec that is gone now goes
-	// while nobody has edited it, as a stale claim's release would take
-	// it, and stays as the user's once edited. The item claim below takes
+	// A list the last sync wrote whole goes while nobody has edited it,
+	// and stays as the user's once edited. The item claims below take
 	// over from the whole one.
 	var existing []any
-	if !sess.ClaimsUnchangedValue(path, dryRun, permissionsKey, "allow") {
-		existing, _ = sess.ExistingJSONObject(path, permissionsKey, dryRun)["allow"].([]any)
+	if !sess.ClaimsUnchangedValue(path, dryRun, keyPath...) {
+		existing, _ = sess.ExistingJSONObject(path, permissionsKey, dryRun)[list].([]any)
 	}
-	planned := make([]any, len(rules))
-	for i, rule := range rules {
-		planned[i] = rule
+	wanted := make([]any, 0, len(planned))
+	seen := map[string]bool{}
+	for _, rule := range planned {
+		if !seen[rule] {
+			seen[rule] = true
+			wanted = append(wanted, rule)
+		}
 	}
-	planned = emit.WithoutUserItems(path, []string{permissionsKey, "allow"}, existing, planned)
-	if len(planned) == 0 {
-		// The user already allows the store; the list stays theirs.
-		return
-	}
-	if permissions == nil {
-		permissions = map[string]any{}
-		keys[permissionsKey] = permissions
+	// An edited list an earlier version claimed whole holds sync's rules
+	// among the user's, and a rule the specs still plan is sync's: the
+	// claims move to one per rule.
+	if !emit.ClaimsWholeValue(path, keyPath...) {
+		wanted = emit.WithoutUserItems(path, keyPath, existing, wanted)
 	}
 	merged, claims := emit.MergeOwnedLists(path, []string{permissionsKey},
-		map[string][]any{"allow": existing},
-		map[string][]any{"allow": planned})
-	permissions["allow"] = emit.ClaimedJSONItems(merged["allow"], claims["allow"])
+		map[string][]any{list: existing},
+		map[string][]any{list: wanted})
+	rest := withSurplusCopies(existing, merged[list], wanted, emit.PriorClaimedItems(path, keyPath))
+	for _, rule := range kept {
+		if !slices.Contains(rest, any(rule)) && !slices.Contains(planned, rule) {
+			rest = append(rest, rule)
+		}
+	}
+	if len(rest) == 0 {
+		return nil, false
+	}
+	if len(claims[list]) == 0 {
+		// Sync adds nothing the user does not hold, so an earlier claim
+		// on the list has nothing left to name.
+		return emit.CarriedJSONValue(rest), true
+	}
+	return emit.ClaimedJSONItems(rest, claims[list]), true
+}
+
+// withSurplusCopies puts back, in file order, every copy of a rule sync
+// owns beyond the last one, which is the one it wrote: merged is the user's entries followed by
+// wanted, which MergeOwnedLists built after dropping each copy of a rule
+// sync owns.
+func withSurplusCopies(existing, merged, wanted []any, prior []string) []any {
+	user := slices.Clone(merged[:len(merged)-len(wanted)])
+	owned := map[string]bool{}
+	for _, rule := range wanted {
+		owned[emit.ContentSum(rule.(string))] = true
+	}
+	for _, sum := range prior {
+		owned[sum] = true
+	}
+	// Sync appends its own copy last, so that is the one it owns.
+	last := map[string]int{}
+	for i, entry := range existing {
+		if rule, ok := entry.(string); ok && owned[emit.ContentSum(rule)] {
+			last[emit.ContentSum(rule)] = i
+		}
+	}
+	var out []any
+	for i, entry := range existing {
+		sum := ""
+		if rule, ok := entry.(string); ok {
+			sum = emit.ContentSum(rule)
+		}
+		switch at := slices.Index(user, entry); {
+		case owned[sum] && last[sum] == i:
+		case owned[sum]:
+			out = append(out, entry)
+		case at >= 0:
+			out = append(out, entry)
+			user = slices.Delete(user, at, at+1)
+		}
+	}
+	return append(out, merged[len(merged)-len(wanted):]...)
 }
