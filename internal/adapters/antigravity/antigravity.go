@@ -143,6 +143,8 @@
 package antigravity
 
 import (
+	"path/filepath"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -219,6 +221,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
+	native := b
+	var err error
+	native.Rules, err = nativeMemoryRules(b.Rules, cfg, rulesDir)
+	if err != nil {
+		return err
+	}
 	// Agents and skills emit through their native layouts below, so
 	// suppress the rule-form `agent-<name>.md` / `skill-<name>.md`
 	// output from RulesDirectory. FormatRule writes the mandatory
@@ -226,7 +234,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	// places a scoped rule's copy of the rules directory inside the
 	// scope (`<scope>/.agents/rules/<name>.md`), matching the vendor's
 	// own directory-scoped discovery (#1114).
-	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
+	if err := sess.RulesDirectory(native, emit.RulesDirOpts{
 		Dir:         rulesDir,
 		SkipAgents:  true,
 		SkipSkills:  true,
@@ -235,7 +243,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	noteOversizedRules(b.Rules)
+	noteOversizedRules(native.Rules)
 	noteInvalidTriggerOverrides(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {
@@ -274,6 +282,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
+	if path := emit.OutputRulesFile(cfg, target, ""); path != "" {
+		b.Rules, err = nativeMemoryRules(b.Rules, cfg, filepath.Dir(path))
+		if err != nil {
+			return err
+		}
+	}
 	return sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
 }
 
