@@ -60,9 +60,9 @@ func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, p
 	if handoff != "" {
 		writeRules = append(writeRules, writeRule(handoff))
 	}
-	var kept []string
-	if handoffKept != "" {
-		kept = append(kept, writeRule(handoffKept))
+	kept := make([]string, len(handoffKept))
+	for i, dir := range handoffKept {
+		kept[i] = writeRule(dir)
 	}
 	mergeAllowRules(sess, keys, path, writeRules, kept, dryRun)
 	if len(keys) == 0 {
