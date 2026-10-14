@@ -11,6 +11,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
+- `import --dry-run` no longer reports false changes or a false `::target` loss with `memory.personal: repo`; it now matches the real import (#2181).
 
 ### By tool
 

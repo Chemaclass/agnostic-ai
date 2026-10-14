@@ -140,6 +140,7 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 		return rec, fmt.Errorf("copy project for preview: %w", err)
 	}
 
+	defer useProjectGitInCopy(project)()
 	// Deferred after the cleanup above, so it runs first: the copy is
 	// left before it is removed.
 	if err := os.Chdir(shadow); err != nil {
