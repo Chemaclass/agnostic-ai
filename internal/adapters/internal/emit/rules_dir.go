@@ -85,7 +85,7 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	}
 
 	for _, r := range b.Rules {
-		path := filepath.Join(scopedDir(opts, r), r.Name+opts.Ext)
+		path := filepath.Join(RulesDirectoryEntryDir(opts, r), r.Name+opts.Ext)
 		if err := s.WriteFile(path, opts.FormatRule(r), dryRun); err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	if !opts.SkipAgents {
 		for _, a := range b.Agents {
 			name := opts.AgentPrefix + a.Name
-			path := filepath.Join(scopedDir(opts, a), name+opts.Ext)
+			path := filepath.Join(RulesDirectoryEntryDir(opts, a), name+opts.Ext)
 			if err := s.WriteFile(path, opts.FormatAgent(a), dryRun); err != nil {
 				return err
 			}
@@ -102,7 +102,7 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	if !opts.SkipSkills {
 		for _, sk := range b.Skills {
 			name := opts.SkillPrefix + sk.Name
-			path := filepath.Join(scopedDir(opts, sk), name+opts.Ext)
+			path := filepath.Join(RulesDirectoryEntryDir(opts, sk), name+opts.Ext)
 			if err := s.WriteFile(path, opts.FormatSkill(sk), dryRun); err != nil {
 				return err
 			}
@@ -111,10 +111,10 @@ func (s *Session) RulesDirectory(b spec.Bundle, opts RulesDirOpts, dryRun bool) 
 	return nil
 }
 
-// scopedDir returns the directory one entry's file belongs in:
+// RulesDirectoryEntryDir returns the directory one entry's file belongs in:
 // `<Dir>/<scope>` by default, `<scope>/<Dir>` under ScopeAtRoot, and
 // `Dir` unchanged when the entry has no EffectiveScope.
-func scopedDir(opts RulesDirOpts, e spec.Entry) string {
+func RulesDirectoryEntryDir(opts RulesDirOpts, e spec.Entry) string {
 	s := e.EffectiveScope()
 	if s == "" {
 		return opts.Dir

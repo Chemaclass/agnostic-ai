@@ -198,4 +198,11 @@
 # #2117 sandbox access with retention and Cline measured 19488928
 # on Go1.27.2, up 147456 from main cd938228 (19341472).
 # Same release flags; keep the established 8 KB build allowance.
-19498000
+# #2108 Antigravity measured 19488928 on Go1.27.2, up 20480 from
+# main 6b1dbe92 (19468448): native includes retain inherited body and scoped paths.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2108 Antigravity with handoff access measured 19513504, up 24576 from
+# main 71d583c4 (19488928): inherited native includes use their actual scoped directory.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+19522000
