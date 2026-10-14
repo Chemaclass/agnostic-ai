@@ -102,6 +102,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newUseCmd(),
 		newMigrateCmd(),
 		newMemoryCmd(),
+		newHandoffCmd(),
 	)
 	root.InitDefaultCompletionCmd()
 	profileEachRun(root, &profilePath)
