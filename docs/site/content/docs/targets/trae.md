@@ -65,6 +65,12 @@ Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Set
   - Trae also runs Claude Code's hooks from `.claude/settings.json` and `.claude/settings.local.json` once you turn on **Import Hook configuration in CLAUDE** (off by default, same warning). Syncing `claude` and `trae` then runs every hook twice.
 - **Ignore** ([ignore docs](https://docs.trae.ai/ide/ignore-files)): the file Trae's Settings > Indexing & Docs creates. It adds to `.gitignore`, which Trae already honors, and keeps paths out of indexing and `#Workspace` and `#Folder` context. Specs are joined. Override with `outputs.trae.ignore-file`. Run a Build under Settings > Indexing & Docs after a sync, because the change applies only after re-indexing.
 
+## Shared memory
+
+With `builtins: [memory]`, sync adds a `SessionStart` hook to `.trae/hooks.json`. Once you enable project hooks in Settings > Hooks, it runs `agnostic-ai project -- hook memory --target trae` before the first message and adds up to 6,000 bytes from the personal and project memory indexes. Trae's own Memories stay available.
+
+Trae sets `TRAE_PROJECT_DIR` to the workspace used by the hook, so the command finds that project's indexes even when its shell starts elsewhere. The command uses the project's installed agnostic-ai package when one is declared; install or upgrade that package before starting Trae. If hooks are disabled, the shared memory rule still tells Trae to read the indexes.
+
 {% <details summary="Agents from older versions"> %}
 For every current agent, sync removes a generated copy at the old `.trae/rules/agent-<name>.md` path.
 {% </details> %}

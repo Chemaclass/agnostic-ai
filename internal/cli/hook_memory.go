@@ -211,7 +211,7 @@ func memoryHookReply(target, text string) (string, error) {
 	hookSpecific := map[string]string{"hookEventName": "SessionStart", "additionalContext": text}
 	var reply any
 	switch target {
-	case "gemini", "qoder":
+	case "gemini", "qoder", "trae":
 		reply = map[string]any{"hookSpecificOutput": hookSpecific}
 	case "claude":
 		// The built-in runs it for subagents only; the session itself loads
@@ -239,6 +239,7 @@ var hookProjectDirEnv = map[string]string{
 	"cursor":  "CURSOR_PROJECT_DIR",
 	"qoder":   "QODER_PROJECT_DIR",
 	"factory": "FACTORY_PROJECT_DIR",
+	"trae":    "TRAE_PROJECT_DIR",
 }
 
 // memoryProjectRoot finds the project the shared-memory skill uses: the

@@ -76,6 +76,10 @@ var portableHookTargets = map[string]nativeHookNames{
 		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write", "any": ""},
 		mcp:    "mcp__%s__.*",
 	},
+	"trae": {
+		events: pickEvents("session-start"),
+		tools:  map[string]string{"any": ""},
+	},
 	"gemini": {
 		events: map[string]string{
 			"session-start": "SessionStart", "prompt-submit": "BeforeAgent", "before-tool": "BeforeTool",

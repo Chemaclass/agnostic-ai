@@ -79,6 +79,7 @@ Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own me
 | Claude Code | `CLAUDE.md` imports the project list, and [Claude Code's own memory](#claude-code-s-own-memory) loads the personal list |
 | Codex, Copilot, Gemini CLI, Qoder, Factory | A command runs when a session starts and adds both lists |
 | Cursor local sessions and self-hosted workers | A command runs when a session starts and adds both lists |
+| Trae with project hooks enabled | A command runs when a session starts and adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
 | Kiro | A steering file includes project memory and, in checkout mode, personal memory |
 | Every other tool | A rule tells the tool to read both lists before a task |
@@ -89,7 +90,7 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 ### When a session starts {#load-at-session-start}
 
-On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts.
+On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, and Trae, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
 Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the shared memory policy and skill to read the project index before a task. Local sessions and self-hosted workers run the hook; user-level hooks are unavailable in cloud agents. See [Cursor's cloud hook support](https://cursor.com/docs/hooks#cloud-agent-support).
 

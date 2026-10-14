@@ -223,10 +223,19 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 		t.Setenv("PATH", filepath.Dir(sh))
 		for _, target := range targets {
+			if target == "trae" {
+				continue
+			}
 			out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json")
 			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
+		}
+		traeRun := exec.Command(binary, "hook", "run", "memory-session-start", "--target", "trae", "--format", "json")
+		traeRun.Dir = dir
+		traeOutput, traeErr := traeRun.CombinedOutput()
+		if traeErr == nil || !strings.Contains(string(traeOutput), `"decision": "error"`) || !strings.Contains(string(traeOutput), `"adds_context": false`) {
+			t.Errorf("Trae without agnostic-ai on PATH: %v\n%s", traeErr, traeOutput)
 		}
 		if subagentContext(t, dir) {
 			t.Error("without agnostic-ai on PATH the subagent hook must allow quietly")
