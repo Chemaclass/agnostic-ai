@@ -201,4 +201,8 @@
 # #2106 Cline VS Code measured 19488928 on Go1.27.2, up 20480 from
 # main 6b1dbe92 (19468448): native TaskStart context and runtime diagnostics.
 # Linux amd64 release flags; keep the established 8 KB allowance.
-19498000
+# #2106 Cline VS Code with handoff access measured 19509408, up 20480 from
+# main 71d583c4 (19488928): native startup context, diagnostics and bounded reader.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+19518000
