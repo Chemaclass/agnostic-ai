@@ -47,7 +47,6 @@ A tool gets only the events where exit codes work as in Claude Code: exit 0 goes
 |---|---|---|
 | Claude Code | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|MultiEdit\|Write\|NotebookEdit`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
 | Codex | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `mcp:<server>` `mcp__<server>__.*` |
-| Trae | `session-start` | No tool matcher |
 | Gemini | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `^run_shell_command$`, `edit` `^(write_file\|replace)$`, `read` `^(read_file\|read_many_files)$`, `web` `^(web_fetch\|google_web_search)$` |
 | Factory | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `^Execute$`, `edit` `^(Create\|Edit\|ApplyPatch)$`, `read` `^Read$`, `web` `^(FetchUrl\|WebSearch)$` |
 | Qoder | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write\|NotebookEdit`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
@@ -123,7 +122,7 @@ For built-in tools, sync matches the documented tool IDs from start to end. Nati
 
 `match: mcp:<server>` becomes `@<server>/*` and matches that server only, even when its name is `mcp`, `builtin`, or `powers`.
 
-Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event uses exit 1 to keep the agent running, so it has no portable mapping. Trae maps only `session-start`; its other events have no portable mapping. Sync reports missing mappings. Write `event` for those hooks, or limit them with `targets`.
+Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event uses exit 1 to keep the agent running, so it has no portable mapping. Trae has no portable hook mapping yet. Sync reports missing mappings. Write `event` for those hooks, or limit them with `targets`.
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`. `lint` warns on each hook the migration would rewrite (LINT034). `agnostic-ai import` follows the same rule.
 
