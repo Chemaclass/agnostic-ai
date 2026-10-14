@@ -104,6 +104,7 @@ func addGlobalHookFiles(home, source, target string, g globalTarget, hooks []spe
 }
 
 func addGlobalClineHookFiles(home, source string, g globalTarget, hooks []spec.Entry, onUnsupported string, add func(string, []byte, fs.FileMode) error) error {
+	hooks = cline.GlobalSDKHooks(hooks)
 	dir, scriptsDir := g.path(home, g.hooksDir), g.path(home, g.hookScriptsDir)
 	if err := adapters.ReportHookProjectRoot("cline", hooks, onUnsupported, true); err != nil {
 		return err

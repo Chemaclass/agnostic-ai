@@ -20,6 +20,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Cline
 
+- Add a project memory TaskStart hook for VS Code, native Windows scripts, and explicit Unix VS Code diagnostics (#2106).
 - Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
 
 #### Claude Code

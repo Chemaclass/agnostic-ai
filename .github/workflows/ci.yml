@@ -91,7 +91,8 @@ jobs:
         shell: bash
         run: |
           go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit
-          go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestGitRepo_DoesNotStartAutomaticMaintenance$)'
+          go test -timeout=5m -count=1 ./internal/adapters/cline -run 'VSCode|GlobalHooks_|ActualBuiltin'
+          go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestHookMemory_Cline|TestHookRun_ClineVSCode|TestHookRun_VSCodeRuntime|TestSync_ClineUnixRemoves|TestGitRepo_DoesNotStartAutomaticMaintenance$)'
           go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*)$'
 
       - name: Repeat Windows fresh-install startup
