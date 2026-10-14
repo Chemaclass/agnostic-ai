@@ -99,6 +99,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && matrix.os == 'windows-latest' && inputs.full_windows != true && inputs.repeat_windows_startup == true
         timeout-minutes: 3
         shell: bash
+        env:
+          AGNOSTIC_AI_WINDOWS_STARTUP_TESTS: "1"
         run: go test -v -failfast -timeout=3m -count=10 ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$'
 
       - name: Upload coverage to Codecov
