@@ -490,6 +490,12 @@ func TestBuiltinMemory(t *testing.T) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
 		}
+		traeRun := exec.Command(binary, "hook", "run", "memory-trae-session-start", "--target", "trae", "--format", "json")
+		traeRun.Dir = dir
+		traeOutput, traeErr := traeRun.CombinedOutput()
+		if traeErr == nil || !strings.Contains(string(traeOutput), `"decision": "error"`) || !strings.Contains(string(traeOutput), `"adds_context": false`) {
+			t.Errorf("Trae without agnostic-ai on PATH: %v\n%s", traeErr, traeOutput)
+		}
 		if subagentContext(t, dir) {
 			t.Error("without agnostic-ai on PATH the subagent hook must allow quietly")
 		}
