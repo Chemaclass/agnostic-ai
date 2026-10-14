@@ -187,6 +187,27 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	})
 
+	t.Run("trae-native-memory-hook-adds-the-index-to-context", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Trae hook diagnostics model its Unix launcher")
+		}
+		dir := project(t, []byte("version: 1\ntargets: [trae]\nbuiltins: [memory]\n"))
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		personalIndex(t, dir)
+		run(t, dir, "sync", "--gitignore=off")
+		data, err := os.ReadFile(filepath.Join(dir, ".trae", "hooks.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "SessionStart") || !strings.Contains(string(data), "hook memory --target trae") {
+			t.Errorf("native Trae memory startup command must be emitted:\n%s", data)
+		}
+		out := run(t, dir, "hook", "run", "memory-trae-session-start", "--target", "trae", "--format", "json")
+		if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, "Prefers tabs") {
+			t.Errorf("the unique native Trae hook must load the actual index:\n%s", out)
+		}
+	})
+
 	clineSDKPayload := func(t *testing.T, dir string) string {
 		t.Helper()
 		path := filepath.Join(dir, "cline-sdk-task-start.json")
@@ -380,7 +401,7 @@ func TestBuiltinMemory(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".augment/settings.json", ".augment/hooks/memory-augment-session-start.sh", ".clinerules/hooks/TaskStart", ".devin/hooks.v1.json"}
+		paths := []string{".claude/settings.json", ".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json", ".augment/settings.json", ".augment/hooks/memory-augment-session-start.sh", ".clinerules/hooks/TaskStart", ".devin/hooks.v1.json", ".trae/hooks.json"}
 		output := map[string]string{}
 		for _, path := range paths {
 			data, err := os.ReadFile(filepath.Join(dir, path))
@@ -404,15 +425,18 @@ func TestBuiltinMemory(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "augment", "windsurf"}
+		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "augment", "windsurf", "trae"}
 		devinPayload := filepath.Join(t.TempDir(), "session-start.json")
 		if err := os.WriteFile(devinPayload, []byte(`{"hook_event_name":"SessionStart","session_id":"memory-fixture"}`), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		memoryHookResult := func(target string) string {
 			name := "memory-session-start"
-			if target == "windsurf" {
+			switch target {
+			case "windsurf":
 				name = "memory-windsurf-session-start"
+			case "trae":
+				name = "memory-trae-session-start"
 			}
 			args := []string{"hook", "run", name, "--target", target, "--format", "json"}
 			if target == "windsurf" {
@@ -458,10 +482,19 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 		t.Setenv("PATH", filepath.Dir(sh))
 		for _, target := range targets {
+			if target == "trae" {
+				continue
+			}
 			out := memoryHookResult(target)
 			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
+		}
+		traeRun := exec.Command(binary, "hook", "run", "memory-trae-session-start", "--target", "trae", "--format", "json")
+		traeRun.Dir = dir
+		traeOutput, traeErr := traeRun.CombinedOutput()
+		if traeErr == nil || !strings.Contains(string(traeOutput), `"decision": "error"`) || !strings.Contains(string(traeOutput), `"adds_context": false`) {
+			t.Errorf("Trae without agnostic-ai on PATH: %v\n%s", traeErr, traeOutput)
 		}
 		if subagentContext(t, dir) {
 			t.Error("without agnostic-ai on PATH the subagent hook must allow quietly")

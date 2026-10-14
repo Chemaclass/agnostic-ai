@@ -50,6 +50,36 @@ func TestHookMemory_PrintsTheIndexAsPlainTextForCodex(t *testing.T) {
 	}
 }
 
+func TestHookMemory_TraeRepliesWithSessionStartContext(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+
+	var reply struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal([]byte(runHookMemory(t, "--target", "trae")), &reply); err != nil {
+		t.Fatalf("decode Trae context: %v", err)
+	}
+	if reply.HookSpecificOutput.HookEventName != "SessionStart" || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "CI is Ubuntu only") {
+		t.Errorf("Trae context = %+v", reply.HookSpecificOutput)
+	}
+}
+
+func TestHookMemory_TraeUsesProjectDirectoryWhenCwdDiffers(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+	project, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TRAE_PROJECT_DIR", project)
+	testutil.Chdir(t, t.TempDir())
+	if got := runHookMemory(t, "--target", "trae"); !strings.Contains(got, "CI is Ubuntu only") {
+		t.Errorf("Trae context from %s: %q", project, got)
+	}
+}
+
 func TestHookMemory_ReadsTheTargetFromTheHookEnvironment(t *testing.T) {
 	memoryHookProject(t, sampleIndex)
 	t.Setenv("AGNOSTIC_AI_TARGET", "cursor")
