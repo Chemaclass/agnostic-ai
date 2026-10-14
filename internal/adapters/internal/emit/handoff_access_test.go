@@ -243,3 +243,64 @@ func TestPreserveHandoffConfig_MissingFileInAliasedCheckoutCanBeGenerated(t *tes
 		t.Error("Git checkout root alias blocked native settings generation")
 	}
 }
+
+func TestPreserveHandoffConfig_DirectoryReachedThroughParentLinkStaysPrivate(t *testing.T) {
+	root := t.TempDir()
+	gitIn(t, root, "init", "-q")
+	testutil.Chdir(t, root)
+	if err := os.Symlink(filepath.Dir(root), "native"); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+		t.Fatal(err)
+	}
+	path := filepath.Join("native", filepath.Base(root), "settings")
+	oldSum := PriorOutputSum
+	t.Cleanup(func() { PriorOutputSum = oldSum })
+	PriorOutputSum = func(string) string { return ContentSum("owned native config") }
+	preserved, err := NewSession().PreserveHandoffConfig(&config.Config{}, path, "codex")
+	if err != nil || !preserved {
+		t.Errorf("directory reached through linked parent was not preserved: %v, %v", preserved, err)
+	}
+	cfg := &config.Config{Builtins: []string{"handoff"}}
+	cfg.Gitignore.Enabled = true
+	if got := NewSession().HandoffConfigWritable(cfg, path, "codex"); got {
+		t.Error("canonical checkout equality skipped a linked ancestor")
+	}
+	if _, err := os.Lstat(filepath.Join(root, "settings")); !os.IsNotExist(err) {
+		t.Errorf("linked parent changed root settings: %v", err)
+	}
+}
+
+func TestHandoffConfigWritable_AliasedCheckoutSubprojectCanBeGenerated(t *testing.T) {
+	root := t.TempDir()
+	gitIn(t, root, "init", "-q")
+	if err := os.Mkdir(filepath.Join(root, "subproject"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(t.TempDir(), "checkout alias")
+	if err := os.Symlink(root, alias); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+		t.Fatal(err)
+	}
+	cwd := filepath.Join(alias, "subproject")
+	testutil.Chdir(t, cwd)
+	t.Setenv("PWD", cwd)
+	if got, err := os.Getwd(); err != nil || got != cwd {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows Getwd does not use the PWD alias")
+		}
+		t.Fatalf("Getwd = %q, %v, want PWD alias %q", got, err, cwd)
+	}
+	cfg := &config.Config{Builtins: []string{"handoff"}}
+	cfg.Gitignore.Enabled = true
+	path := filepath.Join(".codex", "config.toml")
+	if got := NewSession().HandoffConfigWritable(cfg, path, "codex"); !got {
+		t.Error("checkout alias above the subproject blocked native generation")
+	}
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Errorf("writability check created native settings: %v", err)
+	}
+}
