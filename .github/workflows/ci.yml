@@ -15,6 +15,10 @@ on:
         description: Run the full Windows Go race suite (ten-minute job limit)
         type: boolean
         default: false
+      repeat_windows_startup:
+        description: Repeat the Windows fresh-install launcher test ten times
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -87,8 +91,14 @@ jobs:
         shell: bash
         run: |
           go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit
-          go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestGitRepo_DoesNotStartAutomaticMaintenance$)'
+          go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestGitRepo_DoesNotStartAutomaticMaintenance$)'
           go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*)$'
+
+      - name: Repeat Windows fresh-install startup
+        if: github.event_name == 'workflow_dispatch' && matrix.os == 'windows-latest' && inputs.full_windows != true && inputs.repeat_windows_startup == true
+        timeout-minutes: 3
+        shell: bash
+        run: go test -v -failfast -timeout=3m -count=10 ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$'
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'

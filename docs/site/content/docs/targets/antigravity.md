@@ -24,6 +24,14 @@ agnostic-ai sync --check
 
 Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import antigravity`](@/docs/cli-reference/start.md#import).
 
+## Shared memory
+
+With `builtins: [memory]`, sync writes `antigravity-memory-index.md` as an always-on rule. Native `@[label](path)` includes load the project index and checkout personal index. Paths resolve from the generated rule file, including when `outputs.antigravity.rules-dir` changes. The rule stays identical whether either index exists; sync does not open the indexes or create empty ones.
+
+With `memory.personal: repo` in local configuration, only project memory is included. The shared policy finds personal memory through `agnostic-ai memory path`. Global sync keeps that policy and omits project-file includes.
+
+Antigravity expands includes before checking its 24,000-byte rule limit. All always-on rules share a 20,000-token budget, which can replace large rules with pointers. Missing-index behavior is not documented. See the [official file include and size rules](https://www.antigravity.google/docs/rules/).
+
 ## Output
 
 ```

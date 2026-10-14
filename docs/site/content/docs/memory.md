@@ -82,9 +82,12 @@ Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own me
 | Auggie CLI (macOS, Linux, Windows WSL) | An executable `SessionStart` script adds both lists |
 | OpenCode, Kilo Code | The config lists both files |
 | Kiro | A steering file includes project memory and, in checkout mode, personal memory |
+| Antigravity | An always-on rule includes project memory and, in checkout mode, personal memory |
 | Every other tool | A rule tells the tool to read both lists before a task |
 
 With `memory.personal: repo`, Kiro includes only the project list and finds personal memory with `agnostic-ai memory path`. Kiro shows a marker for an included list that has no file yet and loads the rest. The marker goes away once a tool saves a fact there. If you added the include to a steering file by hand, remove it. With `sync --global`, Kiro gets only the rule, because a home file cannot name a project's lists.
+
+Antigravity gets `antigravity-memory-index` with native file includes. Repo-personal mode includes only project memory and uses `agnostic-ai memory path` for personal memory. Global sync leaves the project include rule out. Includes are static even before an index exists; `init` does not create empty indexes. Antigravity does not document missing-file behavior. Expanded includes count toward its 24,000-byte per-rule limit and shared 20,000-token rules budget. See [Antigravity shared memory](@/docs/targets/antigravity.md#shared-memory).
 
 Aider gets only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`
 

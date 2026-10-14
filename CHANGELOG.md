@@ -32,6 +32,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Antigravity
 
+- Load project and checkout personal memory indexes through an always-on native include rule; repo personal memory keeps its lookup fallback (#2108).
 - Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies with native permission limits (#2124, #2125).
 - `hook run` excludes policy-dependent `allow` replies from Antigravity expectation checks (#2125).
 
