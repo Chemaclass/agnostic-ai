@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,8 @@ func newLSPCmd() *cobra.Command {
 
 // A load failure leaves the lint results incomplete, even with source diagnostics.
 func lspLinter(root string) (map[string][]lsp.Diagnostic, error) {
+	// The editor session outlives one run, so each lint reads the current Git layout.
+	gitquery.Reset()
 	var err error
 	root, err = filepath.Abs(root)
 	if err != nil {
