@@ -13,6 +13,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -65,6 +66,7 @@ func NewRootCmd(version string) *cobra.Command {
 			return fmt.Errorf("--quiet and --verbose are mutually exclusive")
 		}
 		requiresWarnOut, requiresWarned = cmd.ErrOrStderr(), map[string]bool{}
+		gitquery.Reset()
 		switch {
 		case quiet:
 			verbosity = levelQuiet

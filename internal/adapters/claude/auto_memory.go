@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 // Sync writes this checkout's absolute path in its local settings.
@@ -184,22 +184,17 @@ func repositorySuppliedLocalSettings(path string) bool {
 		}
 		parent = next
 	}
-	out, err := exec.Command("git", "-C", parent, "rev-parse", "--show-toplevel").Output()
+	top, err := gitquery.Toplevel(parent)
 	if err != nil {
 		return true
 	}
-	root := strings.TrimSpace(string(out))
+	root := strings.TrimSpace(top)
 	relative, err := filepath.Rel(root, path)
 	if err != nil {
 		return true
 	}
-	cmd := exec.Command("git", "-C", root, "ls-files", "--error-unmatch", "--", filepath.ToSlash(relative))
-	if err := cmd.Run(); err != nil {
-		if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 1 {
-			return false
-		}
-	}
-	return true
+	tracked, err := gitquery.Tracked(root, filepath.ToSlash(relative))
+	return err != nil || tracked
 }
 
 func mainCheckout(rootPath, path string) (settings, store string) {
