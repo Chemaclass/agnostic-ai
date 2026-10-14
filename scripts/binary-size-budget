@@ -255,4 +255,9 @@
 # leave .sync-state alone and the summary names only configured targets.
 # Same Linux amd64 release flags; retain the 8 KB allowance.
 # Combined with #2184, #2183 measured 19660960; retain the 8 KB allowance.
-19669152
+# #2186 measured 19689632 on Go1.27.2, up 32768 from main 038fdee4 and
+# #2184 (19656864): import drops the writable roots sync grants and edits
+# Codex overlays in place. Same Linux amd64 release flags; retain the
+# 8 KB allowance.
+# Combined with #2183, #2186 measured 19697824; retain the 8 KB allowance.
+19706016

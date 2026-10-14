@@ -133,6 +133,7 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 	if err := os.MkdirAll(shadow, 0o700); err != nil {
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
+	defer holdPreviewRoots(project)()
 	rec.specDirs = importSpecDirs(project)
 	tree := loadImportTree(project)
 	copied, err := copyImportPreviewTree(project, shadow, tree, importPreviewKeeps(project))

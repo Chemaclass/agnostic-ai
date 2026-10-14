@@ -30,6 +30,9 @@ type importCodexOpts struct {
 	// child so sync -> import -> sync round-trips preserve rules under
 	// the legacy layout.
 	RulesFile string
+	// SyncRoots are the directories sync itself grants write access to.
+	// The overlay leaves them out, since each names one machine.
+	SyncRoots adapters.GrantedRoots
 }
 
 // shredEnabled reports whether H2 sharding is on (default true).
@@ -99,7 +102,7 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err != nil {
 		return err
 	}
-	overlaySeeded, effortPromoted, err := importCodexConfigOverlay(root, importSourcePath(root, src.Settings))
+	overlaySeeded, effortPromoted, err := importCodexConfigOverlay(root, importSourcePath(root, src.Settings), opts.SyncRoots)
 	if err != nil {
 		return err
 	}

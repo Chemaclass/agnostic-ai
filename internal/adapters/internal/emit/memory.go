@@ -146,6 +146,10 @@ func (s *Session) CreateRepoMemoryStore(cfg *config.Config, dir string, dryRun b
 // repoMemoryStores returns the folder that holds every repo store, with
 // symlinks resolved: Codex refuses a writable root whose path holds one,
 // as when ~/.agnostic-ai links to a clone elsewhere.
+func RepoMemoryStores() (string, error) {
+	return repoMemoryStores()
+}
+
 func repoMemoryStores() (string, error) {
 	home, err := repoMemoryHome()
 	if err != nil {

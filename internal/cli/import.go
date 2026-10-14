@@ -177,6 +177,7 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromCodexWithOpts(root, src, importCodexOpts{
 			Shred:     cfg.Import.Codex.Shred,
 			RulesFile: codexRulesFileFromCfg(cfg),
+			SyncRoots: importSyncRoots(root),
 		})
 	case "cursor":
 		return importFromCursor(root, src)
