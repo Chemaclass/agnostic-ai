@@ -21,6 +21,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -558,6 +559,7 @@ func normalizeSharedWriteAttribution(emits []targetEmit) {
 }
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+	gitquery.Reset()
 	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
 }
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 func HandoffConfigFile(cfg *config.Config, path, target string) bool {
@@ -71,12 +71,11 @@ func safeIgnoredHandoffDirectory(root, path string) bool {
 			return false
 		}
 	}
-	tracked, err := exec.Command("git", "-C", root, "ls-files", "--", filepath.ToSlash(rel)).Output()
-	if err != nil || len(tracked) != 0 {
+	if tracked, err := gitquery.Tracked(root, filepath.ToSlash(rel)); err != nil || tracked {
 		return false
 	}
 	canonical += string(filepath.Separator)
-	return exec.Command("git", "-C", root, "check-ignore", "-q", "--", canonical).Run() == nil
+	return gitquery.Ignored(root, canonical)
 }
 
 func (s *Session) HandoffConfigWritable(cfg *config.Config, path, target string) bool {
@@ -128,11 +127,11 @@ func handoffConfigPathWritable(path, target string) bool {
 // handoffConfigTracked reports whether Git tracks the file at path, and
 // whether that could be told.
 func handoffConfigTracked(path string) (tracked, known bool) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	top, err := gitquery.Toplevel(".")
 	if err != nil {
 		return false, false
 	}
-	root := strings.TrimSpace(string(out))
+	root := strings.TrimSpace(top)
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return false, false
@@ -141,8 +140,8 @@ func handoffConfigTracked(path string) (tracked, known bool) {
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return false, false
 	}
-	files, err := exec.Command("git", "-C", root, "ls-files", "--", filepath.ToSlash(rel)).Output()
-	return err == nil && len(files) != 0, err == nil
+	isTracked, err := gitquery.Tracked(root, filepath.ToSlash(rel))
+	return err == nil && isTracked, err == nil
 }
 
 func handoffConfigAncestorsWritable(path string) bool {
