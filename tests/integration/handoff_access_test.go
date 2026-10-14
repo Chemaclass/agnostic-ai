@@ -30,6 +30,11 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
+				physicalMain, err := filepath.EvalSymlinks(main)
+				if err != nil {
+					t.Fatal(err)
+				}
+				storeRoot := filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs"))
 				handoffInitGit(t, main)
 				if mode == "unignored store" {
 					handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n")
@@ -90,7 +95,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if err != nil && (!unavailable || !os.IsNotExist(err)) {
 							t.Fatal(err)
 						}
-						root := filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))
+						root := storeRoot
 						if strings.Contains(string(content), root) == unavailable {
 							t.Errorf("unavailable=%v: native access was not reconciled: %s", unavailable, content)
 						}
@@ -106,7 +111,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					path := filepath.Join(linked, file)
 					original := handoffRead(t, path)
 					linkDestination := ""
-					if !strings.Contains(original, filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))) {
+					if !strings.Contains(original, storeRoot) {
 						t.Fatal("first sync did not create handoff access")
 					}
 					if mode == "adopted escaped tracked config" {
@@ -211,7 +216,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 				if mode == "unavailable store" && !strings.Contains(string(output), "use an ignored checkout store") {
 					t.Errorf("unavailable store lacks fallback note: %s", output)
 				}
-				root := filepath.ToSlash(filepath.Join(main, ".agnostic-ai/local/handoffs"))
+				root := storeRoot
 				content, readErr := os.ReadFile(filepath.Join(linked, file))
 				if mode == "shared" {
 					if readErr != nil || !strings.Contains(string(content), root) {
