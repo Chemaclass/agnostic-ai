@@ -117,7 +117,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		manual := "# Handoff\ntool: codex | branch: feat/auto | head: abc1234\nworktree: " + active + " | status: ready | pr: #123\n"
 		handoffWrite(t, filepath.Join(filepath.Dir(path), "feat-auto.md"), manual)
 		for _, target := range handoffHookTargets {
-			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], main, "{}", "foreign", ""), "1 task handoffs available. Ask to resume a task handoff.")
+			handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], main, "{}", "foreign", ""), "1 task handoff available. Ask to resume a task handoff.")
 		}
 		if got := handoffRead(t, filepath.Join(filepath.Dir(path), "feat-auto.md")); got != manual {
 			t.Errorf("snapshot replaced manual task: %q", got)
@@ -278,6 +278,33 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		}
 		if _, err := os.Stat(filepath.Join(main, ".agnostic-ai", "local", "handoffs", "feat-fallback.auto.md")); !os.IsNotExist(err) {
 			t.Errorf("snapshot reached unignored shared store: %v", err)
+		}
+	})
+
+	t.Run("task-handoff-count-wording", func(t *testing.T) {
+		main := project(t)
+		handoffInitGit(t, main)
+		handoffGit(t, main, "branch", "-M", "count-main")
+		handlers := syncHooks(t, main)
+		store := filepath.Join(main, ".agnostic-ai", "local", "handoffs")
+		written := 0
+		for _, want := range []struct {
+			count   int
+			message string
+		}{
+			{1, "1 task handoff available. Ask to resume a task handoff."},
+			{3, "3 task handoffs available. Ask to resume a task handoff."},
+		} {
+			for ; written < want.count; written++ {
+				branch := fmt.Sprintf("feat/count-%d", written)
+				handoffWrite(t, filepath.Join(store, fmt.Sprintf("feat-count-%d.md", written)), "# Handoff\ntool: codex | branch: "+branch+" | head: abc1234\nworktree: "+main+" | status: active | pr: none\n")
+			}
+			for _, target := range handoffHookTargets {
+				handoffAssertReply(t, target, handoffExecute(t, target, handlers[target]["SessionStart"], main, "{}", "foreign", ""), want.message)
+			}
+			windows := handlers["codex"]["SessionStart"]
+			windows.Command = windows.CommandWindows
+			handoffAssertReply(t, "codex", handoffExecute(t, "codex", windows, main, "{}", "foreign", ""), want.message)
 		}
 	})
 
