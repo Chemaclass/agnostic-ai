@@ -6,16 +6,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- On Windows, hooks find Git Bash when Git for Windows keeps `git` under `ucrt64` instead of `mingw64` (#2199).
 - Share personal memory across worktrees (`init --memory`), keep facts Claude Code saved, and flag hidden characters in memory (#2104, #2109, #2100, #2105).
-- Keep private handoffs and Git snapshots across worktrees, and list every saved task with `handoff list` (#2117).
-- The session-start handoff notice says "1 task handoff available" for a single note (#2203).
-- A no-op sync changes only the timestamp in `.sync-state`, and the change summary names only specs a configured target emits (#2183).
-- The sync change summary counts a shared file such as `AGENTS.md` for every target that reads it (#2204).
-- The first `sync` in a fresh clone or worktree, with no `.sync-state`, is several times faster in a large repository (#2205).
-- `import --dry-run` matches the real import, and `import` treats frontmatter that parses the same as unchanged (#2181, #2182).
+- Keep private handoffs and Git snapshots across worktrees, and list every saved task with `handoff list` (#2117, #2203).
+- The first sync in a fresh clone is several times faster, and the change summary counts only the targets each change reaches (#2205, #2183, #2204).
+- `import --dry-run` matches the real import, `import` keeps frontmatter that parses the same, and `lint` flags a repeated key (#2181, #2182, #2202).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` (#2127).
-- `lint` warns about a top-level key written twice in a spec (LINT046); remove the extra line, as 0.83.0 imports left `workspaces` twice (#2202).
 
 ### By tool
 
@@ -42,6 +37,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - A `deny` or `ask` on the memory folder or handoff store stays, and handoff grants you add by hand survive (#2155, #2176).
 - A personal memory folder path with `*` or `?` gets no `external_directory` entry, and sync says so (#2171).
 
+#### Ellipsis
+
+- Add the opt-in `ellipsis` target to write `.ellipsis/code-review.yaml` from review specs and settings, and import a hand-written file (#2196).
+- Write the selected Ellipsis environment from environment and MCP specs, and have the review use it; `import ellipsis` reads it back (#2188).
+
 #### Antigravity
 
 - Load project and checkout personal memory through an always-on include rule, and warn when it passes 24,000 bytes once expanded (#2108, #2157).
@@ -55,11 +55,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Claude Code
 
 - Claude Code loads personal memory natively; subagents read the same store, with an import fallback when native loading is off (#2116).
+- On Windows, hooks find Git Bash when Git for Windows keeps `git` under `ucrt64` instead of `mingw64` (#2199).
 
 #### Cursor
 
 - A personal memory folder path with pattern characters gets no `Write` rule in `cli.json`, and sync says so (#2171).
-- `import cursor` keeps a skill's `workspaces` as written when it matches the native copies, and replaces the key instead of adding another (#2202).
+- `import cursor` keeps a skill's `workspaces` when it matches the native copies; for a key 0.83.0 repeated, remove the extra line (#2202).
 
 #### Copilot
 
@@ -88,11 +89,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Crush
 
 - Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
-
-#### Ellipsis
-
-- Add the opt-in `ellipsis` target to write `.ellipsis/code-review.yaml` from review specs and settings, and import a hand-written file (#2196).
-- Write the selected Ellipsis environment from environment and MCP specs, and have the review use it; `import ellipsis` reads it back (#2188).
 
 ### Site
 
