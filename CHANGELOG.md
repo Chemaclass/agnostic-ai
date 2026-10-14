@@ -7,8 +7,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` and `sync --global` (#2127).
-- Share personal memory across worktrees, seed empty stores when switching modes, and start new projects with `init --memory` (#2104, #2109).
-- Keep private handoffs and Git snapshots across worktrees; `handoff list` shows task state and local merge suggestions (#2117).
+- Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
+- Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 
