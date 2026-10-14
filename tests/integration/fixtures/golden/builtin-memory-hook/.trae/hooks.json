@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agnostic-ai project -- hook memory --target trae"
+          }
+        ]
+      }
+    ]
+  }
+}
