@@ -82,7 +82,9 @@ command: |
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
-        handoff_message="$handoff_count task handoffs available. Ask to resume a task handoff."
+        handoff_plural=s
+        if [ "$handoff_count" -eq 1 ]; then handoff_plural=; fi
+        handoff_message="$handoff_count task handoff$handoff_plural available. Ask to resume a task handoff."
         return 0
       fi
     fi
@@ -250,7 +252,9 @@ commandWindows: |
         handoff_count=$((handoff_count + 1))
       done
       if [ "$handoff_count" -gt 0 ]; then
-        handoff_message="$handoff_count task handoffs available. Ask to resume a task handoff."
+        handoff_plural=s
+        if [ "$handoff_count" -eq 1 ]; then handoff_plural=; fi
+        handoff_message="$handoff_count task handoff$handoff_plural available. Ask to resume a task handoff."
         return 0
       fi
     fi
@@ -419,7 +423,9 @@ x-factory:
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
-          handoff_message="$handoff_count task handoffs available. Ask to resume a task handoff."
+          handoff_plural=s
+          if [ "$handoff_count" -eq 1 ]; then handoff_plural=; fi
+          handoff_message="$handoff_count task handoff$handoff_plural available. Ask to resume a task handoff."
           return 0
         fi
       fi
@@ -750,7 +756,9 @@ x-claude:
           handoff_count=$((handoff_count + 1))
         done
         if [ "$handoff_count" -gt 0 ]; then
-          handoff_message="$handoff_count task handoffs available. Ask to resume a task handoff."
+          handoff_plural=s
+          if [ "$handoff_count" -eq 1 ]; then handoff_plural=; fi
+          handoff_message="$handoff_count task handoff$handoff_plural available. Ask to resume a task handoff."
           return 0
         fi
       fi
