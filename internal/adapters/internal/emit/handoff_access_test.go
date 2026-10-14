@@ -130,3 +130,56 @@ func TestPreserveHandoffConfig_MissingOwnedFileCanBeGenerated(t *testing.T) {
 		})
 	}
 }
+
+func TestPreserveHandoffConfig_MissingFileUnderLinkedParentStaysPrivate(t *testing.T) {
+	for _, mode := range []string{"inside", "outside", "dangling"} {
+		t.Run(mode, func(t *testing.T) {
+			root := t.TempDir()
+			testutil.Chdir(t, root)
+			destination := t.TempDir()
+			if mode == "inside" {
+				destination = filepath.Join(root, "private")
+				if err := os.Mkdir(destination, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			} else if mode == "dangling" {
+				destination = filepath.Join(destination, "missing")
+			}
+			if err := os.Symlink(destination, "native"); err != nil {
+				if runtime.GOOS == "windows" {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			oldSum, oldKeys := PriorOutputSum, PriorMergedKeys
+			t.Cleanup(func() {
+				PriorOutputSum, PriorMergedKeys = oldSum, oldKeys
+			})
+			store := "/project/.agnostic-ai/local/handoffs"
+			PriorOutputSum = func(string) string { return ContentSum(store) }
+			PriorMergedKeys = func(string) []MergedKey {
+				return []MergedKey{{Path: []string{"permissions", "additionalDirectories"}, Items: []string{ContentSum(store)}}}
+			}
+			for _, target := range []string{"codex", "qoder", "claude"} {
+				path := filepath.Join("native", "settings")
+				sess := NewSession()
+				sess.StartCapture()
+				sess.StartDetailedRecording()
+				preserved, err := sess.PreserveHandoffConfig(&config.Config{}, path, target)
+				if err != nil || !preserved {
+					t.Errorf("%s missing config under linked parent was not preserved: %v, %v", target, preserved, err)
+				}
+				writes := sess.StopDetailedRecording()
+				if len(writes) != 1 || writes[0].Path != path || writes[0].Action != "skip" || len(writes[0].Keys) == 0 {
+					t.Errorf("%s prior output lost its unchanged ownership: %+v", target, writes)
+				}
+				if captured := sess.StopCapture(); len(captured) != 0 {
+					t.Errorf("%s planned a write through the linked parent: %+v", target, captured)
+				}
+			}
+			if _, err := os.Lstat(filepath.Join(destination, "settings")); !os.IsNotExist(err) {
+				t.Errorf("missing destination changed: %v", err)
+			}
+		})
+	}
+}
