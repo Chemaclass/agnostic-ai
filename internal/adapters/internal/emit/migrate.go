@@ -3,7 +3,9 @@ package emit
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -133,6 +135,9 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 	names = append(names, rest...)
 	var owned []MergedKey
 	var released [][]string
+	// replacedHand is set when a value a spec now sets takes the place of
+	// one the user wrote and sync never claimed.
+	replacedHand := false
 	claim := func(path []string, kind mergeClaimKind, items []string, follows string) {
 		switch kind {
 		case claimWhole, claimItems:
@@ -242,9 +247,16 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 				}
 			}
 			children := make(map[string]any, len(incoming))
+			priorKeys := priorMergedKeys(path)
+			_, wholeClaim := priorClaim(priorKeys, []string{k})
 			for child, raw := range incoming {
 				childValue, childKind, childItems, childFollows := mergeClaim(raw)
 				children[child] = childValue
+				if childKind == claimWhole && !wholeClaim {
+					if _, synced := priorClaim(priorKeys, []string{k, child}); !synced && s.replacesHandValue(doc, k, child, childValue) {
+						replacedHand = true
+					}
+				}
 				if _, remove := childValue.(removeJSONKey); remove {
 					released = append(released, []string{k, child})
 					continue
@@ -282,7 +294,57 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
+	if replacedHand {
+		if err := s.saveReplacedHandValue(path, dryRun); err != nil {
+			return err
+		}
+	}
 	return s.WriteMergedJSON(path, string(raw)+"\n", owned, released, dryRun)
+}
+
+// replacesHandValue reports whether value, which a spec now sets at
+// parent.child, differs from one already on disk.
+func (s *Session) replacesHandValue(doc *OrderedJSON, parent, child string, value any) bool {
+	if s.IsCapturing() {
+		return false
+	}
+	raw, found := doc.Get(parent)
+	if !found {
+		return false
+	}
+	existing := NewOrderedJSON()
+	if json.Unmarshal(raw, existing) != nil {
+		return false
+	}
+	current, found := existing.Get(child)
+	return found && !sameJSONValue(current, value)
+}
+
+// saveReplacedHandValue keeps the file as `<path>.bak` before a merge
+// writes a spec's value over one the user wrote, and reports it as a
+// hand edit sync overwrote. An earlier `<path>.bak` is never replaced;
+// a warning says so instead.
+func (s *Session) saveReplacedHandValue(path string, dryRun bool) error {
+	if dryRun || s.IsCapturing() || s.skipUnmanaged(path) {
+		return nil
+	}
+	cur := &onDisk{path: path}
+	backup := path + ".bak"
+	switch err := backUpEdit(cur, backup); {
+	case errors.Is(err, fs.ErrExist):
+		_, _ = fmt.Fprintf(Warner, "%s: a spec now sets a value you wrote there and replaces it; %s.bak already exists, so the value is not saved\n", path, path)
+		return nil
+	case err != nil:
+		return fmt.Errorf("backup %s: %w", path, err)
+	}
+	s.noteBackup(path)
+	s.mu.Lock()
+	s.overwrote = append(s.overwrote, path)
+	if s.transacting {
+		s.txLog = append(s.txLog, txEntry{path: backup})
+	}
+	s.mu.Unlock()
+	return nil
 }
 
 func mergeJSONObject(doc *OrderedJSON, key string, value any) any {

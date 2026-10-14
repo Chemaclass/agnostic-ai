@@ -58,6 +58,20 @@ func memoryDirectoryRules(sess *emit.Session, cfg *config.Config, path string, d
 // when it is written.
 func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings []spec.Entry, path string, patterns, kept []string, dryRun bool) (bool, error) {
 	if permissions, ok := keys[permissionKey].(map[string]any); ok {
+		if _, specSets := permissions[externalDirectoryKey]; !specSets {
+			// No spec sets external_directory, so it stays the user's and
+			// sync adds only its store entries.
+			value, wanted, err := userDirectoryRules(sess, path, patterns, kept, dryRun)
+			if err != nil {
+				return false, err
+			}
+			if wanted {
+				permissions[externalDirectoryKey] = value
+			}
+			carryBareAction(sess, permissions, path, dryRun)
+			keys[permissionKey] = permissions
+			return true, nil
+		}
 		value := permissions[externalDirectoryKey]
 		onDisk := emit.NewOrderedJSON()
 		if len(kept) > 0 {
@@ -112,14 +126,25 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 			}
 			permissions[externalDirectoryKey] = emit.ClaimedJSONWithEntries(value, entries)
 		}
-		if action, ok := existingAction(sess, path, dryRun); ok {
-			if _, set := permissions[catchAllPattern]; !set {
-				permissions[catchAllPattern] = emit.CarriedJSONValue(action)
-			}
-		}
+		carryBareAction(sess, permissions, path, dryRun)
 		keys[permissionKey] = permissions
 		return true, nil
 	}
+	value, ok, err := userDirectoryRules(sess, path, patterns, kept, dryRun)
+	if err != nil || !ok {
+		return false, err
+	}
+	permission := map[string]any{externalDirectoryKey: value}
+	carryBareAction(sess, permission, path, dryRun)
+	keys[permissionKey] = permission
+	return true, nil
+}
+
+// userDirectoryRules returns the external_directory value for a `permission`
+// whose external_directory no spec sets: the user's own entries in file
+// order, with only the store entries sync adds claimed as its own. It
+// reports false when there is no store entry to write.
+func userDirectoryRules(sess *emit.Session, path string, patterns, kept []string, dryRun bool) (any, bool, error) {
 	// A refused store entry sync wrote itself stays sync's while it is unchanged.
 	claimed := emit.PriorClaimedEntries(path, []string{permissionKey, externalDirectoryKey})
 	for _, pattern := range kept {
@@ -129,19 +154,19 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 	}
 	if len(patterns) == 0 {
 		// A store entry an earlier sync claimed goes with its claim.
-		return false, nil
+		return nil, false, nil
 	}
 	keyPath := []string{permissionKey, externalDirectoryKey}
 	// A map the last sync wrote whole from a spec that is gone now goes
 	// in this write while nobody has edited it (the nested merge drops
 	// it), and stays as the user's once edited.
 	rules := emit.NewOrderedJSON()
-	if !sess.ClaimsUnchangedValue(path, dryRun, permissionKey) {
+	if !sess.ClaimsUnchangedValue(path, dryRun, permissionKey) && !sess.ClaimsUnchangedValue(path, dryRun, permissionKey, externalDirectoryKey) {
 		if existing := sess.ExistingObjectAt(path, keyPath, dryRun); existing != nil {
 			rules = existing
 		} else if action, ok := sess.ExistingJSONObject(path, permissionKey, dryRun)[externalDirectoryKey].(string); ok {
 			if err := rules.Set(catchAllPattern, action); err != nil {
-				return false, err
+				return nil, false, err
 			}
 		}
 	}
@@ -167,16 +192,19 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		return set
 	}))
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
-	permission := map[string]any{externalDirectoryKey: emit.ClaimedJSONEntries(rules, owned)}
+	return emit.ClaimedJSONEntries(rules, owned), true, nil
+}
+
+// carryBareAction keeps a bare action on disk, such as "deny", which sets
+// every permission, as the catch-all key that leads the object.
+func carryBareAction(sess *emit.Session, permission map[string]any, path string, dryRun bool) {
 	if action, ok := existingAction(sess, path, dryRun); ok {
-		// A bare action sets every permission. Its object form is the
-		// catch-all key, which stays the user's and leads the object.
-		permission[catchAllPattern] = emit.CarriedJSONValue(action)
+		if _, set := permission[catchAllPattern]; !set {
+			permission[catchAllPattern] = emit.CarriedJSONValue(action)
+		}
 	}
-	keys[permissionKey] = permission
-	return true, nil
 }
 
 // existingAction returns the `permission` value on disk when it is a

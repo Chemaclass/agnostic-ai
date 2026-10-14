@@ -180,3 +180,94 @@ func TestSync_OpenCodePermissionUpgradesAWholeValueClaim(t *testing.T) {
 		runSyncOK(t, "--check")
 	})
 }
+
+func openCodeRepoMemoryProject(t *testing.T, handWritten, policy string) string {
+	t.Helper()
+	parent := repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	writeFile(t, "opencode.json", handWritten)
+	writeFile(t, openCodePermissionSpec, policy)
+	return parent
+}
+
+func openCodeExternalDirectory(t *testing.T) map[string]any {
+	t.Helper()
+	got, _ := openCodePermission(t)["external_directory"].(map[string]any)
+	return got
+}
+
+// A grant a spec wrote leaves with the spec while the memory store is on.
+func TestSync_OpenCodePermissionSpecGrantLeavesWithItsSpecInRepoMode(t *testing.T) {
+	parent := openCodeRepoMemoryProject(t, "", "permissions:\n  allow: [Read]\nx-opencode:\n  permission:\n    external_directory: allow\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	store := repoStore(t, parent, readText(t, "opencode.json")) + "/**"
+	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{"*": "allow", store: "allow"}) {
+		t.Fatalf("external_directory = %#v", got)
+	}
+	removeSpecs(t, openCodePermissionSpec)
+	for range 2 {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{store: "allow"}) {
+		t.Errorf("external_directory after the spec left = %#v, want only the store", got)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}
+
+// The user's external_directory rules stay when specs write other tools
+// and the memory store is on.
+func TestSync_OpenCodePermissionKeepsUserDirectoryRulesInRepoMode(t *testing.T) {
+	parent := openCodeRepoMemoryProject(t, `{"permission": {"edit": "ask", "external_directory": {"/data/**": "deny"}}}`, "permissions:\n  allow: [Read]\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	store := repoStore(t, parent, readText(t, "opencode.json")) + "/**"
+	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{"/data/**": "deny", store: "allow"}) {
+		t.Fatalf("external_directory = %#v", got)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+	removeSpecs(t, openCodePermissionSpec)
+	for range 2 {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := map[string]any{"edit": "ask", "external_directory": map[string]any{"/data/**": "deny", store: "allow"}}
+	if got := openCodePermission(t); !reflect.DeepEqual(got, want) {
+		t.Fatalf("permission after the spec left = %#v, want %#v", got, want)
+	}
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	want["external_directory"] = map[string]any{"/data/**": "deny"}
+	if got := openCodePermission(t); !reflect.DeepEqual(got, want) {
+		t.Errorf("permission after leaving repo mode = %#v, want %#v", got, want)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}
+
+// A spec that takes over a tool key the user wrote saves the file first.
+func TestSync_OpenCodePermissionSavesAHandKeyASpecReplaces(t *testing.T) {
+	openCodePermissionProject(t, `{"permission": {"read": "ask", "edit": "ask"}}`)
+	runSyncOK(t)
+	if got := readJSONMap(t, "opencode.json")["permission"].(map[string]any)["read"]; got != "allow" {
+		t.Fatalf("read = %#v, want the spec's value", got)
+	}
+	backup := readJSONMap(t, "opencode.json.bak")
+	if !reflect.DeepEqual(backup["permission"], map[string]any{"read": "ask", "edit": "ask"}) {
+		t.Errorf("opencode.json.bak = %#v, want the hand-written file", backup)
+	}
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+}
