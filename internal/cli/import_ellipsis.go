@@ -29,8 +29,9 @@ var ellipsisEngines = []string{"claude_code", "codex"}
 // into a review spec and a settings spec, reversing the ellipsis emit:
 //
 //   - the one reviewer's prompt becomes the root review `review`;
-//   - every other key becomes `x-ellipsis` on `settings/ellipsis.yaml`,
-//     where the adapter copies it back as written.
+//   - every other key, `ellipsis.enabled` and `ellipsis.metadata` included,
+//     becomes `x-ellipsis` on `settings/ellipsis.yaml`, where the adapter
+//     copies it back as written.
 //
 // A file it cannot express stops the import with a message and writes
 // nothing: more than one reviewer, another file kind, a field the schema
@@ -114,8 +115,14 @@ func splitEllipsisFile(rel, text string) (string, map[string]any, error) {
 		if kind, set := top["kind"]; set && kind != "code_review" {
 			return "", nil, fmt.Errorf("%s is not a code_review file (ellipsis.kind is %v); agnostic-ai imports only code_review files", rel, kind)
 		}
-		if name, ok := top["name"]; ok {
-			block["ellipsis"] = map[string]any{"name": name}
+		kept := map[string]any{}
+		for key, value := range top {
+			if key != "kind" {
+				kept[key] = value
+			}
+		}
+		if len(kept) > 0 {
+			block["ellipsis"] = kept
 		}
 	}
 	for _, key := range []string{"pull_requests", "output", "budget"} {

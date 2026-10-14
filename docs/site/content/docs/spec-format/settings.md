@@ -213,7 +213,7 @@ Every other target takes neither. A field a tool cannot hold raises a sync note,
 
 ## Target-specific keys
 
-Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Ellipsis reads only this block, and a later spec wins key by key (see [Ellipsis](@/docs/targets/ellipsis.md#how-specs-map-to-the-file)). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
+Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Ellipsis reads only this block, and a later spec replaces each top-level block it sets (see [Ellipsis](@/docs/targets/ellipsis.md#how-specs-map-to-the-file)). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
 
 When agnostic-ai also writes the same key:
 

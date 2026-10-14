@@ -165,7 +165,7 @@ func sanitize(value any, sensitive bool) (any, bool) {
 		changed := false
 		for key, item := range v {
 			normal := strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(key))
-			container := normal == "env" || normal == "environment" || normal == "headers" || normal == "httpheaders"
+			container := normal == "env" || normal == "environment" && !namedEnvironment(item) || normal == "headers" || normal == "httpheaders"
 			if text, ok := item.(string); ok && !sensitive && !CredentialKey(key) {
 				hidden := false
 				if normal == "url" {
@@ -232,6 +232,20 @@ func sanitize(value any, sensitive bool) (any, bool) {
 		}
 	}
 	return value, false
+}
+
+// namedEnvironment reports whether an `environment` value only names an
+// environment or lists repositories, as a code review file does, and so
+// holds no variable values: a bare name, or a map with only `repositories`.
+func namedEnvironment(value any) bool {
+	switch v := value.(type) {
+	case string:
+		return v != "" && !strings.ContainsAny(v, "=:/@ \t\n")
+	case map[string]any:
+		_, ok := v["repositories"]
+		return ok && len(v) == 1
+	}
+	return false
 }
 
 func sanitizeArgs(args []any) ([]any, bool) {

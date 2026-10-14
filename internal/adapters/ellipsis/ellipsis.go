@@ -19,8 +19,10 @@ package ellipsis
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -62,14 +64,33 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return nil
 	}
 	file, problems := readFile(b.Settings)
+	path := emit.OutputReviewFile(cfg, target, defaultReviewFile)
 	if len(problems) > 0 {
+		// A reviewer that is set but broken must not take the deployed
+		// review down with it. Without a reviewer key the sweep removes it.
+		if _, set := emit.SettingsCustomKeys(b.Settings, target)["reviewer"]; set {
+			if err := keepDeployed(sess, path, dryRun); err != nil {
+				return err
+			}
+		}
 		return reportProblems(problems, cfg.OnUnsupported)
 	}
 	doc, err := render(file, prompt)
 	if err != nil {
 		return err
 	}
-	return sess.WriteFile(emit.OutputReviewFile(cfg, target, defaultReviewFile), emit.WithHeader(doc, emit.FormatYAML), dryRun)
+	return sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun)
+}
+
+// keepDeployed writes the generated file already on disk back as it is,
+// so the sync keeps it instead of sweeping it as a leftover. A file
+// without the generated header is not ours and stays untouched.
+func keepDeployed(sess *emit.Session, path string, dryRun bool) error {
+	data, err := os.ReadFile(path)
+	if err != nil || !header.Has(string(data)) {
+		return nil
+	}
+	return sess.WriteFile(path, string(data), dryRun)
 }
 
 // reportProblems turns what stops the file into a note, or an error under
