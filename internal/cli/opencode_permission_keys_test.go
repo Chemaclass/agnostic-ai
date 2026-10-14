@@ -271,3 +271,28 @@ func TestSync_OpenCodePermissionSavesAHandKeyASpecReplaces(t *testing.T) {
 	runSyncOK(t)
 	runSyncOK(t, "--check")
 }
+
+// A directory rule a spec wrote leaves with the spec while the memory
+// store is on, and the store rule stays.
+func TestSync_OpenCodePermissionSpecDirectoryRuleLeavesWithItsSpecInRepoMode(t *testing.T) {
+	parent := openCodeRepoMemoryProject(t, "", "permissions:\n  allow: [Read]\nx-opencode:\n  permission:\n    external_directory:\n      /tmp/a/**: deny\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	store := repoStore(t, parent, readText(t, "opencode.json")) + "/**"
+	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{"/tmp/a/**": "deny", store: "allow"}) {
+		t.Fatalf("external_directory = %#v", got)
+	}
+	removeSpecs(t, openCodePermissionSpec)
+	for range 2 {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := openCodeExternalDirectory(t); !reflect.DeepEqual(got, map[string]any{store: "allow"}) {
+		t.Errorf("external_directory after the spec left = %#v, want only the store", got)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}

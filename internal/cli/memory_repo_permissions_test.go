@@ -285,8 +285,8 @@ func TestSync_RetiredSettingsKeepAUserEditBesideTheStoreRule(t *testing.T) {
 		kept         []string
 	}{
 		{"opencode", "opencode.json", func(doc map[string]any) {
-			doc["permission"].(map[string]any)["bash"] = "deny"
-		}, []string{`"bash": "deny"`, `"src/**": "allow"`}},
+			doc["permission"].(map[string]any)["read"].(map[string]any)["docs/**"] = "allow"
+		}, []string{`"docs/**": "allow"`, `"src/**": "allow"`}},
 		{"windsurf", filepath.Join(".devin", "config.json"), func(doc map[string]any) {
 			permissions := doc["permissions"].(map[string]any)
 			permissions["allow"] = append(permissions["allow"].([]any), "Exec(make)")
@@ -346,8 +346,8 @@ func TestSync_RetiringASpecAndRepoModeTogetherDropsTheStoreRule(t *testing.T) {
 		kept         []string
 	}{
 		{"opencode", "opencode.json", func(doc map[string]any) {
-			doc["permission"].(map[string]any)["bash"] = "deny"
-		}, []string{`"bash": "deny"`, `"src/**": "allow"`}},
+			doc["permission"].(map[string]any)["read"].(map[string]any)["docs/**"] = "allow"
+		}, []string{`"docs/**": "allow"`, `"src/**": "allow"`}},
 		{"windsurf", filepath.Join(".devin", "config.json"), func(doc map[string]any) {
 			permissions := doc["permissions"].(map[string]any)
 			permissions["allow"] = append(permissions["allow"].([]any), "Exec(make)")
