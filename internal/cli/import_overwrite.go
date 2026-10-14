@@ -123,7 +123,10 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 	return next
 }
 
-var materializedBuiltinPattern = regexp.MustCompile(`(^|/)(agnostic-ai-builtin-[^/]+|agnostic-ai/builtins/[0-9a-f]{64})/`)
+// The temporary copy is agnostic-ai-builtin-<name>-<digits>; the cache copy
+// is agnostic-ai/builtins/<hash>. Only an absolute key can name either: a
+// key inside the project is relative.
+var materializedBuiltinPattern = regexp.MustCompile(`^(?:[A-Za-z]:)?/(?:.*/)?(?:agnostic-ai-builtin-[a-z-]+-[0-9]+|agnostic-ai/builtins/[0-9a-f]{64})/`)
 
 // materializedBuiltinPath reports whether a state key points into a copy of
 // a built-in spec, which earlier versions recorded under its random path.

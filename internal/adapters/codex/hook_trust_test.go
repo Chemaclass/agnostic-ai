@@ -342,3 +342,22 @@ func TestHookTrustFinding_StringShortensLongInlineScript(t *testing.T) {
 		}
 	}
 }
+
+func TestHookTrustFinding_StringTellsHandlersApart(t *testing.T) {
+	script := "export X=1; sh -c '" + strings.Repeat("echo padding; ", 600) + "exec agnostic-ai project -- hook memory --target codex'"
+	seen := map[string]bool{}
+	for _, f := range []HookTrustFinding{
+		{Path: "h.json", Event: "SessionStart", Group: 0, Handler: 0, Hook: script, Status: "untrusted"},
+		{Path: "h.json", Event: "SessionStart", Group: 0, Handler: 1, Hook: script, Status: "untrusted"},
+		{Path: "h.json", Event: "SessionStart", Group: 1, Handler: 0, Hook: script, Status: "untrusted"},
+	} {
+		got := f.String()
+		if seen[got] {
+			t.Errorf("duplicate note: %s", got)
+		}
+		seen[got] = true
+		if !strings.Contains(got, "doctor --json") {
+			t.Errorf("note does not say where the full command is: %s", got)
+		}
+	}
+}

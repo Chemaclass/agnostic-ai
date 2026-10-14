@@ -88,13 +88,13 @@ func TestSyncReport_PendingLineListsFilesToCommit(t *testing.T) {
 }
 
 func TestDiffSpecSums(t *testing.T) {
-	if got := diffSpecSums(nil, map[string]string{"rule a": "1"}, nil); got != nil {
+	if got := diffSpecSums(specBaseline{}, specBaseline{sums: map[string]string{"rule a": "1"}}, nil); got != nil {
 		t.Errorf("no baseline should report nothing, got %v", got)
 	}
 
 	got := diffSpecSums(
-		map[string]string{"rule a": "1", "rule b": "1", "rule c": "1"},
-		map[string]string{"rule a": "1", "rule b": "2", "rule d": "1"},
+		specBaseline{sums: map[string]string{"rule a": "1", "rule b": "1", "rule c": "1"}},
+		specBaseline{sums: map[string]string{"rule a": "1", "rule b": "2", "rule d": "1"}},
 		nil,
 	)
 
