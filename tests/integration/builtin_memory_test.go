@@ -212,6 +212,54 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	})
 
+	t.Run("antigravity-scoped-local-override", func(t *testing.T) {
+		authoredBody := "Authored replacement.\n\n@[Project memory](../../.agnostic-ai/memory/MEMORY.md)\n"
+		for _, test := range []struct {
+			name string
+			body string
+		}{
+			{"metadata-only-inherits-native-memory", ""},
+			{"authored-body-is-preserved", authoredBody},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				dir := project(t, []byte("version: 1\ntargets: [antigravity]\nbuiltins: [memory]\n"))
+				if err := os.MkdirAll(filepath.Join(dir, "backend"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				override := filepath.Join(dir, ".agnostic-ai", "local", "rules", "antigravity-memory-index.md")
+				if err := os.MkdirAll(filepath.Dir(override), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				source := "---\nname: antigravity-memory-index\nscope: backend\n---\n\n" + test.body
+				if err := os.WriteFile(override, []byte(source), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				run(t, dir, "sync", "--gitignore=off")
+				path := filepath.Join(dir, "backend", ".agents", "rules", "antigravity-memory-index.md")
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				text := string(data)
+				if test.body != "" {
+					if !strings.Contains(text, test.body) {
+						t.Errorf("authored scoped replacement body must stay unchanged:\n%s", text)
+					}
+					return
+				}
+				index := filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md")
+				ref, err := filepath.Rel(filepath.Dir(path), index)
+				if err != nil {
+					t.Fatal(err)
+				}
+				include := "@[Project memory](" + filepath.ToSlash(ref) + ")"
+				if !strings.Contains(text, include) {
+					t.Errorf("inherited include must resolve from the emitted scoped directory, want %q:\n%s", include, text)
+				}
+			})
+		}
+	})
+
 	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
