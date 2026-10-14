@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"reflect"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,7 +16,8 @@ import (
 // declares. Most targets emit a subset of a spec's frontmatter, so a
 // byte-for-byte write back would delete every key that target cannot
 // express (`argument-hint` and `allowed-tools` on a cursor skill, for
-// one). A missing destination is a plain write.
+// one). A missing destination is a plain write. A destination whose
+// frontmatter and body parse the same as the result is left as written.
 //
 // fields names what the target's native file can hold: a key it can
 // hold but the import does not carry was deleted on purpose and is not
@@ -23,9 +25,6 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
-	if fields.all && len(fields.omitted) == 0 && fields.preserve == nil {
-		return importWriteFile(path, data, mode)
-	}
 	existing, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -33,11 +32,34 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	merged, err := mergeSpecFrontmatter(existing, data, fields)
-	if err != nil {
-		return fmt.Errorf("merge %s: %w", path, err)
+	if !fields.all || len(fields.omitted) > 0 || fields.preserve != nil {
+		data, err = mergeSpecFrontmatter(existing, data, fields)
+		if err != nil {
+			return fmt.Errorf("merge %s: %w", path, err)
+		}
 	}
-	return importWriteFile(path, merged, mode)
+	// A spec that parses the same keeps its bytes, so the user's
+	// formatting survives and the run sees no change (#2182).
+	if sameSpecMarkdown(existing, data) {
+		data = existing
+	}
+	return importWriteFile(path, data, mode)
+}
+
+// sameSpecMarkdown reports whether a and b are markdown with frontmatter
+// whose parsed frontmatter and body are equal, so they differ only in how
+// the YAML is written: scalar style, quoting, key order, comments.
+func sameSpecMarkdown(a, b []byte) bool {
+	aYAML, aBody, aHad := splitFrontmatter(a)
+	bYAML, bBody, bHad := splitFrontmatter(b)
+	if !aHad || !bHad || aBody != bBody {
+		return false
+	}
+	var aMeta, bMeta map[string]any
+	if yaml.Unmarshal(aYAML, &aMeta) != nil || yaml.Unmarshal(bYAML, &bMeta) != nil {
+		return false
+	}
+	return reflect.DeepEqual(aMeta, bMeta)
 }
 
 // mergeSpecFrontmatter returns imported with the top-level frontmatter
