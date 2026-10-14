@@ -88,7 +88,7 @@ jobs:
         run: |
           go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit
           go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestGitRepo_DoesNotStartAutomaticMaintenance$)'
-          go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*|TestBuiltinHandoffHooks|TestHandoffAccess_.*)$'
+          go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*)$'
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
@@ -96,6 +96,25 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
+
+  windows-handoffs:
+    name: Test handoffs (windows-latest)
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && inputs.full_windows != true
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        run: go test -timeout=5m -count=1 ./tests/integration -run '^(TestBuiltinHandoffHooks$|TestHandoffAccess_)'
 
   macos-integration:
     name: Test integration (macos-latest)
