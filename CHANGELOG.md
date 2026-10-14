@@ -74,6 +74,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Allow the shared handoff store in linked worktrees while keeping memory and user permission rules. A `deny` or `ask` you or a spec set for that path stays, and a main checkout path with glob characters gets no grant (#2155).
 - Every handoff grant you added by hand stays, with or without a permissions spec, including after you turn handoff off (#2176).
+- A permissions spec no longer replaces the whole `allow`, `deny`, or `ask` list in `.devin/config.json`; rules you added by hand stay, and only the rules your specs write leave with them (#2184).
 - A `deny` or `ask` that a spec or you set on the personal memory folder now stays, and the folder entry keeps its place once sync has added it, so a broader rule you put after it keeps winning (#2155).
 - Keep the `permission` keys you wrote by hand, such as `"edit": "ask"`, when permission specs exist; sync owns only the tool keys its specs produce, and saves the file as `opencode.json.bak` when a spec starts setting a key you wrote. A project synced before this change keeps a spec tool as yours if you edit another key in the same sync where the spec drops that tool (#2175).
 - A personal memory folder path with `*` or `?` gets no `external_directory` entry, and sync says so. OpenCode reads only those two as wildcards, so the shared handoff store refusal from #2155 now covers them alone too (#2171).
