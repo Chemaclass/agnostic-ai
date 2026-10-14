@@ -6,7 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Sync no longer records built-in specs under their temporary copy's path in `.sync-state`, and its change summary names only specs a configured target emits (#2183).
+- Sync no longer records built-in specs under their temporary copy's path in `.sync-state`, and its change summary names only specs a configured target emits; the first sync with an older binary after this one may print a one-time summary line (#2183).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` and `sync --global` (#2127).
 - Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
 - Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).

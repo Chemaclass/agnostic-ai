@@ -194,6 +194,24 @@ func TestSyncSummary_NamesRuleMovedToUnconfiguredTool(t *testing.T) {
 	}
 }
 
+func TestSyncSummary_AddedTargetNamesConfigNotEverySpec(t *testing.T) {
+	dir := builtinClaudeProject(t, true)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nBe brief.\n")
+	syncOK(t)
+	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude, cursor]\nbuiltins: [memory]\n")
+	buf := captureLogOut(t)
+	syncOK(t, "-vv")
+	out := buf.String()
+	if !strings.Contains(out, "~ config") {
+		t.Errorf("summary misses the config change:\n%s", out)
+	}
+	for _, spec := range []string{"~ rule style", "~ rule shared-memory-policy", "~ skill shared-memory"} {
+		if strings.Contains(out, spec) {
+			t.Errorf("summary lists %q for an added target:\n%s", spec, out)
+		}
+	}
+}
+
 func TestMaterializedBuiltinPath(t *testing.T) {
 	hash := strings.Repeat("a1", 32)
 	for key, want := range map[string]bool{

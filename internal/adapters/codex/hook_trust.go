@@ -42,7 +42,7 @@ func (f HookTrustFinding) String() string {
 	if label != f.Hook {
 		full = "; `agnostic-ai doctor --json` has the full command"
 	}
-	return fmt.Sprintf("codex: %s: %s hook %q (group %d, handler %d) is %s; open /hooks in Codex to %s it%s", f.Path, f.Event, label, f.Group+1, f.Handler+1, f.Status, action, full)
+	return fmt.Sprintf("codex: %s: %s hook %q (group %d, handler %d) is %s; open /hooks in Codex to %s it%s", f.Path, f.Event, label, f.Group, f.Handler, f.Status, action, full)
 }
 
 const hookLabelEdge = 40

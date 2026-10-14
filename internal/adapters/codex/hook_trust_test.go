@@ -343,6 +343,13 @@ func TestHookTrustFinding_StringShortensLongInlineScript(t *testing.T) {
 	}
 }
 
+func TestHookTrustFinding_StringNumbersFromZeroLikeDoctorJSON(t *testing.T) {
+	got := HookTrustFinding{Path: "h.json", Event: "Stop", Group: 2, Handler: 0, Hook: "x", Status: "untrusted"}.String()
+	if !strings.Contains(got, "(group 2, handler 0)") {
+		t.Errorf("note: %s", got)
+	}
+}
+
 func TestHookTrustFinding_StringTellsHandlersApart(t *testing.T) {
 	script := "export X=1; sh -c '" + strings.Repeat("echo padding; ", 600) + "exec agnostic-ai project -- hook memory --target codex'"
 	seen := map[string]bool{}

@@ -272,6 +272,8 @@ func diffSpecSums(prev, cur specBaseline, existing map[string]bool) []specChange
 	if len(prev.sums) == 0 {
 		return nil
 	}
+	// A changed config explains a move between targets; `~ config` says so.
+	sameConfig := prev.sums[configSpecKey] == cur.sums[configSpecKey]
 	var out []specChange
 	for k, sum := range cur.sums {
 		old, ok := prev.sums[k]
@@ -280,7 +282,7 @@ func diffSpecSums(prev, cur specBaseline, existing map[string]bool) []specChange
 			out = append(out, specChange{mark: "+", label: k})
 		case old != sum:
 			out = append(out, specChange{mark: "~", label: k})
-		case prev.targets[k] != nil && !slices.Equal(prev.targets[k], cur.targets[k]):
+		case sameConfig && prev.targets[k] != nil && !slices.Equal(prev.targets[k], cur.targets[k]):
 			out = append(out, specChange{mark: "~", label: k})
 		}
 	}
@@ -291,7 +293,7 @@ func diffSpecSums(prev, cur specBaseline, existing map[string]bool) []specChange
 		switch {
 		case !existing[k]:
 			out = append(out, specChange{mark: "-", label: k})
-		case prev.targets[k] != nil:
+		case sameConfig && prev.targets[k] != nil:
 			out = append(out, specChange{mark: "~", label: k})
 		}
 	}
