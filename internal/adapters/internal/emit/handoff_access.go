@@ -154,7 +154,11 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 	if PriorOutputSum != nil {
 		sum = PriorOutputSum(path)
 	}
-	if !HandoffConfigFile(cfg, path, target) && len(claims) == 0 && sum == "" {
+	// OpenCode and Devin share this file with MCP servers and permission
+	// specs, so only a grant sync already wrote can hold the whole file.
+	// HandoffAccessRoot refuses a new grant on its own.
+	handoffFile := HandoffConfigFile(cfg, path, target) && target != "opencode" && target != "windsurf"
+	if !handoffFile && len(claims) == 0 && sum == "" {
 		return false, nil
 	}
 	var data []byte
@@ -176,7 +180,7 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 		data, err = os.ReadFile(path)
 	}
 	priorHandoff := priorOwnedHandoffRoot(path, target, data, err != nil, sum)
-	if !HandoffConfigFile(cfg, path, target) && !priorHandoff {
+	if !handoffFile && !priorHandoff {
 		return false, nil
 	}
 	if s.IsUnmanaged(path) {
@@ -314,12 +318,12 @@ func (s *Session) HandoffAccessRoot(cfg *config.Config, path, target, key string
 		}
 		return "", nil
 	}
-	if (target == "opencode" || target == "windsurf") && strings.ContainsAny(dir, "*?[]{}") {
-		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, dir))
+	if unsafe := handoffGlobCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
+		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir)))
 		return "", nil
 	}
 	if !s.HandoffConfigWritable(cfg, path, target) {
-		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %q to %s, keeping its other entries", target, filepath.ToSlash(path), filepath.ToSlash(dir), key))
+		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %s to %s, keeping its other entries", target, filepath.ToSlash(path), handoffNativeEntry(target, filepath.ToSlash(dir)), key))
 		return "", nil
 	}
 	if err := s.CreateHandoffStore(dir, dryRun); err != nil {
@@ -330,4 +334,28 @@ func (s *Session) HandoffAccessRoot(cfg *config.Config, path, target, key string
 		return "", err
 	}
 	return filepath.ToSlash(dir), nil
+}
+
+// handoffGlobCharacters lists the characters that would turn the main
+// checkout path into a broader pattern in a target whose grant is a glob.
+// Devin also reads `)` as the end of its `Write(` rule.
+func handoffGlobCharacters(target string) string {
+	switch target {
+	case "opencode":
+		return "*?[]{}"
+	case "windsurf":
+		return "*?[]{}()"
+	}
+	return ""
+}
+
+// handoffNativeEntry spells the grant the way the target's config holds it.
+func handoffNativeEntry(target, dir string) string {
+	switch target {
+	case "opencode":
+		return fmt.Sprintf("%q: \"allow\"", dir+"/**")
+	case "windsurf":
+		return "Write(" + dir + "/**)"
+	}
+	return fmt.Sprintf("%q", dir)
 }

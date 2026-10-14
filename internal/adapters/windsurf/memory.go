@@ -35,15 +35,20 @@ func memoryWriteRules(sess *emit.Session, cfg *config.Config, path string, dryRu
 	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
 		return nil, err
 	}
-	return []string{"Write(" + filepath.ToSlash(dir) + "/**)"}, nil
+	return []string{writeRule(dir)}, nil
 }
 
-// mergeMemoryAllow adds rules to permissions.allow. An allow list
+// writeRule is the permissions.allow rule that lets Devin write under dir.
+func writeRule(dir string) string {
+	return "Write(" + filepath.ToSlash(dir) + "/**)"
+}
+
+// mergeAllowRules adds rules to permissions.allow. An allow list
 // settings produce is sync's whole, so the rules join it. Otherwise the
 // list is the user's: sync keeps their rules and claims only its own.
 // Either way the rules sync adds are recorded on their own, so they
 // leave by themselves, and only while unchanged, once no longer wanted.
-func mergeMemoryAllow(sess *emit.Session, keys map[string]any, path string, rules []string, dryRun bool) {
+func mergeAllowRules(sess *emit.Session, keys map[string]any, path string, rules []string, dryRun bool) {
 	permissions, _ := keys[permissionsKey].(map[string]any)
 	if allow, ok := permissions["allow"].([]string); ok {
 		var added []string

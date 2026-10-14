@@ -52,7 +52,7 @@ func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, p
 	// vocabulary for that spec while a sibling spec still translates.
 	// The general key-by-key merge cannot express that (#949, #966).
 	emit.MergeSettingsCustomKeys(keys, settings, target, permissionsKey)
-	memory, err := memoryWriteRules(sess, cfg, path, dryRun)
+	writeRules, err := memoryWriteRules(sess, cfg, path, dryRun)
 	if err != nil {
 		return err
 	}
@@ -61,9 +61,9 @@ func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, p
 		return err
 	}
 	if handoff != "" {
-		memory = append(memory, "Write("+handoff+"/**)")
+		writeRules = append(writeRules, writeRule(handoff))
 	}
-	mergeMemoryAllow(sess, keys, path, memory, dryRun)
+	mergeAllowRules(sess, keys, path, writeRules, dryRun)
 	if len(keys) == 0 {
 		return nil
 	}

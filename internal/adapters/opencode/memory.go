@@ -111,7 +111,12 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		}
 		owned = append(owned, pattern)
 	}
-	rules, err := withAllowed(rules, owned)
+	// A claimed entry stays where it is, so a broader rule the user put
+	// after it keeps winning; only a missing one goes last.
+	rules, err := withAllowed(rules, slices.DeleteFunc(slices.Clone(owned), func(pattern string) bool {
+		_, set := rules.Get(pattern)
+		return set
+	}))
 	if err != nil {
 		return false, err
 	}
