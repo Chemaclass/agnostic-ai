@@ -10,6 +10,8 @@
 # number FAKE_CURL_FAIL_CALL. A 2xx answer picks each Choice from the claim
 # its question names in state: "mcp.json" contradicts, "hooks" supports,
 # anything else says nothing. The claims come from a stub facts script.
+# A fake trim-1 helper ranks first every claim matching FAKE_TRIM_MATCH, or
+# exits FAKE_TRIM_EXIT; one test runs the real helper when Go is installed.
 
 # shellcheck disable=SC2016 # backticks in fixtures are Markdown, not commands
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,6 +26,7 @@ function set_up() {
   RUN="$FIXTURES/run"
   mkdir -p "$FIXTURES/bin" "$RUN/pages/copilot"
   write_fake_curl
+  write_fake_trim
   write_facts
   write_run
 }
@@ -79,6 +82,26 @@ EOF
   export FAKE_CURL_LOG="$FIXTURES/curl"
 }
 
+function write_fake_trim() {
+  cat >"$FIXTURES/bin/trim-leads" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_TRIM_LOG.args"
+if [ -n "${FAKE_TRIM_EXIT:-}" ]; then
+  echo "trim-leads: boom" >&2
+  exit "$FAKE_TRIM_EXIT"
+fi
+while IFS="$(printf '\t')" read -r id claims text; do
+  printf '%s\n' "$id" >>"$FAKE_TRIM_LOG.jobs"
+  head -n 1 "$claims" >>"$FAKE_TRIM_LOG.first"
+  { cat "$text"; echo; } >>"$FAKE_TRIM_LOG.text"
+  [ -n "${FAKE_TRIM_MATCH:-}" ] || continue
+  awk -v id="$id" -v re="$FAKE_TRIM_MATCH" '$0 ~ re { printf "%s\t%d\t1\t0.%d\n", id, NR, 90 - NR }' "$claims"
+done
+EOF
+  chmod +x "$FIXTURES/bin/trim-leads"
+  export FAKE_TRIM_LOG="$FIXTURES/trim"
+}
+
 function write_facts() {
   cat >"$FIXTURES/facts.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -117,11 +140,11 @@ function write_run() {
   } >"$RUN/deltas.tsv"
 }
 
-# triage [args...] runs the script with the fake curl first on PATH and
-# prints its stdout and stderr together.
+# triage [args...] runs the script with the fake curl first on PATH and the
+# fake trim-1 helper, and prints its stdout and stderr together.
 function triage() {
   PATH="$FIXTURES/bin:$PATH" TYPESAFE_API_KEY="${KEY-$SECRET}" JEV_BACKOFF=0 \
-    bash "$JEV" "$@" 2>&1
+    JEV_TRIM_HELPER="${TRIM_HELPER-$FIXTURES/bin/trim-leads}" bash "$JEV" "$@" 2>&1
 }
 
 # ---- without Jev -------------------------------------------------------------
@@ -131,7 +154,7 @@ function test_no_key_writes_lexical_leads_and_exits_0() {
   out=$(KEY='' triage "$RUN")
   code=$?
   assert_equals 0 "$code"
-  assert_contains "jev-triage: lexical leads only (no TYPESAFE_API_KEY)" "$out"
+  assert_contains "jev-triage: lexical and trim-1 leads only (no TYPESAFE_API_KEY)" "$out"
   assert_file_not_exists "$FAKE_CURL_LOG.calls"
   assert_equals "paired lexical" "$(cut -f5,8 "$RUN/triage.tsv" | sort -u | tr '\t' ' ')"
   assert_contains 'reads its CLIMCP file from `.github/mcp.json`' "$(grep https://example.test/mcp "$RUN/triage.tsv")"
@@ -141,7 +164,7 @@ function test_no_key_writes_lexical_leads_and_exits_0() {
 function test_the_lexical_flag_sends_nothing_even_with_a_key() {
   local out
   out=$(triage --lexical "$RUN")
-  assert_contains "lexical leads only (--lexical)" "$out"
+  assert_contains "lexical and trim-1 leads only (--lexical)" "$out"
   assert_file_not_exists "$FAKE_CURL_LOG.calls"
   assert_file_exists "$RUN/triage.tsv"
 }
@@ -150,6 +173,114 @@ function test_lexical_leads_skip_unpaired_pages_and_rows_with_no_delta() {
   KEY='' triage "$RUN" >/dev/null
   assert_not_contains "https://example.test/cli" "$(cat "$RUN/triage.tsv")"
   assert_not_contains "https://example.test/new" "$(cat "$RUN/triage.tsv")"
+}
+
+function test_without_jev_trim_leads_follow_the_lexical_ones() {
+  local out
+  out=$(FAKE_TRIM_MATCH='instructions|hooks directory' KEY='' triage "$RUN")
+  assert_contains "lexical and trim-1 leads only (no TYPESAFE_API_KEY)" "$out"
+  assert_equals "-top 5" "$(cat "$FAKE_TRIM_LOG.args")"
+  assert_equals 3 "$(grep -c . "$FAKE_TRIM_LOG.jobs")"
+  assert_equals "lexical trim" "$(cut -f8 "$RUN/triage.tsv" | uniq | tr '\n' ' ' | sed 's/ $//')"
+  assert_contains $'| copilot | rules | always-on instructions |\tpaired\t0.83\t\ttrim' "$(grep https://example.test/cli "$RUN/triage.tsv")"
+  assert_equals "lexical" "$(grep https://example.test/changelog "$RUN/triage.tsv" | grep 'hooks directory' | cut -f8)"
+  assert_empty "$(awk -F '\t' 'NF != 8' "$RUN/triage.tsv")"
+  assert_equals "lexical" "$(cut -f5 "$RUN/triage-pages.tsv" | sort -u)"
+}
+
+function test_the_trim_rank_cut_reaches_the_helper() {
+  JEV_TRIM_TOP=3 KEY='' triage "$RUN" >/dev/null
+  assert_equals "-top 3" "$(cat "$FAKE_TRIM_LOG.args")"
+}
+
+function test_trim_does_not_run_beside_a_working_jev() {
+  FAKE_TRIM_MATCH=instructions triage "$RUN" >/dev/null
+  assert_file_not_exists "$FAKE_TRIM_LOG.args"
+  assert_not_contains "trim" "$(cut -f8 "$RUN/triage.tsv")"
+}
+
+function test_trim_ranks_every_part_once_jev_fails_for_the_run() {
+  local out
+  out=$(FAKE_TRIM_MATCH=instructions FAKE_CURL_CODE=401 JEV_JOBS=1 triage "$RUN")
+  assert_contains "(HTTP 401)" "$out"
+  assert_equals 3 "$(grep -c . "$FAKE_TRIM_LOG.jobs")"
+  assert_equals 3 "$(awk -F '\t' '$8 == "trim" { print $2 }' "$RUN/triage.tsv" | sort -u | grep -c .)"
+  assert_equals "unjudged" "$(cut -f5 "$RUN/triage-pages.tsv" | sort -u)"
+}
+
+function test_trim_ranks_only_unjudged_parts_and_skips_claims_jev_answered() {
+  # Request 1 asks the mcp page about claims 3, 6, and 4; request 2, which
+  # fails, about 5, 1, and 2. The other pages are answered.
+  FAKE_TRIM_MATCH='hooks directory|hook configuration' FAKE_CURL_FAIL_CALL=2 FAKE_CURL_FAIL_CODE=422 \
+    JEV_CLAIMS_PER_REQUEST=3 JEV_JOBS=1 triage "$RUN" >/dev/null
+  assert_equals 1 "$(grep -c . "$FAKE_TRIM_LOG.jobs")"
+  local trim
+  trim=$(awk -F '\t' '$8 == "trim" { print $2 "|" $4 }' "$RUN/triage.tsv")
+  assert_equals 'https://example.test/mcp|copilot natively reads project-scoped hook configuration, so agnostic-ai emits hook specs for it.' "$trim"
+  assert_equals "unjudged" "$(page_status https://example.test/mcp)"
+}
+
+function test_a_missing_trim_helper_falls_back_to_lexical_leads_with_one_note() {
+  local out code
+  out=$(TRIM_HELPER="$FIXTURES/missing" KEY='' triage "$RUN")
+  code=$?
+  assert_equals 0 "$code"
+  assert_contains "jev-triage: trim-1 skipped ($FIXTURES/missing is not executable)" "$out"
+  assert_equals 1 "$(printf '%s\n' "$out" | grep -c 'trim-1 skipped')"
+  assert_contains "jev-triage: lexical leads only (no TYPESAFE_API_KEY)" "$out"
+  assert_equals "lexical" "$(cut -f8 "$RUN/triage.tsv" | sort -u)"
+}
+
+function test_a_failing_trim_helper_falls_back_with_its_error() {
+  local out
+  out=$(FAKE_TRIM_EXIT=3 FAKE_TRIM_MATCH=instructions KEY='' triage "$RUN")
+  assert_contains "jev-triage: trim-1 skipped (trim-leads: boom)" "$out"
+  assert_equals "lexical" "$(cut -f8 "$RUN/triage.tsv" | sort -u)"
+}
+
+function test_by_default_the_helper_runs_from_its_own_module_with_go() {
+  mkdir -p "$FIXTURES/gobin"
+  cat >"$FIXTURES/gobin/go" <<'EOF'
+#!/usr/bin/env bash
+printf '%s|%s|%s\n' "$PWD" "$GOWORK" "$*" >"$FAKE_TRIM_LOG.go"
+echo "go: downloading github.com/caveman-ai/trim-1" >&2
+echo "no route to proxy.golang.org" >&2
+exit 1
+EOF
+  chmod +x "$FIXTURES/gobin/go"
+  local out
+  out=$(PATH="$FIXTURES/gobin:$PATH" TRIM_HELPER='' KEY='' triage "$RUN")
+  assert_equals "$SCRIPT_DIR/trim-leads|off|run . -top 5" "$(cat "$FAKE_TRIM_LOG.go")"
+  assert_contains "jev-triage: trim-1 skipped (no route to proxy.golang.org)" "$out"
+  assert_equals "lexical" "$(cut -f8 "$RUN/triage.tsv" | sort -u)"
+}
+
+function test_the_real_helper_writes_trim_leads() {
+  if ! command -v go >/dev/null 2>&1; then
+    bashunit::skip "go is not installed"
+    return
+  fi
+  # With no lexical rows to win the duplicates, every trim-1 lead shows.
+  local out
+  out=$(TRIM_HELPER='' JEV_LEXICAL_LEADS=0 KEY='' triage "$RUN")
+  assert_contains "lexical and trim-1 leads only (no TYPESAFE_API_KEY)" "$out"
+  assert_not_contains "trim-1 skipped" "$out"
+  assert_contains $'.github/mcp.json`, the shared Copilot CLI configuration committed to the repository.\tpaired' "$(grep -F "$(printf 'https://example.test/mcp\t')" "$RUN/triage.tsv")"
+  assert_equals "trim" "$(cut -f8 "$RUN/triage.tsv" | sort -u)"
+}
+
+function test_the_real_helper_flags_no_claim_of_a_small_target_for_unrelated_text() {
+  if ! command -v go >/dev/null 2>&1; then
+    bashunit::skip "go is not installed"
+    return
+  fi
+  bash -c '. "$1"; jev_claims copilot' _ "$JEV" >"$FIXTURES/claims"
+  printf '%s\n' 'Pricing {+Team plans now cost $20 per seat each month, billed yearly.+} FAQ' >"$FIXTURES/pricing.delta"
+  local out
+  out=$(printf 'p1\t%s\t%s\n' "$FIXTURES/claims" "$FIXTURES/pricing.delta" |
+    (cd "$SCRIPT_DIR/trim-leads" && GOWORK=off go run . -top 10))
+  assert_equals 7 "$(grep -c . "$FIXTURES/claims")"
+  assert_empty "$out"
 }
 
 function test_missing_deltas_skips_and_removes_a_stale_triage() {
@@ -386,7 +517,7 @@ function test_replay_prints_recall_false_positives_and_lexical_pairing() {
   assert_contains "false positives on says_nothing: 0/1 (0.00)" "$out"
   assert_contains "exact verdicts: 3/4" "$out"
   assert_contains "lexical pairing on contradicts: 1/2 (0.50)" "$out"
-  assert_matches "missed +contradicts +says_nothing +0.05 +no +MISS +- +4" "$out"
+  assert_matches "missed +contradicts +says_nothing +0.05 +no +no +MISS +- +4" "$out"
   assert_contains "leads (contradicts or p_contradicts >= 0.4): 1/2 drifts, 0/2 other cases" "$out"
 }
 
@@ -398,16 +529,38 @@ function test_replay_asks_each_case_beside_the_target_claims() {
   assert_equals 8 "$(jq '.questions | length' "$req")"
 }
 
-function test_replay_without_a_key_reports_lexical_pairing_only() {
+function test_replay_without_a_key_reports_lexical_trim_and_union_recall() {
   write_cases
   local out code
-  out=$(KEY='' triage --replay "$FIXTURES/cases.tsv")
+  out=$(FAKE_TRIM_MATCH=agents KEY='' triage --replay "$FIXTURES/cases.tsv")
   code=$?
   assert_equals 0 "$code"
-  assert_contains "jev-triage: lexical only (no TYPESAFE_API_KEY)" "$out"
-  assert_contains "lexical pairing on contradicts: 1/2 (0.50)" "$out"
+  assert_contains "jev-triage: lexical and trim-1 only (no TYPESAFE_API_KEY)" "$out"
+  assert_contains "lexical pairing on contradicts: 1/2 (0.50), on says_nothing: 0/1" "$out"
+  assert_contains "trim-1 top 5 on contradicts: 1/2 (0.50), on says_nothing: 0/1" "$out"
+  assert_contains "lexical or trim-1 on contradicts: 2/2 (1.00), on says_nothing: 0/1" "$out"
+  assert_matches "missed +contradicts +- +- +no +yes" "$out"
   assert_not_contains "recall on contradicts" "$out"
   assert_file_not_exists "$FAKE_CURL_LOG.calls"
+}
+
+function test_replay_ranks_each_excerpt_against_the_case_claim_and_the_target_claims() {
+  write_cases
+  KEY='' triage --replay "$FIXTURES/cases.tsv" >/dev/null
+  assert_equals 4 "$(grep -c . "$FAKE_TRIM_LOG.jobs")"
+  assert_equals 'Copilot CLI reads `.github/mcp.json`.' "$(head -n 1 "$FAKE_TRIM_LOG.first")"
+  assert_equals '{+Servers now live in .github/copilot/mcp.json.+}' "$(head -n 1 "$FAKE_TRIM_LOG.text")"
+}
+
+function test_replay_without_the_trim_helper_prints_the_lexical_line_only() {
+  write_cases
+  local out
+  out=$(TRIM_HELPER="$FIXTURES/missing" KEY='' triage --replay "$FIXTURES/cases.tsv")
+  assert_contains "jev-triage: trim-1 skipped ($FIXTURES/missing is not executable)" "$out"
+  assert_contains "jev-triage: lexical only (no TYPESAFE_API_KEY)" "$out"
+  assert_contains "lexical pairing on contradicts: 1/2 (0.50)" "$out"
+  assert_not_contains "trim-1 top" "$out"
+  assert_matches "missed +contradicts +- +- +no +- " "$out"
 }
 
 function test_the_committed_cases_file_is_well_formed() {
