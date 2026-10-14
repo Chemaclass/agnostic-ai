@@ -162,6 +162,13 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	}
 
+	memoryHookForTarget := func(target string) string {
+		if target == "trae" {
+			return "memory-trae-session-start"
+		}
+		return "memory-session-start"
+	}
+
 	t.Run("trae-native-memory-hook-adds-the-index-to-context", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			t.Skip("Trae hook diagnostics model its Unix launcher")
@@ -213,7 +220,7 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory", "trae"}
 		for _, target := range targets {
-			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
+			if out := run(t, dir, "hook", "run", memoryHookForTarget(target), "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
 				t.Errorf("%s: an empty store adds context:\n%s", target, out)
 			}
 		}
@@ -225,7 +232,7 @@ func TestBuiltinMemory(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, target := range targets {
-			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
+			if out := run(t, dir, "hook", "run", memoryHookForTarget(target), "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
 				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
 			}
 		}
@@ -247,12 +254,12 @@ func TestBuiltinMemory(t *testing.T) {
 			if target == "trae" {
 				continue
 			}
-			out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json")
+			out := run(t, dir, "hook", "run", memoryHookForTarget(target), "--target", target, "--format", "json")
 			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
 				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
 		}
-		traeRun := exec.Command(binary, "hook", "run", "memory-session-start", "--target", "trae", "--format", "json")
+		traeRun := exec.Command(binary, "hook", "run", "memory-trae-session-start", "--target", "trae", "--format", "json")
 		traeRun.Dir = dir
 		traeOutput, traeErr := traeRun.CombinedOutput()
 		if traeErr == nil || !strings.Contains(string(traeOutput), `"decision": "error"`) || !strings.Contains(string(traeOutput), `"adds_context": false`) {

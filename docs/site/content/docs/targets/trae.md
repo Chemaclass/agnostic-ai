@@ -67,7 +67,7 @@ Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Set
 
 ## Shared memory
 
-With `builtins: [memory]`, sync adds a `SessionStart` hook to `.trae/hooks.json`. Once you enable project hooks in Settings > Hooks, it runs `agnostic-ai project -- hook memory --target trae` before the first message and adds up to 6,000 bytes from the personal and project memory indexes. Trae's own Memories stay available.
+With `builtins: [memory]`, sync adds the native `memory-trae-session-start` hook for `SessionStart` to `.trae/hooks.json`. Once you enable project hooks in Settings > Hooks, it runs `agnostic-ai project -- hook memory --target trae` before the first message and adds up to 6,000 bytes from the personal and project memory indexes. Trae's own Memories stay available.
 
 Trae sets `TRAE_PROJECT_DIR` to the workspace used by the hook, so the command finds that project's indexes even when its shell starts elsewhere. The command uses the project's installed agnostic-ai package when one is declared; install or upgrade that package before starting Trae. If hooks are disabled, the shared memory rule still tells Trae to read the indexes.
 
