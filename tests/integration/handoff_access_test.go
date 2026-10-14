@@ -1017,3 +1017,28 @@ func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testi
 		})
 	}
 }
+
+func TestHandoffAccess_TrackedConfigNoteAsksToUntrack(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	for _, target := range []string{"opencode", "windsurf"} {
+		t.Run(target, func(t *testing.T) {
+			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
+			handoffInitGit(t, main)
+			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
+			file := map[string]string{"opencode": "opencode.json", "windsurf": ".devin/config.json"}[target]
+			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: ["+target+"]\ngitignore:\n  enabled: true\n")
+			handoffWrite(t, filepath.Join(linked, file), "{\"user_option\":true}\n")
+			handoffGit(t, linked, "add", "-f", file)
+			cmd := exec.Command(binary, "sync")
+			cmd.Dir = linked
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("sync: %v\n%s", err, output)
+			}
+			if !strings.Contains(string(output), "git rm --cached "+file) || strings.Contains(string(output), "add \"") || strings.Contains(string(output), "Write(") {
+				t.Errorf("note does not ask to untrack the file: %s", output)
+			}
+		})
+	}
+}

@@ -90,21 +90,7 @@ func handoffConfigPathWritable(path, target string) bool {
 	if !handoffConfigAncestorsWritable(path) {
 		return false
 	}
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return false
-	}
-	root := strings.TrimSpace(string(out))
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(realPath(root), realPath(abs))
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return false
-	}
-	tracked, err := exec.Command("git", "-C", root, "ls-files", "--", filepath.ToSlash(rel)).Output()
-	if err != nil || len(tracked) != 0 {
+	if tracked, known := handoffConfigTracked(path); tracked || !known {
 		return false
 	}
 	data, err := os.ReadFile(path)
@@ -137,6 +123,26 @@ func handoffConfigPathWritable(path, target string) bool {
 	}
 	return len(priorMergedKeys(path)) > 0 ||
 		PriorOutputSum != nil && PriorOutputSum(path) != ""
+}
+
+// handoffConfigTracked reports whether Git tracks the file at path, and
+// whether that could be told.
+func handoffConfigTracked(path string) (tracked, known bool) {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return false, false
+	}
+	root := strings.TrimSpace(string(out))
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false, false
+	}
+	rel, err := filepath.Rel(realPath(root), realPath(abs))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false, false
+	}
+	files, err := exec.Command("git", "-C", root, "ls-files", "--", filepath.ToSlash(rel)).Output()
+	return err == nil && len(files) != 0, err == nil
 }
 
 func handoffConfigAncestorsWritable(path string) bool {
@@ -358,6 +364,10 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 	if !s.HandoffConfigWritable(cfg, path, target) {
 		if handoffGrantOnDisk(path, target, filepath.ToSlash(dir)) {
 			return "", filepath.ToSlash(dir), nil
+		}
+		if tracked, _ := handoffConfigTracked(path); tracked {
+			NoteProject(fmt.Sprintf("%s: %s is tracked by Git, so sync leaves its handoff permission alone; run `git rm --cached %s` so sync can manage it, since the store path is local to this machine", target, filepath.ToSlash(path), filepath.ToSlash(path)))
+			return "", "", nil
 		}
 		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %s to %s, keeping its other entries", target, filepath.ToSlash(path), handoffNativeEntry(target, filepath.ToSlash(dir)), key))
 		return "", "", nil
