@@ -221,3 +221,63 @@ func TestSync_DevinPermissionListsKeepAnExtraCopyOfASpecRule(t *testing.T) {
 	}
 	runSyncOK(t, "--check")
 }
+
+// A rule that left a list stops being sync's, so one the user writes
+// there later stays while a spec is present.
+func TestSync_DevinPermissionListsReleaseARuleThatLeftBeforeTheUserWroteIt(t *testing.T) {
+	devinPermissionProject(t, `{"permissions": {"deny": ["Exec(curl)"]}}`)
+	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	runSyncOK(t)
+	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(curl:*)\"]\n")
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	devinHandEdit(t, "deny", "Exec(rm)")
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	if got := devinPermissionLists(t)["deny"]; !reflect.DeepEqual(got, []any{"Exec(curl)", "Exec(rm)"}) {
+		t.Errorf("deny = %#v, want the hand-added rule kept", got)
+	}
+}
+
+// A spec whose rules the file already holds adds nothing, so sync
+// records no claim and a check right after the sync stays clean.
+func TestSync_DevinPermissionListsClaimNothingWhenTheUserHoldsEveryRule(t *testing.T) {
+	devinPermissionProject(t, `{"permissions": {"allow": ["Read(src/**)"]}}`)
+	mustWriteFile(t, devinPolicySpec, "permissions:\n  allow: [\"Read(src/**)\"]\n")
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	removeSpecs(t, devinPolicySpec)
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	if got := devinPermissionLists(t); !reflect.DeepEqual(got, map[string]any{"allow": []any{"Read(src/**)"}}) {
+		t.Errorf("permissions = %#v, want the user's allow", got)
+	}
+}
+
+// The copy sync wrote is the last one in the file, so a copy the user
+// adds before it stays theirs and the file settles in one sync.
+func TestSync_DevinPermissionListsKeepACopyAddedBeforeTheSpecRule(t *testing.T) {
+	devinPermissionProject(t, "")
+	mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	runSyncOK(t)
+	doc := readJSONMap(t, devinConfig)
+	doc["permissions"].(map[string]any)["deny"] = []any{"Exec(rm)", "Exec(curl)", "Exec(rm)"}
+	writeJSONFile(t, devinConfig, doc)
+	runSyncOK(t)
+	first := devinPermissionLists(t)["deny"]
+	runSyncOK(t, "--check")
+	runSyncOK(t)
+	if got := devinPermissionLists(t)["deny"]; !reflect.DeepEqual(got, first) {
+		t.Errorf("deny changed between syncs: %#v then %#v", first, got)
+	}
+	runSyncOK(t, "--check")
+	if !reflect.DeepEqual(first, []any{"Exec(rm)", "Exec(curl)", "Exec(rm)"}) {
+		t.Fatalf("deny = %#v, want the user's copy first and sync's last", first)
+	}
+	removeSpecs(t, devinPolicySpec)
+	runSyncOK(t)
+	if got := devinPermissionLists(t)["deny"]; !reflect.DeepEqual(got, []any{"Exec(rm)", "Exec(curl)"}) {
+		t.Errorf("deny after the spec left = %#v, want the user's entries", got)
+	}
+	runSyncOK(t, "--check")
+}

@@ -37,6 +37,10 @@ func init() {
 		// An older ledger lists a file it created without a record, as ledgerMerged reads it.
 		return last.Created || !recorded && slices.Contains(prev.Outputs, path)
 	})
+	adapters.SetPriorMergedRecorded(func(path string) bool {
+		_, recorded := priorStateFile().Merged[path]
+		return recorded
+	})
 	adapters.SetPriorOutputSum(func(path string) string {
 		return priorStateFile().OutputSums[path]
 	})

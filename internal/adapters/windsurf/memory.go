@@ -122,11 +122,16 @@ func mergePermissionList(sess *emit.Session, path, list string, planned, kept []
 	if len(rest) == 0 {
 		return nil, false
 	}
+	if len(claims[list]) == 0 {
+		// Sync adds nothing the user does not hold, so an earlier claim
+		// on the list has nothing left to name.
+		return emit.CarriedJSONValue(rest), true
+	}
 	return emit.ClaimedJSONItems(rest, claims[list]), true
 }
 
 // withSurplusCopies puts back, in file order, every copy of a rule sync
-// owns beyond the one it wrote: merged is the user's entries followed by
+// owns beyond the last one, which is the one it wrote: merged is the user's entries followed by
 // wanted, which MergeOwnedLists built after dropping each copy of a rule
 // sync owns.
 func withSurplusCopies(existing, merged, wanted []any, prior []string) []any {
@@ -138,16 +143,21 @@ func withSurplusCopies(existing, merged, wanted []any, prior []string) []any {
 	for _, sum := range prior {
 		owned[sum] = true
 	}
-	first := map[string]bool{}
+	// Sync appends its own copy last, so that is the one it owns.
+	last := map[string]int{}
+	for i, entry := range existing {
+		if rule, ok := entry.(string); ok && owned[emit.ContentSum(rule)] {
+			last[emit.ContentSum(rule)] = i
+		}
+	}
 	var out []any
-	for _, entry := range existing {
+	for i, entry := range existing {
 		sum := ""
 		if rule, ok := entry.(string); ok {
 			sum = emit.ContentSum(rule)
 		}
 		switch at := slices.Index(user, entry); {
-		case owned[sum] && !first[sum]:
-			first[sum] = true
+		case owned[sum] && last[sum] == i:
 		case owned[sum]:
 			out = append(out, entry)
 		case at >= 0:
