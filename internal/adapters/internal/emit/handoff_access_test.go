@@ -104,3 +104,29 @@ func TestCreateHandoffStore_PreviewsDoNotCreateDirectories(t *testing.T) {
 		})
 	}
 }
+
+func TestPreserveHandoffConfig_MissingOwnedFileCanBeGenerated(t *testing.T) {
+	for _, target := range []string{"codex", "qoder", "claude"} {
+		t.Run(target, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			path := filepath.Join("native", "settings")
+			root := "/project/.agnostic-ai/local/handoffs"
+			oldSum, oldKeys := PriorOutputSum, PriorMergedKeys
+			t.Cleanup(func() {
+				PriorOutputSum, PriorMergedKeys = oldSum, oldKeys
+			})
+			PriorOutputSum = func(string) string { return ContentSum(root) }
+			PriorMergedKeys = func(string) []MergedKey {
+				return []MergedKey{{Path: []string{"permissions", "additionalDirectories"}, Items: []string{ContentSum(root)}}}
+			}
+			sess := NewSession()
+			preserved, err := sess.PreserveHandoffConfig(&config.Config{}, path, target)
+			if err != nil || preserved {
+				t.Errorf("missing native file should allow generation: preserved=%v, err=%v", preserved, err)
+			}
+			if _, err := os.Lstat(path); !os.IsNotExist(err) {
+				t.Errorf("preservation created a missing file: %v", err)
+			}
+		})
+	}
+}
