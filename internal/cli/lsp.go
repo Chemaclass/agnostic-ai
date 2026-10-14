@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/lsp"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -41,6 +42,8 @@ func newLSPCmd() *cobra.Command {
 
 // A load failure leaves the lint results incomplete, even with source diagnostics.
 func lspLinter(root string) (map[string][]lsp.Diagnostic, error) {
+	// The editor session outlives one run, so each lint reads the current Git layout.
+	gitquery.Reset()
 	var err error
 	root, err = filepath.Abs(root)
 	if err != nil {

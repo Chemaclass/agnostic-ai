@@ -3,12 +3,12 @@ package config
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 // Values memory.personal accepts.
@@ -46,20 +46,15 @@ func validateMemory(m MemoryConfig, base map[string]any, basePath, source string
 	return nil
 }
 
-// gitLayout is what one `git rev-parse` call says about a project's
-// repository.
+// gitLayout is what Git says about a project's repository.
 type gitLayout struct{ gitDir, commonDir, prefix string }
 
 func readGitLayout(root string) (gitLayout, bool) {
-	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-prefix").Output()
+	layout, err := gitquery.LayoutAt(root)
 	if err != nil {
 		return gitLayout{}, false
 	}
-	parts := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
-	if len(parts) != 3 {
-		return gitLayout{}, false
-	}
-	return gitLayout{strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])}, true
+	return gitLayout{strings.TrimSpace(layout.GitDir), strings.TrimSpace(layout.CommonDir), strings.TrimSpace(layout.Prefix)}, true
 }
 
 // ProjectGit is what Git answers for a project whose copy has no .git:

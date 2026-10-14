@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 // NativeMemoryDir returns the auto memory store Claude Code uses for the
@@ -89,11 +90,14 @@ func memoryProjectRoot(root string) string {
 // gitPath returns the absolute path `git rev-parse` prints for flag in the
 // checkout at dir, with symlinks resolved.
 func gitPath(dir, flag string) (string, error) {
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--path-format=absolute", flag).Output()
+	layout, err := gitquery.LayoutAt(dir)
 	if err != nil {
 		return "", err
 	}
-	return canonicalPath(strings.TrimSpace(string(out))), nil
+	if flag == "--git-dir" {
+		return canonicalPath(strings.TrimSpace(layout.GitDir)), nil
+	}
+	return canonicalPath(strings.TrimSpace(layout.CommonDir)), nil
 }
 
 // inLinkedWorktree reports whether root is a worktree Git added beside the
