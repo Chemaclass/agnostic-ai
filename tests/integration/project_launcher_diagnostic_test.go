@@ -51,6 +51,7 @@ process.exit(result.status === null ? 1 : result.status);
 }
 
 func TestProjectLifecycle_LaunchDiagnosticSurvivesNativeTimeout(t *testing.T) {
+	skipFlakyWindowsStartup(t)
 	node := lifecycleDiagnosticNode(t)
 	native, err := os.Executable()
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 )
 
 func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
+	skipFlakyWindowsStartup(t)
 	repository, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
@@ -78,5 +79,15 @@ func TestProjectLifecycle_FirstLaunchAfterFreshInstall(t *testing.T) {
 		if err != nil || string(installs) != "99.1.0 install --frozen-lockfile marker=1\n" {
 			t.Fatalf("fresh install %d must install once: %v\n%s", i, err, installs)
 		}
+	}
+}
+
+// skipFlakyWindowsStartup skips a test that times a freshly built
+// executable's first start, which Windows delays unpredictably (#2120).
+// The manual repeat_windows_startup CI run sets the variable to keep it.
+func skipFlakyWindowsStartup(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" && os.Getenv("AGNOSTIC_AI_WINDOWS_STARTUP_TESTS") == "" {
+		t.Skip("first-start timing is flaky on Windows (#2120); set AGNOSTIC_AI_WINDOWS_STARTUP_TESTS=1 to run it")
 	}
 }
