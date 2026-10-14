@@ -60,7 +60,7 @@ A server needs `command` (stdio) or `url` (remote). Only `agnostic-ai lint` repo
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier and key in the generated config. |
 | `description` | no | empty | Free-form notes. Dropped for Junie and Warp. |
-| `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote types write an explicit `type`; `stdio` does not. Augment, Factory, and Qoder get no server for `ws`. |
+| `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote types write an explicit `type`; `stdio` does not. Augment, Factory, and Qoder get no server for `ws`, and Ellipsis none for `sse` or `ws`. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. An element can hold a [reference](#references-in-url-and-args). |
 | `env` | no | empty | Environment variables for the server. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
@@ -106,7 +106,7 @@ Sync writes each tool's own form. Where a tool cannot read a reference in that f
 | Target | `env` | `headers` |
 |--------|-------|-----------|
 | [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md), [Gemini](@/docs/targets/gemini.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
-| [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | `${NAME}` | `${NAME}` |
+| [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Ellipsis](@/docs/targets/ellipsis.md) | `${NAME}` | `${NAME}` |
 | [Amp](@/docs/targets/amp.md) | Left out | `${NAME}` |
 | [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
 | [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
@@ -142,7 +142,7 @@ A tool's own form at the top level, such as `${env:NAME}`, is copied as text to 
 | [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
 | [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
 | [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}` | `{% raw %}${{ secrets.NAME }}{% endraw %}` |
-| [Codex](@/docs/targets/codex.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Server left out | Server left out |
+| [Codex](@/docs/targets/codex.md), [Ellipsis](@/docs/targets/ellipsis.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Server left out | Server left out |
 
 ### Literal `${NAME}` text {#literal-text}
 
@@ -241,3 +241,4 @@ x-claude:
 | [Copilot](@/docs/targets/copilot.md) | A `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. Removed from both MCP files with a note. Disable the server in VS Code for that half |
 | [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers written to `.mcp.json`. Import restores it |
 | [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Removed with a note. Disable the server in the tool itself |
+| [Ellipsis](@/docs/targets/ellipsis.md) | Server left out, since a listed server is always available. Written into the environment file, not an MCP file |

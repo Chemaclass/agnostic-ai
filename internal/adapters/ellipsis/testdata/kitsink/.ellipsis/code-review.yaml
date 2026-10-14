@@ -16,6 +16,7 @@ reviewers:
 
         Check that handlers use a repository.
       model: claude-opus-5-5
+    environment: api-environment
 output:
   on_fail: request_changes
 budget:

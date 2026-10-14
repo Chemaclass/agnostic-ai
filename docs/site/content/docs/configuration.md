@@ -548,7 +548,7 @@ gitignore:
 - Kinds: `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`. An unknown kind fails config loading.
 - `instructions` covers entry-point files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) and rule outputs, root and scoped. Every other kind is named after its spec source.
 - A file written by several kinds, such as `.claude/settings.json`, is committed when any of them is listed.
-- `ellipsis:reviews` also counts the settings spec that holds `x-ellipsis`, because `.ellipsis/code-review.yaml` needs both ([Ellipsis](@/docs/targets/ellipsis.md#keep-the-file-in-git)).
+- `ellipsis:reviews`, `ellipsis:environments`, and `ellipsis:mcps` also count the settings spec that holds `x-ellipsis`, because `.ellipsis/code-review.yaml` and `.ellipsis/environments/<name>.yaml` need both ([Ellipsis](@/docs/targets/ellipsis.md#keep-the-files-in-git)).
 - A file that only the config or an [overlay](#watched-inputs) produces belongs to no kind and stays ignored.
 
 Prefix a kind with a target to commit it for that target only:

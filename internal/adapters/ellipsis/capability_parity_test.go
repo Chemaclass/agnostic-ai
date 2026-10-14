@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,9 +16,10 @@ import (
 )
 
 // kitSinkBundle exercises every kind the adapter declares: a root and a
-// scoped review plus the settings spec that names the reviewer. Rules,
-// agents, and skills are left out on purpose; Ellipsis reads none of them
-// from this file.
+// scoped review, an environment spec, an HTTP and a stdio MCP server, and
+// the settings spec that names the reviewer and selects the environment.
+// Rules, agents, and skills are left out on purpose; Ellipsis reads none
+// of them from these files.
 func kitSinkBundle() spec.Bundle {
 	return spec.NewBundle([]spec.Entry{
 		review("root", "", "Check the changed code for correctness."),
@@ -27,6 +29,22 @@ func kitSinkBundle() spec.Bundle {
 			"reviewer":      reviewer(nil),
 			"output":        map[string]any{"on_fail": "request_changes"},
 			"budget":        map[string]any{"session": 3},
+			"environment": selected(map[string]any{
+				"compute": map[string]any{"cpu": 2, "memory": "8GB", "timeout": "30m"},
+				"hooks": map[string]any{
+					"build_base":   map[string]any{"inputs": []any{"api-repo/package.json", "api-repo/package-lock.json"}},
+					"before_start": "cd /sandbox/api-repo\ntest -d node_modules\n",
+				},
+				"variables":   []any{map[string]any{"name": "NPM_TOKEN"}, map[string]any{"name": "NODE_ENV", "value": "test"}},
+				"mcp_servers": []any{"slack"},
+			}),
+		}),
+		environmentSpec(map[string]any{"install": "npm ci", "setup": "npm run build --if-present"}),
+		httpServer("internal-tools"),
+		mcpSpec("repo-tools", map[string]any{
+			"command": "node",
+			"args":    []any{"/sandbox/api-repo/scripts/mcp-server.js"},
+			"env":     map[string]any{"API_TOKEN": "${REPO_TOOLS_TOKEN}"},
 		}),
 	})
 }
@@ -37,18 +55,29 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 	paths := testutil.WalkRel(t, dir)
-	for _, k := range caps.Supports {
-		found := false
-		for _, p := range paths {
-			if filepath.ToSlash(p) == reviewFile {
-				found = true
-			}
-		}
-		if !found {
-			t.Errorf("declared kind %q in caps.Supports has no observable output (paths: %v)", k, paths)
+	for _, p := range []string{reviewFile, environmentFile} {
+		if !slices.Contains(paths, filepath.FromSlash(p)) {
+			t.Errorf("kit-sink bundle did not write %s (paths: %v)", p, paths)
 		}
 	}
-	if len(caps.Supports) != 2 {
+	observed := map[spec.Kind]string{
+		spec.KindReview:      "Check the changed code for correctness.",
+		spec.KindSettings:    "model: claude-opus-5-5",
+		spec.KindEnvironment: "cd /sandbox/api-repo\n      npm ci",
+		spec.KindMCP:         "Bearer ${TOOLS_TOKEN}",
+	}
+	files := readReview(t, reviewFile) + readReview(t, environmentFile)
+	for _, k := range caps.Supports {
+		want, ok := observed[k]
+		if !ok {
+			t.Errorf("declared kind %q has no observable output check", k)
+			continue
+		}
+		if !strings.Contains(files, want) {
+			t.Errorf("declared kind %q in caps.Supports has no observable output: %q is absent", k, want)
+		}
+	}
+	if len(caps.Supports) != len(observed) {
 		t.Errorf("claim only the kinds this adapter writes, got %v", caps.Supports)
 	}
 }
@@ -70,15 +99,14 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	emit.ResetCapabilityWarnings()
 	t.Cleanup(emit.ResetCapabilityWarnings)
 	entries := []spec.Entry{
-		{Kind: spec.KindMCP, Name: "stdio", Meta: map[string]any{"command": "npx"}},
 		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{"event": "PostToolUse", "command": "gofmt"}},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "skill"},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 3 {
-		t.Errorf("expected 3 capability warnings (mcp, hook, skill), got %d", got)
+	if got := emit.PendingCapabilityWarningsCount(); got != 2 {
+		t.Errorf("expected 2 capability warnings (hook, skill), got %d", got)
 	}
 }
 

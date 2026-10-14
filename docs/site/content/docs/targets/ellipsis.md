@@ -1,6 +1,6 @@
 +++
 title = "Ellipsis"
-description = "What agnostic-ai writes for Ellipsis code review: the file path, the reviewer settings, and what it leaves out."
+description = "What agnostic-ai writes for Ellipsis: the code-review file, the session environment with its setup scripts and MCP servers, and what it leaves out."
 weight = 260
 
 [extra]
@@ -10,7 +10,9 @@ target_id = "ellipsis"
 
 # Ellipsis (`ellipsis`)
 
-[Ellipsis](https://www.ellipsis.dev/docs/code-review) reviews each push to a pull request from one file, `.ellipsis/code-review.yaml`, on the default branch. agnostic-ai writes that file from your [review specs](@/docs/spec-format/reviews.md) and one settings spec. Ellipsis is opt-in. See [Selecting targets](@/docs/configuration.md#targets).
+[Ellipsis](https://www.ellipsis.dev/docs/code-review) reads two kinds of file from the default branch of a repository. `.ellipsis/code-review.yaml` drives one review per push. `.ellipsis/environments/<name>.yaml` is the [environment](https://www.ellipsis.dev/docs/environments) a session starts with: the repository, the setup scripts, and the MCP servers. agnostic-ai writes the first from your [review specs](@/docs/spec-format/reviews.md) and one settings spec, and the second from your [environment](@/docs/spec-format/environments.md) and [MCP](@/docs/spec-format/mcps.md) specs plus that settings spec. Ellipsis is opt-in. See [Selecting targets](@/docs/configuration.md#targets).
+
+Sync writes files only. Running sessions, deploying files to the default branch, and creating secrets stay with Ellipsis.
 
 ## Set up this tool
 
@@ -29,7 +31,19 @@ target_id = "ellipsis"
        session: 3
    ```
 
-3. Run these commands from the project root:
+3. To write an environment, select it in the same settings spec. Name the environment and the one repository it checks out:
+
+   ```yaml
+   x-ellipsis:
+     environment:
+       name: api-environment
+       repository:
+         name: api-repo
+   ```
+
+   The review then runs in that environment. Skip this step to write only the review file.
+
+4. Run these commands from the project root:
 
    ```bash
    agnostic-ai sync --dry-run
@@ -37,14 +51,15 @@ target_id = "ellipsis"
    agnostic-ai sync --check
    ```
 
-4. Commit `.ellipsis/code-review.yaml` to the default branch and install the Ellipsis GitHub App on the repository. Sync does neither the install nor the commit. See [Keep the file in Git](#keep-the-file-in-git).
+5. Commit the files under `.ellipsis/` to the default branch, install the Ellipsis GitHub App on the repository, and store each secret your MCP specs reference in Ellipsis. Sync does none of these. See [Keep the files in Git](#keep-the-files-in-git).
 
-To keep an existing file, start with [`agnostic-ai import ellipsis`](#import).
+To keep existing files, start with [`agnostic-ai import ellipsis`](#import). Sync replaces a hand-written file at the path it writes.
 
 ## Output
 
 ```
-.ellipsis/code-review.yaml     # one review file, one reviewer
+.ellipsis/code-review.yaml                 # one review file, one reviewer
+.ellipsis/environments/<name>.yaml         # the selected environment, when x-ellipsis.environment names one
 ```
 
 Sync writes the file only when a review spec reaches Ellipsis and the reviewer is complete. No review, no file. Reviews without a usable reviewer print a sync note that names the missing key, and write nothing. If a reviewer is set but incomplete, the file already deployed stays as it was; with no `x-ellipsis.reviewer` at all, sync removes it like any other leftover. With `on-unsupported: error`, sync stops instead; with `silent`, it says nothing.
@@ -88,27 +103,113 @@ reviewers:
 
 Sections follow in sorted directory order. The condition is text the model reads. Ellipsis has its own reviewer-level `paths` filter, which starts or skips a whole reviewer. agnostic-ai does not use it for scopes, because that needs one reviewer per directory. Check on a real pull request that Ellipsis applies the scoped checks as written before you depend on them.
 
+## Environment and MCP servers
+
+Ellipsis starts each session from the environment the session names. A review names it with the reviewer's `environment` key, and sync sets that key to the selected environment's name. A `x-ellipsis.reviewer.environment` that names another environment stops the review file, because the specs would disagree. With no `x-ellipsis.environment`, the key passes through as written, so an environment you manage by hand still works.
+
+Sync writes the environment file when `x-ellipsis.environment` is set, even with no environment or MCP spec: the file then holds the repository and whatever native options you list. With no selection and no such spec, it writes nothing. With specs but no selection, it writes nothing and names the missing key. It also leaves the file alone, and the review unlinked, when the selection has a problem: a missing `name` or `repository`, an unsafe name, two sources for one script, or an output path outside `.ellipsis/`. A file already deployed stays as it was.
+
+### Setup scripts
+
+Ellipsis runs setup in three stages. Each script starts in `/sandbox`, the parent of the checkout, under `bash -eo pipefail`.
+
+| Source | Stage | Runs |
+|--------|-------|------|
+| `install` | `hooks.build_base` | The first time, and when a file in its `inputs` changes. With no `inputs`, on every commit |
+| `setup` | `hooks.after_checkout` | Once for each commit a session needs that is not prepared yet |
+| `x-ellipsis.environment.hooks.before_start` | `hooks.before_start` | Every time a session starts or resumes |
+
+Sync writes `install` and `setup` after `cd /sandbox/<repository>`, so they run in the repository checkout and not in its parent. Commands that read a script in the repository, such as `bash scripts/setup.bash`, work as they do locally. A script you write under `x-ellipsis.environment.hooks` goes in as written, with no `cd`. Setting both `install` and `hooks.build_base.run`, or both `setup` and `hooks.after_checkout`, stops the file; keep one source for each stage.
+
+`hooks.build_base.inputs` lists the files whose change reruns `build_base`. Each is an exact file starting with the repository name, such as `api-repo/package-lock.json`. Globs, `..`, and files outside the repository stop the file. With `inputs` set, Ellipsis places only those files in the checkout while `build_base` runs, so list every file the install reads.
+
+`setup-windows`, `cleanup`, `dev-commands`, and `terminals` have no Ellipsis stage or key. Sync reports each as having no effect. To run a service, start it in the background from `setup` and wait until it is ready.
+
+### Repository, variables, and compute
+
+These Ellipsis options have no portable spec, so they live under `x-ellipsis.environment` and are written as given:
+
+```yaml
+x-ellipsis:
+  environment:
+    name: api-environment
+    repository:
+      name: api-repo        # without the owner; checked out at /sandbox/api-repo
+      owner: acme
+      ref: main
+    description: API checkout
+    variables:
+      - name: NPM_TOKEN     # no value: Ellipsis reads the stored secret of that name
+      - name: NODE_ENV
+        value: test
+    compute:
+      cpu: 2
+      memory: 8GB
+      timeout: 30m
+    hooks:
+      build_base:
+        inputs: [api-repo/package.json, api-repo/package-lock.json]
+      before_start: |
+        cd /sandbox/api-repo
+        test -d node_modules
+    mcp_servers: [slack]    # connected integrations, listed by name
+```
+
+A variable under a credential name, such as `NPM_TOKEN`, may not carry a `value`: the file is committed, so the secret stays in Ellipsis. Names Ellipsis rejects (`ANTHROPIC_`, `OPENAI_`, `CODEX_` and `CLAUDE_CODE_USE_` prefixes, and three exact names) stop the file.
+
+### MCP servers
+
+Ellipsis reads MCP servers from the environment file and ignores a repository's `.mcp.json`, so sync writes the servers there and writes no `.mcp.json` for this target. Each [MCP spec](@/docs/spec-format/mcps.md) becomes an `mcp_servers` entry, sorted by name after any integrations:
+
+| Spec | Entry |
+|------|-------|
+| `type: http` with `url` and `headers` | A remote server over streamable HTTP, with `url` and `headers` |
+| `stdio` with `command`, `args`, and `env` | A server that runs inside the sandbox, with `command`, `args`, and `env` |
+
+A `${NAME}` in `env` or `headers` stays `${NAME}`, which Ellipsis fills from the stored secret `NAME` when a session starts. A plain setting needs `!literal` in the spec, as for every target. Local secret values never reach the file or a preview. A `${NAME}` in `url` or `args`, or a `${NAME:-default}` anywhere, has no Ellipsis form, so sync leaves out that server with a note, or that header or variable.
+
+Sync leaves out a server it cannot write as it is, with a note that names the server and the reason. Under `on-unsupported: error` it stops instead:
+
+- `sse` and `ws` transports. Ellipsis connects over streamable HTTP only.
+- `oauth`, which an entry has no key for.
+- `cwd` on a stdio server. Write the script path as `/sandbox/<repository>/<path>`.
+- A stdio command or argument that is a path from your machine: `./`, `../`, `~`, a Windows drive, `/Users/...`, `${workspaceFolder}`, or a script file name with no directory. It must start with `/sandbox/<repository>/`, and may not name another checkout or climb out of it with `..`.
+- A name outside letters, digits, `-`, and `_`, or `slack` or `linear`, which Ellipsis reads as integrations.
+- `disabled: true`. Ellipsis has no switch, so the server is left out, which has the same effect.
+
+A server's `description`, `timeout`, and `roots` have no key and get a no-effect note. To give a server different values in the sandbox, set them under `x-ellipsis` on the MCP spec, which replaces the top-level key for this target only:
+
+```yaml
+command: node
+args: [scripts/mcp-server.js]
+x-ellipsis:
+  args: [/sandbox/api-repo/scripts/mcp-server.js]
+```
+
+A stdio server runs in the sandbox, so install what it needs in `install`. Sync cannot check that a command exists there.
+
 ## Config keys
 
 | Key | Default | Notes |
 |-----|---------|-------|
 | `outputs.ellipsis.review-file` | `.ellipsis/code-review.yaml` | Ellipsis reads only this path from the default branch, so move it only for a trial |
+| `outputs.ellipsis.environment-file` | `.ellipsis/environments/<name>.yaml` | Must be a `.yaml` file under `.ellipsis/` |
 
 ## Settings fields
 
-Only `x-ellipsis` reaches the file. The portable `model`, `permissions`, and `protected` fields of a settings spec have no key in a review file, so sync reports each one as having no effect. A key in `x-ellipsis` that is not one of `ellipsis`, `pull_requests`, `reviewer`, `output`, or `budget` stops the file, because Ellipsis rejects unknown fields. The inner keys of `pull_requests`, `output`, `budget`, and the reviewer are copied without checking, so a typo there fails in the Ellipsis config check on the pull request.
+Only `x-ellipsis` reaches the file. The portable `model`, `permissions`, and `protected` fields of a settings spec have no key in a review file, so sync reports each one as having no effect. A key in `x-ellipsis` that is not one of `ellipsis`, `pull_requests`, `reviewer`, `output`, `budget`, or `environment` stops the files, because Ellipsis rejects unknown fields. The inner keys of `pull_requests`, `output`, `budget`, and the reviewer are copied without checking, so a typo there fails in the Ellipsis config check on the pull request.
 
-## Keep the file in Git
+## Keep the files in Git
 
-Ellipsis reads the file from the default branch, so it must be committed. With `gitignore.enabled: true`, list the target's reviews:
+Ellipsis reads the files from the default branch, so they must be committed. With `gitignore.enabled: true`, list the kinds that write them:
 
 ```yaml
 gitignore:
   enabled: true
-  commit: [ellipsis:reviews]
+  commit: [ellipsis:reviews, ellipsis:environments, ellipsis:mcps]
 ```
 
-The settings spec that holds `x-ellipsis` counts with the reviews for this target. See [`gitignore`](@/docs/configuration.md#gitignore).
+The settings spec that holds `x-ellipsis` counts with each of these kinds for this target. The review file needs `ellipsis:reviews`, and the environment file needs `ellipsis:environments` or `ellipsis:mcps`. Because the review names the environment, `ellipsis:reviews` also keeps the environment file trackable. See [`gitignore`](@/docs/configuration.md#gitignore).
 
 ## Import
 
@@ -119,16 +220,29 @@ The settings spec that holds `x-ellipsis` counts with the reviews for this targe
 | The reviewer's `prompt` | `<reviews>/review.md` |
 | Everything else in the file | `<settings>/ellipsis.yaml`, under `x-ellipsis` |
 
-The next sync writes the same behavior back. Comments and key order in the hand-written file are not kept. A file that carries the generated header imports nothing, since its specs are the source.
+A hand-written `.ellipsis/environments/*.yaml` with `ellipsis.kind: environment` imports too:
 
-Import stops with a message and writes nothing when the file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged). `import all` detects the target from a `.ellipsis/` folder.
+| Source | Becomes |
+|--------|---------|
+| A `build_base` or `after_checkout` script that starts with the line `cd /sandbox/<repository>` | `install` or `setup` in `<environments>/ellipsis.yaml`, without that line |
+| Any other script, `inputs`, `before_start` | `x-ellipsis.environment.hooks`, as written |
+| The name, repository, description, metadata, variables, compute, and `slack` or `linear` entries | `x-ellipsis.environment` in `<settings>/ellipsis-environment.yaml` |
+| Each server with `url` or `command` | `<mcps>/<name>.yaml` |
+
+The environment, its servers, and its setup are scoped to `targets: [ellipsis]`, so no other tool changes. A literal `env` or `headers` value in a server becomes a `${NAME}` reference, and import prints the variable to store in Ellipsis, as for every MCP import.
+
+The next sync writes the same behavior back. Comments and key order in the hand-written files are not kept. A file that carries the generated header imports nothing, since its specs are the source.
+
+Import stops with a message and writes nothing when the review file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged).
+
+An environment file it cannot express is left as written, with a note that names the reason: more than one repository, a field the schema does not list, a credential-named variable that holds a value, or a server with both `url` and `command`. Several environment files are left too, since sync writes one. When the file is not at `.ellipsis/environments/<name>.yaml`, import says so, because sync writes there and Ellipsis would see two files with one name. `import all` detects the target from a `.ellipsis/` folder.
 
 ## Not covered
 
-- More than one reviewer, and the organization file in the `.ellipsis` repository.
-- Environments, MCP servers, scheduled agents, and skills. Name an environment you manage by hand in `x-ellipsis.reviewer.environment`.
-- Installing the GitHub App, billing, and session logs.
-- Rules, agents, skills, hooks, and MCP. Sync reports them as unsupported for this target.
+- More than one reviewer, more than one environment or repository, and the organization file in the `.ellipsis` repository.
+- Cache planning beyond the `inputs` you list, scheduled agents, and skills.
+- Installing the GitHub App, creating secrets, billing, and session logs.
+- Rules, agents, skills, and hooks. Sync reports them as unsupported for this target.
 
 ## Protected paths
 
@@ -137,5 +251,8 @@ Not enforced. A review file cannot block edits. State the paths in a rule if the
 ## Verify
 
 1. Install the [Ellipsis GitHub App](https://www.ellipsis.dev/docs/code-review) on the repository.
-2. Check the file: `ls .ellipsis/code-review.yaml`, then commit it to the default branch.
+2. Check the files: `ls .ellipsis/code-review.yaml .ellipsis/environments`, then commit them to the default branch.
 3. Push to a pull request that changes a file under a scoped directory and one that does not. One review from `ellipsis-dev[bot]` lands per push. Ellipsis shows a config error on the pull request if the file does not parse.
+4. Store each secret an MCP spec references (`${TOOLS_TOKEN}` reads the secret `TOOLS_TOKEN`). A pull request that changes an environment file gets an **Ellipsis environment** check that runs all three scripts. Then start a session in the environment and confirm that setup finished in the repository and that the MCP tools are listed.
+
+The review trial and the setup and MCP service trial have not been run yet. The local tests cover the written files and previews only.

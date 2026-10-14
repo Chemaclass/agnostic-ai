@@ -1097,7 +1097,7 @@
 
   [[targets.kinds]]
     id = "mcp"
-    paths = []
+    paths = [".ellipsis/environments/sample-environment.yaml"]
 
   [[targets.kinds]]
     id = "command"
@@ -1113,7 +1113,7 @@
 
   [[targets.kinds]]
     id = "environment"
-    paths = []
+    paths = [".ellipsis/environments/sample-environment.yaml"]
 
   [[targets.kinds]]
     id = "ignore"

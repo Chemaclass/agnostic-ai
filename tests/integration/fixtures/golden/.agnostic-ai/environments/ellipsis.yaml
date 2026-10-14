@@ -1,0 +1,5 @@
+name: ellipsis
+targets: [ellipsis]
+install: npm ci
+setup: npm run build --if-present
+cleanup: docker compose down

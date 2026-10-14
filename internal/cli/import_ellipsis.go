@@ -48,6 +48,9 @@ func importFromEllipsis(root string, src config.Sources, cfg *config.Config) err
 		return err
 	}
 	summaryf("imported %d reviews, %d settings\n", reviews, settings)
+	if err := importEllipsisEnvironment(root, src, cfg); err != nil {
+		return err
+	}
 	printImportNextSteps(root, "ellipsis")
 	return nil
 }
