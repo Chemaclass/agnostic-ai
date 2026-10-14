@@ -38,12 +38,26 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
-	// A spec that parses the same keeps its bytes, so the user's
-	// formatting survives and the run sees no change (#2182).
-	if sameSpecMarkdown(existing, data) {
-		data = existing
+	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
+}
+
+// importWriteMarkdown writes an imported markdown spec whose frontmatter
+// the translator already settled, so the file is replaced whole. A
+// destination that parses the same as data is left as it is.
+func importWriteMarkdown(path string, data []byte, mode fs.FileMode) error {
+	if existing, err := os.ReadFile(path); err == nil {
+		data = keepEqualMarkdown(existing, data)
 	}
 	return importWriteFile(path, data, mode)
+}
+
+// keepEqualMarkdown returns existing when it parses the same as data, so
+// the user's formatting survives and the run sees no change (#2182).
+func keepEqualMarkdown(existing, data []byte) []byte {
+	if sameSpecMarkdown(existing, data) {
+		return existing
+	}
+	return data
 }
 
 // sameSpecMarkdown reports whether a and b are markdown with frontmatter
