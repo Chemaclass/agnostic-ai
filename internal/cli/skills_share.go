@@ -259,9 +259,18 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.S
 		keep[l.path] = l.canonical
 	}
 	pruned := map[string]bool{}
+	previous := readStateFile(".")
 	for _, p := range prior {
+		// Recorded file values cannot become shared skill-folder links.
+		if previous.OutputSums[p] != "" || len(previous.Merged[p].Keys) > 0 {
+			continue
+		}
 		fi, err := os.Lstat(p)
 		if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+			continue
+		}
+		// Native file links belong to their adapters, not shared skill folders.
+		if target, err := os.Stat(p); err == nil && !target.IsDir() {
 			continue
 		}
 		if config.MatchUnmanagedDir(st.unmanaged, p) {

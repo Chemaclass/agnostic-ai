@@ -56,6 +56,9 @@ const mcpWebSocketGapReason = "WebSocket transport is not supported; Qoder's ws 
 //
 // No file is written when MCP, hook, and settings inputs all render empty.
 func emitSettings(sess *emit.Session, cfg *config.Config, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	keys := map[string]any{}
 	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	if servers := buildMCPMap(mcps); len(servers) > 0 {
@@ -238,7 +241,7 @@ func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 // memory once memory.personal is repo.
 func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
 	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
-	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+	if !emit.RepoMemoryFile(cfg, path, nil, target) && !emit.HandoffConfigFile(cfg, path, target) {
 		return nil
 	}
 	return []string{path}
@@ -267,6 +270,19 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 		if len(store) > 0 && !slices.Contains(planned, store[0]) {
 			planned = append(planned, store[0])
 		}
+	}
+	dir, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.additionalDirectories", dryRun)
+	if err != nil {
+		return err
+	}
+	if dir != "" {
+		store := emit.WithoutUserItems(path, []string{"permissions", "additionalDirectories"}, existing, []any{dir})
+		if len(store) > 0 && !slices.Contains(planned, store[0]) {
+			planned = append(planned, store[0])
+		}
+	}
+	if len(planned) == 0 && len(emit.PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})) == 0 {
+		return nil
 	}
 	if len(planned) == 0 && len(existing) == 0 {
 		return nil

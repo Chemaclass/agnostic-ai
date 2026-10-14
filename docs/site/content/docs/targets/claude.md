@@ -26,6 +26,8 @@ agnostic-ai sync --check
 
 Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import claude`](@/docs/cli-reference/start.md#import).
 
+With `handoff` or `handoff-hook`, linked worktrees get shared handoff write access through `permissions.additionalDirectories` in the ignored `.claude/settings.local.json`. See [shared handoff access](@/docs/handoff.md#write-from-a-linked-worktree) for preserved configuration and fallback behavior.
+
 ## Output
 
 ```
