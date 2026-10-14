@@ -168,17 +168,43 @@ func capPaths(paths []string, verbose bool) string {
 	return fmt.Sprintf("%s  (+%d more)", strings.Join(paths[:reportPathsShown], "  "), len(paths)-reportPathsShown)
 }
 
-// specSums fingerprints every source spec and the merged config, keyed by
-// a stable identity, so the next sync can name what changed since this one.
-func specSums(cfg *config.Config, b spec.Bundle) map[string]string {
+// specSums fingerprints the merged config and each source spec a target in
+// targets emits, keyed by a stable identity, so the next sync can name what
+// changed since this one. A spec only other tools read, such as a built-in
+// hook for a tool outside targets, is left out.
+func specSums(cfg *config.Config, b spec.Bundle, targets []string) map[string]string {
 	sums := map[string]string{}
 	if data, err := json.Marshal(cfg); err == nil {
 		sums[configSpecKey] = sha256Hex(data)
 	}
+	emitted := map[string]bool{}
+	for _, target := range targets {
+		adapter, err := adapters.Resolve(target)
+		if err != nil {
+			continue
+		}
+		caps := adapter.Capabilities()
+		for _, e := range b.For(target).All() {
+			if len(caps) == 0 || slices.Contains(caps, e.Kind) {
+				emitted[specKey(e)] = true
+			}
+		}
+	}
 	for _, e := range b.All() {
-		sums[specKey(e)] = entrySum(e)
+		if key := specKey(e); emitted[key] {
+			sums[key] = entrySum(e)
+		}
 	}
 	return sums
+}
+
+// bundleSpecKeys lists the key of every spec in b, emitted or not.
+func bundleSpecKeys(b spec.Bundle) map[string]bool {
+	keys := map[string]bool{}
+	for _, e := range b.All() {
+		keys[specKey(e)] = true
+	}
+	return keys
 }
 
 func specKey(e spec.Entry) string {
@@ -226,7 +252,10 @@ func sha256Hex(data []byte) string {
 // diffSpecSums names the specs added, changed, or removed between two
 // syncs. A missing baseline (first sync, older state file) yields nothing:
 // every spec would read as added, which says nothing the file list does not.
-func diffSpecSums(prev, cur map[string]string) []specChange {
+// A spec in prev that is absent from cur but still in existing is one no
+// configured target emits, which an older state file recorded anyway; it
+// is not a removal.
+func diffSpecSums(prev, cur map[string]string, existing map[string]bool) []specChange {
 	if len(prev) == 0 {
 		return nil
 	}
@@ -241,7 +270,7 @@ func diffSpecSums(prev, cur map[string]string) []specChange {
 		}
 	}
 	for k := range prev {
-		if _, ok := cur[k]; !ok {
+		if _, ok := cur[k]; !ok && !existing[k] {
 			out = append(out, specChange{mark: "-", label: k})
 		}
 	}

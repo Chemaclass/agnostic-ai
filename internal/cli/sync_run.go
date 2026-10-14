@@ -878,8 +878,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// reports as a failed run but never undoes them (see writesCompleted
 	// above).
 	writesCompleted = true
-	sums := specSums(cfg, b)
-	report.specs = diffSpecSums(prev.SpecSums, sums)
+	sums := specSums(cfg, b, slices.Concat(cfg.Targets, effectiveTargets))
+	report.specs = diffSpecSums(prev.SpecSums, sums, bundleSpecKeys(b))
 	// A partial run leaves other targets on older specs; keep the old
 	// baseline so the run that updates them still names the change.
 	ledger.specSums = prev.SpecSums
@@ -1341,7 +1341,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	ledger.specSums = prev.SpecSums
 	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.specSums = specSums(cfg, b)
+		ledger.specSums = specSums(cfg, b, slices.Concat(cfg.Targets, effectiveTargets))
 	}
 	ledger.specFileSums = prev.SpecFileSums
 	if len(out.Errors) == 0 {

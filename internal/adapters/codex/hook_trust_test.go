@@ -329,3 +329,16 @@ func TestEmit_HookTrustKeepsTheUsersTrustedHook(t *testing.T) {
 		t.Errorf("the user's hook moved after sync's:\n%s", data)
 	}
 }
+
+func TestHookTrustFinding_StringShortensLongInlineScript(t *testing.T) {
+	script := "export X=1; sh -c '" + strings.Repeat("echo padding; ", 600) + "exec agnostic-ai project -- hook memory --target codex'"
+	got := HookTrustFinding{Path: ".codex/hooks.json", Event: "SessionStart", Hook: script, Status: "untrusted"}.String()
+	if len(got) > 300 {
+		t.Errorf("note is %d bytes: %s", len(got), got)
+	}
+	for _, want := range []string{"export X=1", "hook memory --target codex", "SessionStart", "untrusted", "open /hooks in Codex to review and trust it"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("note misses %q: %s", want, got)
+		}
+	}
+}
