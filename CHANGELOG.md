@@ -14,6 +14,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Codex
+
+- Report agent approval policies, model providers, and MCP servers that Codex ignores; configure them in the parent session (#2156).
+
 #### Augment
 
 - Auggie CLI on Unix loads shared memory through an executable session-start script; the IDE keeps the memory rule (#2106).
