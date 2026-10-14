@@ -62,6 +62,11 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 			if err != nil {
 				return false, err
 			}
+			// A pattern the spec already sets is the spec's, whatever its action.
+			patterns = slices.DeleteFunc(slices.Clone(patterns), func(pattern string) bool {
+				_, set := rules.Get(pattern)
+				return set
+			})
 			if permissions[externalDirectoryKey], err = withAllowed(rules, patterns); err != nil {
 				return false, err
 			}
@@ -99,8 +104,9 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 	}
 	var owned []string
 	for _, pattern := range patterns {
-		if _, set := rules.Get(pattern); set && !slices.Contains(prior, pattern) {
-			// The user's own rule for the store stays theirs, where it is.
+		if _, set := rules.Get(pattern); set && !(slices.Contains(prior, pattern) && isAllow(rules, pattern)) {
+			// The user's own rule for the store stays theirs, where it is,
+			// and so does a rule they edited after sync wrote it.
 			continue
 		}
 		owned = append(owned, pattern)

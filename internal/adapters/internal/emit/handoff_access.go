@@ -314,6 +314,10 @@ func (s *Session) HandoffAccessRoot(cfg *config.Config, path, target, key string
 		}
 		return "", nil
 	}
+	if (target == "opencode" || target == "windsurf") && strings.ContainsAny(dir, "*?[]{}") {
+		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, dir))
+		return "", nil
+	}
 	if !s.HandoffConfigWritable(cfg, path, target) {
 		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %q to %s, keeping its other entries", target, filepath.ToSlash(path), filepath.ToSlash(dir), key))
 		return "", nil
