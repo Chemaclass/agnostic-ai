@@ -132,7 +132,7 @@ func TestPreserveHandoffConfig_MissingOwnedFileCanBeGenerated(t *testing.T) {
 }
 
 func TestPreserveHandoffConfig_MissingFileUnderLinkedParentStaysPrivate(t *testing.T) {
-	for _, mode := range []string{"inside", "outside", "dangling"} {
+	for _, mode := range []string{"inside", "outside", "dangling", "checkout root"} {
 		t.Run(mode, func(t *testing.T) {
 			root := t.TempDir()
 			testutil.Chdir(t, root)
@@ -144,6 +144,8 @@ func TestPreserveHandoffConfig_MissingFileUnderLinkedParentStaysPrivate(t *testi
 				}
 			} else if mode == "dangling" {
 				destination = filepath.Join(destination, "missing")
+			} else if mode == "checkout root" {
+				destination = root
 			}
 			if err := os.Symlink(destination, "native"); err != nil {
 				if runtime.GOOS == "windows" {
@@ -181,5 +183,23 @@ func TestPreserveHandoffConfig_MissingFileUnderLinkedParentStaysPrivate(t *testi
 				t.Errorf("missing destination changed: %v", err)
 			}
 		})
+	}
+}
+
+func TestHandoffConfigWritable_RejectsNativeParentLinkedToCheckoutRoot(t *testing.T) {
+	root := t.TempDir()
+	gitIn(t, root, "init", "-q")
+	testutil.Chdir(t, root)
+	if err := os.Symlink(root, "native"); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+		t.Fatal(err)
+	}
+	if got := handoffConfigPathWritable(filepath.Join("native", "settings")); got {
+		t.Error("native parent linked to checkout root became writable")
+	}
+	if _, err := os.Lstat(filepath.Join(root, "settings")); !os.IsNotExist(err) {
+		t.Errorf("writability check changed root settings: %v", err)
 	}
 }
