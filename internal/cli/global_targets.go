@@ -273,10 +273,10 @@ var globalTargets = map[string]globalTarget{
 		// antigravity.google/docs/skills?tab=ide rows the global scope
 		// as "`~/.gemini/config/skills/<skill-folder>/` | Global (all
 		// workspaces; legacy `~/.gemini/antigravity/skills/` is also
-		// supported)", and the Antigravity 2.0 tab names the config
+		// supported)", and the Antigravity app section names the config
 		// path with no legacy alternative at all. The legacy tree still
-		// loads in the IDE, so nothing breaks there, but Antigravity
-		// 2.0 on the same machine reads only the config path
+		// loads in the IDE, but the Antigravity app on the same
+		// machine reads only the config path
 		// (target-audit 2026-09-19, #896).
 		skills: globalPathHome + ".gemini/config/skills",
 	},
