@@ -14,9 +14,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
-	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // ellipsisEnvironmentDir holds one file per environment
@@ -79,6 +79,9 @@ func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Conf
 		return nil
 	}
 	imported, problem := splitEllipsisEnvironment(doc)
+	if problem == "" {
+		problem = ellipsisLaunchCredential(imported.servers)
+	}
 	if problem != "" {
 		return leave(problem)
 	}
@@ -103,7 +106,7 @@ func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Conf
 	}
 	settings = 1
 	if len(imported.servers) > 0 {
-		mcps, err = writeMCPYAMLs("ellipsis", imported.servers, importSourcePath(root, src.MCPs))
+		mcps, err = writeEllipsisMCPSpecs(imported.servers, importSourcePath(root, src.MCPs))
 		if err != nil {
 			return err
 		}
@@ -287,8 +290,8 @@ func ellipsisVariables(raw any, block map[string]any) string {
 			}
 		}
 		name, _ := v["name"].(string)
-		if _, hasValue := v["value"]; hasValue && preview.CredentialKey(name) {
-			return fmt.Sprintf("variable %s holds a value under a credential name, and a spec must not carry it: remove the value so Ellipsis reads the stored secret", name)
+		if value, _ := v["value"].(string); value != "" && (mcpCredentialKey(name) || mcpCredentialDetected(value)) {
+			return fmt.Sprintf("variable %s holds a credential value, and a spec must not carry it: remove the value so Ellipsis reads the stored secret", name)
 		}
 	}
 	block["variables"] = list
@@ -444,4 +447,82 @@ func ellipsisServer(v map[string]any) (string, string) {
 		return "", fmt.Sprintf("server %s needs exactly one of url and command", name)
 	}
 	return name, ""
+}
+
+// ellipsisLaunchCredential says why a server cannot be imported when a
+// credential sits in its `url` or `args`: a spec would hold a reference
+// there, and Ellipsis reads references in `env` and `headers` only, so sync
+// would leave the server out.
+func ellipsisLaunchCredential(servers map[string]any) string {
+	probe, _ := jsonRoundTrip(servers).(map[string]any)
+	for _, r := range referenceMCPLiterals(probe) {
+		if r.leftOut || (r.field != "env" && r.field != "headers") {
+			return fmt.Sprintf("server %s holds a credential in its %s, and Ellipsis reads references in env and headers only", r.server, r.field)
+		}
+	}
+	return ""
+}
+
+// writeEllipsisMCPSpecs writes one MCP spec per server. A credential in
+// `env` or `headers` becomes a reference to a secret stored in Ellipsis. A
+// plain setting stays as written and is marked `!literal`, because Ellipsis
+// reads every `${NAME}` as a stored secret and "a missing secret fails the
+// session".
+func writeEllipsisMCPSpecs(servers map[string]any, dstDir string) (int, error) {
+	for _, raw := range servers {
+		if server, ok := raw.(map[string]any); ok {
+			adapters.EscapeMCPLiterals("ellipsis", server)
+			adapters.ReadMCPEnvRefs("ellipsis", server)
+		}
+	}
+	plain := setAsidePlainValues(servers)
+	refs := referenceMCPLiterals(servers)
+	for name, fields := range plain {
+		server, ok := servers[name].(map[string]any)
+		if !ok {
+			continue
+		}
+		for field, values := range fields {
+			held, _ := server[field].(map[string]any)
+			if held == nil {
+				held = map[string]any{}
+				server[field] = held
+			}
+			maps.Copy(held, values)
+		}
+	}
+	count, err := writeMCPSpecs(servers, dstDir)
+	if err != nil {
+		return count, err
+	}
+	reportMCPLiteralRefsWithHint(refs, "import does not copy a credential into a spec; store each secret above in Ellipsis under that name, since Ellipsis reads ${NAME} from its stored secrets")
+	return count, nil
+}
+
+// setAsidePlainValues removes each `env` and `headers` value that is no
+// credential from servers and returns it by server, field, and key, so the
+// reference rewrite leaves it alone.
+func setAsidePlainValues(servers map[string]any) map[string]map[string]map[string]any {
+	plain := map[string]map[string]map[string]any{}
+	for name, raw := range servers {
+		server, _ := raw.(map[string]any)
+		for _, field := range mcpSecretFields {
+			values, _ := server[field].(map[string]any)
+			for key, v := range values {
+				value, _ := v.(string)
+				if value == "" || strings.Contains(value, "${") || mcpCredentialKey(key) || mcpCredentialDetected(value) {
+					continue
+				}
+				if plain[name] == nil {
+					plain[name] = map[string]map[string]any{}
+				}
+				if plain[name][field] == nil {
+					plain[name][field] = map[string]any{}
+				}
+				plain[name][field][key] = value
+				delete(values, key)
+			}
+		}
+	}
+	return plain
 }

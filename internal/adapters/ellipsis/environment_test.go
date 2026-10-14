@@ -826,3 +826,120 @@ func TestEnvironment_DisabledServerIsLeftOutBecauseEllipsisHasNoSwitch(t *testin
 		t.Errorf("a note must say the disabled server was left out:\n%s", buf)
 	}
 }
+
+func TestEnvironment_BrokenSelectionKeepsTheDeployedFileAndTheReviewLink(t *testing.T) {
+	testutil.TempCwd(t)
+	captureNotes(t)
+	good := settings(map[string]any{"environment": selected(nil), "reviewer": reviewer(nil)})
+	if err := emitBundle(t, &config.Config{}, review("r", "", "Check."), good, environmentSpec(map[string]any{"install": "npm ci"})); err != nil {
+		t.Fatal(err)
+	}
+	deployed := readEnvFile(t)
+
+	bad := selected(nil)
+	delete(bad, "repository")
+	broken := settings(map[string]any{"environment": bad, "reviewer": reviewer(nil)})
+	if err := emitBundle(t, &config.Config{}, review("r", "", "Check."), broken, environmentSpec(map[string]any{"install": "npm ci"})); err != nil {
+		t.Fatal(err)
+	}
+	if got := readEnvFile(t); got != deployed {
+		t.Errorf("a broken selection must keep the deployed environment file:\n%s", got)
+	}
+	if got := readReview(t, reviewFile); !strings.Contains(got, "environment: api-environment") {
+		t.Errorf("the review must stay linked to the environment that is still deployed:\n%s", got)
+	}
+}
+
+func TestEnvironment_LiteralInAnXEllipsisOverrideIsRefused(t *testing.T) {
+	const secret = "ELLIPSIS_OVERRIDE_SECRET_2188"
+	for field, override := range map[string]map[string]any{
+		"env":     {"command": "repo-tools", "env": map[string]any{"API_TOKEN": secret}},
+		"headers": {"type": "http", "url": "https://x.example/mcp", "headers": map[string]any{"Authorization": "Bearer " + secret}},
+	} {
+		t.Run(field, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			buf := captureNotes(t)
+			server := mcpSpec("tools", map[string]any{"command": "tools", "x-ellipsis": override})
+			if err := emitBundle(t, &config.Config{}, environmentSettings(nil), httpServer("other"), server); err != nil {
+				t.Fatal(err)
+			}
+			emit.FlushCoverageNotes()
+			got := readEnvFile(t)
+			if strings.Contains(got, secret) || strings.Contains(got, "name: tools\n") {
+				t.Errorf("a literal under x-ellipsis must keep the server out of the committed file:\n%s", got)
+			}
+			if !strings.Contains(buf.String(), "tools") || !strings.Contains(buf.String(), "x-ellipsis") || strings.Contains(buf.String(), secret) {
+				t.Errorf("the note should name the server and the override, never the value:\n%s", buf)
+			}
+
+			err := emitBundle(t, &config.Config{OnUnsupported: "error"}, environmentSettings(nil), server)
+			if err == nil || strings.Contains(err.Error(), secret) {
+				t.Errorf("error mode must refuse without printing the value, got %v", err)
+			}
+			_ = dir
+		})
+	}
+}
+
+func TestEnvironment_ReferencesInAnXEllipsisOverrideAreKept(t *testing.T) {
+	testutil.TempCwd(t)
+	server := mcpSpec("tools", map[string]any{
+		"command":    "tools",
+		"x-ellipsis": map[string]any{"env": map[string]any{"API_TOKEN": "${SANDBOX_TOKEN}"}},
+	})
+	if err := emitBundle(t, &config.Config{OnUnsupported: "error"}, environmentSettings(nil), server); err != nil {
+		t.Fatal(err)
+	}
+	if got := readEnvFile(t); !strings.Contains(got, "API_TOKEN: ${SANDBOX_TOKEN}") {
+		t.Errorf("an override reference must reach the file:\n%s", got)
+	}
+}
+
+func TestEnvironment_LocalHomePathsAreRefused(t *testing.T) {
+	testutil.TempCwd(t)
+	captureNotes(t)
+	err := emitBundle(t, &config.Config{OnUnsupported: "error"}, environmentSettings(nil),
+		mcpSpec("tools", map[string]any{"command": "node", "args": []any{"/home/chema/tools/server.js"}}))
+	if err == nil || !strings.Contains(err.Error(), "/sandbox/api-repo/") {
+		t.Errorf("a home directory path must be refused with the sandbox form, got %v", err)
+	}
+}
+
+func TestEnvironment_BrokenRenameKeepsTheDeployedName(t *testing.T) {
+	testutil.TempCwd(t)
+	captureNotes(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"ellipsis": {EnvironmentFile: ".ellipsis/environments/ci.yaml"}}}
+	good := settings(map[string]any{"environment": selected(nil), "reviewer": reviewer(nil)})
+	if err := emitBundle(t, cfg, review("r", "", "Check."), good); err != nil {
+		t.Fatal(err)
+	}
+	bad := settings(map[string]any{"environment": map[string]any{"name": "renamed"}, "reviewer": reviewer(nil)})
+	if err := emitBundle(t, cfg, review("r", "", "Check."), bad); err != nil {
+		t.Fatal(err)
+	}
+	if got := readReview(t, reviewFile); !strings.Contains(got, "environment: api-environment") {
+		t.Errorf("review must name deployed environment:\n%s", got)
+	}
+}
+
+func TestEnvironment_BrokenSelectionWithSeveralDeployedFilesStopsSync(t *testing.T) {
+	testutil.TempCwd(t)
+	captureNotes(t)
+	for _, name := range []string{"first", "second"} {
+		if err := emitBundle(t, &config.Config{}, environmentSettings(map[string]any{"name": name})); err != nil {
+			t.Fatal(err)
+		}
+	}
+	err := emitBundle(t, &config.Config{}, settings(map[string]any{"environment": map[string]any{}}), review("r", "", "Check."))
+	if err == nil || !strings.Contains(err.Error(), "2 deployed environment files") {
+		t.Errorf("ambiguous deployment must stop sync, got %v", err)
+	}
+	for _, name := range []string{"first", "second"} {
+		if got := readReview(t, ".ellipsis/environments/"+name+".yaml"); !strings.Contains(got, "name: "+name) {
+			t.Errorf("deployed environment changed:\n%s", got)
+		}
+	}
+	if _, err := os.Stat(reviewFile); !os.IsNotExist(err) {
+		t.Errorf("no review may be written before the environment is resolved, got %v", err)
+	}
+}

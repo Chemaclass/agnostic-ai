@@ -166,6 +166,7 @@ mcp_servers:
     url: https://tools.example.com/mcp
     headers:
       Authorization: Bearer ${TOOLS_TOKEN}
+      X-Team: platform
 `
 	writeProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [ellipsis]\ngitignore:\n  enabled: false\n")
 	writeProjectFile(t, dir, ".ellipsis/environments/api-environment.yaml", native)
@@ -183,6 +184,7 @@ mcp_servers:
 		"- name: NPM_TOKEN\n",
 		"memory: 8GB",
 		"Authorization: Bearer ${TOOLS_TOKEN}",
+		"X-Team: platform",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the file lost %q:\n%s", want, got)

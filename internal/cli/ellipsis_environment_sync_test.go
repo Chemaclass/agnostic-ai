@@ -430,4 +430,87 @@ func TestEllipsisEnvironmentSync_BrokenSelectionKeepsTheDeployedFile(t *testing.
 	if got := readFile(t, filepath.Join(dir, ellipsisEnvironmentFile)); got != deployed {
 		t.Errorf("a broken selection must keep the deployed file:\n%s", got)
 	}
+	if got := readFile(t, filepath.Join(dir, ellipsisFile)); !strings.Contains(got, "environment: api-environment") {
+		t.Errorf("the review must keep pointing at the deployed environment:\n%s", got)
+	}
+}
+
+func TestEllipsisEnvironmentSync_VariableValueThatLooksLikeACredentialStopsTheSync(t *testing.T) {
+	const secret = "pw-2188"
+	dir := ellipsisEnvironmentProject(t, ellipsisOnly)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis-environment.yaml"), ellipsisEnvironmentSettings+`    variables:
+      - name: DATABASE_URL
+        value: postgres://admin:`+secret+`@db/app
+`)
+	out, err := cliOutput(t, "sync")
+	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("want an error naming DATABASE_URL, got %v", err)
+	}
+	if strings.Contains(out+err.Error(), secret) {
+		t.Errorf("the refusal printed the value:\n%s%v", out, err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ellipsisEnvironmentFile)); !os.IsNotExist(statErr) {
+		t.Errorf("a file was written despite the refusal (%v)", statErr)
+	}
+}
+
+func TestEllipsisEnvironmentSync_PlainVariableValuesStillSync(t *testing.T) {
+	dir := ellipsisEnvironmentProject(t, ellipsisOnly)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis-environment.yaml"), ellipsisEnvironmentSettings+`    variables:
+      - name: NODE_ENV
+        value: test
+      - name: PGHOST
+        value: postgres://db/app
+`)
+	execCLI(t, "sync")
+	if got := readFile(t, filepath.Join(dir, ellipsisEnvironmentFile)); !strings.Contains(got, "value: test") {
+		t.Errorf("plain variables must be written:\n%s", got)
+	}
+}
+
+func TestEllipsisEnvironmentSync_LiteralInAnXEllipsisOverrideNeverReachesTheFile(t *testing.T) {
+	const secret = "ELLIPSIS_OVERRIDE_SECRET_2188"
+	dir := ellipsisEnvironmentProject(t, ellipsisOnly)
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "repo-tools.yaml"),
+		"name: repo-tools\ncommand: repo-tools\nx-ellipsis:\n  env:\n    API_TOKEN: "+secret+"\n")
+	notes := captureNotes(t)
+	out, err := cliOutput(t, "sync")
+	if err != nil {
+		t.Fatalf("sync must not fail by default: %v", err)
+	}
+	if strings.Contains(out+notes.String(), secret) {
+		t.Errorf("sync printed the value:\n%s%s", out, notes)
+	}
+	if got := readFile(t, filepath.Join(dir, ellipsisEnvironmentFile)); strings.Contains(got, secret) || strings.Contains(got, "repo-tools") {
+		t.Errorf("the override value must keep the server out of the committed file:\n%s", got)
+	}
+	if !strings.Contains(out+notes.String(), "repo-tools") {
+		t.Errorf("sync did not name the server:\n%s%s", out, notes)
+	}
+}
+
+func TestEllipsisEnvironmentSync_BrokenIdentityKeepsDeployedFiles(t *testing.T) {
+	for name, settings := range map[string]string{
+		"missing name":                    "x-ellipsis:\n  environment:\n    repository:\n      name: api-repo\n",
+		"unsafe name":                     "x-ellipsis:\n  environment:\n    name: ../outside\n    repository:\n      name: api-repo\n",
+		"renamed with missing repository": "x-ellipsis:\n  environment:\n    name: web-environment\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := ellipsisEnvironmentProject(t, ellipsisOnly)
+			execCLI(t, "sync")
+			environment := readFile(t, filepath.Join(dir, ellipsisEnvironmentFile))
+			review := readFile(t, filepath.Join(dir, ellipsisFile))
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis-environment.yaml"), settings)
+			if _, err := runCLI(t, "sync"); err != nil {
+				t.Errorf("a broken selection must preserve the deployed environment: %v", err)
+			}
+			got, err := os.ReadFile(filepath.Join(dir, ellipsisEnvironmentFile))
+			if err != nil || string(got) != environment {
+				t.Errorf("broken selection changed deployed environment: %v\n%s", err, got)
+			}
+			if got := readFile(t, filepath.Join(dir, ellipsisFile)); got != review || !strings.Contains(got, "environment: api-environment") {
+				t.Errorf("broken selection changed deployed review or its environment link:\n%s", got)
+			}
+		})
+	}
 }

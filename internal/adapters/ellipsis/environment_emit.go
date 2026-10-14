@@ -3,7 +3,9 @@ package ellipsis
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"maps"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -48,8 +50,7 @@ var environmentFieldsWithoutEffect = []struct{ field, reason string }{
 
 // planEnvironment renders the environment file when x-ellipsis.environment
 // selects one. It returns the file, the environment name the review file
-// must reference ("" when no file is written), and an error only under
-// `on-unsupported: error`.
+// must reference ("" when no file is written or deployed).
 func planEnvironment(b spec.Bundle, cfg *config.Config) (*plannedFile, string, error) {
 	mode := ""
 	if cfg != nil {
@@ -72,12 +73,77 @@ func planEnvironment(b spec.Bundle, cfg *config.Config) (*plannedFile, string, e
 		// A selection that is set but broken must not take the deployed
 		// file down with it. Without a selection the sweep removes it.
 		var kept *plannedFile
-		if selected && env.name != "" {
-			kept = keepDeployed(emit.OutputEnvironmentFile(cfg, target, path.Join(environmentDir, env.name+".yaml")))
+		linked := ""
+		if selected {
+			var err error
+			kept, linked, err = deployedEnvironment(cfg, env.name)
+			if err != nil {
+				return nil, "", err
+			}
 		}
-		return kept, "", reportProblems(problems, mode, "environment file")
+		return kept, linked, reportProblems(problems, mode, "environment file")
 	}
 	return file, env.name, nil
+}
+
+func deployedEnvironment(cfg *config.Config, name string) (*plannedFile, string, error) {
+	expected := emit.OutputEnvironmentFile(cfg, target, path.Join(environmentDir, name+".yaml"))
+	if name != "" {
+		if file, linked := readDeployedEnvironment(expected); file != nil {
+			return file, linked, nil
+		}
+	}
+	var files []*plannedFile
+	var names []string
+	err := filepath.WalkDir(".ellipsis", func(p string, entry fs.DirEntry, err error) error {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", p, err)
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if ext := filepath.Ext(p); ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		if file, linked := readDeployedEnvironment(p); file != nil {
+			files = append(files, file)
+			names = append(names, linked)
+			if len(files) > 1 {
+				return fs.SkipAll
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	if len(files) > 1 {
+		return nil, "", fmt.Errorf("ellipsis: broken environment selection cannot choose between %d deployed environment files; repair x-ellipsis.environment before syncing", len(files))
+	}
+	if len(files) == 1 {
+		return files[0], names[0], nil
+	}
+	return nil, "", nil
+}
+
+func readDeployedEnvironment(p string) (*plannedFile, string) {
+	file := keepDeployed(p)
+	if file == nil {
+		return nil, ""
+	}
+	var doc struct {
+		Ellipsis struct {
+			Kind string `yaml:"kind"`
+			Name string `yaml:"name"`
+		} `yaml:"ellipsis"`
+	}
+	if err := yaml.Unmarshal([]byte(file.content), &doc); err != nil || doc.Ellipsis.Kind != environmentKind || !environmentName.MatchString(doc.Ellipsis.Name) {
+		return nil, ""
+	}
+	return file, doc.Ellipsis.Name
 }
 
 // buildEnvironment renders the file, or returns the problems that stop it.

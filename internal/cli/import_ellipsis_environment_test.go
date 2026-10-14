@@ -55,11 +55,13 @@ mcp_servers:
     url: https://tools.example.com/mcp
     headers:
       Authorization: Bearer ${TOOLS_TOKEN}
+      X-Team: platform
   - name: repo-tools
     command: node
     args: [/sandbox/api-repo/scripts/mcp-server.js]
     env:
       API_TOKEN: ${REPO_TOOLS_TOKEN}
+      LOG_LEVEL: debug
 `
 
 func ellipsisEnvironmentImportProject(t *testing.T, native string) string {
@@ -189,6 +191,7 @@ func TestImportEllipsisEnvironment_UnrepresentableFilesAreLeftWithANote(t *testi
 		"two repositories": {strings.Replace(handWrittenEllipsisEnvironment, "repositories:\n  - name: api-repo\n    ref: main\n", "repositories:\n  - name: api-repo\n  - name: web-repo\n", 1), "repositories"},
 		"unknown field":    {handWrittenEllipsisEnvironment + "triggers:\n  type: cron\n", "triggers"},
 		"credential value": {strings.Replace(handWrittenEllipsisEnvironment, "  - name: NPM_TOKEN\n", "  - name: NPM_TOKEN\n    value: npm_abc123\n", 1), "NPM_TOKEN"},
+		"credential shape": {strings.Replace(handWrittenEllipsisEnvironment, "  - name: NODE_ENV\n    value: test\n", "  - name: DATABASE_URL\n    value: postgres://admin:pw@db/app\n", 1), "DATABASE_URL"},
 		"url and command":  {strings.Replace(handWrittenEllipsisEnvironment, "    command: node\n", "    command: node\n    url: https://x.example/mcp\n", 1), "repo-tools"},
 		"server key":       {strings.Replace(handWrittenEllipsisEnvironment, "    command: node\n", "    command: node\n    cwd: tools\n", 1), "cwd"},
 		"no repository":    {strings.Replace(handWrittenEllipsisEnvironment, "repositories:\n  - name: api-repo\n    ref: main\n", "", 1), "repositor"},
@@ -325,5 +328,69 @@ func TestFindUnmanagedConfig_FlagsAHandWrittenEllipsisEnvironmentFile(t *testing
 	}
 	if !found {
 		t.Errorf("a hand-written environment file must be flagged: %+v", got)
+	}
+}
+
+func TestImportEllipsisEnvironment_PlainServerValuesStayPlain(t *testing.T) {
+	dir := ellipsisEnvironmentImportProject(t, handWrittenEllipsisEnvironment)
+	execCLI(t, "import", "ellipsis")
+	for path, want := range map[string]string{
+		filepath.Join(".agnostic-ai", "mcps", "internal-tools.yaml"): "X-Team: !literal platform",
+		filepath.Join(".agnostic-ai", "mcps", "repo-tools.yaml"):     "LOG_LEVEL: !literal debug",
+	} {
+		if got := readFile(t, filepath.Join(dir, path)); !strings.Contains(got, want) {
+			t.Errorf("%s must keep the plain value as %q, not turn it into a secret reference:\n%s", path, want, got)
+		}
+	}
+	execCLI(t, "sync")
+	got := readFile(t, filepath.Join(dir, ellipsisEnvironmentFile))
+	for _, want := range []string{"X-Team: platform", "LOG_LEVEL: debug"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("sync lost %q:\n%s", want, got)
+		}
+	}
+	for _, absent := range []string{"INTERNAL_TOOLS_X_TEAM", "${LOG_LEVEL}"} {
+		if strings.Contains(got, absent) {
+			t.Errorf("a plain value became a stored-secret reference %q, and a missing secret fails the session:\n%s", absent, got)
+		}
+	}
+}
+
+func TestImportEllipsisEnvironment_CredentialValuesPointToEllipsisSecrets(t *testing.T) {
+	const secret = "ELLIPSIS_NATIVE_TOKEN_2188"
+	native := strings.Replace(handWrittenEllipsisEnvironment, "API_TOKEN: ${REPO_TOOLS_TOKEN}", "API_TOKEN: "+secret, 1)
+	dir := ellipsisEnvironmentImportProject(t, native)
+	logged := importLog(t)
+	out, err := cliOutput(t, "import", "ellipsis")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out += logged.String()
+	if strings.Contains(out, secret) {
+		t.Errorf("import printed the secret:\n%s", out)
+	}
+	if !strings.Contains(out, "Ellipsis") || strings.Contains(out, "shell") {
+		t.Errorf("the hint must say to store the secret in Ellipsis, not to export it in a shell:\n%s", out)
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "repo-tools.yaml")); strings.Contains(got, secret) || !strings.Contains(got, "API_TOKEN: ${API_TOKEN}") {
+		t.Errorf("the credential must become a reference:\n%s", got)
+	}
+}
+
+func TestImportEllipsisEnvironment_CredentialInAURLIsLeftWithANote(t *testing.T) {
+	const secret = "ELLIPSIS_URL_SECRET_2188"
+	native := strings.Replace(handWrittenEllipsisEnvironment, "url: https://tools.example.com/mcp", "url: https://tools.example.com/mcp?api_key="+secret, 1)
+	dir := ellipsisEnvironmentImportProject(t, native)
+	logged := importLog(t)
+	out, err := cliOutput(t, "import", "ellipsis")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out += logged.String()
+	if !strings.Contains(out, "internal-tools") || !strings.Contains(out, "left") || strings.Contains(out, secret) {
+		t.Errorf("want a note that names the server, says the file was left, and hides the value:\n%s", out)
+	}
+	if got := readFile(t, filepath.Join(dir, ellipsisEnvironmentFile)); got != native {
+		t.Errorf("the native file must stay as written:\n%s", got)
 	}
 }

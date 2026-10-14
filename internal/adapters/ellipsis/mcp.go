@@ -2,6 +2,7 @@ package ellipsis
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -44,13 +45,16 @@ func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 // to that form or left the server out.
 func buildServers(mcps []spec.Entry, repo string) ([]*yaml.Node, []serverProblem) {
 	mcps = emit.DropMCPDisabled(target, mcps, disabledReason)
-	slices.SortStableFunc(mcps, func(a, b spec.Entry) int { return strings.Compare(a.Name, b.Name) })
+	slices.SortFunc(mcps, func(a, b spec.Entry) int { return strings.Compare(a.Name, b.Name) })
 	var servers []*yaml.Node
 	var problems []serverProblem
 	var descriptions, timeouts, roots int
 	for _, e := range mcps {
 		meta := emit.ResolveMeta(e.Meta, target)
 		node, why := buildServer(e.Name, meta, repo)
+		if why == "" {
+			why = overrideLiteral(e.Meta)
+		}
 		if why != "" {
 			problems = append(problems, serverProblem{e.Name, why})
 			emit.NoteEntryOmitted(target, spec.KindMCP, e.Name)
@@ -71,6 +75,32 @@ func buildServers(mcps []spec.Entry, repo string) ([]*yaml.Node, []serverProblem
 	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeouts, "an Ellipsis server entry has no timeout key")
 	emit.NoteFieldNoOp(target, spec.KindMCP, "roots", roots, "an Ellipsis server entry has no roots key")
 	return servers, problems
+}
+
+// schemeWord is the one word a header value may put before a reference,
+// as in `Bearer ${TOKEN}`.
+var schemeWord = regexp.MustCompile(`^[A-Za-z]+\s+`)
+
+// overrideLiteral says why an `x-ellipsis` override cannot be written when
+// its `env` or `headers` holds a value that is no reference. The `!literal`
+// mark that tells a plain setting from a secret exists only on the
+// top-level maps, so a literal here could be a token in a committed file.
+// It names the key, never the value.
+func overrideLiteral(meta map[string]any) string {
+	x, _ := meta[emit.XPrefix+target].(map[string]any)
+	for _, field := range []string{"env", "headers"} {
+		values, _ := x[field].(map[string]any)
+		for _, key := range slices.Sorted(maps.Keys(values)) {
+			value, ok := values[key].(string)
+			if !ok || value == "" {
+				continue
+			}
+			if rest := schemeWord.ReplaceAllString(value, ""); !spec.OnlyEnvRefs(rest) && !spec.OnlyEscapedEnvRefs(rest) {
+				return fmt.Sprintf("has a literal value for %s %s under x-ellipsis, which cannot carry the !literal mark; write a ${NAME} reference, or set a plain value in the top-level %s with !literal", field, key, field)
+			}
+		}
+	}
+	return ""
 }
 
 // buildServer renders one server, or says why it cannot be written.
@@ -197,7 +227,8 @@ func looksLikeLocalPath(value string) bool {
 	switch {
 	case strings.HasPrefix(value, "./"), strings.HasPrefix(value, "../"), strings.HasPrefix(value, ".\\"), strings.HasPrefix(value, "..\\"),
 		strings.HasPrefix(value, "~"), strings.HasPrefix(value, "file:"), strings.Contains(value, "${"),
-		strings.HasPrefix(value, "/Users/"), strings.HasPrefix(value, "/Volumes/"), strings.HasPrefix(value, "/private/"):
+		strings.HasPrefix(value, "/Users/"), strings.HasPrefix(value, "/home/"), strings.HasPrefix(value, "/root/"),
+		strings.HasPrefix(value, "/Volumes/"), strings.HasPrefix(value, "/private/"):
 		return true
 	case windowsPath.MatchString(value):
 		return true

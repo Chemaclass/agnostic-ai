@@ -107,7 +107,7 @@ Sections follow in sorted directory order. The condition is text the model reads
 
 Ellipsis starts each session from the environment the session names. A review names it with the reviewer's `environment` key, and sync sets that key to the selected environment's name. A `x-ellipsis.reviewer.environment` that names another environment stops the review file, because the specs would disagree. With no `x-ellipsis.environment`, the key passes through as written, so an environment you manage by hand still works.
 
-Sync writes the environment file when `x-ellipsis.environment` is set, even with no environment or MCP spec: the file then holds the repository and whatever native options you list. With no selection and no such spec, it writes nothing. With specs but no selection, it writes nothing and names the missing key. It also leaves the file alone, and the review unlinked, when the selection has a problem: a missing `name` or `repository`, an unsafe name, two sources for one script, or an output path outside `.ellipsis/`. A file already deployed stays as it was.
+Sync writes the environment file when `x-ellipsis.environment` is set, even with no environment or MCP spec: the file then holds the repository and whatever native options you list. With no selection and no such spec, it writes nothing. With specs but no selection, it writes nothing and names the missing key. A selection with a problem writes no new environment file: a missing `name` or `repository`, an unsafe name, two sources for one script, or an output path outside `.ellipsis/`. A generated environment already deployed stays as it was, and the review keeps naming that file's environment. If a broken selection leaves several generated environment files to choose from, sync stops until the selection is repaired.
 
 ### Setup scripts
 
@@ -155,7 +155,7 @@ x-ellipsis:
     mcp_servers: [slack]    # connected integrations, listed by name
 ```
 
-A variable under a credential name, such as `NPM_TOKEN`, may not carry a `value`: the file is committed, so the secret stays in Ellipsis. Names Ellipsis rejects (`ANTHROPIC_`, `OPENAI_`, `CODEX_` and `CLAUDE_CODE_USE_` prefixes, and three exact names) stop the file.
+A variable under a credential name, such as `NPM_TOKEN`, or with a value that looks like a credential, such as `postgres://admin:pw@db/app`, may not carry a `value`: the file is committed, so the secret stays in Ellipsis. Names Ellipsis rejects (`ANTHROPIC_`, `OPENAI_`, `CODEX_` and `CLAUDE_CODE_USE_` prefixes, and three exact names) stop the file.
 
 ### MCP servers
 
@@ -173,11 +173,11 @@ Sync leaves out a server it cannot write as it is, with a note that names the se
 - `sse` and `ws` transports. Ellipsis connects over streamable HTTP only.
 - `oauth`, which an entry has no key for.
 - `cwd` on a stdio server. Write the script path as `/sandbox/<repository>/<path>`.
-- A stdio command or argument that is a path from your machine: `./`, `../`, `~`, a Windows drive, `/Users/...`, `${workspaceFolder}`, or a script file name with no directory. It must start with `/sandbox/<repository>/`, and may not name another checkout or climb out of it with `..`.
+- A stdio command or argument that is a path from your machine: `./`, `../`, `~`, a Windows drive, `/Users/...`, `/home/...`, `${workspaceFolder}`, or a script file name with no directory. It must start with `/sandbox/<repository>/`, and may not name another checkout or climb out of it with `..`.
 - A name outside letters, digits, `-`, and `_`, or `slack` or `linear`, which Ellipsis reads as integrations.
 - `disabled: true`. Ellipsis has no switch, so the server is left out, which has the same effect.
 
-A server's `description`, `timeout`, and `roots` have no key and get a no-effect note. To give a server different values in the sandbox, set them under `x-ellipsis` on the MCP spec, which replaces the top-level key for this target only:
+A server's `description`, `timeout`, and `roots` have no key and get a no-effect note. To give a server different values in the sandbox, set them under `x-ellipsis` on the MCP spec, which replaces the top-level key for this target only. An `env` or `headers` value under `x-ellipsis` must be a `${NAME}` reference, because the `!literal` mark works only on the top-level maps; a literal there leaves the server out:
 
 ```yaml
 command: node
@@ -229,13 +229,13 @@ A hand-written `.ellipsis/environments/*.yaml` with `ellipsis.kind: environment`
 | The name, repository, description, metadata, variables, compute, and `slack` or `linear` entries | `x-ellipsis.environment` in `<settings>/ellipsis-environment.yaml` |
 | Each server with `url` or `command` | `<mcps>/<name>.yaml` |
 
-The environment, its servers, and its setup are scoped to `targets: [ellipsis]`, so no other tool changes. A literal `env` or `headers` value in a server becomes a `${NAME}` reference, and import prints the variable to store in Ellipsis, as for every MCP import.
+The environment, its servers, and its setup are scoped to `targets: [ellipsis]`, so no other tool changes. A plain `env` or `headers` value stays as written and is marked `!literal`, because Ellipsis reads every `${NAME}` as a stored secret and a missing secret fails the session. A credential becomes a `${NAME}` reference, and import prints the secret name to set in Ellipsis. A credential in a server's `url` or `args` leaves the file as written, since Ellipsis reads references in `env` and `headers` only.
 
 The next sync writes the same behavior back. Comments and key order in the hand-written files are not kept. A file that carries the generated header imports nothing, since its specs are the source.
 
 Import stops with a message and writes nothing when the review file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged).
 
-An environment file it cannot express is left as written, with a note that names the reason: more than one repository, a field the schema does not list, a credential-named variable that holds a value, or a server with both `url` and `command`. Several environment files are left too, since sync writes one. When the file is not at `.ellipsis/environments/<name>.yaml`, import says so, because sync writes there and Ellipsis would see two files with one name. `import all` detects the target from a `.ellipsis/` folder.
+An environment file it cannot express is left as written, with a note that names the reason: more than one repository, a field the schema does not list, a variable that holds a credential value, a credential in a server's `url` or `args`, or a server with both `url` and `command`. Several environment files are left too, since sync writes one. When the file is not at `.ellipsis/environments/<name>.yaml`, import says so, because sync writes there and Ellipsis would see two files with one name. `import all` detects the target from a `.ellipsis/` folder.
 
 ## Not covered
 
