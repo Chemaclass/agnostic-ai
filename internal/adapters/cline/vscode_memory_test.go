@@ -3,6 +3,7 @@ package cline
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -30,6 +31,12 @@ func TestEmit_VSCodeHookWritesNativePowerShellCompanion(t *testing.T) {
 		t.Errorf("Unix hook lost command or launcher: %s", unix)
 	}
 	windows, err := os.ReadFile(filepath.Join(dir, ".clinerules", "hooks", "TaskStart.ps1"))
+	if runtime.GOOS != "windows" {
+		if !os.IsNotExist(err) {
+			t.Fatalf("Unix sync must not create a PowerShell hook the SDK would also run: %v", err)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
