@@ -130,6 +130,20 @@ func TestImport_DryRunDiffAfterSyncInRepoModeWritesNoMachinePath(t *testing.T) {
 	}
 }
 
+func TestImport_CodexKeepsAnotherProjectsHandoffFolder(t *testing.T) {
+	store := syncedCodexProject(t)
+	other := "/elsewhere/project/.agnostic-ai/local/handoffs"
+	addCodexRoot(t, store, other)
+
+	if err := importArgs([]string{"codex"}); err != nil {
+		t.Fatal(err)
+	}
+	overlay := readText(t, filepath.Join(".agnostic-ai", "overlays", "codex.config.toml"))
+	if !strings.Contains(overlay, other) || strings.Contains(overlay, store) {
+		t.Errorf("overlay:\n%s", overlay)
+	}
+}
+
 func TestImport_CodexDropsTheStoreAfterLeavingRepoMode(t *testing.T) {
 	store := syncedCodexProject(t)
 	addCodexRoot(t, store, "/opt/shared")
@@ -145,22 +159,31 @@ func TestImport_CodexDropsTheStoreAfterLeavingRepoMode(t *testing.T) {
 }
 
 func TestImport_CodexCleansAnOverlayThatNamesTheStore(t *testing.T) {
-	store := syncedCodexProject(t)
-	overlayPath := filepath.Join(".agnostic-ai", "overlays", "codex.config.toml")
-	writeFile(t, overlayPath, "[sandbox_workspace_write]\nwritable_roots = [\""+store+"\"]\n")
-	writeFile(t, filepath.Join(".agnostic-ai", "rules", "x.md"), "---\nname: x\ndescription: x\n---\nx\n")
+	for _, edited := range []bool{true, false} {
+		name := "config edited after sync"
+		if !edited {
+			name = "config as sync wrote it"
+		}
+		t.Run(name, func(t *testing.T) {
+			store := syncedCodexProject(t)
+			overlayPath := filepath.Join(".agnostic-ai", "overlays", "codex.config.toml")
+			writeFile(t, overlayPath, "[sandbox_workspace_write]\nwritable_roots = [\""+store+"\"]\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "rules", "x.md"), "---\nname: x\ndescription: x\n---\nx\n")
+			runLogged(t, "sync")
 
-	runLogged(t, "sync")
-
-	configPath := filepath.Join(".codex", "config.toml")
-	writeFile(t, configPath, readText(t, configPath)+"# edited\n")
-	runLogged(t, "import", "codex", "--overwrite")
-	if overlay := readText(t, overlayPath); strings.Contains(overlay, store) {
-		t.Errorf("overlay still names the store:\n%s", overlay)
-	}
-	runLogged(t, "sync")
-	if err := runSync(t, "--check"); err != nil {
-		t.Errorf("sync --check: %v", err)
+			configPath := filepath.Join(".codex", "config.toml")
+			if edited {
+				writeFile(t, configPath, readText(t, configPath)+"# edited\n")
+			}
+			runLogged(t, "import", "codex", "--overwrite")
+			if overlay := readText(t, overlayPath); strings.Contains(overlay, store) {
+				t.Errorf("overlay still names the store:\n%s", overlay)
+			}
+			runLogged(t, "sync")
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+		})
 	}
 }
 

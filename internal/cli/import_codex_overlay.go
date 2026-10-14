@@ -171,7 +171,10 @@ func dropSyncWritableRoots(raw string, doc map[string]any, granted adapters.Gran
 	} else {
 		table["writable_roots"] = kept
 	}
-	if edited, ok := codex.RemoveWritableRoots(raw, func(root string) bool { return granted.Has(root) }); ok {
+	if edited, lost, ok := codex.RemoveWritableRoots(raw, granted.Has); ok {
+		if lost {
+			keptf("note: %s lists sandbox roots with comments on lines import shares, so the overlay lost those comments\n", codexConfigTOML)
+		}
 		return edited, true, nil
 	}
 	var buf bytes.Buffer

@@ -31,6 +31,16 @@ func SharedHandoffWriteRoot(cfg *config.Config) string {
 	return realPath(dir)
 }
 
+// HandoffStoreOf returns the shared handoff store of the project at root,
+// in the main checkout, whether or not the handoff built-in is on.
+func HandoffStoreOf(root string) string {
+	_, project, ok := MainCheckoutAt(root)
+	if !ok {
+		return ""
+	}
+	return filepath.Join(project, ".agnostic-ai", "local", "handoffs")
+}
+
 func sharedHandoffCandidate(cfg *config.Config) (string, string) {
 	if cfg == nil || !slices.Contains(cfg.Builtins, "handoff") && !slices.Contains(cfg.Builtins, "handoff-hook") {
 		return "", ""

@@ -20,11 +20,12 @@ const (
 // the [sandbox_workspace_write] table in raw, and leaves every other byte
 // as it was. A table left empty goes too. It reports false when the roots
 // sit in a form this edit does not read (a dotted key or an inline table),
-// so the caller keeps its own copy of the roots.
-func RemoveWritableRoots(raw string, drop func(root string) bool) (string, bool) {
+// so the caller keeps its own copy of the roots. lostComments reports that
+// the array had to be rewritten on one line over comments of its own.
+func RemoveWritableRoots(raw string, drop func(root string) bool) (text string, lostComments, ok bool) {
 	return editWritableRoots(raw, func(roots []string) []string {
 		return slices.DeleteFunc(slices.Clone(roots), drop)
-	}, false)
+	}, false, drop)
 }
 
 // addWritableRoots appends the roots raw does not hold to the writable_roots
@@ -34,7 +35,7 @@ func addWritableRoots(raw string, add []string) (string, bool) {
 	if len(add) == 0 {
 		return raw, true
 	}
-	return editWritableRoots(raw, func(roots []string) []string {
+	text, _, ok := editWritableRoots(raw, func(roots []string) []string {
 		out := slices.Clone(roots)
 		for _, root := range add {
 			if !slices.Contains(slashed(out), filepath.ToSlash(root)) {
@@ -42,7 +43,8 @@ func addWritableRoots(raw string, add []string) (string, bool) {
 			}
 		}
 		return out
-	}, true)
+	}, true, nil)
+	return text, ok
 }
 
 // noteOverlayGrants warns about each root of the overlay that sync grants
@@ -74,29 +76,29 @@ type writableRootsDoc struct {
 	} `toml:"sandbox_workspace_write"`
 }
 
-func editWritableRoots(raw string, edit func([]string) []string, insert bool) (string, bool) {
+func editWritableRoots(raw string, edit func([]string) []string, insert bool, drop func(string) bool) (text string, lostComments, ok bool) {
 	var before writableRootsDoc
 	meta, err := toml.Decode(raw, &before)
 	if err != nil {
-		return raw, false
+		return raw, false, false
 	}
 	held := meta.IsDefined(sandboxTable, writableRootsKey)
 	if !held && !insert {
-		return raw, true
+		return raw, false, true
 	}
 	want := edit(before.Sandbox.WritableRoots)
 	if held && slices.Equal(want, before.Sandbox.WritableRoots) {
-		return raw, true
+		return raw, false, true
 	}
 
 	lines := strings.Split(raw, "\n")
 	header, end := findSandboxTable(lines)
 	if header < 0 {
-		return raw, false
+		return raw, false, false
 	}
 	keyStart, keyEnd := findWritableRoots(lines, header+1, end)
 	if (keyStart < 0) == held {
-		return raw, false
+		return raw, false, false
 	}
 
 	eol := ""
@@ -104,6 +106,7 @@ func editWritableRoots(raw string, edit func([]string) []string, insert bool) (s
 		eol = "\r"
 	}
 	var out []string
+	lost := false
 	switch {
 	case insert && held && appendToArray(lines, keyStart, keyEnd, want[len(before.Sandbox.WritableRoots):], eol) != nil:
 		out = appendToArray(lines, keyStart, keyEnd, want[len(before.Sandbox.WritableRoots):], eol)
@@ -111,20 +114,23 @@ func editWritableRoots(raw string, edit func([]string) []string, insert bool) (s
 		out = append(slices.Clone(lines[:header]), lines[end:]...)
 	case len(want) == 0:
 		out = append(slices.Clone(lines[:keyStart]), lines[keyEnd:]...)
+	case drop != nil && dropEntryLines(lines, keyStart, keyEnd, drop) != nil:
+		out = dropEntryLines(lines, keyStart, keyEnd, drop)
 	case keyStart < 0:
 		out = append(slices.Clone(lines[:header+1]), renderWritableRoots(want)+eol)
 		out = append(out, lines[header+1:]...)
 	default:
+		lost = commentIn(lines[keyStart:keyEnd])
 		out = append(slices.Clone(lines[:keyStart]), renderWritableRoots(want)+eol)
 		out = append(out, lines[keyEnd:]...)
 	}
-	text := strings.Join(out, "\n")
+	text = strings.Join(out, "\n")
 
 	var after writableRootsDoc
 	if _, err := toml.Decode(text, &after); err != nil || !slices.Equal(after.Sandbox.WritableRoots, want) {
-		return raw, false
+		return raw, false, false
 	}
-	return text, true
+	return text, lost, true
 }
 
 // appendToArray returns lines with each root on a line of its own before
@@ -146,6 +152,45 @@ func appendToArray(lines []string, keyStart, keyEnd int, roots []string, eol str
 		out = append(out, indent+strings.TrimSuffix(strings.TrimPrefix(renderWritableRoots([]string{root}), writableRootsKey+" = ["), "]")+","+eol)
 	}
 	return append(out, lines[last:]...)
+}
+
+// dropEntryLines returns lines without the lines of the entries of a
+// multi-line writable_roots array that drop accepts, so the rest keeps its
+// layout and comments. It returns nil unless the array opens and closes on
+// lines of their own and holds one entry per line.
+func dropEntryLines(lines []string, keyStart, keyEnd int, drop func(string) bool) []string {
+	_, value, _ := strings.Cut(lines[keyStart], "=")
+	if keyEnd-keyStart < 3 || strings.TrimSpace(value[:codeEnd(value)]) != "[" ||
+		strings.TrimSpace(lines[keyEnd-1][:codeEnd(lines[keyEnd-1])]) != "]" {
+		return nil
+	}
+	out := slices.Clone(lines[:keyStart+1])
+	for _, line := range lines[keyStart+1 : keyEnd-1] {
+		code := strings.TrimSpace(line[:codeEnd(line)])
+		if code == "" {
+			out = append(out, line)
+			continue
+		}
+		var entry struct {
+			Roots []string `toml:"v"`
+		}
+		if _, err := toml.Decode("v = ["+code+"]", &entry); err != nil || len(entry.Roots) != 1 {
+			return nil
+		}
+		if !drop(entry.Roots[0]) {
+			out = append(out, line)
+		}
+	}
+	return append(out, lines[keyEnd-1:]...)
+}
+
+func commentIn(lines []string) bool {
+	for _, line := range lines {
+		if codeEnd(line) < len(line) {
+			return true
+		}
+	}
+	return false
 }
 
 func renderWritableRoots(roots []string) string {

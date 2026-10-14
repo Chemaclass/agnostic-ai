@@ -956,7 +956,7 @@ type GrantedRoots struct {
 // SyncGrantedRoots returns the roots of the project at root. It names the
 // repo memory store whatever memory.personal says now, since sync may have
 // written it before the mode changed.
-func SyncGrantedRoots(cfg *config.Config, root string) GrantedRoots {
+func SyncGrantedRoots(root string) GrantedRoots {
 	var granted GrantedRoots
 	add := func(list *[]string, dir string) {
 		*list = append(*list, filepath.ToSlash(dir))
@@ -971,17 +971,17 @@ func SyncGrantedRoots(cfg *config.Config, root string) GrantedRoots {
 	if stores, err := emit.RepoMemoryStores(); err == nil {
 		add(&granted.Stores, stores)
 	}
-	if dir := emit.SharedHandoffWriteRoot(cfg); dir != "" {
+	if dir := emit.HandoffStoreOf(root); dir != "" {
 		add(&granted.Dirs, dir)
 	}
 	return granted
 }
 
 // Has reports whether dir is a root sync grants: a store of this
-// project, any repo memory store, or a shared handoff store.
+// project, the shared handoff store of this project, or any repo memory store.
 func (g GrantedRoots) Has(dir string) bool {
 	dir = filepath.ToSlash(filepath.Clean(dir))
-	if slices.Contains(g.Dirs, dir) || strings.HasSuffix(dir, "/.agnostic-ai/local/handoffs") {
+	if slices.Contains(g.Dirs, dir) {
 		return true
 	}
 	for _, stores := range g.Stores {

@@ -109,7 +109,7 @@ func readFileString(t *testing.T, path string) string {
 func TestImportWindsurfPermissions_DropsTheSyncGrantedStores(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".devin", "config.json"), `{
-	  "permissions": {"allow": ["Write(/home/me/store/**)", "Write(/opt/scratch/**)", "Read(src/**)"]}
+	  "permissions": {"allow": ["Write(/home/me/store/**)", "Write(/opt/scratch/**)", "Write(/elsewhere/.agnostic-ai/local/handoffs/**)", "Read(src/**)"]}
 	}`)
 
 	dst := filepath.Join(root, "settings")
@@ -120,7 +120,7 @@ func TestImportWindsurfPermissions_DropsTheSyncGrantedStores(t *testing.T) {
 	if strings.Contains(got, "/home/me/store") {
 		t.Errorf("spec names the sync-granted store:\n%s", got)
 	}
-	for _, want := range []string{"Write(/opt/scratch/**)", "read(src/**)"} {
+	for _, want := range []string{"Write(/opt/scratch/**)", "Write(/elsewhere/.agnostic-ai/local/handoffs/**)", "read(src/**)"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("spec lost %q:\n%s", want, got)
 		}
