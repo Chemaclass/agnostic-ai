@@ -335,29 +335,41 @@ func (s *Session) CreateHandoffStore(dir string, dryRun bool) error {
 }
 
 func (s *Session) HandoffAccessRoot(cfg *config.Config, path, target, key string, dryRun bool) (string, error) {
+	grant, _, err := s.HandoffAccess(cfg, path, target, key, dryRun)
+	return grant, err
+}
+
+// HandoffAccess returns the store sync grants, and the store a refused
+// config already grants by hand. The second belongs to the user: a
+// target that rewrites the whole permission value carries it over
+// without claiming it, and no note asks for what is already there.
+func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dryRun bool) (grant, kept string, err error) {
 	dir := SharedHandoffWriteRoot(cfg)
 	if dir == "" {
 		if _, candidate := sharedHandoffCandidate(cfg); candidate != "" {
 			NoteProject(fmt.Sprintf("%s: shared handoff store %s is unavailable or not private; use an ignored checkout store", target, filepath.ToSlash(candidate)))
 		}
-		return "", nil
+		return "", "", nil
 	}
 	if unsafe := handoffGlobCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
 		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir)))
-		return "", nil
+		return "", "", nil
 	}
 	if !s.HandoffConfigWritable(cfg, path, target) {
+		if handoffGrantOnDisk(path, target, filepath.ToSlash(dir)) {
+			return "", filepath.ToSlash(dir), nil
+		}
 		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %s to %s, keeping its other entries", target, filepath.ToSlash(path), handoffNativeEntry(target, filepath.ToSlash(dir)), key))
-		return "", nil
+		return "", "", nil
 	}
 	if err := s.CreateHandoffStore(dir, dryRun); err != nil {
 		if errors.Is(err, fs.ErrPermission) || errors.Is(err, fs.ErrExist) || errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS) {
 			NoteProject(fmt.Sprintf("%s: shared handoff store is unavailable (%v); use an ignored checkout store", target, err))
-			return "", nil
+			return "", "", nil
 		}
-		return "", err
+		return "", "", err
 	}
-	return filepath.ToSlash(dir), nil
+	return filepath.ToSlash(dir), "", nil
 }
 
 // handoffGlobCharacters lists the characters that would turn the main
@@ -382,4 +394,35 @@ func handoffNativeEntry(target, dir string) string {
 		return "Write(" + dir + "/**)"
 	}
 	return fmt.Sprintf("%q", dir)
+}
+
+// handoffGrantOnDisk reports whether the config at path already grants
+// dir in the target's native spelling.
+func handoffGrantOnDisk(path, target, dir string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	data, _ = StripJSONC(data)
+	switch target {
+	case "opencode":
+		var doc struct {
+			Permission struct {
+				ExternalDirectory map[string]json.RawMessage `json:"external_directory"`
+			} `json:"permission"`
+		}
+		if json.Unmarshal(data, &doc) != nil {
+			return false
+		}
+		_, ok := doc.Permission.ExternalDirectory[dir+"/**"]
+		return ok
+	case "windsurf":
+		var doc struct {
+			Permissions struct {
+				Allow []string `json:"allow"`
+			} `json:"permissions"`
+		}
+		return json.Unmarshal(data, &doc) == nil && slices.Contains(doc.Permissions.Allow, "Write("+dir+"/**)")
+	}
+	return false
 }

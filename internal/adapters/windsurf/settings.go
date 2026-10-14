@@ -53,14 +53,18 @@ func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, p
 	if err != nil {
 		return err
 	}
-	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.allow", dryRun)
+	handoff, handoffKept, err := sess.HandoffAccess(cfg, path, target, "permissions.allow", dryRun)
 	if err != nil {
 		return err
 	}
 	if handoff != "" {
 		writeRules = append(writeRules, writeRule(handoff))
 	}
-	mergeAllowRules(sess, keys, path, writeRules, dryRun)
+	var kept []string
+	if handoffKept != "" {
+		kept = append(kept, writeRule(handoffKept))
+	}
+	mergeAllowRules(sess, keys, path, writeRules, kept, dryRun)
 	if len(keys) == 0 {
 		return nil
 	}

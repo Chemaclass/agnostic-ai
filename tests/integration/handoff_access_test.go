@@ -439,9 +439,10 @@ func TestHandoffAccess_OpenCodeAndDevinProtectNativeConfig(t *testing.T) {
 					handoffGit(t, linked, "add", "-f", file)
 					handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "[handoff]", "[]", 1))
 					run("sync")
-					// The grant is sync's own claim, so it leaves with the built-in.
-					if got, err := os.ReadFile(path); err == nil && strings.Contains(string(got), store) {
-						t.Errorf("removing builtin kept the grant in the adopted config: %s", got)
+					// Sync created this file for the grant alone, so it leaves
+					// with the built-in.
+					if got, err := os.ReadFile(path); err == nil {
+						t.Errorf("removing builtin left the file sync created: %s", got)
 					}
 				}
 			})
@@ -866,8 +867,8 @@ func TestHandoffAccess_CommittedGrantStillTakesSpecChanges(t *testing.T) {
 			if !strings.Contains(handoffRead(t, path), want) {
 				t.Errorf("spec change did not reach the committed config: %s", handoffRead(t, path))
 			}
-			if strings.Contains(handoffRead(t, path), ".agnostic-ai/local/handoffs") {
-				t.Errorf("grant stayed in the committed config: %s", handoffRead(t, path))
+			if !strings.Contains(handoffRead(t, path), ".agnostic-ai/local/handoffs") {
+				t.Errorf("grant sync wrote left the committed config: %s", handoffRead(t, path))
 			}
 			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "[handoff]", "[]", 1))
 			handoffLinkedSpecs(t, linked, target, "https://example.com/three/", "Read(.third)")
@@ -875,6 +876,143 @@ func TestHandoffAccess_CommittedGrantStillTakesSpecChanges(t *testing.T) {
 			content := handoffRead(t, path)
 			if strings.Contains(content, ".agnostic-ai/local/handoffs") || !strings.Contains(content, map[string]string{"opencode": "https://example.com/three/", "windsurf": "Read(.third)"}[target]) {
 				t.Errorf("turning handoff off did not release the grant and keep merging: %s", content)
+			}
+		})
+	}
+}
+
+func handoffUserGrant(t *testing.T, path, target, store string) {
+	t.Helper()
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(handoffRead(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if target == "opencode" {
+		permission, _ := doc["permission"].(map[string]any)
+		if permission == nil {
+			permission = map[string]any{}
+			doc["permission"] = permission
+		}
+		rules, _ := permission["external_directory"].(map[string]any)
+		if rules == nil {
+			rules = map[string]any{}
+			permission["external_directory"] = rules
+		}
+		rules[store+"/**"] = "allow"
+	} else {
+		permission, _ := doc["permissions"].(map[string]any)
+		if permission == nil {
+			permission = map[string]any{}
+			doc["permissions"] = permission
+		}
+		allow, _ := permission["allow"].([]any)
+		permission["allow"] = append(allow, "Write("+store+"/**)")
+	}
+	data, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoffWrite(t, path, string(data))
+}
+
+func TestHandoffAccess_RefusedGrantAddedByHandStays(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	for _, target := range []string{"opencode", "windsurf"} {
+		for _, mode := range []string{"handwritten", "committed"} {
+			t.Run(target+"/"+mode, func(t *testing.T) {
+				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
+				handoffInitGit(t, main)
+				handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
+				physicalMain, err := filepath.EvalSymlinks(main)
+				if err != nil {
+					t.Fatal(err)
+				}
+				store := filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs"))
+				handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), "version: 1\nbuiltins: [handoff]\ntargets: ["+target+"]\ngitignore:\n  enabled: true\n")
+				handoffWrite(t, filepath.Join(linked, ".agnostic-ai/settings/perms.yaml"), "name: perms\npermissions:\n  deny: [\"Bash(rm:*)\"]\n  allow: [\"Read(*)\"]\n")
+				file := map[string]string{"opencode": "opencode.json", "windsurf": ".devin/config.json"}[target]
+				path := filepath.Join(linked, file)
+				run := func(args ...string) string {
+					t.Helper()
+					cmd := exec.Command(binary, args...)
+					cmd.Dir = linked
+					output, err := cmd.CombinedOutput()
+					if err != nil {
+						t.Fatalf("%v: %v\n%s", args, err, output)
+					}
+					return string(output)
+				}
+				if mode == "handwritten" {
+					handoffWrite(t, path, "{\"user_option\":true}\n")
+					run("sync")
+					handoffUserGrant(t, path, target, store)
+				} else {
+					run("sync")
+					handoffGit(t, linked, "add", "-f", file)
+				}
+				for i := 0; i < 2; i++ {
+					output := run("sync")
+					if strings.Contains(output, "stays as configured") {
+						t.Errorf("sync %d repeats the note for a grant already there: %s", i+1, output)
+					}
+					run("sync", "--check")
+					content := handoffRead(t, path)
+					if !strings.Contains(content, store+"/**") {
+						t.Errorf("sync %d dropped the grant: %s", i+1, content)
+					}
+					if mode == "handwritten" && !strings.Contains(content, "user_option") {
+						t.Errorf("sync %d dropped user content: %s", i+1, content)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestHandoffAccess_UpgradedStateWithoutMergedRecordSettlesInOneSync(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	for _, target := range []string{"opencode", "windsurf"} {
+		t.Run(target, func(t *testing.T) {
+			t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
+			handoffInitGit(t, main)
+			handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
+			config := "version: 1\nbuiltins: [handoff]\ntargets: [" + target + "]\ngitignore:\n  enabled: true\n"
+			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "[handoff]", "[]", 1))
+			file := handoffLinkedSpecs(t, linked, target, "https://example.com/mcp/", "Read(.env)")
+			run := func(args ...string) {
+				t.Helper()
+				cmd := exec.Command(binary, args...)
+				cmd.Dir = linked
+				if output, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("%v: %v\n%s", args, err, output)
+				}
+			}
+			run("sync")
+			statePath := filepath.Join(linked, ".agnostic-ai/.sync-state")
+			var state map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(handoffRead(t, statePath)), &state); err != nil {
+				t.Fatal(err)
+			}
+			var merged map[string]json.RawMessage
+			if err := json.Unmarshal(state["merged"], &merged); err != nil {
+				t.Fatal(err)
+			}
+			delete(merged, file)
+			state["merged"], _ = json.Marshal(merged)
+			data, err := json.Marshal(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			handoffWrite(t, statePath, string(data))
+			handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+			run("sync")
+			first := handoffRead(t, filepath.Join(linked, file))
+			run("sync", "--check")
+			run("sync")
+			if second := handoffRead(t, filepath.Join(linked, file)); second != first || !strings.Contains(first, ".agnostic-ai/local/handoffs") {
+				t.Errorf("first sync after the upgrade did not settle:\n%s\n---\n%s", first, second)
 			}
 		})
 	}

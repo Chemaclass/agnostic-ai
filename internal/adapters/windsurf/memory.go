@@ -48,10 +48,19 @@ func writeRule(dir string) string {
 // list is the user's: sync keeps their rules and claims only its own.
 // Either way the rules sync adds are recorded on their own, so they
 // leave by themselves, and only while unchanged, once no longer wanted.
-func mergeAllowRules(sess *emit.Session, keys map[string]any, path string, rules []string, dryRun bool) {
+// kept holds a refused handoff rule already in the file.
+func mergeAllowRules(sess *emit.Session, keys map[string]any, path string, rules, kept []string, dryRun bool) {
 	permissions, _ := keys[permissionsKey].(map[string]any)
 	if allow, ok := permissions["allow"].([]string); ok {
+		// A refused rule rides along as it stands. It stays sync's only
+		// if sync wrote it and nobody changed it.
 		var added []string
+		for _, rule := range kept {
+			if !slices.Contains(allow, rule) {
+				allow = append(allow, rule)
+			}
+		}
+		added = append(added, emit.StillClaimedItems(path, []string{permissionsKey, "allow"}, kept)...)
 		for _, rule := range rules {
 			if !slices.Contains(allow, rule) {
 				allow = append(allow, rule)
@@ -61,6 +70,8 @@ func mergeAllowRules(sess *emit.Session, keys map[string]any, path string, rules
 		permissions["allow"] = emit.ClaimedJSONWithItems(allow, added)
 		return
 	}
+	// A refused rule sync wrote itself stays sync's while it is unchanged.
+	rules = append(slices.Clone(rules), emit.StillClaimedItems(path, []string{permissionsKey, "allow"}, kept)...)
 	if len(rules) == 0 {
 		// A rule an earlier sync recorded goes with its claim.
 		return
