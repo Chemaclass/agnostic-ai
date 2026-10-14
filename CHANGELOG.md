@@ -69,10 +69,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Allow the shared handoff store in linked worktrees while keeping memory and user permission rules. A `deny` or `ask` you or a spec set for that path stays, and a main checkout path with glob characters gets no grant (#2155).
 - A `deny` or `ask` that a spec or you set on the personal memory folder now stays, and the folder entry keeps its place once sync has added it, so a broader rule you put after it keeps winning (#2155).
+- A personal memory folder path with glob characters (`*?[]{}`) gets no `external_directory` entry, and sync says so (#2171).
 
 #### Windsurf / Devin
 
 - Allow writes to the shared handoff store in linked worktrees while keeping memory and user permission rules; a main checkout path with glob characters or parentheses gets no rule (#2155).
+- A personal memory folder path with glob characters or parentheses gets no write rule, and sync says so (#2171).
 - Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).
 - Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
 

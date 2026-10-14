@@ -382,6 +382,18 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 	return filepath.ToSlash(dir), "", nil
 }
 
+// PersonalMemoryGrantable reports whether dir can go into target's write
+// grant for personal memory. A path with a glob character would grant
+// more than the folder, so it gets no grant and a note.
+func PersonalMemoryGrantable(target, dir string) bool {
+	unsafe := handoffGlobCharacters(target)
+	if unsafe == "" || !strings.ContainsAny(dir, unsafe) {
+		return true
+	}
+	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains glob characters and cannot be granted safely; move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir)))
+	return false
+}
+
 // handoffGlobCharacters lists the characters that would turn the main
 // checkout path into a broader pattern in a target whose grant is a glob.
 // Devin also reads `)` as the end of its `Write(` rule.
