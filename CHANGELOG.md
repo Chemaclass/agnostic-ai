@@ -14,8 +14,13 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Augment
+
+- Auggie CLI on Unix loads shared memory through an executable session-start script; the IDE keeps the memory rule (#2106).
+
 #### Cline
 
+- Add a project memory TaskStart hook for VS Code, native Windows scripts, and explicit Unix VS Code diagnostics (#2106).
 - Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
 
 #### Claude Code
@@ -28,6 +33,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Antigravity
 
+- Load project and checkout personal memory indexes through an always-on native include rule; repo personal memory keeps its lookup fallback (#2108).
 - Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies with native permission limits (#2124, #2125).
 - `hook run` excludes policy-dependent `allow` replies from Antigravity expectation checks (#2125).
 

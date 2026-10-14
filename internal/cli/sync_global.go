@@ -977,7 +977,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				}
 			}
 			for _, command := range commands {
-				scripts, err := adapters.NeutralHookScripts(command.value, target, filepath.Join(source, "scripts"), scriptsDir, command.literal)
+				scripts, err := adapters.NeutralHookScriptsFor(hook, command.value, target, filepath.Join(source, "scripts"), scriptsDir, command.literal)
 				if err != nil {
 					return nil, next, err
 				}
