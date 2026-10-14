@@ -396,18 +396,26 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	if err != nil {
 		return err
 	}
+	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "sandbox_workspace_write.writable_roots", dryRun)
+	if err != nil {
+		return err
+	}
+	grants := slices.Clone(roots)
+	if handoff != "" && !slices.Contains(grants, handoff) {
+		grants = append(grants, handoff)
+	}
 	if overlayKeys["sandbox_workspace_write"] {
-		if dir := emit.SharedHandoffWriteRoot(cfg); dir != "" {
-			emit.NoteProject(fmt.Sprintf("codex: %s keeps its sandbox table; add %q to sandbox_workspace_write.writable_roots in that overlay to save shared handoffs", configOverlayPath, filepath.ToSlash(dir)))
+		// TOML allows one table, so the overlay's roots and sync's share it.
+		roots = nil
+		if merged, ok := addWritableRoots(overlay, grants); ok {
+			overlay = merged
+		} else {
+			for _, dir := range grants {
+				emit.NoteProject(fmt.Sprintf("codex: %s keeps its sandbox table; add %q to sandbox_workspace_write.writable_roots in that overlay to let Codex save there", configOverlayPath, filepath.ToSlash(dir)))
+			}
 		}
 	} else {
-		dir, err := sess.HandoffAccessRoot(cfg, path, target, "sandbox_workspace_write.writable_roots", dryRun)
-		if err != nil {
-			return err
-		}
-		if dir != "" && !slices.Contains(roots, dir) {
-			roots = append(roots, dir)
-		}
+		roots = grants
 	}
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, roots, overlay, overlayKeys)
 	if body == "" || sess.IsUnmanaged(path) {

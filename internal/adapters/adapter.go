@@ -938,6 +938,32 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return emit.PersonalMemoryDir(cfg, root)
 }
 
+// SyncGrantedRoots returns the directories sync grants write access to
+// outside the checkout: the repo store of personal memory and the shared
+// handoff store. Each names one machine, so an import leaves it out of
+// the specs. A directory comes back as sync writes it and again with
+// its links resolved.
+func SyncGrantedRoots(cfg *config.Config, root string) []string {
+	var dirs []string
+	if cfg != nil && slices.Contains(cfg.Builtins, emit.MemoryBuiltin) && cfg.RepoPersonalMemory() {
+		if dir, err := emit.PersonalMemoryDir(cfg, root); err == nil {
+			dirs = append(dirs, dir)
+		}
+	}
+	if dir := emit.SharedHandoffWriteRoot(cfg); dir != "" {
+		dirs = append(dirs, dir)
+	}
+	var roots []string
+	for _, dir := range dirs {
+		roots = append(roots, filepath.ToSlash(dir))
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			roots = append(roots, filepath.ToSlash(resolved))
+		}
+	}
+	slices.Sort(roots)
+	return slices.Compact(roots)
+}
+
 type nativePersonalMemory interface {
 	NativePersonalMemoryDir(cfg *config.Config, root string) (string, error)
 }

@@ -21,7 +21,7 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 	}`)
 
 	dst := filepath.Join(root, "settings")
-	n, err := importWindsurfPermissions(root, dst)
+	n, err := importWindsurfPermissions(root, dst, nil)
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
@@ -55,11 +55,11 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 // nothing rather than an empty spec.
 func TestImportWindsurfPermissions_QuietWithoutAPolicy(t *testing.T) {
 	root := t.TempDir()
-	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings")); err != nil || n != 0 {
+	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings"), nil); err != nil || n != 0 {
 		t.Fatalf("absent config: got (%d, %v), want (0, nil)", n, err)
 	}
 	writeFile(t, filepath.Join(root, ".devin", "config.json"), `{"read_config_from": {"claude": true}}`)
-	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings")); err != nil || n != 0 {
+	if n, err := importWindsurfPermissions(root, filepath.Join(root, "settings"), nil); err != nil || n != 0 {
 		t.Fatalf("config without permissions: got (%d, %v), want (0, nil)", n, err)
 	}
 }
@@ -100,4 +100,27 @@ func readFileString(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(data)
+}
+
+// Sync's own Write grant for a store names one machine, so it stays out
+// of the spec; a Write rule the user wrote stays in.
+func TestImportWindsurfPermissions_DropsTheSyncGrantedStores(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".devin", "config.json"), `{
+	  "permissions": {"allow": ["Write(/home/me/store/**)", "Write(/opt/scratch/**)", "Read(src/**)"]}
+	}`)
+
+	dst := filepath.Join(root, "settings")
+	if _, err := importWindsurfPermissions(root, dst, []string{"/home/me/store"}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	got := readFileString(t, filepath.Join(dst, "permissions.yaml"))
+	if strings.Contains(got, "/home/me/store") {
+		t.Errorf("spec names the sync-granted store:\n%s", got)
+	}
+	for _, want := range []string{"Write(/opt/scratch/**)", "read(src/**)"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("spec lost %q:\n%s", want, got)
+		}
+	}
 }

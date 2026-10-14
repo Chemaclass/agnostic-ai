@@ -20,6 +20,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Accept `fork` as a session-start source in hook diagnostics (#2158).
 - Keep boolean `x-codex.features` switches and `skills.config` entries in agent files when you sync or import them (#2165).
 - Agent TOML quotes keys with spaces or dots, keeps whole floats as floats, escapes control characters in strings, and names any `x-codex` value it cannot write instead of dropping it silently (#2165).
+- `import codex` leaves the personal memory and shared handoff stores out of `codex.config.toml`, and sync adds them to the overlay's `writable_roots` (#2186).
 
 #### Cursor
 
@@ -78,6 +79,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Windsurf / Devin
 
+- `import windsurf` leaves the personal memory and shared handoff `Write` rules sync wrote out of the permissions spec (#2186).
 - Allow writes to the shared handoff store in linked worktrees while keeping memory and user permission rules; a main checkout path with glob characters or parentheses gets no rule (#2155).
 - A personal memory folder path with pattern characters, including parentheses, gets no write rule, and sync says so (#2171).
 - Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).

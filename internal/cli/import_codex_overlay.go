@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
@@ -62,11 +64,16 @@ func codexOverlayRelPath() string {
 // settings `effort` in settingsDir instead, so every target syncs it;
 // promoted reports that.
 //
+// Sync writes the repo memory store and the shared handoff store into
+// `sandbox_workspace_write.writable_roots`; each names one machine, so the
+// overlay leaves them out and sync adds them again. Roots the user wrote
+// stay.
+//
 // Returns (false, nil) when config.toml is missing or contains only
 // `hooks` and/or `mcp_servers`, so a fresh project does not get a
 // surprise empty overlay file. Returns (true, nil) when the overlay
 // was actually written.
-func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, err error) {
+func importCodexConfigOverlay(root, settingsDir string, syncRoots []string) (seeded, promoted bool, err error) {
 	src := filepath.Join(root, codexConfigTOML)
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -86,6 +93,9 @@ func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, 
 	}
 	delete(doc, "hooks")
 	delete(doc, "mcp_servers")
+	if raw, err = dropSyncWritableRoots(raw, doc, syncRoots); err != nil {
+		return false, false, err
+	}
 	if raw, promoted, err = promoteCodexEffort(raw, doc, settingsDir); err != nil {
 		return false, false, err
 	}
@@ -118,6 +128,39 @@ func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, 
 		return false, promoted, fmt.Errorf("write %s: %w", dst, err)
 	}
 	return true, promoted, nil
+}
+
+// dropSyncWritableRoots removes the roots in syncRoots from the sandbox
+// table of doc and from raw. It edits raw in place when it can, and
+// otherwise encodes doc, which loses comments but never a root.
+func dropSyncWritableRoots(raw string, doc map[string]any, syncRoots []string) (string, error) {
+	table, _ := doc["sandbox_workspace_write"].(map[string]any)
+	held, _ := table["writable_roots"].([]any)
+	var kept []any
+	for _, root := range held {
+		if name, ok := root.(string); !ok || !slices.Contains(syncRoots, filepath.ToSlash(name)) {
+			kept = append(kept, root)
+		}
+	}
+	if len(kept) == len(held) {
+		return raw, nil
+	}
+	if len(kept) == 0 {
+		delete(table, "writable_roots")
+		if len(table) == 0 {
+			delete(doc, "sandbox_workspace_write")
+		}
+	} else {
+		table["writable_roots"] = kept
+	}
+	if edited, ok := codex.RemoveWritableRoots(raw, syncRoots); ok {
+		return edited, nil
+	}
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(doc); err != nil {
+		return raw, fmt.Errorf("encode overlay: %w", err)
+	}
+	return buf.String(), nil
 }
 
 // promoteCodexEffort moves a top-level model_reasoning_effort out of raw
