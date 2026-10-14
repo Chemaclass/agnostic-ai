@@ -43,7 +43,9 @@ func TestHookRun_ClineVSCodeTaskStartAddsContext(t *testing.T) {
 	if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, `"event": "TaskStart"`) {
 		t.Errorf("VS Code TaskStart did not report its context channel: %s", out)
 	}
-	out, err = runHookRun(t, "memory", "--target", "cline", "--format", "json")
+	payload := filepath.Join(dir, "cline-sdk-task-start.json")
+	mustWriteFile(t, payload, `{"hookName":"agent_start","taskId":"fixture-task","sessionContext":{"rootSessionId":"fixture-session"}}`)
+	out, err = runHookRun(t, "memory", "--target", "cline", "--payload", payload, "--format", "json")
 	if err != nil {
 		t.Fatalf("run SDK TaskStart: %v\n%s", err, out)
 	}

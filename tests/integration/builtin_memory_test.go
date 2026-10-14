@@ -162,6 +162,15 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	}
 
+	clineSDKPayload := func(t *testing.T, dir string) string {
+		t.Helper()
+		path := filepath.Join(dir, "cline-sdk-task-start.json")
+		if err := os.WriteFile(path, []byte(`{"hookName":"agent_start","taskId":"fixture-task","sessionContext":{"rootSessionId":"fixture-session"}}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
 	t.Run("cline-vscode-builtin-emits-and-adds-context", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			t.Skip("VS Code Windows launcher resolution is not modeled")
@@ -181,6 +190,9 @@ func TestBuiltinMemory(t *testing.T) {
 		out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--runtime", "vscode", "--format", "json")
 		if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, "Prefers tabs") {
 			t.Errorf("public builtin sync must load the actual index in the VS Code diagnostic:\n%s", out)
+		}
+		if out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--payload", clineSDKPayload(t, dir), "--format", "json"); strings.Contains(out, `"adds_context": true`) {
+			t.Errorf("default SDK TaskStart must ignore its reply:\n%s", out)
 		}
 	})
 
@@ -233,7 +245,7 @@ func TestBuiltinMemory(t *testing.T) {
 		if out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--runtime", "vscode", "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
 			t.Errorf("Cline VS Code diagnostic did not read the index:\n%s", out)
 		}
-		if out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--format", "json"); strings.Contains(out, `"adds_context": true`) {
+		if out := run(t, dir, "hook", "run", "memory-cline-task-start", "--target", "cline", "--payload", clineSDKPayload(t, dir), "--format", "json"); strings.Contains(out, `"adds_context": true`) {
 			t.Errorf("default Cline SDK diagnostic must remain detached:\n%s", out)
 		}
 		// CLAUDE.md gives Claude Code subagents the project index, and
