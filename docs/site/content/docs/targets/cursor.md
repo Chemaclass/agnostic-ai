@@ -130,7 +130,7 @@ Cursor does not say how `Shell` matches a chained command such as `git status &&
 
 A relative path means the current directory in Claude Code and the workspace in Cursor.
 
-A rule you remove from a spec leaves `cli.json` on the next sync. A rule you wrote there yourself stays. Sync always writes both lists, since the Cursor CLI rejects a `permissions` object without one, and removes the file it created once no rule is left. With `memory.personal: repo`, sync also allows writes to the [personal memory folder](@/docs/memory.md#one-store-per-repository). A folder path with glob characters or parentheses gets no rule and a note; move `AGNOSTIC_AI_HOME` or set `memory.personal: checkout`.
+A rule you remove from a spec leaves `cli.json` on the next sync. A rule you wrote there yourself stays. Sync always writes both lists, since the Cursor CLI rejects a `permissions` object without one, and removes the file it created once no rule is left. With `memory.personal: repo`, sync also allows writes to the [personal memory folder](@/docs/memory.md#one-store-per-repository). A folder path with pattern characters, including parentheses, gets no rule and a note; move `AGNOSTIC_AI_HOME` or set `memory.personal: checkout`.
 
 ## Import
 

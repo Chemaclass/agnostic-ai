@@ -32,7 +32,7 @@ func memoryWriteRules(sess *emit.Session, cfg *config.Config, path string, dryRu
 	if err != nil {
 		return nil, err
 	}
-	if !emit.PersonalMemoryGrantable(target, dir) {
+	if !emit.PersonalMemoryGrantable(target, dir, "Devin will ask before it writes memory there") {
 		return nil, nil
 	}
 	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {

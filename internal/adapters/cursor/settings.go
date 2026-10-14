@@ -152,7 +152,7 @@ func memoryWriteRules(sess *emit.Session, cfg *config.Config, dryRun bool) ([]st
 	if err != nil {
 		return nil, err
 	}
-	if !emit.PersonalMemoryGrantable(target, dir) {
+	if !emit.PersonalMemoryGrantable(target, dir, "Cursor will ask before it writes memory there") {
 		return nil, nil
 	}
 	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {

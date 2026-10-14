@@ -180,10 +180,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	// OpenCode reads each instructions entry as a glob.
-	memory = slices.DeleteFunc(memory, func(index string) bool {
-		return !emit.PersonalMemoryGrantable(target, filepath.Dir(index))
-	})
 	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
 	if err != nil {
 		return err
