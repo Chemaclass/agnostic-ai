@@ -104,11 +104,16 @@ func mergePermissionList(sess *emit.Session, path, list string, planned, kept []
 			wanted = append(wanted, rule)
 		}
 	}
-	wanted = emit.WithoutUserItems(path, keyPath, existing, wanted)
+	// An edited list an earlier version claimed whole holds sync's rules
+	// among the user's, and a rule the specs still plan is sync's: the
+	// claims move to one per rule.
+	if !emit.ClaimsWholeValue(path, keyPath...) {
+		wanted = emit.WithoutUserItems(path, keyPath, existing, wanted)
+	}
 	merged, claims := emit.MergeOwnedLists(path, []string{permissionsKey},
 		map[string][]any{list: existing},
 		map[string][]any{list: wanted})
-	rest := merged[list]
+	rest := withSurplusCopies(existing, merged[list], wanted, emit.PriorClaimedItems(path, keyPath))
 	for _, rule := range kept {
 		if !slices.Contains(rest, any(rule)) && !slices.Contains(planned, rule) {
 			rest = append(rest, rule)
@@ -118,4 +123,37 @@ func mergePermissionList(sess *emit.Session, path, list string, planned, kept []
 		return nil, false
 	}
 	return emit.ClaimedJSONItems(rest, claims[list]), true
+}
+
+// withSurplusCopies puts back, in file order, every copy of a rule sync
+// owns beyond the one it wrote: merged is the user's entries followed by
+// wanted, which MergeOwnedLists built after dropping each copy of a rule
+// sync owns.
+func withSurplusCopies(existing, merged, wanted []any, prior []string) []any {
+	user := slices.Clone(merged[:len(merged)-len(wanted)])
+	owned := map[string]bool{}
+	for _, rule := range wanted {
+		owned[emit.ContentSum(rule.(string))] = true
+	}
+	for _, sum := range prior {
+		owned[sum] = true
+	}
+	first := map[string]bool{}
+	var out []any
+	for _, entry := range existing {
+		sum := ""
+		if rule, ok := entry.(string); ok {
+			sum = emit.ContentSum(rule)
+		}
+		switch at := slices.Index(user, entry); {
+		case owned[sum] && !first[sum]:
+			first[sum] = true
+		case owned[sum]:
+			out = append(out, entry)
+		case at >= 0:
+			out = append(out, entry)
+			user = slices.Delete(user, at, at+1)
+		}
+	}
+	return append(out, merged[len(merged)-len(wanted):]...)
 }

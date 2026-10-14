@@ -175,10 +175,49 @@ func TestSync_DevinPermissionListsUpgradeAWholeListClaim(t *testing.T) {
 		devinHandEdit(t, "deny", "Exec(curl)")
 		mustWriteFile(t, devinPolicySpec, "permissions:\n  deny: [\"Bash(rm:*)\", \"Bash(sudo:*)\"]\n")
 		runSyncOK(t)
-		got := devinPermissionLists(t)["deny"]
-		if !reflect.DeepEqual(got, []any{"Exec(rm)", "Exec(curl)", "Exec(sudo)"}) && !reflect.DeepEqual(got, []any{"Exec(curl)", "Exec(rm)", "Exec(sudo)"}) {
-			t.Fatalf("deny = %#v, want the hand entry beside the spec's", got)
+		if got := devinPermissionLists(t)["deny"]; !reflect.DeepEqual(got, []any{"Exec(curl)", "Exec(rm)", "Exec(sudo)"}) {
+			t.Fatalf("deny = %#v, want the hand entry before the spec's", got)
+		}
+		runSyncOK(t, "--check")
+		removeSpecs(t, devinPolicySpec)
+		runSyncOK(t)
+		if got := devinPermissionLists(t); !reflect.DeepEqual(got, map[string]any{"deny": []any{"Exec(curl)"}}) {
+			t.Errorf("permissions = %#v, want only the hand-written deny", got)
 		}
 		runSyncOK(t, "--check")
 	})
+	t.Run("entry added before the first sync here", func(t *testing.T) {
+		for _, list := range []string{"allow", "deny", "ask"} {
+			devinPermissionProject(t, "")
+			runSyncOK(t)
+			asWholeListClaims(t)
+			devinHandEdit(t, list, "Exec(curl)")
+			runSyncOK(t)
+			runSyncOK(t, "--check")
+			removeSpecs(t, devinPolicySpec)
+			runSyncOK(t)
+			if got := devinPermissionLists(t); !reflect.DeepEqual(got, map[string]any{list: []any{"Exec(curl)"}}) {
+				t.Errorf("%s: permissions = %#v, want only the hand-written entry", list, got)
+			}
+			runSyncOK(t, "--check")
+		}
+	})
+}
+
+// A copy of a rule the user adds beside the one sync wrote stays theirs.
+func TestSync_DevinPermissionListsKeepAnExtraCopyOfASpecRule(t *testing.T) {
+	devinPermissionProject(t, "")
+	runSyncOK(t)
+	devinHandEdit(t, "deny", "Exec(rm)")
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	if got := devinPermissionLists(t)["deny"]; !reflect.DeepEqual(got, []any{"Exec(rm)", "Exec(rm)"}) {
+		t.Fatalf("deny = %#v, want both copies", got)
+	}
+	removeSpecs(t, devinPolicySpec)
+	runSyncOK(t)
+	if got := devinPermissionLists(t); !reflect.DeepEqual(got, map[string]any{"deny": []any{"Exec(rm)"}}) {
+		t.Errorf("permissions = %#v, want the user's copy", got)
+	}
+	runSyncOK(t, "--check")
 }
