@@ -24,6 +24,12 @@ agnostic-ai sync --check
 
 Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import windsurf`](@/docs/cli-reference/start.md#import).
 
+## Shared memory
+
+With `builtins: [memory]`, sync writes the native `memory-windsurf-session-start` hook for Devin CLI `SessionStart` that adds both memory indexes through tagged `hookSpecificOutput.additionalContext`. General portable `on: session-start` hooks stay unsupported because Devin does not define startup blocking decisions. The memory hook starts `sh` explicitly and sets a 10-second timeout. It uses `DEVIN_PROJECT_DIR`, then runs from the selected project, so an unrelated hook-process directory does not select another project. It prefers the project's installed `agnostic-ai` and otherwise uses PATH. See [shared memory](@/docs/memory.md#load-at-session-start).
+
+This launcher needs a POSIX `sh`. Devin does not document its default hook shell, working directory, timeout, or Windows execution. The shared memory rule remains the fallback when hooks do not run, including Restricted Mode. Local `hook run` checks use a supplied SessionStart payload because Devin does not document values for `source`; modeled execution does not establish native session recall or Windows support.
+
 ## Output
 
 ```

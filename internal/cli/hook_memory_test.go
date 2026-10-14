@@ -318,6 +318,29 @@ func TestHookMemory_RepliesWithHookSpecificContextForQoder(t *testing.T) {
 	}
 }
 
+func TestHookMemory_AugmentReadsBoundedContextFromTheWorkingProject(t *testing.T) {
+	memoryHookProject(t, strings.Repeat(sampleIndex, 200))
+	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Quote \"x\"](quote.md): café\n")
+	t.Setenv("GEMINI_PROJECT_DIR", t.TempDir())
+	var reply struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	out := runHookMemory(t, "--target", "augment")
+	if err := json.Unmarshal([]byte(out), &reply); err != nil {
+		t.Fatalf("Augment reply is not JSON: %v: %q", err, out)
+	}
+	context := reply.HookSpecificOutput.AdditionalContext
+	if reply.HookSpecificOutput.HookEventName != "SessionStart" || !strings.Contains(context, "café") || !strings.Contains(context, "CI is Ubuntu only") {
+		t.Errorf("Augment context lost the working project's indexes: %+v", reply)
+	}
+	if len(context) > memoryContextLimit || !strings.Contains(context, "More facts are in") {
+		t.Errorf("Augment context is not bounded: %d bytes", len(context))
+	}
+}
+
 func TestHookMemory_StartsFromTheGeminiProjectDir(t *testing.T) {
 	memoryHookProject(t, sampleIndex)
 	project, _ := os.Getwd()

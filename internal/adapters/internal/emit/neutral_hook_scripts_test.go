@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -70,6 +71,38 @@ func TestNeutralHookScripts_MissingOrEscapingSourceFails(t *testing.T) {
 		if _, err := NeutralHookScripts(command, "codex", ".agnostic-ai/scripts", ".codex/hooks"); err == nil || !strings.Contains(err.Error(), ".agnostic-ai/scripts/") {
 			t.Errorf("%q error lacks source path: %v", command, err)
 		}
+	}
+}
+
+func TestMaterializeNeutralHookScripts_BuiltinScriptsAreExecutable(t *testing.T) {
+	t.Chdir(t.TempDir())
+	root := t.TempDir()
+	path := filepath.Join(root, "scripts", "augment", "memory-start.sh")
+	const body = "#!/bin/sh\nprintf '%s\\n' builtin-memory\n"
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	hook := spec.Entry{Layer: "builtin", Path: filepath.Join(root, "hooks", "memory.yaml"), Meta: map[string]any{"event": "SessionStart", "command": ".agnostic-ai/scripts/memory-start.sh"}}
+	if err := NewSession().MaterializeNeutralHookScripts([]spec.Entry{hook}, "augment", ".augment/hooks", false); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(".augment", "hooks", "memory-start.sh")
+	got, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != body {
+		t.Errorf("builtin script body changed: %q", got)
+	}
+	info, err := os.Stat(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("builtin script is not executable: %o", info.Mode().Perm())
 	}
 }
 
