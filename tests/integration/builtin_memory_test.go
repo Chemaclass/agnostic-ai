@@ -432,9 +432,10 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 		memoryHookResult := func(target string) string {
 			name := "memory-session-start"
-			if target == "windsurf" {
+			switch target {
+			case "windsurf":
 				name = "memory-windsurf-session-start"
-			} else if target == "trae" {
+			case "trae":
 				name = "memory-trae-session-start"
 			}
 			args := []string{"hook", "run", name, "--target", target, "--format", "json"}
