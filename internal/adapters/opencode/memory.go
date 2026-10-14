@@ -47,13 +47,15 @@ func memoryDirectoryRules(sess *emit.Session, cfg *config.Config, path string, d
 // rule, so the entries keep the order they were written in and the store
 // patterns come last.
 //
-// A `permission` map settings produce is sync's whole, so the patterns
-// join it, after the spec's own entries in the spec's order. Otherwise
-// the map is the user's: sync sets only external_directory, keeps the
-// user's entries in file order, and claims only its own. Either way each
-// store entry is also claimed on its own, so it leaves by itself, and
-// only while unchanged, once no longer wanted. It reports whether
-// `permission` merges one level deep.
+// A `permission` map settings produce is sync's for the tools they
+// name, and the patterns join external_directory, after the spec's own
+// entries in the spec's order. Otherwise the map is the user's: sync
+// sets only external_directory, keeps the user's entries in file order,
+// and claims only its own. Either way a tool the user wrote and no spec
+// sets stays, and each store entry is also claimed on its own, so it
+// leaves by itself, and only while unchanged, once no longer wanted. It
+// reports whether `permission` merges one level deep, which is always
+// when it is written.
 func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings []spec.Entry, path string, patterns, kept []string, dryRun bool) (bool, error) {
 	if permissions, ok := keys[permissionKey].(map[string]any); ok {
 		value := permissions[externalDirectoryKey]
@@ -101,12 +103,22 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 				return false, err
 			}
 		}
-		entries := [][]string{}
-		for _, pattern := range append(slices.Clone(patterns), carried...) {
-			entries = append(entries, []string{externalDirectoryKey, pattern})
+		// Each tool is claimed on its own, so the merge keeps the tools
+		// the user wrote there and the specs do not produce.
+		if value, ok := permissions[externalDirectoryKey]; ok {
+			entries := [][]string{}
+			for _, pattern := range append(slices.Clone(patterns), carried...) {
+				entries = append(entries, []string{pattern})
+			}
+			permissions[externalDirectoryKey] = emit.ClaimedJSONWithEntries(value, entries)
 		}
-		keys[permissionKey] = emit.ClaimedJSONWithEntries(permissions, entries)
-		return false, nil
+		if action, ok := existingAction(sess, path, dryRun); ok {
+			if _, set := permissions[catchAllPattern]; !set {
+				permissions[catchAllPattern] = emit.CarriedJSONValue(action)
+			}
+		}
+		keys[permissionKey] = permissions
+		return true, nil
 	}
 	// A refused store entry sync wrote itself stays sync's while it is unchanged.
 	claimed := emit.PriorClaimedEntries(path, []string{permissionKey, externalDirectoryKey})
