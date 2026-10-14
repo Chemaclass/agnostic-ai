@@ -239,4 +239,8 @@
 # (19587232): OpenCode and Devin write grants for the shared handoff store,
 # with ownership checks for hand-written and tracked config. Same Linux
 # amd64 release flags; retain the 8 KB allowance.
-19611808
+# #2175 measured 19615904 on Go1.27.2, up 4096 from main 4a846b4b
+# (19611808): OpenCode permission keys are claimed per tool, and a
+# replaced hand key is backed up. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19624000
