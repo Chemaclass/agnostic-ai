@@ -358,7 +358,7 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 		return "", "", nil
 	}
 	if unsafe := patternCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
-		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir)))
+		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains pattern characters (%s) and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir), unsafe))
 		return "", "", nil
 	}
 	if !s.HandoffConfigWritable(cfg, path, target) {
