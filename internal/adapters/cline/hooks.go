@@ -112,7 +112,7 @@ func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
 	filtered := make([]spec.Entry, 0, len(hooks))
 	omitted := 0
 	for _, hook := range hooks {
-		if hook.Meta["runtime"] == "vscode" {
+		if emit.ResolveMeta(hook.Meta, target)["runtime"] == "vscode" {
 			omitted++
 			continue
 		}

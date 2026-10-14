@@ -17,6 +17,9 @@ func runClineVSCodeTaskStart(cfg *config.Config, source spec.Entry, hooks []spec
 	hook, reason := source.NativeHook("cline")
 	hook = adapters.TargetHook("cline", hook)
 	event, _ := hook.Meta["event"].(string)
+	if path := cline.HookScriptPath(cfg, event); path != "" {
+		event = filepath.Base(path)
+	}
 	if event != "TaskStart" {
 		return nil, fmt.Errorf("runtime vscode models only Cline TaskStart, got %q", event)
 	}

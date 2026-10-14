@@ -2,6 +2,7 @@ package hookrun
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -14,8 +15,11 @@ func BuildClineVSCodeTaskStart(root string, in Input) (Payload, error) {
 	if in.Raw != nil {
 		return Payload{Body: in.Raw, Fires: true, Trigger: "task"}, nil
 	}
-	if err := checkInput("cline", "TaskStart", "PreToolUse", "PostToolUse", "UserPromptSubmit", in); err != nil {
-		return Payload{}, err
+	if in.Edit != "" || in.Bash != "" {
+		return Payload{}, fmt.Errorf("--edit and --bash build tool events, not TaskStart")
+	}
+	if in.Prompt != "" {
+		return Payload{}, fmt.Errorf("--prompt builds UserPromptSubmit, not TaskStart")
 	}
 	return clineMarshal(Payload{Fires: true, Trigger: "task"}, map[string]any{
 		"clineVersion": "", "hookName": "TaskStart", "timestamp": strconv.FormatInt(time.Now().UnixMilli(), 10),

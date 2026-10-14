@@ -11,16 +11,17 @@ func renderWindowsHookFiles(hooks []spec.Entry) []emit.HookScript {
 	commands := map[string][]string{}
 	var order []string
 	for _, hook := range hooks {
-		if hook.Meta["runtime"] != "vscode" {
+		meta := emit.ResolveMeta(hook.Meta, target)
+		if meta["runtime"] != "vscode" {
 			continue
 		}
-		event, _ := hook.Meta["event"].(string)
+		event, _ := meta["event"].(string)
 		canonical, ok := clineHookEventByKey[strings.ToLower(strings.TrimSpace(event))]
 		if !ok || canonical != "TaskStart" {
 			emit.NoteSurfaceGap(target, spec.KindHook, 1, "Windows VS Code hooks", "runtime vscode currently writes a native companion only for TaskStart")
 			continue
 		}
-		windows := emit.HookCommands(hook.Meta["commandWindows"])
+		windows := emit.HookCommands(meta["commandWindows"])
 		if len(windows) == 0 {
 			emit.NoteSurfaceGap(target, spec.KindHook, 1, "Windows VS Code hooks", "provide commandWindows for a native PowerShell hook")
 			continue
