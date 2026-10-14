@@ -14,6 +14,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Codex
+
+- Accept `fork` as a session-start source in hook diagnostics (#2158).
+
 #### Augment
 
 - Auggie CLI on Unix loads shared memory through an executable session-start script; the IDE keeps the memory rule (#2106).

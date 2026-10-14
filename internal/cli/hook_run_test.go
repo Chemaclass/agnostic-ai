@@ -255,3 +255,15 @@ func TestHookRun_UnknownHookAndTargetOutsideTheHook(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestHookRun_CodexAcceptsForkSessionSource(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	hookRunProject(t, "name: guard\nevent: SessionStart\nmatcher: startup|fork\ncommand: 'true'\n")
+	out, err := runHookRun(t, "guard", "--target", "codex")
+	if err != nil {
+		t.Fatalf("hook run: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "does not match") || strings.Contains(out, "not run") {
+		t.Errorf("fork source was rejected:\n%s", out)
+	}
+}

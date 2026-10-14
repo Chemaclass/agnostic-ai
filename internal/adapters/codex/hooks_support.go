@@ -36,7 +36,7 @@ var toolMatchers = []string{"Bash", "apply_patch", "Edit", "Write"}
 // event absent here and from matcherFreeEvents takes no matcher on
 // Codex, so a hook naming one does not run as written.
 var sourceMatchers = map[string][]string{
-	"SessionStart": {"startup", "resume", "clear", "compact"},
+	"SessionStart": {"startup", "resume", "clear", "compact", "fork"},
 	"PreCompact":   {"manual", "auto"},
 	"PostCompact":  {"manual", "auto"},
 }
