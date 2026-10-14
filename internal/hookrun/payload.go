@@ -68,7 +68,7 @@ var subagentTypes = []string{"general-purpose", "Explore", "Plan"}
 
 var vocabularies = map[string]vocabulary{
 	"claude": {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
-	"codex":  {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
+	"codex":  {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact", "fork"}},
 	// gemini-cli c6bccb7 packages/core/src/hooks/types.ts SessionStartSource.
 	"gemini": {"BeforeTool", "AfterTool", "BeforeAgent", []string{"startup", "resume", "clear"}},
 }

@@ -255,3 +255,27 @@ func TestHookRun_UnknownHookAndTargetOutsideTheHook(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestHookRun_CodexAcceptsForkSessionSource(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, tc := range []struct {
+		matcher string
+		source  string
+	}{
+		{"fork", "fork"},
+		{"^fork$", "fork"},
+		{"startup|fork", "startup"},
+	} {
+		t.Run(tc.matcher, func(t *testing.T) {
+			hookRunProject(t, "name: guard\nevent: SessionStart\nmatcher: '"+tc.matcher+"'\n"+
+				`command: 'grep -q "\"source\":\"`+tc.source+`\"" && echo matched-source'`+"\n")
+			out, err := runHookRun(t, "guard", "--target", "codex", "--expect", "allow")
+			if err != nil {
+				t.Fatalf("hook run: %v\n%s", err, out)
+			}
+			if !strings.Contains(out, "stdout: matched-source") || !strings.Contains(out, "event: SessionStart ("+tc.source+")") || strings.Contains(out, "does not match") {
+				t.Errorf("matched source was not run:\n%s", out)
+			}
+		})
+	}
+}
