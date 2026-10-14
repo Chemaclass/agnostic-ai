@@ -87,3 +87,18 @@ func TestSync_ClineUnixRemovesLedgeredWindowsCompanion(t *testing.T) {
 		t.Errorf("Unix sync must remove the owned Windows companion: %v", err)
 	}
 }
+
+func TestHookRun_ClineVSCodeCanonicalizesNativeEvent(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "memory.yaml"), "name: memory\nevent: ' taskstart '\ntarget: cline\ncommand: >-\n  printf '{\"contextModification\":\"fixture fact\"}'\n")
+	syncProject(t)
+	out, err := runHookRun(t, "memory", "--target", "cline", "--runtime", "vscode", "--format", "json")
+	if err != nil {
+		t.Fatalf("diagnostic must use the event name the renderer accepts: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, `"event": "TaskStart"`) {
+		t.Errorf("canonical TaskStart lost its context channel: %s", out)
+	}
+}
