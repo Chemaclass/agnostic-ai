@@ -36,9 +36,9 @@ func TestEmit_AgentPreservesFeatureAndSkillSettings(t *testing.T) {
 	}
 	var doc struct {
 		Features map[string]bool
-		Skills struct {
+		Skills   struct {
 			Config []struct {
-				Path string
+				Path    string
 				Enabled bool
 			}
 		}

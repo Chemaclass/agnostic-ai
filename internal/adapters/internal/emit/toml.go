@@ -65,6 +65,33 @@ func WriteTOMLInlineStringTable(sb *strings.Builder, key string, m map[string]st
 	sb.WriteString(" }\n")
 }
 
+// WriteTOMLInlineTable writes `key = { k1 = v1, ... }` for a map whose
+// values are all single-line scalars or string arrays (see
+// WriteTOMLValue), keeping each value's TOML type so booleans and
+// numbers survive. Keys are sorted. It writes nothing and returns false
+// when any value is a nested table or another unsupported shape. An
+// empty map writes nothing and returns true.
+func WriteTOMLInlineTable(sb *strings.Builder, key string, m map[string]any) bool {
+	if len(m) == 0 {
+		return true
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		var vb strings.Builder
+		if !WriteTOMLValue(&vb, k, m[k]) {
+			return false
+		}
+		parts = append(parts, strings.TrimSuffix(vb.String(), "\n"))
+	}
+	sb.WriteString(key + " = { " + strings.Join(parts, ", ") + " }\n")
+	return true
+}
+
 // WriteTOMLValue writes `key = <value>`, picking the TOML form from v's
 // dynamic type: string, bool, integers, float64, and string slices
 // ([]string or a []any whose elements are all strings). Unsupported

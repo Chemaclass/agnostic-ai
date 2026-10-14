@@ -115,3 +115,21 @@ func TestEscapeTOMLBasic(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteTOMLInlineTable_KeepsScalarTypes(t *testing.T) {
+	t.Parallel()
+	var sb strings.Builder
+	ok := WriteTOMLInlineTable(&sb, "features", map[string]any{"shell_tool": false, "memories": true, "name": "x", "n": 2})
+	want := `features = { memories = true, n = 2, name = "x", shell_tool = false }` + "\n"
+	if !ok || sb.String() != want {
+		t.Errorf("got %v %q want %q", ok, sb.String(), want)
+	}
+}
+
+func TestWriteTOMLInlineTable_RejectsNestedValues(t *testing.T) {
+	t.Parallel()
+	var sb strings.Builder
+	if WriteTOMLInlineTable(&sb, "k", map[string]any{"a": "b", "c": map[string]any{"d": "e"}}) || sb.Len() != 0 {
+		t.Errorf("nested value must write nothing, got %q", sb.String())
+	}
+}

@@ -101,26 +101,72 @@ var codexAgentEmittedKeys = map[string]bool{
 }
 
 // writeTOMLTable renders a map as a TOML table. Scalar values lead,
-// followed by nested maps as child tables, so each emitted document is
-// valid and deterministic.
+// followed by nested maps as child tables and arrays of maps as
+// `[[path.key]]` tables, so each emitted document is valid and
+// deterministic.
 func writeTOMLTable(sb *strings.Builder, path string, values map[string]any) {
 	sb.WriteString("\n[" + path + "]\n")
-	var scalarKeys, tableKeys []string
+	var scalarKeys, tableKeys, arrayKeys []string
 	for key, value := range values {
-		if _, ok := value.(map[string]any); ok {
+		_, isMap := value.(map[string]any)
+		switch {
+		case isMap:
 			tableKeys = append(tableKeys, key)
-		} else {
+		case isTableArray(value):
+			arrayKeys = append(arrayKeys, key)
+		default:
 			scalarKeys = append(scalarKeys, key)
 		}
 	}
 	slices.Sort(scalarKeys)
 	slices.Sort(tableKeys)
+	slices.Sort(arrayKeys)
 	for _, key := range scalarKeys {
 		writeTOMLAny(sb, key, values[key])
 	}
 	for _, key := range tableKeys {
 		writeTOMLTable(sb, path+"."+key, values[key].(map[string]any))
 	}
+	for _, key := range arrayKeys {
+		for _, item := range values[key].([]any) {
+			sb.WriteString("\n[[" + path + "." + key + "]]\n")
+			inner := item.(map[string]any)
+			for _, ik := range slices.Sorted(maps.Keys(inner)) {
+				writeTOMLAny(sb, ik, inner[ik])
+			}
+		}
+	}
+}
+
+// isTableMap reports whether v is a map that holds a nested map or an
+// array of maps, so it needs `[table]` headers; a map of plain values
+// stays an inline table.
+func isTableMap(v any) bool {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	for _, vv := range m {
+		if _, ok := vv.(map[string]any); ok || isTableArray(vv) {
+			return true
+		}
+	}
+	return false
+}
+
+// isTableArray reports whether v is a non-empty []any of maps, which
+// TOML spells as repeated `[[array.of.tables]]` blocks.
+func isTableArray(v any) bool {
+	xs, ok := v.([]any)
+	if !ok || len(xs) == 0 {
+		return false
+	}
+	for _, x := range xs {
+		if _, ok := x.(map[string]any); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // writeXCodexExtras walks `meta["x-codex"]` (when present) and emits
@@ -147,7 +193,7 @@ func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
 		if codexAgentEmittedKeys[k] {
 			continue
 		}
-		if isNestedTableMap(v) {
+		if isNestedTableMap(v) || isTableMap(v) {
 			tableKeys = append(tableKeys, k)
 		} else {
 			inlineKeys = append(inlineKeys, k)
@@ -163,7 +209,11 @@ func writeXCodexExtras(sb *strings.Builder, raw map[string]any) {
 			writeTOMLTable(sb, k, x[k].(map[string]any))
 			continue
 		}
-		writeNestedTableMap(sb, k, x[k].(map[string]any))
+		if isNestedTableMap(x[k]) {
+			writeNestedTableMap(sb, k, x[k].(map[string]any))
+			continue
+		}
+		writeTOMLTable(sb, k, x[k].(map[string]any))
 	}
 }
 
@@ -223,7 +273,9 @@ func writeTOMLAny(sb *strings.Builder, key string, v any) {
 	case map[string]string:
 		emit.WriteTOMLInlineStringTable(sb, key, val)
 	case map[string]any:
-		emit.WriteTOMLInlineStringTable(sb, key, toStringMap(val))
+		if !emit.WriteTOMLInlineTable(sb, key, val) {
+			emit.WriteTOMLInlineStringTable(sb, key, toStringMap(val))
+		}
 	}
 }
 
