@@ -247,4 +247,7 @@
 # (19624096): one cached Git layout and file lookup per run instead of
 # repeated git processes. Same Linux amd64 release flags; retain the
 # 8 KB allowance.
-19648672
+# #2183 measured 19652768 on Go1.27.2, up 4096 from main: built-in specs
+# leave .sync-state alone and the summary names only configured targets.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+19660960
