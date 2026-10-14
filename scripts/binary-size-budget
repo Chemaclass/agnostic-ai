@@ -175,4 +175,7 @@
 # #2117 list with retention and Cline measured 19468448 on Go1.27.2,
 # up 126976 from main cd938228 (19341472). Same release flags;
 # keep the established 8 KB build allowance.
-19477000
+# #2106 Cline VS Code measured 19488928 on Go1.27.2, up 20480 from
+# main 6b1dbe92 (19468448): native TaskStart context and runtime diagnostics.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+19498000
