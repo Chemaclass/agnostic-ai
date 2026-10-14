@@ -36,6 +36,9 @@ func memoryDirectoryRules(sess *emit.Session, cfg *config.Config, path string, d
 	if err != nil {
 		return nil, err
 	}
+	if !emit.PersonalMemoryGrantable(target, dir, "OpenCode will ask before it writes memory there") {
+		return nil, nil
+	}
 	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
 		return nil, err
 	}
