@@ -247,4 +247,7 @@
 # (19624096): one cached Git layout and file lookup per run instead of
 # repeated git processes. Same Linux amd64 release flags; retain the
 # 8 KB allowance.
-19648672
+# #2186 measured 19677344 on Go1.27.2, up 28672 from main: import drops
+# the writable roots sync grants and edits Codex overlays in place.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+19685536
