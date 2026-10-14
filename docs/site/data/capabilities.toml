@@ -233,7 +233,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "native"
 id = "ellipsis"
 name = "Ellipsis"
 href = "@/docs/targets/ellipsis.md"
-statuses = ["no", "no", "no", "no", "no", "no", "opt-in", "native", "no", "no"]
+statuses = ["no", "no", "no", "no", "native", "no", "opt-in", "native", "native", "no"]
 
 # Native tool names from the adapter capability tables.
 

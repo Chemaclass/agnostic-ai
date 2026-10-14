@@ -46,7 +46,7 @@ func reviewerNode(f *reviewConfig, prompt string) *yaml.Node {
 	reviewer := orderedMap(f.reviewer, reviewerOrder)
 	engine, _ := f.reviewer[f.engine].(map[string]any)
 	session := orderedMap(engine, []string{"model"})
-	session.Content = append([]*yaml.Node{keyNode("prompt"), promptNode(prompt)}, session.Content...)
+	session.Content = append([]*yaml.Node{keyNode("prompt"), textNode(prompt)}, session.Content...)
 	for i := 0; i+1 < len(reviewer.Content); i += 2 {
 		if reviewer.Content[i].Value == f.engine {
 			reviewer.Content[i+1] = session
@@ -55,11 +55,11 @@ func reviewerNode(f *reviewConfig, prompt string) *yaml.Node {
 	return reviewer
 }
 
-// promptNode keeps a multi-line prompt as a block scalar, so the file
-// reads like the specs it came from.
-func promptNode(prompt string) *yaml.Node {
-	n := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: prompt}
-	if strings.Contains(prompt, "\n") {
+// textNode keeps multi-line text, a prompt or a script, as a block
+// scalar, so the file reads like the specs it came from.
+func textNode(text string) *yaml.Node {
+	n := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: text}
+	if strings.Contains(text, "\n") {
 		n.Style = yaml.LiteralStyle
 	}
 	return n

@@ -2,6 +2,7 @@ package ellipsis
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -19,7 +20,7 @@ var (
 	// settingsKeys are the x-ellipsis keys that map to a block of the
 	// file. Ellipsis fails a sync on an unknown field, so any other key
 	// stops the file here instead of there.
-	settingsKeys = []string{"ellipsis", "pull_requests", "reviewer", "output", "budget"}
+	settingsKeys = []string{"ellipsis", "pull_requests", "reviewer", "output", "budget", "environment"}
 	// headerKeys are the keys of the file's `ellipsis` block.
 	headerKeys = []string{"kind", "name", "description", "enabled", "metadata"}
 )
@@ -36,8 +37,9 @@ type reviewConfig struct {
 }
 
 // readFile validates the `x-ellipsis` block merged across settings specs.
-// Every problem is returned, so one sync names all of them.
-func readFile(settings []spec.Entry) (*reviewConfig, []string) {
+// Every problem is returned, so one sync names all of them. environment
+// is the selected environment the reviewer must run in, "" for none.
+func readFile(settings []spec.Entry, environment string) (*reviewConfig, []string) {
 	x := emit.SettingsCustomKeys(settings, target)
 	var problems []string
 	for _, key := range sortedKeys(x) {
@@ -50,7 +52,7 @@ func readFile(settings []spec.Entry) (*reviewConfig, []string) {
 	file.pullRequests, problems = optionalBlock(x, "pull_requests", problems)
 	file.output, problems = optionalBlock(x, "output", problems)
 	file.budget, problems = optionalBlock(x, "budget", problems)
-	problems = append(problems, file.readReviewer(x)...)
+	problems = append(problems, file.readReviewer(x, environment)...)
 	if len(problems) > 0 {
 		return nil, problems
 	}
@@ -117,7 +119,7 @@ func optionalBlock(x map[string]any, key string, problems []string) (map[string]
 // readReviewer checks the one reviewer. Ellipsis requires its name and
 // model, and the prompt belongs to the review specs, so a prompt here
 // would leave two sources for one field.
-func (f *reviewConfig) readReviewer(x map[string]any) []string {
+func (f *reviewConfig) readReviewer(x map[string]any, environment string) []string {
 	raw, held := x["reviewer"]
 	if !held {
 		return []string{"x-ellipsis.reviewer is not set: add a settings spec whose x-ellipsis.reviewer names the reviewer, one engine block (claude_code or codex), and its model"}
@@ -128,6 +130,9 @@ func (f *reviewConfig) readReviewer(x map[string]any) []string {
 	}
 	f.reviewer = reviewer
 	var problems []string
+	if environment != "" {
+		problems = append(problems, f.linkEnvironment(environment)...)
+	}
 	if name, ok := reviewer["name"].(string); !ok || name == "" {
 		problems = append(problems, "x-ellipsis.reviewer.name is not set")
 	}
@@ -155,6 +160,18 @@ func (f *reviewConfig) readReviewer(x map[string]any) []string {
 		problems = append(problems, fmt.Sprintf("x-ellipsis.reviewer.%s.prompt is set, but the prompt comes from the review specs; remove it", f.engine))
 	}
 	return problems
+}
+
+// linkEnvironment points the reviewer at the selected environment. A
+// reviewer that names another one is a conflict, not a choice made here.
+func (f *reviewConfig) linkEnvironment(environment string) []string {
+	if named, ok := f.reviewer["environment"]; ok && named != environment {
+		return []string{fmt.Sprintf("x-ellipsis.reviewer.environment is %v, but x-ellipsis.environment.name is %s: keep one, or remove the reviewer key so the review follows the selection", named, environment)}
+	}
+	linked := maps.Clone(f.reviewer)
+	linked["environment"] = environment
+	f.reviewer = linked
+	return nil
 }
 
 func sortedKeys(m map[string]any) []string {

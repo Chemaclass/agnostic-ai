@@ -52,10 +52,11 @@ targets:
   - augment
   - amp
   - warp
-  # ellipsis: Ellipsis code review (.ellipsis/code-review.yaml). It needs the
-  # reviewer named in .agnostic-ai/settings/ellipsis.yaml (x-ellipsis); without
-  # one sync writes no file and says what is missing. The file stays ignored
-  # here, so Ellipsis never reads this fixture.
+  # ellipsis: Ellipsis code review (.ellipsis/code-review.yaml) and the session
+  # environment (.ellipsis/environments/<name>.yaml). Both need the reviewer and
+  # the environment named in .agnostic-ai/settings/ellipsis.yaml (x-ellipsis);
+  # without them sync writes no file and says what is missing. The files stay
+  # ignored here, so Ellipsis never reads this fixture.
   - ellipsis
 
 # Per-target output overrides. Defaults work for everything below;

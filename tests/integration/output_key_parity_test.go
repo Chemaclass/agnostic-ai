@@ -79,11 +79,16 @@ var probeKinds = map[string]string{
 
 // probeCompanions are entries a probe needs beside its own to write
 // anything. Ellipsis renders a review only with the settings spec that
-// names its reviewer.
+// names its reviewer, and an environment only with the one that selects it.
 var probeCompanions = map[string][]spec.Entry{
 	"ellipsis.review-file": {{Kind: spec.KindSettings, Name: "reviewer", Path: "settings/ellipsis.yaml", Meta: map[string]any{
 		"x-ellipsis": map[string]any{"reviewer": map[string]any{
 			"name": "probe", "claude_code": map[string]any{"model": "claude-opus-5-5"},
+		}},
+	}}},
+	"ellipsis.environment-file": {{Kind: spec.KindSettings, Name: "environment", Path: "settings/ellipsis.yaml", Meta: map[string]any{
+		"x-ellipsis": map[string]any{"environment": map[string]any{
+			"name": "probe", "repository": map[string]any{"name": "probe-repo"},
 		}},
 	}}},
 }
@@ -98,7 +103,8 @@ func probeKind(target, key, fallback string) string {
 // overrideValues holds the value to probe with where a target
 // validates the shape of the path it accepts.
 var overrideValues = map[string]string{
-	"goose.hooks-file": "custom/hooks/hooks.json",
+	"goose.hooks-file":          "custom/hooks/hooks.json",
+	"ellipsis.environment-file": ".ellipsis/environments/moved.yaml",
 }
 
 func overrideValue(target, key string) string {

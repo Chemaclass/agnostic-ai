@@ -15,6 +15,15 @@
 // on a settings spec and are copied as written. Nothing is inferred: no
 // reviewer means no file, and no `output` block means Ellipsis' own
 // default, which never approves.
+//
+// Ellipsis starts a session from an environment file under
+// `.ellipsis/environments/`: "the repositories, setup scripts,
+// environment variables, and machine size a session starts with", and
+// its MCP servers, since "a repository's own `.mcp.json` is ignored"
+// (ellipsis.dev/docs/environments). One `x-ellipsis.environment` block
+// selects the one environment and its one repository. Environment specs
+// fill its setup scripts, MCP specs its servers, and the review file
+// names it. Without the block no environment file is written.
 package ellipsis
 
 import (
@@ -34,10 +43,10 @@ const (
 )
 
 // Settings is claimed for the `x-ellipsis` block alone: every other
-// settings field has no key in a review file.
+// settings field has no key in a review or environment file.
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindSettings, spec.KindReview},
+	Supports: []spec.Kind{spec.KindSettings, spec.KindReview, spec.KindEnvironment, spec.KindMCP},
 }
 
 // Adapter emits the Ellipsis code-review file.
@@ -52,58 +61,81 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes `.ellipsis/code-review.yaml` when review specs and a
-// complete reviewer setting both reach the target. A review with no
-// usable reviewer is reported, never guessed.
+// complete reviewer setting both reach the target, and the selected
+// environment file when x-ellipsis.environment names one. A file with a
+// problem is reported, never guessed, and no file is written when either
+// one fails under `on-unsupported: error`.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	noteIgnoredSettings(b.Settings)
+	environment, environmentName, err := planEnvironment(b, cfg)
+	if err != nil {
+		return err
+	}
+	review, err := planReview(b, cfg, environmentName)
+	if err != nil {
+		return err
+	}
+	for _, f := range []*plannedFile{environment, review} {
+		if f == nil {
+			continue
+		}
+		if err := sess.WriteFile(f.path, f.content, dryRun); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// planReview renders the review file. environmentName is the environment
+// the review runs in, or "" when none is selected.
+func planReview(b spec.Bundle, cfg *config.Config, environmentName string) (*plannedFile, error) {
 	prompt := reviewPrompt(b.Reviews)
 	if prompt == "" {
-		return nil
+		return nil, nil
 	}
-	file, problems := readFile(b.Settings)
+	file, problems := readFile(b.Settings, environmentName)
 	path := emit.OutputReviewFile(cfg, target, defaultReviewFile)
 	if len(problems) > 0 {
 		// A reviewer that is set but broken must not take the deployed
 		// review down with it. Without a reviewer key the sweep removes it.
+		var kept *plannedFile
 		if _, set := emit.SettingsCustomKeys(b.Settings, target)["reviewer"]; set {
-			if err := keepDeployed(sess, path, dryRun); err != nil {
-				return err
-			}
+			kept = keepDeployed(path)
 		}
-		return reportProblems(problems, cfg.OnUnsupported)
+		return kept, reportProblems(problems, cfg.OnUnsupported, "code-review file")
 	}
 	doc, err := render(file, prompt)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return sess.WriteFile(path, emit.WithHeader(doc, emit.FormatYAML), dryRun)
+	return &plannedFile{path: path, content: emit.WithHeader(doc, emit.FormatYAML)}, nil
 }
 
-// keepDeployed writes the generated file already on disk back as it is,
-// so the sync keeps it instead of sweeping it as a leftover. A file
-// without the generated header is not ours and stays untouched.
-func keepDeployed(sess *emit.Session, path string, dryRun bool) error {
+// keepDeployed returns the generated file already on disk as it is, so the
+// sync keeps it instead of sweeping it as a leftover. A file without the
+// generated header is not ours and stays untouched.
+func keepDeployed(path string) *plannedFile {
 	data, err := os.ReadFile(path)
 	if err != nil || !header.Has(string(data)) {
 		return nil
 	}
-	return sess.WriteFile(path, string(data), dryRun)
+	return &plannedFile{path: path, content: string(data)}
 }
 
 // reportProblems turns what stops the file into a note, or an error under
 // `on-unsupported: error`. Silent mode skips it like every other note.
-func reportProblems(problems []string, mode string) error {
+func reportProblems(problems []string, mode, what string) error {
 	switch mode {
 	case emit.OnUnsupportedSilent:
 		return nil
 	case emit.OnUnsupportedError:
-		return fmt.Errorf("ellipsis: no code-review file written: %s", strings.Join(problems, "; "))
+		return fmt.Errorf("ellipsis: no %s written: %s", what, strings.Join(problems, "; "))
 	}
 	for _, p := range problems {
-		emit.NoteProject("ellipsis: no code-review file written: " + p)
+		emit.NoteProject(fmt.Sprintf("ellipsis: no %s written: %s", what, p))
 	}
 	return nil
 }

@@ -50,6 +50,8 @@ var mcpEnvRefTargets = map[string]mcpEnvRefForms{
 	"windsurf": {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv, url: spec.EnvRefDollarEnv, args: spec.EnvRefDollarEnv},
 	// url, args: https://opencode.ai/docs/config#variables
 	"opencode": {env: spec.EnvRefBraceEnv, headers: spec.EnvRefBraceEnv, url: spec.EnvRefBraceEnv, args: spec.EnvRefBraceEnv},
+	// env, headers: "`${NAME}` in `headers` or `env` reads the secret `NAME` when the session starts" (https://www.ellipsis.dev/docs/environments/schema#add-an-mcp-server). The page names no form for url or args.
+	"ellipsis": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	// https://docs.continue.dev/guides/configuring-models-rules-tools#working-with-secrets
 	// args: https://docs.continue.dev/customize/deep-dives/mcp#how-to-work-with-secrets-in-mcp-servers
 	// url: fillTemplateVariables over the whole file in https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/packages/config-yaml/src/load/unroll.ts

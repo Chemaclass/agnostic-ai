@@ -52,7 +52,7 @@ var allTargets = []targetChoice{
 	{Name: "jules", Desc: "Jules (Google, cloud)"},
 	{Name: "goose", Desc: "Goose (Block)"},
 	{Name: "augment", Desc: "Augment Code"},
-	{Name: "ellipsis", Desc: "Ellipsis (code review)"},
+	{Name: "ellipsis", Desc: "Ellipsis (code review, environment)"},
 }
 
 // allTargetNames returns just the canonical names of allTargets.

@@ -86,6 +86,9 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
+	if slices.Contains(targets, "ellipsis") {
+		issues = append(issues, ellipsisVariableIssues(b.Settings)...)
+	}
 	return stopOnIssues(append(issues, permissionCapabilityIssues(b.Settings)...))
 }
 

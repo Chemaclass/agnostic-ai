@@ -330,8 +330,14 @@ func TestEmit_NameIsRegistered(t *testing.T) {
 		t.Errorf("Name() = %q", New().Name())
 	}
 	got := New().Capabilities()
-	if len(got) != 2 || !slices.Contains(got, spec.KindReview) || !slices.Contains(got, spec.KindSettings) {
-		t.Errorf("Capabilities() = %v, want review and settings only", got)
+	want := []spec.Kind{spec.KindSettings, spec.KindReview, spec.KindEnvironment, spec.KindMCP}
+	if len(got) != len(want) {
+		t.Fatalf("Capabilities() = %v, want %v", got, want)
+	}
+	for _, k := range want {
+		if !slices.Contains(got, k) {
+			t.Errorf("Capabilities() = %v lacks %s", got, k)
+		}
 	}
 }
 

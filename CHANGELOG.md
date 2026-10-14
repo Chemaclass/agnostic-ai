@@ -85,7 +85,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Ellipsis
 
-- Add the opt-in `ellipsis` target: review specs and an `x-ellipsis` settings block write `.ellipsis/code-review.yaml`; `import ellipsis` reads a hand-written one (#2196).
+- Add the opt-in `ellipsis` target to write `.ellipsis/code-review.yaml` from review specs and settings, and import a hand-written file (#2196).
+- Write the selected Ellipsis environment from environment and MCP specs, and have the review use it; `import ellipsis` reads it back (#2188).
 
 ### Site
 

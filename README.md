@@ -111,7 +111,7 @@ On a fresh clone, `sync --check` uses Git history to identify old generated file
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
 
-- **Code review guidance** in `reviews/` reaches Cursor Bugbot, Codex, Goose, and Ellipsis. Ellipsis needs one reviewer named under `x-ellipsis` in a settings spec; sync then writes `.ellipsis/code-review.yaml`, and `import ellipsis` reads a hand-written one. See [Ellipsis](https://agnostic-ai.org/docs/targets/ellipsis/).
+- **Code review guidance** in `reviews/` reaches Cursor Bugbot, Codex, Goose, and Ellipsis. Ellipsis needs one reviewer named under `x-ellipsis` in a settings spec; sync then writes `.ellipsis/code-review.yaml`, and `import ellipsis` reads a hand-written one. With `x-ellipsis.environment` it also writes the session environment, `.ellipsis/environments/<name>.yaml`, from `environments/` and `mcps/`. See [Ellipsis](https://agnostic-ai.org/docs/targets/ellipsis/).
 - **Claude handoff hooks** follow the active checkout named by the event, including linked worktrees.
 - **Shared skill names**: `doctor` explains when a tool selects the home copy and project sync cannot change it. See [shared names](https://agnostic-ai.org/docs/configuration/#global-shared-names).
 - **Manual-only skills** keep their invocation flag in OpenCode V2. See [support by tool](https://agnostic-ai.org/docs/spec-format/skills/#disable-model-invocation-support-by-target).

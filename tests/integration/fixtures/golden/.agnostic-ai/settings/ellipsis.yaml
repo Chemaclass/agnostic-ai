@@ -9,3 +9,9 @@ x-ellipsis:
     on_fail: request_changes
   budget:
     session: 3
+  environment:
+    name: api-environment
+    repository:
+      name: api-repo
+    compute:
+      memory: 8GB
