@@ -161,9 +161,10 @@ func (c skillFolderClaims) claim(root, entry, src, dst, scope string) bool {
 	return true
 }
 
-// recordWorkspaces adds `workspaces:` to each imported root skill spec
+// recordWorkspaces sets `workspaces:` on each imported root skill spec
 // that a scoped native folder also held, so Cursor, which loads skills
-// only from the workspace it opens, still finds it there.
+// only from the workspace it opens, still finds it there. A spec that
+// lists them already stays as written; a different list is replaced.
 func (c skillFolderClaims) recordWorkspaces() error {
 	for _, k := range c {
 		if len(k.workspaces) == 0 {
@@ -175,12 +176,15 @@ func (c skillFolderClaims) recordWorkspaces() error {
 			return err
 		}
 		text := string(data)
-		end := strings.Index(text, "\n---")
-		if !strings.HasPrefix(text, "---\n") || end < 0 {
+		updated, err := withWorkspaces(text, k.workspaces)
+		if err != nil {
+			summaryf("  ! could not record workspaces in %s: %v\n", path, err)
 			continue
 		}
-		line := "\nworkspaces: [" + strings.Join(k.workspaces, ", ") + "]"
-		if err := importWriteFile(path, []byte(text[:end]+line+text[end:]), 0o644); err != nil {
+		if updated == text {
+			continue
+		}
+		if err := importWriteFile(path, []byte(updated), 0o644); err != nil {
 			return err
 		}
 	}

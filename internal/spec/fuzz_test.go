@@ -22,9 +22,9 @@ func FuzzSplitFrontmatter(f *testing.F) {
 		f.Add([]byte(seed))
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		meta, keys, _, body, err := splitFrontmatter(data)
-		meta2, keys2, _, body2, err2 := splitFrontmatter(data)
-		if (err == nil) != (err2 == nil) || body != body2 || len(meta) != len(meta2) || strings.Join(keys, ",") != strings.Join(keys2, ",") {
+		front, body, err := splitFrontmatter(data)
+		front2, body2, err2 := splitFrontmatter(data)
+		if (err == nil) != (err2 == nil) || body != body2 || len(front.meta) != len(front2.meta) || strings.Join(front.keys, ",") != strings.Join(front2.keys, ",") {
 			t.Fatalf("splitFrontmatter is not deterministic for %q", data)
 		}
 	})
