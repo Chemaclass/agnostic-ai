@@ -54,24 +54,66 @@ func memoryDirectoryRules(sess *emit.Session, cfg *config.Config, path string, d
 // store entry is also claimed on its own, so it leaves by itself, and
 // only while unchanged, once no longer wanted. It reports whether
 // `permission` merges one level deep.
-func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings []spec.Entry, path string, patterns []string, dryRun bool) (bool, error) {
+func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings []spec.Entry, path string, patterns, kept []string, dryRun bool) (bool, error) {
 	if permissions, ok := keys[permissionKey].(map[string]any); ok {
 		value := permissions[externalDirectoryKey]
-		if _, object := value.(map[string]any); object || len(patterns) > 0 {
+		onDisk := emit.NewOrderedJSON()
+		if len(kept) > 0 {
+			if existing := sess.ExistingObjectAt(path, []string{permissionKey, externalDirectoryKey}, dryRun); existing != nil {
+				onDisk = existing
+			}
+		}
+		kept = slices.DeleteFunc(slices.Clone(kept), func(pattern string) bool {
+			_, set := onDisk.Get(pattern)
+			return !set
+		})
+		var carried []string
+		if _, object := value.(map[string]any); object || len(patterns) > 0 || len(kept) > 0 {
 			rules, err := specRules(value, settings)
 			if err != nil {
 				return false, err
 			}
+			// A refused store entry rides along in the value sync rewrites,
+			// as it stands. It stays sync's only if sync wrote it and
+			// nobody changed it.
+			for _, pattern := range kept {
+				if _, set := rules.Get(pattern); set {
+					continue
+				}
+				raw, _ := onDisk.Get(pattern)
+				var action any
+				if err := json.Unmarshal(raw, &action); err != nil {
+					return false, err
+				}
+				if err := rules.Set(pattern, action); err != nil {
+					return false, err
+				}
+				if action == "allow" && slices.Contains(emit.PriorClaimedEntries(path, []string{permissionKey, externalDirectoryKey}), pattern) {
+					carried = append(carried, pattern)
+				}
+			}
+			// A pattern the spec already sets is the spec's, whatever its action.
+			patterns = slices.DeleteFunc(slices.Clone(patterns), func(pattern string) bool {
+				_, set := rules.Get(pattern)
+				return set
+			})
 			if permissions[externalDirectoryKey], err = withAllowed(rules, patterns); err != nil {
 				return false, err
 			}
 		}
 		entries := [][]string{}
-		for _, pattern := range patterns {
+		for _, pattern := range append(slices.Clone(patterns), carried...) {
 			entries = append(entries, []string{externalDirectoryKey, pattern})
 		}
 		keys[permissionKey] = emit.ClaimedJSONWithEntries(permissions, entries)
 		return false, nil
+	}
+	// A refused store entry sync wrote itself stays sync's while it is unchanged.
+	claimed := emit.PriorClaimedEntries(path, []string{permissionKey, externalDirectoryKey})
+	for _, pattern := range kept {
+		if slices.Contains(claimed, pattern) && !slices.Contains(patterns, pattern) {
+			patterns = append(slices.Clone(patterns), pattern)
+		}
 	}
 	if len(patterns) == 0 {
 		// A store entry an earlier sync claimed goes with its claim.
@@ -99,13 +141,19 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 	}
 	var owned []string
 	for _, pattern := range patterns {
-		if _, set := rules.Get(pattern); set && !slices.Contains(prior, pattern) {
-			// The user's own rule for the store stays theirs, where it is.
+		if _, set := rules.Get(pattern); set && (!slices.Contains(prior, pattern) || !isAllow(rules, pattern)) {
+			// The user's own rule for the store stays theirs, where it is,
+			// and so does a rule they edited after sync wrote it.
 			continue
 		}
 		owned = append(owned, pattern)
 	}
-	rules, err := withAllowed(rules, owned)
+	// A claimed entry stays where it is, so a broader rule the user put
+	// after it keeps winning; only a missing one goes last.
+	rules, err := withAllowed(rules, slices.DeleteFunc(slices.Clone(owned), func(pattern string) bool {
+		_, set := rules.Get(pattern)
+		return set
+	}))
 	if err != nil {
 		return false, err
 	}

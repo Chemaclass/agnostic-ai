@@ -90,6 +90,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
   - Devin's `Exec` matches only the start of a command, so an exact `Bash(...)` rule without `:*` would match more commands. On `allow` and `ask` that would approve commands you did not list, so the rule is dropped with a sync note. On `deny` it blocks more, which is safe: `Bash(rm -rf /)` becomes `Exec(rm -rf /)`. A command deny wins over a broader `ask` or `allow` (Devin CLI v3000.10.31).
   - `x-windsurf.permissions` writes Devin's rules directly and replaces that spec's portable ones.
   - With `memory.personal: repo`, sync adds `Write(<folder>/**)` to `permissions.allow`, so Devin CLI saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own rules stay. A committed settings kind (`gitignore.commit`) keeps the rule out.
+  - With `handoff` or `handoff-hook` enabled in a linked worktree, sync adds `Write(<store>/**)` for the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree). Existing memory and user rules stay. A main checkout path with glob characters or parentheses gets no rule. For a tracked, hand-written, or unmanaged file sync skips only this grant and reports the permission to add by hand (once you add it, it stays); the rest of its output is unchanged.
 - **Workflows**: `outputs.windsurf.workflows-dir` writes nothing. It only prints a warning about moving to skills. `.devin/agents/<name>.md` is written either way.
 
 {% <details summary="Older paths and removed features"> %}

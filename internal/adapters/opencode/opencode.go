@@ -184,7 +184,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, path, dryRun)
+	handoff, handoffKept, err := sess.HandoffAccess(cfg, path, target, "permission.external_directory", dryRun)
+	if err != nil {
+		return err
+	}
+	if handoff != "" {
+		directories = append(directories, handoff+"/**")
+	}
+	var kept []string
+	if handoffKept != "" {
+		kept = append(kept, handoffKept+"/**")
+	}
+	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
@@ -206,7 +217,7 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 }
 
 // Native V2 MCP settings claim servers individually inside mcp.servers.
-func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, directories []string, path string, dryRun bool) error {
+func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, directories, kept []string, path string, dryRun bool) error {
 	permissions, dropped := buildPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
 	// An `x-opencode` block on a settings spec carries the keys this
@@ -219,7 +230,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 	// The block is read twice, once to decide whether the file is
 	// written at all and once to merge it in.
 	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
-	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && emit.SettingsModel(settings, target) == "" {
+	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && len(directories) == 0 && emit.SettingsModel(settings, target) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
@@ -256,7 +267,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)
 	}
-	nested, err := mergeExternalDirectories(sess, keys, settings, path, directories, dryRun)
+	nested, err := mergeExternalDirectories(sess, keys, settings, path, directories, kept, dryRun)
 	if err != nil {
 		return err
 	}

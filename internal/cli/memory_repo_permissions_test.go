@@ -242,9 +242,12 @@ func TestSync_OpenCodeRetiredSpecKeepsAnOrderOnlyEdit(t *testing.T) {
 		}
 	})
 	t.Run("repo", func(t *testing.T) {
+		// The store rule keeps its place, so a deny placed after it still
+		// wins; the user's rules keep their reordered sequence around it.
 		got := retire(t, true)
-		if len(got) != 3 || !slices.Equal(got[:2], []string{"*", "/tmp/a/**"}) {
-			t.Errorf("want the reordered rules kept before the store rule, got %v", got)
+		user := slices.DeleteFunc(slices.Clone(got), func(p string) bool { return strings.Contains(p, "/local/memory/") })
+		if len(got) != 3 || !slices.Equal(user, []string{"*", "/tmp/a/**"}) {
+			t.Errorf("want the reordered rules kept around the store rule, got %v", got)
 		}
 		writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
 		if err := runSync(t); err != nil {

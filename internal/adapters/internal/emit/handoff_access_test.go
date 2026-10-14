@@ -197,7 +197,7 @@ func TestHandoffConfigWritable_RejectsNativeParentLinkedToCheckoutRoot(t *testin
 		}
 		t.Fatal(err)
 	}
-	if got := handoffConfigPathWritable(filepath.Join("native", "settings")); got {
+	if got := handoffConfigPathWritable(filepath.Join("native", "settings"), "codex"); got {
 		t.Error("native parent linked to checkout root became writable")
 	}
 	if _, err := os.Lstat(filepath.Join(root, "settings")); !os.IsNotExist(err) {
