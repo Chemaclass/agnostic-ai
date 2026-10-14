@@ -78,9 +78,11 @@ func (r driftReport) hasDrift() bool {
 
 // addChanged files f, whose bytes on disk differ from what sync would
 // write, as edited when they also differ from the sum the last sync
-// recorded, and as stale otherwise. No recorded sum proves no edit.
+// recorded, and as stale otherwise. No recorded sum proves no edit. A
+// merged file is always stale: sync merges into it and keeps what the
+// user added, so it saves no backup.
 func (r *driftReport) addChanged(f adapters.CapturedFile, disk []byte, sums map[string]string) {
-	if sum := sums[f.Path]; sum != "" && adapters.ContentSum(string(disk)) != sum {
+	if sum := sums[f.Path]; sum != "" && !f.Merged && adapters.ContentSum(string(disk)) != sum {
 		r.Edited = append(r.Edited, f)
 		return
 	}

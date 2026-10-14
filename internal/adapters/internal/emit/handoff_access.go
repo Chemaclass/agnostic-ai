@@ -355,7 +355,7 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 		if _, candidate := sharedHandoffCandidate(cfg); candidate != "" {
 			NoteProject(fmt.Sprintf("%s: shared handoff store %s is unavailable or not private; use an ignored checkout store", target, filepath.ToSlash(candidate)))
 		}
-		return "", "", nil
+		return "", handoffGrantOfTheUser(path, target), nil
 	}
 	if unsafe := handoffGlobCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
 		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir)))
@@ -380,6 +380,70 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 		return "", "", err
 	}
 	return filepath.ToSlash(dir), "", nil
+}
+
+// handoffGrantOfTheUser returns the store a config grants that sync did
+// not write, or wrote and the user then changed. With no grant of its
+// own to make, sync carries it over, so a target that rewrites the whole
+// permission value from a spec keeps it as one that merges does.
+func handoffGrantOfTheUser(path, target string) string {
+	if target != "opencode" && target != "windsurf" {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	data, _ = StripJSONC(data)
+	if target == "opencode" {
+		var doc struct {
+			Permission struct {
+				ExternalDirectory map[string]json.RawMessage `json:"external_directory"`
+			} `json:"permission"`
+		}
+		if json.Unmarshal(data, &doc) != nil {
+			return ""
+		}
+		claimed := PriorClaimedEntries(path, []string{"permission", "external_directory"})
+		patterns := make([]string, 0, len(doc.Permission.ExternalDirectory))
+		for pattern := range doc.Permission.ExternalDirectory {
+			patterns = append(patterns, pattern)
+		}
+		slices.Sort(patterns)
+		for _, pattern := range patterns {
+			dir, ok := strings.CutSuffix(pattern, "/**")
+			if !ok || !strings.HasSuffix(dir, "/.agnostic-ai/local/handoffs") {
+				continue
+			}
+			if string(doc.Permission.ExternalDirectory[pattern]) == `"allow"` && slices.Contains(claimed, pattern) {
+				continue
+			}
+			return dir
+		}
+		return ""
+	}
+	var doc struct {
+		Permissions struct {
+			Allow []string `json:"allow"`
+		} `json:"permissions"`
+	}
+	if json.Unmarshal(data, &doc) != nil {
+		return ""
+	}
+	claimed := PriorClaimedItems(path, []string{"permissions", "allow"})
+	for _, rule := range doc.Permissions.Allow {
+		dir, ok := strings.CutPrefix(rule, "Write(")
+		if !ok {
+			continue
+		}
+		if dir, ok = strings.CutSuffix(dir, "/**)"); !ok || !strings.HasSuffix(dir, "/.agnostic-ai/local/handoffs") {
+			continue
+		}
+		if !slices.Contains(claimed, ContentSum(rule)) {
+			return dir
+		}
+	}
+	return ""
 }
 
 // handoffGlobCharacters lists the characters that would turn the main
