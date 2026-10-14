@@ -6,55 +6,70 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Sync no longer records built-in specs under their temporary copy's path in `.sync-state`, and its change summary names only specs a configured target emits; the first sync with an older binary after this one may print a one-time summary line (#2183).
-- Start far fewer Git processes in `sync` and `sync --check`: a no-op check on a small project drops from 18 to 2 and runs about 2.7x faster (#2179).
-- Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` and `sync --global` (#2127).
-- Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
-- Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
-- Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
-- `import` leaves a spec alone when its frontmatter and body parse the same as the native copy, so a folded or quoted `description` is neither an AAI-203 conflict nor rewritten (#2182).
-- `sync --check` no longer says sync saves a `.bak` for a merged config such as `opencode.json`; it says sync keeps keys you added there and resets the ones it writes (#2176).
-- Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
-- `import --dry-run` no longer reports false changes or a false `::target` loss with `memory.personal: repo`; it now matches the real import (#2181).
+- Share personal memory across worktrees (`init --memory`), keep facts Claude Code saved, and flag hidden characters in memory (#2104, #2109, #2100, #2105).
+- Keep private handoffs and Git snapshots across worktrees, and list every saved task with `handoff list` (#2117).
+- Sync starts far fewer Git processes (a no-op check runs about 2.7x faster) and leaves `.sync-state` alone when nothing changed (#2179, #2183).
+- `import --dry-run` matches the real import, and `import` treats frontmatter that parses the same as unchanged (#2181, #2182).
+- Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` (#2127).
 
 ### By tool
 
 #### Codex
 
-- The "hook is untrusted" note shows the start and end of a long inline hook script instead of all of it (#2183).
+- Keep `x-codex.features` switches and `skills.config` entries in agent files, and name any `x-codex` value TOML cannot hold (#2165).
 - Report agent approval policies, model providers, and MCP servers that Codex ignores; configure them in the parent session (#2156).
+- `import codex` leaves the personal memory and shared handoff stores out of `codex.config.toml` (#2186).
+- The "hook is untrusted" note is short and names each hook the way `doctor --json` does (#2183).
 - Accept `fork` as a session-start source in hook diagnostics (#2158).
-- Keep boolean `x-codex.features` switches and `skills.config` entries in agent files when you sync or import them (#2165).
-- Agent TOML quotes keys with spaces or dots, keeps whole floats as floats, escapes control characters in strings, and names any `x-codex` value it cannot write instead of dropping it silently (#2165).
-- `import codex` leaves the personal memory and shared handoff stores out of `codex.config.toml`, and sync adds them to the overlay's `writable_roots` (#2186).
 
-#### Cursor
+#### Windsurf / Devin
 
-- A personal memory folder path with pattern characters, including parentheses, gets no `Write` rule in `cli.json`, and sync says so (#2171).
+- Rules you add by hand to `allow`, `deny`, or `ask` in `.devin/config.json` stay next to the rules your specs write (#2184).
+- Load shared memory through a Devin CLI session-start hook, and allow writes to the shared handoff store from linked worktrees (#2106, #2155).
+- Handoff grants you add by hand stay, and `import windsurf` leaves the memory and handoff rules sync wrote out of the spec (#2176, #2186).
+- A personal memory folder path with pattern characters gets no `Write` rule, and sync says so (#2171).
+- Explain how Devin discovers shared agent profiles without promising that target scoping prevents it (#2084).
 
-#### Augment
+#### OpenCode
 
-- Auggie CLI on Unix loads shared memory through an executable session-start script; the IDE keeps the memory rule (#2106).
+- Keep `permission` keys you wrote by hand next to spec keys; a spec that starts setting one of yours saves `opencode.json.bak` first (#2175).
+- Allow writes to the shared handoff store from linked worktrees (#2155).
+- A `deny` or `ask` on the memory folder or handoff store stays, and handoff grants you add by hand survive (#2155, #2176).
+- A personal memory folder path with `*` or `?` gets no `external_directory` entry, and sync says so (#2171).
+
+#### Antigravity
+
+- Load project and checkout personal memory through an always-on include rule, and warn when it passes 24,000 bytes once expanded (#2108, #2157).
+- Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies and skips policy-dependent `allow` ones (#2124, #2125).
 
 #### Cline
 
 - Add a project memory TaskStart hook for VS Code, native Windows scripts, and explicit Unix VS Code diagnostics (#2106).
-- Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its separate Documents folder (#2126).
+- Write global hook event scripts for the SDK and CLI under `~/.cline/hooks/`; the VS Code extension keeps its own folder (#2126).
 
 #### Claude Code
 
 - Claude Code loads personal memory natively; subagents read the same store, with an import fallback when native loading is off (#2116).
 
-#### Crush
+#### Cursor
 
-- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
+- A personal memory folder path with pattern characters gets no `Write` rule in `cli.json`, and sync says so (#2171).
 
-#### Antigravity
+#### Copilot
 
-- Sync warns when included project and checkout personal memory indexes push the built-in rule over 24,000 bytes (#2157).
-- Load project and checkout personal memory indexes through an always-on native include rule; repo personal memory keeps its lookup fallback (#2108).
-- Sync writes `SessionStart` hooks, and `hook run` accepts `auto_approve` replies with native permission limits (#2124, #2125).
-- `hook run` excludes policy-dependent `allow` replies from Antigravity expectation checks (#2125).
+- Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
+
+#### Gemini CLI
+
+- With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md` (#2103).
+
+#### Kiro
+
+- Kiro loads project and checkout personal memory through a steering include, so you no longer add it by hand (#2108).
+
+#### Augment
+
+- Auggie CLI on Unix loads shared memory through an executable session-start script; the IDE keeps the memory rule (#2106).
 
 #### Qoder
 
@@ -64,41 +79,15 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Load the shared memory index when a project session starts and project hooks are enabled (#2106).
 
-#### Copilot
+#### Crush
 
-- Send the shared memory index under the reply key VS Code agent sessions read, as well as the one Copilot CLI reads (#2101).
-
-#### Kiro
-
-- Kiro loads project memory and checkout personal memory through a steering include, so you no longer add the include by hand (#2108).
-
-#### Gemini CLI
-
-- With the `memory` built-in, Gemini CLI saves team facts to `.agnostic-ai/memory/` instead of the generated `GEMINI.md`, which sync overwrites (#2103).
-
-#### OpenCode
-
-- Allow the shared handoff store in linked worktrees while keeping memory and user permission rules. A `deny` or `ask` you or a spec set for that path stays, and a main checkout path with glob characters gets no grant (#2155).
-- Every handoff grant you added by hand stays, with or without a permissions spec, including after you turn handoff off (#2176).
-- A `deny` or `ask` that a spec or you set on the personal memory folder now stays, and the folder entry keeps its place once sync has added it, so a broader rule you put after it keeps winning (#2155).
-- Keep the `permission` keys you wrote by hand, such as `"edit": "ask"`, when permission specs exist; sync owns only the tool keys its specs produce, and saves the file as `opencode.json.bak` when a spec starts setting a key you wrote. A project synced before this change keeps a spec tool as yours if you edit another key in the same sync where the spec drops that tool (#2175).
-- A personal memory folder path with `*` or `?` gets no `external_directory` entry, and sync says so. OpenCode reads only those two as wildcards, so the shared handoff store refusal from #2155 now covers them alone too (#2171).
-
-#### Windsurf / Devin
-
-- `import windsurf` leaves the personal memory and shared handoff `Write` rules sync wrote out of the permissions spec (#2186).
-- Allow writes to the shared handoff store in linked worktrees while keeping memory and user permission rules; a main checkout path with glob characters or parentheses gets no rule (#2155).
-- Every handoff grant you added by hand stays, with or without a permissions spec, including after you turn handoff off (#2176).
-- A permissions spec no longer replaces the whole `allow`, `deny`, or `ask` list in `.devin/config.json`; rules you added by hand stay, and only the rules your specs write leave with them (#2184).
-- A personal memory folder path with pattern characters, including parentheses, gets no write rule, and sync says so (#2171).
-- Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).
-- Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
+- Preserve MCP channel opt-in and automatic direct and group replies through import and sync (#2086).
 
 ### Site
 
 - Use the current Antigravity app name and explain that OpenCode V2 no longer reads the Claude instructions fallback (#2159).
-- The shared memory rule now says a tool's own memory can stay on, and the docs list each tool's own memory and default (#2102).
-- Clarify setup, daily use, tool support and contributor guides; include every user guide in full plain-text docs for coding agents (#2083).
+- The memory docs list each tool's own memory and default, and the shared rule says a tool's own memory can stay on (#2102).
+- Clarify setup, daily use, tool support, and contributor guides; include every user guide in the plain-text docs for coding agents (#2083).
 
 ## v0.83.0 - 2026-10-11
 
