@@ -162,6 +162,30 @@ func TestBuiltinMemory(t *testing.T) {
 		}
 	}
 
+	t.Run("devin-native-memory-hook-adds-context", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			return
+		}
+		dir := project(t, []byte("version: 1\ntargets: [windsurf]\nbuiltins: [memory]\n"))
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		run(t, dir, "sync", "--gitignore=off")
+		store := filepath.Join(dir, ".agnostic-ai", "memory")
+		if err := os.MkdirAll(store, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(store, "MEMORY.md"), []byte("- [Native recall](recall.md): the project uses native startup context\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		payload := filepath.Join(t.TempDir(), "session-start.json")
+		if err := os.WriteFile(payload, []byte(`{"hook_event_name":"SessionStart","session_id":"native-memory-fixture"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		out := run(t, dir, "hook", "run", "memory-windsurf-session-start", "--target", "windsurf", "--payload", payload, "--format", "json")
+		if !strings.Contains(out, `"adds_context": true`) || !strings.Contains(out, "native startup context") {
+			t.Errorf("native memory hook did not add the project index: %s", out)
+		}
+	})
+
 	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
