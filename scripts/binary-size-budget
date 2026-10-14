@@ -231,4 +231,8 @@
 # #2106 Trae combined memory measured 19562656, up 20480
 # from main 27cb3ad8 (19542176), using Go1.27.2 Linux amd64 release flags.
 # CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
-19571000
+# #2165 measured 19587232 on Go1.27.2, up 16384 from main 8e2f291a
+# (19570848): agent TOML keeps nested booleans, arrays of tables, quoted
+# keys, and names the values it leaves out. Same Linux amd64 release
+# flags; retain the 8 KB allowance.
+19595424
