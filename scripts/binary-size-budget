@@ -201,4 +201,8 @@
 # #2106 Augment measured 19493024 on Go1.27.2, up 24576 from
 # main 6b1dbe92 (19468448): executable builtin scripts retain inherited command assets.
 # Linux amd64 release flags; keep the established 8 KB allowance.
-19502000
+# #2106 Augment with handoff access measured 19517600, up 28672 from
+# main 71d583c4 (19488928): inherited executable scripts and bounded startup context.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+19526000
