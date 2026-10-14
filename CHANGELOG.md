@@ -10,7 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
 - Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
-- `sync --check` no longer says sync saves a `.bak` for a merged config such as `opencode.json`; sync keeps your edits there and the check lists it as out of date (#2176).
+- `sync --check` no longer says sync saves a `.bak` for a merged config such as `opencode.json`; it says sync keeps keys you added there and resets the ones it writes (#2176).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 
 ### By tool
@@ -69,13 +69,13 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Allow the shared handoff store in linked worktrees while keeping memory and user permission rules. A `deny` or `ask` you or a spec set for that path stays, and a main checkout path with glob characters gets no grant (#2155).
-- A handoff grant you added by hand now stays when you turn handoff off, whether or not a permissions spec exists (#2176).
+- Every handoff grant you added by hand stays, with or without a permissions spec, including after you turn handoff off (#2176).
 - A `deny` or `ask` that a spec or you set on the personal memory folder now stays, and the folder entry keeps its place once sync has added it, so a broader rule you put after it keeps winning (#2155).
 
 #### Windsurf / Devin
 
 - Allow writes to the shared handoff store in linked worktrees while keeping memory and user permission rules; a main checkout path with glob characters or parentheses gets no rule (#2155).
-- A handoff grant you added by hand now stays when you turn handoff off, whether or not a permissions spec exists (#2176).
+- Every handoff grant you added by hand stays, with or without a permissions spec, including after you turn handoff off (#2176).
 - Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).
 - Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
 

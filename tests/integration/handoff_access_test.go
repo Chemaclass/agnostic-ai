@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -1005,8 +1006,10 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 				handoffWrite(t, path, "{\"user_option\":true}\n")
 				run("sync")
 				handoffUserGrant(t, path, target, store)
-				if output := run("sync", "--check"); strings.Contains(output, ".bak") || strings.Contains(output, "edited locally") {
+				if output := run("sync", "--check"); strings.Contains(output, "edited locally") || strings.Contains(output, "saves each as") {
 					t.Errorf("check promises a backup sync does not make: %s", output)
+				} else if spec && !strings.Contains(output, "keeps the keys it did not write and resets the ones it writes") {
+					t.Errorf("check does not say what sync does to a merged file: %s", output)
 				}
 				run("sync")
 				if _, err := os.Stat(path + ".bak"); err == nil {
@@ -1028,6 +1031,92 @@ func TestHandoffAccess_GrantAddedByHandSurvivesCheckAndHandoffOff(t *testing.T) 
 					t.Errorf("turning handoff off dropped user content: %s", content)
 				}
 			})
+		}
+	}
+}
+
+func TestHandoffAccess_EveryGrantAddedByHandSurvives(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	for _, target := range []string{"opencode", "windsurf"} {
+		for _, spec := range []bool{false, true} {
+			for _, state := range []string{"handoff on", "handoff off", "main checkout"} {
+				t.Run(target+"/spec="+strconv.FormatBool(spec)+"/"+state, func(t *testing.T) {
+					t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+					main := t.TempDir()
+					handoffInitGit(t, main)
+					dir := main
+					if state != "main checkout" {
+						dir = filepath.Join(t.TempDir(), "linked")
+						handoffGit(t, main, "worktree", "add", "-b", "handoff-access", dir)
+					}
+					physicalMain, err := filepath.EvalSymlinks(main)
+					if err != nil {
+						t.Fatal(err)
+					}
+					stores := []string{"/old/main/.agnostic-ai/local/handoffs", "/zz/other/.agnostic-ai/local/handoffs"}
+					if state != "main checkout" {
+						stores = append(stores, filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs")))
+					}
+					config := "version: 1\nbuiltins: [handoff]\ntargets: [" + target + "]\ngitignore:\n  enabled: true\n"
+					handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
+					if spec {
+						handoffWrite(t, filepath.Join(dir, ".agnostic-ai/settings/perms.yaml"), "name: perms\npermissions:\n  deny: [\"Bash(rm:*)\"]\n  allow: [\"Read(*)\"]\n")
+					}
+					file := map[string]string{"opencode": "opencode.json", "windsurf": ".devin/config.json"}[target]
+					path := filepath.Join(dir, file)
+					run := func(args ...string) {
+						t.Helper()
+						cmd := exec.Command(binary, args...)
+						cmd.Dir = dir
+						if output, err := cmd.CombinedOutput(); err != nil && args[len(args)-1] != "--check" {
+							t.Fatalf("%v: %v\n%s", args, err, output)
+						}
+					}
+					handoffWrite(t, path, "{\"user_option\":true}\n")
+					run("sync")
+					for _, store := range stores {
+						handoffUserGrant(t, path, target, store)
+					}
+					denied := stores[1] + "/**"
+					if target == "opencode" {
+						var doc map[string]any
+						if err := json.Unmarshal([]byte(handoffRead(t, path)), &doc); err != nil {
+							t.Fatal(err)
+						}
+						doc["permission"].(map[string]any)["external_directory"].(map[string]any)[denied] = "deny"
+						data, err := json.Marshal(doc)
+						if err != nil {
+							t.Fatal(err)
+						}
+						handoffWrite(t, path, string(data))
+					}
+					if state == "handoff off" {
+						handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), strings.Replace(config, "[handoff]", "[]", 1))
+					}
+					for i := 0; i < 2; i++ {
+						run("sync")
+						content := handoffRead(t, path)
+						for _, store := range stores {
+							if !strings.Contains(content, store+"/**") {
+								t.Errorf("sync %d dropped the grant for %s: %s", i+1, store, content)
+							}
+						}
+						if target == "opencode" {
+							var doc struct {
+								Permission struct {
+									ExternalDirectory map[string]string `json:"external_directory"`
+								} `json:"permission"`
+							}
+							if err := json.Unmarshal([]byte(content), &doc); err != nil {
+								t.Fatal(err)
+							}
+							if got := doc.Permission.ExternalDirectory[denied]; got != "deny" {
+								t.Errorf("sync %d changed %s to %q: %s", i+1, denied, got, content)
+							}
+						}
+					}
+				})
+			}
 		}
 	}
 }

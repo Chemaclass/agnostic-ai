@@ -345,56 +345,62 @@ func (s *Session) HandoffAccessRoot(cfg *config.Config, path, target, key string
 	return grant, err
 }
 
-// HandoffAccess returns the store sync grants, and the store a refused
-// config already grants by hand. The second belongs to the user: a
-// target that rewrites the whole permission value carries it over
-// without claiming it, and no note asks for what is already there.
-func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dryRun bool) (grant, kept string, err error) {
+// HandoffAccess returns the store sync grants, and the stores the config
+// already grants that sync did not write. Those belong to the user: a
+// target that rewrites the whole permission value carries them over
+// without claiming them, and no note asks for what is already there. A
+// store sync did write stays in the second list only while a refused
+// config holds it.
+func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dryRun bool) (grant string, kept []string, err error) {
 	dir := SharedHandoffWriteRoot(cfg)
 	if dir == "" {
 		if _, candidate := sharedHandoffCandidate(cfg); candidate != "" {
 			NoteProject(fmt.Sprintf("%s: shared handoff store %s is unavailable or not private; use an ignored checkout store", target, filepath.ToSlash(candidate)))
 		}
-		return "", handoffGrantOfTheUser(path, target), nil
+		return "", handoffGrantsOfTheUser(path, target, ""), nil
 	}
+	slash := filepath.ToSlash(dir)
 	if unsafe := handoffGlobCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
-		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir)))
-		return "", "", nil
+		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, slash))
+		return "", handoffGrantsOfTheUser(path, target, ""), nil
 	}
 	if !s.HandoffConfigWritable(cfg, path, target) {
-		if handoffGrantOnDisk(path, target, filepath.ToSlash(dir)) {
-			return "", filepath.ToSlash(dir), nil
+		kept = handoffGrantsOfTheUser(path, target, "")
+		if handoffGrantOnDisk(path, target, slash) {
+			if !slices.Contains(kept, slash) {
+				kept = append(kept, slash)
+			}
+			return "", kept, nil
 		}
 		if tracked, _ := handoffConfigTracked(path); tracked {
 			NoteProject(fmt.Sprintf("%s: %s is tracked by Git, so sync leaves its handoff permission alone; run `git rm --cached %s` so sync can manage it, since the store path is local to this machine", target, filepath.ToSlash(path), filepath.ToSlash(path)))
-			return "", "", nil
+			return "", kept, nil
 		}
-		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %s to %s, keeping its other entries", target, filepath.ToSlash(path), handoffNativeEntry(target, filepath.ToSlash(dir)), key))
-		return "", "", nil
+		NoteProject(fmt.Sprintf("%s: %s stays as configured; to save shared handoffs, add %s to %s, keeping its other entries", target, filepath.ToSlash(path), handoffNativeEntry(target, slash), key))
+		return "", kept, nil
 	}
 	if err := s.CreateHandoffStore(dir, dryRun); err != nil {
 		if errors.Is(err, fs.ErrPermission) || errors.Is(err, fs.ErrExist) || errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS) {
 			NoteProject(fmt.Sprintf("%s: shared handoff store is unavailable (%v); use an ignored checkout store", target, err))
-			return "", "", nil
+			return "", handoffGrantsOfTheUser(path, target, ""), nil
 		}
-		return "", "", err
+		return "", nil, err
 	}
-	return filepath.ToSlash(dir), "", nil
+	return slash, handoffGrantsOfTheUser(path, target, slash), nil
 }
 
-// handoffGrantOfTheUser returns the store a config grants that sync did
-// not write, or wrote and the user then changed. With no grant of its
-// own to make, sync carries it over, so a target that rewrites the whole
-// permission value from a spec keeps it as one that merges does.
-func handoffGrantOfTheUser(path, target string) string {
+// handoffGrantsOfTheUser returns the stores a config grants that sync
+// did not write, or wrote and the user then changed, other than except.
+func handoffGrantsOfTheUser(path, target, except string) []string {
 	if target != "opencode" && target != "windsurf" {
-		return ""
+		return nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return ""
+		return nil
 	}
 	data, _ = StripJSONC(data)
+	var dirs []string
 	if target == "opencode" {
 		var doc struct {
 			Permission struct {
@@ -402,25 +408,21 @@ func handoffGrantOfTheUser(path, target string) string {
 			} `json:"permission"`
 		}
 		if json.Unmarshal(data, &doc) != nil {
-			return ""
+			return nil
 		}
 		claimed := PriorClaimedEntries(path, []string{"permission", "external_directory"})
-		patterns := make([]string, 0, len(doc.Permission.ExternalDirectory))
-		for pattern := range doc.Permission.ExternalDirectory {
-			patterns = append(patterns, pattern)
-		}
-		slices.Sort(patterns)
-		for _, pattern := range patterns {
+		for pattern, action := range doc.Permission.ExternalDirectory {
 			dir, ok := strings.CutSuffix(pattern, "/**")
-			if !ok || !strings.HasSuffix(dir, "/.agnostic-ai/local/handoffs") {
+			if !ok || !strings.HasSuffix(dir, handoffStoreSuffix) || dir == except {
 				continue
 			}
-			if string(doc.Permission.ExternalDirectory[pattern]) == `"allow"` && slices.Contains(claimed, pattern) {
+			if string(action) == `"allow"` && slices.Contains(claimed, pattern) {
 				continue
 			}
-			return dir
+			dirs = append(dirs, dir)
 		}
-		return ""
+		slices.Sort(dirs)
+		return dirs
 	}
 	var doc struct {
 		Permissions struct {
@@ -428,23 +430,23 @@ func handoffGrantOfTheUser(path, target string) string {
 		} `json:"permissions"`
 	}
 	if json.Unmarshal(data, &doc) != nil {
-		return ""
+		return nil
 	}
 	claimed := PriorClaimedItems(path, []string{"permissions", "allow"})
 	for _, rule := range doc.Permissions.Allow {
 		dir, ok := strings.CutPrefix(rule, "Write(")
-		if !ok {
+		if ok {
+			dir, ok = strings.CutSuffix(dir, "/**)")
+		}
+		if !ok || !strings.HasSuffix(dir, handoffStoreSuffix) || dir == except || slices.Contains(claimed, ContentSum(rule)) {
 			continue
 		}
-		if dir, ok = strings.CutSuffix(dir, "/**)"); !ok || !strings.HasSuffix(dir, "/.agnostic-ai/local/handoffs") {
-			continue
-		}
-		if !slices.Contains(claimed, ContentSum(rule)) {
-			return dir
-		}
+		dirs = append(dirs, dir)
 	}
-	return ""
+	return dirs
 }
+
+const handoffStoreSuffix = "/.agnostic-ai/local/handoffs"
 
 // handoffGlobCharacters lists the characters that would turn the main
 // checkout path into a broader pattern in a target whose grant is a glob.
