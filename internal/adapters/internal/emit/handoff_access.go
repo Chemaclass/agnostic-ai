@@ -382,26 +382,27 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 	return filepath.ToSlash(dir), "", nil
 }
 
-// PersonalMemoryGrantable reports whether dir can go into target's write
-// grant for personal memory. A path with a glob character would grant
-// more than the folder, so it gets no grant and a note.
+// PersonalMemoryGrantable reports whether dir can go into a pattern in
+// target's config: a write grant, or an OpenCode instructions entry. A
+// path with a glob character would match more or less than the folder,
+// so it is left out and a note says so.
 func PersonalMemoryGrantable(target, dir string) bool {
 	unsafe := handoffGlobCharacters(target)
 	if unsafe == "" || !strings.ContainsAny(dir, unsafe) {
 		return true
 	}
-	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains glob characters and cannot be granted safely; move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir)))
+	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains glob characters, so sync leaves it out of the config patterns; move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir)))
 	return false
 }
 
 // handoffGlobCharacters lists the characters that would turn the main
 // checkout path into a broader pattern in a target whose grant is a glob.
-// Devin also reads `)` as the end of its `Write(` rule.
+// Devin and Cursor also read `)` as the end of their `Write(` rule.
 func handoffGlobCharacters(target string) string {
 	switch target {
 	case "opencode":
 		return "*?[]{}"
-	case "windsurf":
+	case "windsurf", "cursor":
 		return "*?[]{}()"
 	}
 	return ""

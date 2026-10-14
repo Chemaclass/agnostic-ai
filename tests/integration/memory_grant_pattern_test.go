@@ -9,8 +9,9 @@ import (
 )
 
 // The personal memory folder lies under AGNOSTIC_AI_HOME. A pattern
-// character in that path would widen or break the write grant, so sync
-// writes no grant and says why.
+// character in that path would widen or break the write grant, and
+// OpenCode reads each instructions entry as a glob, so sync names the
+// folder in neither and says why.
 func TestMemoryGrant_RefusesPatternCharactersInTheFolderPath(t *testing.T) {
 	binary := handoffBuildCLI(t)
 	for _, tc := range []struct{ target, file, home string }{
@@ -18,6 +19,8 @@ func TestMemoryGrant_RefusesPatternCharactersInTheFolderPath(t *testing.T) {
 		{"opencode", "opencode.json", "home{a,b}"},
 		{"windsurf", ".devin/config.json", "home[1]"},
 		{"windsurf", ".devin/config.json", "home(1)"},
+		{"cursor", ".cursor/cli.json", "home[1]"},
+		{"cursor", ".cursor/cli.json", "home(1)"},
 	} {
 		t.Run(tc.target+"/"+tc.home, func(t *testing.T) {
 			home := filepath.Join(t.TempDir(), tc.home)
@@ -47,7 +50,7 @@ func TestMemoryGrant_RefusesPatternCharactersInTheFolderPath(t *testing.T) {
 			if err != nil && !os.IsNotExist(err) {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(content), "/**") || strings.Contains(string(content), "external_directory") {
+			if strings.Contains(string(content), tc.home) {
 				t.Errorf("pattern path became a grant: %s", content)
 			}
 			if _, err := os.Stat(filepath.Join(home, "local", "memory")); !os.IsNotExist(err) {
