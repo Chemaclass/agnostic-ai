@@ -54,6 +54,28 @@ func TestBuiltinMemory(t *testing.T) {
 		return dir
 	}
 
+	t.Run("antigravity-reports-expanded-memory-index-limit", func(t *testing.T) {
+		dir := project(t, []byte("version: 1\ntargets: [antigravity]\nbuiltins: [memory]\n"))
+		index := filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md")
+		if err := os.MkdirAll(filepath.Dir(index), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(index, []byte(strings.Repeat("p", 24000)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out := run(t, dir, "sync")
+		if !strings.Contains(out, "Antigravity truncates a rules file over 24,000 bytes; split the rule") {
+			t.Errorf("sync did not report the expanded memory rule size: %s", out)
+		}
+		body, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "antigravity-memory-index.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), "@[Project memory](") || len(body) >= 24000 {
+			t.Errorf("sync must preserve the native include rather than inline the index: %s", body)
+		}
+	})
+
 	repoMode, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-repo", "agnostic-ai.local.yaml"))
 	if err != nil {
 		t.Fatal(err)
