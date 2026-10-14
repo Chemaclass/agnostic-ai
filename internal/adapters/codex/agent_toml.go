@@ -280,6 +280,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	noteUnsupportedCodexEffort(agents)
 	var droppedAgentTools []spec.Entry
 	inertSandboxModes := 0
+	inertSessionSettings := map[string]int{}
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
 		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
@@ -291,10 +292,20 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		if agentSandboxMode(a) != "" {
 			inertSandboxModes++
 		}
+		custom, _ := a.Meta["x-codex"].(map[string]any)
+		for _, key := range []string{"approval_policy", "model_provider", "mcp_servers"} {
+			if custom[key] != nil {
+				inertSessionSettings[key]++
+			}
+		}
 	}
 	// The key stays for Codex releases before rust-v0.155.0, which still honor it.
 	emit.NoteFieldNoOp(target, spec.KindAgent, "sandbox_mode", inertSandboxModes,
 		"`readonly: true` also writes it; since openai/codex#39299 an agent keeps the parent session's sandbox, so set sandbox_mode in config.toml instead")
+	for _, key := range []string{"approval_policy", "model_provider", "mcp_servers"} {
+		emit.NoteFieldNoOp(target, spec.KindAgent, key, inertSessionSettings[key],
+			"an agent keeps the parent session's setting; configure it in the parent session instead")
+	}
 	emit.NoteAgentToolsNoOp(target, droppedAgentTools,
 		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 	return nil
