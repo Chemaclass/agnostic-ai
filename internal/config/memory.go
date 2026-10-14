@@ -3,12 +3,12 @@ package config
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 // Values memory.personal accepts.
@@ -47,15 +47,15 @@ func validateMemory(m MemoryConfig, base map[string]any, basePath, source string
 }
 
 func inheritPersonalMemory(cfg *Config, root string) (string, error) {
-	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-prefix").Output()
+	layout, err := gitquery.LayoutAt(root)
 	if err != nil {
 		return "", nil
 	}
-	parts := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
-	if len(parts) != 3 || strings.TrimSpace(parts[0]) == strings.TrimSpace(parts[1]) || filepath.Base(strings.TrimSpace(parts[1])) != ".git" {
+	gitDir, common := strings.TrimSpace(layout.GitDir), strings.TrimSpace(layout.CommonDir)
+	if gitDir == common || filepath.Base(common) != ".git" {
 		return "", nil
 	}
-	path := filepath.Join(filepath.Dir(strings.TrimSpace(parts[1])), filepath.FromSlash(strings.TrimSpace(parts[2])), LocalOverrideFileName)
+	path := filepath.Join(filepath.Dir(common), filepath.FromSlash(strings.TrimSpace(layout.Prefix)), LocalOverrideFileName)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return "", nil
 	} else if err != nil {

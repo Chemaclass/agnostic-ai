@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 // ProjectMemoryIndexPath is the project-relative index of the shared
@@ -50,7 +50,7 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if !cfg.RepoPersonalMemory() {
 		return filepath.Join(root, filepath.Dir(filepath.FromSlash(PersonalMemoryIndexPath))), nil
 	}
-	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+	layout, err := gitquery.LayoutAt(root)
 	if err != nil {
 		return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
 	}
@@ -58,7 +58,7 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("memory.personal: repo: %w", err)
 	}
-	return filepath.Join(stores, RepoSlug(strings.TrimSpace(string(out)))), nil
+	return filepath.Join(stores, RepoSlug(strings.TrimSpace(layout.CommonDir))), nil
 }
 
 // MainCheckout returns the root of the repository's main checkout and
@@ -70,17 +70,12 @@ func MainCheckout() (root, project string, ok bool) {
 }
 
 func MainCheckoutAt(projectRoot string) (root, project string, ok bool) {
-	out, err := exec.Command("git", "-C", projectRoot, "rev-parse", "--path-format=absolute", "--git-common-dir", "--show-prefix").Output()
-	if err != nil {
+	layout, err := gitquery.LayoutAt(projectRoot)
+	if err != nil || filepath.Base(layout.CommonDir) != ".git" {
 		return "", "", false
 	}
-	common, prefix, _ := strings.Cut(strings.TrimRight(string(out), "\r\n"), "\n")
-	common = strings.TrimSuffix(common, "\r")
-	if filepath.Base(common) != ".git" {
-		return "", "", false
-	}
-	root = filepath.Dir(common)
-	return root, filepath.Join(root, filepath.FromSlash(strings.TrimSuffix(prefix, "\r"))), true
+	root = filepath.Dir(layout.CommonDir)
+	return root, filepath.Join(root, filepath.FromSlash(layout.Prefix)), true
 }
 
 // MemorySeed asks sync to copy the facts in From into the personal store

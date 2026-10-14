@@ -120,13 +120,13 @@ A project `agnostic-ai sync` adds `.agnostic-ai/local/` to the ignore file. With
 
 Open the other tool and say "resume the handoff" or "continue where Codex left off". The skill finds notes for the current branch in the shared store, the checkout store, and the old `HANDOFF.md`, choosing the newest match. It reports the goal and next steps, then checks the branch, HEAD, and working changes against Git. Unexpected drift needs confirmation before continuing.
 
-From the main checkout, ask to resume a named branch. If no note matches the current branch, the skill lists local task headers and asks which to resume. A missing worktree appears as removed; its note stays available. A tool in that task's live worktree can resume its matching note without a branch mismatch prompt.
+From the main checkout, ask to resume a named branch. If no note matches the current branch, the skill lists local task headers and asks which to resume; `agnostic-ai handoff list` shows the same tasks from a terminal. A missing worktree appears as removed; its note stays available. A tool in that task's live worktree can resume its matching note without a branch mismatch prompt.
 
 The old `.agnostic-ai/local/HANDOFF.md` and `HANDOFF.auto.md` still work. The skill finds matching automatic snapshots in the shared store, the checkout store, and the legacy path. When the newest snapshot is newer than the manual note, it adds that Git evidence while keeping the manual goal, next steps, status, and PR. A shared snapshot survives removal of its worktree.
 
 ## Limits and overrides
 
-Handoffs stay on one machine. The shared store reaches linked worktrees of that repository, but is ignored by Git and does not reach teammates. A fallback note stays in its checkout. Listing task handoffs uses the skill; there is no separate list command.
+Handoffs stay on one machine. The shared store reaches linked worktrees of that repository, but is ignored by Git and does not reach teammates. A fallback note stays in its checkout. To see every saved task across worktrees, run [`agnostic-ai handoff list`](@/docs/cli-reference/maintain.md#handoff-list).
 
 To replace the built-in, create your own skill named `handoff` in the project. `agnostic-ai list` shows which one wins. If a global built-in clashes with your project skill, rename yours or turn the built-in off in the global config.
 
