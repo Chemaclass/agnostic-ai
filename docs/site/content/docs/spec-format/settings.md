@@ -23,6 +23,8 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 - **One default model.** Set it per tool with a fallback, since model names differ between vendors.
 - **Tool-only keys.** An `x-<target>` block merges into that tool's own settings file.
 
+Ellipsis reads no portable settings field. Its reviewer, pull request filters, posting rules, and budget are written under `x-ellipsis` in a settings spec, and sync copies them into `.ellipsis/code-review.yaml`. See [Ellipsis](@/docs/targets/ellipsis.md).
+
 OpenCode V2 MCP imports use `x-opencode.mcp` to retain native connection details, disabled states, OAuth settings and separate timeouts. Keep this target-specific configuration in a settings spec instead of portable MCP specs for OpenCode. See [OpenCode](@/docs/targets/opencode.md).
 
 Start with the commands and paths a task needs, then check what each tool can enforce. Use narrow permission patterns and a per-tool model when model names differ. The support tables below explain which settings are written and which are left out.
@@ -211,7 +213,7 @@ Every other target takes neither. A field a tool cannot hold raises a sync note,
 
 ## Target-specific keys
 
-Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
+Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Ellipsis reads only this block, and a later spec wins key by key (see [Ellipsis](@/docs/targets/ellipsis.md#how-specs-map-to-the-file)). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
 
 When agnostic-ai also writes the same key:
 

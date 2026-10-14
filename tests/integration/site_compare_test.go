@@ -41,6 +41,13 @@ var compareKindDirs = map[string]string{
 	"ignore":      "ignore",
 }
 
+// compareCompanions names the extra sample folders a target needs to write
+// anything for a kind. Ellipsis renders a review only with the settings spec
+// that names its reviewer.
+var compareCompanions = map[string]map[string][]string{
+	"ellipsis": {"reviews": {"settings"}},
+}
+
 type capabilityData struct {
 	Features []struct {
 		ID string `toml:"id"`
@@ -253,6 +260,9 @@ func syncCompareSample(t *testing.T, fixture, target, kindDir string) map[string
 	copyCompareFile(t, filepath.Join(fixture, "AGNOSTIC_AI.md"), filepath.Join(source, "AGNOSTIC_AI.md"))
 	if kindDir != "" {
 		copyLandingFixture(t, filepath.Join(fixture, kindDir), filepath.Join(source, kindDir))
+		for _, companion := range compareCompanions[target][kindDir] {
+			copyLandingFixture(t, filepath.Join(fixture, companion), filepath.Join(source, companion))
+		}
 	}
 	config := fmt.Sprintf("version: 1\ntargets:\n  - %s\n", target)
 	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(config), 0o644); err != nil {

@@ -260,4 +260,7 @@
 # Codex overlays in place. Same Linux amd64 release flags; retain the
 # 8 KB allowance.
 # Combined with #2183, #2186 measured 19697824; retain the 8 KB allowance.
-19706016
+# #2187 measured 19738784 on Go1.27.2, up 40960 from main fbcf93e5
+# (19697824): the Ellipsis review target, its import, and the x-ellipsis
+# settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
+19746976

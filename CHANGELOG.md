@@ -94,6 +94,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Load shared memory through a Devin CLI session-start hook with an explicit POSIX launcher and timeout; retain the rule fallback (#2106).
 - Explain Devin's discovery of shared agent profiles without assuming a matching Devin copy or promising that target scoping prevents discovery (#2084).
 
+#### Ellipsis
+
+- Add the opt-in `ellipsis` target: review specs and an `x-ellipsis` settings block write `.ellipsis/code-review.yaml`; `import ellipsis` reads a hand-written one (#2187).
+
 ### Site
 
 - Use the current Antigravity app name and explain that OpenCode V2 no longer reads the Claude instructions fallback (#2159).

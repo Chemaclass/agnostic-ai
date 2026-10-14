@@ -4,7 +4,7 @@ accent_title = "Every AI CLI"
 body = "Keep agents, skills, rules, hooks, and MCP servers in **one portable source**. agnostic-ai writes each tool's native files and checks them for drift."
 primary_label = "Install and start"
 secondary_label = "Try in the browser"
-facts = "25 targets. 10 portable spec kinds. Byte-stable output."
+facts = "26 targets. 10 portable spec kinds. Byte-stable output."
 install_label = "Recommended installer"
 install_link_label = "All install options"
 

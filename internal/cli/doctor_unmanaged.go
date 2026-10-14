@@ -46,6 +46,7 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{".opencode/skills/*/SKILL.md", "opencode"},
 	{".github/agents/*.md", "copilot"},
 	{".github/skills/*/SKILL.md", "copilot"},
+	{".ellipsis/code-review.yaml", "ellipsis"},
 	// Amp stopped reading this directory, and sync stopped writing it
 	// (#727). Kept so a project that never migrated is told its leftover
 	// command files are worth importing rather than losing.

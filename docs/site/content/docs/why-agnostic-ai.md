@@ -43,7 +43,7 @@ Hooks differ the same way. The event before a tool call is `PreToolUse` in Claud
 ## What agnostic-ai does
 
 - **One source.** Plain Markdown and YAML in `.agnostic-ai/`, committed with your code.
-- **Each tool's own format.** `sync` writes each tool's own files for [25 targets](@/docs/targets/_index.md), `AGENTS.md` included.
+- **Each tool's own format.** `sync` writes each tool's own files for [26 targets](@/docs/targets/_index.md), `AGENTS.md` included.
 - **An automated check.** [`sync --check`](@/docs/ci.md) fails the build when a generated file differs from its spec.
 - **Easy to adopt.** [`init --from all`](@/docs/migration.md) imports the config you already have and keeps its behavior.
 - **Safe on shared files.** Sync keeps your hand-written keys in files such as `.claude/settings.json`, and [`revert`](@/docs/cli-reference/maintain.md#revert) undoes a `sync --backup`.

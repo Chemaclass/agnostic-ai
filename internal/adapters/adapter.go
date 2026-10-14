@@ -22,6 +22,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/ellipsis"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/external"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
@@ -878,6 +879,7 @@ var registry = map[string]Adapter{
 	"openhands":   openhands.New(),
 	"factory":     factory.New(),
 	"kilo":        kilo.New(),
+	"ellipsis":    ellipsis.New(),
 }
 
 // Get returns the adapter registered under name. Lookup is restricted to

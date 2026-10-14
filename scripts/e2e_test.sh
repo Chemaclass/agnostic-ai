@@ -114,6 +114,69 @@ function test_import_rejects_an_emit_only_target() {
   assert_contains "AAI-202" "$("$BIN" import jules 2>&1)"
 }
 
+# ---- ellipsis code review ----------------------------------------------------
+
+# A project with one root review, one review scoped to services/api, and one
+# explicitly configured reviewer: the acceptance scenario of #2187.
+function ellipsis_project() {
+  rm -rf .agnostic-ai/reviews .agnostic-ai/settings .agnostic-ai/.sync-state
+  mkdir -p .agnostic-ai/reviews/services/api .agnostic-ai/settings
+  printf 'version: 1\ntargets: [ellipsis]\ngitignore:\n  enabled: false\n' > agnostic-ai.yaml
+  printf -- '---\nname: general\n---\n\nFlag handlers that query the database directly.\n' > .agnostic-ai/reviews/general.md
+  printf -- '---\nname: contracts\n---\n\nReject a change that renames a public response field.\n' > .agnostic-ai/reviews/services/api/contracts.md
+  printf 'x-ellipsis:\n  reviewer:\n    name: project-review\n    claude_code:\n      model: claude-opus-5-5\n' > .agnostic-ai/settings/ellipsis.yaml
+}
+
+function test_ellipsis_plans_then_writes_root_and_scoped_guidance() {
+  ellipsis_project
+  assert_contains ".ellipsis/code-review.yaml" "$("$BIN" sync --plan --json 2>&1)"
+  assert_same "no" "$([[ -e .ellipsis ]] && echo yes || echo no)"
+
+  "$BIN" sync >/dev/null 2>&1
+  local file
+  file="$(cat .ellipsis/code-review.yaml)"
+  assert_contains "Flag handlers that query the database directly." "$file"
+  assert_contains "changes a file under \`services/api/\`" "$file"
+  assert_contains "Reject a change that renames a public response field." "$file"
+  "$BIN" sync --check >/dev/null 2>&1
+  assert_successful_code
+}
+
+function test_ellipsis_check_fails_after_a_source_edit_until_sync() {
+  ellipsis_project
+  "$BIN" sync >/dev/null 2>&1
+  printf '\nAlso check error handling.\n' >> .agnostic-ai/reviews/services/api/contracts.md
+  "$BIN" sync --check >/dev/null 2>&1
+  assert_general_error
+  "$BIN" sync >/dev/null 2>&1
+  "$BIN" sync --check >/dev/null 2>&1
+  assert_successful_code
+}
+
+function test_ellipsis_without_a_reviewer_writes_no_file_and_names_the_fix() {
+  ellipsis_project
+  rm .agnostic-ai/settings/ellipsis.yaml
+  assert_contains "x-ellipsis.reviewer" "$("$BIN" sync 2>&1)"
+  assert_same "no" "$([[ -e .ellipsis/code-review.yaml ]] && echo yes || echo no)"
+}
+
+function test_ellipsis_import_of_a_hand_written_file_syncs_without_drift() {
+  ellipsis_project
+  rm -rf .agnostic-ai/reviews .agnostic-ai/settings
+  mkdir -p .ellipsis
+  printf 'ellipsis:\n  kind: code_review\n  name: code-review\nreviewers:\n  - name: bugs\n    claude_code:\n      prompt: Find bugs in this pull request.\n      model: claude-opus-5-5\noutput:\n  on_fail: request_changes\n' > .ellipsis/code-review.yaml
+  "$BIN" import ellipsis >/dev/null 2>&1
+  "$BIN" sync >/dev/null 2>&1
+  "$BIN" sync --check >/dev/null 2>&1
+  assert_successful_code
+  assert_contains "on_fail: request_changes" "$(cat .ellipsis/code-review.yaml)"
+  "$BIN" import ellipsis >/dev/null 2>&1
+  "$BIN" sync --check >/dev/null 2>&1
+  assert_successful_code
+  "$BIN" lint >/dev/null 2>&1
+  assert_successful_code
+}
+
 # ---- malformed specs ---------------------------------------------------------
 
 function test_unterminated_frontmatter_is_rejected_by_lint() {

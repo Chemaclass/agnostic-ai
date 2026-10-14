@@ -101,6 +101,12 @@ cursor	docs	https://cursor.com/docs/skills	200	reader-proxy	18e2faf801bfd5bd8c8d
 cursor	docs	https://cursor.com/docs/subagents	200	reader-proxy	34420a18c8e8798342ebe0d88895930b651710d848c577ffd2ecf8533f7d7f29	2026-10-10
 cursor	docs	https://cursor.com/help/customization/skills.md	200	markdown-mirror	7d551fc7939d4632228c7f178f89475113a1ad503000f890271ee95a4aee3a49	2026-09-25
 cursor	schema	https://cursor.com/schemas/environment.schema.json	200	schema-keys	e57e64bf2d517e0b5811a15752c2dcbfb3f9989044664fb9750639cc805e52d9	2026-09-30
+ellipsis	changelog	https://github.com/ellipsis-dev/cli/releases	200	github-api	ceaab93dfb0febd08eeee25d7da234a9e6de49173046cb5f038cb65af1f12016	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/agents/triggers.md	200	markdown-mirror	23cbf60ea6387818428c2033e697771b6a5ee472a63adc8e004e88b12e79b328	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/code-review.md	200	markdown-mirror	14023cc2d7ba958d8640903c49b0d42de8eb74d6051cb8ed3ccf69df4ffbb272	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/code-review/schema.md	200	markdown-mirror	71b12f68e8b0d91a219b641b26a8571bff4f5f67db64c6464daeb359a0877b55	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/models.md	200	markdown-mirror	bf435b8d6e6e6dfcf30b2ec409e81f6aabcf11909552b8a2ff53b6d326c0132d	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/permissions.md	200	markdown-mirror	62e736490321e98519cf1c7b5d4ab13fc26fc0787dbe6f5955fcb1f867a5943a	2026-10-14
 factory	changelog	https://docs.factory.com/changelog/release-notes.md	200	markdown-mirror	6fe95d7c9eeec4233284a19c9a6427108943e887146c4997f44b5abb8eb7e205	2026-10-13
 factory	docs	https://docs.factory.com/	200	html	640af5233d4818f2bd68dbe238ae6c2872dd2fba0d37691bbcf4adcb88eea0a1	2026-10-04
 factory	docs	https://docs.factory.com/autonomy-and-safety/sandbox.md	200	markdown-mirror	fd25fcd53c06a1f64ec4e0d83eb3b97e7d23a17e832a991c59c262b222631c2c	2026-10-04
