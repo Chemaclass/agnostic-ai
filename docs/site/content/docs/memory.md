@@ -121,7 +121,7 @@ Every tool reads personal memory, so the dry run lists each fact with its descri
 
 ### Each tool's own memory {#each-tools-own-memory}
 
-Your tool's own memory can stay on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
+Keep your tool's own memory on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
 
 | Tool | Its own memory | Default |
 | --- | --- | --- |
@@ -138,8 +138,6 @@ Your tool's own memory can stay on. Shared memory adds what none of them gives a
 | Jules | Memory in the Jules cloud for each repository | Not documented (repository settings) |
 | Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |
 | Cursor | None documented | Not applicable |
-
-To keep one store instead, turn a tool's memory off with the setting the Default column names, where there is one.
 
 ## Share personal memory across worktrees {#one-store-per-repository}
 
