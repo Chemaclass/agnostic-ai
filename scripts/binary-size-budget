@@ -243,4 +243,4 @@
 # (19611808): OpenCode permission keys are claimed per tool, and a
 # replaced hand key is backed up. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19624000
+19624096
