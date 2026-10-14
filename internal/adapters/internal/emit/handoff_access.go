@@ -357,8 +357,8 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 		}
 		return "", "", nil
 	}
-	if unsafe := handoffGlobCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
-		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains glob characters and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir)))
+	if unsafe := patternCharacters(target); unsafe != "" && strings.ContainsAny(dir, unsafe) {
+		NoteProject(fmt.Sprintf("%s: shared handoff store %s contains pattern characters (%s) and cannot be granted safely; use an ignored checkout store", target, filepath.ToSlash(dir), unsafe))
 		return "", "", nil
 	}
 	if !s.HandoffConfigWritable(cfg, path, target) {
@@ -380,19 +380,6 @@ func (s *Session) HandoffAccess(cfg *config.Config, path, target, key string, dr
 		return "", "", err
 	}
 	return filepath.ToSlash(dir), "", nil
-}
-
-// handoffGlobCharacters lists the characters that would turn the main
-// checkout path into a broader pattern in a target whose grant is a glob.
-// Devin also reads `)` as the end of its `Write(` rule.
-func handoffGlobCharacters(target string) string {
-	switch target {
-	case "opencode":
-		return "*?[]{}"
-	case "windsurf":
-		return "*?[]{}()"
-	}
-	return ""
 }
 
 // handoffNativeEntry spells the grant the way the target's config holds it.

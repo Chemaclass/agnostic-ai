@@ -402,3 +402,31 @@ func AppendMemoryBlock(body, block string) string {
 func StripMemoryBlock(body string) string {
 	return stripMarkedBlock(body, MemoryStartMarker, MemoryEndMarker)
 }
+
+// PersonalMemoryGrantable reports whether dir can go into a pattern in
+// target's config, such as a write grant or an OpenCode instructions
+// entry. A path with a pattern character would match more or less than
+// the folder, so it is left out and a note names consequence.
+func PersonalMemoryGrantable(target, dir, consequence string) bool {
+	unsafe := patternCharacters(target)
+	if unsafe == "" || !strings.ContainsAny(dir, unsafe) {
+		return true
+	}
+	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains pattern characters (%s), so sync writes no write grant for it; %s. Move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir), unsafe, consequence))
+	return false
+}
+
+// patternCharacters lists the characters that would turn a path into a
+// broader pattern in a target whose grant is a glob. OpenCode escapes
+// every regex character in a pattern and reads only `*` and `?` as
+// wildcards (util/wildcard.ts). Devin and Cursor also read `)` as the end
+// of their `Write(` rule.
+func patternCharacters(target string) string {
+	switch target {
+	case "opencode":
+		return "*?"
+	case "windsurf", "cursor":
+		return "*?[]{}()"
+	}
+	return ""
+}
