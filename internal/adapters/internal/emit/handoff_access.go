@@ -87,7 +87,9 @@ func (s *Session) HandoffConfigWritable(cfg *config.Config, path, target string)
 }
 
 func handoffConfigPathWritable(path string) bool {
-	// The output belongs to the current checkout, not the main checkout.
+	if !handoffConfigAncestorsWritable(path) {
+		return false
+	}
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return false
@@ -96,14 +98,6 @@ func handoffConfigPathWritable(path string) bool {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return false
-	}
-	for p := abs; !SamePath(p, root); p = filepath.Dir(p) {
-		if info, err := os.Lstat(p); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			return false
-		}
-		if filepath.Dir(p) == p {
-			return false
-		}
 	}
 	rel, err := filepath.Rel(realPath(root), realPath(abs))
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -124,6 +118,36 @@ func handoffConfigPathWritable(path string) bool {
 		PriorOutputSum != nil && PriorOutputSum(path) != ""
 }
 
+func handoffConfigAncestorsWritable(path string) bool {
+	if CheckScopePath(path) != nil {
+		return false
+	}
+	root, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	root = filepath.Clean(root)
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(root, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		root = realPath(root)
+		rel, err = filepath.Rel(root, abs)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return false
+		}
+	}
+	for p := filepath.Join(root, rel); p != root; p = filepath.Dir(p) {
+		info, err := os.Lstat(p)
+		if err != nil && !os.IsNotExist(err) || err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string) (bool, error) {
 	claims := priorMergedKeys(path)
 	sum := ""
@@ -136,7 +160,11 @@ func (s *Session) PreserveHandoffConfig(cfg *config.Config, path, target string)
 	var data []byte
 	var err error
 	info, statErr := os.Lstat(path)
-	link := statErr == nil && info.Mode()&os.ModeSymlink != 0
+	missing := os.IsNotExist(statErr)
+	if missing && handoffConfigAncestorsWritable(path) {
+		return false, nil
+	}
+	link := missing || statErr == nil && info.Mode()&os.ModeSymlink != 0
 	if link {
 		if destination, statErr := os.Stat(path); statErr != nil {
 			err = statErr
