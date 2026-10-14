@@ -12,6 +12,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - A no-op sync changes only the timestamp in `.sync-state`, and the change summary names only specs a configured target emits (#2183).
 - `import --dry-run` matches the real import, and `import` treats frontmatter that parses the same as unchanged (#2181, #2182).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` (#2127).
+- `lint` reports a top-level key written twice in a spec (LINT046); delete the repeated lines, as 0.83.0 imports left `workspaces` twice (#2202).
 
 ### By tool
 
@@ -55,6 +56,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Cursor
 
 - A personal memory folder path with pattern characters gets no `Write` rule in `cli.json`, and sync says so (#2171).
+- `import cursor` keeps a skill's `workspaces` as written when it matches the native copies, and replaces the key instead of adding another (#2202).
 
 #### Copilot
 

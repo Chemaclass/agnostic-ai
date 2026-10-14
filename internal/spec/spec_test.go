@@ -12,10 +12,11 @@ import (
 
 func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
 	t.Parallel()
-	meta, keys, _, body, err := splitFrontmatter([]byte("hello world"))
+	front, body, err := splitFrontmatter([]byte("hello world"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	meta, keys := front.meta, front.keys
 	if len(meta) != 0 {
 		t.Fatalf("expected empty meta, got %v", meta)
 	}
@@ -30,10 +31,11 @@ func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
 func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
 	t.Parallel()
 	input := []byte("---\nname: foo\ndescription: bar\n---\nbody here\n")
-	meta, keys, _, body, err := splitFrontmatter(input)
+	front, body, err := splitFrontmatter(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	meta, keys := front.meta, front.keys
 	if meta["name"] != "foo" {
 		t.Fatalf("expected name=foo, got %v", meta["name"])
 	}
@@ -48,10 +50,11 @@ func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
 func TestSplitFrontmatter_EmptyMeta(t *testing.T) {
 	t.Parallel()
 	input := []byte("---\n---\nbody only\n")
-	meta, _, _, body, err := splitFrontmatter(input)
+	front, body, err := splitFrontmatter(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	meta := front.meta
 	if len(meta) != 0 {
 		t.Fatalf("expected empty meta, got %v", meta)
 	}
@@ -63,7 +66,7 @@ func TestSplitFrontmatter_EmptyMeta(t *testing.T) {
 func TestSplitFrontmatter_MalformedYAML(t *testing.T) {
 	t.Parallel()
 	input := []byte("---\n: : :\n---\nbody\n")
-	if _, _, _, _, err := splitFrontmatter(input); err == nil {
+	if _, _, err := splitFrontmatter(input); err == nil {
 		t.Fatal("expected error on malformed yaml")
 	}
 }
@@ -749,5 +752,46 @@ func TestLoadAll_ListsTheFilesOfAFolderSkill(t *testing.T) {
 	}
 	if want := []string{"SKILL.md"}; !slices.Equal(got["beta"], want) {
 		t.Errorf("beta files = %v, want %v", got["beta"], want)
+	}
+}
+
+// A key written twice in one frontmatter block keeps its last value, and
+// the entry names the key so lint can report it (#2202).
+func TestParseMarkdownBytes_RecordsRepeatedFrontmatterKeys(t *testing.T) {
+	t.Parallel()
+	e, err := ParseMarkdownBytes(KindSkill, []byte("---\nname: web\nworkspaces: [apps/web]\ndescription: Web.\nworkspaces: [apps/api]\nname: web\nworkspaces: [apps/web]\n---\nBody.\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"workspaces", "name"}; !slices.Equal(e.DuplicateKeys, want) {
+		t.Errorf("DuplicateKeys = %v, want %v", e.DuplicateKeys, want)
+	}
+	if want := []string{"name", "workspaces", "description"}; !slices.Equal(e.MetaKeys, want) {
+		t.Errorf("MetaKeys = %v, want %v", e.MetaKeys, want)
+	}
+	if got := e.Meta["workspaces"].([]any); len(got) != 1 || got[0] != "apps/web" {
+		t.Errorf("workspaces = %v, want the last value", got)
+	}
+}
+
+func TestParseYAMLBytes_RecordsRepeatedKeys(t *testing.T) {
+	t.Parallel()
+	e, err := ParseYAMLBytes(KindHook, []byte("event: PostToolUse\ncommand: a\ncommand: b\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"command"}; !slices.Equal(e.DuplicateKeys, want) {
+		t.Errorf("DuplicateKeys = %v, want %v", e.DuplicateKeys, want)
+	}
+}
+
+func TestParseMarkdownBytes_LeavesDuplicateKeysEmptyWhenEachKeyIsOnce(t *testing.T) {
+	t.Parallel()
+	e, err := ParseMarkdownBytes(KindSkill, []byte("---\nname: web\ndescription: Web.\nx-claude:\n  model: a\n  other: b\nx-codex:\n  model: c\n---\nBody.\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(e.DuplicateKeys) != 0 {
+		t.Errorf("DuplicateKeys = %v, want none", e.DuplicateKeys)
 	}
 }
