@@ -6,8 +6,10 @@
 // text file (a .delta part, moved words inside [-...-] and {+...+}). For
 // each claim it scores the target's other claims and the text's lines with
 // the claim as the query, and prints "id, claim line, rank, probability"
-// when the best moved line ranks within -top. The other claims are the
+// when the best moved line ranks within the cut. The other claims are the
 // baseline a moved line must beat: a .delta part is often a single line.
+// The cut is -top, or one line in five for a target with few claims, so
+// unrelated text cannot outrank them all by default.
 package main
 
 import (
@@ -49,6 +51,7 @@ func run(in io.Reader, out io.Writer, top int) error {
 			return err
 		}
 		moved := movedLines(text)
+		cut := min(top, (nonBlank(claims)+5)/5)
 		for i, claim := range claims {
 			if strings.TrimSpace(claim) == "" {
 				continue
@@ -57,7 +60,7 @@ func run(in io.Reader, out io.Writer, top int) error {
 			if err != nil {
 				return err
 			}
-			if rank == 0 || rank > top {
+			if rank == 0 || rank > cut {
 				continue
 			}
 			if _, err := fmt.Fprintf(w, "%s\t%d\t%d\t%.2f\n", f[0], i+1, rank, p); err != nil {
@@ -69,6 +72,16 @@ func run(in io.Reader, out io.Writer, top int) error {
 		return err
 	}
 	return w.Flush()
+}
+
+func nonBlank(lines []string) int {
+	n := 0
+	for _, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			n++
+		}
+	}
+	return n
 }
 
 func readLines(path string) ([]string, error) {

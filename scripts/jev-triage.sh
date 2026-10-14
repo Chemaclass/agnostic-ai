@@ -17,11 +17,12 @@
 # still writes the pages' lexical leads: claims that share a path, key, or
 # term with the page's moved words.
 #
-# When Jev does not run, trim-1 (scripts/trim-leads, its own Go module) adds
-# a second offline source: for each claim, it ranks the page's moved lines
-# against the target's other claims, and a moved line in the top
-# JEV_TRIM_TOP makes a lead. If Go or the helper fails, the run keeps the
-# lexical leads and says so once.
+# When Jev does not run, or leaves a page part unjudged, trim-1
+# (scripts/trim-leads, its own Go module) adds a second offline source: for
+# each claim, it ranks the part's moved lines against the target's other
+# claims, and a moved line in the top JEV_TRIM_TOP, or the top fifth for a
+# target with few claims, makes a lead. If Go or the helper fails, the run
+# keeps the lexical leads and says so once.
 #
 # Output: <run dir>/triage.tsv, one row per lead, likeliest drift first:
 #   target, url, delta path, claim, verdict, probability, p_contradicts, via
@@ -57,7 +58,7 @@
 #   JEV_TRIES               attempts per request on 429, 5xx, or no answer, default 3
 #   JEV_BACKOFF             seconds times attempt between retries, default 2
 #   JEV_TARGET_FACTS        claim source, default scripts/target-facts.sh
-#   JEV_TRIM_TOP            rank a moved line needs for a trim-1 lead, default 10
+#   JEV_TRIM_TOP            rank a moved line needs for a trim-1 lead, default 5
 #   JEV_TRIM_HELPER         prebuilt scripts/trim-leads binary; default go run
 #
 # Portable: bash 3.2 + awk + curl + jq; Go for the trim-1 leads. No GNU-only
@@ -80,7 +81,7 @@ JEV_SURFACE_MIN="${JEV_SURFACE_MIN:-0.5}"
 JEV_CLEAR_SURFACE="${JEV_CLEAR_SURFACE:-0.1}"
 JEV_TRIES="${JEV_TRIES:-3}"
 JEV_BACKOFF="${JEV_BACKOFF:-2}"
-JEV_TRIM_TOP="${JEV_TRIM_TOP:-10}"
+JEV_TRIM_TOP="${JEV_TRIM_TOP:-5}"
 JEV_LEXICAL=0
 JEV_SURFACE_CLAIM="changes a project-scoped config surface (file path, frontmatter field, MCP key, hook event, spec directory)"
 TAB=$(printf '\t')
@@ -266,8 +267,8 @@ jev_pair() {
 
 # jev_trim <jobs> <out> runs the trim-1 helper over jobs of "id\tclaims
 # file\ttext file" and writes "id\tclaim line\trank\tprobability" for each
-# claim whose best moved line ranks within JEV_TRIM_TOP. On failure it
-# prints why and returns 1.
+# claim whose best moved line ranks within JEV_TRIM_TOP, or the top fifth
+# for a target with few claims. On failure it prints why and returns 1.
 jev_trim() {
   local jobs="$1" out="$2" code=0 why
   if [ -n "${JEV_TRIM_HELPER:-}" ]; then
@@ -571,10 +572,8 @@ jev_triage() {
     [ -f "$work/claims/$target" ] || jev_claims "$target" >"$work/claims/$target"
     jev_pair "$work/claims/$target" "$file" "$target" >"$work/lex/$unit"
     printf '%s\t%s\t%s\n' "$target" "$url" "$delta" >"$work/lex/$unit.meta"
-    if [ -n "$reason" ]; then
-      printf '%s\t%s\t%s\n' "$unit" "$work/claims/$target" "$file" >>"$work/trim.jobs"
-      continue
-    fi
+    printf '%s\t%s\t%s\n' "$unit" "$work/claims/$target" "$file" >>"$work/trim.jobs"
+    [ -z "$reason" ] || continue
 
     noul=true
     total=$(grep -c . "$work/claims/$target" || true)
@@ -649,12 +648,28 @@ jev_triage() {
     done < <(head -n "$JEV_LEXICAL_LEADS" "$work/lex/$unit")
   done
 
+  # trim-1 ranks the parts Jev did not judge: every part when Jev never ran.
   local trim_ran=0 trim_why
-  if [ -s "$work/trim.jobs" ]; then
-    if trim_why=$(jev_trim "$work/trim.jobs" "$work/trim.out"); then
+  if [ "$jev_ran" = 1 ]; then
+    local job
+    while IFS= read -r job; do
+      [ ! -e "$work/unjudged.${job%%"$TAB"*}" ] || printf '%s\n' "$job"
+    done <"$work/trim.jobs" >"$work/trim.todo"
+  else
+    cp "$work/trim.jobs" "$work/trim.todo"
+  fi
+  if [ -s "$work/trim.todo" ]; then
+    if trim_why=$(jev_trim "$work/trim.todo" "$work/trim.out"); then
       trim_ran=1
       awk -F '\t' -v work="$work" '
         NF == 4 {
+          answers = work "/answered." $1
+          if (!(answers in asked)) {
+            asked[answers] = 1
+            while ((getline a < answers) > 0) { split(a, f, "\t"); answered[$1, f[1]] = 1 }
+            close(answers)
+          }
+          if (($1, $2) in answered) next
           meta = work "/lex/" $1 ".meta"
           if (!(meta in info)) { getline info[meta] < meta; close(meta) }
           split(info[meta], m, "\t")

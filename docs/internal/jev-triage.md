@@ -17,17 +17,17 @@ The skill reviews targets with a possible problem from Jev first and passes the 
 
 ## Backward compatibility
 
-Without `TYPESAFE_API_KEY`, with `--lexical`, or when the API fails, the script still exits 0. `triage.tsv` then holds possible problems found by matching words (claims that share a path, key, or term with the changed text), and every page is `lexical` or `unjudged`, so an auditor reads every changed row as before. When Jev does not run at all, trim-1 adds a second set of possible problems (see below). A page with no saved earlier copy has no change to compare, never appears in `triage-pages.tsv`, and always keeps the full review.
+Without `TYPESAFE_API_KEY`, with `--lexical`, or when the API fails, the script still exits 0. `triage.tsv` then holds possible problems found by matching words (claims that share a path, key, or term with the changed text), and every page is `lexical` or `unjudged`, so an auditor reads every changed row as before. Where Jev does not run, or leaves a page part unjudged, trim-1 adds a second set of possible problems (see below). A page with no saved earlier copy has no change to compare, never appears in `triage-pages.tsv`, and always keeps the full review.
 
 A 401, 403, no response, or exhausted retries stop further requests. Any other 4xx loses only that request's page. `JEV_MAX_REQUESTS` (default 40) caps a run; pages past the cap are `unjudged`.
 
 ## trim-1 leads without a key
 
-[trim-1](https://github.com/caveman-ai/trim-1) is a small offline model (pure Go, 1.2 MB, deterministic) that scores how much each line of a text matters to a question. When Jev does not run (no key, `--lexical`, or no `curl` or `jq`), the script runs it through `scripts/trim-leads`, a separate Go module, so the release binary never includes it.
+[trim-1](https://github.com/caveman-ai/trim-1) is a small offline model (pure Go, 1.2 MB, deterministic) that scores how much each line of a text matters to a question. When Jev does not run (no key, `--lexical`, or no `curl` or `jq`), or leaves a page part unjudged (a failed or capped request), the script runs it on those parts through `scripts/trim-leads`, a separate Go module, so the release binary never includes it.
 
-For each changed page part and each claim of its target, the helper scores the part's changed lines and the target's other claims, with the claim as the question. When a changed line ranks in the top `JEV_TRIM_TOP` (default 10), the claim becomes a row with verdict `paired`, via `trim`, and trim-1's score for that line as its probability. The target's other claims are what a changed line has to beat: most `.delta` parts are one to five lines, so ranking those lines alone would keep every claim.
+For each changed page part and each claim of its target, the helper scores the part's changed lines and the target's other claims, with the claim as the question. When a changed line ranks in the top `JEV_TRIM_TOP` (default 5), the claim becomes a row with verdict `paired`, via `trim`, and trim-1's score for that line as its probability. The target's other claims are what a changed line has to beat: most `.delta` parts are one to five lines, so ranking those lines alone would keep every claim. For a target with few claims, the cut shrinks to the top fifth of its claims, rounded up, so unrelated text cannot outrank them all: Jules has 9 claims, so its cut is 2.
 
-`triage.tsv` lists lexical rows first, then trim-1 rows by score. A page and claim pair that matched words already keeps its lexical row. Page statuses do not change: without Jev every page is `lexical`.
+`triage.tsv` lists lexical rows first, then trim-1 rows by score. A page and claim pair that matched words already keeps its lexical row, and a claim Jev answered gets no trim-1 row. Page statuses do not change.
 
 Setup: Go 1.23 or newer. The first run downloads trim-1 at the version `scripts/trim-leads/go.mod` pins, checked against `go.sum`; later runs reuse Go's caches. To skip the build on each run, build once with `go build -C scripts/trim-leads -o /some/dir/trim-leads .` and set `JEV_TRIM_HELPER` to that file. If Go is missing or the helper fails, the run keeps the lexical rows and prints one `trim-1 skipped (reason)` line.
 
@@ -108,13 +108,15 @@ Every real configuration feature scored 0.16 or more across three runs, and 12 o
 
 **Without a key, trim-1 finds drift that word matching misses.** On the 70 claim cases of 2026-10-14, with each excerpt ranked for its case claim against the target's claims:
 
-| Method, no key | Differences found (54) | Rows on unrelated text (9) |
-|---|---|---|
-| Word matching | 31 | 1 |
-| trim-1, top 10 | 44 | 3 |
-| Either | 46 | 3 |
+| Method, no key | Differences found (54) | Rows on unrelated text (9) | Rows on the 2026-10-14 audit (48 page parts) |
+|---|---|---|---|
+| Word matching | 31 | 1 | 154 |
+| trim-1, top 5 (default) | 39 | 2 | 48 more |
+| Either, top 5 | 44 | 2 | 202 |
+| Either, top 10 | 45 | 2 | 240 |
+| Random ranking, top 5 | about 8 | about 1.5 | |
 
-On the 48 changed page parts of the 2026-10-14 audit, trim-1 added 164 rows to the 154 from word matching, in about 3 seconds.
+The random row is what the cut would keep if trim-1 ranked lines at random. Top 10 found one more difference for 86 trim-1 rows instead of 48, so the default is 5. Before the cut for small targets, top 10 added 164 rows and flagged every Jules claim for a pricing sentence. A no-key run on that audit took about 3 seconds.
 
 **Real audits agreed with the manual reviews.** On the 2026-09-28 full audit, Jev's leads pointed at both confirmed findings (#1376 at `p_contradicts` 0.52 to 0.68, #1377 through a score for configuration features of 0.87), cleared kiro and junie, and the random spot check of junie came back Clean. On a Copilot page that the manual review found Clean, the word-matching pass had produced 3 stray leads and Jev none.
 
