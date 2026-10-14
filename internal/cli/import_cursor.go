@@ -165,7 +165,7 @@ func importCursorRules(root, dstDir string) (int, error) {
 		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return fmt.Errorf("%s: %w", filepath.Dir(dst), err)
 		}
-		if err := importWriteFile(dst, translated, 0o644); err != nil {
+		if err := importWriteMarkdown(dst, translated, 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++

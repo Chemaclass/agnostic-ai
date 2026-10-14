@@ -10,6 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Keep private handoffs and Git snapshots across worktrees; tools can write them, and `handoff list` shows task state and local merge suggestions (#2117).
 - Share personal memory across worktrees; mode changes copy facts into an empty store, and new projects can enable it with `init --memory` (#2104, #2109).
 - Sync keeps the facts Claude Code saved before it moved its memory; for a folder `lint` flags, run `agnostic-ai memory import` (#2100).
+- `import` leaves a spec alone when its frontmatter and body parse the same as the native copy, so a folded or quoted `description` is neither an AAI-203 conflict nor rewritten (#2182).
 - `sync --check` no longer says sync saves a `.bak` for a merged config such as `opencode.json`; it says sync keeps keys you added there and resets the ones it writes (#2176).
 - Flag hidden characters in memory files with `memory lint` (LINT044), and leave them out of the memory the session-start hook loads (#2105).
 
