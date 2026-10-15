@@ -80,7 +80,7 @@ jobs:
           packages=()
           while IFS= read -r package; do
             case "$package" in
-              "$module/tests/integration"|"$module/tests/integration/"*) ;;
+              "$module/tests/integration"|"$module/tests/integration/"*|"$module/internal/cli") ;;
               *) packages+=("$package") ;;
             esac
           done <<< "$all_packages"
@@ -109,6 +109,38 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
+
+  # internal/cli alone runs close to ten minutes under -race on macOS, so it
+  # gets its own job, split in two by test name; -skip keeps the halves
+  # complementary, so a new test lands in one of them.
+  macos-cli:
+    name: Test cli (macos-latest, ${{ matrix.shard }})
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: a-l
+            run: '^Test[A-L]'
+            skip: ''
+          - shard: m-z
+            run: ''
+            skip: '^Test[A-L]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        run: go test -vet=all -timeout=10m -count=1 -race ./internal/cli -run '${{ matrix.run }}' -skip '${{ matrix.skip }}'
 
   windows-handoffs:
     name: Test handoffs (windows-latest, ${{ matrix.suite }})
