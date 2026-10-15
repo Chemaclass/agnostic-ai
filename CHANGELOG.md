@@ -28,6 +28,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
+- An agent's `can` or `tools` list becomes its `permission` map, denying unlisted tools; names with no OpenCode key print a note (#2236).
 
 #### Kilo
 

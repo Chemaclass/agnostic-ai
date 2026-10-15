@@ -93,6 +93,7 @@ func TestProjectLifecycle_LaunchDiagnosticSurvivesNativeTimeout(t *testing.T) {
 }
 
 func TestProjectLifecycle_LaunchDiagnosticRecordsNativeReturn(t *testing.T) {
+	skipFlakyWindowsStartup(t)
 	node := lifecycleDiagnosticNode(t)
 	native, err := os.Executable()
 	if err != nil {

@@ -276,4 +276,9 @@
 # #2252 measured 19882144 on Go1.27.2, up 8192 from main 8b5ac293
 # (19873952): Copilot sets chat.useAgentsMdFile in .vscode/settings.json and notes a double load. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19890336
+# #2236 measured 19923104 on Go1.27.2, up 40960 from main b38b1b72
+# (19882144): OpenCode restricted agents replay the project rules and
+# defaults per listed tool, read back the planned opencode.json, and match
+# ask and deny rules regardless of case. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19931296
