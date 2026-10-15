@@ -191,3 +191,28 @@ func TestEntryPointRuleInliner(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderRulesAppendix_StatesGlobScope(t *testing.T) {
+	t.Parallel()
+	rule := func(name string, meta map[string]any) spec.Entry {
+		return spec.Entry{Kind: spec.KindRule, Name: name, Path: "rules/" + name + ".md", Body: "# Title\n\nbody of " + name, Meta: meta}
+	}
+	got := RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{
+		rule("js", map[string]any{"description": "Inertia React conventions.", "globs": []any{"resources/js/**"}}),
+		rule("backend", map[string]any{"globs": "app/Http/**, routes/**"}),
+		rule("always", map[string]any{"globs": "src/**", "alwaysApply": true}),
+		rule("catchall", map[string]any{"globs": "**/*"}),
+		rule("plain", nil),
+	}})
+	for _, want := range []string{
+		"### js\n\n<!-- source: rules/js.md headings: +3 -->\nApplies to: `resources/js/**`\n\n_Inertia React conventions._\n\n#### Title",
+		"### backend\n\n<!-- source: rules/backend.md headings: +3 -->\nApplies to: `app/Http/**`, `routes/**`\n\n#### Title",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("appendix missing %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count(got, "Applies to:"); n != 2 {
+		t.Errorf("want 2 scope lines, got %d:\n%s", n, got)
+	}
+}

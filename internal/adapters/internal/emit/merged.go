@@ -107,7 +107,7 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 	if len(b.Rules) > 0 {
 		sb.WriteString("## " + opts.RulesHeading + "\n\n")
 		for _, r := range b.Rules {
-			WriteSection(&sb, r.Name, r)
+			WriteInlineRule(&sb, r)
 		}
 	}
 
@@ -139,6 +139,40 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 // heading is taken as a parameter (rather than e.Name) so callers can
 // prepend a prefix like "Agent: ".
 func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
+	writeSection(sb, heading, e, "")
+}
+
+// WriteInlineRule is WriteSection for a rule inlined into a root
+// instruction file, where its globs have no file to live in. The section
+// states them in an "Applies to:" line, so a scoped rule does not read as
+// one for the whole repository.
+func WriteInlineRule(sb *strings.Builder, r spec.Entry) {
+	writeSection(sb, r.Name, r, InlineScopeLine(r))
+}
+
+// InlineScopeLine renders the "Applies to:" line for a rule whose globs
+// narrow it, or "" when the rule applies everywhere.
+func InlineScopeLine(r spec.Entry) string {
+	if always, _ := r.Meta["alwaysApply"].(bool); always {
+		return ""
+	}
+	var globs []string
+	for _, g := range spec.GlobList(r.Meta["globs"]) {
+		if !spec.IsCatchAllGlobs(g) {
+			globs = append(globs, "`"+g+"`")
+		}
+	}
+	if len(globs) == 0 {
+		return ""
+	}
+	return InlineScopePrefix + strings.Join(globs, ", ")
+}
+
+// InlineScopePrefix opens the scope line of an inlined rule section.
+// Import drops that line, since the rule's globs are not read back.
+const InlineScopePrefix = "Applies to: "
+
+func writeSection(sb *strings.Builder, heading string, e spec.Entry, scopeLine string) {
 	body, shift := e.Body, 0
 	if e.Kind == spec.KindRule || e.Kind == spec.KindSkill {
 		body, shift = markdown.NestHeadings(body, 3)
@@ -146,6 +180,9 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 	sb.WriteString("### " + heading + "\n\n")
 	if d := e.Description(); d != "" {
 		body = "_" + d + "_\n\n" + body
+	}
+	if scopeLine != "" {
+		body = scopeLine + "\n\n" + body
 	}
 	body += "\n\n"
 	sb.WriteString(BodySourceComment(EntrySourcePath(e), body, shift))

@@ -146,3 +146,15 @@ func TestSplitH2Sections_WrapperAfterAnOpenBlockStartsItsSection(t *testing.T) {
 		t.Errorf("sections = %v, want %v", slugs, want)
 	}
 }
+
+func TestSplitSectionSource_DropsInlineScopeLine(t *testing.T) {
+	t.Parallel()
+	body, shift := splitSectionSource("<!-- source: rules/js.md headings: +3 -->\nApplies to: `resources/js/**`, `app/*.ts`\n\n_Desc._\n\n#### Title\n")
+	if shift != 3 || body != "_Desc._\n\n#### Title\n" {
+		t.Errorf("got shift %d, body %q", shift, body)
+	}
+	body, _ = splitSectionSource("<!-- source: rules/x.md -->\nApplies to the whole repo.\n")
+	if body != "Applies to the whole repo.\n" {
+		t.Errorf("prose body changed: %q", body)
+	}
+}

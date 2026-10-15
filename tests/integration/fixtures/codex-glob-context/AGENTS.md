@@ -11,6 +11,8 @@ Root guidance.
 ### deploy
 
 <!-- source: .agnostic-ai/rules/deploy.md -->
+Applies to: `Dockerfile`, `scripts/*.sh`, `.kamal/**`
+
 Deployment conventions.
 
 
