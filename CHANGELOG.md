@@ -8,6 +8,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `project --bootstrap` installs bun projects with `bun install --frozen-lockfile`, and names the install to run when it cannot help (#2246).
 
+- `sync --keep-edits` no longer keeps a skill file Codex and Amp share as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+
 ### By tool
 
 #### Claude Code
