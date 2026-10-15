@@ -219,6 +219,10 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		transport = "stdio"
 	}
 	out := map[string]any{}
+	vscodeMeta := e.Meta
+	if o.vscodeExtras {
+		vscodeMeta = ResolveMeta(e.Meta, "copilot")
+	}
 
 	switch transport {
 	case "stdio":
@@ -233,7 +237,7 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		// Remote servers (HTTP/SSE) do not support envFile."
 		// cursor.com/docs/mcp.md. VS Code's own stdio field table lists
 		// envFile with no counterpart on the http/sse table. See #692.
-		if o.cursorExtras || o.vscodeExtras {
+		if o.cursorExtras {
 			if envFile := stringField(e.Meta, "envFile"); envFile != "" {
 				out["envFile"] = envFile
 			}
@@ -241,13 +245,16 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		// cwd, sandboxEnabled, and sandbox are VS Code's own stdio-only
 		// fields (target-audit 2026-09-08, #692, #2212); see WithVSCodeMCPExtras.
 		if o.vscodeExtras {
-			if cwd := stringField(e.Meta, "cwd"); cwd != "" {
+			if envFile := stringField(vscodeMeta, "envFile"); envFile != "" {
+				out["envFile"] = envFile
+			}
+			if cwd := stringField(vscodeMeta, "cwd"); cwd != "" {
 				out["cwd"] = cwd
 			}
-			if sandboxEnabled, _ := e.Meta["sandboxEnabled"].(bool); sandboxEnabled {
+			if sandboxEnabled, _ := vscodeMeta["sandboxEnabled"].(bool); sandboxEnabled {
 				out["sandboxEnabled"] = true
 			}
-			if sandbox := buildVSCodeMCPSandbox(e.Meta); len(sandbox) > 0 {
+			if sandbox := buildVSCodeMCPSandbox(vscodeMeta); len(sandbox) > 0 {
 				out["sandbox"] = sandbox
 			}
 		}
@@ -284,7 +291,7 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		// VS Code documents oauth on its http/sse table only, with no
 		// stdio counterpart. See #692.
 		if o.vscodeExtras {
-			if oauth := buildVSCodeMCPOAuth(e.Meta); len(oauth) > 0 {
+			if oauth := buildVSCodeMCPOAuth(vscodeMeta); len(oauth) > 0 {
 				out["oauth"] = oauth
 			}
 		}
@@ -376,7 +383,7 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		}
 	}
 	if o.vscodeExtras && (transport == "stdio" || transport == "http" || transport == "sse") {
-		if dev := buildVSCodeMCPDev(e.Meta, transport == "stdio"); len(dev) > 0 {
+		if dev := buildVSCodeMCPDev(vscodeMeta, transport == "stdio"); len(dev) > 0 {
 			out["dev"] = dev
 		}
 	}
