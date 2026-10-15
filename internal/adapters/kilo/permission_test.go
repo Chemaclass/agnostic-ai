@@ -55,3 +55,15 @@ func TestTranslatePermission_EditRestrictionsCoverWrite(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentPermission_KeepsAskDefaultsAfterCatchAll(t *testing.T) {
+	got, _ := agentPermission([]string{"Read"})
+	if got["*"] != "deny" || got["read"] != "allow" {
+		t.Errorf("permission = %#v", got)
+	}
+	for _, key := range []string{"doom_loop", "external_directory"} {
+		if got[key] != "ask" {
+			t.Errorf("%s = %#v, want ask", key, got[key])
+		}
+	}
+}

@@ -197,6 +197,12 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 // untranslatable keeps its default permissions rather than being locked
 // out by a bare `{"*": "deny"}` nobody asked for. unmapped reports
 // whether at least one name had no Kilo key, for the coverage note.
+//
+// The catch-all would also deny `external_directory` and `doom_loop`,
+// and agent rules override the project ones. Both default to "ask"
+// (kilo.ai/docs/getting-started/settings/auto-approving-actions, "Default
+// behavior"; app.kilo.ai/config.json types them as a rule map and an
+// action), so they go back to that default.
 func agentPermission(tools []string) (perms map[string]any, unmapped bool) {
 	allowed := map[string]any{}
 	for _, name := range tools {
@@ -224,5 +230,7 @@ func agentPermission(tools []string) (perms map[string]any, unmapped bool) {
 		return nil, unmapped
 	}
 	allowed[anyPattern] = "deny"
+	allowed["doom_loop"] = "ask"
+	allowed["external_directory"] = "ask"
 	return allowed, unmapped
 }

@@ -2,9 +2,11 @@
 description: Read source files and edit documentation.
 permission:
   "*": deny
+  doom_loop: ask
   edit:
     "*": deny
     docs/**: allow
+  external_directory: ask
   read:
     "*": deny
     src/**: allow
