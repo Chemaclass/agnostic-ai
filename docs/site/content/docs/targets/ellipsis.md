@@ -105,7 +105,7 @@ Sections follow in sorted directory order. The condition is text the model reads
 
 ## Environment and MCP servers
 
-Ellipsis starts each session from the environment the session names. A review names it with the reviewer's `environment` key, and sync sets that key to the selected environment's name. A `x-ellipsis.reviewer.environment` that names another environment stops the review file, because the specs would disagree. With no `x-ellipsis.environment`, the key passes through as written, so an environment you manage by hand still works.
+Ellipsis starts each session from the environment the session names. A review names it with the reviewer's `environment` key, and sync sets that key to the selected environment's name. A `x-ellipsis.reviewer.environment` that names another environment stops the review file, because the specs would disagree. With no `x-ellipsis.environment`, the key passes through as written, so an environment you manage by hand still works. Set `x-ellipsis.reviewer.environment: null` to keep the reviewer in Ellipsis' basic sandbox: sync then writes no `environment` key, with or without a selection.
 
 Sync writes the environment file when `x-ellipsis.environment` is set, even with no environment or MCP spec: the file then holds the repository and whatever native options you list. With no selection and no such spec, it writes nothing. With specs but no selection, it writes nothing and names the missing key. A selection with a problem writes no new environment file: a missing `name` or `repository`, an unsafe name, two sources for one script, or an output path outside `.ellipsis/`. A generated environment already deployed stays as it was, and the review keeps naming that file's environment. If a broken selection leaves several generated environment files to choose from, sync stops until the selection is repaired.
 
@@ -231,7 +231,7 @@ A hand-written `.ellipsis/environments/*.yaml` with `ellipsis.kind: environment`
 
 The environment, its servers, and its setup are scoped to `targets: [ellipsis]`, so no other tool changes. A plain `env` or `headers` value stays as written and is marked `!literal`, because Ellipsis reads every `${NAME}` as a stored secret and a missing secret fails the session. A credential becomes a `${NAME}` reference, and import prints the secret name to set in Ellipsis. A credential in a server's `url` or `args` leaves the file as written, since Ellipsis reads references in `env` and `headers` only.
 
-The next sync writes the same behavior back. Comments and key order in the hand-written files are not kept. A file that carries the generated header imports nothing, since its specs are the source.
+When the reviewer has no `environment` and an environment file imports too, import sets `x-ellipsis.reviewer.environment: null`, so the review keeps running in the basic sandbox and does not move into the imported environment. The next sync writes the same behavior back. Comments and key order in the hand-written files are not kept. A file that carries the generated header imports nothing, since its specs are the source.
 
 Import stops with a message and writes nothing when the review file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged).
 
