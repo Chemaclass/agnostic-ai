@@ -273,4 +273,7 @@
 # (19861664): the sync summary counts a shared entry-point file for each
 # target that reads it. Same Linux amd64 release flags; retain the 8 KB
 # allowance.
-19878048
+# #2250 measured 19902624 on Go1.27.2, up 28672 from main 8b5ac293
+# (19873952): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19910816
