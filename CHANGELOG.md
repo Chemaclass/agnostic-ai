@@ -8,6 +8,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - A rule's `paths` scopes it like `globs` on every tool, so Copilot and Cursor stop loading it everywhere; `validate` rejects the two if they differ (#2243).
 
+- `sync --keep-edits` no longer keeps a skill file Codex and Amp share as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+
 ### By tool
 
 #### Claude Code
