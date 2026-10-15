@@ -144,11 +144,11 @@ func TestLint_BareCapabilitiesWarnByDefaultAndFailStrict(t *testing.T) {
 	}
 }
 
-func TestLintBareCapabilities_KiloEditAskNamesWriteRestriction(t *testing.T) {
+func TestLintBareCapabilities_KiloEditAskNamesEditKey(t *testing.T) {
 	entry := spec.Entry{Kind: spec.KindSettings, Path: "settings/edit.yaml", Meta: map[string]any{"permissions": map[string]any{"ask": []any{"edit"}}}}
 	got := lintBareCapabilities([]spec.Entry{entry}, []string{"kilo"})
-	if len(got) != 1 || !strings.Contains(got[0].Message, "kilo: edit, write") {
-		t.Errorf("findings = %v, want edit and write", got)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "(kilo: edit)") {
+		t.Errorf("findings = %v, want Kilo's edit key, which its write tool also checks", got)
 	}
 }
 

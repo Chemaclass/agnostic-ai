@@ -37,6 +37,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Kilo
 
 - A restricted agent's `permission` map keeps Kilo's `ask` default for `external_directory` and `doom_loop` instead of denying them (#2239).
+- A restricted agent follows the project's and Kilo's rules inside the tools it lists: settings `bash: ask` stays `ask`, bare `Bash` asks like Kilo (#2242).
+- `Write` rules land under `edit`, the permission Kilo's write tool checks, instead of an unused `write` key (#2242).
 
 #### Factory
 

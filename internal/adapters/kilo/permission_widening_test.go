@@ -13,10 +13,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// Claude Code's Edit rules cover every tool that edits files, and Kilo
-// keeps `write` apart from `edit`. An Edit deny or ask must also land on
-// `write`, or a bare Write allow leaves the file writable. An Edit allow
-// stays on `edit`, so it grants no more than it says.
+// Kilo's write tool checks the edit permission, so Write and Edit rules
+// share the `edit` key and an Edit deny or ask also wins over a Write
+// allow.
 func TestEmit_EditDenyAlsoBlocksWrite(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	entries := []spec.Entry{
@@ -34,9 +33,11 @@ func TestEmit_EditDenyAlsoBlocksWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	permission, _ := got["permission"].(map[string]any)
+	if _, set := permission["write"]; set {
+		t.Errorf("no write key expected: %#v", permission)
+	}
 	want := map[string]map[string]any{
-		"write": {"*": "allow", "go.mod": "ask", ".env": "deny"},
-		"edit":  {"docs/*": "allow", "go.mod": "ask", ".env": "deny"},
+		"edit": {"*": "allow", "docs/*": "allow", "go.mod": "ask", ".env": "deny"},
 	}
 	for tool, patterns := range want {
 		if !reflect.DeepEqual(permission[tool], toAnyMap(patterns)) {
@@ -62,8 +63,8 @@ func TestEmit_DenyAndAskComeAfterOverlappingAllows(t *testing.T) {
 	}
 	raw := readFile(t, filepath.Join(dir, "kilo.jsonc"))
 	for tool, order := range map[string][]string{
-		"write": {`"secrets/token.txt": "allow"`, `"secrets/**": "deny"`},
-		"bash":  {`"*": "allow"`, `"git push origin": "allow"`, `"git *": "ask"`, `"git push *": "deny"`},
+		"edit": {`"secrets/token.txt": "allow"`, `"secrets/**": "deny"`},
+		"bash": {`"*": "allow"`, `"git push origin": "allow"`, `"git *": "ask"`, `"git push *": "deny"`},
 	} {
 		data := raw[strings.Index(raw, `"`+tool+`": {`):]
 		at := -1

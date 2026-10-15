@@ -192,6 +192,8 @@
 package kilo
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -288,10 +290,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := (Adapter{}).EmitAgents(sess, b.Agents, dir, dryRun); err != nil {
-		return err
-	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -310,7 +308,59 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	memory = withoutOutOfRootIndexes(memory)
-	return emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun)
+	sess.WatchPlannedFile(path)
+	if err := emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun); err != nil {
+		return err
+	}
+	// Agents go last: Kilo checks an agent's rules after the project's,
+	// so each agent is built against the permission kilo.jsonc now
+	// holds, hand-written keys included.
+	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	return emitAgents(sess, b.Agents, dir, projectPermission(sess, path, dryRun), mcpServerNames(b.MCPs), dryRun)
+}
+
+// localConfigFile is the project config Kilo merges over the root
+// kilo.jsonc. Sync never writes it, but a hand-written one still sets
+// rules agents must keep.
+var localConfigFile = filepath.Join(".kilo", "kilo.jsonc")
+
+// projectPermission returns the project permission rules in the order
+// Kilo evaluates them: kilo.jsonc as this sync leaves it (the content
+// the session planned for it, or the file on disk when it left the file
+// alone), with a hand-written .kilo/kilo.jsonc merged over it the way
+// Kilo merges project config (remeda mergeDeep in
+// packages/opencode/src/kilocode/config/config.ts). A dry run plans from
+// an empty file, so there the planned keys go over the copy on disk, as
+// the real merge would put them. The user's global
+// ~/.config/kilo/kilo.jsonc is not read.
+func projectPermission(sess *emit.Session, path string, dryRun bool) []flatRule {
+	var merged json.RawMessage
+	if data, err := os.ReadFile(path); err == nil {
+		merged, _ = permissionValue(data)
+	}
+	if content, planned := sess.PlannedFile(path); planned {
+		if raw, parsed := permissionValue([]byte(content)); parsed {
+			if dryRun {
+				raw = withKeys(merged, raw)
+			}
+			merged = raw
+		}
+	}
+	if data, err := os.ReadFile(localConfigFile); err == nil {
+		if raw, parsed := permissionValue(data); parsed {
+			merged = mergeDeep(merged, raw)
+		}
+	}
+	return permissionRules(merged)
+}
+
+// mcpServerNames lists the configured MCP servers.
+func mcpServerNames(mcps []spec.Entry) []string {
+	names := make([]string, 0, len(mcps))
+	for _, mcp := range mcps {
+		names = append(names, mcp.Name)
+	}
+	return names
 }
 
 // EmitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
@@ -319,10 +369,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // the whole batch surfaces one coverage note for those instead of a
 // silent loss.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	return emitAgents(sess, agents, dir, nil, nil, dryRun)
+}
+
+// emitAgents is EmitAgents with the project permission rules each
+// restricted agent keeps and the configured MCP servers; both may be nil.
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project []flatRule, servers []string, dryRun bool) error {
 	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		md, hadUnmapped := agentMarkdown(a)
+		md, hadUnmapped := agentMarkdown(a, project, servers)
 		if hadUnmapped {
 			unmapped = append(unmapped, a)
 		}
@@ -358,7 +414,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // unmapped reports whether the spec named at least one tool Kilo Code
 // has no permission key for, so the caller can fold those into one
 // coverage note per sync instead of losing them silently.
-func agentMarkdown(e spec.Entry) (body string, unmapped bool) {
+func agentMarkdown(e spec.Entry, project []flatRule, servers []string) (body string, unmapped bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -376,7 +432,7 @@ func agentMarkdown(e spec.Entry) (body string, unmapped bool) {
 	}
 	if !hasNativePermission(e) {
 		var permission map[string]any
-		permission, unmapped = agentPermission(emit.StringSlice(resolved["tools"]))
+		permission, unmapped = agentPermission(emit.StringSlice(resolved["tools"]), project, servers)
 		if len(permission) > 0 {
 			meta[permissionKey] = permission
 			keys = append(keys, permissionKey)
