@@ -34,6 +34,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The dropped `disable-model-invocation` note names `outputs.factory.skills-dir: .factory/skills`, needed for `x-factory` beside `.agents/skills` (#2213).
 
+#### Claude Code
+
+- `lint` warns (LINT047) when a skill or command name holds a character Claude Code refuses, such as a zero-width space or `<`, so it would never load (#2217).
+
 ## v0.84.0 - 2026-10-14
 
 ### General

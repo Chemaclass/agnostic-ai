@@ -279,6 +279,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A spec's frontmatter, or a YAML spec such as a hook or MCP server, writes one top-level key more than once. The loader keeps the last value and drops the others, so sync still works, but other YAML parsers and editors with a YAML schema reject the file. `import cursor` in 0.83.0 left a repeated `workspaces` key.",
 		Fix:      "Delete the extra lines and keep the one with the value you want. `lint --strict` fails until you do.",
 	},
+	"LINT047": {
+		Severity: lintWarn,
+		Title:    "Skill or command name Claude Code refuses",
+		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
+		Fix:      "Rename the folder or file, or edit the `name:` line, to remove the characters.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",
