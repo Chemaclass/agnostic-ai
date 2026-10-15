@@ -101,6 +101,7 @@ agnostic-ai lint --strict
 | LINT044 | Error in project memory, warning in personal memory; `lint --global` does not check it. A line in a memory index or fact file holds a character a reviewer cannot see, such as a zero-width character, a bidirectional control, or a Unicode tag. The finding names the line and the code points, never the text. [`hook memory`](@/docs/cli-reference/maintain.md#hook-memory) leaves these characters out. A zero-width joiner or non-joiner between two non-ASCII characters, as in an emoji or a Persian word, is fine. `lint --strict` fails on the warning. |
 | LINT045 | Error. `session-retention-days` must be an integer of 1 or more. Remove the field to leave native retention unchanged. |
 | LINT046 | Warning. A spec writes one top-level key more than once, in its frontmatter or in a YAML spec such as a hook or MCP server. Sync uses the last value, and other YAML parsers reject the file. `import cursor` in 0.83.0 left a repeated `workspaces`. Remove the extra lines; `lint --strict` fails until you do. |
+| LINT047 | Warning. With Claude Code enabled, a skill or command name holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words. Claude Code does not load it. The finding names the code points. Rename the folder or file, or edit `name:`. `lint --strict` fails. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either. |
 
 More warnings:
