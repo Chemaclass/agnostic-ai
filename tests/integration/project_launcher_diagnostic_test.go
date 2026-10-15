@@ -93,9 +93,7 @@ func TestProjectLifecycle_LaunchDiagnosticSurvivesNativeTimeout(t *testing.T) {
 }
 
 func TestProjectLifecycle_LaunchDiagnosticRecordsNativeReturn(t *testing.T) {
-	if runtime.GOOS == "windows" && os.Getenv("AGNOSTIC_AI_WINDOWS_STARTUP_TESTS") == "" {
-		t.Skip("first-start timing is flaky on Windows (#2120); set AGNOSTIC_AI_WINDOWS_STARTUP_TESTS=1 to run it")
-	}
+	skipFlakyWindowsStartup(t)
 	node := lifecycleDiagnosticNode(t)
 	native, err := os.Executable()
 	if err != nil {

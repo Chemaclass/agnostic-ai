@@ -857,8 +857,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if capturing {
 		return nil
 	}
-	// No lock needed: targets sharing a path write identical bytes, so
-	// once one rewrites an unedited file the others see it current.
+	// Serialize the read-classify-write below against any other session
+	// targeting the same path: a target reading a shared file while another
+	// rewrites it sees partial bytes and would keep them as a hand edit.
+	// Ordering is always pathLock (outer) then s.mu (inner); the early s.mu
+	// section above has already been released, so the two never deadlock.
+	defer lockPath(path)()
 	if sum, keep := s.keepsEdit(path, content); keep {
 		s.mu.Lock()
 		if _, watched := s.planned[path]; watched {
@@ -878,13 +882,6 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if escapesProjectRoot(path) {
 		return fmt.Errorf("refusing to write outside the project root: %s", path)
 	}
-	// Serialize the read-classify-write below against any other session
-	// targeting the same path so concurrent emitters cannot both see it
-	// missing. Held until the write and its rollback/detail bookkeeping
-	// complete. Ordering is always pathLock (outer) then s.mu (inner); the
-	// early s.mu section above has already been released, so no goroutine
-	// holds s.mu while acquiring a path lock and the two never deadlock.
-	defer lockPath(path)()
 	cur := &onDisk{path: path}
 	// A file already found there proves its folder exists, so an
 	// unchanged output costs no extra call.

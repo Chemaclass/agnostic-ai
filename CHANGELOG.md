@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- `sync --keep-edits` no longer keeps a skill file Codex and Amp share as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+
 ### By tool
 
 #### Claude Code
@@ -19,6 +23,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Write a stdio server's `sandbox` (write paths, denied paths, network domains) to `.vscode/mcp.json`, and keep it through `import copilot` (#2212).
 - Read an MCP server's VS Code fields (`cwd`, `envFile`, `sandboxEnabled`, `sandbox`, `oauth`, `dev`) from `x-copilot` too (#2224).
+- Set `chat.useAgentsMdFile: false` in `.vscode/settings.json` when another target writes `AGENTS.md`, so VS Code loads the instructions once (#2247).
 
 #### OpenCode
 
