@@ -107,7 +107,12 @@ func gatherStatus(projectRoot string) (*statusResult, error) {
 // files the next sync removes, and returns all would-be emitted paths
 // (for mtime fallback).
 func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (driftFiles int, allPaths []string, err error) {
+	winners, err := detectCollisions(cfg, b, targets)
+	if err != nil {
+		return 0, nil, err
+	}
 	sess := adapters.NewSession()
+	sess.SetCollisionWinners(winners)
 	resolvedAll := true
 	// Targets that share a file, such as .agents/skills/, count it once.
 	counted := map[string]bool{}

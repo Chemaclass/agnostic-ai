@@ -1,10 +1,13 @@
 package integration
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/cli"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -56,4 +59,21 @@ func TestPreferSpec_SharedSkillHandEdit_StillDrifts(t *testing.T) {
 	must(t, os.WriteFile(shared, append(data, []byte("\nHand edit.\n")...), 0o644))
 
 	runCmdExpectErr(t, "sync", "--check")
+}
+
+func TestPreferSpec_SharedSkillDivergentRenderings_StatusShowsNoDriftAfterSync(t *testing.T) {
+	seedPreferSpecSharedSkills(t)
+	runCmd(t, "sync")
+
+	root := cli.NewRootCmd("test")
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"status"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("status: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "out of date") {
+		t.Errorf("status reports drift after a clean prefer-spec sync:\n%s", out.String())
+	}
 }
