@@ -251,9 +251,48 @@ func TestAgent_MatchesProjectWithinItsList(t *testing.T) {
 		own := simOwnRules(tc.tools, tc.servers)
 		for key, inputs := range samples {
 			for _, input := range inputs {
-				want := simStricter(simEvaluate(project, key, input), simEvaluate(own, key, input))
-				if got := simEvaluate(agent, key, input); got != want {
+				want := simStricter(simEvaluate(project, key, input, false), simEvaluate(own, key, input, false))
+				if got := simEvaluate(agent, key, input, false); got != want {
 					t.Errorf("tools %v, settings %v, hand %q, %s %q: got %s, want %s\n%s", tc.tools, tc.settings, tc.hand, key, input, got, want, md)
+				}
+				want = simStricter(simEvaluate(project, key, input, true), simEvaluate(own, key, input, true))
+				if got := simEvaluate(agent, key, input, true); simRank(got) < simRank(want) {
+					t.Errorf("on Windows, tools %v, settings %v, hand %q, %s %q: got %s, want at least %s\n%s", tc.tools, tc.settings, tc.hand, key, input, got, want, md)
+				}
+			}
+		}
+	}
+}
+
+// Kilo ignores case on Windows only (Wildcard.match uses the "i" flag on
+// win32), so a project rule whose case differs from the agent's pattern
+// must still hold there, while staying never looser elsewhere.
+func TestAgent_NeverLooserWhateverTheCase(t *testing.T) {
+	samples := map[string][]string{
+		"bash": {"git push origin", "GIT PUSH origin", "git status", "Git status"},
+		"read": {"src/a.go", "SRC/secret/key", "src/secret/key", "a.env", "A.ENV", "src/x.Env"},
+	}
+	native := func(permission map[string]any) map[string]any {
+		return map[string]any{"x-kilo": map[string]any{"permission": permission}}
+	}
+	for _, tc := range []agentCase{
+		{settings: map[string]any{"permissions": map[string]any{"deny": []any{"Read(SRC/secret/**)"}}}, tools: []any{"Read(src/**)"}},
+		{settings: native(map[string]any{"bash": map[string]any{"GIT PUSH *": "deny"}}), tools: []any{"Bash(git:*)"}},
+		{settings: native(map[string]any{"bash": map[string]any{"Git *": "ask"}}), tools: []any{"Bash(git status:*)"}},
+		{settings: native(map[string]any{"read": map[string]any{"*.ENV": "deny"}}), tools: []any{"Read"}},
+		{settings: native(map[string]any{"read": map[string]any{"*.ENV": "deny"}}), tools: []any{"Read(src/**)"}},
+	} {
+		jsonc, md := emitCase(t, tc)
+		project := append(simDefaults(), simMergedRules(t, jsonc, tc.local)...)
+		agent := append(slices.Clone(project), simAgentRules(t, md)...)
+		own := simOwnRules(tc.tools, tc.servers)
+		for _, fold := range []bool{false, true} {
+			for key, inputs := range samples {
+				for _, input := range inputs {
+					want := simStricter(simEvaluate(project, key, input, fold), simEvaluate(own, key, input, fold))
+					if got := simEvaluate(agent, key, input, fold); simRank(got) < simRank(want) {
+						t.Errorf("ignoring case %t, tools %v, settings %v, %s %q: got %s, want at least %s\n%s", fold, tc.tools, tc.settings, key, input, got, want, md)
+					}
 				}
 			}
 		}
@@ -420,27 +459,32 @@ func simMapping(m *yaml.Node) []simRule {
 }
 
 // simEvaluate is Kilo's Permission.evaluate: the last rule whose key and
-// pattern both match wins, and "ask" when none does.
-func simEvaluate(rules []simRule, key, input string) string {
+// pattern both match wins, and "ask" when none does. fold ignores case,
+// as Kilo does on Windows.
+func simEvaluate(rules []simRule, key, input string, fold bool) string {
 	action := "ask"
 	for _, rule := range rules {
-		if simMatch(key, rule.key) && simMatch(input, rule.pattern) {
+		if simMatch(key, rule.key, fold) && simMatch(input, rule.pattern, fold) {
 			action = rule.action
 		}
 	}
 	return action
 }
 
+func simRank(action string) int {
+	return map[string]int{"allow": 0, "ask": 1, "deny": 2}[action]
+}
+
 func simStricter(a, b string) string {
-	rank := map[string]int{"allow": 0, "ask": 1, "deny": 2}
-	if rank[b] > rank[a] {
+	if simRank(b) > simRank(a) {
 		return b
 	}
 	return a
 }
 
-// simMatch is Kilo's Wildcard.match (packages/opencode/src/util/wildcard.ts).
-func simMatch(input, pattern string) bool {
+// simMatch is Kilo's Wildcard.match (packages/opencode/src/util/wildcard.ts),
+// with the "i" flag it adds on win32 when fold is set.
+func simMatch(input, pattern string, fold bool) bool {
 	input = strings.ReplaceAll(input, `\`, "/")
 	pattern = strings.ReplaceAll(pattern, `\`, "/")
 	escaped := regexp.QuoteMeta(pattern)
@@ -449,5 +493,9 @@ func simMatch(input, pattern string) bool {
 	if strings.HasSuffix(escaped, " .*") {
 		escaped = strings.TrimSuffix(escaped, " .*") + "( .*)?"
 	}
-	return regexp.MustCompile("(?s)^" + escaped + "$").MatchString(input)
+	flags := "(?s)"
+	if fold {
+		flags = "(?si)"
+	}
+	return regexp.MustCompile(flags + "^" + escaped + "$").MatchString(input)
 }

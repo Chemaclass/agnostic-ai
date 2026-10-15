@@ -439,16 +439,25 @@ func agentKeyRules(key string, agent []patternRule, base []flatRule) any {
 	for _, own := range agent {
 		put(own.pattern, stricter("ask", own.action))
 		for _, rule := range base {
-			if !patternContains(rule.key, key) {
+			restricts := rule.action != "allow"
+			if !keyCovers(rule.key, key, restricts) {
 				continue
 			}
 			action := stricter(rule.action, own.action)
-			switch {
-			case patternContains(rule.pattern, own.pattern):
+			relation := patternRelation(own.pattern, rule.pattern)
+			if restricts && relation != patternRelation(strings.ToLower(own.pattern), strings.ToLower(rule.pattern)) {
+				// Kilo ignores case on Windows only (Wildcard.match adds
+				// the "i" flag on win32), and there this rule reaches
+				// further, so it holds as a deny on its own pattern.
+				put(rule.pattern, "deny")
+				continue
+			}
+			switch relation {
+			case covers:
 				put(own.pattern, action)
-			case patternContains(own.pattern, rule.pattern):
+			case inside:
 				put(rule.pattern, action)
-			case !mayOverlap(own.pattern, rule.pattern):
+			case disjoint:
 			default:
 				parts, exact := intersection(own.pattern, rule.pattern)
 				if !exact {
@@ -472,6 +481,36 @@ func agentKeyRules(key string, agent []patternRule, base []flatRule) any {
 		node.Content = append(node.Content, yamlString(rule.pattern), yamlString(rule.action))
 	}
 	return node
+}
+
+// How a base pattern relates to an agent pattern.
+const (
+	covers = iota
+	inside
+	disjoint
+	partial
+)
+
+// patternRelation reports whether rule covers own, lies inside it, is
+// disjoint from it, or overlaps it partly.
+func patternRelation(own, rule string) int {
+	switch {
+	case patternContains(rule, own):
+		return covers
+	case patternContains(own, rule):
+		return inside
+	case !mayOverlap(own, rule):
+		return disjoint
+	}
+	return partial
+}
+
+// keyCovers reports whether a base rule's key pattern covers an agent
+// key. An ask or deny (restricts) also covers it ignoring case, as Kilo
+// does on Windows, so it is never dropped there; an allow must match
+// exactly.
+func keyCovers(ruleKey, key string, restricts bool) bool {
+	return patternContains(ruleKey, key) || restricts && patternContains(strings.ToLower(ruleKey), strings.ToLower(key))
 }
 
 // withoutShadowed drops each rule a later one covers entirely, since it
