@@ -61,6 +61,8 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winn
 	owners := map[string][]string{}
 	contents := map[string]map[string]bool{}
 	last := map[string]string{}
+	lastOwner := map[string]string{}
+	written := map[string]map[string]string{}
 	sess := adapters.NewSession()
 	for _, t := range writers {
 		adapter, err := adapters.Resolve(t)
@@ -83,6 +85,11 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winn
 			}
 			contents[f.Path][f.Content] = true
 			last[f.Path] = f.Content
+			lastOwner[f.Path] = t
+			if written[f.Path] == nil {
+				written[f.Path] = map[string]string{}
+			}
+			written[f.Path][t] = f.Content
 		}
 	}
 	if policy == "prefer-spec" {
@@ -94,6 +101,7 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winn
 				winners[filepath.Clean(path)] = last[path]
 			}
 		}
+		noteCollisionWinners(writers, contents, lastOwner, written)
 		return winners, nil
 	}
 	warnSharedAgentsTreeReaders(owners, targets)
@@ -128,6 +136,62 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winn
 	}
 	return nil, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
 }
+
+// noteCollisionWinners names, per winning target, the contested paths it won
+// and the targets whose different version it overrode, so a reorder of
+// `targets:` is the visible way to change the outcome.
+func noteCollisionWinners(order []string, contents map[string]map[string]bool, lastOwner map[string]string, written map[string]map[string]string) {
+	type won struct {
+		paths      []string
+		overridden map[string]bool
+	}
+	byWinner := map[string]*won{}
+	for path, variants := range contents {
+		if len(variants) < 2 {
+			continue
+		}
+		winner := lastOwner[path]
+		w := byWinner[winner]
+		if w == nil {
+			w = &won{overridden: map[string]bool{}}
+			byWinner[winner] = w
+		}
+		w.paths = append(w.paths, filepath.ToSlash(filepath.Clean(path)))
+		for t, content := range written[path] {
+			if content != written[path][winner] {
+				w.overridden[t] = true
+			}
+		}
+	}
+	for _, winner := range order {
+		w := byWinner[winner]
+		if w == nil {
+			continue
+		}
+		delete(byWinner, winner)
+		sort.Strings(w.paths)
+		examples := w.paths[:min(len(w.paths), maxCollisionExamples)]
+		list := strings.Join(examples, ", ")
+		if len(w.paths) > len(examples) {
+			list += ", ..."
+		}
+		var losers []string
+		for _, t := range order {
+			if w.overridden[t] {
+				losers = append(losers, t)
+			}
+		}
+		noun := "shared file uses"
+		if len(w.paths) > 1 {
+			noun = "shared files use"
+		}
+		adapters.NoteProject(fmt.Sprintf("prefer-spec: %d %s %s's version over %s (%s); reorder targets to change it",
+			len(w.paths), noun, winner, strings.Join(losers, ", "), list))
+	}
+}
+
+// maxCollisionExamples caps the paths a prefer-spec note lists per winner.
+const maxCollisionExamples = 3
 
 // sharedAgentsTree is the project subagent root several vendors read.
 const sharedAgentsTree = ".agents/agents/"
