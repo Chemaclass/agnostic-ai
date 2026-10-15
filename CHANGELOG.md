@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
 
+#### OpenCode
+
+- A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
+
 ## v0.84.0 - 2026-10-14
 
 ### General

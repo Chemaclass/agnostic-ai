@@ -66,7 +66,8 @@ opencode.json                             # when MCP entries exist (merged with 
 - **Permissions**: portable `allow`, `deny`, and `ask` lists become [OpenCode's `permission` map](https://opencode.ai/docs/permissions/).
   - A bare tool name covers the whole tool (`Read` becomes `read: allow`). A scoped rule becomes a glob (`Bash(go test:*)` becomes `bash: {"go test *": "allow"}`).
   - `Write` and `Edit` both land on `edit`, which covers edit, write, and patch.
-  - If two lists claim one tool and pattern, the stricter wins. OpenCode takes the last match, so sync puts the `*` catch-all first, as OpenCode recommends.
+  - If two lists claim one tool and pattern, the stricter wins.
+  - OpenCode takes the last match, so inside one tool sync writes allow, then ask, then deny, each group with the `*` catch-all first. A narrower allow never bypasses a broader deny, as on Claude Code.
   - `mcp__<server>__<tool>` becomes `<server>_<tool>` (`mcp__github__create_issue` becomes `github_create_issue: deny`), the key OpenCode uses for MCP tools ([agents docs](https://opencode.ai/docs/agents/)). The server name keeps its hyphens.
   - Scoped `WebFetch` or `WebSearch` rules (those keys take a bare action) and denying a whole MCP server (`github_*` has no portable spelling) raise a sync note.
   - `x-opencode.permission` writes OpenCode's own map and replaces the translated rules for that tool.
