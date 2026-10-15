@@ -71,12 +71,12 @@
 // the builder: codex has a `tools` key too, and it is a map of
 // per-tool sub-tables, a different shape entirely (#888).
 //
-// `.vscode/mcp.json` also carries five fields the plain mcpServers map
-// does not: `cwd`, `envFile`, and `sandboxEnabled` on a stdio server,
-// `dev.watch` on every server, `dev.debug` on stdio, and `oauth` on HTTP/SSE
-// (code.visualstudio.com/docs/agents/reference/mcp-configuration, #692).
-// `.github/mcp.json` and the root mirror stay on the plain schema, since
-// Copilot CLI's own docs never name any of the five.
+// `.vscode/mcp.json` also carries fields the plain mcpServers map
+// does not: `cwd`, `envFile`, `sandboxEnabled`, and `sandbox` on a stdio
+// server, `dev.watch` on every server, `dev.debug` on stdio, and `oauth`
+// on HTTP/SSE (code.visualstudio.com/docs/agents/reference/mcp-configuration,
+// #692, #2212). `.github/mcp.json` and the root mirror stay on the plain
+// schema, since Copilot CLI's own docs never name any of them.
 //
 // Hooks emit to `.github/hooks/agnostic-ai.json`, one of possibly
 // several `*.json` files Copilot loads from that directory and merges:
