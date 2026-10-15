@@ -25,8 +25,38 @@ const projectBootstrapEnv = "AGNOSTIC_AI_PROJECT_BOOTSTRAP"
 
 type projectPackage struct {
 	PackageManager  string            `json:"packageManager"`
+	DevEngines      projectDevEngines `json:"devEngines"`
 	Dependencies    map[string]string `json:"dependencies"`
 	DevDependencies map[string]string `json:"devDependencies"`
+}
+
+type projectDevEngines struct {
+	PackageManager json.RawMessage `json:"packageManager"`
+}
+
+type projectEngine struct {
+	Name string `json:"name"`
+}
+
+// devEngines.packageManager is one engine or a list in preference order.
+func (e projectDevEngines) manager() (string, error) {
+	raw := bytes.TrimSpace(e.PackageManager)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return "", nil
+	}
+	var engines []projectEngine
+	if raw[0] != '[' {
+		engines = make([]projectEngine, 1)
+		if err := json.Unmarshal(raw, &engines[0]); err != nil {
+			return "", fmt.Errorf("package.json devEngines.packageManager: %w", err)
+		}
+	} else if err := json.Unmarshal(raw, &engines); err != nil {
+		return "", fmt.Errorf("package.json devEngines.packageManager: %w", err)
+	}
+	if len(engines) == 0 {
+		return "", nil
+	}
+	return strings.TrimSpace(engines[0].Name), nil
 }
 
 type projectBinary struct {
@@ -42,7 +72,7 @@ func newProjectCmd() *cobra.Command {
 		Short: "Run the installed project binary with its configured version contract.",
 		Long: "Prefers node_modules/.bin/agnostic-ai to PATH and checks exact stable package.json pins and the project's requires. " +
 			"By default syncs with --keep-edits --quiet. --check checks output without installing " +
-			"or writing files. --bootstrap installs missing or mismatched npm/pnpm dependencies " +
+			"or writing files. --bootstrap installs missing or mismatched npm, pnpm, or bun dependencies " +
 			"from the lockfile, then syncs. Package scripts run normally; recursive bootstrap " +
 			"calls cannot start another install. Takes an optional command after -- for hooks.",
 		Example: "  agnostic-ai project --check\n  agnostic-ai project --bootstrap\n  agnostic-ai project -- hook memory --target codex",
@@ -57,7 +87,7 @@ func newProjectCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&check, "check", false, "Check the installed version and generated output without installing or writing.")
-	cmd.Flags().BoolVar(&bootstrap, "bootstrap", false, "Install missing or mismatched npm/pnpm dependencies once from the lockfile, then sync preserving manual edits.")
+	cmd.Flags().BoolVar(&bootstrap, "bootstrap", false, "Install missing or mismatched npm, pnpm, or bun dependencies once from the lockfile, then sync preserving manual edits.")
 	cmd.Flags().StringVar(&against, "against", "", "With --check, compare index or HEAD using the existing sync gate.")
 	cmd.MarkFlagsMutuallyExclusive("check", "bootstrap")
 	return cmd
@@ -253,6 +283,9 @@ func resolveProjectBinary(root string, pkg projectPackage, requires string) (pro
 			return projectBinary{}, fmt.Errorf("%s: %w", local, err)
 		}
 		if pkg.Dependencies["agnostic-ai"] != "" || pkg.DevDependencies["agnostic-ai"] != "" {
+			if _, err := projectInstallCommand(root, pkg); err != nil {
+				return projectBinary{}, fmt.Errorf("project binary %s is missing, and bootstrap cannot install it: %w", local, err)
+			}
 			return projectBinary{}, fmt.Errorf("project binary %s is missing; run `agnostic-ai project --bootstrap` from the project root", local)
 		}
 		path, err := exec.LookPath("agnostic-ai")
@@ -390,37 +423,59 @@ func projectInstallCommand(root string, pkg projectPackage) (*exec.Cmd, error) {
 	if pkg.Dependencies["agnostic-ai"] == "" && pkg.DevDependencies["agnostic-ai"] == "" {
 		return nil, fmt.Errorf("package.json must declare agnostic-ai before bootstrap can install it")
 	}
-	manager, _, _ := strings.Cut(pkg.PackageManager, "@")
-	pnpm := fileExists(filepath.Join(root, "pnpm-lock.yaml"))
-	npm := fileExists(filepath.Join(root, "package-lock.json"))
+	manager, _, _ := strings.Cut(strings.TrimSpace(pkg.PackageManager), "@")
+	engine, err := pkg.DevEngines.manager()
+	if err != nil {
+		return nil, err
+	}
+	if manager != "" && engine != "" && manager != engine {
+		return nil, fmt.Errorf("package.json declares packageManager %s but devEngines.packageManager %s; declare one package manager", manager, engine)
+	}
 	if manager == "" {
-		if pnpm == npm {
-			return nil, fmt.Errorf("declare packageManager as npm or pnpm, with its committed lockfile")
+		manager = engine
+	}
+	locks := map[string]bool{
+		"pnpm": fileExists(filepath.Join(root, "pnpm-lock.yaml")),
+		"npm":  fileExists(filepath.Join(root, "package-lock.json")),
+		"bun":  fileExists(filepath.Join(root, "bun.lock")) || fileExists(filepath.Join(root, "bun.lockb")),
+	}
+	if manager == "" {
+		for name, locked := range locks {
+			if !locked {
+				continue
+			}
+			if manager != "" {
+				return nil, fmt.Errorf("declare packageManager as npm, pnpm, or bun, with its committed lockfile")
+			}
+			manager = name
 		}
-		if pnpm {
-			manager = "pnpm"
-		} else {
-			manager = "npm"
+		if manager == "" {
+			return nil, fmt.Errorf("declare packageManager as npm, pnpm, or bun, with its committed lockfile")
 		}
 	}
+	var install string
 	switch manager {
 	case "pnpm":
-		if !pnpm {
+		if !locks[manager] {
 			return nil, fmt.Errorf("pnpm bootstrap requires pnpm-lock.yaml")
 		}
-		if runtime.GOOS == "windows" {
-			return exec.Command("cmd.exe", "/d", "/s", "/c", "pnpm install --frozen-lockfile"), nil
-		}
-		return exec.Command("pnpm", "install", "--frozen-lockfile"), nil
+		install = "pnpm install --frozen-lockfile"
 	case "npm":
-		if !npm {
+		if !locks[manager] {
 			return nil, fmt.Errorf("npm bootstrap requires package-lock.json")
 		}
-		if runtime.GOOS == "windows" {
-			return exec.Command("cmd.exe", "/d", "/s", "/c", "npm ci"), nil
+		install = "npm ci"
+	case "bun":
+		if !locks[manager] {
+			return nil, fmt.Errorf("bun bootstrap requires bun.lock")
 		}
-		return exec.Command("npm", "ci"), nil
+		install = "bun install --frozen-lockfile"
 	default:
-		return nil, fmt.Errorf("bootstrap supports npm and pnpm; %s installs must run explicitly before `agnostic-ai project`", manager)
+		return nil, fmt.Errorf("bootstrap supports npm, pnpm, and bun; run `%s install`, then `agnostic-ai project`", manager)
 	}
+	if runtime.GOOS == "windows" {
+		return exec.Command("cmd.exe", "/d", "/s", "/c", install), nil
+	}
+	fields := strings.Fields(install)
+	return exec.Command(fields[0], fields[1:]...), nil
 }

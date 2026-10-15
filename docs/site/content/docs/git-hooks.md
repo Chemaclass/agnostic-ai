@@ -228,7 +228,9 @@ agnostic-ai project --check
 agnostic-ai project --bootstrap
 ```
 
-Bootstrap installs from the npm or pnpm lockfile once only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
+Bootstrap installs from the npm, pnpm, or bun lockfile once only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
+
+Bootstrap reads the package manager from `packageManager` or `devEngines.packageManager` in `package.json`, or from the only committed lockfile. It runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile` (`bun.lock` or the older `bun.lockb`). For any other package manager, or a missing lockfile, it exits with an error that names the install to run yourself. When no `agnostic-ai` is on `PATH`, the generated hooks name that install too, for example `bun install --frozen-lockfile`.
 
 Only stable exact npm versions are checked against the installed version. Ranges, tags, aliases, prereleases, and file dependencies are not interpreted as npm version contracts; set `requires` to enforce the accepted releases. `--against index` and `--against HEAD` read both the config and package declarations from that Git view while using the installed binary in the working checkout.
 
