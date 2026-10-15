@@ -621,11 +621,36 @@ func appendMemoryPart(cfg *config.Config, parts []string, path string) ([]string
 	return append(parts, strings.TrimRight(memory, "\n")), nil
 }
 
-// renderContextInstructions adds the provenance header unless every reader
-// of the file opts out with provenance-header: false.
+// entryPointWantsHeader reports whether an instructions file carries the
+// provenance header: unless every reader opts out with provenance-header: false.
+func entryPointWantsHeader(cfg *config.Config, readers []string) bool {
+	return len(readers) == 0 || slices.ContainsFunc(readers, cfg.ProvenanceHeaderEnabled)
+}
+
+// headerlessEntryPoints lists the entry-point files sync writes without
+// the provenance header, so a check that reads the header still knows them.
+func headerlessEntryPoints(cfg *config.Config) map[string]bool {
+	readers := map[string][]string{}
+	for _, t := range cfg.Targets {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			continue
+		}
+		if path := adapters.EntryPointPath(cfg, t); path != "" && path != adapters.AgnosticEntryPointPath {
+			readers[path] = append(readers[path], t)
+		}
+	}
+	out := map[string]bool{}
+	for path, rs := range readers {
+		if !entryPointWantsHeader(cfg, rs) {
+			out[filepath.ToSlash(path)] = true
+		}
+	}
+	return out
+}
+
 func renderContextInstructions(cfg *config.Config, readers []string, text string, layers []instructionLayer) string {
 	rendered, copied := text, []header.CopiedRange{{Length: len(text)}}
-	if len(readers) == 0 || slices.ContainsFunc(readers, cfg.ProvenanceHeaderEnabled) {
+	if entryPointWantsHeader(cfg, readers) {
 		rendered, copied = header.WithCopiedRanges(text, header.FormatMarkdown)
 	}
 	if len(layers) > 0 {

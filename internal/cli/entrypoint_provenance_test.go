@@ -85,3 +85,30 @@ func TestSync_SharedEntryPointKeepsHeaderWhenOneReaderWantsIt(t *testing.T) {
 		t.Errorf("GEMINI.md keeps the header gemini opts out of:\n%s", gemini)
 	}
 }
+
+// doctor counts headerless entry points as managed, both from the sync
+// record and, on a fresh clone with no record, from the opted-out readers.
+func TestDoctor_HeaderlessEntryPointsAreNotUnmanaged(t *testing.T) {
+	for _, freshClone := range []bool{false, true} {
+		name := "after sync"
+		if freshClone {
+			name = "fresh clone"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			writeProvenanceProject(t, dir, "")
+			runSyncOK(t)
+			if freshClone {
+				if err := os.Remove(stateFilePath(".")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			out, _ := runCLI(t, "doctor")
+			for _, path := range []string{"AGENTS.md", "GEMINI.md", "CLAUDE.md"} {
+				if strings.Contains(out, "✗ "+path) {
+					t.Errorf("doctor lists %s as unmanaged:\n%s", path, out)
+				}
+			}
+		})
+	}
+}
