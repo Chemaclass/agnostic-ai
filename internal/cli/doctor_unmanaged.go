@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -76,15 +77,25 @@ type unmanagedFinding struct {
 // failed walk drops only the scoped files it would have found.
 func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, error) {
 	var out []unmanagedFinding
+	headerless := headerlessEntryPoints(cfg)
+	sums := readStateFile(root).OutputSums
 	add := func(path, target string) {
-		if !isUnmarkedFile(path) {
+		data, err := os.ReadFile(path)
+		if err != nil || header.Has(string(data)) {
 			return
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			rel = path
 		}
-		out = append(out, unmanagedFinding{Path: filepath.ToSlash(rel), Target: target})
+		rel = filepath.ToSlash(rel)
+		// A file written without the header (provenance-header: false) is
+		// managed when the sync record holds its bytes or sync writes it
+		// headerless; a fresh clone has no record.
+		if headerless[rel] || sums[rel] != "" && adapters.ContentSum(string(data)) == sums[rel] {
+			return
+		}
+		out = append(out, unmanagedFinding{Path: rel, Target: target})
 	}
 	for _, c := range claudeGlobsFor(cfg, unmanagedConfigGlobs) {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
@@ -107,13 +118,6 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, nil
-}
-
-// isUnmarkedFile reports whether path is a readable file without the
-// provenance marker. Reading a directory fails, so it counts as marked.
-func isUnmarkedFile(path string) bool {
-	data, err := os.ReadFile(path)
-	return err == nil && !header.Has(string(data))
 }
 
 // reportUnmanagedConfig prints the doctor section listing agentic config
