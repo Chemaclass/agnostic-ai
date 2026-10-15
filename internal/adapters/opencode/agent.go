@@ -168,7 +168,7 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 		allowed[key] = project.restrict(key, value)
 	}
 	allowed[catchAllPattern] = "deny"
-	allowed["doom_loop"] = "ask"
+	allowed["doom_loop"] = project.restrict("doom_loop", "ask")
 	allowed[externalDirectoryKey] = "ask"
 	if project != nil && project.outside != nil {
 		allowed[externalDirectoryKey] = project.outside
@@ -176,59 +176,124 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 	return allowed, unmapped
 }
 
-// restrict appends the project's ask and deny rules for key after the
-// agent's own allow, so they still win. The project's allow rules stay
-// out: after the agent's catch-all deny they would widen the agent's
-// list. A key with no rule of its own takes the project's catch-all.
+// restrict makes the agent's value for key no looser than the project's.
+// The project's catch-all action for key applies in place: to the
+// agent's catch-all, or to each pattern a scoped value allows, keeping
+// the stricter action, so the agent's own `"*": deny` stays first. The
+// project's scoped deny rules follow, so they still win, and so do its
+// ask rules on a pattern inside one the agent allows; an ask elsewhere
+// would loosen the agent's deny. Its allow rules stay out: they would
+// widen the agent's list.
 func (p *agentProject) restrict(key string, value any) any {
 	if p == nil {
 		return value
 	}
 	own, set := p.rules[key]
 	if !set {
-		own, set = p.rules[catchAllPattern]
+		own = emit.NewOrderedJSON()
 	}
-	if !set {
-		return value
-	}
+	catchAll := p.catchAll(key)
 	rules := emit.NewOrderedJSON()
-	if patterns, scoped := value.(map[string]any); scoped {
+	var agentAllows []string
+	patterns, scoped := value.(map[string]any)
+	if scoped {
 		_ = rules.Set(catchAllPattern, "deny")
 		for _, pattern := range slices.Sorted(maps.Keys(patterns)) {
 			if pattern != catchAllPattern {
-				_ = rules.Set(pattern, "allow")
+				_ = rules.Set(pattern, stricter("allow", catchAll))
+				agentAllows = append(agentAllows, pattern)
 			}
 		}
 	} else {
-		_ = rules.Set(catchAllPattern, "allow")
+		action, _ := value.(string)
+		_ = rules.Set(catchAllPattern, stricter(action, catchAll))
 	}
-	restricted := false
 	for _, pattern := range own.Keys() {
-		raw, _ := own.Get(pattern)
-		var action string
-		if json.Unmarshal(raw, &action) != nil || action == "allow" {
+		action := ruleAction(own, pattern)
+		if pattern == catchAllPattern || action == "allow" || action == "" {
+			continue
+		}
+		if action == "ask" && scoped && !slices.ContainsFunc(agentAllows, func(allowed string) bool {
+			return wildcardMatch(allowed, pattern)
+		}) {
 			continue
 		}
 		rules.Delete(pattern)
-		rules.SetRaw(pattern, raw)
-		restricted = true
-	}
-	if !restricted {
-		return value
+		_ = rules.Set(pattern, action)
 	}
 	ordered, _ := orderedActions(rules)
 	return ordered
 }
 
+// catchAll returns the project's action for every input of key: the
+// key's own `*` rule, or else the top-level `*` that OpenCode matches
+// against every key. It returns "" when the project sets neither.
+func (p *agentProject) catchAll(key string) string {
+	if own, set := p.rules[key]; set {
+		if action := ruleAction(own, catchAllPattern); action != "" {
+			return action
+		}
+	}
+	if global, set := p.rules[catchAllPattern]; set {
+		return ruleAction(global, catchAllPattern)
+	}
+	return ""
+}
+
+func ruleAction(rules *emit.OrderedJSON, pattern string) string {
+	raw, set := rules.Get(pattern)
+	var action string
+	if !set || json.Unmarshal(raw, &action) != nil {
+		return ""
+	}
+	return action
+}
+
+// wildcardMatch reports whether s matches an OpenCode pattern, where `*`
+// is zero or more of any character, `?` exactly one, and the rest is
+// literal.
+func wildcardMatch(pattern, s string) bool {
+	p, i, star, mark := 0, 0, -1, 0
+	for i < len(s) {
+		switch {
+		case p < len(pattern) && (pattern[p] == '?' || pattern[p] == s[i]):
+			p++
+			i++
+		case p < len(pattern) && pattern[p] == '*':
+			star, mark = p, i
+			p++
+		case star >= 0:
+			p = star + 1
+			mark++
+			i = mark
+		default:
+			return false
+		}
+	}
+	for p < len(pattern) && pattern[p] == '*' {
+		p++
+	}
+	return p == len(pattern)
+}
+
+// stricter returns the more restrictive of two actions.
+func stricter(a, b string) string {
+	if permissionSeverity[b] > permissionSeverity[a] {
+		return b
+	}
+	return a
+}
+
 // outsideRules returns the external_directory value for a
 // restricted agent. Agent rules come after the project ones, so the
-// agent repeats them: "ask", OpenCode's default, then the settings'
-// own rules in their order, then the store directories sync allows in
-// opencode.json, unless a settings rule already names one. A settings
-// deny then still wins, and a bare action collapses to a scalar.
+// agent repeats them: "ask", OpenCode's default, or the project's
+// catch-all when that is deny, then the settings' own rules in their
+// order, then the store directories sync allows in opencode.json,
+// unless a settings rule already names one. A settings deny then still
+// wins, and a bare action collapses to a scalar.
 func (p *agentProject) outsideRules(directories []string) (any, error) {
 	rules := emit.NewOrderedJSON()
-	if err := rules.Set(catchAllPattern, "ask"); err != nil {
+	if err := rules.Set(catchAllPattern, stricter("ask", p.catchAll(externalDirectoryKey))); err != nil {
 		return nil, err
 	}
 	own, set := p.rules[externalDirectoryKey]
