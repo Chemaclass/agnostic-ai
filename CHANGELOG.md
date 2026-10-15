@@ -8,6 +8,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
 
+### By tool
+
+#### OpenCode
+
+- Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269).
+
 ## v0.85.0 - 2026-10-15
 
 ### General

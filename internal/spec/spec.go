@@ -1129,6 +1129,7 @@ func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
 		Name:          name,
 		Meta:          front.meta,
 		MetaKeys:      front.keys,
+		NestedKeys:    front.nestedKeys,
 		MetaStyles:    front.styles,
 		DuplicateKeys: front.duplicates,
 		Body:          body,
@@ -1163,6 +1164,7 @@ func parseMarkdown(path string) (Entry, error) {
 		Name:          name,
 		Meta:          front.meta,
 		MetaKeys:      front.keys,
+		NestedKeys:    front.nestedKeys,
 		MetaStyles:    front.styles,
 		DuplicateKeys: front.duplicates,
 		Body:          body,
@@ -1210,9 +1212,10 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 // order of its keys, how the author quoted scalar values, and the keys
 // written more than once.
 type decodedMapping struct {
-	meta   map[string]any
-	keys   []string
-	styles map[string]yaml.Style
+	meta       map[string]any
+	keys       []string
+	nestedKeys map[string][]string
+	styles     map[string]yaml.Style
 	// duplicates lists each key a second occurrence repeats, in the order
 	// the repeat first appears. The last value wins in meta.
 	duplicates []string
@@ -1232,6 +1235,7 @@ func decodeYAMLOrdered(data []byte) (decodedMapping, error) {
 	if front.meta == nil {
 		front.meta = map[string]any{}
 	}
+	front.nestedKeys = nestedKeyOrders(&node, front.meta)
 	return front, nil
 }
 
