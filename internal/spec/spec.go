@@ -819,6 +819,11 @@ func loadLayer(layer Layer) (Bundle, error) {
 			}
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
+		if l.kind == KindRule {
+			for i := range entries {
+				entries[i] = entries[i].PathsAsGlobs()
+			}
+		}
 		assignScopes(entries, dir, l.kind, ruleRoot)
 		if l.kind == KindReview && layer.IncludeRoot != "" {
 			if err := resolveEntryIncludes(entries, layer.IncludeRoot); err != nil {

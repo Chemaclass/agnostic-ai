@@ -69,7 +69,7 @@ agnostic-ai lint --strict
 | LINT006 | Error. Frontmatter opens with `---` and never closes. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions. |
 | LINT014 | Error, `--global` only. A settings `effort` or `permissions.default-mode` that a tool's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. |
-| LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. `validate` reports it too. |
+| LINT013 | Error. A rule's `globs`, `paths`, or `x-<target>.globs` is neither a string nor a list of strings, or `paths` and `globs` name different patterns. `validate` reports it too. |
 | LINT016 | Error. A `dev-commands` entry in an environment spec has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no tool reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. |
 | LINT017 | Warning. A `gitignore.commit` entry such as `cursor:environments` names a target missing from `targets`. |
 | LINT018 | Warning. A skill's frontmatter sets `scope`, which does nothing. The scope comes from its folder under `skills/`. |
