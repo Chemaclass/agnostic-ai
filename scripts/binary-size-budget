@@ -273,4 +273,9 @@
 # (19861664): the sync summary counts a shared entry-point file for each
 # target that reads it. Same Linux amd64 release flags; retain the 8 KB
 # allowance.
-19878048
+# #2236 measured 19919008 on Go1.27.2, up 45056 from main 8a1ece5f
+# (19873952): OpenCode restricted agents replay the project rules and
+# defaults per listed tool, read back the planned opencode.json, and match
+# ask and deny rules regardless of case. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19927200

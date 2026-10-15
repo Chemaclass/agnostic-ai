@@ -9,9 +9,10 @@ import (
 	"slices"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
-	"gopkg.in/yaml.v3"
 )
 
 // agentFrontmatterKeys names the frontmatter keys OpenCode reads from a
@@ -485,7 +486,7 @@ func globIntersection(a, b string, fold bool) []string {
 			for _, part := range globMeet(altA, altB, fold) {
 				// OpenCode would also match the bare command before a
 				// trailing " *"; "**" keeps it out when it is not shared.
-				if prefix, found := strings.CutSuffix(part, " *"); found && !(wildcardContains(a, prefix, fold) && wildcardContains(b, prefix, false)) {
+				if prefix, found := strings.CutSuffix(part, " *"); found && (!wildcardContains(a, prefix, fold) || !wildcardContains(b, prefix, false)) {
 					part = prefix + " **"
 				}
 				if !slices.Contains(parts, part) {
