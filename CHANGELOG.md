@@ -20,7 +20,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Ellipsis
 
-- `import ellipsis` keeps a reviewer without an `environment` in the basic sandbox instead of moving it into the imported environment; `x-ellipsis.reviewer.environment: null` does the same by hand (#2214).
+- `import ellipsis` keeps a reviewer without an `environment` in the basic sandbox; `x-ellipsis.reviewer.environment: null` does it by hand (#2214).
 
 ## v0.84.0 - 2026-10-14
 
