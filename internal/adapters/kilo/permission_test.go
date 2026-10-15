@@ -1,54 +1,49 @@
 package kilo
 
 import (
-	"encoding/json"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 	"gopkg.in/yaml.v3"
 )
 
-func TestSettingsPermission_EditDenyAlsoBlocksWrite(t *testing.T) {
+func TestSettingsPermission_WriteRulesLandOnEdit(t *testing.T) {
 	settings := []spec.Entry{{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Write"}, "deny": []any{"Edit(.env)"}}}}}
 	got, dropped := settingsPermission(settings)
 	if dropped != 0 {
 		t.Errorf("dropped = %d", dropped)
 	}
-	writes, ok := got["write"].(*emit.OrderedJSON)
+	if _, set := got["write"]; set {
+		t.Errorf("Kilo's write tool checks edit, so no write key: %#v", got)
+	}
+	edits, ok := got["edit"].(*emit.OrderedJSON)
 	if !ok {
-		t.Fatalf("write permissions = %#v", got["write"])
+		t.Fatalf("edit permissions = %#v", got["edit"])
 	}
-	allow, _ := writes.Get("*")
-	deny, _ := writes.Get(".env")
-	if string(allow) != `"allow"` || string(deny) != `"deny"` {
-		t.Errorf("write permissions = %#v", got["write"])
-	}
-}
-
-func TestAgentPermission_PathRestriction(t *testing.T) {
-	got, dropped := agentPermission([]string{"Read(src/**)", "Edit(docs/**)"}, nil)
-	if dropped {
-		t.Error("path-scoped tools dropped")
-	}
-	if read := permissionJSON(t, got["read"]); !strings.HasPrefix(read, `{"*":"deny","src/**":"allow"`) {
-		t.Errorf("read permission = %s", read)
+	allow, _ := edits.Get("*")
+	deny, _ := edits.Get(".env")
+	if string(allow) != `"allow"` || string(deny) != `"deny"` || !slices.Equal(edits.Keys(), []string{"*", ".env"}) {
+		t.Errorf("edit permissions = %v", edits.Keys())
 	}
 }
 
-func TestTranslatePermission_EditRestrictionsCoverWrite(t *testing.T) {
+func TestTranslatePermission_WriteAndEditShareEdit(t *testing.T) {
 	for _, tc := range []struct {
 		list, rule string
 		want       []string
 	}{
-		{"deny", "Edit", []string{"edit", "write"}},
-		{"ask", "Edit", []string{"edit", "write"}},
-		{"deny", "Edit(.env)", []string{"edit(.env)", "write(.env)"}},
-		{"ask", "Edit(go.mod)", []string{"edit(go.mod)", "write(go.mod)"}},
-		{"allow", "Edit(docs/**)", []string{"edit(docs/**)"}},
+		{"deny", "Edit", []string{"edit"}},
+		{"deny", "Edit(.env)", []string{"edit(.env)"}},
+		{"allow", "Write", []string{"edit"}},
+		{"ask", "Write(go.mod)", []string{"edit(go.mod)"}},
 	} {
 		t.Run(tc.list+"/"+tc.rule, func(t *testing.T) {
 			got, ok := (Adapter{}).TranslatePermission(tc.list, tc.rule)
@@ -59,202 +54,136 @@ func TestTranslatePermission_EditRestrictionsCoverWrite(t *testing.T) {
 	}
 }
 
-func TestAgentPermission_KeepsAskDefaultsAfterCatchAll(t *testing.T) {
-	got, _ := agentPermission([]string{"Read"}, nil)
-	if got["*"] != "deny" {
-		t.Errorf("permission = %#v", got)
-	}
-	if read := permissionJSON(t, got["read"]); read != `{"*":"allow","*.env":"ask","*.env.*":"ask"}` {
-		t.Errorf("read = %s, want Kilo's .env asks after the allow", read)
-	}
-	for _, key := range []string{"doom_loop", "external_directory"} {
-		if got[key] != "ask" {
-			t.Errorf("%s = %#v, want ask", key, got[key])
-		}
-	}
-}
-
-func agentFrontmatter(t *testing.T, settings map[string]any, tools ...any) string {
+// emitAgent runs a whole Kilo emit with one agent and an optional
+// settings spec and hand-written kilo.jsonc, and returns kilo.jsonc and
+// the agent file.
+func emitAgent(t *testing.T, settings map[string]any, hand string, tools ...any) (jsonc, md string) {
 	t.Helper()
-	project, _ := settingsPermission([]spec.Entry{{Kind: spec.KindSettings, Meta: map[string]any{"permissions": settings}}})
-	md, _ := agentMarkdown(spec.Entry{Kind: spec.KindAgent, Name: "a", Meta: map[string]any{"tools": tools}}, project)
-	return md
-}
-
-func TestAgentMarkdown_ProjectAskWinsOverAgentAllow(t *testing.T) {
-	got := agentFrontmatter(t, map[string]any{"ask": []any{"Bash"}}, "Bash")
-	if !strings.Contains(got, "\n  bash: ask\n") {
-		t.Errorf("agent Bash must stay ask:\n%s", got)
+	dir := testutil.TempCwd(t)
+	if hand != "" {
+		if err := os.WriteFile(filepath.Join(dir, "kilo.jsonc"), []byte(hand), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-}
-
-func TestAgentMarkdown_ProjectDenyPatternSurvives(t *testing.T) {
-	got := agentFrontmatter(t, map[string]any{"allow": []any{"Read(src/**)"}, "deny": []any{"Read(/secrets/**)"}}, "Read")
-	if !strings.Contains(got, "\n    /secrets/**: deny\n") || strings.Contains(got, "src/**") {
-		t.Errorf("read rules lost the project deny or copied its allow:\n%s", got)
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Body: "body", Meta: map[string]any{"tools": tools}}}
+	if settings != nil {
+		entries = append(entries, spec.Entry{Kind: spec.KindSettings, Name: "s", Meta: settings})
 	}
-}
-
-func TestAgentMarkdown_ScopedAllowKeepsProjectDenyLast(t *testing.T) {
-	got := agentFrontmatter(t, map[string]any{"deny": []any{"Bash(git clean:*)"}}, "Bash(git:*)")
-	want := "\n  bash:\n    \"*\": deny\n    git *: allow\n    git clean *: deny\n"
-	if !strings.Contains(got, want) {
-		t.Errorf("want %q in:\n%s", want, got)
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
 	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "kilo.jsonc"))
+	agent, err := os.ReadFile(filepath.Join(dir, ".kilo", "agents", "a.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw), string(agent)
 }
 
-func TestAgentMarkdown_QuotesYAMLLookalikePatterns(t *testing.T) {
-	got := agentFrontmatter(t, map[string]any{"deny": []any{"Read(~)", "Read(yes)"}}, "Read")
+func TestAgent_QuotesYAMLLookalikePatterns(t *testing.T) {
+	_, md := emitAgent(t, map[string]any{"permissions": map[string]any{"deny": []any{"Read(~)", "Read(yes)"}}}, "", "Read")
 	for _, want := range []string{`"~": deny`, `"yes": deny`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("want %q in:\n%s", want, got)
+		if !strings.Contains(md, want) {
+			t.Errorf("want %q in:\n%s", want, md)
 		}
 	}
 }
 
-func TestAgentMarkdown_NoProjectRuleKeepsBareAllow(t *testing.T) {
-	got := agentFrontmatter(t, map[string]any{"deny": []any{"WebFetch"}}, "Bash")
-	if !strings.Contains(got, "\n  bash: allow\n") {
-		t.Errorf("bash should stay a bare allow:\n%s", got)
-	}
-}
-
-func TestAgentPermission_NeverLooserThanProject(t *testing.T) {
+func TestAgent_ExplicitShapes(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		settings map[string]any
-		native   map[string]any
-		tools    []string
-		key      string
-		want     string
+		tools    []any
+		want     []string
 	}{
-		{"tool ask stays ask", map[string]any{"ask": []any{"Bash"}}, nil, []string{"Bash"}, "bash", `"ask"`},
-		{"tool catch-all ask applies in place on a scoped allow", map[string]any{"ask": []any{"Bash"}}, nil, []string{"Bash(git diff:*)"}, "bash", `{"*":"deny","git diff *":"ask"}`},
-		{"project-wide ask applies in place", nil, map[string]any{"*": "ask"}, []string{"Bash(git diff:*)"}, "bash", `{"*":"deny","git diff *":"ask"}`},
-		{"project-wide ask on a bare allow", nil, map[string]any{"*": "ask"}, []string{"Bash"}, "bash", `"ask"`},
-		{"pattern deny follows the allow", map[string]any{"deny": []any{"Read(/secrets/**)"}}, nil, []string{"Read"}, "read", `{"*":"allow","*.env":"ask","*.env.*":"ask","/secrets/**":"deny"}`},
-		{"project allow is not copied", map[string]any{"allow": []any{"Read(docs/**)"}}, nil, []string{"Read(src/**)"}, "read", `{"*":"deny","src/**":"allow","src/*.env":"ask","src/*.env.*":"ask"}`},
-		{"ask outside the agent's patterns stays denied", map[string]any{"ask": []any{"Bash(npm:*)"}}, nil, []string{"Bash(git:*)"}, "bash", `{"*":"deny","git *":"allow"}`},
-		{"ask inside an agent pattern follows it", map[string]any{"ask": []any{"Bash(git push:*)"}}, nil, []string{"Bash(git:*)"}, "bash", `{"*":"deny","git *":"allow","git push *":"ask"}`},
-		{"ask covering an agent pattern raises it", map[string]any{"ask": []any{"Bash(git:*)"}}, nil, []string{"Bash(git status:*)"}, "bash", `{"*":"deny","git status *":"ask"}`},
-		{"deny outside the agent's patterns still follows", map[string]any{"deny": []any{"Bash(rm:*)"}}, nil, []string{"Bash(git:*)"}, "bash", `{"*":"deny","git *":"allow"}`},
-		{"project-wide ask still applies to a key the project names", nil, map[string]any{"*": "ask", "bash": map[string]any{"git *": "allow"}}, []string{"Bash"}, "bash", `"ask"`},
-		{"project deny on a key pattern covers a matching key", nil, map[string]any{"github_*": "deny"}, []string{"mcp__github__create_issue"}, "github_create_issue", `"deny"`},
-		{"partial overlap keeps only the intersection", nil, map[string]any{"bash": map[string]any{"* --force": "ask"}}, []string{"Bash(git:*)"}, "bash", `{"*":"deny","git *":"allow","git * --force":"ask","git --force":"ask"}`},
-		{"Kilo asks before reading .env", nil, nil, []string{"Read"}, "read", `{"*":"allow","*.env":"ask","*.env.*":"ask"}`},
-		{"a project .env allow overrides Kilo's ask", nil, map[string]any{"read": map[string]any{"*.env": "allow", "*.env.*": "allow"}}, []string{"Read"}, "read", `"allow"`},
-		{"doom_loop deny wins over the ask default", nil, map[string]any{"doom_loop": "deny"}, []string{"Read"}, "doom_loop", `"deny"`},
-		{"external_directory deny pattern survives", nil, map[string]any{"external_directory": map[string]any{"/etc/**": "deny"}}, []string{"Read"}, "external_directory", `{"*":"ask","/etc/**":"deny"}`},
-		{"external_directory allow does not loosen", nil, map[string]any{"external_directory": "allow"}, []string{"Read"}, "external_directory", `"ask"`},
+		{"project ask on a listed tool stays ask", map[string]any{"permissions": map[string]any{"ask": []any{"Bash"}}}, []any{"Bash"}, []string{"\n  bash: ask\n"}},
+		{"bare Bash asks by default like Kilo", nil, []any{"Bash"}, []string{"\n  bash:\n", "    cat *: allow\n", "    \"*\": ask\n"}},
+		{"Read keeps Kilo's .env ask", nil, []any{"Read"}, []string{"    \"*.env\": ask\n", "    \"*.env.example\": allow\n"}},
+		{"a project deny after an overlapping ask still wins", map[string]any{"permissions": map[string]any{"ask": []any{"Bash(* --force)"}, "deny": []any{"Bash(git:*)"}}}, []any{"Bash(git:*)"}, []string{"\n  bash: deny\n"}},
+		{"a key pattern deny covers the agent's key", map[string]any{"x-kilo": map[string]any{"permission": map[string]any{"github_*": "deny"}}}, []any{"mcp__github__create_issue"}, []string{"\n  github_create_issue: deny\n"}},
+		{"Write lands on edit", nil, []any{"Write"}, []string{"\n  edit: allow\n"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			meta := map[string]any{}
-			if tc.settings != nil {
-				meta["permissions"] = tc.settings
-			}
-			if tc.native != nil {
-				meta["x-kilo"] = map[string]any{"permission": tc.native}
-			}
-			project, _ := settingsPermission([]spec.Entry{{Kind: spec.KindSettings, Meta: meta}})
-			perms, _ := agentPermission(tc.tools, project)
-			if got := permissionJSON(t, perms[tc.key]); got != tc.want {
-				t.Errorf("%s = %s, want %s", tc.key, got, tc.want)
+			_, md := emitAgent(t, tc.settings, "", tc.tools...)
+			for _, want := range tc.want {
+				if !strings.Contains(md, want) {
+					t.Errorf("want %q in:\n%s", want, md)
+				}
 			}
 		})
 	}
 }
 
-func permissionJSON(t *testing.T, value any) string {
-	t.Helper()
-	node, ok := value.(*yaml.Node)
-	if !ok {
-		out, _ := json.Marshal(value)
-		return string(out)
-	}
-	ordered := emit.NewOrderedJSON()
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		_ = ordered.Set(node.Content[i].Value, node.Content[i+1].Value)
-	}
-	out, _ := json.Marshal(ordered)
-	return string(out)
-}
-
-func TestAgentPermission_NeverLooserThanProjectOrOwnList(t *testing.T) {
+// TestAgent_MatchesProjectWithinItsList checks every sample against a
+// simulation of Kilo's own evaluation, written apart from the adapter:
+// the agent's decision is exactly the stricter of the project's (with
+// Kilo's defaults) and the agent's bare allowlist.
+func TestAgent_MatchesProjectWithinItsList(t *testing.T) {
 	samples := map[string][]string{
-		"bash":                {"git status", "git push origin", "git --force", "git push --force", "npm install", "rm -r tmp", "ls", "git"},
-		"read":                {"src/a.go", "src/.env", "src/x.env.local", "/secrets/key", "docs/x.md", "~", ".env", "x.env.local", "a.env.example"},
+		"bash":                {"git status", "git push origin", "git --force", "git push --force", "npm install", "rm -r tmp", "ls", "ls -la", "git", "cat a", "git diff"},
+		"read":                {"src/a.go", "src/.env", "src/x.env.local", "src/a.env.example", `src\win.env`, "/secrets/key", "docs/x.md", "~", "yes", ".env", "x.env.local", "a.env.example"},
+		"edit":                {".env", "docs/a.md", "src/a.go"},
 		"github_create_issue": {"x"},
 		"doom_loop":           {"x"},
 		"external_directory":  {"/etc/passwd", "/tmp/x"},
 		"question":            {"x"},
+		"grep":                {"x"},
+	}
+	native := func(permission map[string]any) map[string]any {
+		return map[string]any{"x-kilo": map[string]any{"permission": permission}}
+	}
+	portable := func(lists map[string]any) map[string]any {
+		return map[string]any{"permissions": lists}
 	}
 	for _, tc := range []struct {
 		settings map[string]any
-		native   map[string]any
+		hand     string
 		tools    []any
 	}{
-		{map[string]any{"ask": []any{"Bash(npm:*)", "Bash(git push:*)"}, "deny": []any{"Bash(rm:*)"}}, nil, []any{"Bash(git:*)"}},
-		{map[string]any{"ask": []any{"Bash(git:*)"}}, nil, []any{"Bash(git status:*)", "Read(src/**)"}},
-		{map[string]any{"ask": []any{"Bash"}, "deny": []any{"Read(/secrets/**)"}}, nil, []any{"Bash(git:*)", "Read"}},
-		{map[string]any{"allow": []any{"Bash", "Read"}}, nil, []any{"Bash(ls:*)", "Read(docs/**)"}},
-		{nil, map[string]any{"*": "ask", "read": map[string]any{"*": "allow", "~": "deny"}}, []any{"Bash", "Read"}},
-		{nil, map[string]any{"bash": map[string]any{"*": "allow", "*push*": "ask"}}, []any{"Bash(git:*)"}},
-		{nil, map[string]any{"*": "ask", "bash": map[string]any{"git *": "allow"}}, []any{"Bash"}},
-		{nil, map[string]any{"github_*": "deny"}, []any{"mcp__github__create_issue"}},
-		{nil, map[string]any{"bash": map[string]any{"* --force": "ask"}}, []any{"Bash(git:*)"}},
-		{nil, nil, []any{"Read", "Bash"}},
-		{nil, nil, []any{"Read(src/**)"}},
-		{nil, map[string]any{"doom_loop": "deny", "external_directory": map[string]any{"/etc/**": "deny"}}, []any{"Read"}},
-		{nil, map[string]any{"read": "allow"}, []any{"Read"}},
+		{portable(map[string]any{"ask": []any{"Bash(npm:*)", "Bash(git push:*)"}, "deny": []any{"Bash(rm:*)"}}), "", []any{"Bash(git:*)"}},
+		{portable(map[string]any{"ask": []any{"Bash(git:*)"}}), "", []any{"Bash(git status:*)", "Read(src/**)"}},
+		{portable(map[string]any{"ask": []any{"Bash"}, "deny": []any{"Read(/secrets/**)"}}), "", []any{"Bash(git:*)", "Read"}},
+		{portable(map[string]any{"allow": []any{"Bash", "Read"}}), "", []any{"Bash(ls:*)", "Read(docs/**)"}},
+		{portable(map[string]any{"deny": []any{"Read(~)", "Read(yes)"}}), "", []any{"Read"}},
+		{native(map[string]any{"*": "ask", "read": map[string]any{"*": "allow", "~": "deny"}}), "", []any{"Bash", "Read"}},
+		{native(map[string]any{"bash": map[string]any{"*": "allow", "*push*": "ask"}}), "", []any{"Bash(git:*)"}},
+		{native(map[string]any{"*": "ask", "bash": map[string]any{"git *": "allow"}}), "", []any{"Bash"}},
+		{native(map[string]any{"github_*": "deny"}), "", []any{"mcp__github__create_issue"}},
+		{native(map[string]any{"bash": map[string]any{"* --force": "ask"}}), "", []any{"Bash(git:*)"}},
+		{nil, "", []any{"Read", "Bash", "Grep"}},
+		{nil, "", []any{"Read(src/**)"}},
+		{native(map[string]any{"doom_loop": "deny", "external_directory": map[string]any{"/etc/**": "deny"}}), "", []any{"Read"}},
+		{native(map[string]any{"read": "allow"}), "", []any{"Read"}},
+		{portable(map[string]any{"ask": []any{"Bash(* --force)"}, "deny": []any{"Bash(git:*)"}}), "", []any{"Bash(git:*)"}},
+		{native(map[string]any{"bash": map[string]any{"* --force": "ask", "git *": "deny"}}), "", []any{"Bash(git:*)"}},
+		{portable(map[string]any{"deny": []any{"Edit(.env)"}}), "", []any{"Write"}},
+		{portable(map[string]any{"deny": []any{"Edit(.env)"}}), "", []any{"Edit(docs/**)"}},
+		{nil, `{"permission": {"bash": {"git push *": "deny"}}}`, []any{"Bash(git:*)"}},
 	} {
-		meta := map[string]any{}
-		if tc.settings != nil {
-			meta["permissions"] = tc.settings
-		}
-		if tc.native != nil {
-			meta["x-kilo"] = map[string]any{"permission": tc.native}
-		}
-		project, _ := settingsPermission([]spec.Entry{{Kind: spec.KindSettings, Meta: meta}})
-		agent := spec.Entry{Kind: spec.KindAgent, Name: "a", Meta: map[string]any{"tools": tc.tools}}
-		merged, _ := agentMarkdown(agent, project)
-		projectFlat := append(simDefaults(), simProjectRules(t, project)...)
-		ownFlat := simOwnRules(tc.tools)
-		mergedFlat := append(append([]simRule{}, projectFlat...), simAgentRules(t, merged)...)
+		jsonc, md := emitAgent(t, tc.settings, tc.hand, tc.tools...)
+		project := append(simDefaults(), simJSONRules(t, jsonc)...)
+		agent := append(slices.Clone(project), simAgentRules(t, md)...)
+		own := simOwnRules(tc.tools)
 		for key, inputs := range samples {
 			for _, input := range inputs {
-				want := stricter(simEvaluate(projectFlat, key, input), simEvaluate(ownFlat, key, input))
-				if got := simEvaluate(mergedFlat, key, input); actionStrictness[got] < actionStrictness[want] {
-					t.Errorf("tools %v, project %v %v, %s %q: got %s, want at least %s", tc.tools, tc.settings, tc.native, key, input, got, want)
+				want := simStricter(simEvaluate(project, key, input), simEvaluate(own, key, input))
+				if got := simEvaluate(agent, key, input); got != want {
+					t.Errorf("tools %v, settings %v, hand %q, %s %q: got %s, want %s\n%s", tc.tools, tc.settings, tc.hand, key, input, got, want, md)
 				}
 			}
 		}
 	}
 }
 
-// simOwnRules is the agent's bare allowlist: deny everything, allow
-// each listed tool, and ask for doom_loop and external_directory.
-func simOwnRules(tools []any) []simRule {
-	rules := []simRule{{"*", "*", "deny"}, {"doom_loop", "*", "ask"}, {"external_directory", "*", "ask"}}
-	scoped := map[string]bool{}
-	for _, name := range tools {
-		key, pattern, ok := permissionRule(name.(string))
-		if !ok {
-			continue
-		}
-		if pattern != "*" && !scoped[key] {
-			scoped[key] = true
-			rules = append(rules, simRule{key, "*", "deny"})
-		}
-		rules = append(rules, simRule{key, pattern, "allow"})
-	}
-	return rules
-}
+// simRule is one entry of the flat list Kilo evaluates.
+type simRule struct{ key, pattern, action string }
 
-// simDefaults is Kilo's `baseDefaults` and `defaultsPatch` rule list
-// (packages/opencode/src/agent/agent.ts, src/kilocode/agent/index.ts),
-// allows included, for the simulation.
+// simDefaults copies the rules Kilo puts before every config, in order:
+// `baseDefaults` in packages/opencode/src/agent/agent.ts, then
+// `defaultsPatch` in packages/opencode/src/kilocode/agent/index.ts
+// (board off, no editor client).
 func simDefaults() []simRule {
-	return []simRule{
+	rules := []simRule{
 		{"*", "*", "allow"},
 		{"doom_loop", "*", "ask"},
 		{"external_directory", "*", "ask"},
@@ -268,49 +197,88 @@ func simDefaults() []simRule {
 		{"read", "*.env", "ask"},
 		{"read", "*.env.*", "ask"},
 		{"read", "*.env.example", "allow"},
-		{"recall", "*", "ask"},
-		{"kilo_memory_recall", "*", "ask"},
-		{"kilo_memory_save", "*", "ask"},
+		{"bash", "*", "ask"},
 	}
+	for _, cmd := range []string{"cat", "head", "tail", "less", "ls", "tree", "pwd", "echo", "wc", "which", "type", "file", "diff", "du", "df", "date", "uname", "whoami", "printenv", "man", "grep", "rg", "ag", "sort", "uniq", "cut", "tr", "jq", "touch", "mkdir", "cp", "mv", "tsc", "tsgo", "tar", "unzip", "gzip", "gunzip"} {
+		rules = append(rules, simRule{"bash", cmd + " *", "allow"})
+	}
+	return append(rules,
+		simRule{"recall", "*", "ask"},
+		simRule{"kilo_memory_recall", "*", "ask"},
+		simRule{"kilo_memory_save", "*", "ask"},
+	)
 }
 
-// simProjectRules reads the project map back from the JSON kilo.jsonc
-// gets, in its written order.
-func simProjectRules(t *testing.T, project map[string]any) []simRule {
+// simOwnRules is the agent's bare allowlist: deny everything, allow each
+// listed tool, and ask for doom_loop and external_directory.
+func simOwnRules(tools []any) []simRule {
+	rules := []simRule{{"*", "*", "deny"}, {"doom_loop", "*", "ask"}, {"external_directory", "*", "ask"}}
+	keys := map[string]string{"Bash": "bash", "Read": "read", "Edit": "edit", "Write": "edit", "Grep": "grep"}
+	for _, tool := range tools {
+		name := tool.(string)
+		if server, rest, ok := strings.Cut(strings.TrimPrefix(name, "mcp__"), "__"); ok {
+			rules = append(rules, simRule{server + "_" + rest, "*", "allow"})
+			continue
+		}
+		head, arg, scoped := strings.Cut(strings.TrimSuffix(name, ")"), "(")
+		if !scoped {
+			rules = append(rules, simRule{keys[head], "*", "allow"})
+			continue
+		}
+		if prefix, ok := strings.CutSuffix(arg, ":*"); ok {
+			arg = prefix + " *"
+		}
+		rules = append(rules, simRule{keys[head], arg, "allow"})
+	}
+	// A scoped tool denies the rest of its key; a bare one allows it all.
+	var out []simRule
+	for _, rule := range rules {
+		if rule.pattern != "*" && !slices.Contains(out, simRule{rule.key, "*", "allow"}) && !slices.Contains(out, simRule{rule.key, "*", "deny"}) {
+			out = append(out, simRule{rule.key, "*", "deny"})
+		}
+		out = append(out, rule)
+	}
+	return out
+}
+
+// simJSONRules reads the `permission` object of kilo.jsonc in file order.
+func simJSONRules(t *testing.T, jsonc string) []simRule {
 	t.Helper()
-	raw, err := json.Marshal(project)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var node yaml.Node
-	if err := yaml.Unmarshal(raw, &node); err != nil {
-		t.Fatal(err)
-	}
-	if len(node.Content) == 0 {
+	if jsonc == "" {
 		return nil
 	}
-	return simMapping(node.Content[0])
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(jsonc), &doc); err != nil {
+		t.Fatal(err)
+	}
+	return simMapping(simChild(doc.Content[0], "permission"))
 }
 
-// simAgentRules reads the `permission` map from rendered frontmatter in
+// simAgentRules reads the `permission` map from the agent frontmatter in
 // its written order.
 func simAgentRules(t *testing.T, md string) []simRule {
 	t.Helper()
-	front := strings.SplitN(md, "---\n", 3)[1]
-	var node yaml.Node
-	if err := yaml.Unmarshal([]byte(front), &node); err != nil {
+	parts := strings.SplitN(md, "---\n", 3)
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(parts[1]), &doc); err != nil {
 		t.Fatal(err)
 	}
-	root := node.Content[0]
-	for i := 0; i+1 < len(root.Content); i += 2 {
-		if root.Content[i].Value == "permission" {
-			return simMapping(root.Content[i+1])
+	return simMapping(simChild(doc.Content[0], "permission"))
+}
+
+func simChild(m *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			return m.Content[i+1]
 		}
 	}
 	return nil
 }
 
 func simMapping(m *yaml.Node) []simRule {
+	if m == nil {
+		return nil
+	}
 	var rules []simRule
 	for i := 0; i+1 < len(m.Content); i += 2 {
 		key, value := m.Content[i].Value, m.Content[i+1]
@@ -337,8 +305,18 @@ func simEvaluate(rules []simRule, key, input string) string {
 	return action
 }
 
-// simMatch is Kilo's Wildcard.match, written apart from wildcardMatch.
+func simStricter(a, b string) string {
+	rank := map[string]int{"allow": 0, "ask": 1, "deny": 2}
+	if rank[b] > rank[a] {
+		return b
+	}
+	return a
+}
+
+// simMatch is Kilo's Wildcard.match (packages/opencode/src/util/wildcard.ts).
 func simMatch(input, pattern string) bool {
+	input = strings.ReplaceAll(input, `\`, "/")
+	pattern = strings.ReplaceAll(pattern, `\`, "/")
 	escaped := regexp.QuoteMeta(pattern)
 	escaped = strings.ReplaceAll(escaped, `\*`, ".*")
 	escaped = strings.ReplaceAll(escaped, `\?`, ".")
@@ -347,6 +325,3 @@ func simMatch(input, pattern string) bool {
 	}
 	return regexp.MustCompile("(?s)^" + escaped + "$").MatchString(input)
 }
-
-// simRule is one entry of the flat list Kilo evaluates.
-type simRule struct{ key, pattern, action string }

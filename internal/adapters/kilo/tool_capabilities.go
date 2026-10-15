@@ -10,11 +10,13 @@ import (
 )
 
 var toolCapabilities = emit.ToolCapabilityTable{
-	"read":      {Permission: []string{"read"}, Agent: []string{"read"}},
-	"Glob":      {Permission: []string{"glob"}, Agent: []string{"glob"}},
-	"Grep":      {Permission: []string{"grep"}, Agent: []string{"grep"}},
-	"edit":      {Permission: []string{"edit"}, Agent: []string{"edit"}},
-	"write":     {Permission: []string{"write"}, Agent: []string{"write"}},
+	"read": {Permission: []string{"read"}, Agent: []string{"read"}},
+	"Glob": {Permission: []string{"glob"}, Agent: []string{"glob"}},
+	"Grep": {Permission: []string{"grep"}, Agent: []string{"grep"}},
+	"edit": {Permission: []string{"edit"}, Agent: []string{"edit"}},
+	// Kilo's write tool asks for the edit permission
+	// (packages/opencode/src/tool/write.ts), so a `write` key would do nothing.
+	"write":     {Permission: []string{"edit"}, Agent: []string{"edit"}},
 	"shell":     {Permission: []string{"bash"}, Agent: []string{"bash"}},
 	"web":       {Permission: []string{"webfetch", "websearch"}, Agent: []string{"webfetch", "websearch"}},
 	"Task":      {Permission: []string{"task"}, Agent: []string{"task"}},
@@ -30,15 +32,10 @@ func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
-	var out []string
-	for _, key := range restrictedKeys(tool, list) {
-		if pattern != "*" {
-			key += "(" + pattern + ")"
-		}
-		out = append(out, key)
+	if pattern != "*" {
+		tool += "(" + pattern + ")"
 	}
-
-	return out, true
+	return []string{tool}, true
 }
 
 func (Adapter) TranslateAgentCapability(rule string) ([]string, bool) {

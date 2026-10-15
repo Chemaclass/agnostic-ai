@@ -288,11 +288,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	project, _ := settingsPermission(b.Settings)
-	if err := emitAgents(sess, b.Agents, dir, project, dryRun); err != nil {
-		return err
-	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
 		return err
@@ -311,7 +306,27 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	memory = withoutOutOfRootIndexes(memory)
-	return emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun)
+	if err := emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun); err != nil {
+		return err
+	}
+	// Agents go last: Kilo checks an agent's rules after the project's,
+	// so each agent is built against the permission kilo.jsonc now
+	// holds, hand-written keys included.
+	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
+	return emitAgents(sess, b.Agents, dir, projectPermission(sess, b.Settings, path, dryRun), dryRun)
+}
+
+// projectPermission returns the project rules in kilo.jsonc, in file
+// order, after this sync's write. A dry run that writes nothing falls
+// back to the rules sync would write.
+func projectPermission(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) []flatRule {
+	if data, ok := sess.CurrentContent(path, dryRun); ok {
+		if rules, parsed := fileRules(data); parsed {
+			return rules
+		}
+	}
+	permission, _ := settingsPermission(settings)
+	return flatRules(permission)
 }
 
 // EmitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
@@ -323,9 +338,9 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	return emitAgents(sess, agents, dir, nil, dryRun)
 }
 
-// emitAgents is EmitAgents with the project permission map each
+// emitAgents is EmitAgents with the project permission rules each
 // restricted agent keeps; project may be nil.
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project map[string]any, dryRun bool) error {
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project []flatRule, dryRun bool) error {
 	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
@@ -365,7 +380,7 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project map
 // unmapped reports whether the spec named at least one tool Kilo Code
 // has no permission key for, so the caller can fold those into one
 // coverage note per sync instead of losing them silently.
-func agentMarkdown(e spec.Entry, project map[string]any) (body string, unmapped bool) {
+func agentMarkdown(e spec.Entry, project []flatRule) (body string, unmapped bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {

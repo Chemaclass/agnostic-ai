@@ -117,14 +117,12 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 					dropped[i] = true
 					continue
 				}
-				for _, key := range restrictedKeys(tool, list) {
-					patterns, _ := out[key].(map[string]any)
-					if patterns == nil {
-						patterns = map[string]any{}
-						out[key] = patterns
-					}
-					patterns[pattern] = list
+				patterns, _ := out[tool].(map[string]any)
+				if patterns == nil {
+					patterns = map[string]any{}
+					out[tool] = patterns
 				}
+				patterns[pattern] = list
 			}
 		}
 	}
@@ -167,20 +165,6 @@ func byAction(patterns map[string]any) *emit.OrderedJSON {
 	return out
 }
 
-// restrictedKeys returns the Kilo keys a rule for tool lands under in
-// list. Claude Code's Edit rules "apply to all built-in tools that edit
-// files" (code.claude.com/docs/en/permissions), and Kilo keeps `write`
-// apart from `edit` ("File tools such as `read`, `edit`, and `write`
-// resolve the input path first"), so an Edit deny or ask also covers
-// `write`; otherwise `edit(.env)` would leave `.env` writable. An allow
-// stays on `edit` alone, which grants no more than it says.
-func restrictedKeys(tool, list string) []string {
-	if tool == "edit" && list != "allow" {
-		return []string{"edit", "write"}
-	}
-	return []string{tool}
-}
-
 // entryRules returns one settings spec's rules for list, and whether
 // they already hold Kilo's own vocabulary under `x-kilo.permission`.
 func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
@@ -205,44 +189,43 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 //
 // The catch-all would also deny `external_directory` and `doom_loop`;
 // both default to "ask" (kilo.ai/docs/getting-started/settings/auto-approving-actions,
-// "Default behavior"), so they go back to that. Every rule the agent
-// writes then passes through restrictToBase, so neither Kilo's defaults
-// nor the project's ask and deny rules lose to it. project is the
-// `kilo.jsonc` permission map settingsPermission builds, and may be nil.
-func agentPermission(tools []string, project map[string]any) (perms map[string]any, unmapped bool) {
-	allowed := map[string]any{}
+// "Default behavior"), so the agent asks for them at most. Each key is
+// then built by agentKeyRules against Kilo's defaults and project, the
+// final `kilo.jsonc` permission rules in file order (nil when there are
+// none).
+func agentPermission(tools []string, project []flatRule) (perms map[string]any, unmapped bool) {
+	allowed := map[string][]patternRule{}
 	for _, name := range tools {
 		key, pattern, known := permissionRule(name)
 		if !known {
 			unmapped = true
 			continue
 		}
+		rules := allowed[key]
+		if len(rules) == 1 && rules[0].pattern == anyPattern {
+			continue
+		}
 		if pattern == anyPattern {
-			allowed[key] = "allow"
-			continue
+			rules = nil
 		}
-		if allowed[key] == "allow" {
-			continue
+		if !slices.Contains(rules, patternRule{pattern, "allow"}) {
+			rules = append(rules, patternRule{pattern, "allow"})
 		}
-		patterns, _ := allowed[key].(map[string]any)
-		if patterns == nil {
-			patterns = map[string]any{anyPattern: "deny"}
-			allowed[key] = patterns
-		}
-		patterns[pattern] = "allow"
+		allowed[key] = rules
 	}
 
 	if len(allowed) == 0 {
 		return nil, unmapped
 	}
-	allowed["doom_loop"] = "ask"
-	allowed["external_directory"] = "ask"
-	base := withoutShadowed(append(kiloDefaults(), flatRules(project)...))
-	for key, value := range allowed {
-		allowed[key] = restrictToBase(key, value, base)
+	allowed["doom_loop"] = []patternRule{{anyPattern, "ask"}}
+	allowed["external_directory"] = []patternRule{{anyPattern, "ask"}}
+	base := append(kiloDefaults(), project...)
+	perms = map[string]any{anyPattern: "deny"}
+	for key, rules := range allowed {
+		slices.SortFunc(rules, func(a, b patternRule) int { return strings.Compare(a.pattern, b.pattern) })
+		perms[key] = agentKeyRules(key, rules, base)
 	}
-	allowed[anyPattern] = "deny"
-	return allowed, unmapped
+	return perms, unmapped
 }
 
 // flatRule is one entry of the single list Kilo evaluates: a permission
@@ -252,12 +235,16 @@ type flatRule struct{ key, pattern, action string }
 // patternRule is one target pattern of an agent key and its action.
 type patternRule struct{ pattern, action string }
 
-// kiloDefaults are the ask and deny rules Kilo puts before every config
-// (packages/opencode/src/agent/agent.ts `baseDefaults`, then
-// `KiloAgent.prepare(...).defaultsPatch` in src/kilocode/agent/index.ts).
-// Kilo's allows are left out: they never restrict an agent.
+// kiloDefaults are the rules Kilo puts before every config, in order:
+// `baseDefaults` in packages/opencode/src/agent/agent.ts, then
+// `KiloAgent.prepare(...).defaultsPatch` in
+// packages/opencode/src/kilocode/agent/index.ts. Left out: the
+// directories Kilo itself allows outside the project, which depend on
+// the machine, so the agent asks there; and the rules only an editor
+// client or the experimental board turns on.
 func kiloDefaults() []flatRule {
-	return []flatRule{
+	rules := []flatRule{
+		{anyPattern, anyPattern, "allow"},
 		{"doom_loop", anyPattern, "ask"},
 		{"external_directory", anyPattern, "ask"},
 		{"suggest", anyPattern, "deny"},
@@ -266,18 +253,32 @@ func kiloDefaults() []flatRule {
 		{"plan_exit", anyPattern, "deny"},
 		{"repo_clone", anyPattern, "deny"},
 		{"repo_overview", anyPattern, "deny"},
+		{"read", anyPattern, "allow"},
 		{"read", "*.env", "ask"},
 		{"read", "*.env.*", "ask"},
 		{"read", "*.env.example", "allow"},
-		{"recall", anyPattern, "ask"},
-		{"kilo_memory_recall", anyPattern, "ask"},
-		{"kilo_memory_save", anyPattern, "ask"},
+		{"bash", anyPattern, "ask"},
 	}
+	for _, command := range kiloAllowedCommands {
+		rules = append(rules, flatRule{"bash", command + " *", "allow"})
+	}
+	return append(rules,
+		flatRule{"recall", anyPattern, "ask"},
+		flatRule{"kilo_memory_recall", anyPattern, "ask"},
+		flatRule{"kilo_memory_save", anyPattern, "ask"},
+	)
 }
 
-// flatRules lists the project's rules in the order `kilo.jsonc` holds
-// them: tool keys sorted, as the JSON encoder writes a map, and each
-// key's patterns in their written order.
+// kiloAllowedCommands are the commands Kilo's default `bash` map allows
+// (`readable` and `bash` in packages/opencode/src/kilocode/agent/index.ts).
+var kiloAllowedCommands = []string{
+	"cat", "head", "tail", "less", "ls", "tree", "pwd", "echo", "wc", "which", "type", "file", "diff", "du", "df",
+	"date", "uname", "whoami", "printenv", "man", "grep", "rg", "ag", "sort", "uniq", "cut", "tr", "jq",
+	"touch", "mkdir", "cp", "mv", "tsc", "tsgo", "tar", "unzip", "gzip", "gunzip",
+}
+
+// flatRules lists a permission map in the order `kilo.jsonc` holds it
+// when sync writes it fresh: keys sorted, each key's patterns in order.
 func flatRules(project map[string]any) []flatRule {
 	var rules []flatRule
 	for _, key := range slices.Sorted(maps.Keys(project)) {
@@ -285,13 +286,7 @@ func flatRules(project map[string]any) []flatRule {
 		case string:
 			rules = append(rules, flatRule{key, anyPattern, v})
 		case *emit.OrderedJSON:
-			for _, pattern := range v.Keys() {
-				raw, _ := v.Get(pattern)
-				var action string
-				if json.Unmarshal(raw, &action) == nil {
-					rules = append(rules, flatRule{key, pattern, action})
-				}
-			}
+			rules = append(rules, orderedRules(key, v)...)
 		case map[string]any:
 			for _, pattern := range slices.Sorted(maps.Keys(v)) {
 				if action, ok := v[pattern].(string); ok {
@@ -303,110 +298,130 @@ func flatRules(project map[string]any) []flatRule {
 	return rules
 }
 
-// withoutShadowed drops each rule a later one covers entirely, so a
-// project rule that overrides one of Kilo's defaults also overrides it
-// for the agent.
-func withoutShadowed(rules []flatRule) []flatRule {
-	var kept []flatRule
-	for i, rule := range rules {
-		shadowed := slices.ContainsFunc(rules[i+1:], func(later flatRule) bool {
-			return patternContains(later.key, rule.key) && patternContains(later.pattern, rule.pattern)
-		})
-		if !shadowed {
-			kept = append(kept, rule)
-		}
+// fileRules reads the `permission` object of a written kilo.jsonc in
+// file order, hand-written keys included. It reports false when the
+// document does not parse.
+func fileRules(data []byte) ([]flatRule, bool) {
+	stripped, _ := emit.StripJSONC(data)
+	doc := emit.NewOrderedJSON()
+	if json.Unmarshal(stripped, doc) != nil {
+		return nil, false
 	}
-	return kept
-}
-
-// restrictToBase keeps each ask and deny rule of the defaults and the
-// project in force for one agent key. Kilo evaluates defaults, project,
-// then agent as one list, and the last match wins
-// (packages/opencode/src/agent/agent.ts merges `defaults, user` and then
-// the agent's `value.permission`; permission/index.ts evaluates with
-// `findLast`, matching the key and the pattern as wildcards). So for
-// every base rule whose key matches and every agent rule that is not a
-// deny:
-//
-//   - a base pattern that contains the agent's raises it in place;
-//   - one inside the agent's goes after the agent rules;
-//   - a partial overlap goes after them as the exact intersection when
-//     that has a spelling (see intersection), or raises the agent's
-//     pattern in place, stricter than needed but never looser.
-//
-// Base rules that overlap nothing the agent allows are left out: the
-// agent's catch-all deny already covers them. Base allows never copy, as
-// after the agent's deny they would widen its list. The result is never
-// looser than the project, Kilo's defaults, or the agent's own list.
-func restrictToBase(key string, value any, base []flatRule) any {
-	rules := agentPatternRules(value)
-	if rules == nil {
-		return value
+	raw, found := doc.Get(permissionKey)
+	if !found {
+		return nil, true
 	}
-	var after []patternRule
-	changed := false
-	add := func(rule patternRule) {
-		after = slices.DeleteFunc(after, func(r patternRule) bool { return r.pattern == rule.pattern })
-		after = append(after, rule)
-		changed = true
+	var action string
+	if json.Unmarshal(raw, &action) == nil {
+		return []flatRule{{anyPattern, anyPattern, action}}, true
 	}
-	for _, b := range base {
-		if b.action == "allow" || !wildcardMatch(key, b.key) {
+	object := emit.NewOrderedJSON()
+	if json.Unmarshal(raw, object) != nil {
+		return nil, false
+	}
+	var rules []flatRule
+	for _, key := range object.Keys() {
+		value, _ := object.Get(key)
+		if json.Unmarshal(value, &action) == nil {
+			rules = append(rules, flatRule{key, anyPattern, action})
 			continue
 		}
-		for i, r := range rules {
-			if r.action == "deny" || stricter(r.action, b.action) == r.action {
+		patterns := emit.NewOrderedJSON()
+		if json.Unmarshal(value, patterns) == nil {
+			rules = append(rules, orderedRules(key, patterns)...)
+		}
+	}
+	return rules, true
+}
+
+func orderedRules(key string, patterns *emit.OrderedJSON) []flatRule {
+	var rules []flatRule
+	for _, pattern := range patterns.Keys() {
+		raw, _ := patterns.Get(pattern)
+		var action string
+		if json.Unmarshal(raw, &action) == nil {
+			rules = append(rules, flatRule{key, pattern, action})
+		}
+	}
+	return rules
+}
+
+// agentKeyRules writes one agent key so that, for every input, Kilo
+// decides the stricter of the base list and the agent's own rules.
+// Kilo evaluates Kilo's defaults, the project, and then the agent as one
+// list, and the last rule whose key and pattern match wins
+// (packages/opencode/src/agent/agent.ts merges `defaults, user` and then
+// the agent's `value.permission`; permission/index.ts `evaluate` uses
+// `findLast` with Wildcard.match on both). Agent rules come last, so
+// they must repeat the base decisions inside each pattern they allow:
+//
+//   - the agent's pattern first, at "ask", Kilo's answer when no rule
+//     matches;
+//   - then each base rule for this key, in order: one that covers the
+//     pattern sets it, one inside it is copied, and a partial overlap is
+//     copied as the exact intersection (see intersection);
+//   - an overlap with no exact spelling becomes a deny on the base
+//     pattern, stricter than needed but never looser.
+//
+// A scoped key starts with `"*": deny`, so nothing outside its patterns
+// opens up. Every action is capped at the agent's own.
+func agentKeyRules(key string, agent []patternRule, base []flatRule) any {
+	var out []patternRule
+	put := func(pattern, action string) {
+		out = slices.DeleteFunc(out, func(r patternRule) bool { return r.pattern == pattern })
+		out = append(out, patternRule{pattern, action})
+	}
+	if len(agent) > 1 || agent[0].pattern != anyPattern {
+		put(anyPattern, "deny")
+	}
+	for _, own := range agent {
+		put(own.pattern, stricter("ask", own.action))
+		for _, rule := range base {
+			if !wildcardMatch(key, rule.key) {
 				continue
 			}
+			action := stricter(rule.action, own.action)
 			switch {
-			case patternContains(b.pattern, r.pattern):
-				rules[i].action = b.action
-				changed = true
-			case patternContains(r.pattern, b.pattern):
-				add(patternRule{b.pattern, b.action})
-			case !mayOverlap(r.pattern, b.pattern):
+			case patternContains(rule.pattern, own.pattern):
+				put(own.pattern, action)
+			case patternContains(own.pattern, rule.pattern):
+				put(rule.pattern, action)
+			case !mayOverlap(own.pattern, rule.pattern):
 			default:
-				if parts, ok := intersection(r.pattern, b.pattern); ok {
-					for _, part := range parts {
-						add(patternRule{part, b.action})
+				parts, exact := intersection(own.pattern, rule.pattern)
+				if !exact {
+					if action != "allow" {
+						put(rule.pattern, "deny")
 					}
 					continue
 				}
-				rules[i].action = b.action
-				changed = true
+				for _, part := range parts {
+					put(part, action)
+				}
 			}
 		}
 	}
-	if !changed {
-		return value
-	}
-	rules = append(rules, after...)
-	if len(rules) == 1 && rules[0].pattern == anyPattern {
-		return rules[0].action
+	out = withoutShadowed(out)
+	if !slices.ContainsFunc(out, func(r patternRule) bool { return r.action != out[0].action }) {
+		return out[0].action
 	}
 	node := &yaml.Node{Kind: yaml.MappingNode}
-	for _, rule := range rules {
+	for _, rule := range out {
 		node.Content = append(node.Content, yamlString(rule.pattern), yamlString(rule.action))
 	}
 	return node
 }
 
-// agentPatternRules lists one agent key's rules in the order the
-// frontmatter writes them: the catch-all, then the sorted patterns.
-func agentPatternRules(value any) []patternRule {
-	switch v := value.(type) {
-	case string:
-		return []patternRule{{anyPattern, v}}
-	case map[string]any:
-		rules := []patternRule{{anyPattern, v[anyPattern].(string)}}
-		for _, pattern := range slices.Sorted(maps.Keys(v)) {
-			if pattern != anyPattern {
-				rules = append(rules, patternRule{pattern, v[pattern].(string)})
-			}
+// withoutShadowed drops each rule a later one covers entirely, since it
+// can never be the last match.
+func withoutShadowed(rules []patternRule) []patternRule {
+	var kept []patternRule
+	for i, rule := range rules {
+		if !slices.ContainsFunc(rules[i+1:], func(later patternRule) bool { return patternContains(later.pattern, rule.pattern) }) {
+			kept = append(kept, rule)
 		}
-		return rules
 	}
-	return nil
+	return kept
 }
 
 var actionStrictness = map[string]int{"allow": 0, "ask": 1, "deny": 2}

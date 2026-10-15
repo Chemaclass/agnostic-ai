@@ -476,6 +476,30 @@ func (s *Session) StopCapture() []CapturedFile {
 	return out
 }
 
+// CurrentContent returns what path holds after this session's writes:
+// the last captured write to it while capturing, else the file on disk.
+// A dry run that does not capture writes nothing, so it reports false.
+func (s *Session) CurrentContent(path string, dryRun bool) ([]byte, bool) {
+	s.mu.Lock()
+	capturing := s.capturing
+	for i := len(s.captured) - 1; capturing && i >= 0; i-- {
+		if s.captured[i].Path == path {
+			content := s.captured[i].Content
+			s.mu.Unlock()
+			return []byte(content), true
+		}
+	}
+	s.mu.Unlock()
+	if dryRun && !capturing {
+		return nil, false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
 // CapturedRemovals returns the removals recorded since the last
 // StartCapture. Unlike StopCapture it does not clear them.
 func (s *Session) CapturedRemovals() []CapturedRemoval {
