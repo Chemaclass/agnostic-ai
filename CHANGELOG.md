@@ -12,7 +12,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### OpenCode
 
-- A `deny` or `ask` that overlaps a narrower `allow` now wins, as on Claude Code: OpenCode takes the last match, so sync writes allow, then ask, then deny. A broad `ask` with a few allowed commands now asks for those too (#2211).
+- A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
 
 ## v0.84.0 - 2026-10-14
 
