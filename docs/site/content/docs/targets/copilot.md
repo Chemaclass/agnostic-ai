@@ -67,7 +67,7 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
 - `.github/mcp.json` carries the same servers under `mcpServers`, since Copilot CLI rejects the `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). Sync owns the whole file, and the whole root copy.
 - A per-server `tools` list of allowed tools (default `*`) goes only to `.github/mcp.json` and the root copy. VS Code documents no such key, and Codex's `tools` means something else.
 - A `roots` list is copied as written. Neither VS Code nor GitHub documents it per server.
-- Only `.vscode/mcp.json` gets the VS Code fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)):
+- Only `.vscode/mcp.json` gets the VS Code fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)). Set them at the spec's top level or under `x-copilot`; `x-copilot` wins:
   - stdio servers: `cwd`, `envFile` (for example `${workspaceFolder}/.env`), and `sandboxEnabled` (macOS and Linux only).
   - stdio servers: `sandbox` with `filesystem.allowWrite`, `filesystem.denyRead`, `filesystem.denyWrite`, `network.allowedDomains`, and `network.deniedDomains`, each a list. VS Code reads allow rules only here, not in the top-level `sandbox`. Other keys are dropped.
   - remote servers: `oauth: {clientId, enterpriseManaged}`.
