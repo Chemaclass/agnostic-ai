@@ -15,5 +15,12 @@
       "**": "allow"
     },
     "websearch": "deny"
-  }
+  },
+  "permissions": [
+    {
+      "action": "read",
+      "effect": "deny",
+      "resource": "secrets/*"
+    }
+  ]
 }

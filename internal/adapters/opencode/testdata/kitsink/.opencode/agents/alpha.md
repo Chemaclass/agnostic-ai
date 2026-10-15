@@ -1,5 +1,8 @@
 ---
 permission:
+  "*": deny
+  doom_loop: ask
+  external_directory: ask
   read:
     secrets/public/*: allow
     secrets/*: deny

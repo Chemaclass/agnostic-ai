@@ -222,7 +222,7 @@ func TestImportFromOpencode_V2MCPOwnershipPreservesUserEdits(t *testing.T) {
 	silence(t)
 	captureLogOut(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\n")
-	writeFile(t, opencodeMCPFile, `{"mcp":{"servers":{"docs":{"type":"local","command":["srv"]},"retire":{"type":"local","command":["old"]}}},"permissions":[{"effect":"deny","action":"shell"}]}`)
+	writeFile(t, opencodeMCPFile, `{"mcp":{"servers":{"docs":{"type":"local","command":["srv"]},"retire":{"type":"local","command":["old"]}}},"permissions":[{"effect":"deny","action":"shell","resource":"*"}]}`)
 	for _, args := range [][]string{{"import", "opencode"}, {"sync"}, {"import", "opencode"}} {
 		command := NewRootCmd("test")
 		command.SetArgs(args)
@@ -263,7 +263,7 @@ func TestImportFromOpencode_V2MCPOwnershipPreservesUserEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, opencodeMCPFile)
-	for _, want := range []string{"updated-srv", "user-srv", "edited-old", `"catalog": 42`, `"permissions"`} {
+	for _, want := range []string{"updated-srv", "user-srv", "edited-old", `"catalog": 42`, `"permissions"`, `"action": "shell"`, `"resource": "*"`, `"effect": "deny"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("sync loses %q: %s", want, got)
 		}

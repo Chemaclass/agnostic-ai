@@ -85,6 +85,8 @@ Each tool supports a different set of spec kinds. The [capability matrix](https:
 - **Session handoffs**: one private note per branch, so you can pick up work in another tool. See [session handoffs](https://agnostic-ai.org/docs/handoff/).
 - **RTK and Caveman**: optional add-ons that shorten command output and responses. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/).
 
+OpenCode agents with a `can` or `tools` list keep project permission limits from `opencode.json`, including native V2 rules. See [OpenCode permissions](https://agnostic-ai.org/docs/targets/opencode/).
+
 ## Develop agnostic-ai
 
 ```bash

@@ -82,13 +82,18 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // promises).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example/model"}},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{
+			"model": "example/model",
+			"x-opencode": map[string]any{"permissions": []any{
+				map[string]any{"action": "read", "resource": "secrets/*", "effect": "deny"},
+			}},
+		}},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
 		{
 			Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body",
-			Meta: map[string]any{"permission": map[string]any{
+			Meta: map[string]any{"tools": []any{"Read"}, "permission": map[string]any{
 				"read": map[string]any{"secrets/public/*": "allow", "secrets/*": "deny"},
 				"bash": "ask",
 			}},
