@@ -301,3 +301,25 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// A nested file sits in its own scope directory, so it states no scope
+// line, even for a rule that also names globs. The root file does.
+func TestEmit_RulesFile_NestedGoosehintsStatesNoScopeLine(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"goose": {RulesFile: ".goosehints"}},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "js", Path: "rules/js.md", Body: "js body", Meta: map[string]any{"globs": "resources/js/**"}},
+		{Kind: spec.KindRule, Name: "auth", Path: "rules/auth.md", Scope: "backend/api", Body: "scoped body", Meta: map[string]any{"globs": "backend/api/**/*.go"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if root := readFile(t, filepath.Join(dir, ".goosehints")); !strings.Contains(root, "Applies to: `resources/js/**`") {
+		t.Errorf("root .goosehints lacks the scope line:\n%s", root)
+	}
+	if scoped := readFile(t, filepath.Join(dir, "backend/api/.goosehints")); strings.Contains(scoped, "Applies to:") {
+		t.Errorf("nested .goosehints states a scope line:\n%s", scoped)
+	}
+}

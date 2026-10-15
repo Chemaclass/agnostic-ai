@@ -106,9 +106,13 @@ type Session struct {
 	capturing bool
 	// writesOnly skips tree sweeps during capture, for callers that
 	// read the captured writes and never the removals.
-	writesOnly  bool
-	captured    []CapturedFile
-	removals    []CapturedRemoval
+	writesOnly bool
+	captured   []CapturedFile
+	removals   []CapturedRemoval
+	// planned holds the content this session wrote, captured, or
+	// previewed for each path an adapter watches, so an adapter can read
+	// its own output back. Only watched paths are kept, which bounds it.
+	planned     map[string]*string
 	backup      bool
 	recording   bool
 	recorded    []string
@@ -169,6 +173,31 @@ func (s *Session) UserTier() bool { return s.userTier }
 // through one emission pass. Adapters and the CLI toggle modes on it and
 // pass it to WriteFile and friends; each sync run constructs its own.
 func NewSession() *Session { return &Session{} }
+
+// WatchPlannedFile asks the session to keep what it next writes,
+// captures, or previews at path, for PlannedFile.
+func (s *Session) WatchPlannedFile(path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.planned == nil {
+		s.planned = map[string]*string{}
+	}
+	s.planned[path] = nil
+}
+
+// PlannedFile returns the content this session last wrote, captured, or
+// previewed at a watched path. It reports false when the session left
+// the file as it is on disk, such as a hand edit sync keeps or a path
+// sync.unmanaged covers.
+func (s *Session) PlannedFile(path string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	content := s.planned[path]
+	if content == nil {
+		return "", false
+	}
+	return *content, true
+}
 
 // SetUnmanaged installs the sync.unmanaged patterns. A matching path is
 // never written, merged, copied, renamed, or removed by this session;
@@ -820,6 +849,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if s.counting && !capturing && !dryRun {
 		s.counted++
 	}
+	if _, watched := s.planned[path]; watched {
+		s.planned[path] = &content
+	}
 	s.mu.Unlock()
 
 	if capturing {
@@ -833,6 +865,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	defer lockPath(path)()
 	if sum, keep := s.keepsEdit(path, content); keep {
 		s.mu.Lock()
+		if _, watched := s.planned[path]; watched {
+			s.planned[path] = nil
+		}
 		s.kept = append(s.kept, path)
 		if detailing {
 			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: sum})

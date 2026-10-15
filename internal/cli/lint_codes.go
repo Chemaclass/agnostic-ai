@@ -94,8 +94,8 @@ var lintCodes = map[string]lintCode{
 	"LINT013": {
 		Severity: lintError,
 		Title:    "Malformed rule globs",
-		Cause:    "A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings, so the rule loads in every session.",
-		Fix:      "Write `globs` as one string or a YAML list of strings.",
+		Cause:    "A rule's `globs`, `paths`, or `x-<target>.globs` is neither a string nor a list of strings, so the rule loads in every session, or `paths` and `globs` name different patterns.",
+		Fix:      "Write `globs` as one string or a YAML list of strings, and set only one of `paths` and `globs`.",
 	},
 	"LINT014": {
 		Severity: lintError,

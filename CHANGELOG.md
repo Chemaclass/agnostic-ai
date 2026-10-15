@@ -8,6 +8,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `project --bootstrap` installs bun projects with `bun install --frozen-lockfile`, and names the install to run when it cannot help (#2246).
 
+- A rule's `paths` scopes it like `globs` on every tool, so Copilot and Cursor stop loading it everywhere; `validate` rejects the two if they differ (#2243).
+
 - `sync --keep-edits` no longer keeps a skill file Codex and Amp share as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
 
 ### By tool
@@ -30,6 +32,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
+- An agent's `can` or `tools` list becomes its `permission` map, denying unlisted tools; names with no OpenCode key print a note (#2236).
 
 #### Kilo
 
@@ -61,6 +64,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The first sync in a fresh clone is several times faster, and the change summary counts only the targets each change reaches (#2205, #2183, #2204).
 - `import --dry-run` matches the real import, `import` keeps frontmatter that parses the same, and `lint` flags a repeated key (#2181, #2182, #2202).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` (#2127).
+- A rule with `globs` that sync inlines into a root file now states `Applies to:` under its heading, so it no longer reads as a repo-wide rule (#2244).
 
 ### By tool
 
