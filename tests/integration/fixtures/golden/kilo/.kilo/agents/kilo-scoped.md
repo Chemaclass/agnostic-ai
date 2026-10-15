@@ -6,7 +6,6 @@ permission:
   edit:
     "*": deny
     docs/**: allow
-    .env: deny
   external_directory: ask
   read:
     "*": deny
