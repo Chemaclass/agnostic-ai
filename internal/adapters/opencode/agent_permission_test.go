@@ -1,6 +1,8 @@
 package opencode
 
 import (
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -219,5 +221,40 @@ func TestEmit_Agent_TildePatternStaysAString(t *testing.T) {
 	outside, _ := front.Permission["external_directory"].(map[string]any)
 	if outside["~"] != "deny" {
 		t.Errorf("external_directory = %#v, want \"~\" deny:\n%s", outside, got)
+	}
+}
+
+func TestEmit_Agent_DryRunKeepsHandWrittenProjectRules(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte(`{"permission": {"bash": {"rm *": "deny"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	settings := spec.Entry{Kind: spec.KindSettings, Name: "s", Path: "s.yaml", Meta: map[string]any{
+		"x-opencode": map[string]any{"permission": map[string]any{"edit": "ask"}},
+	}}
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"description": "d", "tools": []any{"Bash", "Edit"}}, Body: "x"}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	emitErr := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{settings, agent}), &config.Config{}, true)
+	os.Stdout = stdout
+	_ = w.Close()
+	printed, _ := io.ReadAll(r)
+	if emitErr != nil {
+		t.Fatal(emitErr)
+	}
+	preview := string(printed)
+	start := strings.Index(preview, ".opencode/agents/reviewer.md ---")
+	if start < 0 {
+		t.Fatalf("no agent preview in:\n%s", preview)
+	}
+	agentPreview := preview[start:]
+	for _, want := range []string{"rm *: deny", "edit: ask"} {
+		if !strings.Contains(agentPreview, want) {
+			t.Errorf("dry run agent preview misses %q:\n%s", want, agentPreview)
+		}
 	}
 }

@@ -65,40 +65,44 @@ var builtinPermission = []permissionRule{
 // agent.ts and permission/index.ts, v1.19.0).
 type agentProject struct {
 	rules []permissionRule
+	// servers names every MCP server the project configures.
+	servers []string
 }
 
 // readProjectPermission reads the `permission` opencode.json holds after
 // this sync: the content the session just planned for it, or the file
-// on disk when the session left it alone.
-func readProjectPermission(sess *emit.Session, path string) (*agentProject, error) {
-	content, planned := sess.PlannedFile(path)
-	if !planned {
-		data, err := os.ReadFile(path)
-		if err != nil && !os.IsNotExist(err) {
+// on disk when the session left it alone. A dry run plans from an empty
+// file, so there the planned keys go over the copy on disk, as the real
+// merge would put them.
+func readProjectPermission(sess *emit.Session, path string, dryRun bool) (*agentProject, error) {
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	onDisk, err := permissionOf(string(data), path)
+	if err != nil {
+		return nil, err
+	}
+	permission := onDisk
+	if content, planned := sess.PlannedFile(path); planned {
+		if permission, err = permissionOf(content, path); err != nil {
 			return nil, err
 		}
-		content = string(data)
+		if dryRun {
+			permission = overlayPermission(onDisk, permission)
+		}
 	}
 	project := &agentProject{rules: slices.Clone(builtinPermission)}
-	if strings.TrimSpace(content) == "" {
-		return project, nil
-	}
-	stripped, _ := emit.StripJSONC([]byte(content))
-	doc := emit.NewOrderedJSON()
-	if err := json.Unmarshal(stripped, doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	raw, found := doc.Get(permissionKey)
-	if !found {
+	if permission == nil {
 		return project, nil
 	}
 	var action string
-	if json.Unmarshal(raw, &action) == nil {
+	if json.Unmarshal(permission, &action) == nil {
 		project.rules = append(project.rules, permissionRule{catchAllPattern, catchAllPattern, action})
 		return project, nil
 	}
 	keys := emit.NewOrderedJSON()
-	if err := json.Unmarshal(raw, keys); err != nil {
+	if err := json.Unmarshal(permission, keys); err != nil {
 		return nil, fmt.Errorf("parse %s permission: %w", path, err)
 	}
 	for _, key := range keys.Keys() {
@@ -118,6 +122,43 @@ func readProjectPermission(sess *emit.Session, path string) (*agentProject, erro
 		}
 	}
 	return project, nil
+}
+
+// permissionOf returns the raw `permission` value of an opencode.json
+// document, or nil when it has none.
+func permissionOf(content, path string) (json.RawMessage, error) {
+	if strings.TrimSpace(content) == "" {
+		return nil, nil
+	}
+	stripped, _ := emit.StripJSONC([]byte(content))
+	doc := emit.NewOrderedJSON()
+	if err := json.Unmarshal(stripped, doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	raw, _ := doc.Get(permissionKey)
+	return raw, nil
+}
+
+// overlayPermission sets each planned tool key over the disk copy,
+// keeping the disk order and adding new keys after it. A bare action on
+// either side replaces the whole value.
+func overlayPermission(onDisk, planned json.RawMessage) json.RawMessage {
+	base, over := emit.NewOrderedJSON(), emit.NewOrderedJSON()
+	if onDisk == nil || json.Unmarshal(onDisk, base) != nil || planned == nil || json.Unmarshal(planned, over) != nil {
+		if planned == nil {
+			return onDisk
+		}
+		return planned
+	}
+	for _, key := range over.Keys() {
+		value, _ := over.Get(key)
+		base.SetRaw(key, value)
+	}
+	merged, err := json.Marshal(base)
+	if err != nil {
+		return planned
+	}
+	return merged
 }
 
 // emitAgents is EmitAgents with the project rules a restricted agent
@@ -226,20 +267,34 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 	if len(grants) == 0 {
 		return nil, unmapped
 	}
+	perms = map[string]any{catchAllPattern: "deny"}
+	// `<server>_*` also matches the tools of a server whose name starts
+	// with `<server>_`, so each one the list leaves out is denied after it.
+	for _, other := range project.servers {
+		for key := range grants {
+			server, whole := strings.CutSuffix(key, "_"+catchAllPattern)
+			if !whole || !strings.HasPrefix(other, server+"_") {
+				continue
+			}
+			if _, listed := grants[other+"_"+catchAllPattern]; !listed {
+				perms[other+"_"+catchAllPattern] = "deny"
+			}
+		}
+	}
 	grants["doom_loop"] = []string{catchAllPattern}
 	grants[externalDirectoryKey] = []string{catchAllPattern}
 
-	perms = map[string]any{catchAllPattern: "deny"}
 	for _, key := range slices.Sorted(maps.Keys(grants)) {
 		patterns := grants[key]
 		perms[key] = project.replay(key, patterns)
 		// A project rule on a narrower key, such as one MCP tool under a
 		// granted server, gets its own entry after this one.
 		for _, r := range project.rules {
-			if !wildcardOverlap(r.key, key) || wildcardContains(r.key, key) {
+			fold := r.action != "allow"
+			if !wildcardOverlap(r.key, key, fold) || wildcardContains(r.key, key, fold) {
 				continue
 			}
-			for _, narrower := range globIntersection(r.key, key) {
+			for _, narrower := range globIntersection(r.key, key, fold) {
 				if _, set := perms[narrower]; set || narrower <= key {
 					continue
 				}
@@ -254,10 +309,16 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 // the project does, and denies the rest. For each pattern it starts from
 // the last rule covering the whole pattern, then repeats in order every
 // later rule that reaches into it, cut down to the part inside it.
+//
+// OpenCode ignores case on Windows only, and the output must not depend
+// on the OS sync runs on. So an ask or deny rule reaches every pattern
+// it matches ignoring case, and an allow rule only those it matches
+// exactly. Where only case differs, the agent is stricter than the
+// project on one OS, never looser on either.
 func (p *agentProject) replay(key string, patterns []string) any {
 	var rules []permissionRule
 	for _, r := range p.rules {
-		if wildcardContains(r.key, key) {
+		if wildcardContains(r.key, key, r.action != "allow") {
 			rules = append(rules, r)
 		}
 	}
@@ -272,13 +333,13 @@ func (p *agentProject) replay(key string, patterns []string) any {
 	for _, q := range slices.Sorted(slices.Values(patterns)) {
 		base, start := "ask", 0
 		for i, r := range rules {
-			if wildcardContains(r.pattern, q) {
+			if wildcardContains(r.pattern, q, r.action != "allow") {
 				base, start = r.action, i+1
 			}
 		}
 		set(q, base)
 		for _, r := range rules[start:] {
-			for _, part := range globIntersection(r.pattern, q) {
+			for _, part := range globIntersection(r.pattern, q, r.action != "allow") {
 				set(part, r.action)
 			}
 		}
@@ -337,21 +398,30 @@ func wildcardAlternatives(pattern string) []string {
 	return []string{pattern}
 }
 
-// wildcardMatch reports whether s matches an OpenCode pattern, where `*`
-// is zero or more of any character, `?` exactly one, and the rest is
-// literal.
-func wildcardMatch(pattern, s string) bool {
-	return slices.ContainsFunc(wildcardAlternatives(pattern), func(alt string) bool {
-		return globCovers(alt, s, false)
-	})
+// wildcardByteEqual compares two literal characters as OpenCode does: a
+// backslash is a slash on every platform ("replaceAll("\\", "/")"), and
+// with fold set, letters match in either case, as on Windows ("win32" ?
+// "si" : "s"; packages/opencode/src/util/wildcard.ts, v1.19.0).
+func wildcardByteEqual(a, b byte, fold bool) bool {
+	normalize := func(c byte) byte {
+		if c == '\\' {
+			return '/'
+		}
+		if fold && 'A' <= c && c <= 'Z' {
+			return c + 'a' - 'A'
+		}
+		return c
+	}
+	return normalize(a) == normalize(b)
 }
 
 // wildcardContains reports whether every input b matches also matches
-// a. It may answer false for a true containment, never the reverse.
-func wildcardContains(a, b string) bool {
+// a, ignoring case when fold is set. It may answer false for a true
+// containment, never the reverse.
+func wildcardContains(a, b string, fold bool) bool {
 	for _, altB := range wildcardAlternatives(b) {
 		if !slices.ContainsFunc(wildcardAlternatives(a), func(altA string) bool {
-			return globCovers(altA, altB, true)
+			return globCovers(altA, altB, fold)
 		}) {
 			return false
 		}
@@ -360,14 +430,13 @@ func wildcardContains(a, b string) bool {
 }
 
 // wildcardOverlap reports whether some input matches both patterns.
-func wildcardOverlap(a, b string) bool {
-	return len(globIntersection(a, b)) > 0
+func wildcardOverlap(a, b string, fold bool) bool {
+	return len(globIntersection(a, b, fold)) > 0
 }
 
-// globCovers reports whether pattern a matches s. With glob set, s is a
-// pattern too, and a must cover each of its wildcards: only a `*` in a
+// globCovers reports whether pattern a covers pattern s: only a `*` in a
 // covers a `*` in s, and a `?` in s needs a `?` or `*` in a.
-func globCovers(a, s string, glob bool) bool {
+func globCovers(a, s string, fold bool) bool {
 	memo := map[[2]int]bool{}
 	var covers func(i, j int) bool
 	covers = func(i, j int) bool {
@@ -383,12 +452,12 @@ func globCovers(a, s string, glob bool) bool {
 			result = covers(i+1, j) || (j < len(s) && covers(i, j+1))
 		case j == len(s):
 			result = false
-		case glob && s[j] == '*':
+		case s[j] == '*':
 			result = false
-		case glob && s[j] == '?':
+		case s[j] == '?':
 			result = a[i] == '?' && covers(i+1, j+1)
 		default:
-			result = (a[i] == '?' || a[i] == s[j]) && covers(i+1, j+1)
+			result = (a[i] == '?' || wildcardByteEqual(a[i], s[j], fold)) && covers(i+1, j+1)
 		}
 		memo[key] = result
 		return result
@@ -396,26 +465,27 @@ func globCovers(a, s string, glob bool) bool {
 	return covers(0, 0)
 }
 
-// globIntersection returns patterns whose union matches exactly the
-// inputs both a and b match, or nil when they share none. It walks both
+// globIntersection returns patterns that match the inputs both a and b
+// match, written in b's case, or nil when they share none. It walks both
 // patterns side by side: a `*` facing a `*` matches any run both allow,
 // a `*` facing a character takes that character, and two characters
-// must agree.
-func globIntersection(a, b string) []string {
-	// One pattern inside the other is the intersection as written.
-	if wildcardContains(b, a) {
+// must agree. With fold set, characters agree ignoring case, and the
+// result can reach inputs of b that a matches only ignoring case.
+func globIntersection(a, b string, fold bool) []string {
+	// One pattern exactly inside the other is the intersection as written.
+	if wildcardContains(b, a, false) {
 		return []string{a}
 	}
-	if wildcardContains(a, b) {
+	if wildcardContains(a, b, fold) {
 		return []string{b}
 	}
 	var parts []string
 	for _, altA := range wildcardAlternatives(a) {
 		for _, altB := range wildcardAlternatives(b) {
-			for _, part := range globMeet(altA, altB) {
+			for _, part := range globMeet(altA, altB, fold) {
 				// OpenCode would also match the bare command before a
 				// trailing " *"; "**" keeps it out when it is not shared.
-				if prefix, found := strings.CutSuffix(part, " *"); found && !(wildcardContains(a, prefix) && wildcardContains(b, prefix)) {
+				if prefix, found := strings.CutSuffix(part, " *"); found && !(wildcardContains(a, prefix, fold) && wildcardContains(b, prefix, false)) {
 					part = prefix + " **"
 				}
 				if !slices.Contains(parts, part) {
@@ -426,13 +496,13 @@ func globIntersection(a, b string) []string {
 	}
 	return slices.DeleteFunc(parts, func(part string) bool {
 		return slices.ContainsFunc(parts, func(other string) bool {
-			return other != part && wildcardContains(other, part) && !wildcardContains(part, other)
+			return other != part && wildcardContains(other, part, false) && !wildcardContains(part, other, false)
 		})
 	})
 }
 
 // globMeet intersects two plain globs, with no trailing-space rule.
-func globMeet(a, b string) []string {
+func globMeet(a, b string, fold bool) []string {
 	memo := map[[2]int][]string{}
 	var meet func(i, j int) []string
 	meet = func(i, j int) []string {
@@ -473,8 +543,10 @@ func globMeet(a, b string) []string {
 		case i == len(a) || j == len(b):
 		case a[i] == '?':
 			add(string(b[j]), meet(i+1, j+1))
-		case b[j] == '?' || a[i] == b[j]:
+		case b[j] == '?':
 			add(string(a[i]), meet(i+1, j+1))
+		case wildcardByteEqual(a[i], b[j], fold):
+			add(string(b[j]), meet(i+1, j+1))
 		}
 		memo[key] = out
 		return out

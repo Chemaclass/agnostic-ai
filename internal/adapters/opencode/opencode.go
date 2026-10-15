@@ -192,14 +192,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
+	sess.WatchPlannedFile(path)
 	if err := emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun); err != nil {
 		return err
 	}
 	// Agents go last: a restricted agent repeats the project permission
 	// as opencode.json now holds it, hand-written keys included.
-	project, err := readProjectPermission(sess, path)
+	project, err := readProjectPermission(sess, path, dryRun)
 	if err != nil {
 		return err
+	}
+	for _, server := range b.MCPs {
+		project.servers = append(project.servers, server.Name)
 	}
 	return emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), project, dryRun)
 }
