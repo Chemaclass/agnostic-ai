@@ -62,7 +62,7 @@ func codexFileItems(cfg *config.Config, b spec.Bundle, adapter adapters.Adapter,
 			for _, line := range strings.Split(d.Content, "\n") {
 				line = strings.TrimSpace(line)
 				remainder, matches := strings.CutPrefix(line, "<!-- source: "+source+" ")
-				if matches && (remainder == "-->" || strings.HasPrefix(remainder, "headings:") || strings.HasPrefix(remainder, "body-lines:")) {
+				if matches && (remainder == "-->" || strings.HasPrefix(remainder, "headings:") || strings.HasPrefix(remainder, "scope:") || strings.HasPrefix(remainder, "body-lines:")) {
 					add(d, source)
 					break
 				}

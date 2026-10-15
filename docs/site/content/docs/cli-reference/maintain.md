@@ -229,9 +229,9 @@ Version and command checks have ten seconds in total. If a check fails, its erro
 |------|-------------|
 | `--check` | Check the version and generated output without installing or writing. |
 | `--against index\|HEAD` | With `--check`, use the existing check for staged or committed output. |
-| `--bootstrap` | If the binary is missing or mismatched, install once from the npm or pnpm lockfile, then sync preserving manual edits. |
+| `--bootstrap` | If the binary is missing or mismatched, install once from the npm, pnpm, or bun lockfile, then sync preserving manual edits. |
 
-Bootstrap uses `packageManager` from `package.json`, or an unambiguous root lockfile. It runs `npm ci` or `pnpm install --frozen-lockfile`. Both require a committed lockfile and a declared agnostic-ai dependency. Other package managers must install explicitly before invoking the helper. Normal package scripts run, including hook-manager setup and native builds. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` prevents a recursive helper call from starting another install; postinstall can still regenerate output. Repeating bootstrap with the correct binary performs no install.
+Bootstrap uses `packageManager` or `devEngines.packageManager` from `package.json`, or an unambiguous root lockfile. It runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile`. Each requires a committed lockfile (`bun.lock` or `bun.lockb` for bun) and a declared agnostic-ai dependency. For other package managers, bootstrap exits with an error that names their install command; run it before invoking the helper. Normal package scripts run, including hook-manager setup and native builds. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` prevents a recursive helper call from starting another install; postinstall can still regenerate output. Repeating bootstrap with the correct binary performs no install.
 
 Existing hook managers can call this helper without changing their own configuration format. A CLI capable of running bootstrap must already be installed, globally or locally. Versions released before `project` existed must first be updated through their existing package-manager command.
 

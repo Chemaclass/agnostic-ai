@@ -281,7 +281,13 @@
 # defaults per listed tool, read back the planned opencode.json, and match
 # ask and deny rules regardless of case. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-# #2242 measured 19976352 on Go1.27.2, up 53248 from main ca6776ae
-# (19923104): Kilo restricted agents replay the project rules and Kilo defaults per listed tool, read back the planned kilo.jsonc, and map Write to edit. Same Linux amd64 release flags;
+# #2250 measured 19947680 on Go1.27.2, up 24576 from main ca6776ae
+# (19923104): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19984544
+# #2251 measured 19959968 on Go1.27.2, up 12288 from main 77792f6a
+# (19947680): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2254 measured 20013216 on Go1.27.2, up 53248 from main bfddcf0e
+# (19959968): Kilo restricted agents replay the project rules and Kilo defaults per listed tool, read back the planned kilo.jsonc, and map Write to edit. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+20021408
