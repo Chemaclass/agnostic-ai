@@ -4,7 +4,7 @@ aider	changelog	https://aider.chat/HISTORY.html	200	html	91042d2ce336940a5ab9a14
 aider	docs	https://aider.chat/docs/config/aider_conf.html	200	html	f488cea89a8f3a92872ab4e45ca7e9e0948c5cde030c6544155c2ba2e0b262f9	2026-09-22
 aider	docs	https://aider.chat/docs/usage/conventions.html	200	html	e9ed10235101026ebad18053d21797ce457a554bc5b4fb583ae78b215622f411	2026-09-22
 amp	changelog	https://ampcode.com/news.rss	200	html	a1a6444ef01a5cdc1cc3064da1d7c51538422b48abc6635de7dd5b700a7bac74	2026-10-14
-amp	docs	https://ampcode.com/docs/cli/settings	200	llms-txt	a40c95384a60c2e66275592028c72fef2684d95a64518e8806e10101e5f53cdc	2026-10-14
+amp	docs	https://ampcode.com/docs/cli/settings	200	llms-txt	a069273c6e449aa6ccff31eb4097229a2caa125a2eab71a709c895d32d091258	2026-10-15
 amp	docs	https://ampcode.com/docs/customize/agents-md	200	llms-txt	f6a8ed5d44ffd11826ad5b11621c2ce95cb545eb5792bdf71df34919583a693a	2026-10-08
 amp	docs	https://ampcode.com/docs/customize/global-plugins-and-skills	200	llms-txt	daf5b4882d54f322be0bb6224a1f2e962429cfbf575398771ab23fc3dbe2cdcc	2026-10-14
 amp	docs	https://ampcode.com/docs/customize/mcp	200	llms-txt	7d3394f58f95b9585a9c89983aa7a13458db3eecd181d97fd84fd59dcf5b3425	2026-10-08
@@ -15,7 +15,7 @@ amp	docs	https://ampcode.com/docs/orbs/portals	200	llms-txt	cdaab55c0b5ef5a01a9c
 amp	docs	https://ampcode.com/docs/the-dial	200	llms-txt	6003621faf0a6493d9628f907a84df4c7a3e671ced9d5591816079d5ff438b29	2026-10-13
 amp	docs	https://ampcode.com/docs/tools	200	llms-txt	3157b7a4f040ba46a33ae268cf6dd132c054981255773ab5c2585f340071fba7	2026-10-08
 amp	docs	https://ampcode.com/llms.txt	200	text	bba6afaf2ed12c64cd025edb74d70ad40804d75ce5bbca1c22ac0dcbfcdf35d5	2026-10-14
-amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	2280837ae5d21ff966c5f5e935c4840e140dc3a3837af02ede2717c42fb1c72e	2026-09-30
+amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	0ff1e85515ad59145ea9bde52f2414bf1d9ad541d62c374b0439f1ad9f28ae75	2026-10-15
 antigravity	changelog	https://antigravity.google/docs/changelog	200	html	7d1943f481cbfebeb1ffe54daf7b5f0673c11e9d04094c7e4d8b7ab7bdb88b67	2026-10-15
 antigravity	docs	https://antigravity.google/docs/hooks?tab=ide	200	html	ffbff92981e7affa7ef32d077de9fe568cd5103ea130a999ec4707c81da25b92	2026-10-14
 antigravity	docs	https://antigravity.google/docs/ide/workflows	200	html	d79c39da28ee4307264b7537bb855438b280682d4b140990bd483d1c7013b591	2026-10-14
@@ -78,7 +78,7 @@ continue	changelog	https://github.com/continuedev/continue/releases	200	github-a
 continue	docs	https://docs.continue.dev/customize/deep-dives/mcp	200	html	9a9eb0b55cc061761f48fb71035ba6d8b3e5527d9394bf18528f306acb804962	2026-09-22
 continue	docs	https://docs.continue.dev/customize/deep-dives/rules	200	html	d9c4a571cebdf2e028c6d3e0d279631e1a54e87c7d085e5688c8d7d01f55e737	2026-09-22
 continue	docs	https://docs.continue.dev/reference	200	html	a0067dd0c4619606119427464ddfc3c7708814a2d4973e6d8416dacf147cc3a4	2026-09-22
-copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	7c78dd40e81420ab282af34bc311f89b9355932f465b6db3bbaf984d1107f381	2026-10-15
+copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	8309df86c66383867d7b6664635cef5afcd315d67c4bc2ee1f6d019e28e39d4f	2026-10-15
 copilot	docs	https://code.visualstudio.com/docs/agent-customization/mcp-servers	200	html	6b67e2be5daf2170a5b365f21b507277be398f0770c77bbe9ba795ae7c3ee2a9	2026-10-15
 copilot	docs	https://code.visualstudio.com/docs/agents/reference/mcp-configuration	200	html	db2b34f9007fe99cd86cd0a829deb038adc2aae81b6eb1514a3c88921059a30a	2026-10-15
 copilot	docs	https://docs.github.com/en/copilot/concepts/agents/hooks.md	200	markdown-mirror	bfd40aa93ad62133efc17a50f189034f01594dc89a5d31a13a0c541d691acede	2026-09-25
