@@ -198,6 +198,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun); err != nil {
 		return err
 	}
+	if len(b.Agents) == 0 {
+		return nil
+	}
 	// Agents go last: a restricted agent repeats the project permission
 	// as opencode.json now holds it, hand-written keys included.
 	project, err := readProjectPermission(sess, path, dryRun)
