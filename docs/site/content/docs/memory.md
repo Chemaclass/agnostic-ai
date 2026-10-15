@@ -98,7 +98,7 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Auggie CLI on Unix, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
-Cline VS Code gets a project-only `memory-cline-task-start` hook. It needs hooks enabled in the extension. Global sync omits this hook because the default Cline SDK and CLI detach TaskStart hooks and ignore their replies. Native memories keep working. Use `agnostic-ai hook run memory-cline-task-start --target cline --runtime vscode --format json` to check its Unix hook mechanics.
+Cline VS Code gets a project-only `memory-cline-task-start` hook. It needs Cline for VS Code 4.1.20 or later with hooks enabled in the extension. Earlier versions drop the hook's context. Global sync omits this hook because the default Cline SDK and CLI detach TaskStart hooks and ignore their replies. Native memories keep working. Use `agnostic-ai hook run memory-cline-task-start --target cline --runtime vscode --format json` to check its Unix hook mechanics.
 
 Devin CLI uses the native `memory-windsurf-session-start` hook with an explicit POSIX `sh` launcher and a 10-second timeout. It starts from `DEVIN_PROJECT_DIR` even when its process runs elsewhere. Native Windows hook execution is undocumented.
 

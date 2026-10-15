@@ -127,7 +127,7 @@ Not enforced. Cline takes no settings specs, so sync reports a spec with a `prot
 
 ### VS Code memory startup
 
-The `memory` builtin adds a project TaskStart hook that returns the existing memory indexes as `contextModification`. Cline VS Code waits up to 30 seconds, uses the workspace root as the working directory, and adds that text when the hook does not cancel. The shared memory rule remains available when hooks are disabled. The default SDK and CLI TaskStart hooks remain detached and add no context.
+The `memory` builtin adds a project TaskStart hook that returns the existing memory indexes as `contextModification`. Cline VS Code waits up to 30 seconds, uses the workspace root as the working directory, and adds that text when the hook does not cancel. This needs Cline for VS Code 4.1.20 or later; earlier versions drop the text. The shared memory rule remains available when hooks are disabled. The default SDK and CLI TaskStart hooks remain detached and add no context.
 
 `x-cline.runtime: vscode` marks this project surface and prevents global SDK hook emission. The marker appears only in portable specs, not a vendor configuration file. On Windows, supply `commandWindows` for TaskStart to create the `.ps1` file the extension discovers. Existing hooks without this marker keep their outputs.
 

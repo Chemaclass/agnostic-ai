@@ -63,7 +63,7 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 
 VS Code and Copilot CLI read different files, so sync writes both. Override them with `outputs.copilot.mcp-file` and `outputs.copilot.cli-mcp-file`.
 
-- `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each with a `type` (`stdio`, `http`, or `sse`). VS Code passes it to the Agent Host, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)). Sync owns `servers` and keeps other top-level keys, such as `inputs` and `sandbox`. It strips JSONC comments and reformats the file. Invalid JSONC stops the write.
+- `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each with a `type` (`stdio`, `http`, or `sse`). VS Code passes it to Copilot harness sessions, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)). Sync owns `servers` and keeps other top-level keys, such as `inputs` and `sandbox`. It strips JSONC comments and reformats the file. Invalid JSONC stops the write.
 - `.github/mcp.json` carries the same servers under `mcpServers`, since Copilot CLI rejects the `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). Sync owns the whole file, and the whole root copy.
 - A per-server `tools` list of allowed tools (default `*`) goes only to `.github/mcp.json` and the root copy. VS Code documents no such key, and Codex's `tools` means something else.
 - A `roots` list is copied as written. Neither VS Code nor GitHub documents it per server.
@@ -73,7 +73,7 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
   - remote servers: `oauth: {clientId, enterpriseManaged}`.
   - all servers: `dev.watch`, a glob or list of globs that restarts the server on change.
   - stdio servers: `dev.debug` (`debug: {type: "node"|"debugpy", debugpyPath}`). On a remote server it gets a sync note, and its watch patterns are still written.
-- VS Code 1.140 calls `.vscode/mcp.json` deprecated but still loads it, with no removal date. **MCP: Add Server** now saves workspace servers to a root `.mcp.json` under the `mcpServers` key ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers), [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), [1.140 release notes](https://code.visualstudio.com/updates/v1_140)). A project without the `claude` tool can opt in:
+- VS Code 1.140 calls `.vscode/mcp.json` deprecated but still loads it, with no removal date. **MCP: Add Server** offers to save workspace servers to a root `.mcp.json` under the `mcpServers` key, only when `chat.mcp.workspaceRootConfig.enabled` is on (experimental) ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers), [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), [1.140 release notes](https://code.visualstudio.com/updates/v1_140)). A project without the `claude` tool can opt in:
 
     ```yaml
     outputs:

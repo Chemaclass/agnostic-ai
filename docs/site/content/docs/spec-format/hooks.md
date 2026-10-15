@@ -935,7 +935,7 @@ Vendor docs and pinned source each tool's hook behavior is checked against:
 - **Cursor:** [Hooks](https://cursor.com/docs/hooks).
 - **Gemini CLI:** [Hooks reference](https://geminicli.com/docs/hooks/reference/), [file system tools](https://geminicli.com/docs/tools/file-system/), source [`c6bccb7`](https://github.com/google-gemini/gemini-cli/tree/c6bccb7ecbf6d8368d995455dd725ed34466faad/packages/core/src/hooks).
 - **Qoder:** [Hooks](https://docs.qoder.com/cli/hooks), [hooks reference](https://docs.qoder.com/cli/hooks-reference).
-- **Factory:** [Hooks](https://docs.factory.com/harness/hooks), [hooks guide](https://docs.factory.com/cli/configuration/hooks-guide).
+- **Factory:** [Hooks](https://docs.factory.com/harness/hooks).
 - **Devin CLI:** [Hooks](https://docs.devin.ai/cli/extensibility/hooks), [commands triggered by session events](https://docs.devin.ai/cli/extensibility/hooks/lifecycle-hooks).
 - **Antigravity:** [Hooks](https://antigravity.google/docs/hooks).
 - **Kiro:** [Hooks](https://kiro.dev/docs/hooks), [hook types](https://kiro.dev/docs/hooks/types), [hook actions](https://kiro.dev/docs/hooks/actions), [CLI V3 migration](https://kiro.dev/docs/cli/v3/hooks-migration), [built-in tools](https://kiro.dev/docs/tools).
