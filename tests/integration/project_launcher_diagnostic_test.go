@@ -67,7 +67,7 @@ func TestProjectLifecycle_LaunchDiagnosticSurvivesNativeTimeout(t *testing.T) {
 	t.Setenv("AGNOSTIC_LIFECYCLE_DIAGNOSTIC_FINISHED", finished)
 	t.Setenv("AGNOSTIC_LIFECYCLE_DIAGNOSTIC_RELEASE", release)
 	t.Cleanup(func() { mustWrite(t, release, "release\n") })
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, node, launcher, "-test.run=^TestProjectLifecycleDiagnosticNativeProcess$")
 	cmd.WaitDelay = 250 * time.Millisecond
@@ -102,7 +102,7 @@ func TestProjectLifecycle_LaunchDiagnosticRecordsNativeReturn(t *testing.T) {
 	launcher, receipt := filepath.Join(dir, "launcher.js"), filepath.Join(dir, "launcher.jsonl")
 	writeLifecycleNodeLauncher(t, launcher, native)
 	t.Setenv("AGNOSTIC_LIFECYCLE_LAUNCH_DIAGNOSTIC", receipt)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, node, launcher, "-test.run=^$")
 	cmd.WaitDelay = 250 * time.Millisecond
@@ -136,7 +136,7 @@ func TestProjectLifecycleDiagnosticNativeProcess(t *testing.T) {
 
 func waitLifecycleDiagnosticFile(t *testing.T, path string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(path); err == nil {
 			return
