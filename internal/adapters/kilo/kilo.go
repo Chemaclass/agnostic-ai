@@ -308,6 +308,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	memory = withoutOutOfRootIndexes(memory)
+	sess.WatchPlannedFile(path)
 	if err := emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun); err != nil {
 		return err
 	}
@@ -315,7 +316,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	// so each agent is built against the permission kilo.jsonc now
 	// holds, hand-written keys included.
 	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	return emitAgents(sess, b.Agents, dir, projectPermission(sess, b.Settings, path, dryRun), mcpServerNames(b.MCPs), dryRun)
+	return emitAgents(sess, b.Agents, dir, projectPermission(sess, path, dryRun), mcpServerNames(b.MCPs), dryRun)
 }
 
 // localConfigFile is the project config Kilo merges over the root
@@ -324,22 +325,26 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 var localConfigFile = filepath.Join(".kilo", "kilo.jsonc")
 
 // projectPermission returns the project permission rules in the order
-// Kilo evaluates them: kilo.jsonc as this sync leaves it, hand-written
-// keys included, with a hand-written .kilo/kilo.jsonc merged over it the
-// way Kilo merges project config (remeda mergeDeep in
-// packages/opencode/src/kilocode/config/config.ts). A dry run reads the
-// file it would merge over and lays the keys sync owns on it, as the
-// write would. The user's global ~/.config/kilo/kilo.jsonc is not read.
-func projectPermission(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) []flatRule {
+// Kilo evaluates them: kilo.jsonc as this sync leaves it (the content
+// the session planned for it, or the file on disk when it left the file
+// alone), with a hand-written .kilo/kilo.jsonc merged over it the way
+// Kilo merges project config (remeda mergeDeep in
+// packages/opencode/src/kilocode/config/config.ts). A dry run plans from
+// an empty file, so there the planned keys go over the copy on disk, as
+// the real merge would put them. The user's global
+// ~/.config/kilo/kilo.jsonc is not read.
+func projectPermission(sess *emit.Session, path string, dryRun bool) []flatRule {
 	var merged json.RawMessage
-	written := !dryRun || sess.IsCapturing()
-	if data, ok := sess.CurrentContent(path); ok {
-		raw, parsed := permissionValue(data)
-		merged, written = raw, written && parsed
+	if data, err := os.ReadFile(path); err == nil {
+		merged, _ = permissionValue(data)
 	}
-	if !written {
-		owned, _ := settingsPermission(settings)
-		merged = withOwnedKeys(merged, owned)
+	if content, planned := sess.PlannedFile(path); planned {
+		if raw, parsed := permissionValue([]byte(content)); parsed {
+			if dryRun {
+				raw = withKeys(merged, raw)
+			}
+			merged = raw
+		}
 	}
 	if data, err := os.ReadFile(localConfigFile); err == nil {
 		if raw, parsed := permissionValue(data); parsed {

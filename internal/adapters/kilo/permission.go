@@ -326,21 +326,20 @@ func permissionValue(data []byte) (json.RawMessage, bool) {
 	return raw, true
 }
 
-// withOwnedKeys lays the keys sync owns over a permission value the way
-// the kilo.jsonc merge does: each replaces its whole value in place, and
-// a new key goes last.
-func withOwnedKeys(base json.RawMessage, owned map[string]any) json.RawMessage {
-	if len(owned) == 0 {
-		return base
+// withKeys lays the keys of a planned permission object over the one on
+// disk the way the kilo.jsonc merge does: each replaces its whole value
+// in place, and a new key goes last. A planned bare action, or nothing on
+// disk to lay it over, takes over.
+func withKeys(onDisk, planned json.RawMessage) json.RawMessage {
+	base, over := emit.NewOrderedJSON(), emit.NewOrderedJSON()
+	if onDisk == nil || json.Unmarshal(onDisk, base) != nil || json.Unmarshal(planned, over) != nil {
+		return planned
 	}
-	object := emit.NewOrderedJSON()
-	if base != nil && json.Unmarshal(base, object) != nil {
-		object = emit.NewOrderedJSON()
+	for _, key := range over.Keys() {
+		value, _ := over.Get(key)
+		base.SetRaw(key, value)
 	}
-	for _, key := range slices.Sorted(maps.Keys(owned)) {
-		_ = object.Set(key, owned[key])
-	}
-	raw, _ := json.Marshal(object)
+	raw, _ := json.Marshal(base)
 	return raw
 }
 

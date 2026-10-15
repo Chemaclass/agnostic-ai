@@ -8,11 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
-	"gopkg.in/yaml.v3"
 )
 
 func TestSettingsPermission_WriteRulesLandOnEdit(t *testing.T) {
@@ -142,12 +143,14 @@ func TestAgent_DryRunAndCheckSeeHandWrittenRules(t *testing.T) {
 
 	testutil.TempCwd(t)
 	bundle = c.write(t)
-	dry := projectPermission(emit.NewSession(), bundle.Settings, "kilo.jsonc", true)
-	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+	agentPath := filepath.Join(".kilo", "agents", "a.md")
+	sess = emit.NewSession()
+	sess.WatchPlannedFile(agentPath)
+	if err := New().Emit(sess, bundle, &config.Config{}, true); err != nil {
 		t.Fatal(err)
 	}
-	if real := projectPermission(emit.NewSession(), bundle.Settings, "kilo.jsonc", false); !slices.Equal(dry, real) {
-		t.Errorf("dry run rules\n%v\nsync rules\n%v", dry, real)
+	if previewed, _ := sess.PlannedFile(agentPath); previewed != synced {
+		t.Errorf("dry run previewed\n%s\nsync built\n%s", previewed, synced)
 	}
 	for _, want := range []string{"git push *", "git clean *"} {
 		if !strings.Contains(synced, want+": deny") {
