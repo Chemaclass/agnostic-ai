@@ -265,6 +265,11 @@ func TestEmit_AgentToolsBecomePermissionFrontmatter(t *testing.T) {
 	if strings.Index(got, `"*": deny`) > strings.Index(got, "read: allow") {
 		t.Errorf("the catch-all must come before every allow, got:\n%s", got)
 	}
+	for _, want := range []string{"doom_loop: ask", "external_directory: ask"} {
+		if strings.Index(got, want) < strings.Index(got, `"*": deny`) {
+			t.Errorf("%q must come after the catch-all, got:\n%s", want, got)
+		}
+	}
 }
 
 // An agent whose whole tools list is untranslatable keeps its default
