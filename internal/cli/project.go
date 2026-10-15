@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,38 +26,52 @@ const projectBootstrapEnv = "AGNOSTIC_AI_PROJECT_BOOTSTRAP"
 
 type projectPackage struct {
 	PackageManager  string            `json:"packageManager"`
-	DevEngines      projectDevEngines `json:"devEngines"`
+	DevEngines      json.RawMessage   `json:"devEngines"`
 	Dependencies    map[string]string `json:"dependencies"`
 	DevDependencies map[string]string `json:"devDependencies"`
 }
 
-type projectDevEngines struct {
-	PackageManager json.RawMessage `json:"packageManager"`
-}
-
-type projectEngine struct {
-	Name string `json:"name"`
-}
-
-// devEngines.packageManager is one engine or a list in preference order.
-func (e projectDevEngines) manager() (string, error) {
-	raw := bytes.TrimSpace(e.PackageManager)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return "", nil
+// devEngineManagers decodes devEngines.packageManager only when bootstrap
+// needs it, so a shape it does not understand never blocks a plain sync.
+// The field is one engine or a list in preference order.
+func (pkg projectPackage) devEngineManagers() ([]string, error) {
+	if isJSONNull(pkg.DevEngines) {
+		return nil, nil
 	}
-	var engines []projectEngine
+	var devEngines struct {
+		PackageManager json.RawMessage `json:"packageManager"`
+	}
+	if err := json.Unmarshal(pkg.DevEngines, &devEngines); err != nil {
+		return nil, errors.New("package.json devEngines must be an object")
+	}
+	raw := bytes.TrimSpace(devEngines.PackageManager)
+	if isJSONNull(raw) {
+		return nil, nil
+	}
+	var engines []struct {
+		Name string `json:"name"`
+	}
 	if raw[0] != '[' {
-		engines = make([]projectEngine, 1)
-		if err := json.Unmarshal(raw, &engines[0]); err != nil {
-			return "", fmt.Errorf("package.json devEngines.packageManager: %w", err)
+		raw = append(append([]byte{'['}, raw...), ']')
+	}
+	invalid := errors.New("package.json devEngines.packageManager must be an object or a list of objects with a name, such as {\"name\": \"bun\"}")
+	if err := json.Unmarshal(raw, &engines); err != nil {
+		return nil, invalid
+	}
+	names := make([]string, 0, len(engines))
+	for _, engine := range engines {
+		name := strings.TrimSpace(engine.Name)
+		if name == "" {
+			return nil, invalid
 		}
-	} else if err := json.Unmarshal(raw, &engines); err != nil {
-		return "", fmt.Errorf("package.json devEngines.packageManager: %w", err)
+		names = append(names, name)
 	}
-	if len(engines) == 0 {
-		return "", nil
-	}
-	return strings.TrimSpace(engines[0].Name), nil
+	return names, nil
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	return len(raw) == 0 || bytes.Equal(raw, []byte("null"))
 }
 
 type projectBinary struct {
@@ -423,21 +438,27 @@ func projectInstallCommand(root string, pkg projectPackage) (*exec.Cmd, error) {
 	if pkg.Dependencies["agnostic-ai"] == "" && pkg.DevDependencies["agnostic-ai"] == "" {
 		return nil, fmt.Errorf("package.json must declare agnostic-ai before bootstrap can install it")
 	}
-	manager, _, _ := strings.Cut(strings.TrimSpace(pkg.PackageManager), "@")
-	engine, err := pkg.DevEngines.manager()
+	engines, err := pkg.devEngineManagers()
 	if err != nil {
 		return nil, err
-	}
-	if manager != "" && engine != "" && manager != engine {
-		return nil, fmt.Errorf("package.json declares packageManager %s but devEngines.packageManager %s; declare one package manager", manager, engine)
-	}
-	if manager == "" {
-		manager = engine
 	}
 	locks := map[string]bool{
 		"pnpm": fileExists(filepath.Join(root, "pnpm-lock.yaml")),
 		"npm":  fileExists(filepath.Join(root, "package-lock.json")),
 		"bun":  fileExists(filepath.Join(root, "bun.lock")) || fileExists(filepath.Join(root, "bun.lockb")),
+	}
+	manager, _, _ := strings.Cut(strings.TrimSpace(pkg.PackageManager), "@")
+	if manager != "" && len(engines) > 0 && !slices.Contains(engines, manager) {
+		return nil, fmt.Errorf("package.json declares packageManager %s but devEngines.packageManager %s; declare one package manager", manager, strings.Join(engines, ", "))
+	}
+	if manager == "" && len(engines) > 0 {
+		manager = engines[0]
+		for _, engine := range engines {
+			if locks[engine] {
+				manager = engine
+				break
+			}
+		}
 	}
 	if manager == "" {
 		for name, locked := range locks {

@@ -91,14 +91,24 @@ const projectHookMissingV1 = `command -v "$agnostic_ai_bin" >/dev/null 2>&1 || {
 
 // Without any agnostic-ai on PATH, project --bootstrap cannot run, so a
 // project that declares the package names its package manager's install.
+// Like bootstrap, a declared manager wins over the lockfiles present.
 const projectHookMissing = `if ! command -v "$agnostic_ai_bin" >/dev/null 2>&1; then
 	agnostic_ai_next='install it, then run agnostic-ai project --bootstrap'
 	if grep -q '"agnostic-ai"' package.json 2>/dev/null; then
-		if [ -f bun.lock ] || [ -f bun.lockb ]; then agnostic_ai_next='run bun install --frozen-lockfile'
-		elif [ -f pnpm-lock.yaml ]; then agnostic_ai_next='run pnpm install --frozen-lockfile'
-		elif [ -f package-lock.json ]; then agnostic_ai_next='run npm ci'
-		elif [ -f yarn.lock ]; then agnostic_ai_next='run yarn install'
+		agnostic_ai_json="$(tr -d ' \t\r\n' < package.json)"
+		agnostic_ai_pm="$(printf '%s' "$agnostic_ai_json" | sed -n 's/.*"packageManager":"\([a-z]*\).*/\1/p')"
+		[ -n "$agnostic_ai_pm" ] || agnostic_ai_pm="$(printf '%s' "$agnostic_ai_json" | sed -n 's/.*"devEngines":.*"packageManager":\[\{0,1\}{[^}]*"name":"\([a-z]*\)".*/\1/p')"
+		if [ -n "$agnostic_ai_pm" ]; then :
+		elif [ -f bun.lock ] || [ -f bun.lockb ]; then agnostic_ai_pm=bun
+		elif [ -f pnpm-lock.yaml ]; then agnostic_ai_pm=pnpm
+		elif [ -f package-lock.json ]; then agnostic_ai_pm=npm
+		elif [ -f yarn.lock ]; then agnostic_ai_pm=yarn
 		fi
+		case "$agnostic_ai_pm" in
+		bun | pnpm) agnostic_ai_next="run $agnostic_ai_pm install --frozen-lockfile" ;;
+		npm) agnostic_ai_next='run npm ci' ;;
+		?*) agnostic_ai_next="run $agnostic_ai_pm install" ;;
+		esac
 	fi
 	echo "agnostic-ai is missing; $agnostic_ai_next" >&2
 	exit 1

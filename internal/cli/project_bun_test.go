@@ -17,6 +17,8 @@ func TestProject_BunInstallUsesFrozenLockfile(t *testing.T) {
 		{"devEngines list", `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":{"packageManager":[{"name":"bun"}]}}`, "bun.lock"},
 		{"packageManager", `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"bun@1.4.2"}`, "bun.lockb"},
 		{"lockfile only", `{"devDependencies":{"agnostic-ai":"0.82.0"}}`, "bun.lock"},
+		{"packageManager in devEngines list", `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"bun@1.4.2","devEngines":{"packageManager":[{"name":"npm"},{"name":"bun"}]}}`, "bun.lock"},
+		{"devEngines list entry with lockfile", `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":{"packageManager":[{"name":"npm"},{"name":"bun"}]}}`, "bun.lock"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -43,6 +45,9 @@ func TestProject_BootstrapRefusesWithManagerNextStep(t *testing.T) {
 		{"yarn", `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"yarn@4.0.0"}`, "yarn.lock", "yarn install"},
 		{"conflicting declarations", `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0","devEngines":{"packageManager":{"name":"bun"}}}`, "bun.lock", "devEngines"},
 		{"undeclared", `{"devDependencies":{"agnostic-ai":"0.82.0"}}`, "", "npm, pnpm, or bun"},
+		{"devEngines string", `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":{"packageManager":"bun"}}`, "bun.lock", "devEngines.packageManager must be an object or a list of objects with a name"},
+		{"devEngines name not a string", `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":{"packageManager":{"name":1}}}`, "bun.lock", "devEngines.packageManager must be an object or a list of objects with a name"},
+		{"devEngines not an object", `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":[]}`, "bun.lock", "devEngines must be an object"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := budgetProject(t, "targets: [codex]\n")
@@ -100,16 +105,53 @@ func TestProjectHook_MissingCLINamesManagerInstall(t *testing.T) {
 		t.Run(tc.lock, func(t *testing.T) {
 			dir := t.TempDir()
 			mustWriteFile(t, filepath.Join(dir, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"}}`)
-			if tc.lock != "" {
-				mustWriteFile(t, filepath.Join(dir, tc.lock), "fixture")
+			assertMissingCLIHook(t, dir, tc.lock, tc.want)
+		})
+	}
+}
+
+func TestProjectHook_MissingCLIPrefersDeclaredManager(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX hook fixture")
+	}
+	for _, tc := range []struct{ name, manifest, lock, want string }{
+		{"packageManager over stale lockfile", `{"devDependencies":{"agnostic-ai":"0.82.0"},"packageManager":"pnpm@10.0.0"}`, "package-lock.json", "run pnpm install --frozen-lockfile"},
+		{"devEngines over stale lockfile", "{\n  \"devDependencies\": { \"agnostic-ai\": \"0.82.0\" },\n  \"devEngines\": {\n    \"runtime\": { \"name\": \"node\" },\n    \"packageManager\": { \"name\": \"bun\", \"version\": \"1.4.2\" }\n  }\n}\n", "package-lock.json", "run bun install --frozen-lockfile"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "package.json"), tc.manifest)
+			assertMissingCLIHook(t, dir, tc.lock, tc.want)
+		})
+	}
+}
+
+func TestProject_CheckIgnoresMalformedDevEngines(t *testing.T) {
+	for _, devEngines := range []string{`[]`, `"bun"`, `{"packageManager":"bun"}`, `{"packageManager":{"name":1}}`} {
+		t.Run(devEngines, func(t *testing.T) {
+			root := budgetProject(t, "targets: [codex]\n")
+			projectContractBinary(t, root, "0.82.0")
+			mustWriteFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"agnostic-ai":"0.82.0"},"devEngines":`+devEngines+`}`)
+			if _, err := runCLI(t, "project", "--check"); err != nil {
+				t.Errorf("project --check: %v", err)
 			}
-			hook := exec.Command("sh", "-c", "agnostic_ai_bin=agnostic-ai-missing-fixture\n"+projectHookCapability)
-			hook.Dir = dir
-			out, err := hook.CombinedOutput()
-			if err == nil || !strings.Contains(string(out), tc.want) {
-				t.Errorf("hook output %q, err %v", out, err)
+			if _, err := runCLI(t, "project"); err != nil {
+				t.Errorf("project: %v", err)
 			}
 		})
+	}
+}
+
+func assertMissingCLIHook(t *testing.T, dir, lock, want string) {
+	t.Helper()
+	if lock != "" {
+		mustWriteFile(t, filepath.Join(dir, lock), "fixture")
+	}
+	hook := exec.Command("sh", "-c", "agnostic_ai_bin=agnostic-ai-missing-fixture\n"+projectHookCapability)
+	hook.Dir = dir
+	out, err := hook.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), want) {
+		t.Errorf("hook output %q, err %v", out, err)
 	}
 }
 
@@ -128,7 +170,7 @@ func TestInstallHookPostCheckout_UpgradesMissingCLIMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readHook(t, path)
-	if strings.Contains(got, projectHookCapabilityV1) || !strings.Contains(got, "run bun install") {
+	if strings.Contains(got, projectHookCapabilityV1) || !strings.Contains(got, projectHookMissing) {
 		t.Errorf("hook not upgraded:\n%s", got)
 	}
 }
