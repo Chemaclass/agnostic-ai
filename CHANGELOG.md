@@ -12,6 +12,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### OpenCode
 
+- Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269).
 - Restricted agents keep native V2 project permission limits from `opencode.json`, including ordered deny and ask rules (#2267).
 
 ## v0.85.0 - 2026-10-15

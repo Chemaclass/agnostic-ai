@@ -91,7 +91,17 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
-		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"tools": []any{"Read"}}, Body: "alpha body"},
+		{
+			Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body",
+			Meta: map[string]any{"tools": []any{"Read"}, "permission": map[string]any{
+				"read": map[string]any{"secrets/public/*": "allow", "secrets/*": "deny"},
+				"bash": "ask",
+			}},
+			NestedKeys: map[string][]string{
+				"permission":         {"read", "bash"},
+				"permission\x00read": {"secrets/public/*", "secrets/*"},
+			},
+		},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship the build"}, Body: "deploy command body"},
