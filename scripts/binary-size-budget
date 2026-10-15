@@ -273,7 +273,10 @@
 # (19861664): the sync summary counts a shared entry-point file for each
 # target that reads it. Same Linux amd64 release flags; retain the 8 KB
 # allowance.
-# #2250 measured 19902624 on Go1.27.2, up 28672 from main 8b5ac293
-# (19873952): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
+# #2252 measured 19882144 on Go1.27.2, up 8192 from main 8b5ac293
+# (19873952): Copilot sets chat.useAgentsMdFile in .vscode/settings.json and notes a double load. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19910816
+# #2250 measured 19906720 on Go1.27.2, up 24576 from main b38b1b72
+# (19882144): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19914912
