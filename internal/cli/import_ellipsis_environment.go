@@ -60,31 +60,15 @@ type ellipsisEnvironmentImport struct {
 // schema does not list, is left as written with a note, because sync would
 // drop what the specs cannot hold. A file with the provenance header
 // imports nothing, since its specs are the source.
-func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Config) error {
-	candidates, err := ellipsisEnvironmentFiles(root, cfg)
-	if err != nil {
-		return err
-	}
-	if len(candidates) == 0 {
+func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Config, plan ellipsisEnvironmentPlan) error {
+	if plan.leave != "" {
+		summaryf("%s", plan.leave)
 		return nil
 	}
-	if len(candidates) > 1 {
-		summaryf("  ! left %s as written: %d environment files, and agnostic-ai writes one; keep one and import again, or list the files under sync.unmanaged\n",
-			ellipsisEnvironmentDir, len(candidates))
+	if plan.imported == nil {
 		return nil
 	}
-	rel, doc := candidates[0].path, candidates[0].doc
-	leave := func(reason string) error {
-		summaryf("  ! left %s as written: %s, which the specs cannot hold, so sync would drop it\n", rel, reason)
-		return nil
-	}
-	imported, problem := splitEllipsisEnvironment(doc)
-	if problem == "" {
-		problem = ellipsisLaunchCredential(imported.servers)
-	}
-	if problem != "" {
-		return leave(problem)
-	}
+	rel, imported := plan.rel, plan.imported
 	if err := mkdirAllSources(root, src.Environments, src.Settings, src.MCPs); err != nil {
 		return err
 	}
@@ -117,6 +101,39 @@ func importEllipsisEnvironment(root string, src config.Sources, cfg *config.Conf
 	}
 	summaryf("imported %d environments, %d settings, %d mcps\n", envs, settings, mcps)
 	return nil
+}
+
+// ellipsisEnvironmentPlan is the environment file import would write, or
+// the note that says why it leaves the files as written.
+type ellipsisEnvironmentPlan struct {
+	rel      string
+	imported *ellipsisEnvironmentImport
+	leave    string
+}
+
+// planEllipsisEnvironment reads the hand-written environment file before
+// anything is written, so the review import knows whether it selects one.
+func planEllipsisEnvironment(root string, cfg *config.Config) (ellipsisEnvironmentPlan, error) {
+	candidates, err := ellipsisEnvironmentFiles(root, cfg)
+	if err != nil {
+		return ellipsisEnvironmentPlan{}, err
+	}
+	if len(candidates) == 0 {
+		return ellipsisEnvironmentPlan{}, nil
+	}
+	if len(candidates) > 1 {
+		return ellipsisEnvironmentPlan{leave: fmt.Sprintf("  ! left %s as written: %d environment files, and agnostic-ai writes one; keep one and import again, or list the files under sync.unmanaged\n",
+			ellipsisEnvironmentDir, len(candidates))}, nil
+	}
+	rel, doc := candidates[0].path, candidates[0].doc
+	imported, problem := splitEllipsisEnvironment(doc)
+	if problem == "" {
+		problem = ellipsisLaunchCredential(imported.servers)
+	}
+	if problem != "" {
+		return ellipsisEnvironmentPlan{leave: fmt.Sprintf("  ! left %s as written: %s, which the specs cannot hold, so sync would drop it\n", rel, problem)}, nil
+	}
+	return ellipsisEnvironmentPlan{rel: rel, imported: imported}, nil
 }
 
 func pathIsConfigured(cfg *config.Config) bool {

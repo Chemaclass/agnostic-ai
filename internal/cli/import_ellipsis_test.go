@@ -116,6 +116,57 @@ func TestImportEllipsis_HandWrittenFileKeepsEveryField(t *testing.T) {
 	}
 }
 
+func TestImportEllipsis_ReviewerWithoutAnEnvironmentStaysInTheBasicSandbox(t *testing.T) {
+	review := `ellipsis:
+  kind: code_review
+  name: default
+reviewers:
+  - name: bugs
+    claude_code:
+      prompt: Find bugs in this pull request.
+      model: claude-opus-5-5
+`
+	environment := `ellipsis:
+  kind: environment
+  name: api-with-tools
+repositories:
+  - name: api
+mcp_servers:
+  - name: internal-tools
+    url: https://tools.example.com/mcp
+`
+	dir := ellipsisImportProject(t, review)
+	writeFile(t, filepath.Join(dir, ".ellipsis", "environments", "api-with-tools.yaml"), environment)
+	want := parsedReview(t, filepath.Join(dir, ellipsisFile))
+
+	execCLI(t, "import", "ellipsis")
+	execCLI(t, "sync")
+
+	got := parsedReview(t, filepath.Join(dir, ellipsisFile))
+	wantYAML, _ := yaml.Marshal(want)
+	gotYAML, _ := yaml.Marshal(got)
+	if string(wantYAML) != string(gotYAML) {
+		t.Errorf("a reviewer without an environment must keep running in the basic sandbox\n--- want ---\n%s\n--- got ---\n%s", wantYAML, gotYAML)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".ellipsis", "environments", "api-with-tools.yaml")); err != nil {
+		t.Errorf("the environment must still be written: %v", err)
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import and sync: %v", err)
+	}
+	if out, err := runCLI(t, "lint"); err != nil {
+		t.Errorf("lint after import: %v\n%s", err, out)
+	}
+}
+
+func TestImportEllipsis_ReviewerWithoutAnEnvironmentAndNoEnvironmentFileGetsNoNull(t *testing.T) {
+	dir := ellipsisImportProject(t, strings.Replace(handWrittenEllipsis, "    environment: api-environment\n", "", 1))
+	execCLI(t, "import", "ellipsis")
+	if settings := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis.yaml")); strings.Contains(settings, "environment") {
+		t.Errorf("with no environment imported, the reviewer needs no environment key:\n%s", settings)
+	}
+}
+
 func TestImportEllipsis_SecondImportAndSyncAreStable(t *testing.T) {
 	dir := ellipsisImportProject(t, handWrittenEllipsis)
 	execCLI(t, "import", "ellipsis")
