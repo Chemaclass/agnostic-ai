@@ -2,9 +2,11 @@
 description: handles gamma
 permission:
   "*": deny
+  doom_loop: ask
   edit:
     "*": deny
     docs/**: allow
+  external_directory: ask
   read:
     "*": deny
     src/**: allow
