@@ -217,3 +217,21 @@ func TestAssumptions_WindsurfAssumesTheShellCwdAndTimeout(t *testing.T) {
 		t.Errorf("ContractDocs = %q", ContractDocs("windsurf"))
 	}
 }
+
+func TestBuildWindsurf_CompactionEventsTakeManualAndAutoOnAPayload(t *testing.T) {
+	var unbuilt Unbuilt
+	for _, event := range []string{"PreCompact", "PostCompact"} {
+		if _, err := Build("windsurf", event, "auto", "/project", Input{}); !errors.As(err, &unbuilt) {
+			t.Errorf("%s documents no payload fields: want Unbuilt, got %v", event, err)
+		}
+		for _, matcher := range []string{"", "manual", "auto"} {
+			p, err := Build("windsurf", event, matcher, "/project", Input{Raw: []byte(`{}`)})
+			if err != nil || !p.Fires {
+				t.Errorf("%s matcher %q on a payload: %+v %v", event, matcher, p, err)
+			}
+		}
+		if _, err := Build("windsurf", event, "exec", "/project", Input{Raw: []byte(`{}`)}); !errors.As(err, &unbuilt) {
+			t.Errorf("%s documents only manual and auto: want Unbuilt, got %v", event, err)
+		}
+	}
+}

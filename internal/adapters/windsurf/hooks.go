@@ -95,11 +95,13 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 }
 
 // hookLifecycle is the event order docs.devin.ai/cli/extensibility/
-// hooks/overview's own Hook Events table uses. Events outside it
-// follow in first-seen order.
+// hooks/overview's own Hook Events table uses, with the two compaction
+// events from the v3000.11.92 changelog after PostCompaction. Events
+// outside it follow in first-seen order.
 var hookLifecycle = []string{
 	"PreToolUse", "PostToolUse", "PermissionRequest", "UserPromptSubmit",
-	"Stop", "PostCompaction", "SessionStart", "SessionEnd",
+	"Stop", "PostCompaction", "PreCompact", "PostCompact",
+	"SessionStart", "SessionEnd",
 }
 
 // emitHooks writes `.devin/hooks.v1.json` (override via

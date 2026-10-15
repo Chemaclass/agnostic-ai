@@ -85,11 +85,15 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"SessionStart", "SessionEnd",
 	),
 	// The eight events docs.devin.ai/cli/extensibility/hooks/overview's
-	// own Hook Events table lists for Devin CLI's `.devin/hooks.v1.json`.
+	// own Hook Events table lists for Devin CLI's `.devin/hooks.v1.json`,
+	// plus PreCompact and PostCompact (manual|auto matchers), which only
+	// the v3000.11.92 changelog documents so far
+	// (docs.devin.ai/cli/changelog/stable.md, #2237).
 	"windsurf": setOf(
 		"PreToolUse", "PostToolUse",
 		"PermissionRequest", "UserPromptSubmit",
 		"Stop", "PostCompaction",
+		"PreCompact", "PostCompact",
 		"SessionStart", "SessionEnd",
 	),
 	// The six under Hook Event Names on
@@ -230,7 +234,7 @@ var matcherAcceptingEvents = setOf(
 	// PreCompact (manual|auto) and SessionStart (startup|resume|clear).
 	"PermissionRequest", "PostToolUseFailure",
 	"SubagentStart", "SubagentStop",
-	"PreCompact", "SessionStart",
+	"PreCompact", "PostCompact", "SessionStart",
 	"BeforeTool", "AfterTool", // gemini
 	// cursor: tool/shell/MCP/file events filter on a regex matcher.
 	"beforeShellExecution", "afterShellExecution",

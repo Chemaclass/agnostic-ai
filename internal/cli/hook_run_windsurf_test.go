@@ -193,3 +193,25 @@ func TestHookRun_WindsurfJSONListsItsAssumptions(t *testing.T) {
 	}
 	t.Fatalf("no windsurf result:\n%s", out)
 }
+
+func TestHookRun_WindsurfRunsCompactionHooksFromAPayload(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, event := range []string{"PreCompact", "PostCompact"} {
+		t.Run(event, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			windsurfProject(t, "name: protect-files\nevent: "+event+"\nmatcher: auto\ncommand: .agnostic-ai/scripts/protect-files.sh\n", windsurfGuardScript)
+			payload := filepath.Join(dir, "compact.json")
+			mustWrite(t, payload, `{"hook_event_name":"`+event+`"}`)
+
+			out, _ := runHookRun(t, "protect-files", "--target", "windsurf", "--payload", payload)
+			if !strings.Contains(out, "windsurf: allow (exit 0") || strings.Contains(out, "has no "+event+" event") {
+				t.Errorf("Devin CLI documents %s, so it must run:\n%s", event, out)
+			}
+
+			out, _ = runHookRun(t, "protect-files", "--target", "windsurf")
+			if !strings.Contains(out, "windsurf: not run (Devin CLI documents no payload for "+event+"; pass --payload <file>)") {
+				t.Errorf("an undocumented payload must not be invented:\n%s", out)
+			}
+		})
+	}
+}
