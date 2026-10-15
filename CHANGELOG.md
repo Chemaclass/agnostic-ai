@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- `sync --keep-edits` no longer keeps a skill file Codex and Amp share as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+
 ### By tool
 
 #### Claude Code
