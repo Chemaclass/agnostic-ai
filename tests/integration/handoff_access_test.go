@@ -1343,4 +1343,16 @@ func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
 	if content := handoffRead(t, path); strings.Contains(content, store) || !strings.Contains(content, "/tmp/locks") || !strings.Contains(content, "user-model") {
 		t.Errorf("dropping handoff did not remove only the grant: %s", content)
 	}
+	run("sync", "--check")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+	run("sync")
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff, handoff-hook]", "builtins: []", 1))
+	run("sync")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("a file that held only the grant stays: %v", err)
+	}
+	run("sync", "--check")
 }

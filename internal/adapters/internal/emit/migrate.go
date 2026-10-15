@@ -254,7 +254,8 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 				if inner, ok := raw.(nestedJSONObject); ok {
 					object := NewOrderedJSON()
 					if existing, found := jsonValueAt(doc, []string{k, child}); found && json.Unmarshal(existing, object) != nil {
-						object = NewOrderedJSON()
+						// A value the user wrote that is not an object stays.
+						continue
 					}
 					for _, name := range slices.Sorted(maps.Keys(inner.values)) {
 						value, kind, items, follows := mergeClaim(inner.values[name])
@@ -289,6 +290,12 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 				claimWithin([]string{k, child}, raw)
 			}
 			value = mergeJSONObject(doc, k, children)
+			// An object sync emptied goes, so the file keeps no empty shell.
+			if object, ok := value.(*OrderedJSON); ok && object.Len() == 0 && claimedUnder(priorKeys, k) {
+				doc.Delete(k)
+				released = append(released, []string{k})
+				continue
+			}
 		}
 		if err := doc.Set(k, value); err != nil {
 			return fmt.Errorf("marshal %s key %s: %w", path, k, err)
@@ -328,6 +335,14 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		}
 	}
 	return s.WriteMergedJSON(path, string(raw)+"\n", owned, released, dryRun)
+}
+
+// claimedUnder reports whether the last sync claimed key or a value
+// below it.
+func claimedUnder(prior []MergedKey, key string) bool {
+	return slices.ContainsFunc(prior, func(claim MergedKey) bool {
+		return len(claim.Path) > 0 && claim.Path[0] == key
+	})
 }
 
 // replacesHandValue reports whether value, which a spec now sets at
