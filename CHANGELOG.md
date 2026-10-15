@@ -26,6 +26,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `import ellipsis` keeps a reviewer without an `environment` in the basic sandbox; `x-ellipsis.reviewer.environment: null` does it by hand (#2214).
 
+#### Crush
+
+- The note for a dropped `disable-model-invocation` names `outputs.crush.skills-dir: .crush/skills`, which `x-crush` needs when another target writes `.agents/skills` (#2213).
+
+#### Factory
+
+- The note for a dropped `disable-model-invocation` names `outputs.factory.skills-dir: .factory/skills`, which `x-factory` needs when another target writes `.agents/skills` (#2213).
+
 ## v0.84.0 - 2026-10-14
 
 ### General

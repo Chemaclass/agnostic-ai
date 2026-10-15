@@ -148,9 +148,9 @@ Only the tools listed were checked. Setting it stops the model from using a skil
 | [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
 | [OpenCode](@/docs/targets/opencode.md) | Written to `SKILL.md`. V2 2.0.26 honors it; V1 does not. Native `metadata.opencode/autoinvoke` takes precedence |
 | [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit value in `x-codex.policy` or a bundled `agents/openai.yaml` wins |
-| [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
-| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
+| [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.crush.skills-dir: .crush/skills` |
+| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.factory.skills-dir: .factory/skills` |
 
-Crush and Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-` key. A manual-only skill that becomes usable by the model crosses a safety boundary.
+Crush and Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-` key. It also needs the `skills-dir` override above whenever another target writes `.agents/skills`; otherwise sync stops with `AAI-102`. A manual-only skill that becomes usable by the model crosses a safety boundary.
 
 OpenHands' `triggers` is unrelated: it loads a skill when a keyword appears. Devin spells this restriction `triggers: [user]`.
