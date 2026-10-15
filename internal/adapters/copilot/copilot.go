@@ -6,8 +6,8 @@
 // format.
 //
 // The `.github/copilot-instructions.md` entry-point is written
-// centrally by `sync` as a slim pointer to the source specs (one body
-// shared with every other target's entry-point file). When
+// centrally by `sync` with the AGNOSTIC_AI.md body every other
+// target's entry-point file shares. When
 // `outputs.copilot.rules-file` is set, this adapter instead writes the
 // legacy concatenated always-on-rules layout at that path so users on
 // older workflows keep their behavior.

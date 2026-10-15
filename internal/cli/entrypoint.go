@@ -50,6 +50,9 @@ func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bun
 	if err != nil {
 		return nil, err
 	}
+	if copilotAlsoLoadsAgents(files) {
+		adapters.NoteProject("copilot: VS Code loads both .github/copilot-instructions.md and AGENTS.md, so its chat reads the instructions twice; set chat.useAgentsMdFile to false in VS Code to load them once")
+	}
 	for _, f := range files {
 		// A user-owned file is expected to be hand-authored. sess still
 		// receives the write so it records the skip for the summary.
@@ -624,4 +627,21 @@ func renderContextInstructions(text string, layers []instructionLayer) string {
 		layers[0].Rendering = &instructionRendering{Text: text, Copied: copied}
 	}
 	return rendered
+}
+
+// copilotAlsoLoadsAgents reports whether Copilot's own entry point and a
+// root AGENTS.md are both synced. VS Code applies both: its
+// chat.useAgentsMdFile setting defaults to on. GitHub.com chat and the IDE
+// code reviews read only .github/copilot-instructions.md, so that file
+// keeps the full body.
+func copilotAlsoLoadsAgents(files []entryPointFile) bool {
+	var copilot, agents bool
+	for _, f := range files {
+		if f.Path == "AGENTS.md" {
+			agents = true
+		} else if slices.Contains(f.Readers, "copilot") {
+			copilot = true
+		}
+	}
+	return copilot && agents
 }
