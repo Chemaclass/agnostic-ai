@@ -54,6 +54,8 @@ claude	docs	https://code.claude.com/docs/en/worktrees.md	200	markdown-mirror	a50
 claude	schema	https://www.schemastore.org/claude-code-launch.json	200	schema-keys	98ec297b1920aef478914155baf62cd23c81087832505e4077759f8cd0c50f16	2026-09-30
 claude	schema	https://www.schemastore.org/claude-code-settings.json	200	schema-keys	9be6db257b1c8748cb4cca1ac5adf492862492b2bfb7c876a305bf499da12ef6	2026-10-09
 cline	changelog	https://github.com/cline/cline/releases	200	github-api	0e910dfd79642d58125c02d19e6150bfa6fd1e901b5f14f788472a735904c93c	2026-10-13
+cline	code	https://github.com/cline/cline/blob/main/apps/vscode/src/core/hooks/hook-factory.ts	200	raw-github	ec5e01a45173ae8a8864d1a939d49bcd4c76d422f1dd5dc9d3b4e1e3c8660a5f	2026-10-15
+cline	code	https://github.com/cline/cline/blob/main/apps/vscode/src/sdk/hooks-adapter.ts	200	raw-github	35de29dbd39653798f57f589ba3fa45b7b93e2e56bc9b2ab136e837b333c7a59	2026-10-15
 cline	docs	https://docs.cline.bot/customization/cline-rules.md	200	markdown-mirror	5f66dab986dd2c007c3e0d2f0651f74ef59a17669a045cd0d0311687f3b353ec	2026-10-07
 cline	docs	https://docs.cline.bot/customization/skills.md	200	markdown-mirror	4bb4766eaef7ed6e33ccaacbe4e367faf48ccf9c204204d14eb29a00d416129f	2026-10-07
 cline	docs	https://docs.cline.bot/getting-started/config.md	200	markdown-mirror	76f4d40ede89e8340c4b2ea10c17bc85b1d16fc302bd628c62778161ea05944e	2026-10-07
@@ -105,8 +107,11 @@ ellipsis	changelog	https://github.com/ellipsis-dev/cli/releases	200	github-api	c
 ellipsis	docs	https://www.ellipsis.dev/docs/agents/triggers.md	200	markdown-mirror	23cbf60ea6387818428c2033e697771b6a5ee472a63adc8e004e88b12e79b328	2026-10-14
 ellipsis	docs	https://www.ellipsis.dev/docs/code-review.md	200	markdown-mirror	14023cc2d7ba958d8640903c49b0d42de8eb74d6051cb8ed3ccf69df4ffbb272	2026-10-14
 ellipsis	docs	https://www.ellipsis.dev/docs/code-review/schema.md	200	markdown-mirror	71b12f68e8b0d91a219b641b26a8571bff4f5f67db64c6464daeb359a0877b55	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/environments.md	200	markdown-mirror	1ded0540755a3a3f7cc11a97a0a9c956579ef265a5a1f68b12f22153586ec163	2026-10-15
+ellipsis	docs	https://www.ellipsis.dev/docs/environments/schema.md	200	markdown-mirror	4d3fac8052a8b84959b6731dcfb70bdceba7c824a80f04878b699eb0c59ed2da	2026-10-15
 ellipsis	docs	https://www.ellipsis.dev/docs/models.md	200	markdown-mirror	bf435b8d6e6e6dfcf30b2ec409e81f6aabcf11909552b8a2ff53b6d326c0132d	2026-10-14
 ellipsis	docs	https://www.ellipsis.dev/docs/permissions.md	200	markdown-mirror	62e736490321e98519cf1c7b5d4ab13fc26fc0787dbe6f5955fcb1f867a5943a	2026-10-14
+ellipsis	docs	https://www.ellipsis.dev/docs/secrets.md	200	markdown-mirror	041bf499e5408d612cff7f2aefc68d8acac321a5f1ac2b2fe442f10c91df74ec	2026-10-15
 factory	changelog	https://docs.factory.com/changelog/release-notes.md	200	markdown-mirror	6fe95d7c9eeec4233284a19c9a6427108943e887146c4997f44b5abb8eb7e205	2026-10-13
 factory	docs	https://docs.factory.com/	200	html	640af5233d4818f2bd68dbe238ae6c2872dd2fba0d37691bbcf4adcb88eea0a1	2026-10-04
 factory	docs	https://docs.factory.com/autonomy-and-safety/sandbox.md	200	markdown-mirror	fd25fcd53c06a1f64ec4e0d83eb3b97e7d23a17e832a991c59c262b222631c2c	2026-10-04
@@ -120,11 +125,13 @@ factory	docs	https://docs.factory.com/harness/skills.md	200	markdown-mirror	6a7b
 factory	docs	https://docs.factory.com/harness/subagents.md	200	markdown-mirror	9f980d62e1cf9706c09ac8d2d0ba4fc4fef8280128dcc2e4fec4244791893973	2026-10-05
 gemini	changelog	https://github.com/google-gemini/gemini-cli/releases	200	github-api	c26ccede3dd7dca9e92ade8fb82fa773da312f93f1b82fc99615e3f0d046d1da	2026-10-14
 gemini	code	https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/agents/agentLoader.ts	200	raw-github	855df1925d43175f719eb5d21d4c7d76842c99216f9b6329a90b030217648198	2026-09-30
+gemini	code	https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/hooks/hookRunner.ts	200	raw-github	fce6d7a6e160d308c92fec3eab4a69b82d38eb621cec6875476ef982d34ae652	2026-10-15
 gemini	code	https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/hooks/types.ts	200	raw-github	3d0dce53a6f36e6ca90761d6769c3431e109e12aaa31e9e29ae169faf955bf70	2026-09-30
 gemini	docs	https://geminicli.com/docs/cli/custom-commands/	200	html	123f90a573900919ec5d8ec2c194698cc4393ba79b3f7055fe97b5f2eb3df2c7	2026-09-22
 gemini	docs	https://geminicli.com/docs/cli/gemini-ignore/	200	html	b3d622a0ccef10ba1b546cf769fe46204223131574a4c1f6f718d313725d2314	2026-09-22
 gemini	docs	https://geminicli.com/docs/cli/session-management/	200	html	968dc1928ba9716450e9e56181381c11165ff6abea3326983819c1623444f24e	2026-10-13
 gemini	docs	https://geminicli.com/docs/cli/skills/	200	html	3667820eb0e04c18f458cc7005caed54c98082d4395b39b082f8ce6028c50cbe	2026-09-22
+gemini	docs	https://geminicli.com/docs/cli/trusted-folders/	200	html	8ac3ebabca598131810b665f8b7b49922a8624df8242458f89bc3d6a53785013	2026-10-15
 gemini	docs	https://geminicli.com/docs/core/subagents.md	200	markdown-mirror	4b9baa88628b0a2bdaea87dc6b9a5c5dd2d998274ba9a93cc6ed23c53b8ee2db	2026-09-22
 gemini	docs	https://geminicli.com/docs/hooks/	200	html	0531811c33a495a88814b1347c4160fdb2b0b83aaba3fd4d9d772d427c89478b	2026-10-14
 gemini	docs	https://geminicli.com/docs/hooks/reference/	200	html	51790ee211df1c1d8efe80b8688b336de19d8ce675360f80640a09d53f87c900	2026-09-22
@@ -158,6 +165,7 @@ junie	docs	https://junie.jetbrains.com/docs/junie-plugin-mcp-settings.html	200	h
 junie	docs	https://junie.jetbrains.com/docs/junie-review-agent.html	200	html	6ad5fe3a2427a00f2b969883c167580cc2b906dbac7d0b533a4f26971ac6af41	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/starting-page-get-started-with-junie.json	200	json	1d42da67ad9bb962ea8f6262b2ac744f89fcc5b9a973ad394d0cc982321cbcf3	2026-09-22
 kilo	changelog	https://github.com/Kilo-Org/kilocode/releases	200	github-api	54342cd67933b7bba6ea755922f9976fa93a69d5b4d5a1256413511f1a37483e	2026-10-13
+kilo	code	https://github.com/Kilo-Org/kilocode/blob/main/packages/opencode/src/session/instruction.ts	200	raw-github	a67d9e2808af14409e823672feec1e7f80e47af039c4d6ee318bc600c2570406	2026-10-15
 kilo	docs	https://kilo.ai/docs	200	html	1d0d9de8535e3bf6be2bab5b82acbc607380a965468dc4c6ce700cb655072424	2026-09-22
 kilo	docs	https://kilo.ai/docs/automate/tools	200	html	b0c5f7d2b31f63620125a542ab67b755486c10f5e946ce2975346ade397ca66b	2026-09-22
 kilo	docs	https://kilo.ai/docs/code-with-ai/agents/goals	200	html	42bc35ddd02a4511c40b7a4c56880b322fc3b447bc4683a7bf747b23dde64b00	2026-10-08
@@ -201,6 +209,7 @@ opencode	docs	https://opencode.ai/docs/skills.md	200	markdown-mirror	f10ced73971
 opencode	docs	https://opencode.ai/v2/docs/build/plugins/migrate-v1	200	html	f8fb3893d57723bbb16a8298b576fd9a62b2c8e771512c82426629e2023fc307	2026-10-11
 opencode	docs	https://opencode.ai/v2/docs/mcp-servers	200	html	a020daceb13def85f08eb734f5ec584f60c80656226263b5bd0e2be09ea01194	2026-10-11
 opencode	docs	https://opencode.ai/v2/docs/migrate-v1	200	html	3eb93ce7da233f15f7cdc320448c19e7326482b8fa0a394333ea2e2065acc166	2026-10-14
+opencode	docs	https://opencode.ai/v2/docs/permissions	200	html	8a2d8b53be15ada04af826464080b66577e274c78285db7cb0ad78e059455fd6	2026-10-15
 opencode	docs	https://opencode.ai/v2/docs/skills	200	html	56538122b32d9206946e5ed24de2c24187d90ef4fbe2f0788ce291f979d8bbd8	2026-10-11
 opencode	schema	https://opencode.ai/config.json	200	schema-keys	35011de701b68b17ad3b9983f6a67ca30cae517501cf724a049fc551a8a19539	2026-09-30
 openhands	changelog	https://github.com/OpenHands/OpenHands/releases	200	github-api	0d8cf95f91932a83bde0d8eba9b25b46c466180754ea77c156f1d8a2c115cb4b	2026-10-13
@@ -238,6 +247,7 @@ trae	docs	https://docs.trae.ai/ide/hook-configuration-reference	200	router-data	
 trae	docs	https://docs.trae.ai/ide/ignore-files	200	router-data	61611cfb67f5ffc8636b17c01c5817d0b1fefb594d04a2c77a13c8b287746890	2026-10-09
 trae	docs	https://docs.trae.ai/ide/model-context-protocol	200	router-data	c40820d910223108170208580d13a194056c833dda501e1b27d3da3345b0f801	2026-10-09
 trae	docs	https://docs.trae.ai/ide/rules	200	router-data	151eb5df47085e5bfcb7ff890f6f4bb73f5ae0a03876fd1f3aef85de2fa0af86	2026-10-09
+trae	docs	https://docs.trae.ai/ide/sandbox	200	router-data	b4196abdb4ed1d4853486198657c399fb6349b3cb102e99e6ddc180e97e8fcde	2026-10-15
 trae	docs	https://docs.trae.ai/ide/skills	200	router-data	1f7d639113b15d97b097b81209ddebd31846e18f78f379bc10c5c783e7adb2a1	2026-10-09
 trae	docs	https://docs.trae.ai/ide/slash-commands	200	router-data	8d1bb24c1e5e6212c3b27e8c411e91a55281a4d410ced8c267a0386da8244a8b	2026-10-09
 trae	docs	https://docs.trae.ai/ide/subagents	200	router-data	d1850fced7391b2d68b9b8154d8b33c03fa502aff7b054665eafe0dccc668eba	2026-10-09
@@ -251,6 +261,7 @@ warp	docs	https://docs.warp.dev/terminal/entry/yaml-workflows.md	200	markdown-mi
 warp	schema	https://www.schemastore.org/warp-workflows.json	200	schema-keys	769d2ec471bd8bd45a678743af5c13f4b0ef82960a559a5acdfe095e5b7fcb68	2026-09-30
 windsurf	changelog	https://docs.devin.ai/cli/changelog/stable.md	200	markdown-mirror	242515796fb2d4786f40df038465dd19f01040b327c2b6a724d7ff932a6f81bc	2026-10-13
 windsurf	changelog	https://docs.devin.ai/desktop/changelog.md	200	markdown-mirror	146dc0647b0ca9347a8291f8cb06b655e707a74ce1d00139f218feb8afb75668	2026-10-02
+windsurf	docs	https://docs.devin.ai/cli/extensibility/hooks/lifecycle-hooks.md	200	markdown-mirror	91826d2822015e29248fd21b77fae355721b086c8b7ce93410404c96db4721b7	2026-10-15
 windsurf	docs	https://docs.devin.ai/cli/extensibility/hooks/overview.md	200	markdown-mirror	ce665feb270c3c7cffbde0e191f8042ff6f52b3283b00dcad2504dcb7695bafc	2026-10-02
 windsurf	docs	https://docs.devin.ai/cli/extensibility/mcp/configuration.md	200	markdown-mirror	8ad5555c7a91d5912aa22e01b64f1783c49626edb59d6687fae8b2db638d1048	2026-10-02
 windsurf	docs	https://docs.devin.ai/cli/extensibility/rules.md	200	markdown-mirror	437a8cded7f56b59c6dd46797a1d02312f79da9aae83828bc401fab88d1e9ea6	2026-10-02

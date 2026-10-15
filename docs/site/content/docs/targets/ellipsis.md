@@ -186,7 +186,7 @@ x-ellipsis:
   args: [/sandbox/api-repo/scripts/mcp-server.js]
 ```
 
-A stdio server runs in the sandbox, so install what it needs in `install`. Sync cannot check that a command exists there.
+A stdio server runs in the sandbox, so install what it needs in `install`. Sync cannot check that a command exists there. On a Codex reviewer, a server that fails to start fails the whole turn, not just that server's tools.
 
 ## Config keys
 

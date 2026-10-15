@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// Source: docs.factory.com/cli/configuration/hooks-guide (rechecked
-// 2026-10-03). Documented there:
+// Source: docs.factory.com/harness/hooks (rechecked
+// 2026-10-15). Documented there:
 //   - Project root: "Use `"$FACTORY_PROJECT_DIR"/path/to/script.sh` for
 //     project scripts". The command runs as written, with
 //     FACTORY_PROJECT_DIR in its env; see expandRootVar.
@@ -29,7 +29,7 @@ import (
 //     input on stdin", with no shell named and nothing on Windows.
 //   - The Edit and ApplyPatch input: "The exact shape of `tool_input`
 //     and `tool_response` depends on the tool", and only Create is shown.
-const factoryDocs = "https://docs.factory.com/cli/configuration/hooks-guide"
+const factoryDocs = "https://docs.factory.com/harness/hooks"
 
 const factoryDefaultTimeout = 60 * time.Second
 
