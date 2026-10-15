@@ -258,7 +258,7 @@ Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list
 |--------|----------|
 | [Claude Code](@/docs/targets/claude.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md) | Written as a YAML list |
 | [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md) | Written as a comma-separated string (`tools: Read, Bash`) |
-| [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md), [Kilo Code](@/docs/targets/kilo.md) | Changed to the tool's own names or a permission map |
+| [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md), [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md) | Changed to the tool's own names or a permission map |
 | [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md) | Dropped with a note |
 
 On Trae, an explicitly empty list (`can: []` or `tools`) disables all tools. Use `x-trae: {tools: ""}` to restrict only Trae. Leaving the field unset lets Trae load every available tool.
