@@ -2,7 +2,9 @@ package opencode
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -33,38 +35,97 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	return emitAgents(sess, agents, dir, nil, dryRun)
 }
 
-// agentProject holds the project permission rules a restricted agent
-// repeats. OpenCode puts agent rules after the project ones and the last
-// match wins, so an agent that did not repeat them would override every
-// project ask and deny for the tools it lists.
-type agentProject struct {
-	settings   []spec.Entry
-	permission map[string]any
-	rules      map[string]*emit.OrderedJSON
-	outside    any
+// permissionRule is one entry of OpenCode's flat rule list.
+type permissionRule struct{ key, pattern, action string }
+
+// builtinPermission is OpenCode's own `defaults`, which come before the
+// project's rules (packages/opencode/src/agent/agent.ts, v1.19.0). The
+// external_directory allows it adds for its temp, skill, and reference
+// folders are left out: their paths differ on every machine. Its `read`
+// block "mirrors github.com/github/gitignore Node.gitignore pattern for
+// .env files".
+var builtinPermission = []permissionRule{
+	{catchAllPattern, catchAllPattern, "allow"},
+	{"doom_loop", catchAllPattern, "ask"},
+	{externalDirectoryKey, catchAllPattern, "ask"},
+	{"question", catchAllPattern, "deny"},
+	{"plan_enter", catchAllPattern, "deny"},
+	{"plan_exit", catchAllPattern, "deny"},
+	{"read", catchAllPattern, "allow"},
+	{"read", "*.env", "ask"},
+	{"read", "*.env.*", "ask"},
+	{"read", "*.env.example", "allow"},
 }
 
-func newAgentProject(settings []spec.Entry, directories []string) (*agentProject, error) {
-	permission, _ := buildPermissions(settings)
-	project := &agentProject{settings: settings, permission: permission, rules: map[string]*emit.OrderedJSON{}}
-	for key, value := range permission {
-		rules, err := specRules(value, settings, key)
-		if err != nil {
+// agentProject is the flat rule list a restricted agent's own rules
+// follow: OpenCode's defaults, then the project's `permission` in file
+// order. OpenCode builds each agent's rules as Permission.merge(defaults,
+// user, agent), merge is a plain flatten, and evaluate takes the last
+// rule whose key and pattern both match (packages/opencode/src/agent/
+// agent.ts and permission/index.ts, v1.19.0).
+type agentProject struct {
+	rules []permissionRule
+}
+
+// readProjectPermission reads the `permission` opencode.json holds after
+// this sync: the content the session just planned for it, or the file
+// on disk when the session left it alone.
+func readProjectPermission(sess *emit.Session, path string) (*agentProject, error) {
+	content, planned := sess.PlannedFile(path)
+	if !planned {
+		data, err := os.ReadFile(path)
+		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
-		project.rules[key] = rules
+		content = string(data)
 	}
-	outside, err := project.outsideRules(directories)
-	if err != nil {
-		return nil, err
+	project := &agentProject{rules: slices.Clone(builtinPermission)}
+	if strings.TrimSpace(content) == "" {
+		return project, nil
 	}
-	project.outside = outside
+	stripped, _ := emit.StripJSONC([]byte(content))
+	doc := emit.NewOrderedJSON()
+	if err := json.Unmarshal(stripped, doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	raw, found := doc.Get(permissionKey)
+	if !found {
+		return project, nil
+	}
+	var action string
+	if json.Unmarshal(raw, &action) == nil {
+		project.rules = append(project.rules, permissionRule{catchAllPattern, catchAllPattern, action})
+		return project, nil
+	}
+	keys := emit.NewOrderedJSON()
+	if err := json.Unmarshal(raw, keys); err != nil {
+		return nil, fmt.Errorf("parse %s permission: %w", path, err)
+	}
+	for _, key := range keys.Keys() {
+		value, _ := keys.Get(key)
+		if json.Unmarshal(value, &action) == nil {
+			project.rules = append(project.rules, permissionRule{key, catchAllPattern, action})
+			continue
+		}
+		patterns := emit.NewOrderedJSON()
+		if json.Unmarshal(value, patterns) != nil {
+			continue
+		}
+		for _, pattern := range patterns.Keys() {
+			if a := ruleAction(patterns, pattern); a != "" {
+				project.rules = append(project.rules, permissionRule{key, pattern, a})
+			}
+		}
+	}
 	return project, nil
 }
 
 // emitAgents is EmitAgents with the project rules a restricted agent
-// repeats; project may be nil.
+// repeats; project nil stands for OpenCode's defaults alone.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project *agentProject, dryRun bool) error {
+	if project == nil {
+		project = &agentProject{rules: builtinPermission}
+	}
 	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
@@ -119,38 +180,36 @@ func withNativePermission(translated map[string]any, native any) any {
 }
 
 // agentPermission turns an agent's `tools` allowlist into OpenCode's
-// agent `permission` map. An allowlist denies everything first and
-// re-allows the names that translated; a bare `mcp__<server>` allows
-// every tool of that server as `<server>_*`. The frontmatter encoder
-// sorts keys, so the catch-all `*` comes before every tool key.
+// agent `permission` map. A bare `mcp__<server>` allows every tool of
+// that server as `<server>_*`.
 //
-// OpenCode reads one flat rule list per agent, its built-in defaults,
-// then the project's `permission`, then the agent's, and the last rule
-// whose key and pattern both match wins (`Permission.merge` and
-// `evaluate` in packages/opencode/src/permission/index.ts, v1.19.0).
-// The agent's allows come last, so tighten repeats every default and
-// project ask or deny that reaches them. The catch-all would also deny
-// `doom_loop` and `external_directory`, which default to "ask", so
-// both stay "ask" unless the project is stricter, and
-// external_directory also keeps the store grants sync writes.
+// The agent's rules come after the project's, so the map decides every
+// input on its own: `*` denies what the list leaves out, and inside what
+// it allows, replay repeats the project's decision. doom_loop and
+// external_directory are no tools the list restricts, so they replay
+// the project's decision whole. The frontmatter encoder sorts keys, so
+// the catch-all `*` comes before every tool key.
 //
 // Returns nil when no name translated, so an agent whose whole list is
 // untranslatable keeps its default permissions rather than being locked
 // out by a bare `{"*": "deny"}` nobody asked for. unmapped reports
 // whether at least one name had no OpenCode key.
 func agentPermission(tools []string, project *agentProject) (perms map[string]any, unmapped bool) {
-	allowed := map[string]*emit.OrderedJSON{}
+	if project == nil {
+		project = &agentProject{rules: builtinPermission}
+	}
+	grants := map[string][]string{}
 	grant := func(key, pattern string) {
-		rules, set := allowed[key]
-		if pattern == catchAllPattern || (set && ruleAction(rules, catchAllPattern) == "allow") {
-			allowed[key] = actionRules(catchAllPattern, "allow")
+		if slices.Contains(grants[key], catchAllPattern) {
 			return
 		}
-		if !set {
-			rules = actionRules(catchAllPattern, "deny")
-			allowed[key] = rules
+		if pattern == catchAllPattern {
+			grants[key] = []string{catchAllPattern}
+			return
 		}
-		_ = rules.Set(pattern, "allow")
+		if !slices.Contains(grants[key], pattern) {
+			grants[key] = append(grants[key], pattern)
+		}
 	}
 	for _, name := range tools {
 		if server, whole := wholeMCPServer(name); whole {
@@ -164,139 +223,68 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 		}
 		grant(key, pattern)
 	}
-	if len(allowed) == 0 {
+	if len(grants) == 0 {
 		return nil, unmapped
 	}
-	allowed["doom_loop"] = actionRules(catchAllPattern, "ask")
-	tighten(allowed, project.restrictive())
+	grants["doom_loop"] = []string{catchAllPattern}
+	grants[externalDirectoryKey] = []string{catchAllPattern}
 
-	perms = map[string]any{catchAllPattern: "deny", externalDirectoryKey: "ask"}
-	for key, rules := range allowed {
-		perms[key], _ = orderedActions(rules)
-	}
-	if project != nil && project.outside != nil {
-		perms[externalDirectoryKey] = project.outside
+	perms = map[string]any{catchAllPattern: "deny"}
+	for _, key := range slices.Sorted(maps.Keys(grants)) {
+		patterns := grants[key]
+		perms[key] = project.replay(key, patterns)
+		// A project rule on a narrower key, such as one MCP tool under a
+		// granted server, gets its own entry after this one.
+		for _, r := range project.rules {
+			if !wildcardOverlap(r.key, key) || wildcardContains(r.key, key) {
+				continue
+			}
+			for _, narrower := range globIntersection(r.key, key) {
+				if _, set := perms[narrower]; set || narrower <= key {
+					continue
+				}
+				perms[narrower] = project.replay(narrower, patterns)
+			}
+		}
 	}
 	return perms, unmapped
 }
 
-func actionRules(pattern, action string) *emit.OrderedJSON {
-	rules := emit.NewOrderedJSON()
-	_ = rules.Set(pattern, action)
-	return rules
-}
-
-// permissionRule is one entry of OpenCode's flat rule list.
-type permissionRule struct{ key, pattern, action string }
-
-// builtinRestrictive are the ask and deny rules among OpenCode's own
-// defaults, which come before the project's: `defaults` in
-// packages/opencode/src/agent/agent.ts (v1.19.0). Its `read` block
-// "mirrors github.com/github/gitignore Node.gitignore pattern for .env
-// files", so an agent that may read still asks before reading `.env`.
-var builtinRestrictive = []permissionRule{
-	{"doom_loop", catchAllPattern, "ask"},
-	{externalDirectoryKey, catchAllPattern, "ask"},
-	{"question", catchAllPattern, "deny"},
-	{"plan_enter", catchAllPattern, "deny"},
-	{"plan_exit", catchAllPattern, "deny"},
-	{"read", "*.env", "ask"},
-	{"read", "*.env.*", "ask"},
-}
-
-// restrictive returns the default and project ask and deny rules. Allow
-// rules never reach the agent: after its catch-all deny they would
-// widen its list.
-func (p *agentProject) restrictive() []permissionRule {
-	rules := slices.Clone(builtinRestrictive)
-	if p == nil {
-		return rules
+// replay returns key's value that decides each input inside patterns as
+// the project does, and denies the rest. For each pattern it starts from
+// the last rule covering the whole pattern, then repeats in order every
+// later rule that reaches into it, cut down to the part inside it.
+func (p *agentProject) replay(key string, patterns []string) any {
+	var rules []permissionRule
+	for _, r := range p.rules {
+		if wildcardContains(r.key, key) {
+			rules = append(rules, r)
+		}
 	}
-	for _, key := range slices.Sorted(maps.Keys(p.rules)) {
-		for _, pattern := range p.rules[key].Keys() {
-			if action := ruleAction(p.rules[key], pattern); action == "ask" || action == "deny" {
-				rules = append(rules, permissionRule{key, pattern, action})
+	out := emit.NewOrderedJSON()
+	if !slices.Contains(patterns, catchAllPattern) {
+		_ = out.Set(catchAllPattern, "deny")
+	}
+	set := func(pattern, action string) {
+		out.Delete(pattern)
+		_ = out.Set(pattern, action)
+	}
+	for _, q := range slices.Sorted(slices.Values(patterns)) {
+		base, start := "ask", 0
+		for i, r := range rules {
+			if wildcardContains(r.pattern, q) {
+				base, start = r.action, i+1
+			}
+		}
+		set(q, base)
+		for _, r := range rules[start:] {
+			for _, part := range globIntersection(r.pattern, q) {
+				set(part, r.action)
 			}
 		}
 	}
-	return rules
-}
-
-// tighten makes every agent allow no looser than the restrictive rules
-// before it. For a rule (K, P, A) and an agent allow (k, q) whose keys
-// and patterns overlap:
-//
-//   - when K and P cover k and q, q takes the stricter action in place;
-//   - when k and q cover K and P, the rule is repeated after q, so it
-//     wins for its own inputs only; under another key it must sort
-//     after k, since the encoder writes keys in order;
-//   - otherwise q takes the stricter action in place, stricter than the
-//     project for the inputs outside the rule, never looser.
-func tighten(allowed map[string]*emit.OrderedJSON, restrictive []permissionRule) {
-	type grantRef struct{ key, pattern string }
-	var grants, appended []grantRef
-	for _, key := range slices.Sorted(maps.Keys(allowed)) {
-		for _, pattern := range allowed[key].Keys() {
-			if ruleAction(allowed[key], pattern) != "deny" {
-				grants = append(grants, grantRef{key, pattern})
-			}
-		}
-	}
-	for _, r := range restrictive {
-		for _, g := range grants {
-			if !wildcardOverlap(r.key, g.key) || !wildcardOverlap(r.pattern, g.pattern) {
-				continue
-			}
-			rules := allowed[g.key]
-			covered := wildcardContains(r.key, g.key) && wildcardContains(r.pattern, g.pattern)
-			inside := wildcardContains(g.key, r.key) && wildcardContains(g.pattern, r.pattern)
-			if inside && !covered && r.key >= g.key {
-				target, set := allowed[r.key]
-				if !set {
-					target = emit.NewOrderedJSON()
-					allowed[r.key] = target
-				}
-				action := stricter(ruleAction(target, r.pattern), r.action)
-				target.Delete(r.pattern)
-				_ = target.Set(r.pattern, action)
-				appended = append(appended, grantRef{r.key, r.pattern})
-				continue
-			}
-			_ = rules.Set(g.pattern, stricter(ruleAction(rules, g.pattern), r.action))
-		}
-	}
-	// A repeated rule sits after the allows, so once a later rule makes
-	// an allow it overlaps stricter, the repeated rule must follow suit.
-	for changed := true; changed; {
-		changed = false
-		for _, g := range grants {
-			action := ruleAction(allowed[g.key], g.pattern)
-			for _, a := range appended {
-				rules := allowed[a.key]
-				if permissionSeverity[ruleAction(rules, a.pattern)] >= permissionSeverity[action] ||
-					!wildcardOverlap(a.key, g.key) || !wildcardOverlap(a.pattern, g.pattern) {
-					continue
-				}
-				_ = rules.Set(a.pattern, action)
-				changed = true
-			}
-		}
-	}
-}
-
-// catchAll returns the project's action for every input of key: the
-// key's own `*` rule, or else the top-level `*` that OpenCode matches
-// against every key. It returns "" when the project sets neither.
-func (p *agentProject) catchAll(key string) string {
-	if own, set := p.rules[key]; set {
-		if action := ruleAction(own, catchAllPattern); action != "" {
-			return action
-		}
-	}
-	if global, set := p.rules[catchAllPattern]; set {
-		return ruleAction(global, catchAllPattern)
-	}
-	return ""
+	value, _ := orderedActions(out)
+	return value
 }
 
 func ruleAction(rules *emit.OrderedJSON, pattern string) string {
@@ -306,6 +294,36 @@ func ruleAction(rules *emit.OrderedJSON, pattern string) string {
 		return ""
 	}
 	return action
+}
+
+// orderedActions renders pattern rules as a YAML mapping in their order,
+// which the frontmatter encoder would otherwise sort, or as the bare
+// action when only the catch-all is left.
+func orderedActions(rules *emit.OrderedJSON) (any, error) {
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	for _, pattern := range rules.Keys() {
+		raw, _ := rules.Get(pattern)
+		var action string
+		if err := json.Unmarshal(raw, &action); err != nil {
+			return nil, err
+		}
+		if pattern == catchAllPattern && rules.Len() == 1 {
+			return action, nil
+		}
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: pattern},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: action})
+	}
+	return node, nil
+}
+
+// wholeMCPServer reports the server a bare `mcp__<server>` names.
+func wholeMCPServer(name string) (string, bool) {
+	server, found := strings.CutPrefix(name, spec.MCPToolPrefix)
+	if !found || server == "" || strings.Contains(server, "__") {
+		return "", false
+	}
+	return server, true
 }
 
 // wildcardAlternatives spells out OpenCode's one special case: "If
@@ -343,14 +361,7 @@ func wildcardContains(a, b string) bool {
 
 // wildcardOverlap reports whether some input matches both patterns.
 func wildcardOverlap(a, b string) bool {
-	for _, altA := range wildcardAlternatives(a) {
-		for _, altB := range wildcardAlternatives(b) {
-			if globsIntersect(altA, altB) {
-				return true
-			}
-		}
-	}
-	return false
+	return len(globIntersection(a, b)) > 0
 }
 
 // globCovers reports whether pattern a matches s. With glob set, s is a
@@ -385,99 +396,88 @@ func globCovers(a, s string, glob bool) bool {
 	return covers(0, 0)
 }
 
-// globsIntersect reports whether some string matches both globs.
-func globsIntersect(a, b string) bool {
-	memo := map[[2]int]bool{}
-	var meet func(i, j int) bool
-	meet = func(i, j int) bool {
+// globIntersection returns patterns whose union matches exactly the
+// inputs both a and b match, or nil when they share none. It walks both
+// patterns side by side: a `*` facing a `*` matches any run both allow,
+// a `*` facing a character takes that character, and two characters
+// must agree.
+func globIntersection(a, b string) []string {
+	// One pattern inside the other is the intersection as written.
+	if wildcardContains(b, a) {
+		return []string{a}
+	}
+	if wildcardContains(a, b) {
+		return []string{b}
+	}
+	var parts []string
+	for _, altA := range wildcardAlternatives(a) {
+		for _, altB := range wildcardAlternatives(b) {
+			for _, part := range globMeet(altA, altB) {
+				// OpenCode would also match the bare command before a
+				// trailing " *"; "**" keeps it out when it is not shared.
+				if prefix, found := strings.CutSuffix(part, " *"); found && !(wildcardContains(a, prefix) && wildcardContains(b, prefix)) {
+					part = prefix + " **"
+				}
+				if !slices.Contains(parts, part) {
+					parts = append(parts, part)
+				}
+			}
+		}
+	}
+	return slices.DeleteFunc(parts, func(part string) bool {
+		return slices.ContainsFunc(parts, func(other string) bool {
+			return other != part && wildcardContains(other, part) && !wildcardContains(part, other)
+		})
+	})
+}
+
+// globMeet intersects two plain globs, with no trailing-space rule.
+func globMeet(a, b string) []string {
+	memo := map[[2]int][]string{}
+	var meet func(i, j int) []string
+	meet = func(i, j int) []string {
 		key := [2]int{i, j}
 		if v, ok := memo[key]; ok {
 			return v
 		}
-		var result bool
-		switch {
-		case i < len(a) && a[i] == '*':
-			result = meet(i+1, j) || (j < len(b) && meet(i, j+1))
-		case j < len(b) && b[j] == '*':
-			result = meet(i, j+1) || (i < len(a) && meet(i+1, j))
-		case i == len(a) || j == len(b):
-			result = i == len(a) && j == len(b)
-		default:
-			result = (a[i] == '?' || b[j] == '?' || a[i] == b[j]) && meet(i+1, j+1)
+		var out []string
+		add := func(prefix string, rest []string) {
+			for _, r := range rest {
+				s := prefix + r
+				for strings.Contains(s, "**") {
+					s = strings.ReplaceAll(s, "**", "*")
+				}
+				if !slices.Contains(out, s) {
+					out = append(out, s)
+				}
+			}
 		}
-		memo[key] = result
-		return result
+		aStar := i < len(a) && a[i] == '*'
+		bStar := j < len(b) && b[j] == '*'
+		switch {
+		case i == len(a) && j == len(b):
+			out = []string{""}
+		case aStar && bStar:
+			add("*", meet(i+1, j))
+			add("*", meet(i, j+1))
+		case aStar:
+			add("", meet(i+1, j))
+			if j < len(b) {
+				add(string(b[j]), meet(i, j+1))
+			}
+		case bStar:
+			add("", meet(i, j+1))
+			if i < len(a) {
+				add(string(a[i]), meet(i+1, j))
+			}
+		case i == len(a) || j == len(b):
+		case a[i] == '?':
+			add(string(b[j]), meet(i+1, j+1))
+		case b[j] == '?' || a[i] == b[j]:
+			add(string(a[i]), meet(i+1, j+1))
+		}
+		memo[key] = out
+		return out
 	}
 	return meet(0, 0)
-}
-
-// stricter returns the more restrictive of two actions.
-func stricter(a, b string) string {
-	if permissionSeverity[b] > permissionSeverity[a] {
-		return b
-	}
-	return a
-}
-
-// outsideRules returns the external_directory value for a
-// restricted agent. Agent rules come after the project ones, so the
-// agent repeats them: "ask", OpenCode's default, or the project's
-// catch-all when that is deny, then the settings' own rules in their
-// order, then the store directories sync allows in opencode.json,
-// unless a settings rule already names one. A settings deny then still
-// wins, and a bare action collapses to a scalar.
-func (p *agentProject) outsideRules(directories []string) (any, error) {
-	rules := emit.NewOrderedJSON()
-	if err := rules.Set(catchAllPattern, stricter("ask", p.catchAll(externalDirectoryKey))); err != nil {
-		return nil, err
-	}
-	own, set := p.rules[externalDirectoryKey]
-	if !set {
-		own = emit.NewOrderedJSON()
-	}
-	for _, pattern := range own.Keys() {
-		raw, _ := own.Get(pattern)
-		rules.Delete(pattern)
-		rules.SetRaw(pattern, raw)
-	}
-	for _, dir := range directories {
-		if _, set := own.Get(dir); set {
-			continue
-		}
-		rules.Delete(dir)
-		if err := rules.Set(dir, "allow"); err != nil {
-			return nil, err
-		}
-	}
-	return orderedActions(rules)
-}
-
-// orderedActions renders pattern rules as a YAML mapping in their order,
-// which the frontmatter encoder would otherwise sort, or as the bare
-// action when only the catch-all is left.
-func orderedActions(rules *emit.OrderedJSON) (any, error) {
-	node := &yaml.Node{Kind: yaml.MappingNode}
-	for _, pattern := range rules.Keys() {
-		raw, _ := rules.Get(pattern)
-		var action string
-		if err := json.Unmarshal(raw, &action); err != nil {
-			return nil, err
-		}
-		if pattern == catchAllPattern && rules.Len() == 1 {
-			return action, nil
-		}
-		node.Content = append(node.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: pattern},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: action})
-	}
-	return node, nil
-}
-
-// wholeMCPServer reports the server a bare `mcp__<server>` names.
-func wholeMCPServer(name string) (string, bool) {
-	server, found := strings.CutPrefix(name, spec.MCPToolPrefix)
-	if !found || server == "" || strings.Contains(server, "__") {
-		return "", false
-	}
-	return server, true
 }

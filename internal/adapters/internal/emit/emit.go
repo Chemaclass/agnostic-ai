@@ -106,9 +106,12 @@ type Session struct {
 	capturing bool
 	// writesOnly skips tree sweeps during capture, for callers that
 	// read the captured writes and never the removals.
-	writesOnly  bool
-	captured    []CapturedFile
-	removals    []CapturedRemoval
+	writesOnly bool
+	captured   []CapturedFile
+	removals   []CapturedRemoval
+	// planned holds the content this session wrote, captured, or
+	// previewed per path, for an adapter that reads its own output back.
+	planned     map[string]string
 	backup      bool
 	recording   bool
 	recorded    []string
@@ -169,6 +172,16 @@ func (s *Session) UserTier() bool { return s.userTier }
 // through one emission pass. Adapters and the CLI toggle modes on it and
 // pass it to WriteFile and friends; each sync run constructs its own.
 func NewSession() *Session { return &Session{} }
+
+// PlannedFile returns the content this session last wrote, captured, or
+// previewed at path. It reports false when the session left the file as
+// it is on disk, such as a hand edit sync keeps.
+func (s *Session) PlannedFile(path string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	content, ok := s.planned[path]
+	return content, ok
+}
 
 // SetUnmanaged installs the sync.unmanaged patterns. A matching path is
 // never written, merged, copied, renamed, or removed by this session;
@@ -820,6 +833,10 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if s.counting && !capturing && !dryRun {
 		s.counted++
 	}
+	if s.planned == nil {
+		s.planned = map[string]string{}
+	}
+	s.planned[path] = content
 	s.mu.Unlock()
 
 	if capturing {
@@ -828,6 +845,9 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	// No lock needed: targets sharing a path write identical bytes, so
 	// once one rewrites an unedited file the others see it current.
 	if sum, keep := s.keepsEdit(path, content); keep {
+		s.mu.Lock()
+		delete(s.planned, path)
+		s.mu.Unlock()
 		s.mu.Lock()
 		s.kept = append(s.kept, path)
 		if detailing {

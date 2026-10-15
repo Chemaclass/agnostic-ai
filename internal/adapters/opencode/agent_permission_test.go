@@ -13,8 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// readAllowed is a whole read grant: OpenCode's own .env asks stay after it.
-const readAllowed = "  read:\n    \"*\": allow\n    \"*.env\": ask\n    \"*.env.*\": ask\n"
+// readAllowed is a whole read grant: OpenCode's own .env rules stay after it.
+const readAllowed = "  read:\n    \"*\": allow\n    \"*.env\": ask\n    \"*.env.*\": ask\n    \"*.env.example\": allow\n"
 
 func emitAgent(t *testing.T, meta map[string]any) string {
 	t.Helper()

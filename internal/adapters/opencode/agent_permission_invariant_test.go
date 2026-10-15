@@ -115,9 +115,14 @@ func simRulesUnder(root *yaml.Node, name string) []simRule {
 	return out
 }
 
-func simEmit(t *testing.T, project map[string]any, tools []string) (projectRules, agentRules []simRule) {
+func simEmit(t *testing.T, handWritten string, project map[string]any, tools []string) (projectRules, agentRules []simRule) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
+	if handWritten != "" {
+		if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte(handWritten), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	var entries []spec.Entry
 	if project != nil {
 		entries = append(entries, spec.Entry{Kind: spec.KindSettings, Name: "s", Path: "s.yaml", Meta: map[string]any{
@@ -135,55 +140,69 @@ func simEmit(t *testing.T, project map[string]any, tools []string) (projectRules
 	return simJSONPermission(t, filepath.Join(dir, "opencode.json")), simAgentPermission(t, filepath.Join(dir, ".opencode/agents/a.md"))
 }
 
-// An agent's effective decision is never looser than the stricter of
-// the project's decision and the agent's own tools list.
-func TestAgentPermission_NeverLooserThanProject(t *testing.T) {
+// An agent's decision equals the stricter of the project's decision and
+// the agent's own list, for every case and input. The list allows its
+// grants and denies every other tool; doom_loop and external_directory
+// are no tools, so the project decides them alone.
+func TestAgentPermission_EqualsProjectWithinTheList(t *testing.T) {
 	type probe struct{ key, input string }
 	probes := []probe{
 		{"bash", "git diff HEAD"}, {"bash", "rm -rf x"}, {"bash", "ls"}, {"bash", "npm i"},
-		{"bash", "git status x"}, {"bash", "git log"}, {"bash", "git push main"}, {"bash", "git push --force"}, {"bash", "git"},
+		{"bash", "git status x"}, {"bash", "git log"}, {"bash", "git push main"}, {"bash", "git push --force"},
+		{"bash", "git --force"}, {"bash", "git"}, {"bash", "git status"},
 		{"read", "src/a.go"}, {"read", "/secrets/k"}, {"read", ".env"}, {"read", "x.env.local"}, {"read", "x.env.example"},
 		{"doom_loop", "x"}, {externalDirectoryKey, "/tmp/x"}, {externalDirectoryKey, "/secrets/k"},
-		{"edit", "a.go"}, {"github_create_issue", "x"}, {"github_search", "x"}, {"question", "x"},
+		{"edit", "a.go"}, {"webfetch", "https://x"}, {"github_create_issue", "x"}, {"github_search", "x"}, {"question", "x"},
 	}
+	type grant struct{ key, pattern string }
 	cases := []struct {
-		name    string
-		project map[string]any
-		tools   []string
+		name        string
+		handWritten string
+		project     map[string]any
+		tools       []string
+		grants      []grant
 	}{
-		{"no project, read", nil, []string{"Read"}},
-		{"no project, scoped read", nil, []string{"Read(src/**)"}},
-		{"tool ask, scoped agent", map[string]any{"bash": "ask"}, []string{"Bash(git diff *)"}},
-		{"project ask covers agent pattern", map[string]any{"bash": map[string]any{"git *": "ask"}}, []string{"Bash(git status *)"}},
-		{"scoped asks outside and inside the agent", map[string]any{"bash": map[string]any{"npm *": "ask", "git push *": "ask"}}, []string{"Bash(git *)"}},
-		{"partial overlap ask", map[string]any{"bash": map[string]any{"* --force": "ask"}}, []string{"Bash(git *)"}},
-		{"global ask with a named key", map[string]any{"*": "ask", "bash": map[string]any{"rm *": "deny"}}, []string{"Bash(git *)", "Read"}},
-		{"global ask, scoped agent", map[string]any{"*": "ask"}, []string{"Bash(git diff *)", "Read"}},
-		{"global and doom_loop deny", map[string]any{"*": "deny", "doom_loop": "deny"}, []string{"Read"}},
-		{"global deny, tool scoped deny", map[string]any{"*": "deny", "bash": map[string]any{"rm *": "deny"}}, []string{"Bash"}},
-		{"tool allow with scoped deny", map[string]any{"bash": map[string]any{"*": "allow", "rm *": "deny"}}, []string{"Bash"}},
-		{"scoped read deny", map[string]any{"read": map[string]any{"/secrets/**": "deny"}}, []string{"Read(src/**)", "Read"}},
-		{"outside deny under global deny", map[string]any{"*": "deny", externalDirectoryKey: map[string]any{"/secrets/**": "deny"}}, []string{"Read"}},
-		{"outside bare deny", map[string]any{externalDirectoryKey: "deny"}, []string{"Edit"}},
-		{"wildcard key deny", map[string]any{"github_*": "deny"}, []string{"mcp__github__create_issue"}},
-		{"one tool denied, whole server allowed", map[string]any{"github_create_issue": "deny"}, []string{"mcp__github"}},
-		{"bare command deny", map[string]any{"bash": map[string]any{"git": "deny"}}, []string{"Bash(git *)"}},
+		{"no project, read", "", nil, []string{"Read"}, []grant{{"read", "*"}}},
+		{"no project, scoped read", "", nil, []string{"Read(src/**)"}, []grant{{"read", "src/**"}}},
+		{"tool ask, scoped agent", "", map[string]any{"bash": "ask"}, []string{"Bash(git diff *)"}, []grant{{"bash", "git diff *"}}},
+		{"project ask covers agent pattern", "", map[string]any{"bash": map[string]any{"git *": "ask"}}, []string{"Bash(git status *)"}, []grant{{"bash", "git status *"}}},
+		{"scoped asks outside and inside the agent", "", map[string]any{"bash": map[string]any{"npm *": "ask", "git push *": "ask"}}, []string{"Bash(git *)"}, []grant{{"bash", "git *"}}},
+		{"partial overlap ask", "", map[string]any{"bash": map[string]any{"* --force": "ask"}}, []string{"Bash(git *)"}, []grant{{"bash", "git *"}}},
+		{"global ask with a named key", "", map[string]any{"*": "ask", "bash": map[string]any{"rm *": "deny"}}, []string{"Bash(git *)", "Read"}, []grant{{"bash", "git *"}, {"read", "*"}}},
+		{"global ask, scoped agent", "", map[string]any{"*": "ask"}, []string{"Bash(git diff *)", "Read"}, []grant{{"bash", "git diff *"}, {"read", "*"}}},
+		{"global and doom_loop deny", "", map[string]any{"*": "deny", "doom_loop": "deny"}, []string{"Read"}, []grant{{"read", "*"}}},
+		{"global deny, tool scoped deny", "", map[string]any{"*": "deny", "bash": map[string]any{"rm *": "deny"}}, []string{"Bash"}, []grant{{"bash", "*"}}},
+		{"tool allow with scoped deny", "", map[string]any{"bash": map[string]any{"*": "allow", "rm *": "deny"}}, []string{"Bash"}, []grant{{"bash", "*"}}},
+		{"scoped read deny", "", map[string]any{"read": map[string]any{"/secrets/**": "deny"}}, []string{"Read(src/**)", "Read"}, []grant{{"read", "*"}}},
+		{"outside deny under global deny", "", map[string]any{"*": "deny", externalDirectoryKey: map[string]any{"/secrets/**": "deny"}}, []string{"Read"}, []grant{{"read", "*"}}},
+		{"outside bare deny", "", map[string]any{externalDirectoryKey: "deny"}, []string{"Edit"}, []grant{{"edit", "*"}}},
+		{"wildcard key deny", "", map[string]any{"github_*": "deny"}, []string{"mcp__github__create_issue"}, []grant{{"github_create_issue", "*"}}},
+		{"one tool denied, whole server allowed", "", map[string]any{"github_create_issue": "deny"}, []string{"mcp__github"}, []grant{{"github_*", "*"}}},
+		{"bare command deny", "", map[string]any{"bash": map[string]any{"git": "deny"}}, []string{"Bash(git *)"}, []grant{{"bash", "git *"}}},
+		{"later project allows", "", map[string]any{"*": "ask", "read": "allow", "bash": map[string]any{"*": "ask", "git *": "allow"}}, []string{"Read", "Bash(git:*)"}, []grant{{"read", "*"}, {"bash", "git *"}}},
+		{"hand-written opencode.json", `{"permission": {"bash": {"rm *": "deny"}, "webfetch": "deny"}}`, nil, []string{"Bash", "WebFetch"}, []grant{{"bash", "*"}, {"webfetch", "*"}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			projectRules, agentRules := simEmit(t, tc.project, tc.tools)
-			_, listRules := simEmit(t, nil, tc.tools)
+			projectRules, agentRules := simEmit(t, tc.handWritten, tc.project, tc.tools)
 			projectFlat := append(append([]simRule{}, simDefaults...), projectRules...)
 			agentFlat := append(append([]simRule{}, projectFlat...), agentRules...)
-			listFlat := append(append([]simRule{}, simDefaults...), listRules...)
 			for _, p := range probes {
-				got := simEvaluate(agentFlat, p.key, p.input)
+				list := "deny"
+				if p.key == "doom_loop" || p.key == externalDirectoryKey {
+					list = "allow"
+				}
+				for _, g := range tc.grants {
+					if simMatch(p.key, g.key) && simMatch(p.input, g.pattern) {
+						list = "allow"
+					}
+				}
 				want := simEvaluate(projectFlat, p.key, p.input)
-				if list := simEvaluate(listFlat, p.key, p.input); simSeverity[list] > simSeverity[want] {
+				if simSeverity[list] > simSeverity[want] {
 					want = list
 				}
-				if simSeverity[got] < simSeverity[want] {
-					t.Errorf("%s %q: agent %s is looser than %s\nproject %v\nagent %v", p.key, p.input, got, want, projectRules, agentRules)
+				if got := simEvaluate(agentFlat, p.key, p.input); got != want {
+					t.Errorf("%s %q: agent %s, want %s\nproject %v\nagent %v", p.key, p.input, got, want, projectRules, agentRules)
 				}
 			}
 		})

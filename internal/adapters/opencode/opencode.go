@@ -169,13 +169,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	for i, dir := range handoffKept {
 		kept[i] = dir + "/**"
 	}
-	project, err := newAgentProject(b.Settings, append(slices.Clone(directories), kept...))
-	if err != nil {
-		return err
-	}
-	if err := emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), project, dryRun); err != nil {
-		return err
-	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
@@ -199,7 +192,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun)
+	if err := emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun); err != nil {
+		return err
+	}
+	// Agents go last: a restricted agent repeats the project permission
+	// as opencode.json now holds it, hand-written keys included.
+	project, err := readProjectPermission(sess, path)
+	if err != nil {
+		return err
+	}
+	return emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), project, dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
