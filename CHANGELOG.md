@@ -6,6 +6,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Claude Code
+
+- Remove the handoff grant from `.claude/settings.local.json` in one sync after turning handoff off, and the file when it held nothing else (#2222).
+- `lint` warns (LINT047) when a skill or command name holds a character Claude Code refuses, such as a zero-width space or `<`, so it would never load (#2217).
+
 #### Codex
 
 - Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
@@ -32,9 +37,9 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The dropped `disable-model-invocation` note names `outputs.crush.skills-dir: .crush/skills`, needed for `x-crush` beside `.agents/skills` (#2213).
 
-#### Claude Code
+#### Qoder
 
-- `lint` warns (LINT047) when a skill or command name holds a character Claude Code refuses, such as a zero-width space or `<`, so it would never load (#2217).
+- Remove the handoff grant from `.qoder/settings.json` in one sync after turning handoff off, and the file when it held nothing else (#2222).
 
 ## v0.84.0 - 2026-10-14
 
