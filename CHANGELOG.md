@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
 
+#### OpenCode
+
+- A `deny` or `ask` that overlaps a narrower `allow` now blocks: each tool's patterns go allow, then ask, then deny, since OpenCode takes the last match (#2211).
+
 ## v0.84.0 - 2026-10-14
 
 ### General
