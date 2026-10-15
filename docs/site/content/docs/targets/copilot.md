@@ -39,7 +39,7 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 .github/copilot/settings.json                              # when a Settings model or a disabled MCP server exists
 ```
 - **Instructions**: `.github/copilot-instructions.md` holds the whole `AGNOSTIC_AI.md` body, even when another target writes a root `AGENTS.md`. Copilot Chat on GitHub.com, Visual Studio, and JetBrains, and code review in the IDEs, read that file and not `AGENTS.md` ([support by surface](https://docs.github.com/en/copilot/reference/custom-instructions-support)).
-  - VS Code chat loads both files: `chat.useAgentsMdFile` is on by default ([settings reference](https://code.visualstudio.com/docs/copilot/reference/copilot-settings)). `sync` notes it, and `lint` counts both toward Copilot's budget. Set `chat.useAgentsMdFile` to `false` in VS Code to load the text once.
+  - VS Code chat, the [cloud agent](https://docs.github.com/en/copilot/reference/custom-instructions-support), and GitHub.com code review load both files, VS Code because `chat.useAgentsMdFile` is on by default ([settings reference](https://code.visualstudio.com/docs/copilot/reference/copilot-settings)). `sync` notes it, and `lint` counts both toward Copilot's budget. Setting `chat.useAgentsMdFile` to `false` loads the text once, in VS Code only.
 - **Rules**: a rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its own `.instructions.md` file with `applyTo`.
   - Scope and patterns combine: `scope: src/a` with `globs: tests/a/**` writes `applyTo: src/a/**,tests/a/**`.
   - An always-on rule with no scope (no globs, or `alwaysApply: true`) gets `applyTo: "**"`.

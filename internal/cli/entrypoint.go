@@ -50,8 +50,8 @@ func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bun
 	if err != nil {
 		return nil, err
 	}
-	if copilotAlsoLoadsAgents(files) {
-		adapters.NoteProject("copilot: VS Code loads both .github/copilot-instructions.md and AGENTS.md, so its chat reads the instructions twice; set chat.useAgentsMdFile to false in VS Code to load them once")
+	if copilotAlsoLoadsAgents(cfg, files, targets) {
+		adapters.NoteProject("copilot: VS Code chat, the cloud agent, and GitHub.com code review load both .github/copilot-instructions.md and AGENTS.md, so they read the instructions twice; set chat.useAgentsMdFile to false to load them once in VS Code")
 	}
 	for _, f := range files {
 		// A user-owned file is expected to be hand-authored. sess still
@@ -629,19 +629,16 @@ func renderContextInstructions(text string, layers []instructionLayer) string {
 	return rendered
 }
 
-// copilotAlsoLoadsAgents reports whether Copilot's own entry point and a
-// root AGENTS.md are both synced. VS Code applies both: its
-// chat.useAgentsMdFile setting defaults to on. GitHub.com chat and the IDE
-// code reviews read only .github/copilot-instructions.md, so that file
-// keeps the full body.
-func copilotAlsoLoadsAgents(files []entryPointFile) bool {
-	var copilot, agents bool
-	for _, f := range files {
-		if f.Path == "AGENTS.md" {
-			agents = true
-		} else if slices.Contains(f.Readers, "copilot") {
-			copilot = true
-		}
+// copilotAlsoLoadsAgents reports whether Copilot loads a synced root
+// AGENTS.md next to its own instructions file. VS Code chat
+// (chat.useAgentsMdFile defaults to on), the cloud agent, and GitHub.com
+// code review read both. GitHub.com chat and the IDE code reviews read
+// only .github/copilot-instructions.md, so that file keeps the full body.
+func copilotAlsoLoadsAgents(cfg *config.Config, files []entryPointFile, targets []string) bool {
+	if !slices.Contains(targets, "copilot") || adapters.EntryPointPath(cfg, "copilot") == "AGENTS.md" {
+		return false
 	}
-	return copilot && agents
+	return slices.ContainsFunc(files, func(f entryPointFile) bool {
+		return f.Path == "AGENTS.md" && !cfg.IsUnmanaged(f.Path)
+	})
 }

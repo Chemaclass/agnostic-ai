@@ -176,9 +176,8 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 				load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
 			}
 		}
-		// VS Code loads the root AGENTS.md next to Copilot's own file.
-		if t == "copilot" && agentsFile != nil && load.path != agentsFile.Path {
-			load.add("AGENTS.md (VS Code)", wordsIn(agentsFile.Content))
+		if t == "copilot" && agentsFile != nil && copilotAlsoLoadsAgents(cfg, files, cfg.Targets) {
+			load.add("AGENTS.md", wordsIn(agentsFile.Content))
 			load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
 		}
 		load.add("always-on rule files", alwaysOnRuleWords(cfg, b, t))
