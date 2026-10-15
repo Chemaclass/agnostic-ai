@@ -95,6 +95,17 @@ func KeptJSONValue(value any) any {
 	return keptJSONValue{value: value}
 }
 
+// nestedJSONObject is an object a merge sets entry by entry one level
+// below a nested key.
+type nestedJSONObject struct{ values map[string]any }
+
+// NestedJSONObject, as a child value under a nested key, merges into the
+// object on disk entry by entry and claims each entry on its own, so the
+// object's other entries stay.
+func NestedJSONObject(values map[string]any) any {
+	return nestedJSONObject{values: values}
+}
+
 // claimedItems is a list merge value of which sync owns only items.
 type claimedItems struct {
 	value any

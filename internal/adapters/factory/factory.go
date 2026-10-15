@@ -254,6 +254,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitSettings(sess, b.Settings, emit.OutputConfFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
 		return err
 	}
+	if err := emitHandoffAccess(sess, cfg, dryRun); err != nil {
+		return err
+	}
 	// Factory's schema documents a working `disabled` key (unlike
 	// Claude Code, Cursor, and Copilot), so the shared builder's
 	// existing `disabled` output is correct here as-is; no strip.

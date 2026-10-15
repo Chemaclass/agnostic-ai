@@ -315,7 +315,11 @@ func priorOwnedHandoffRoot(path, target string, data []byte, unreadable bool, su
 		}
 		return false
 	}
-	items := PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})
+	listPath := []string{"permissions", "additionalDirectories"}
+	if target == "factory" {
+		listPath = []string{"sandbox", "filesystem", "allowWrite"}
+	}
+	items := PriorClaimedItems(path, listPath)
 	if len(items) == 0 {
 		return false
 	}
@@ -323,15 +327,16 @@ func priorOwnedHandoffRoot(path, target string, data []byte, unreadable bool, su
 		return true
 	}
 	data, _ = StripJSONC(data)
-	var doc struct {
-		Permissions struct {
-			AdditionalDirectories []string `json:"additionalDirectories"`
-		} `json:"permissions"`
-	}
+	var doc map[string]any
 	if json.Unmarshal(data, &doc) != nil {
 		return false
 	}
-	for _, dir := range doc.Permissions.AdditionalDirectories {
+	for _, key := range listPath[:len(listPath)-1] {
+		if doc, _ = doc[key].(map[string]any); doc == nil {
+			return false
+		}
+	}
+	for _, dir := range StringSlice(doc[listPath[len(listPath)-1]]) {
 		if strings.HasSuffix(filepath.ToSlash(dir), "/.agnostic-ai/local/handoffs") && slices.Contains(items, ContentSum(canonicalJSON(dir))) {
 			return true
 		}

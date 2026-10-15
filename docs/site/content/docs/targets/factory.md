@@ -77,6 +77,7 @@ AGENTS.md                          # pointer body + rules (shared path)
   - Rules scoping a path, URL, or MCP tool (such as `Read(src/**)`) have no shell form and raise a sync note.
   - A list is written only when a rule translates into it. A list you keep by hand stays if no rule feeds it. If a rule does, sync replaces that key.
   - Factory deprecates the three lists in favor of `permissionRules` but still reads them ([LLM safety and agent controls](https://docs.factory.com/enterprise/llm-safety-and-agent-controls)). A permission rule needs a stable `id`, a `match.prefix` token list, and `tests.match` and `tests.noMatch` examples, which portable lists lack. Put them under `x-factory.permissionRules`, which is copied into `.factory/settings.json` as written.
+- **Handoff from a linked worktree**: with `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store to `sandbox.filesystem.allowWrite` in `.factory/settings.local.json`, so Factory's [sandbox](https://docs.factory.com/autonomy-and-safety/sandbox) lets handoff saves and the automatic snapshot reach it. The file stays out of Git, and sync never turns the sandbox on. See [Write from a linked worktree](@/docs/handoff.md#write-from-a-linked-worktree).
 
 ## Config keys
 

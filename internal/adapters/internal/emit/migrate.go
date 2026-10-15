@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -250,6 +251,29 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			priorKeys := priorMergedKeys(path)
 			_, wholeClaim := priorClaim(priorKeys, []string{k})
 			for child, raw := range incoming {
+				if inner, ok := raw.(nestedJSONObject); ok {
+					object := NewOrderedJSON()
+					if existing, found := jsonValueAt(doc, []string{k, child}); found && json.Unmarshal(existing, object) != nil {
+						object = NewOrderedJSON()
+					}
+					for _, name := range slices.Sorted(maps.Keys(inner.values)) {
+						value, kind, items, follows := mergeClaim(inner.values[name])
+						if _, remove := value.(removeJSONKey); remove {
+							object.Delete(name)
+							released = append(released, []string{k, child, name})
+							continue
+						}
+						if err := object.Set(name, value); err != nil {
+							return fmt.Errorf("marshal %s key %s.%s.%s: %w", path, k, child, name, err)
+						}
+						claim([]string{k, child, name}, kind, items, follows)
+					}
+					children[child] = object
+					if object.Len() == 0 {
+						children[child] = RemoveJSONKey
+					}
+					continue
+				}
 				childValue, childKind, childItems, childFollows := mergeClaim(raw)
 				children[child] = childValue
 				if childKind == claimWhole && !wholeClaim {
@@ -287,7 +311,11 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		if !nested[keyPath[0]] || !isObject || len(keyPath) == 1 {
 			return true
 		}
-		_, child := incoming[keyPath[1]]
+		childValue, child := incoming[keyPath[1]]
+		if inner, ok := childValue.(nestedJSONObject); ok && len(keyPath) > 2 {
+			_, set := inner.values[keyPath[2]]
+			return set
+		}
 		return child
 	}, nil)...)
 	raw, err := MarshalJSONIndent(doc)
