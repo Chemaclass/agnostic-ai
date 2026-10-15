@@ -284,4 +284,7 @@
 # #2250 measured 19947680 on Go1.27.2, up 24576 from main ca6776ae
 # (19923104): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19955872
+# #2251 measured 19959968 on Go1.27.2, up 12288 from main 77792f6a
+# (19947680): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19968160
