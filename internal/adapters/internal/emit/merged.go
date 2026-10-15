@@ -30,17 +30,34 @@ func SourceComment(path string) string {
 //
 //	<!-- source: rules/content.md headings: +1 -->
 func SectionSourceComment(path string, shift int) string {
+	return sectionSourceComment(path, shift, false)
+}
+
+// InlineScopeMarker is the source comment field that tells import sync
+// wrote an "Applies to:" line below it, so a body that merely begins with
+// those words is kept.
+const InlineScopeMarker = "scope: 1"
+
+func sectionSourceComment(path string, shift int, scoped bool) string {
 	if path == "" {
 		return ""
 	}
-	if shift == 0 {
-		return "<!-- source: " + filepath.ToSlash(path) + " -->\n"
+	comment := "<!-- source: " + filepath.ToSlash(path)
+	if shift != 0 {
+		comment += " headings: +" + strconv.Itoa(shift)
 	}
-	return "<!-- source: " + filepath.ToSlash(path) + " headings: +" + strconv.Itoa(shift) + " -->\n"
+	if scoped {
+		comment += " " + InlineScopeMarker
+	}
+	return comment + " -->\n"
 }
 
 func BodySourceComment(path, body string, shift int) string {
-	comment := SectionSourceComment(path, shift)
+	return bodySourceComment(path, body, shift, false)
+}
+
+func bodySourceComment(path, body string, shift int, scoped bool) string {
+	comment := sectionSourceComment(path, shift, scoped)
 	if comment == "" || !markdown.LeavesBlockOpen(body) {
 		return comment
 	}
@@ -68,6 +85,9 @@ type MergedOpts struct {
 	// has no native skill execution; the intro should explain how to
 	// invoke them (typically: read the source file).
 	SkillsIntro string
+	// Nested marks a document that lives in its own scope directory, so a
+	// rule's globs are not restated in it.
+	Nested bool
 	// local is the project-local text appended last in its marked
 	// block. Set by EmitLegacyRulesFile only.
 	local string
@@ -107,6 +127,10 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 	if len(b.Rules) > 0 {
 		sb.WriteString("## " + opts.RulesHeading + "\n\n")
 		for _, r := range b.Rules {
+			if opts.Nested {
+				WriteSection(&sb, r.Name, r)
+				continue
+			}
 			WriteInlineRule(&sb, r)
 		}
 	}
@@ -151,26 +175,25 @@ func WriteInlineRule(sb *strings.Builder, r spec.Entry) {
 }
 
 // InlineScopeLine renders the "Applies to:" line for a rule whose globs
-// narrow it, or "" when the rule applies everywhere.
+// narrow it, or "" when the rule applies everywhere or its globs cannot be
+// shown safely. It reads the scope the way nested-file emission does.
 func InlineScopeLine(r spec.Entry) string {
 	if always, _ := r.Meta["alwaysApply"].(bool); always {
 		return ""
 	}
-	var globs []string
-	for _, g := range spec.GlobList(r.Meta["globs"]) {
-		if !spec.IsCatchAllGlobs(g) {
-			globs = append(globs, "`"+g+"`")
-		}
-	}
-	if len(globs) == 0 {
+	patterns, err := scopePatterns(r, "")
+	if err != nil || len(patterns) == 0 {
 		return ""
 	}
-	return InlineScopePrefix + strings.Join(globs, ", ")
+	quoted := make([]string, len(patterns))
+	for i, p := range patterns {
+		if p == "**" || strings.Contains(p, "`") {
+			return ""
+		}
+		quoted[i] = "`" + p + "`"
+	}
+	return "Applies to: " + strings.Join(quoted, ", ")
 }
-
-// InlineScopePrefix opens the scope line of an inlined rule section.
-// Import drops that line, since the rule's globs are not read back.
-const InlineScopePrefix = "Applies to: "
 
 func writeSection(sb *strings.Builder, heading string, e spec.Entry, scopeLine string) {
 	body, shift := e.Body, 0
@@ -185,7 +208,7 @@ func writeSection(sb *strings.Builder, heading string, e spec.Entry, scopeLine s
 		body = scopeLine + "\n\n" + body
 	}
 	body += "\n\n"
-	sb.WriteString(BodySourceComment(EntrySourcePath(e), body, shift))
+	sb.WriteString(bodySourceComment(EntrySourcePath(e), body, shift, scopeLine != ""))
 	sb.WriteString(body)
 }
 

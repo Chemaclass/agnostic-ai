@@ -248,14 +248,14 @@ func unwrapMergedH3Children(body string, used map[string]int) ([]mergedH3Child, 
 
 // sectionSourceRE matches the source comment sync writes at the top of a
 // merged section, with the levels it moved the body's headings down.
-var sectionSourceRE = regexp.MustCompile(`\A[ \t]*<!--\s*source:\s*\S+(?:\s+headings:\s*\+(\d+))?(?:\s+body-lines:\s*\d+)?\s*-->[ \t]*\r?(?:\n|\z)`)
+var sectionSourceRE = regexp.MustCompile(`\A[ \t]*<!--\s*source:\s*\S+(?:\s+headings:\s*\+(\d+))?(\s+scope:\s*1)?(?:\s+body-lines:\s*\d+)?\s*-->[ \t]*\r?(?:\n|\z)`)
 
 // sectionScopeRE matches the "Applies to:" line sync writes under the
 // source comment of an inlined rule that has globs.
 var sectionScopeRE = regexp.MustCompile("\\A[ \t]*Applies to: `[^`\n]+`(?:, `[^`\n]+`)*[ \t]*\r?\n(?:[ \t]*\r?\n)*")
 
 // splitSectionSource removes the source comment from the top of a merged
-// section, and the scope line sync wrote below it, and returns the body
+// section, and the scope line it marks as sync's, and returns the body
 // with the heading shift the comment records.
 func splitSectionSource(body string) (string, int) {
 	m := sectionSourceRE.FindStringSubmatchIndex(body)
@@ -267,7 +267,10 @@ func splitSectionSource(body string) (string, int) {
 		shift, _ = strconv.Atoi(body[m[2]:m[3]])
 	}
 	rest := body[m[1]:]
-	return sectionScopeRE.ReplaceAllString(rest, ""), shift
+	if m[4] >= 0 {
+		rest = sectionScopeRE.ReplaceAllString(rest, "")
+	}
+	return rest, shift
 }
 
 func unfencedH3HeadingIndexes(body string) [][]int {
@@ -312,7 +315,7 @@ func markdownHeadingLines(lines []string, level int) []int {
 	return out
 }
 
-var sectionBodyLinesRE = regexp.MustCompile(`^[ \t]*<!--\s*source:\s*\S+(?:\s+headings:\s*\+\d+)?\s+body-lines:\s*(\d+)\s*-->[ \t]*\r?$`)
+var sectionBodyLinesRE = regexp.MustCompile(`^[ \t]*<!--\s*source:\s*\S+(?:\s+headings:\s*\+\d+)?(?:\s+scope:\s*1)?\s+body-lines:\s*(\d+)\s*-->[ \t]*\r?$`)
 
 // An explicit extent recovers unclosed source blocks without treating literal examples as boundaries.
 func sectionBodyEnd(lines []string, i int) int {

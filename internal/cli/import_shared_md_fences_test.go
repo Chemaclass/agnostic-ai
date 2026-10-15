@@ -149,12 +149,16 @@ func TestSplitH2Sections_WrapperAfterAnOpenBlockStartsItsSection(t *testing.T) {
 
 func TestSplitSectionSource_DropsInlineScopeLine(t *testing.T) {
 	t.Parallel()
-	body, shift := splitSectionSource("<!-- source: rules/js.md headings: +3 -->\nApplies to: `resources/js/**`, `app/*.ts`\n\n_Desc._\n\n#### Title\n")
+	body, shift := splitSectionSource("<!-- source: rules/js.md headings: +3 scope: 1 -->\nApplies to: `resources/js/**`, `app/*.ts`\n\n_Desc._\n\n#### Title\n")
 	if shift != 3 || body != "_Desc._\n\n#### Title\n" {
 		t.Errorf("got shift %d, body %q", shift, body)
 	}
-	body, _ = splitSectionSource("<!-- source: rules/x.md -->\nApplies to the whole repo.\n")
-	if body != "Applies to the whole repo.\n" {
-		t.Errorf("prose body changed: %q", body)
+	body, _ = splitSectionSource("<!-- source: rules/x.md scope: 1 body-lines: 4 -->\nApplies to: `a/**`\n\ntext\n")
+	if body != "text\n" {
+		t.Errorf("marked section with body-lines: %q", body)
+	}
+	body, _ = splitSectionSource("<!-- source: rules/x.md -->\nApplies to: `src/**`\n\ntext\n")
+	if body != "Applies to: `src/**`\n\ntext\n" {
+		t.Errorf("an unmarked body line was dropped: %q", body)
 	}
 }
