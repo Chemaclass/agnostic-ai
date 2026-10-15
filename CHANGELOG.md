@@ -14,6 +14,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Write a stdio server's `sandbox` (write paths, denied paths, network domains) to `.vscode/mcp.json`, and keep it through `import copilot` (#2212).
 
+#### OpenCode
+
+- A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
+
 ## v0.84.0 - 2026-10-14
 
 ### General
