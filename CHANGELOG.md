@@ -28,11 +28,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Crush
 
-- The note for a dropped `disable-model-invocation` names `outputs.crush.skills-dir: .crush/skills`, which `x-crush` needs when another target writes `.agents/skills` (#2213).
+- The dropped `disable-model-invocation` note names `outputs.crush.skills-dir: .crush/skills`, needed for `x-crush` beside `.agents/skills` (#2213).
 
 #### Factory
 
-- The note for a dropped `disable-model-invocation` names `outputs.factory.skills-dir: .factory/skills`, which `x-factory` needs when another target writes `.agents/skills` (#2213).
+- The dropped `disable-model-invocation` note names `outputs.factory.skills-dir: .factory/skills`, needed for `x-factory` beside `.agents/skills` (#2213).
 
 ## v0.84.0 - 2026-10-14
 
