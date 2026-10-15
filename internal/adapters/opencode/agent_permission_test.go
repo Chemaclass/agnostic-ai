@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
+	"gopkg.in/yaml.v3"
 )
 
 func emitAgent(t *testing.T, meta map[string]any) string {
@@ -26,7 +28,7 @@ func emitAgent(t *testing.T, meta map[string]any) string {
 
 func TestEmit_Agent_CanReadBecomesReadOnlyPermission(t *testing.T) {
 	got := emitAgent(t, map[string]any{"description": "d", "can": []any{"read"}})
-	want := "permission:\n  \"*\": deny\n  read: allow\n"
+	want := "permission:\n  \"*\": deny\n  doom_loop: ask\n  external_directory: ask\n  read: allow\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("want read-only permission map %q in:\n%s", want, got)
 	}
@@ -83,5 +85,79 @@ func TestEmit_Agent_OnlyUnknownToolsKeepsDefaultPermissions(t *testing.T) {
 	got := emitAgent(t, map[string]any{"description": "d", "tools": []any{"NotebookEdit"}})
 	if strings.Contains(got, "permission:") {
 		t.Errorf("an untranslatable list must not lock the agent out:\n%s", got)
+	}
+}
+
+func TestEmit_Agent_BareMCPServerAllowsEveryServerTool(t *testing.T) {
+	got := emitAgent(t, map[string]any{"description": "d", "can": []any{"read", "mcp:github"}})
+	if !strings.Contains(got, "github_*: allow") {
+		t.Errorf("want github_* allowed:\n%s", got)
+	}
+}
+
+func TestEmit_Agent_RestrictedAgentKeepsMemoryStoreGrant(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	home := t.TempDir()
+	t.Setenv("AGNOSTIC_AI_HOME", home)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	cfg := &config.Config{
+		Builtins:  []string{emit.MemoryBuiltin},
+		Memory:    config.MemoryConfig{Personal: config.PersonalMemoryRepo},
+		Gitignore: config.Gitignore{Enabled: true},
+	}
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"description": "d", "tools": []any{"Read"}}, Body: "x"}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{agent}), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	project := readFile(t, filepath.Join(dir, "opencode.json"))
+	got := readFile(t, filepath.Join(dir, ".opencode/agents/reviewer.md"))
+	if !strings.Contains(project, "external_directory") {
+		t.Fatalf("setup: opencode.json grants no store:\n%s", project)
+	}
+	var front struct {
+		Permission map[string]any `yaml:"permission"`
+	}
+	if err := yaml.Unmarshal([]byte(strings.Split(got, "---")[1]), &front); err != nil {
+		t.Fatal(err)
+	}
+	outside, _ := front.Permission["external_directory"].(map[string]any)
+	store, _ := emit.PersonalMemoryDirFor(cfg, "opencode.json", target)
+	if outside["*"] != "ask" || outside[filepath.ToSlash(store)+"/**"] != "allow" {
+		t.Errorf("external_directory = %#v, want * ask and %s/** allow", outside, store)
+	}
+}
+
+func TestEmit_Agent_RestrictedAgentKeepsSettingsOutsideDeny(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	settings := spec.Entry{Kind: spec.KindSettings, Name: "settings", Path: "settings.yaml", Meta: map[string]any{
+		"x-opencode": map[string]any{"permission": map[string]any{
+			"external_directory": map[string]any{"/secrets/**": "deny"},
+		}},
+	}}
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"description": "d", "tools": []any{"Read"}}, Body: "x"}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{settings, agent}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".opencode/agents/reviewer.md"))
+	want := "  external_directory:\n    \"*\": ask\n    /secrets/**: deny\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("want %q (settings deny after the agent's ask) in:\n%s", want, got)
+	}
+}
+
+func TestEmit_Agent_BareSettingsOutsideDenyStaysDeny(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	settings := spec.Entry{Kind: spec.KindSettings, Name: "settings", Path: "settings.yaml", Meta: map[string]any{
+		"x-opencode": map[string]any{"permission": map[string]any{"external_directory": "deny"}},
+	}}
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"description": "d", "tools": []any{"Read"}}, Body: "x"}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{settings, agent}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".opencode/agents/reviewer.md"))
+	if !strings.Contains(got, "  external_directory: deny\n") {
+		t.Errorf("want external_directory: deny in:\n%s", got)
 	}
 }

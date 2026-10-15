@@ -153,7 +153,27 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
+	if err != nil {
+		return err
+	}
+	handoff, handoffKept, err := sess.HandoffAccess(cfg, path, target, "permission.external_directory", dryRun)
+	if err != nil {
+		return err
+	}
+	if handoff != "" {
+		directories = append(directories, handoff+"/**")
+	}
+	kept := make([]string, len(handoffKept))
+	for i, dir := range handoffKept {
+		kept[i] = dir + "/**"
+	}
+	outside, err := agentOutsideRules(b.Settings, append(slices.Clone(directories), kept...))
+	if err != nil {
+		return err
+	}
+	if err := emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), outside, dryRun); err != nil {
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
@@ -175,25 +195,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
 	memory, err := emit.MemoryIndexPaths(cfg, path, target)
 	if err != nil {
 		return err
-	}
-	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
-	if err != nil {
-		return err
-	}
-	handoff, handoffKept, err := sess.HandoffAccess(cfg, path, target, "permission.external_directory", dryRun)
-	if err != nil {
-		return err
-	}
-	if handoff != "" {
-		directories = append(directories, handoff+"/**")
-	}
-	kept := make([]string, len(handoffKept))
-	for i, dir := range handoffKept {
-		kept[i] = dir + "/**"
 	}
 	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun)
 }
