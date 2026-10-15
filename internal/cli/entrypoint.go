@@ -51,7 +51,7 @@ func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bun
 		return nil, err
 	}
 	if adapters.VSCodeReadsRootAgents(cfg) {
-		adapters.NoteProject("copilot: .vscode/settings.json keeps chat.useAgentsMdFile on, so VS Code chat loads both .github/copilot-instructions.md and AGENTS.md; set it to false to load the instructions once")
+		adapters.NoteProject("copilot: .vscode/settings.json keeps chat.useAgentsMdFile on, so VS Code's local chat loads both .github/copilot-instructions.md and AGENTS.md; set it to false to load the instructions once")
 	}
 	for _, f := range files {
 		// A user-owned file is expected to be hand-authored. sess still
