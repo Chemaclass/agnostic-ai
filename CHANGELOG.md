@@ -4,6 +4,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### By tool
+
+#### Codex
+
+- Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
+
 ## v0.84.0 - 2026-10-14
 
 ### General
