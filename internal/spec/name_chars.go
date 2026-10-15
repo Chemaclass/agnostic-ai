@@ -73,10 +73,10 @@ func visibleNonASCII(r rune) bool {
 }
 
 func claudeRefusesRune(r rune) bool {
-	switch {
-	case r == '<' || r == '>':
+	switch r {
+	case '<', '>':
 		return true
-	case r == ' ':
+	case ' ':
 		return false
 	}
 	return unicode.In(r, unicode.Cc, unicode.Cf, unicode.Co, unicode.Cs, unicode.Z)
