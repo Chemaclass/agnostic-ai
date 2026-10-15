@@ -30,6 +30,7 @@ const agentToolsUntranslatedReason = "tool name(s) outside OpenCode's permission
 // `.opencode/agents/` (plural; the singular dir is legacy) with
 // frontmatter `description`, `mode` (primary|subagent|all), `model`,
 // `temperature`, and `permission`, followed by the system-prompt body.
+// Native permission maps retain source order for last-match evaluation.
 // Names in a `tools` list with no OpenCode key fold into one coverage
 // note per sync.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
@@ -193,8 +194,24 @@ func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped b
 	front := pickKeys(meta, agentFrontmatterKeys)
 	var translated map[string]any
 	translated, unmapped = agentPermission(emit.StringSlice(meta["tools"]), project)
+	native := front[permissionKey]
 	if translated != nil {
-		front[permissionKey] = withNativePermission(translated, front[permissionKey])
+		front[permissionKey] = withNativePermission(translated, native)
+	}
+	if nativeMap, ok := native.(map[string]any); ok {
+		path := []string{permissionKey}
+		if custom, ok := e.Meta["x-"+target].(map[string]any); ok {
+			if _, set := custom[permissionKey]; set {
+				path = []string{"x-" + target, permissionKey}
+			}
+		}
+		var generated []string
+		for _, key := range slices.Sorted(maps.Keys(translated)) {
+			if _, overridden := nativeMap[key]; !overridden {
+				generated = append(generated, key)
+			}
+		}
+		front[permissionKey] = agentPermissionYAML{value: front[permissionKey], entry: e, path: path, generated: generated}
 	}
 	keys := append([]string{}, agentFrontmatterKeys...)
 	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, agentFrontmatterKeys...)
@@ -203,6 +220,47 @@ func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped b
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
 	return sb.String(), unmapped
+}
+
+// Native rules follow generated defaults so their recorded order decides the last match.
+type agentPermissionYAML struct {
+	value     any
+	entry     spec.Entry
+	path      []string
+	generated []string
+}
+
+func (p agentPermissionYAML) MarshalYAML() (any, error) {
+	node := &yaml.Node{}
+	if err := node.Encode(p.value); err != nil {
+		return nil, fmt.Errorf("encode agent permission: %w", err)
+	}
+	orderAgentPermission(node, p.entry, p.path, p.generated)
+	return node, nil
+}
+
+func orderAgentPermission(node *yaml.Node, entry spec.Entry, path, prefix []string) {
+	if node.Kind != yaml.MappingNode {
+		return
+	}
+	order := append(slices.Clone(prefix), entry.KeyOrder(path...)...)
+	position := 0
+	for _, key := range order {
+		for i := position; i+1 < len(node.Content); i += 2 {
+			if node.Content[i].Value != key {
+				continue
+			}
+			k, value := node.Content[i], node.Content[i+1]
+			copy(node.Content[position+2:i+2], node.Content[position:i])
+			node.Content[position], node.Content[position+1] = k, value
+			position += 2
+			break
+		}
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		childPath := append(slices.Clone(path), node.Content[i].Value)
+		orderAgentPermission(node.Content[i+1], entry, childPath, nil)
+	}
 }
 
 // withNativePermission lays the author's own permission over the

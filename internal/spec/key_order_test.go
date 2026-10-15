@@ -1,9 +1,13 @@
 package spec
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // A YAML alias that refers to its own ancestor is a cycle. Loading the
@@ -50,5 +54,37 @@ func TestKeyOrder_LocalLayerKeepsTheSharedOrder(t *testing.T) {
 	merged := extendEntry(base, over)
 	if got, want := merged.KeyOrder("x-opencode", "permission", "external_directory"), []string{"*", "/secret/**", "/new/**"}; !slices.Equal(got, want) {
 		t.Errorf("order = %v, want %v", got, want)
+	}
+}
+
+func TestKeyOrder_RecordsMarkdownPermissionOrder(t *testing.T) {
+	e, err := ParseMarkdownBytes(KindAgent, []byte("---\npermission:\n  read:\n    secrets/public/*: allow\n    secrets/*: deny\n  bash: ask\n---\nReview.\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := e.KeyOrder("permission"), []string{"read", "bash"}; !slices.Equal(got, want) {
+		t.Errorf("tool order = %v, want %v", got, want)
+	}
+	if got, want := e.KeyOrder("permission", "read"), []string{"secrets/public/*", "secrets/*"}; !slices.Equal(got, want) {
+		t.Errorf("pattern order = %v, want %v", got, want)
+	}
+}
+
+func TestKeyOrder_LoadsMarkdownPermissionOrder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	path := filepath.Join(dir, "reviewer.md")
+	data := []byte("---\nx-opencode:\n  permission:\n    read:\n      secrets/public/*: allow\n      secrets/*: deny\n    bash: ask\n---\nReview.\n")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e, err := parseMarkdown(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := e.KeyOrder("x-opencode", "permission"), []string{"read", "bash"}; !slices.Equal(got, want) {
+		t.Errorf("tool order = %v, want %v", got, want)
+	}
+	if got, want := e.KeyOrder("x-opencode", "permission", "read"), []string{"secrets/public/*", "secrets/*"}; !slices.Equal(got, want) {
+		t.Errorf("pattern order = %v, want %v", got, want)
 	}
 }
