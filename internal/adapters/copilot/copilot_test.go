@@ -534,7 +534,7 @@ func TestEmit_NoChatmodesDirSkipsEmission(t *testing.T) {
 	}
 }
 
-// Agent Host does not read .vscode/mcp.json; it reads a workspace-root
+// Copilot harness sessions do not read .vscode/mcp.json; they read a workspace-root
 // .mcp.json natively (code.visualstudio.com/docs/agent-customization/mcp-servers).
 // The root copy is opt-in so a project that does not need it gets no
 // surprise file at its root.

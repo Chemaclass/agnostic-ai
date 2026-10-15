@@ -177,8 +177,8 @@
 // strings, file paths, etc.)": `Bash(git:*)` becomes
 // `bash: {"git *": "allow"}`, `Read(docs/*)` becomes
 // `read: {"docs/*": "allow"}`, and a bare `Bash` becomes
-// `bash: {"*": "allow"}`. The emitted key order is alphabetical, which
-// puts `*` ahead of every exception, the order Kilo asks for: "Put
+// `bash: {"*": "allow"}`. Each tool's patterns go allow, then ask, then
+// deny, each group alphabetical with `*` first, the order Kilo asks for: "Put
 // broad fallbacks first and exceptions after them", since "the last
 // matching rule wins". One rule repeated across two lists resolves to
 // the stricter action. Anything with no key in Kilo's table drops with
