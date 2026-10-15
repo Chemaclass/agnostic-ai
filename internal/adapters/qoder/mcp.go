@@ -86,7 +86,8 @@ func emitSettings(sess *emit.Session, cfg *config.Config, mcps, hooks, settings 
 	// `url` beside a `command` (#974).
 	emit.MergeSettingsCustomKeys(keys, settings, target, qoderMCPKey)
 	emit.MergeSettingsCustomRecordMap(keys, settings, target, qoderMCPKey)
-	if err := mergeAdditionalDirectories(sess, keys, cfg, path, dryRun); err != nil {
+	grantOnly, err := mergeAdditionalDirectories(sess, keys, cfg, path, dryRun)
+	if err != nil {
 		return err
 	}
 	// Hook entries sync did not write stay; sync claims only its own,
@@ -100,7 +101,9 @@ func emitSettings(sess *emit.Session, cfg *config.Config, mcps, hooks, settings 
 	} else {
 		delete(keys, qoderHooksKey)
 	}
-	if len(keys) == 0 {
+	// A file that would only lose the grant is not written, so the
+	// release of the earlier output takes out only what sync added.
+	if len(keys) == 0 || grantOnly && len(keys) == 1 {
 		return nil
 	}
 	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
@@ -252,18 +255,19 @@ func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
 // across syncs. It adds the repo store of personal memory when that store
 // lies outside the checkout, so Qoder approves the saves there instead of
 // sending them to its classifier, and removes it again once it no longer
-// does.
-func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
+// does. It reports whether the only change it planned was taking out
+// sync's own entries from a file with no other managed keys.
+func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) (bool, error) {
 	permissions, _ := keys["permissions"].(map[string]any)
 	planned, _ := permissions["additionalDirectories"].([]any)
 	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
 	if cfg != nil && slices.Contains(cfg.Builtins, emit.MemoryBuiltin) && emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
 		dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
-			return err
+			return false, err
 		}
 		// A folder the user listed first stays theirs.
 		store := emit.WithoutUserItems(path, []string{"permissions", "additionalDirectories"}, existing, []any{filepath.ToSlash(dir)})
@@ -273,7 +277,7 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 	}
 	dir, err := sess.HandoffAccessRoot(cfg, path, target, "permissions.additionalDirectories", dryRun)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if dir != "" {
 		store := emit.WithoutUserItems(path, []string{"permissions", "additionalDirectories"}, existing, []any{dir})
@@ -282,11 +286,12 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 		}
 	}
 	if len(planned) == 0 && len(emit.PriorClaimedItems(path, []string{"permissions", "additionalDirectories"})) == 0 {
-		return nil
+		return false, nil
 	}
 	if len(planned) == 0 && len(existing) == 0 {
-		return nil
+		return false, nil
 	}
+	grantOnly := len(planned) == 0 && permissions == nil
 	merged, claims := emit.MergeOwnedLists(path, []string{"permissions"},
 		map[string][]any{"additionalDirectories": existing},
 		map[string][]any{"additionalDirectories": planned})
@@ -297,14 +302,14 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 	list := merged["additionalDirectories"]
 	if len(list) == 0 {
 		permissions["additionalDirectories"] = emit.RemoveJSONKey
-		return nil
+		return grantOnly, nil
 	}
 	// With no entry of its own left, sync releases its earlier claim, so a
 	// directory the user adds by hand later is not taken out again.
 	if len(claims["additionalDirectories"]) == 0 {
 		permissions["additionalDirectories"] = emit.CarriedJSONValue(list)
-		return nil
+		return grantOnly, nil
 	}
 	permissions["additionalDirectories"] = emit.ClaimedJSONItems(list, claims["additionalDirectories"])
-	return nil
+	return false, nil
 }

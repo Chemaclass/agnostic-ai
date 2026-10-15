@@ -47,7 +47,9 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 		keys["permissions"] = map[string]any{"additionalDirectories": value}
 	}
 	flush := func() error {
-		if len(keys) == 0 {
+		// A file that would only lose the grant is not written, so the
+		// release of the earlier output takes out only what sync added.
+		if _, grantOnly := keys["permissions"]; len(keys) == 0 || handoff == "" && grantOnly && len(keys) == 1 {
 			return nil
 		}
 		return sess.MergeJSONFileNested(path, keys, []string{"permissions"}, dryRun)

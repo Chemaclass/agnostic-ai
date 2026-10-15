@@ -14,7 +14,7 @@ import (
 func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 	binary := handoffBuildCLI(t)
 	for _, target := range []string{"codex", "qoder", "claude", "factory"} {
-		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config", "tracked MCP without handoff", "committed MCP without handoff"} {
+		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config", "tracked MCP without handoff", "committed MCP without handoff", "handoff off"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 				main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
@@ -176,6 +176,30 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 							if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink == 0 {
 								t.Fatalf("%s replaced native config symlink: %v", transition, err)
 							}
+						}
+					}
+					return
+				}
+				if mode == "handoff off" {
+					path := filepath.Join(linked, file)
+					for _, step := range []string{"on", "off", "check"} {
+						if step == "off" {
+							handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff]", "builtins: []", 1))
+						}
+						args := []string{"sync"}
+						if step == "check" {
+							args = append(args, "--check")
+						}
+						cmd := exec.Command(binary, args...)
+						cmd.Dir = linked
+						if output, err := cmd.CombinedOutput(); err != nil {
+							t.Fatalf("%s: %v\n%s", step, err, output)
+						}
+						if step == "on" && !strings.Contains(handoffRead(t, path), storeRoot) {
+							t.Fatal("first sync did not grant the shared store")
+						}
+						if _, err := os.Stat(path); step != "on" && !os.IsNotExist(err) {
+							t.Errorf("%s: a file that held only the grant stays: %v", step, err)
 						}
 					}
 					return
