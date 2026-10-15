@@ -344,6 +344,8 @@ func stringSlice(v any) []string {
 	return nil
 }
 
+var inertAgentSessionKeys = []string{"approval_policy", "model_provider", "mcp_servers", "service_tier"}
+
 // EmitAgents writes native Codex agent definitions to dir.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	noteUnsupportedCodexEffort(agents)
@@ -366,7 +368,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 			inertSandboxModes++
 		}
 		custom, _ := a.Meta["x-codex"].(map[string]any)
-		for _, key := range []string{"approval_policy", "model_provider", "mcp_servers"} {
+		for _, key := range inertAgentSessionKeys {
 			if custom[key] != nil {
 				inertSessionSettings[key]++
 			}
@@ -375,7 +377,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	// The key stays for Codex releases before rust-v0.155.0, which still honor it.
 	emit.NoteFieldNoOp(target, spec.KindAgent, "sandbox_mode", inertSandboxModes,
 		"`readonly: true` also writes it; since openai/codex#39299 an agent keeps the parent session's sandbox, so set sandbox_mode in config.toml instead")
-	for _, key := range []string{"approval_policy", "model_provider", "mcp_servers"} {
+	for _, key := range inertAgentSessionKeys {
 		emit.NoteFieldNoOp(target, spec.KindAgent, key, inertSessionSettings[key],
 			"an agent keeps the parent session's setting; configure it in the parent session instead")
 	}
