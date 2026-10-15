@@ -212,10 +212,12 @@ func collectLoadedDrift(loaded *config.Config, b spec.Bundle, targets, entryPoin
 	release := holdCaptureState(state)
 	defer release()
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
-	if err := detectCollisions(readerCfg, b, targets); err != nil {
+	winners, err := detectCollisions(readerCfg, b, targets)
+	if err != nil {
 		return nil, err
 	}
 	sess := adapters.NewSession()
+	sess.SetCollisionWinners(winners)
 	sums := state.OutputSums
 	emitted := map[string]bool{}
 	outputSums := map[string]string{}

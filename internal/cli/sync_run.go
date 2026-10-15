@@ -413,7 +413,7 @@ func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {
 // it, every target runs to completion and all errors ride along in the
 // results — the JSON path, which reports per-target errors rather than
 // aborting the whole sync. edits sets how each session treats a hand edit.
-func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, edits editGuard) ([]targetEmit, []*adapters.Session, error) {
+func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, edits editGuard, winners map[string]string) ([]targetEmit, []*adapters.Session, error) {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	results := make([]targetEmit, len(targets))
 	sessions := make([]*adapters.Session, len(targets))
@@ -444,6 +444,7 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 					sess.SetBackup(true)
 				}
 				edits.apply(sess)
+				sess.SetCollisionWinners(winners)
 				if !dryRun {
 					sess.StartTransaction()
 				}
@@ -595,7 +596,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
 		return err
 	}
-	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
+	winners, err := detectCollisions(cfg, b, effectiveTargets)
+	if err != nil {
 		return err
 	}
 	// A mistyped key parses and emits, so without this line nothing in a
@@ -681,7 +683,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
 	// cancels the group and trips the rollback above.
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, edits)
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, edits, winners)
 	for _, s := range targetSessions {
 		if s != nil {
 			sessions = append(sessions, s)
@@ -1197,7 +1199,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
 		return err
 	}
-	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
+	winners, err := detectCollisions(cfg, b, effectiveTargets)
+	if err != nil {
 		return err
 	}
 	shared, err := planSharedSkills(cfg, b, effectiveTargets)
@@ -1236,7 +1239,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits, winners)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	_, notesErr := applyCoverageAccept(cfg, effectiveTargets)

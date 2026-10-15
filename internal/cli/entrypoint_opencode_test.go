@@ -73,7 +73,7 @@ func TestWriteAgnosticEntryPoints_OpencodeSharesOneAgentsMDWithCodex(t *testing.
 		t.Fatalf("want a single AGENTS.md write for opencode+codex, got %d", agents)
 	}
 
-	if err := detectCollisions(cfg, b, cfg.Targets); err != nil {
+	if _, err := detectCollisions(cfg, b, cfg.Targets); err != nil {
 		t.Fatalf("opencode+codex sharing AGENTS.md must not collide: %v", err)
 	}
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, b, cfg.Targets, false); err != nil {
