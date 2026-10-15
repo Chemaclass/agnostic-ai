@@ -1,8 +1,13 @@
 package kilo
 
 import (
+	"encoding/json"
+	"maps"
+	"regexp"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -198,12 +203,17 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 // out by a bare `{"*": "deny"}` nobody asked for. unmapped reports
 // whether at least one name had no Kilo key, for the coverage note.
 //
-// The catch-all would also deny `external_directory` and `doom_loop`,
-// and agent rules override the project ones. Both default to "ask"
-// (kilo.ai/docs/getting-started/settings/auto-approving-actions, "Default
-// behavior"; app.kilo.ai/config.json types them as a rule map and an
-// action), so they go back to that default.
-func agentPermission(tools []string) (perms map[string]any, unmapped bool) {
+// Kilo appends agent rules after the project ones and the last match
+// wins (packages/opencode/src/agent/agent.ts merges `defaults, user`,
+// then the agent's `value.permission`; permission/index.ts evaluates
+// with `findLast`). So each key keeps the project's ask and deny rules
+// after the agent's allow (see restrictToProject). The catch-all would
+// also deny `external_directory` and `doom_loop`; both default to "ask"
+// (kilo.ai/docs/getting-started/settings/auto-approving-actions,
+// "Default behavior"), so they go back to that, still under the
+// project's own rules. project is the `kilo.jsonc` permission map
+// settingsPermission builds, and may be nil.
+func agentPermission(tools []string, project map[string]any) (perms map[string]any, unmapped bool) {
 	allowed := map[string]any{}
 	for _, name := range tools {
 		key, pattern, known := permissionRule(name)
@@ -229,8 +239,188 @@ func agentPermission(tools []string) (perms map[string]any, unmapped bool) {
 	if len(allowed) == 0 {
 		return nil, unmapped
 	}
-	allowed[anyPattern] = "deny"
 	allowed["doom_loop"] = "ask"
 	allowed["external_directory"] = "ask"
+	for key, value := range allowed {
+		allowed[key] = restrictToProject(value, projectRules(project, key))
+	}
+	allowed[anyPattern] = "deny"
 	return allowed, unmapped
+}
+
+// patternRule is one Kilo pattern and the action it maps to.
+type patternRule struct{ pattern, action string }
+
+var actionStrictness = map[string]int{"allow": 0, "ask": 1, "deny": 2}
+
+// stricter returns whichever of two actions grants less.
+func stricter(a, b string) string {
+	if actionStrictness[b] > actionStrictness[a] {
+		return b
+	}
+	return a
+}
+
+// restrictToProject lays the project's ask and deny rules for one key
+// over the agent's value so the agent is never looser than the project
+// or than its own list. A project catch-all applies in place, raising
+// each agent rule to at least its action, so an agent scoped to `git *`
+// keeps its leading `"*": deny`. A project deny goes after the agent's
+// rules and wins as the last match; a project ask does the same only
+// inside what the agent allows (see askWithinAllowed). Project allows
+// stay out: after the agent's deny they would widen its list.
+func restrictToProject(value any, project []patternRule) any {
+	if len(project) == 0 {
+		return value
+	}
+	var rules []patternRule
+	switch v := value.(type) {
+	case string:
+		rules = []patternRule{{anyPattern, v}}
+	case map[string]any:
+		rules = []patternRule{{anyPattern, v[anyPattern].(string)}}
+		for _, pattern := range slices.Sorted(maps.Keys(v)) {
+			if pattern != anyPattern {
+				rules = append(rules, patternRule{pattern, v[pattern].(string)})
+			}
+		}
+	default:
+		return value
+	}
+	for _, rule := range project {
+		if rule.action == "allow" {
+			continue
+		}
+		if rule.pattern == anyPattern {
+			for i := range rules {
+				rules[i].action = stricter(rules[i].action, rule.action)
+			}
+			continue
+		}
+		if rule.action == "ask" && !askWithinAllowed(rules, rule.pattern) {
+			continue
+		}
+		rules = slices.DeleteFunc(rules, func(r patternRule) bool { return r.pattern == rule.pattern })
+		rules = append(rules, rule)
+	}
+	if len(rules) == 1 && rules[0].pattern == anyPattern {
+		return rules[0].action
+	}
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	for _, rule := range rules {
+		node.Content = append(node.Content, yamlString(rule.pattern), yamlString(rule.action))
+	}
+	return node
+}
+
+// yamlString is a string scalar the encoder quotes when a YAML 1.1
+// reader would take it for something else: `~` and `null` already get
+// quotes from the !!str tag, `yes` or `on` (booleans in YAML 1.1) do not.
+func yamlString(value string) *yaml.Node {
+	node := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
+	switch strings.ToLower(value) {
+	case "y", "n", "yes", "no", "on", "off":
+		node.Style = yaml.DoubleQuotedStyle
+	}
+	return node
+}
+
+// askWithinAllowed reports whether a project ask on pattern belongs
+// after the agent's rules: only when an allowed agent pattern contains
+// it, since after the agent's catch-all deny an ask anywhere else would
+// loosen that deny. An allowed pattern that may overlap the ask without
+// containing it, such as `git status *` under `git *`, becomes "ask"
+// in place instead.
+func askWithinAllowed(rules []patternRule, pattern string) bool {
+	within := false
+	for i, rule := range rules {
+		if rule.action != "allow" {
+			continue
+		}
+		if wildcardMatch(pattern, rule.pattern) {
+			within = true
+			continue
+		}
+		if mayOverlap(rule.pattern, pattern) {
+			rules[i].action = "ask"
+		}
+	}
+	return within
+}
+
+// mayOverlap reports whether some input could match both patterns.
+// Every match starts with the pattern's text before its first wildcard,
+// so two patterns whose literal prefixes disagree are disjoint.
+func mayOverlap(a, b string) bool {
+	pa, pb := literalPrefix(a), literalPrefix(b)
+	return strings.HasPrefix(pa, pb) || strings.HasPrefix(pb, pa)
+}
+
+// literalPrefix is the text before the first wildcard, without the
+// space Kilo's optional trailing ` *` would need.
+func literalPrefix(pattern string) string {
+	if i := strings.IndexAny(pattern, "*?"); i >= 0 {
+		pattern = pattern[:i]
+	}
+	return strings.TrimRight(pattern, " ")
+}
+
+// wildcardMatch mirrors Kilo's Wildcard.match
+// (packages/opencode/src/util/wildcard.ts): `*` matches any run, `?`
+// one character, and a trailing ` *` also matches the bare command.
+func wildcardMatch(input, pattern string) bool {
+	input = strings.ReplaceAll(input, "\\", "/")
+	pattern = strings.ReplaceAll(pattern, "\\", "/")
+	var expr strings.Builder
+	body, optionalTail := strings.CutSuffix(pattern, " *")
+	for _, r := range body {
+		switch r {
+		case '*':
+			expr.WriteString(".*")
+		case '?':
+			expr.WriteString(".")
+		default:
+			expr.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	if optionalTail {
+		expr.WriteString("( .*)?")
+	}
+	re, err := regexp.Compile("(?s)^" + expr.String() + "$")
+	return err == nil && re.MatchString(input)
+}
+
+// projectRules lists the project's rules for key in evaluation order,
+// falling back to the project's top-level catch-all when key has none.
+func projectRules(project map[string]any, key string) []patternRule {
+	value, set := project[key]
+	if !set {
+		value, set = project[anyPattern]
+	}
+	if !set {
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		return []patternRule{{anyPattern, v}}
+	case *emit.OrderedJSON:
+		var rules []patternRule
+		for _, pattern := range v.Keys() {
+			raw, _ := v.Get(pattern)
+			var action string
+			if json.Unmarshal(raw, &action) == nil {
+				rules = append(rules, patternRule{pattern, action})
+			}
+		}
+		return rules
+	case map[string]any:
+		var rules []patternRule
+		for _, pattern := range slices.Sorted(maps.Keys(v)) {
+			if action, ok := v[pattern].(string); ok {
+				rules = append(rules, patternRule{pattern, action})
+			}
+		}
+		return rules
+	}
+	return nil
 }

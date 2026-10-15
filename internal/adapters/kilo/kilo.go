@@ -289,7 +289,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	dir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
-	if err := (Adapter{}).EmitAgents(sess, b.Agents, dir, dryRun); err != nil {
+	project, _ := settingsPermission(b.Settings)
+	if err := emitAgents(sess, b.Agents, dir, project, dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -319,10 +320,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // the whole batch surfaces one coverage note for those instead of a
 // silent loss.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	return emitAgents(sess, agents, dir, nil, dryRun)
+}
+
+// emitAgents is EmitAgents with the project permission map each
+// restricted agent keeps; project may be nil.
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project map[string]any, dryRun bool) error {
 	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		md, hadUnmapped := agentMarkdown(a)
+		md, hadUnmapped := agentMarkdown(a, project)
 		if hadUnmapped {
 			unmapped = append(unmapped, a)
 		}
@@ -358,7 +365,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // unmapped reports whether the spec named at least one tool Kilo Code
 // has no permission key for, so the caller can fold those into one
 // coverage note per sync instead of losing them silently.
-func agentMarkdown(e spec.Entry) (body string, unmapped bool) {
+func agentMarkdown(e spec.Entry, project map[string]any) (body string, unmapped bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -376,7 +383,7 @@ func agentMarkdown(e spec.Entry) (body string, unmapped bool) {
 	}
 	if !hasNativePermission(e) {
 		var permission map[string]any
-		permission, unmapped = agentPermission(emit.StringSlice(resolved["tools"]))
+		permission, unmapped = agentPermission(emit.StringSlice(resolved["tools"]), project)
 		if len(permission) > 0 {
 			meta[permissionKey] = permission
 			keys = append(keys, permissionKey)
