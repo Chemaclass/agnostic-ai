@@ -1343,6 +1343,11 @@ func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
 	if content := handoffRead(t, path); strings.Contains(content, store) || !strings.Contains(content, "/tmp/locks") || !strings.Contains(content, "user-model") {
 		t.Errorf("dropping handoff did not remove only the grant: %s", content)
 	}
+	ignoredOff := exec.Command("git", "check-ignore", "-q", ".factory/settings.local.json")
+	ignoredOff.Dir = linked
+	if err := ignoredOff.Run(); err != nil {
+		t.Errorf("settings.local.json with user keys is not ignored after handoff turns off: %v", err)
+	}
 	run("sync", "--check")
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)

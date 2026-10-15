@@ -18,12 +18,9 @@ const localSettingsFile = ".factory/settings.local.json"
 // working folder (docs.factory.com/autonomy-and-safety/sandbox).
 var allowWritePath = []string{"sandbox", "filesystem", "allowWrite"}
 
-// RepoMemoryFiles names the local settings file while it can hold the
-// handoff store, so the managed ignore block keeps it out of Git.
-func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
-	if !emit.HandoffConfigFile(cfg, localSettingsFile, target) {
-		return nil
-	}
+// GitignoreHints keeps the machine-local settings file out of Git whether
+// or not it holds the handoff grant, since users add their own keys to it.
+func (Adapter) GitignoreHints(*config.Config) []string {
 	return []string{localSettingsFile}
 }
 
