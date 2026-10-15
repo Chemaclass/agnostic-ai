@@ -54,30 +54,106 @@ func TestTranslatePermission_WriteAndEditShareEdit(t *testing.T) {
 	}
 }
 
-// emitAgent runs a whole Kilo emit with one agent and an optional
-// settings spec and hand-written kilo.jsonc, and returns kilo.jsonc and
-// the agent file.
-func emitAgent(t *testing.T, settings map[string]any, hand string, tools ...any) (jsonc, md string) {
+// agentCase is one project for an agent: a settings spec, hand-written
+// root and `.kilo/kilo.jsonc` files, configured MCP servers, and the
+// agent's tools.
+type agentCase struct {
+	settings    map[string]any
+	hand, local string
+	servers     []string
+	tools       []any
+}
+
+// write lays the case's hand-written files in the current directory and
+// returns its bundle.
+func (c agentCase) write(t *testing.T) spec.Bundle {
 	t.Helper()
-	dir := testutil.TempCwd(t)
-	if hand != "" {
-		if err := os.WriteFile(filepath.Join(dir, "kilo.jsonc"), []byte(hand), 0o644); err != nil {
+	if c.hand != "" {
+		if err := os.WriteFile("kilo.jsonc", []byte(c.hand), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Body: "body", Meta: map[string]any{"tools": tools}}}
-	if settings != nil {
-		entries = append(entries, spec.Entry{Kind: spec.KindSettings, Name: "s", Meta: settings})
+	if c.local != "" {
+		if err := os.MkdirAll(".kilo", 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(".kilo", "kilo.jsonc"), []byte(c.local), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Body: "body", Meta: map[string]any{"tools": c.tools}}}
+	if c.settings != nil {
+		entries = append(entries, spec.Entry{Kind: spec.KindSettings, Name: "s", Meta: c.settings})
+	}
+	for _, server := range c.servers {
+		entries = append(entries, spec.Entry{Kind: spec.KindMCP, Name: server, Meta: map[string]any{"command": "npx"}})
+	}
+	return spec.NewBundle(entries)
+}
+
+// emitCase runs a whole Kilo emit for c and returns kilo.jsonc and the
+// agent file.
+func emitCase(t *testing.T, c agentCase) (jsonc, md string) {
+	t.Helper()
+	testutil.TempCwd(t)
+	if err := New().Emit(emit.NewSession(), c.write(t), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := os.ReadFile(filepath.Join(dir, "kilo.jsonc"))
-	agent, err := os.ReadFile(filepath.Join(dir, ".kilo", "agents", "a.md"))
+	raw, _ := os.ReadFile("kilo.jsonc")
+	agent, err := os.ReadFile(filepath.Join(".kilo", "agents", "a.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return string(raw), string(agent)
+}
+
+func emitAgent(t *testing.T, settings map[string]any, hand string, tools ...any) (jsonc, md string) {
+	t.Helper()
+	return emitCase(t, agentCase{settings: settings, hand: hand, tools: tools})
+}
+
+// A dry run and a check build the same agent as a real sync, hand-written
+// keys in kilo.jsonc and .kilo/kilo.jsonc included.
+func TestAgent_DryRunAndCheckSeeHandWrittenRules(t *testing.T) {
+	c := agentCase{
+		settings: map[string]any{"permissions": map[string]any{"ask": []any{"Read(docs/**)"}}},
+		hand:     `{"permission": {"bash": {"git push *": "deny"}, "webfetch": "deny"}}`,
+		local:    `{"permission": {"bash": {"git clean *": "deny"}}}`,
+		tools:    []any{"Bash(git:*)", "Bash(npm:*)"},
+	}
+	_, synced := emitCase(t, c)
+
+	testutil.TempCwd(t)
+	bundle := c.write(t)
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := New().Emit(sess, bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var checked string
+	for _, file := range sess.StopCapture() {
+		if filepath.ToSlash(file.Path) == ".kilo/agents/a.md" {
+			checked = file.Content
+		}
+	}
+	if checked != synced {
+		t.Errorf("check built\n%s\nsync built\n%s", checked, synced)
+	}
+
+	testutil.TempCwd(t)
+	bundle = c.write(t)
+	dry := projectPermission(emit.NewSession(), bundle.Settings, "kilo.jsonc", true)
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if real := projectPermission(emit.NewSession(), bundle.Settings, "kilo.jsonc", false); !slices.Equal(dry, real) {
+		t.Errorf("dry run rules\n%v\nsync rules\n%v", dry, real)
+	}
+	for _, want := range []string{"git push *", "git clean *"} {
+		if !strings.Contains(synced, want+": deny") {
+			t.Errorf("want %q denied in:\n%s", want, synced)
+		}
+	}
 }
 
 func TestAgent_QuotesYAMLLookalikePatterns(t *testing.T) {
@@ -124,6 +200,8 @@ func TestAgent_MatchesProjectWithinItsList(t *testing.T) {
 		"read":                {"src/a.go", "src/.env", "src/x.env.local", "src/a.env.example", `src\win.env`, "/secrets/key", "docs/x.md", "~", "yes", ".env", "x.env.local", "a.env.example"},
 		"edit":                {".env", "docs/a.md", "src/a.go"},
 		"github_create_issue": {"x"},
+		"github_list":         {"x"},
+		"github_ent_create":   {"x"},
 		"doom_loop":           {"x"},
 		"external_directory":  {"/etc/passwd", "/tmp/x"},
 		"question":            {"x"},
@@ -139,31 +217,38 @@ func TestAgent_MatchesProjectWithinItsList(t *testing.T) {
 		settings map[string]any
 		hand     string
 		tools    []any
+		local    string
+		servers  []string
 	}{
-		{portable(map[string]any{"ask": []any{"Bash(npm:*)", "Bash(git push:*)"}, "deny": []any{"Bash(rm:*)"}}), "", []any{"Bash(git:*)"}},
-		{portable(map[string]any{"ask": []any{"Bash(git:*)"}}), "", []any{"Bash(git status:*)", "Read(src/**)"}},
-		{portable(map[string]any{"ask": []any{"Bash"}, "deny": []any{"Read(/secrets/**)"}}), "", []any{"Bash(git:*)", "Read"}},
-		{portable(map[string]any{"allow": []any{"Bash", "Read"}}), "", []any{"Bash(ls:*)", "Read(docs/**)"}},
-		{portable(map[string]any{"deny": []any{"Read(~)", "Read(yes)"}}), "", []any{"Read"}},
-		{native(map[string]any{"*": "ask", "read": map[string]any{"*": "allow", "~": "deny"}}), "", []any{"Bash", "Read"}},
-		{native(map[string]any{"bash": map[string]any{"*": "allow", "*push*": "ask"}}), "", []any{"Bash(git:*)"}},
-		{native(map[string]any{"*": "ask", "bash": map[string]any{"git *": "allow"}}), "", []any{"Bash"}},
-		{native(map[string]any{"github_*": "deny"}), "", []any{"mcp__github__create_issue"}},
-		{native(map[string]any{"bash": map[string]any{"* --force": "ask"}}), "", []any{"Bash(git:*)"}},
-		{nil, "", []any{"Read", "Bash", "Grep"}},
-		{nil, "", []any{"Read(src/**)"}},
-		{native(map[string]any{"doom_loop": "deny", "external_directory": map[string]any{"/etc/**": "deny"}}), "", []any{"Read"}},
-		{native(map[string]any{"read": "allow"}), "", []any{"Read"}},
-		{portable(map[string]any{"ask": []any{"Bash(* --force)"}, "deny": []any{"Bash(git:*)"}}), "", []any{"Bash(git:*)"}},
-		{native(map[string]any{"bash": map[string]any{"* --force": "ask", "git *": "deny"}}), "", []any{"Bash(git:*)"}},
-		{portable(map[string]any{"deny": []any{"Edit(.env)"}}), "", []any{"Write"}},
-		{portable(map[string]any{"deny": []any{"Edit(.env)"}}), "", []any{"Edit(docs/**)"}},
-		{nil, `{"permission": {"bash": {"git push *": "deny"}}}`, []any{"Bash(git:*)"}},
+		{portable(map[string]any{"ask": []any{"Bash(npm:*)", "Bash(git push:*)"}, "deny": []any{"Bash(rm:*)"}}), "", []any{"Bash(git:*)"}, "", nil},
+		{portable(map[string]any{"ask": []any{"Bash(git:*)"}}), "", []any{"Bash(git status:*)", "Read(src/**)"}, "", nil},
+		{portable(map[string]any{"ask": []any{"Bash"}, "deny": []any{"Read(/secrets/**)"}}), "", []any{"Bash(git:*)", "Read"}, "", nil},
+		{portable(map[string]any{"allow": []any{"Bash", "Read"}}), "", []any{"Bash(ls:*)", "Read(docs/**)"}, "", nil},
+		{portable(map[string]any{"deny": []any{"Read(~)", "Read(yes)"}}), "", []any{"Read"}, "", nil},
+		{native(map[string]any{"*": "ask", "read": map[string]any{"*": "allow", "~": "deny"}}), "", []any{"Bash", "Read"}, "", nil},
+		{native(map[string]any{"bash": map[string]any{"*": "allow", "*push*": "ask"}}), "", []any{"Bash(git:*)"}, "", nil},
+		{native(map[string]any{"*": "ask", "bash": map[string]any{"git *": "allow"}}), "", []any{"Bash"}, "", nil},
+		{native(map[string]any{"github_*": "deny"}), "", []any{"mcp__github__create_issue"}, "", nil},
+		{native(map[string]any{"bash": map[string]any{"* --force": "ask"}}), "", []any{"Bash(git:*)"}, "", nil},
+		{nil, "", []any{"Read", "Bash", "Grep"}, "", nil},
+		{nil, "", []any{"Read(src/**)"}, "", nil},
+		{native(map[string]any{"doom_loop": "deny", "external_directory": map[string]any{"/etc/**": "deny"}}), "", []any{"Read"}, "", nil},
+		{native(map[string]any{"read": "allow"}), "", []any{"Read"}, "", nil},
+		{portable(map[string]any{"ask": []any{"Bash(* --force)"}, "deny": []any{"Bash(git:*)"}}), "", []any{"Bash(git:*)"}, "", nil},
+		{native(map[string]any{"bash": map[string]any{"* --force": "ask", "git *": "deny"}}), "", []any{"Bash(git:*)"}, "", nil},
+		{portable(map[string]any{"deny": []any{"Edit(.env)"}}), "", []any{"Write"}, "", nil},
+		{portable(map[string]any{"deny": []any{"Edit(.env)"}}), "", []any{"Edit(docs/**)"}, "", nil},
+		{nil, `{"permission": {"bash": {"git push *": "deny"}}}`, []any{"Bash(git:*)"}, "", nil},
+		{nil, `{"permission": {"bash": {"git *": "ask", "git status *": "allow"}}}`, []any{"Bash(git:*)"}, `{"permission": {"bash": {"git *": "deny"}}}`, nil},
+		{nil, "", []any{"Bash(git:*)"}, `{"permission": {"bash": "deny"}}`, nil},
+		{nil, "", []any{"mcp__github__*"}, "", []string{"github", "github_ent"}},
+		{native(map[string]any{"github_create_issue": "deny"}), "", []any{"mcp__github__*"}, "", []string{"github"}},
+		{native(map[string]any{"github_ent_*": "allow"}), "", []any{"mcp__github__*", "mcp__github_ent__create"}, "", []string{"github", "github_ent"}},
 	} {
-		jsonc, md := emitAgent(t, tc.settings, tc.hand, tc.tools...)
-		project := append(simDefaults(), simJSONRules(t, jsonc)...)
+		jsonc, md := emitCase(t, agentCase{settings: tc.settings, hand: tc.hand, local: tc.local, servers: tc.servers, tools: tc.tools})
+		project := append(simDefaults(), simMergedRules(t, jsonc, tc.local)...)
 		agent := append(slices.Clone(project), simAgentRules(t, md)...)
-		own := simOwnRules(tc.tools)
+		own := simOwnRules(tc.tools, tc.servers)
 		for key, inputs := range samples {
 			for _, input := range inputs {
 				want := simStricter(simEvaluate(project, key, input), simEvaluate(own, key, input))
@@ -210,14 +295,23 @@ func simDefaults() []simRule {
 }
 
 // simOwnRules is the agent's bare allowlist: deny everything, allow each
-// listed tool, and ask for doom_loop and external_directory.
-func simOwnRules(tools []any) []simRule {
+// listed tool, and ask for doom_loop and external_directory. A whole MCP
+// server means that server's tools only, not those of another configured
+// server whose name starts with it.
+func simOwnRules(tools []any, servers []string) []simRule {
 	rules := []simRule{{"*", "*", "deny"}, {"doom_loop", "*", "ask"}, {"external_directory", "*", "ask"}}
 	keys := map[string]string{"Bash": "bash", "Read": "read", "Edit": "edit", "Write": "edit", "Grep": "grep"}
 	for _, tool := range tools {
 		name := tool.(string)
 		if server, rest, ok := strings.Cut(strings.TrimPrefix(name, "mcp__"), "__"); ok {
 			rules = append(rules, simRule{server + "_" + rest, "*", "allow"})
+			if rest == "*" {
+				for _, other := range servers {
+					if other != server && strings.HasPrefix(other, server+"_") && !slices.Contains(tools, any("mcp__"+other+"__*")) {
+						rules = append(rules, simRule{other + "_*", "*", "deny"})
+					}
+				}
+			}
 			continue
 		}
 		head, arg, scoped := strings.Cut(strings.TrimSuffix(name, ")"), "(")
@@ -241,8 +335,16 @@ func simOwnRules(tools []any) []simRule {
 	return out
 }
 
-// simJSONRules reads the `permission` object of kilo.jsonc in file order.
-func simJSONRules(t *testing.T, jsonc string) []simRule {
+// simMergedRules reads the `permission` objects of kilo.jsonc and
+// .kilo/kilo.jsonc and merges the second over the first the way Kilo's
+// remeda mergeDeep does: a key keeps its first position, two objects
+// merge, and anything else takes the later value.
+func simMergedRules(t *testing.T, root, local string) []simRule {
+	t.Helper()
+	return simMapping(simMergeDeep(simPermission(t, root), simPermission(t, local)))
+}
+
+func simPermission(t *testing.T, jsonc string) *yaml.Node {
 	t.Helper()
 	if jsonc == "" {
 		return nil
@@ -251,7 +353,31 @@ func simJSONRules(t *testing.T, jsonc string) []simRule {
 	if err := yaml.Unmarshal([]byte(jsonc), &doc); err != nil {
 		t.Fatal(err)
 	}
-	return simMapping(simChild(doc.Content[0], "permission"))
+	return simChild(doc.Content[0], "permission")
+}
+
+func simMergeDeep(base, over *yaml.Node) *yaml.Node {
+	if base == nil || over == nil || base.Kind != yaml.MappingNode || over.Kind != yaml.MappingNode {
+		if over != nil {
+			return over
+		}
+		return base
+	}
+	out := &yaml.Node{Kind: yaml.MappingNode, Content: slices.Clone(base.Content)}
+	for i := 0; i+1 < len(over.Content); i += 2 {
+		key, value := over.Content[i], over.Content[i+1]
+		found := false
+		for j := 0; j+1 < len(out.Content); j += 2 {
+			if out.Content[j].Value == key.Value {
+				out.Content[j+1] = simMergeDeep(out.Content[j+1], value)
+				found = true
+			}
+		}
+		if !found {
+			out.Content = append(out.Content, key, value)
+		}
+	}
+	return out
 }
 
 // simAgentRules reads the `permission` map from the agent frontmatter in

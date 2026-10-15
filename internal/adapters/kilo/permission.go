@@ -193,7 +193,14 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 // then built by agentKeyRules against Kilo's defaults and project, the
 // final `kilo.jsonc` permission rules in file order (nil when there are
 // none).
-func agentPermission(tools []string, project []flatRule) (perms map[string]any, unmapped bool) {
+//
+// Kilo matches a permission key as a wildcard too, so a whole MCP server
+// `github_*` would also cover `github_ent_*`, the tools of another
+// configured server (servers); that one gets its own deny unless the
+// agent lists it whole. A project rule on a narrower key inside an
+// allowed one, such as `github_create_issue`, gets an agent key of its
+// own, built the same way, since the broader agent key would override it.
+func agentPermission(tools []string, project []flatRule, servers []string) (perms map[string]any, unmapped bool) {
 	allowed := map[string][]patternRule{}
 	for _, name := range tools {
 		key, pattern, known := permissionRule(name)
@@ -221,6 +228,35 @@ func agentPermission(tools []string, project []flatRule) (perms map[string]any, 
 	allowed["external_directory"] = []patternRule{{anyPattern, "ask"}}
 	base := append(kiloDefaults(), project...)
 	perms = map[string]any{anyPattern: "deny"}
+	var denied []string
+	for key := range allowed {
+		server, whole := strings.CutSuffix(key, "_"+anyPattern)
+		if !whole {
+			continue
+		}
+		for _, other := range servers {
+			sibling := other + "_" + anyPattern
+			if other != server && strings.HasPrefix(other, server+"_") && allowed[sibling] == nil && !slices.Contains(denied, sibling) {
+				denied = append(denied, sibling)
+				perms[sibling] = "deny"
+			}
+		}
+	}
+	for _, rule := range base {
+		for _, key := range slices.Sorted(maps.Keys(allowed)) {
+			if !strings.ContainsAny(key, "*?") || allowed[rule.key] != nil || patternContains(rule.key, key) || !mayOverlap(key, rule.key) {
+				continue
+			}
+			if slices.ContainsFunc(denied, func(d string) bool { return patternContains(d, rule.key) }) {
+				continue
+			}
+			if patternContains(key, rule.key) {
+				allowed[rule.key] = slices.Clone(allowed[key])
+				continue
+			}
+			perms[rule.key] = "deny"
+		}
+	}
 	for key, rules := range allowed {
 		slices.SortFunc(rules, func(a, b patternRule) int { return strings.Compare(a.pattern, b.pattern) })
 		perms[key] = agentKeyRules(key, rules, base)
@@ -277,47 +313,73 @@ var kiloAllowedCommands = []string{
 	"touch", "mkdir", "cp", "mv", "tsc", "tsgo", "tar", "unzip", "gzip", "gunzip",
 }
 
-// flatRules lists a permission map in the order `kilo.jsonc` holds it
-// when sync writes it fresh: keys sorted, each key's patterns in order.
-func flatRules(project map[string]any) []flatRule {
-	var rules []flatRule
-	for _, key := range slices.Sorted(maps.Keys(project)) {
-		switch v := project[key].(type) {
-		case string:
-			rules = append(rules, flatRule{key, anyPattern, v})
-		case *emit.OrderedJSON:
-			rules = append(rules, orderedRules(key, v)...)
-		case map[string]any:
-			for _, pattern := range slices.Sorted(maps.Keys(v)) {
-				if action, ok := v[pattern].(string); ok {
-					rules = append(rules, flatRule{key, pattern, action})
-				}
-			}
-		}
-	}
-	return rules
-}
-
-// fileRules reads the `permission` object of a written kilo.jsonc in
-// file order, hand-written keys included. It reports false when the
-// document does not parse.
-func fileRules(data []byte) ([]flatRule, bool) {
+// permissionValue returns the `permission` value of a kilo.jsonc
+// document, nil when it has none. It reports false when the document
+// does not parse.
+func permissionValue(data []byte) (json.RawMessage, bool) {
 	stripped, _ := emit.StripJSONC(data)
 	doc := emit.NewOrderedJSON()
 	if json.Unmarshal(stripped, doc) != nil {
 		return nil, false
 	}
-	raw, found := doc.Get(permissionKey)
-	if !found {
-		return nil, true
-	}
-	var action string
-	if json.Unmarshal(raw, &action) == nil {
-		return []flatRule{{anyPattern, anyPattern, action}}, true
+	raw, _ := doc.Get(permissionKey)
+	return raw, true
+}
+
+// withOwnedKeys lays the keys sync owns over a permission value the way
+// the kilo.jsonc merge does: each replaces its whole value in place, and
+// a new key goes last.
+func withOwnedKeys(base json.RawMessage, owned map[string]any) json.RawMessage {
+	if len(owned) == 0 {
+		return base
 	}
 	object := emit.NewOrderedJSON()
-	if json.Unmarshal(raw, object) != nil {
-		return nil, false
+	if base != nil && json.Unmarshal(base, object) != nil {
+		object = emit.NewOrderedJSON()
+	}
+	for _, key := range slices.Sorted(maps.Keys(owned)) {
+		_ = object.Set(key, owned[key])
+	}
+	raw, _ := json.Marshal(object)
+	return raw
+}
+
+// mergeDeep merges over onto base as remeda's mergeDeep does: two
+// objects merge key by key, a key keeping its first position, and any
+// other pair takes over.
+func mergeDeep(base, over json.RawMessage) json.RawMessage {
+	if over == nil {
+		return base
+	}
+	left, right := emit.NewOrderedJSON(), emit.NewOrderedJSON()
+	if base == nil || json.Unmarshal(base, left) != nil || json.Unmarshal(over, right) != nil {
+		return over
+	}
+	for _, key := range right.Keys() {
+		value, _ := right.Get(key)
+		if prior, found := left.Get(key); found {
+			value = mergeDeep(prior, value)
+		}
+		left.SetRaw(key, value)
+	}
+	raw, _ := json.Marshal(left)
+	return raw
+}
+
+// permissionRules flattens a permission value into Kilo's rule list in
+// its order: a bare action covers every key, and each tool key's action
+// or patterns follow in turn.
+func permissionRules(permission json.RawMessage) []flatRule {
+	if permission == nil {
+		return nil
+	}
+	var action string
+	if json.Unmarshal(permission, &action) == nil {
+		return []flatRule{{anyPattern, anyPattern, action}}
+	}
+	object := emit.NewOrderedJSON()
+	if json.Unmarshal(permission, object) != nil {
+		return nil
 	}
 	var rules []flatRule
 	for _, key := range object.Keys() {
@@ -331,7 +393,7 @@ func fileRules(data []byte) ([]flatRule, bool) {
 			rules = append(rules, orderedRules(key, patterns)...)
 		}
 	}
-	return rules, true
+	return rules
 }
 
 func orderedRules(key string, patterns *emit.OrderedJSON) []flatRule {
@@ -377,7 +439,7 @@ func agentKeyRules(key string, agent []patternRule, base []flatRule) any {
 	for _, own := range agent {
 		put(own.pattern, stricter("ask", own.action))
 		for _, rule := range base {
-			if !wildcardMatch(key, rule.key) {
+			if !patternContains(rule.key, key) {
 				continue
 			}
 			action := stricter(rule.action, own.action)
