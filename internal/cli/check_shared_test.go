@@ -92,7 +92,7 @@ func TestSyncCheck_JSONKeepsOneRecordPerTarget(t *testing.T) {
 	}
 }
 
-func TestSyncCheck_DiffKeepsDifferingRenderingsOfASharedPath(t *testing.T) {
+func TestSyncCheck_DiffShowsThePreferSpecWinnerOfASharedPath(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -103,7 +103,7 @@ func TestSyncCheck_DiffKeepsDifferingRenderingsOfASharedPath(t *testing.T) {
 	captureLogOut(t)
 
 	got := runCheck(t, "--diff")
-	if !strings.Contains(got, "Codex style.") || !strings.Contains(got, "Amp style.") {
-		t.Errorf("expected both renderings in the diff:\n%s", got)
+	if !strings.Contains(got, "Amp style.") || strings.Contains(got, "Codex style.") {
+		t.Errorf("expected only the last target's rendering in the diff:\n%s", got)
 	}
 }
