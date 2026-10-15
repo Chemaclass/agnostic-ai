@@ -142,6 +142,24 @@ func TestEnvironment_ReviewerNamingAnotherEnvironmentIsAConflict(t *testing.T) {
 	}
 }
 
+func TestEnvironment_ReviewerWithANullEnvironmentStaysInTheBasicSandbox(t *testing.T) {
+	for name, set := range map[string]map[string]any{
+		"with a selection":    {"environment": selected(nil)},
+		"without a selection": {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			set["reviewer"] = reviewer(map[string]any{"environment": nil})
+			if err := emitBundle(t, &config.Config{}, review("r", "", "Check."), settings(set)); err != nil {
+				t.Fatal(err)
+			}
+			if got := readReview(t, reviewFile); strings.Contains(got, "environment") {
+				t.Errorf("a null reviewer environment must leave the key out:\n%s", got)
+			}
+		})
+	}
+}
+
 func TestEnvironment_ReviewerKeepsAHandManagedEnvironmentWithoutSelection(t *testing.T) {
 	testutil.TempCwd(t)
 	r := reviewer(map[string]any{"environment": "managed-by-hand"})

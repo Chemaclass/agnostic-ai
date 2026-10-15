@@ -43,19 +43,26 @@ func importFromEllipsis(root string, src config.Sources, cfg *config.Config) err
 	if o, ok := cfg.Outputs["ellipsis"]; ok && o.ReviewFile != "" {
 		path = o.ReviewFile
 	}
-	reviews, settings, err := importEllipsisFile(root, path, src)
+	environment, err := planEllipsisEnvironment(root, cfg)
+	if err != nil {
+		return err
+	}
+	reviews, settings, err := importEllipsisFile(root, path, src, environment.imported != nil)
 	if err != nil {
 		return err
 	}
 	summaryf("imported %d reviews, %d settings\n", reviews, settings)
-	if err := importEllipsisEnvironment(root, src, cfg); err != nil {
+	if err := importEllipsisEnvironment(root, src, cfg, environment); err != nil {
 		return err
 	}
 	printImportNextSteps(root, "ellipsis")
 	return nil
 }
 
-func importEllipsisFile(root, rel string, src config.Sources) (reviews, settings int, err error) {
+// environmentSelected is true when the import also selects an environment.
+// A reviewer without one then gets a null environment, so sync keeps it in
+// Ellipsis' basic sandbox instead of linking it to the selection.
+func importEllipsisFile(root, rel string, src config.Sources, environmentSelected bool) (reviews, settings int, err error) {
 	native := filepath.Join(root, filepath.FromSlash(rel))
 	data, err := os.ReadFile(native)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -71,6 +78,11 @@ func importEllipsisFile(root, rel string, src config.Sources) (reviews, settings
 	prompt, block, err := splitEllipsisFile(rel, text)
 	if err != nil {
 		return 0, 0, err
+	}
+	if reviewer, _ := block["reviewer"].(map[string]any); environmentSelected {
+		if _, named := reviewer["environment"]; !named {
+			reviewer["environment"] = nil
+		}
 	}
 	if err := mkdirAllSources(root, src.Reviews, src.Settings); err != nil {
 		return 0, 0, err

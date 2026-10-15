@@ -130,7 +130,9 @@ func (f *reviewConfig) readReviewer(x map[string]any, environment string) []stri
 	}
 	f.reviewer = reviewer
 	var problems []string
-	if environment != "" {
+	if named, ok := reviewer["environment"]; ok && named == nil {
+		f.keepBasicSandbox()
+	} else if environment != "" {
 		problems = append(problems, f.linkEnvironment(environment)...)
 	}
 	if name, ok := reviewer["name"].(string); !ok || name == "" {
@@ -172,6 +174,15 @@ func (f *reviewConfig) linkEnvironment(environment string) []string {
 	linked["environment"] = environment
 	f.reviewer = linked
 	return nil
+}
+
+// keepBasicSandbox drops a null reviewer environment. Ellipsis runs a
+// reviewer without one in its basic sandbox, and import writes the null so
+// a selected environment does not take that reviewer over.
+func (f *reviewConfig) keepBasicSandbox() {
+	kept := maps.Clone(f.reviewer)
+	delete(kept, "environment")
+	f.reviewer = kept
 }
 
 func sortedKeys(m map[string]any) []string {
