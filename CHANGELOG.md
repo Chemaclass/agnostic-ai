@@ -21,6 +21,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Factory
 
 - Allow writes to the shared handoff store from linked worktrees when Factory's sandbox is on (#2215).
+- The dropped `disable-model-invocation` note names `outputs.factory.skills-dir: .factory/skills`, needed for `x-factory` beside `.agents/skills` (#2213).
 
 #### Ellipsis
 
@@ -29,10 +30,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Crush
 
 - The dropped `disable-model-invocation` note names `outputs.crush.skills-dir: .crush/skills`, needed for `x-crush` beside `.agents/skills` (#2213).
-
-#### Factory
-
-- The dropped `disable-model-invocation` note names `outputs.factory.skills-dir: .factory/skills`, needed for `x-factory` beside `.agents/skills` (#2213).
 
 #### Claude Code
 
