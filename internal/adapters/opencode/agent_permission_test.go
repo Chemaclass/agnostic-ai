@@ -161,3 +161,60 @@ func TestEmit_Agent_BareSettingsOutsideDenyStaysDeny(t *testing.T) {
 		t.Errorf("want external_directory: deny in:\n%s", got)
 	}
 }
+
+func emitAgentWithSettings(t *testing.T, settingsMeta, agentMeta map[string]any) string {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	settings := spec.Entry{Kind: spec.KindSettings, Name: "settings", Path: "settings.yaml", Meta: settingsMeta}
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: agentMeta, Body: "x"}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{settings, agent}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	return readFile(t, filepath.Join(dir, ".opencode/agents/reviewer.md"))
+}
+
+func TestEmit_Agent_ProjectAskStaysOnListedTool(t *testing.T) {
+	got := emitAgentWithSettings(t,
+		map[string]any{"permissions": map[string]any{"ask": []any{"Bash"}}},
+		map[string]any{"description": "d", "tools": []any{"Read", "Bash"}})
+	if !strings.Contains(got, "  bash: ask\n") {
+		t.Errorf("project ask must win over the agent's allow:\n%s", got)
+	}
+}
+
+func TestEmit_Agent_ProjectScopedDenySurvivesListedTool(t *testing.T) {
+	got := emitAgentWithSettings(t,
+		map[string]any{"permissions": map[string]any{"deny": []any{"Read(/secrets/**)"}}},
+		map[string]any{"description": "d", "tools": []any{"Read"}})
+	want := "  read:\n    \"*\": allow\n    /secrets/**: deny\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("want %q in:\n%s", want, got)
+	}
+}
+
+func TestEmit_Agent_ProjectBareDenyKeepsToolDenied(t *testing.T) {
+	got := emitAgentWithSettings(t,
+		map[string]any{"permissions": map[string]any{"deny": []any{"Bash"}}},
+		map[string]any{"description": "d", "tools": []any{"Bash"}})
+	if !strings.Contains(got, "  bash: deny\n") {
+		t.Errorf("project deny must win:\n%s", got)
+	}
+}
+
+func TestEmit_Agent_TildePatternStaysAString(t *testing.T) {
+	got := emitAgentWithSettings(t,
+		map[string]any{"x-opencode": map[string]any{"permission": map[string]any{
+			"external_directory": map[string]any{"~": "deny"},
+		}}},
+		map[string]any{"description": "d", "tools": []any{"Read"}})
+	var front struct {
+		Permission map[string]any `yaml:"permission"`
+	}
+	if err := yaml.Unmarshal([]byte(strings.Split(got, "---")[1]), &front); err != nil {
+		t.Fatal(err)
+	}
+	outside, _ := front.Permission["external_directory"].(map[string]any)
+	if outside["~"] != "deny" {
+		t.Errorf("external_directory = %#v, want \"~\" deny:\n%s", outside, got)
+	}
+}

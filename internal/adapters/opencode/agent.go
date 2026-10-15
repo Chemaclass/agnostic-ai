@@ -2,7 +2,9 @@ package opencode
 
 import (
 	"encoding/json"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -31,13 +33,42 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	return emitAgents(sess, agents, dir, nil, dryRun)
 }
 
-// emitAgents is EmitAgents with the external_directory value a
-// restricted agent writes (see agentOutsideRules).
-func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, outside any, dryRun bool) error {
+// agentProject holds the project permission rules a restricted agent
+// repeats. OpenCode puts agent rules after the project ones and the last
+// match wins, so an agent that did not repeat them would override every
+// project ask and deny for the tools it lists.
+type agentProject struct {
+	settings   []spec.Entry
+	permission map[string]any
+	rules      map[string]*emit.OrderedJSON
+	outside    any
+}
+
+func newAgentProject(settings []spec.Entry, directories []string) (*agentProject, error) {
+	permission, _ := buildPermissions(settings)
+	project := &agentProject{settings: settings, permission: permission, rules: map[string]*emit.OrderedJSON{}}
+	for key, value := range permission {
+		rules, err := specRules(value, settings, key)
+		if err != nil {
+			return nil, err
+		}
+		project.rules[key] = rules
+	}
+	outside, err := project.outsideRules(directories)
+	if err != nil {
+		return nil, err
+	}
+	project.outside = outside
+	return project, nil
+}
+
+// emitAgents is EmitAgents with the project rules a restricted agent
+// repeats; project may be nil.
+func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project *agentProject, dryRun bool) error {
 	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		md, hadUnmapped := agentMarkdown(a, outside)
+		md, hadUnmapped := agentMarkdown(a, project)
 		if hadUnmapped {
 			unmapped = append(unmapped, a)
 		}
@@ -54,11 +85,11 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, outside any
 // frontmatter plus arbitrary x-opencode passthrough, then the body.
 // A `tools` list becomes the `permission` map; an `x-opencode.permission`
 // map wins for the keys it names, and a scalar one wins outright.
-func agentMarkdown(e spec.Entry, outside any) (body string, unmapped bool) {
+func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped bool) {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := pickKeys(meta, agentFrontmatterKeys)
 	var translated map[string]any
-	translated, unmapped = agentPermission(emit.StringSlice(meta["tools"]), outside)
+	translated, unmapped = agentPermission(emit.StringSlice(meta["tools"]), project)
 	if translated != nil {
 		front[permissionKey] = withNativePermission(translated, front[permissionKey])
 	}
@@ -95,15 +126,16 @@ func withNativePermission(translated map[string]any, native any) any {
 //
 // The catch-all would also deny `external_directory` and `doom_loop`,
 // which OpenCode asks about by default, and agent rules override the
-// project ones. So doom_loop goes back to "ask", and external_directory
-// takes outside, or "ask" when it is nil. A bare
+// project ones. So doom_loop goes back to "ask", external_directory
+// takes the project's outside rules, or "ask", and each listed tool
+// keeps the project's ask and deny rules after its allow. A bare
 // `mcp__<server>` allows every tool of that server as `<server>_*`.
 //
 // Returns nil when no name translated, so an agent whose whole list is
 // untranslatable keeps its default permissions rather than being locked
 // out by a bare `{"*": "deny"}` nobody asked for. unmapped reports
 // whether at least one name had no OpenCode key.
-func agentPermission(tools []string, outside any) (perms map[string]any, unmapped bool) {
+func agentPermission(tools []string, project *agentProject) (perms map[string]any, unmapped bool) {
 	allowed := map[string]any{}
 	for _, name := range tools {
 		if server, whole := wholeMCPServer(name); whole {
@@ -132,33 +164,76 @@ func agentPermission(tools []string, outside any) (perms map[string]any, unmappe
 	if len(allowed) == 0 {
 		return nil, unmapped
 	}
+	for key, value := range allowed {
+		allowed[key] = project.restrict(key, value)
+	}
 	allowed[catchAllPattern] = "deny"
 	allowed["doom_loop"] = "ask"
-	if outside == nil {
-		outside = "ask"
+	allowed[externalDirectoryKey] = "ask"
+	if project != nil && project.outside != nil {
+		allowed[externalDirectoryKey] = project.outside
 	}
-	allowed[externalDirectoryKey] = outside
 	return allowed, unmapped
 }
 
-// agentOutsideRules returns the external_directory value for a
+// restrict appends the project's ask and deny rules for key after the
+// agent's own allow, so they still win. The project's allow rules stay
+// out: after the agent's catch-all deny they would widen the agent's
+// list. A key with no rule of its own takes the project's catch-all.
+func (p *agentProject) restrict(key string, value any) any {
+	if p == nil {
+		return value
+	}
+	own, set := p.rules[key]
+	if !set {
+		own, set = p.rules[catchAllPattern]
+	}
+	if !set {
+		return value
+	}
+	rules := emit.NewOrderedJSON()
+	if patterns, scoped := value.(map[string]any); scoped {
+		_ = rules.Set(catchAllPattern, "deny")
+		for _, pattern := range slices.Sorted(maps.Keys(patterns)) {
+			if pattern != catchAllPattern {
+				_ = rules.Set(pattern, "allow")
+			}
+		}
+	} else {
+		_ = rules.Set(catchAllPattern, "allow")
+	}
+	restricted := false
+	for _, pattern := range own.Keys() {
+		raw, _ := own.Get(pattern)
+		var action string
+		if json.Unmarshal(raw, &action) != nil || action == "allow" {
+			continue
+		}
+		rules.Delete(pattern)
+		rules.SetRaw(pattern, raw)
+		restricted = true
+	}
+	if !restricted {
+		return value
+	}
+	ordered, _ := orderedActions(rules)
+	return ordered
+}
+
+// outsideRules returns the external_directory value for a
 // restricted agent. Agent rules come after the project ones, so the
 // agent repeats them: "ask", OpenCode's default, then the settings'
 // own rules in their order, then the store directories sync allows in
 // opencode.json, unless a settings rule already names one. A settings
 // deny then still wins, and a bare action collapses to a scalar.
-func agentOutsideRules(settings []spec.Entry, directories []string) (any, error) {
+func (p *agentProject) outsideRules(directories []string) (any, error) {
 	rules := emit.NewOrderedJSON()
 	if err := rules.Set(catchAllPattern, "ask"); err != nil {
 		return nil, err
 	}
-	project, _ := buildPermissions(settings)
-	own := emit.NewOrderedJSON()
-	if value, set := project[externalDirectoryKey]; set {
-		var err error
-		if own, err = specRules(value, settings); err != nil {
-			return nil, err
-		}
+	own, set := p.rules[externalDirectoryKey]
+	if !set {
+		own = emit.NewOrderedJSON()
 	}
 	for _, pattern := range own.Keys() {
 		raw, _ := own.Get(pattern)
@@ -192,8 +267,8 @@ func orderedActions(rules *emit.OrderedJSON) (any, error) {
 			return action, nil
 		}
 		node.Content = append(node.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Value: pattern},
-			&yaml.Node{Kind: yaml.ScalarNode, Value: action})
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: pattern},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: action})
 	}
 	return node, nil
 }

@@ -88,7 +88,7 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		})
 		var carried []string
 		if _, object := value.(map[string]any); object || len(patterns) > 0 || len(kept) > 0 {
-			rules, err := specRules(value, settings)
+			rules, err := specRules(value, settings, externalDirectoryKey)
 			if err != nil {
 				return false, err
 			}
@@ -218,19 +218,21 @@ func existingAction(sess *emit.Session, path string, dryRun bool) (string, bool)
 	return action, found && json.Unmarshal(raw, &action) == nil
 }
 
-// specRules returns the external_directory value settings produced as an
-// ordered pattern object: a pattern map in the order the last spec that
-// sets it writes it, or a bare action as the catch-all pattern.
-func specRules(value any, settings []spec.Entry) (*emit.OrderedJSON, error) {
+// specRules returns the value settings produced for one permission key
+// as an ordered pattern object: a pattern map in the order the last spec
+// that sets it writes it, or a bare action as the catch-all pattern.
+func specRules(value any, settings []spec.Entry, key string) (*emit.OrderedJSON, error) {
 	switch v := value.(type) {
+	case *emit.OrderedJSON:
+		return v, nil
 	case string:
 		rules := emit.NewOrderedJSON()
 		return rules, rules.Set(catchAllPattern, v)
 	case map[string]any:
 		var order []string
 		for _, entry := range settings {
-			if _, ok := nativePermission(entry)[externalDirectoryKey]; ok {
-				order = entry.KeyOrder("x-"+target, permissionKey, externalDirectoryKey)
+			if _, ok := nativePermission(entry)[key]; ok {
+				order = entry.KeyOrder("x-"+target, permissionKey, key)
 			}
 		}
 		return emit.OrderedObject(v, order)

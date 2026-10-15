@@ -169,11 +169,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	for i, dir := range handoffKept {
 		kept[i] = dir + "/**"
 	}
-	outside, err := agentOutsideRules(b.Settings, append(slices.Clone(directories), kept...))
+	project, err := newAgentProject(b.Settings, append(slices.Clone(directories), kept...))
 	if err != nil {
 		return err
 	}
-	if err := emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), outside, dryRun); err != nil {
+	if err := emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), project, dryRun); err != nil {
 		return err
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
