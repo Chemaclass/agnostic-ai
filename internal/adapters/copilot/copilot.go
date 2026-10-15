@@ -24,7 +24,7 @@
 //
 // MCP servers emit twice, because Copilot has two readers that
 // disagree on the file. `.vscode/mcp.json` is VS Code's, and VS Code
-// forwards its non-interactive servers to the Agent Host.
+// forwards its non-interactive servers to Copilot harness sessions.
 // `.github/mcp.json` is Copilot CLI's, listed on its project-level
 // discovery table as "Shared configuration that is committed to the
 // repository"; the same page says "The `.vscode/mcp.json` file for VS
