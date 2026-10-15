@@ -59,6 +59,8 @@ type Entry struct {
 	Scope string
 	// Keep the loader's folder for placement after local metadata merges.
 	ruleFolder string
+	// globsFromPaths marks `globs` read from a rule's `paths` alias.
+	globsFromPaths bool
 	// Folder is a rule's subfolder under `rules/` when that folder names a
 	// project directory, whether or not Scope took it.
 	Folder string

@@ -18,6 +18,7 @@ func TestLoadBundle_RulePathsReadsAsGlobs(t *testing.T) {
 	files := map[string]string{
 		"paths.md":    "---\nname: paths\npaths:\n  - resources/js/**\ndescription: d\n---\nBody.\n",
 		"same.md":     "---\nname: same\npaths: [\"a/**\"]\nglobs: \"a/**\"\n---\nBody.\n",
+		"off.md":      "---\nname: off\npaths: []\n---\nBody.\n",
 		"conflict.md": "---\nname: conflict\npaths: [\"a/**\"]\nglobs: [\"b/**\"]\n---\nBody.\n",
 	}
 	for name, body := range files {
@@ -38,23 +39,28 @@ func TestLoadBundle_RulePathsReadsAsGlobs(t *testing.T) {
 	if got := p.Globs(); got != "resources/js/**" {
 		t.Errorf("paths rule globs = %q, want resources/js/**", got)
 	}
-	if _, kept := p.Meta["paths"]; kept {
-		t.Error("paths should become globs")
+	if _, kept := p.Meta["paths"]; !kept {
+		t.Error("paths should stay for Claude and Cline")
 	}
-	if want := []string{"name", "globs", "description"}; !reflect.DeepEqual(p.MetaKeys, want) {
+	if want := []string{"name", "paths", "description"}; !reflect.DeepEqual(p.MetaKeys, want) {
 		t.Errorf("MetaKeys = %v, want %v", p.MetaKeys, want)
 	}
-	if p.LoadedKey("paths") != "globs" || p.PathsConflictGlobs() {
+	if !reflect.DeepEqual(p.LoadedKeys("paths"), []string{"paths", "globs"}) || p.PathsConflictGlobs() {
 		t.Error("paths rule should report its paths as globs, with no conflict")
 	}
 
 	s := byName["same"]
-	if _, kept := s.Meta["paths"]; kept || s.Globs() != "a/**" || s.PathsConflictGlobs() {
-		t.Errorf("matching paths and globs should leave globs alone: %v", s.Meta)
+	if s.Globs() != "a/**" || s.PathsConflictGlobs() || len(s.LoadedKeys("paths")) != 1 {
+		t.Errorf("matching paths and globs should be left alone: %v", s.Meta)
 	}
 
 	c := byName["conflict"]
-	if !c.PathsConflictGlobs() || c.LoadedKey("paths") != "paths" {
+	if !c.PathsConflictGlobs() {
 		t.Errorf("differing paths and globs should stay for validate to reject: %v", c.Meta)
+	}
+
+	off := byName["off"]
+	if _, set := off.Meta["globs"]; set {
+		t.Errorf("an empty paths must not become globs: %v", off.Meta)
 	}
 }

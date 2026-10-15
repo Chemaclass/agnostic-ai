@@ -69,3 +69,45 @@ func TestValidate_RejectsRuleWithConflictingPathsAndGlobs(t *testing.T) {
 		t.Errorf("lint must flag paths and globs that disagree, got %v:\n%s", err, out)
 	}
 }
+
+func TestRender_RuleEmptyPathsStaysNeverActiveOnClaudeAndCline(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, cline]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "off.md"), "---\nname: off\ndescription: d\npaths: []\n---\n\nOFF rule.\n")
+
+	for _, target := range []string{"claude", "cline"} {
+		out, err := runCLI(t, "render", ".agnostic-ai/rules/off.md", "--target", target)
+		if err != nil {
+			t.Fatalf("%s: render: %v\n%s", target, err, out)
+		}
+		if !strings.Contains(out, "paths: []") {
+			t.Errorf("%s: an empty paths must stay, or the rule loads everywhere:\n%s", target, out)
+		}
+	}
+}
+
+func TestSync_RuleStringPathsKeepsItsFormOnClaudeAndCline(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, cline, copilot]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go-style.md"), "---\nname: go-style\ndescription: d\npaths: src/**\n---\n\nbody\n")
+
+	for _, target := range []string{"claude", "cline"} {
+		out, err := runCLI(t, "render", ".agnostic-ai/rules/go-style.md", "--target", target)
+		if err != nil {
+			t.Fatalf("%s: render: %v\n%s", target, err, out)
+		}
+		if !strings.Contains(out, "paths: src/**\n") {
+			t.Errorf("%s: a string paths must stay a string:\n%s", target, out)
+		}
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync after import must change nothing: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go-style.md")); !strings.Contains(got, "paths: src/**\n") {
+		t.Errorf("import must keep the string paths:\n%s", got)
+	}
+}

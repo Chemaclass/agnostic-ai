@@ -4,8 +4,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Native selectors use the folder for placement; explicit scope adds activation.
@@ -57,46 +55,21 @@ func nativeRuleSelectorKeys(target string) []string {
 
 // PathsAsGlobs reads a rule's `paths:`, the Claude Code form, as the
 // portable `globs:` every adapter reads. Loading applies it; a caller
-// that parses spec bytes itself applies it too. A malformed `paths` stays for
-// validate to report. When both keys are set, `globs` stays and `paths`
-// goes only if they name the same patterns; validate rejects the rest
-// (see PathsConflictGlobs).
+// that parses spec bytes itself applies it too. `paths` stays, so Claude
+// and Cline write it back as the user wrote it. A malformed `paths`, an
+// empty one (Cline's never-active rule), or one beside `globs` is left
+// alone; validate rejects `paths` and `globs` that differ.
 func (e Entry) PathsAsGlobs() Entry {
 	paths, hasPaths := e.Meta["paths"]
-	if e.Kind != KindRule || !hasPaths || !ValidGlobs(paths) {
+	if _, hasGlobs := e.Meta["globs"]; e.Kind != KindRule || !hasPaths || hasGlobs || len(GlobList(paths)) == 0 {
 		return e
 	}
-	globs, hasGlobs := e.Meta["globs"]
-	if hasGlobs && !slices.Equal(GlobList(globs), GlobList(paths)) {
-		return e
-	}
-	meta := make(map[string]any, len(e.Meta))
+	meta := make(map[string]any, len(e.Meta)+1)
 	for k, v := range e.Meta {
 		meta[k] = v
 	}
-	delete(meta, "paths")
-	keys := make([]string, 0, len(e.MetaKeys))
-	for _, k := range e.MetaKeys {
-		switch {
-		case k != "paths":
-			keys = append(keys, k)
-		case !hasGlobs:
-			keys = append(keys, "globs")
-		}
-	}
-	if !hasGlobs {
-		meta["globs"] = paths
-		if style, ok := e.MetaStyles["paths"]; ok {
-			styles := make(map[string]yaml.Style, len(e.MetaStyles))
-			for k, v := range e.MetaStyles {
-				styles[k] = v
-			}
-			delete(styles, "paths")
-			styles["globs"] = style
-			e.MetaStyles = styles
-		}
-	}
-	e.Meta, e.MetaKeys = meta, keys
+	meta["globs"] = paths
+	e.Meta, e.globsFromPaths = meta, true
 	return e
 }
 
@@ -109,11 +82,11 @@ func (e Entry) PathsConflictGlobs() bool {
 		!slices.Equal(GlobList(globs), GlobList(paths))
 }
 
-// LoadedKey names the key that holds a source frontmatter key after
-// loading: `globs` for a rule's `paths` alias, key itself otherwise.
-func (e Entry) LoadedKey(key string) string {
-	if _, kept := e.Meta[key]; !kept && key == "paths" && e.Kind == KindRule {
-		return "globs"
+// LoadedKeys names the keys that hold a source frontmatter key after
+// loading: a rule's `paths` and the `globs` read from it, or key alone.
+func (e Entry) LoadedKeys(key string) []string {
+	if key == "paths" && e.globsFromPaths {
+		return []string{"paths", "globs"}
 	}
-	return key
+	return []string{key}
 }
