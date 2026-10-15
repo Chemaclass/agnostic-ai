@@ -281,4 +281,7 @@
 # defaults per listed tool, read back the planned opencode.json, and match
 # ask and deny rules regardless of case. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19931296
+# #2242 measured 19976352 on Go1.27.2, up 53248 from main ca6776ae
+# (19923104): Kilo restricted agents replay the project rules and Kilo defaults per listed tool, read back the planned kilo.jsonc, and map Write to edit. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19984544
