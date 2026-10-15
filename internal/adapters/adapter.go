@@ -1104,3 +1104,6 @@ type ImportSpan = emit.ImportSpan
 func ApplyImportModeWithSpans(body, mode string) (string, []ImportSpan, error) {
 	return emit.ApplyImportModeWithSpans(body, mode)
 }
+
+// VSCodeReadsRootAgents re-exports emit.VSCodeReadsRootAgents.
+func VSCodeReadsRootAgents(cfg *config.Config) bool { return emit.VSCodeReadsRootAgents(cfg) }
