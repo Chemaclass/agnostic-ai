@@ -20,9 +20,7 @@ const envNoUpdateCheck = "AGNOSTIC_AI_NO_UPDATE_CHECK"
 const envUpgradeInProgress = "AGNOSTIC_AI_UPGRADE_IN_PROGRESS"
 
 type upgradeOffer struct {
-	Latest        string
-	Guidance      string
-	GuidanceError string
+	Latest string
 }
 
 type guidedUpgradeDeps struct {
@@ -166,26 +164,7 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 		}
 	}
 	_, _ = fmt.Fprintf(out, "Update available: %s -> %s\nRelease guidance: %s/tag/v%s\n", strings.TrimPrefix(current, "v"), offer.Latest, releasesHTMLURL, offer.Latest)
-	if offer.Guidance == "" && offer.GuidanceError == "" {
-		offer.GuidanceError = "release notes could not be loaded"
-	}
-	if offer.Guidance != "" {
-		_, _ = fmt.Fprintln(out, offer.Guidance)
-	}
-	if offer.GuidanceError != "" {
-		_, _ = fmt.Fprintf(out, "Release guidance unavailable: %s. Review the release page for manual steps.\n", offer.GuidanceError)
-	}
-	if root != "" {
-		_, _ = fmt.Fprintf(out, "This updates the tool, sets this project's requires to exact %s (replacing any range or pin, including existing local overrides), and sets its schema to %s.\nThen it previews and applies built-in migrations, runs sync and sync --check in %s.\n", offer.Latest, schemaURL(offer.Latest), root)
-	} else {
-		_, _ = fmt.Fprintln(out, "This updates the tool only. No current project will be changed.")
-	}
-	_, _ = fmt.Fprintln(out, "The requested command will not run after an accepted upgrade. Rerun it with the updated tool.")
-	_, _ = fmt.Fprint(out, "Update agnostic-ai")
-	if root != "" {
-		_, _ = fmt.Fprint(out, " and migrate this project")
-	}
-	_, _ = fmt.Fprint(out, "? [Y/n] ")
+	_, _ = fmt.Fprint(out, "Update now? [Y/n] ")
 	input, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 	if err != nil {
 		return false, nil
@@ -217,6 +196,6 @@ func runGuidedUpgrade(cmd *cobra.Command, current string, deps guidedUpgradeDeps
 			}
 		}
 	}
-	_, _ = fmt.Fprintln(out, "\nUpgrade complete. Review the release guidance and any migration skips above for remaining manual steps. Rerun your original command.")
+	_, _ = fmt.Fprintln(out, "\nUpgrade complete. Review any migration skips above. Rerun your original command.")
 	return true, nil
 }

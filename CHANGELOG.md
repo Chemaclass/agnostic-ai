@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
+
 ## v0.85.0 - 2026-10-15
 
 ### General

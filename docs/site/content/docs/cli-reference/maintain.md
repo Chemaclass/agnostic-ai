@@ -297,18 +297,24 @@ agnostic-ai upgrade --version v0.81.0    # install a specific release
 
 ### Automatic upgrade offers
 
-When you run a command in a terminal, a stable release build checks for updates at most once a day. Release checks have a five-second network limit. The offer shows release notes and manual steps for each version you skipped. If docs are missing, it names them and shows changelog entries when available.
+When you run a command in a terminal, a stable release build checks for updates at most once a day. Release checks have a five-second network limit. The offer is two lines, the version change and a link to the release page, then the prompt:
+
+```text
+Update available: 0.83.0 -> 0.85.0
+Release guidance: https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.85.0
+Update now? [Y/n]
+```
 
 Press Enter or type `y` to accept. Type `n` to continue your original command; the offer will not repeat that day.
 
-Before asking, the offer explains what it will change. In a project, accepting it:
+In a project, accepting it:
 
 1. Installs the new release and checks that the new executable has the expected version.
 2. Sets the project's required version (`requires`) to that exact release and updates the editor schema link. This replaces a minimum or range too, including an existing value in `agnostic-ai.local.yaml`.
 3. Previews and applies the built-in changes to old spec files.
 4. Runs `sync`, then `sync --check`.
 
-Outside a project, it updates the tool only. After accepting, rerun your original command with the updated tool. Review any skipped changes and release notes for steps you must do yourself. Release notes are shown for guidance; they are not run as commands.
+Outside a project, it updates the tool only. After accepting, rerun your original command with the updated tool. Read the release page for steps you must do yourself.
 
 If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the global specs folder, the offer is skipped and names that location. Links within the project are supported.
 
