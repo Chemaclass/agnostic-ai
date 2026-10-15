@@ -9,7 +9,7 @@ import (
 func TestLintClaudeRefusedNames_FlagsSkillAndCommandNames(t *testing.T) {
 	b := spec.Bundle{
 		Skills:   []spec.Entry{{Kind: spec.KindSkill, Name: "zero\U0000200Bwidth", Path: "skills/zw/SKILL.md"}},
-		Commands: []spec.Entry{{Kind: spec.KindCommand, Name: "a<b", Path: "commands/a<b.md"}},
+		Commands: []spec.Entry{{Kind: spec.KindCommand, Name: "caf\U000000E9<", Path: "commands/cafe.md"}},
 	}
 	got := lintClaudeRefusedNames(b, []string{"claude", "codex"})
 	if len(got) != 2 {
@@ -17,7 +17,7 @@ func TestLintClaudeRefusedNames_FlagsSkillAndCommandNames(t *testing.T) {
 	}
 	for i, want := range []string{
 		"skill name \"zero\\u200bwidth\" holds U+200B, which Claude Code refuses, so the skill does not load there; rename it",
-		`command name "a<b" holds ` + "`<`" + `, which Claude Code refuses, so the command does not load there; rename it`,
+		"command name \"caf\U000000E9<\" holds `<`, which Claude Code refuses, so the command does not load there; rename it",
 	} {
 		if got[i].Code != "LINT047" || got[i].Severity != lintWarn || got[i].Message != want {
 			t.Errorf("finding %d = %+v, want message %q", i, got[i], want)

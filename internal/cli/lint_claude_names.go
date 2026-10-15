@@ -25,7 +25,7 @@ func lintClaudeRefusedNames(b spec.Bundle, targets []string) []lintFinding {
 		}
 		out = append(out, lintFinding{
 			Code: "LINT047", Severity: lintWarn, Path: e.Path,
-			Message: fmt.Sprintf("%s name %+q holds %s, which Claude Code refuses, so the %s does not load there; rename it",
+			Message: fmt.Sprintf("%s name %q holds %s, which Claude Code refuses, so the %s does not load there; rename it",
 				e.Kind, e.Name, strings.Join(chars, ", "), e.Kind),
 		})
 	}

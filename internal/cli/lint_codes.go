@@ -282,7 +282,7 @@ var lintCodes = map[string]lintCode{
 	"LINT047": {
 		Severity: lintWarn,
 		Title:    "Skill or command name Claude Code refuses",
-		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, private-use, or unassigned character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
+		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
 		Fix:      "Rename the folder or file, or edit the `name:` line, to remove the characters.",
 	},
 	"LINT036": {
