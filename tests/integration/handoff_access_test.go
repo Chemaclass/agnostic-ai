@@ -300,6 +300,41 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 	}
 }
 
+func TestHandoffAccess_QoderHandoffOffWithoutMemoryRemovesSettings(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
+	physicalMain, err := filepath.EvalSymlinks(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs"))
+	handoffInitGit(t, main)
+	handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
+	config := "version: 1\nbuiltins: [handoff]\ntargets: [qoder]\ngitignore:\n  enabled: true\n"
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.local.yaml"), "memory:\n  personal: repo\n")
+	path := filepath.Join(linked, ".qoder/settings.json")
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = linked
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, output)
+		}
+	}
+	run("sync")
+	if !strings.Contains(handoffRead(t, path), store) {
+		t.Fatalf("first sync did not grant %s", store)
+	}
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff]", "builtins: []", 1))
+	run("sync")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("a file that held only the grant stays: %v", err)
+	}
+	run("sync", "--check")
+}
+
 func TestHandoffAccess_OpenCodeAndDevinKeepMemoryAndUserPermissions(t *testing.T) {
 	binary := handoffBuildCLI(t)
 	for _, target := range []string{"opencode", "windsurf"} {
