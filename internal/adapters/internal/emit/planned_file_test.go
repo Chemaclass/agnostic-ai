@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestPlannedFile_RecordsOnlyWatchedPaths(t *testing.T) {
@@ -62,8 +64,8 @@ func TestPlannedFile_KeptHandEditFallsBackToDisk(t *testing.T) {
 }
 
 func TestPlannedFile_UnmanagedPathIsNotRecorded(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "opencode.json")
+	testutil.Chdir(t, t.TempDir())
+	path := "opencode.json"
 	sess := NewSession()
 	sess.SetUnmanaged([]string{path})
 	sess.WatchPlannedFile(path)
