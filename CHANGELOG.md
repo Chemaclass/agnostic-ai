@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
 
+#### Copilot
+
+- Write a stdio server's `sandbox` (write paths, denied paths, network domains) to `.vscode/mcp.json`, and keep it through `import copilot` (#2212).
+
 ## v0.84.0 - 2026-10-14
 
 ### General

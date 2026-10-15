@@ -118,7 +118,7 @@ func WithKiroMCPExtras() MCPOption {
 }
 
 // WithVSCodeMCPExtras enables fields documented by VS Code's MCP reference:
-// stdio cwd, envFile, and sandboxEnabled; remote oauth; and dev.watch on
+// stdio cwd, envFile, sandboxEnabled, and sandbox; remote oauth; and dev.watch on
 // all transports. dev.debug is stdio-only. These fields stay out of other
 // schemas, including Copilot CLI's dedicated file and root mirror.
 func WithVSCodeMCPExtras() MCPOption {
@@ -238,14 +238,17 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 				out["envFile"] = envFile
 			}
 		}
-		// cwd and sandboxEnabled are VS Code's own stdio-only
-		// fields (target-audit 2026-09-08, #692); see WithVSCodeMCPExtras.
+		// cwd, sandboxEnabled, and sandbox are VS Code's own stdio-only
+		// fields (target-audit 2026-09-08, #692, #2212); see WithVSCodeMCPExtras.
 		if o.vscodeExtras {
 			if cwd := stringField(e.Meta, "cwd"); cwd != "" {
 				out["cwd"] = cwd
 			}
 			if sandboxEnabled, _ := e.Meta["sandboxEnabled"].(bool); sandboxEnabled {
 				out["sandboxEnabled"] = true
+			}
+			if sandbox := buildVSCodeMCPSandbox(e.Meta); len(sandbox) > 0 {
+				out["sandbox"] = sandbox
 			}
 		}
 	case "http", "sse", "ws":
@@ -473,6 +476,46 @@ func buildVSCodeMCPOAuth(meta map[string]any) map[string]any {
 	}
 	if em, _ := raw["enterpriseManaged"].(bool); em {
 		out["enterpriseManaged"] = true
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// buildVSCodeMCPSandbox reads the spec's `sandbox` object into VS
+// Code's per-server shape (code.visualstudio.com/docs/agents/reference/mcp-configuration):
+// `filesystem.allowWrite`, `filesystem.denyRead`, `filesystem.denyWrite`,
+// `network.allowedDomains`, and `network.deniedDomains`, each a list of
+// strings. Explicit mapping, like the oauth mappers, so an unknown key
+// never reaches the file.
+func buildVSCodeMCPSandbox(meta map[string]any) map[string]any {
+	raw, ok := meta["sandbox"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	groups := []struct {
+		name string
+		keys []string
+	}{
+		{"filesystem", []string{"allowWrite", "denyRead", "denyWrite"}},
+		{"network", []string{"allowedDomains", "deniedDomains"}},
+	}
+	for _, g := range groups {
+		src, ok := raw[g.name].(map[string]any)
+		if !ok {
+			continue
+		}
+		group := map[string]any{}
+		for _, k := range g.keys {
+			if list := stringSlice(src, k); len(list) > 0 {
+				group[k] = list
+			}
+		}
+		if len(group) > 0 {
+			out[g.name] = group
+		}
 	}
 	if len(out) == 0 {
 		return nil
