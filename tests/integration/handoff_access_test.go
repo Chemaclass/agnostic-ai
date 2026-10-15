@@ -13,7 +13,7 @@ import (
 
 func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 	binary := handoffBuildCLI(t)
-	for _, target := range []string{"codex", "qoder", "claude"} {
+	for _, target := range []string{"codex", "qoder", "claude", "factory"} {
 		for _, mode := range []string{"shared", "unignored store", "unavailable store", "handwritten config", "tracked config", "unmanaged config", "preview", "adopted tracked config", "adopted symlink config", "owned unavailable store", "adopted escaped tracked config", "adopted missing symlink config", "adopted directory symlink config", "tracked MCP without handoff", "committed MCP without handoff"} {
 			t.Run(target+"/"+mode, func(t *testing.T) {
 				t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
@@ -25,13 +25,13 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 				storeRoot := filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs"))
 				handoffInitGit(t, main)
 				if mode == "unignored store" {
-					handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n")
+					handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n.factory/\n")
 				}
 				if mode == "unavailable store" {
 					handoffWrite(t, filepath.Join(main, ".agnostic-ai/local/handoffs"), "keep this file\n")
 				}
 				handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
-				file := map[string]string{"codex": ".codex/config.toml", "qoder": ".qoder/settings.json", "claude": ".claude/settings.local.json"}[target]
+				file := map[string]string{"codex": ".codex/config.toml", "qoder": ".qoder/settings.json", "claude": ".claude/settings.local.json", "factory": ".factory/settings.local.json"}[target]
 				config := "version: 1\nbuiltins: [handoff]\ntargets: [" + target + "]\ngitignore:\n  enabled: true\n"
 				if mode == "unmanaged config" {
 					config += "sync:\n  unmanaged: [" + file + "]\n"
@@ -72,7 +72,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 				if mode == "owned unavailable store" {
 					for _, unavailable := range []bool{false, true} {
 						if unavailable {
-							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n")
+							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n.factory/\n")
 						}
 						cmd := exec.Command(binary, "sync")
 						cmd.Dir = linked
@@ -104,7 +104,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					}
 					if mode == "adopted escaped tracked config" {
 						if target == "codex" {
-							t.Skip("JSON escaping applies to Claude and Qoder")
+							t.Skip("JSON escaping applies to the JSON settings files")
 						}
 						original = strings.ReplaceAll(original, "/", `\/`)
 						if !json.Valid([]byte(original)) {
@@ -141,7 +141,7 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 					}
 					for _, transition := range []string{"check", "sync", "unavailable store", "removal", "check removal"} {
 						if transition == "unavailable store" {
-							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n")
+							handoffWrite(t, filepath.Join(main, ".gitignore"), ".claude/\n.codex/\n.qoder/\n.factory/\n")
 						}
 						if transition == "removal" {
 							handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff]", "builtins: []", 1))
@@ -183,6 +183,9 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 				original := ""
 				if mode == "handwritten config" || mode == "tracked config" || mode == "unmanaged config" {
 					original = "{\"permissions\":{\"additionalDirectories\":[\"user-root\"]}}\n"
+					if target == "factory" {
+						original = "{\"sandbox\":{\"filesystem\":{\"allowWrite\":[\"user-root\"]}}}\n"
+					}
 					if target == "codex" {
 						original = "[sandbox_workspace_write]\nwritable_roots = [\"user-root\"]\n"
 					}
@@ -220,15 +223,24 @@ func TestHandoffAccess_SharedStoreJoinsNativeWriteRoots(t *testing.T) {
 						if err := json.Unmarshal(content, &doc); err != nil {
 							t.Fatal(err)
 						}
-						permissions, ok := doc["permissions"].(map[string]any)
-						if !ok {
-							t.Fatal("native settings lack a permissions object")
+						listPath := []string{"permissions", "additionalDirectories"}
+						if target == "factory" {
+							listPath = []string{"sandbox", "filesystem", "allowWrite"}
 						}
-						directories, ok := permissions["additionalDirectories"].([]any)
-						if !ok {
-							t.Fatal("native settings lack additionalDirectories")
+						parent := doc
+						for _, key := range listPath[:len(listPath)-1] {
+							child, ok := parent[key].(map[string]any)
+							if !ok {
+								t.Fatalf("native settings lack %s", key)
+							}
+							parent = child
 						}
-						permissions["additionalDirectories"] = append(directories, "user-root")
+						last := listPath[len(listPath)-1]
+						directories, ok := parent[last].([]any)
+						if !ok {
+							t.Fatalf("native settings lack %s", last)
+						}
+						parent[last] = append(directories, "user-root")
 						changed, err := json.Marshal(doc)
 						if err != nil {
 							t.Fatal(err)
@@ -1260,4 +1272,92 @@ func TestHandoffAccess_DevinKeepsHandAddedDenyNextToSpecDeny(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandoffAccess_FactoryGrantKeepsSandboxSettings(t *testing.T) {
+	binary := handoffBuildCLI(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
+	physicalMain, err := filepath.EvalSymlinks(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := filepath.ToSlash(filepath.Join(physicalMain, ".agnostic-ai/local/handoffs"))
+	handoffInitGit(t, main)
+	handoffGit(t, main, "worktree", "add", "-b", "handoff-access", linked)
+	config := "version: 1\nbuiltins: [handoff, handoff-hook]\ntargets: [factory]\ngitignore:\n  enabled: true\n"
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+	path := filepath.Join(linked, ".factory/settings.local.json")
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = linked
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, output)
+		}
+		return string(output)
+	}
+	run("sync")
+	created := handoffRead(t, path)
+	if !strings.Contains(created, store) {
+		t.Fatalf("first sync did not grant %s: %s", store, created)
+	}
+	handoffWrite(t, path, strings.Replace(created, "\"sandbox\": {", "\"model\": \"user-model\",\n  \"sandbox\": {\n    \"mode\": \"per-command\",", 1))
+	handoffWrite(t, path, strings.Replace(handoffRead(t, path), "\"filesystem\": {", "\"filesystem\": {\n      \"denyWrite\": [\"/tmp/locks\"],", 1))
+	run("sync")
+	var doc struct {
+		Model   string `json:"model"`
+		Sandbox struct {
+			Enabled    *bool  `json:"enabled"`
+			Mode       string `json:"mode"`
+			Filesystem struct {
+				AllowWrite []string `json:"allowWrite"`
+				DenyWrite  []string `json:"denyWrite"`
+			} `json:"filesystem"`
+		} `json:"sandbox"`
+	}
+	if err := json.Unmarshal([]byte(handoffRead(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Sandbox.Filesystem.AllowWrite) != 1 || doc.Sandbox.Filesystem.AllowWrite[0] != store {
+		t.Errorf("allowWrite does not grant %s: %v", store, doc.Sandbox.Filesystem.AllowWrite)
+	}
+	if doc.Sandbox.Enabled != nil {
+		t.Error("sync set sandbox.enabled")
+	}
+	if doc.Model != "user-model" || doc.Sandbox.Mode != "per-command" || len(doc.Sandbox.Filesystem.DenyWrite) != 1 {
+		t.Errorf("sync changed the user's settings: %+v", doc)
+	}
+	if _, err := os.Stat(filepath.Join(linked, ".factory/settings.json")); !os.IsNotExist(err) {
+		t.Errorf("sync wrote the shared settings file: %v", err)
+	}
+	ignored := exec.Command("git", "check-ignore", "-q", ".factory/settings.local.json")
+	ignored.Dir = linked
+	if err := ignored.Run(); err != nil {
+		t.Errorf("settings.local.json is not ignored: %v", err)
+	}
+	run("sync", "--check")
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff, handoff-hook]", "builtins: []", 1))
+	run("sync")
+	if content := handoffRead(t, path); strings.Contains(content, store) || !strings.Contains(content, "/tmp/locks") || !strings.Contains(content, "user-model") {
+		t.Errorf("dropping handoff did not remove only the grant: %s", content)
+	}
+	ignoredOff := exec.Command("git", "check-ignore", "-q", ".factory/settings.local.json")
+	ignoredOff.Dir = linked
+	if err := ignoredOff.Run(); err != nil {
+		t.Errorf("settings.local.json with user keys is not ignored after handoff turns off: %v", err)
+	}
+	run("sync", "--check")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), config)
+	run("sync")
+	handoffWrite(t, filepath.Join(linked, "agnostic-ai.yaml"), strings.Replace(config, "builtins: [handoff, handoff-hook]", "builtins: []", 1))
+	run("sync")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("a file that held only the grant stays: %v", err)
+	}
+	run("sync", "--check")
 }

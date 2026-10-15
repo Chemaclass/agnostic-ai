@@ -18,6 +18,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
 
+#### Factory
+
+- Allow writes to the shared handoff store from linked worktrees when Factory's sandbox is on (#2215).
+
 #### Ellipsis
 
 - `import ellipsis` keeps a reviewer without an `environment` in the basic sandbox; `x-ellipsis.reviewer.environment: null` does it by hand (#2214).
