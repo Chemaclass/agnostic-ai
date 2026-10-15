@@ -9,6 +9,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - A rule's `paths` scopes it like `globs` on every tool, so Copilot and Cursor stop loading it everywhere; `validate` rejects a mismatch (#2243).
 - A rule with `globs` that sync inlines into a root file now says `Applies to:`; run `sync` and commit the one-time diff (#2244).
 - `sync --keep-edits` no longer keeps a skill file shared by Codex and Amp as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+- Root `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` skip the provenance header when every target that reads them sets `provenance-header: false` (#2256).
 - `project --bootstrap` installs bun projects with `bun install --frozen-lockfile`, and names the install to run when it cannot help (#2246).
 
 ### By tool
