@@ -160,7 +160,7 @@ A new adapter is about 50 lines plus one registry entry. See [adding adapters](h
 | **augment** | - | `~/.augment/rules/<name>.md` | `~/.augment/settings.json` | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` | - |
 
 - **MCP** reaches the user MCP files of Antigravity, Augment, Claude Code, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. See [MCP servers](@/docs/configuration.md#global-mcp-servers).
-- **Settings** reach the user settings of Claude Code, Codex, Copilot, Qoder, Gemini (model and session retention), and Augment (`x-augment` keys only). Claude also maps `permissions.default-mode`; Claude, Gemini, and Qoder map global-only `session-retention-days`; global permission lists are unsupported. Other tools raise a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+- **Settings** reach the user settings of Claude Code, Codex, Copilot, Qoder, Gemini (model and session retention), and Augment (`x-augment` keys only). Claude also maps `permissions.default-mode` and merges the `allow`, `ask`, and `deny` rule lists; Claude, Gemini, and Qoder map global-only `session-retention-days`; other targets' global permission lists are unsupported. Other tools raise a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 - **Agents** use the same formats as project agents. Amp, Zed, Warp, and Crush have no global agent output. See [global configuration](@/docs/configuration.md#global-configuration).
 - **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
 

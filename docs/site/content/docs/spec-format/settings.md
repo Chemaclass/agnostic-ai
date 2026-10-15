@@ -175,7 +175,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, and output prerequisites. It also reports the global-only scope of `permissions.default-mode`. Other settings fields remain outside comparison. Written policy does not prove runtime enforcement.
 
-`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, and `permissions.default-mode`. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` rule lists. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 ## Effort by target
 

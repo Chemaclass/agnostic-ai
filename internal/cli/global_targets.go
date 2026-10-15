@@ -133,11 +133,12 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".claude/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
-			permissionMode: "permissions.defaultMode",
-			retention:      "cleanupPeriodDays",
+			permissionMode:  "permissions.defaultMode",
+			permissionLists: true,
+			retention:       "cleanupPeriodDays",
 			reserved: map[string]string{
 				"hooks":       "sync --global writes hooks from hook specs",
-				"permissions": "use permissions.default-mode for the user default mode; sync --global does not write permission rule lists",
+				"permissions": "use permissions.default-mode for the user default mode; sync --global writes only the allow, ask, and deny rule lists under permissions",
 			},
 		},
 	},

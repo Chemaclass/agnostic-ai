@@ -27,8 +27,11 @@ type globalSettingsFile struct {
 	// Empty native keys have no mapping.
 	model, effort  string
 	permissionMode string
-	retention      string
-	effortLevel    func() []string
+	// permissionLists marks a file whose permissions.allow, ask, and
+	// deny lists sync merges rule by rule from the settings specs.
+	permissionLists bool
+	retention       string
+	effortLevel     func() []string
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
@@ -144,6 +147,10 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 		}
 		for _, key := range slices.Sorted(maps.Keys(permissions)) {
 			field := "permissions." + key
+			if f.permissionLists && slices.Contains(spec.PermissionLists, key) {
+				// mergeGlobalPermissionRules writes the rule lists.
+				continue
+			}
 			if key != "default-mode" || f.permissionMode == "" {
 				adapters.NoteSettingsFieldNoOp(target, field, 1, "sync --global has no user-level mapping for this permission field")
 				continue
@@ -176,6 +183,10 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 		}
 		for _, key := range slices.Sorted(maps.Keys(flat)) {
 			value := flat[key]
+			if list, ok := strings.CutPrefix(key, "permissions."); ok && f.permissionLists && slices.Contains(spec.PermissionLists, list) {
+				// The rule lists merge rule by rule with the portable ones.
+				continue
+			}
 			if reason, ok := f.reserved[strings.SplitN(key, ".", 2)[0]]; ok {
 				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue

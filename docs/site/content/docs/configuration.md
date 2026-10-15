@@ -688,7 +688,7 @@ targets: [claude, codex, cursor]
 `list --global` shows the specs in effect with their `builtin`, `global`, or `global-local` layer. `validate --global` and `lint --global` check before a sync writes. `migrate --global` rewrites old spec forms. Global layers never merge with project specs.
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
-- Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
+- Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists for targets other than Claude Code, inheritance, and merging with project specs are unsupported.
 - Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hooks.md#portable-events).
 - Copilot user hooks write `~/.copilot/hooks/agnostic-ai.json`; `COPILOT_HOME` moves the native home. `import --global copilot` adopts matching handlers from neighboring user JSON files without adding a second copy. See [Copilot hooks](@/docs/targets/copilot.md#hooks) for conflict recovery.
@@ -756,12 +756,12 @@ effort:
 | Target | File | Keys |
 |---|---|---|
 | codex | `~/.codex/config.toml` | `model`, `model_reasoning_effort` |
-| claude | `~/.claude/settings.json` | `model`, `effortLevel`, `permissions.defaultMode` |
+| claude | `~/.claude/settings.json` | `model`, `effortLevel`, `permissions.defaultMode`, `permissions.allow`, `ask`, `deny` |
 | copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
-Other targets and global permission lists raise a coverage note, and so does `effort` on Gemini. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
+Other targets, and permission lists for every target but Claude, raise a coverage note, and so does `effort` on Gemini. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
 
 Accepted `effort` values:
 
@@ -779,7 +779,15 @@ permissions:
   default-mode: acceptEdits
 ```
 
-`sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`. It accepts `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, and `bypassPermissions`. A later settings spec wins. Sync owns only this key, so hand-written `allow`, `deny`, and `ask` rules stay. Removing the field removes the managed mode, unless you changed it by hand.
+`sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`. It accepts `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, and `bypassPermissions`. A later settings spec wins. Removing the field removes the managed mode, unless you changed it by hand.
+
+Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule:
+
+- Sync appends each rule a list lacks after the rules already there. A rule already there is adopted.
+- Rules you or Claude Code added, such as an "Always allow" click, stay in place.
+- Sync records its rules in `state/global.json`. A rule you drop from the specs is removed, unless you already removed it by hand.
+- `--check` fails while a spec rule is missing or a dropped one remains. `--plan` and `--dry-run` list each rule added or removed.
+- Run `import --global claude` to copy rules Claude Code saved into `settings/permissions-claude.yaml`, so they reach your other machines.
 
 Other targets report a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 
@@ -799,7 +807,7 @@ Sync edits only the keys it writes. Removing the spec removes only those keys, a
 - A key with another value stops the run and names the file, key, and both values. This is normal for Codex, whose `/model` picker saves to `config.toml`. `--backup` overwrites the key and keeps `<path>.bak`.
 - `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
 - An `x-<target>` block sets that target's own keys in the same file. Nested objects merge leaf by leaf. An `x-claude` key wins over the portable field it shares a key with. A later spec wins key by key, and `null` drops an earlier key.
-- Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`. Tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` raise a coverage note. Project sync does not route `x-codex` into `.codex/config.toml`.
+- Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`. Tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` keys other than `allow`, `ask`, and `deny` raise a coverage note. Project sync does not route `x-codex` into `.codex/config.toml`.
 - `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets.
 
 ### MCP servers {#global-mcp-servers}
