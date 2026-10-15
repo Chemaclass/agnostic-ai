@@ -29,6 +29,8 @@
 // `memory.personal: repo`, that file also allows the personal memory
 // store under `permission.external_directory`, since OpenCode asks
 // before a tool touches a path outside the project.
+// Restricted agents replay its legacy permission map and ordered native
+// V2 permissions array before applying their tool list.
 //
 // Hooks emit V1 plugin functions by default. A hook selects native V2
 // tool callbacks with x-opencode.plugin-api: v2. Plugin code cannot be

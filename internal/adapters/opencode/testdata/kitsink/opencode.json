@@ -23,5 +23,12 @@
       "type": "local"
     }
   },
-  "model": "example/model"
+  "model": "example/model",
+  "permissions": [
+    {
+      "action": "read",
+      "effect": "deny",
+      "resource": "secrets/*"
+    }
+  ]
 }

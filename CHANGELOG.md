@@ -8,6 +8,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
 
+### By tool
+
+#### OpenCode
+
+- Restricted agents keep native V2 project permission limits from `opencode.json`, including ordered deny and ask rules (#2267).
+
 ## v0.85.0 - 2026-10-15
 
 ### General

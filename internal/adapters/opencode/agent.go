@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -58,108 +57,13 @@ var builtinPermission = []permissionRule{
 	{"read", "*.env.example", "allow"},
 }
 
-// agentProject is the flat rule list a restricted agent's own rules
-// follow: OpenCode's defaults, then the project's `permission` in file
-// order. OpenCode builds each agent's rules as Permission.merge(defaults,
-// user, agent), merge is a plain flatten, and evaluate takes the last
-// rule whose key and pattern both match (packages/opencode/src/agent/
-// agent.ts and permission/index.ts, v1.19.0).
+// agentProject keeps defaults, legacy rules, and native V2 rules in evaluation order.
 type agentProject struct {
-	rules []permissionRule
+	rules  []permissionRule
+	native bool
+	path   string
 	// servers names every MCP server the project configures.
 	servers []string
-}
-
-// readProjectPermission reads the `permission` opencode.json holds after
-// this sync: the content the session just planned for it, or the file
-// on disk when the session left it alone. A dry run plans from an empty
-// file, so there the planned keys go over the copy on disk, as the real
-// merge would put them.
-func readProjectPermission(sess *emit.Session, path string, dryRun bool) (*agentProject, error) {
-	data, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	onDisk, err := permissionOf(string(data), path)
-	if err != nil {
-		return nil, err
-	}
-	permission := onDisk
-	if content, planned := sess.PlannedFile(path); planned {
-		if permission, err = permissionOf(content, path); err != nil {
-			return nil, err
-		}
-		if dryRun {
-			permission = overlayPermission(onDisk, permission)
-		}
-	}
-	project := &agentProject{rules: slices.Clone(builtinPermission)}
-	if permission == nil {
-		return project, nil
-	}
-	var action string
-	if json.Unmarshal(permission, &action) == nil {
-		project.rules = append(project.rules, permissionRule{catchAllPattern, catchAllPattern, action})
-		return project, nil
-	}
-	keys := emit.NewOrderedJSON()
-	if err := json.Unmarshal(permission, keys); err != nil {
-		return nil, fmt.Errorf("parse %s permission: %w", path, err)
-	}
-	for _, key := range keys.Keys() {
-		value, _ := keys.Get(key)
-		if json.Unmarshal(value, &action) == nil {
-			project.rules = append(project.rules, permissionRule{key, catchAllPattern, action})
-			continue
-		}
-		patterns := emit.NewOrderedJSON()
-		if json.Unmarshal(value, patterns) != nil {
-			continue
-		}
-		for _, pattern := range patterns.Keys() {
-			if a := ruleAction(patterns, pattern); a != "" {
-				project.rules = append(project.rules, permissionRule{key, pattern, a})
-			}
-		}
-	}
-	return project, nil
-}
-
-// permissionOf returns the raw `permission` value of an opencode.json
-// document, or nil when it has none.
-func permissionOf(content, path string) (json.RawMessage, error) {
-	if strings.TrimSpace(content) == "" {
-		return nil, nil
-	}
-	stripped, _ := emit.StripJSONC([]byte(content))
-	doc := emit.NewOrderedJSON()
-	if err := json.Unmarshal(stripped, doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	raw, _ := doc.Get(permissionKey)
-	return raw, nil
-}
-
-// overlayPermission sets each planned tool key over the disk copy,
-// keeping the disk order and adding new keys after it. A bare action on
-// either side replaces the whole value.
-func overlayPermission(onDisk, planned json.RawMessage) json.RawMessage {
-	base, over := emit.NewOrderedJSON(), emit.NewOrderedJSON()
-	if onDisk == nil || json.Unmarshal(onDisk, base) != nil || planned == nil || json.Unmarshal(planned, over) != nil {
-		if planned == nil {
-			return onDisk
-		}
-		return planned
-	}
-	for _, key := range over.Keys() {
-		value, _ := over.Get(key)
-		base.SetRaw(key, value)
-	}
-	merged, err := json.Marshal(base)
-	if err != nil {
-		return planned
-	}
-	return merged
 }
 
 // emitAgents is EmitAgents with the project rules a restricted agent
@@ -171,7 +75,10 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project *ag
 	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
-		md, hadUnmapped := agentMarkdown(a, project)
+		md, hadUnmapped, err := agentMarkdown(a, project)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
 		if hadUnmapped {
 			unmapped = append(unmapped, a)
 		}
@@ -188,13 +95,17 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project *ag
 // frontmatter plus arbitrary x-opencode passthrough, then the body.
 // A `tools` list becomes the `permission` map; an `x-opencode.permission`
 // map wins for the keys it names, and a scalar one wins outright.
-func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped bool) {
+func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped bool, err error) {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := pickKeys(meta, agentFrontmatterKeys)
 	var translated map[string]any
 	translated, unmapped = agentPermission(emit.StringSlice(meta["tools"]), project)
 	if translated != nil {
-		front[permissionKey] = withNativePermission(translated, front[permissionKey])
+		authored := front[permissionKey]
+		front[permissionKey] = withNativePermission(translated, authored)
+		if err := project.validateAgentPermission(front[permissionKey], emit.StringSlice(meta["tools"]), authored); err != nil {
+			return "", unmapped, err
+		}
 	}
 	keys := append([]string{}, agentFrontmatterKeys...)
 	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, agentFrontmatterKeys...)
@@ -202,7 +113,7 @@ func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped b
 	sb.WriteString(emit.FrontmatterOrdered(front, keys))
 	sb.WriteString("\n")
 	sb.WriteString(e.Body)
-	return sb.String(), unmapped
+	return sb.String(), unmapped, nil
 }
 
 // withNativePermission lays the author's own permission over the
@@ -292,10 +203,10 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 		// granted server, gets its own entry after this one.
 		for _, r := range project.rules {
 			fold := r.action != "allow"
-			if !wildcardOverlap(r.key, key, fold) || wildcardContains(r.key, key, fold) {
+			if !wildcardOverlap(r.key, project.actionKey(key), fold) || wildcardContains(r.key, project.actionKey(key), fold) {
 				continue
 			}
-			for _, narrower := range globIntersection(r.key, key, fold) {
+			for _, narrower := range globIntersection(r.key, project.actionKey(key), fold) {
 				if _, set := perms[narrower]; set || narrower <= key {
 					continue
 				}
@@ -317,6 +228,7 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 // exactly. Where only case differs, the agent is stricter than the
 // project on one OS, never looser on either.
 func (p *agentProject) replay(key string, patterns []string) any {
+	key = p.actionKey(key)
 	var rules []permissionRule
 	for _, r := range p.rules {
 		if wildcardContains(r.key, key, r.action != "allow") {
