@@ -273,7 +273,7 @@ Applies when two targets write different content to one path, such as `outputs.c
 | Value | Behavior |
 |-------|----------|
 | `prompt` | Default. Fail with an `output collision` error and a hint. |
-| `prefer-spec` | Write the version of the last tool in `targets:` that writes the file. `sync --check` expects that version. Use in CI when the overlap is intentional. |
+| `prefer-spec` | Write the version of the last tool in `targets:` that writes the file. `sync --check` expects that version. Sync prints one note per winning tool naming the files it won and the tools it overrode; reorder `targets:` to change it. Use in CI when the overlap is intentional. |
 | `fail` | Hard error with no hint. |
 
 ```yaml
