@@ -19,7 +19,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Write a stdio server's `sandbox` (write paths, denied paths, network domains) to `.vscode/mcp.json`, and keep it through `import copilot` (#2212).
 - Read an MCP server's VS Code fields (`cwd`, `envFile`, `sandboxEnabled`, `sandbox`, `oauth`, `dev`) from `x-copilot` too (#2224).
-- Count the root `AGENTS.md` VS Code also loads in `lint`, and note the double load on `sync` (#2247).
+- Set `chat.useAgentsMdFile: false` in `.vscode/settings.json` when another target writes `AGENTS.md`, so VS Code loads the instructions once (#2247).
 
 #### OpenCode
 

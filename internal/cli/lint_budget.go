@@ -176,7 +176,7 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 				load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
 			}
 		}
-		if t == "copilot" && agentsFile != nil && copilotAlsoLoadsAgents(cfg, files, cfg.Targets) {
+		if t == "copilot" && agentsFile != nil && adapters.VSCodeReadsRootAgents(cfg) {
 			load.add("AGENTS.md", wordsIn(agentsFile.Content))
 			load.addFileContext(agentsFile.Path, agentsFile.Content, agentsFile.Layers)
 		}

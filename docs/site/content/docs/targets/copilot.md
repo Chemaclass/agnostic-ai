@@ -37,9 +37,11 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 .github/hooks/agnostic-ai.json                              # when hook entries exist
 .github/hooks/scripts/agnostic-ai-portable-hook.sh          # when a portable before-tool hook exists
 .github/copilot/settings.json                              # when a Settings model or a disabled MCP server exists
+.vscode/settings.json                                      # chat.useAgentsMdFile: false, when another target writes AGENTS.md
 ```
 - **Instructions**: `.github/copilot-instructions.md` holds the whole `AGNOSTIC_AI.md` body, even when another target writes a root `AGENTS.md`. Copilot Chat on GitHub.com, Visual Studio, and JetBrains, and code review in the IDEs, read that file and not `AGENTS.md` ([support by surface](https://docs.github.com/en/copilot/reference/custom-instructions-support)).
-  - VS Code chat, the [cloud agent](https://docs.github.com/en/copilot/reference/custom-instructions-support), and GitHub.com code review load both files, VS Code because `chat.useAgentsMdFile` is on by default ([settings reference](https://code.visualstudio.com/docs/copilot/reference/copilot-settings)). `sync` notes it, and `lint` counts both toward Copilot's budget. Setting `chat.useAgentsMdFile` to `false` loads the text once, in VS Code only.
+  - VS Code chat, the [cloud agent](https://docs.github.com/en/copilot/reference/custom-instructions-support), and GitHub.com code review load both files. VS Code reads `AGENTS.md` while `chat.useAgentsMdFile` is on, its default ([settings reference](https://code.visualstudio.com/docs/copilot/reference/copilot-settings)). So `sync` sets `"chat.useAgentsMdFile": false` in `.vscode/settings.json`, and VS Code loads the text once. The setting also turns off nested `AGENTS.md` files in VS Code; Copilot gets those rules from its own `.instructions.md` files.
+  - A value you set for that key wins: `sync` leaves it, notes the double load when it is `true`, and `lint` counts both files toward Copilot's budget. Removing `copilot` or the last target that writes `AGENTS.md` takes the key out again. The cloud agent and code review have no such setting.
 - **Rules**: a rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its own `.instructions.md` file with `applyTo`.
   - Scope and patterns combine: `scope: src/a` with `globs: tests/a/**` writes `applyTo: src/a/**,tests/a/**`.
   - An always-on rule with no scope (no globs, or `alwaysApply: true`) gets `applyTo: "**"`.

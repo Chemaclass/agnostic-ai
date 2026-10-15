@@ -240,6 +240,13 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitSettings(sess, b.Settings, b.MCPs, dryRun); err != nil {
 		return err
 	}
+	if emit.SyncSetsVSCodeAgentsMd(cfg) {
+		// copilot-instructions.md carries the AGENTS.md body, so VS Code
+		// chat would load it twice.
+		if err := sess.MergeJSONFile(emit.VSCodeSettingsFile, map[string]any{emit.VSCodeAgentsMdKey: false}, dryRun); err != nil {
+			return err
+		}
+	}
 	return emitMCP(sess, b, cfg, dryRun)
 }
 

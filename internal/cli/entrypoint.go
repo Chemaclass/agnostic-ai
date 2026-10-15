@@ -50,8 +50,8 @@ func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bun
 	if err != nil {
 		return nil, err
 	}
-	if copilotAlsoLoadsAgents(cfg, files, targets) {
-		adapters.NoteProject("copilot: VS Code chat, the cloud agent, and GitHub.com code review load both .github/copilot-instructions.md and AGENTS.md, so they read the instructions twice; set chat.useAgentsMdFile to false to load them once in VS Code")
+	if adapters.VSCodeReadsRootAgents(cfg) {
+		adapters.NoteProject("copilot: .vscode/settings.json keeps chat.useAgentsMdFile on, so VS Code chat loads both .github/copilot-instructions.md and AGENTS.md; set it to false to load the instructions once")
 	}
 	for _, f := range files {
 		// A user-owned file is expected to be hand-authored. sess still
@@ -627,18 +627,4 @@ func renderContextInstructions(text string, layers []instructionLayer) string {
 		layers[0].Rendering = &instructionRendering{Text: text, Copied: copied}
 	}
 	return rendered
-}
-
-// copilotAlsoLoadsAgents reports whether Copilot loads a synced root
-// AGENTS.md next to its own instructions file. VS Code chat
-// (chat.useAgentsMdFile defaults to on), the cloud agent, and GitHub.com
-// code review read both. GitHub.com chat and the IDE code reviews read
-// only .github/copilot-instructions.md, so that file keeps the full body.
-func copilotAlsoLoadsAgents(cfg *config.Config, files []entryPointFile, targets []string) bool {
-	if !slices.Contains(targets, "copilot") || adapters.EntryPointPath(cfg, "copilot") == "AGENTS.md" {
-		return false
-	}
-	return slices.ContainsFunc(files, func(f entryPointFile) bool {
-		return f.Path == "AGENTS.md" && !cfg.IsUnmanaged(f.Path)
-	})
 }
