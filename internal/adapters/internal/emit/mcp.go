@@ -219,8 +219,6 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 		transport = "stdio"
 	}
 	out := map[string]any{}
-	// The VS Code fields read x-copilot first, as Factory and Claude do
-	// for theirs (#2224).
 	vscodeMeta := e.Meta
 	if o.vscodeExtras {
 		vscodeMeta = ResolveMeta(e.Meta, "copilot")
