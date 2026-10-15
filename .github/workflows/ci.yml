@@ -125,9 +125,12 @@ jobs:
           - suite: hooks-rest
             tests: '^TestBuiltinHandoffHooks$'
             skip: '^TestBuiltinHandoffHooks$/^(automatic-snapshots-preserve-repository-boundaries|metadata-and-replacement-failures-preserve-files|claude-native-input-validation|shared-auto-snapshots-survive-worktrees|global-source-at-home-keeps-checkout-root|task-handoffs-across-worktrees)$'
-          - suite: permissions
-            tests: '^TestHandoffAccess_'
+          - suite: permissions-shared-store
+            tests: '^TestHandoffAccess_(SharedStoreJoinsNativeWriteRoots|EveryGrantAddedByHandSurvives)$'
             skip: ''
+          - suite: permissions-rest
+            tests: '^TestHandoffAccess_'
+            skip: '^TestHandoffAccess_(SharedStoreJoinsNativeWriteRoots|EveryGrantAddedByHandSurvives)$'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
