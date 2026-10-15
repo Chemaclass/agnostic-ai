@@ -59,6 +59,8 @@ type Entry struct {
 	Scope string
 	// Keep the loader's folder for placement after local metadata merges.
 	ruleFolder string
+	// globsFromPaths marks `globs` read from a rule's `paths` alias.
+	globsFromPaths bool
 	// Folder is a rule's subfolder under `rules/` when that folder names a
 	// project directory, whether or not Scope took it.
 	Folder string
@@ -818,6 +820,11 @@ func loadLayer(layer Layer) (Bundle, error) {
 				return Bundle{}, err // the path already says which spec
 			}
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
+		}
+		if l.kind == KindRule {
+			for i := range entries {
+				entries[i] = entries[i].PathsAsGlobs()
+			}
 		}
 		assignScopes(entries, dir, l.kind, ruleRoot)
 		if l.kind == KindReview && layer.IncludeRoot != "" {

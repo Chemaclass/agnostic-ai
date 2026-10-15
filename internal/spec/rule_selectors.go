@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -50,4 +51,42 @@ func nativeRuleSelectorKeys(target string) []string {
 	default:
 		return nil
 	}
+}
+
+// PathsAsGlobs reads a rule's `paths:`, the Claude Code form, as the
+// portable `globs:` every adapter reads. Loading applies it; a caller
+// that parses spec bytes itself applies it too. `paths` stays, so Claude
+// and Cline write it back as the user wrote it. A malformed `paths`, an
+// empty one (Cline's never-active rule), or one beside `globs` is left
+// alone; validate rejects `paths` and `globs` that differ.
+func (e Entry) PathsAsGlobs() Entry {
+	paths, hasPaths := e.Meta["paths"]
+	if _, hasGlobs := e.Meta["globs"]; e.Kind != KindRule || !hasPaths || hasGlobs || len(GlobList(paths)) == 0 {
+		return e
+	}
+	meta := make(map[string]any, len(e.Meta)+1)
+	for k, v := range e.Meta {
+		meta[k] = v
+	}
+	meta["globs"] = paths
+	e.Meta, e.globsFromPaths = meta, true
+	return e
+}
+
+// PathsConflictGlobs reports whether a rule sets both `paths` and
+// `globs` to different patterns, so no single scope can win.
+func (e Entry) PathsConflictGlobs() bool {
+	paths, hasPaths := e.Meta["paths"]
+	globs, hasGlobs := e.Meta["globs"]
+	return e.Kind == KindRule && hasPaths && hasGlobs && ValidGlobs(paths) &&
+		!slices.Equal(GlobList(globs), GlobList(paths))
+}
+
+// LoadedKeys names the keys that hold a source frontmatter key after
+// loading: a rule's `paths` and the `globs` read from it, or key alone.
+func (e Entry) LoadedKeys(key string) []string {
+	if key == "paths" && e.globsFromPaths {
+		return []string{"paths", "globs"}
+	}
+	return []string{key}
 }
