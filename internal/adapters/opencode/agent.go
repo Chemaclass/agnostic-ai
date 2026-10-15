@@ -120,26 +120,41 @@ func withNativePermission(translated map[string]any, native any) any {
 
 // agentPermission turns an agent's `tools` allowlist into OpenCode's
 // agent `permission` map. An allowlist denies everything first and
-// re-allows the names that translated. OpenCode lets "the last matching
-// rule" win and the frontmatter encoder sorts keys, so the catch-all
-// `*` comes before every tool key and every pattern it overrides.
+// re-allows the names that translated; a bare `mcp__<server>` allows
+// every tool of that server as `<server>_*`. The frontmatter encoder
+// sorts keys, so the catch-all `*` comes before every tool key.
 //
-// The catch-all would also deny `external_directory` and `doom_loop`,
-// which OpenCode asks about by default, and agent rules override the
-// project ones. So doom_loop goes back to "ask", external_directory
-// takes the project's outside rules, or "ask", and each listed tool
-// keeps the project's ask and deny rules after its allow. A bare
-// `mcp__<server>` allows every tool of that server as `<server>_*`.
+// OpenCode reads one flat rule list per agent, its built-in defaults,
+// then the project's `permission`, then the agent's, and the last rule
+// whose key and pattern both match wins (`Permission.merge` and
+// `evaluate` in packages/opencode/src/permission/index.ts, v1.19.0).
+// The agent's allows come last, so tighten repeats every default and
+// project ask or deny that reaches them. The catch-all would also deny
+// `doom_loop` and `external_directory`, which default to "ask", so
+// both stay "ask" unless the project is stricter, and
+// external_directory also keeps the store grants sync writes.
 //
 // Returns nil when no name translated, so an agent whose whole list is
 // untranslatable keeps its default permissions rather than being locked
 // out by a bare `{"*": "deny"}` nobody asked for. unmapped reports
 // whether at least one name had no OpenCode key.
 func agentPermission(tools []string, project *agentProject) (perms map[string]any, unmapped bool) {
-	allowed := map[string]any{}
+	allowed := map[string]*emit.OrderedJSON{}
+	grant := func(key, pattern string) {
+		rules, set := allowed[key]
+		if pattern == catchAllPattern || (set && ruleAction(rules, catchAllPattern) == "allow") {
+			allowed[key] = actionRules(catchAllPattern, "allow")
+			return
+		}
+		if !set {
+			rules = actionRules(catchAllPattern, "deny")
+			allowed[key] = rules
+		}
+		_ = rules.Set(pattern, "allow")
+	}
 	for _, name := range tools {
 		if server, whole := wholeMCPServer(name); whole {
-			allowed[server+"_"+catchAllPattern] = "allow"
+			grant(server+"_"+catchAllPattern, catchAllPattern)
 			continue
 		}
 		key, pattern, known := translateRule(name)
@@ -147,82 +162,126 @@ func agentPermission(tools []string, project *agentProject) (perms map[string]an
 			unmapped = true
 			continue
 		}
-		if pattern == catchAllPattern {
-			allowed[key] = "allow"
-			continue
-		}
-		if allowed[key] == "allow" {
-			continue
-		}
-		patterns, _ := allowed[key].(map[string]any)
-		if patterns == nil {
-			patterns = map[string]any{catchAllPattern: "deny"}
-			allowed[key] = patterns
-		}
-		patterns[pattern] = "allow"
+		grant(key, pattern)
 	}
 	if len(allowed) == 0 {
 		return nil, unmapped
 	}
-	for key, value := range allowed {
-		allowed[key] = project.restrict(key, value)
+	allowed["doom_loop"] = actionRules(catchAllPattern, "ask")
+	tighten(allowed, project.restrictive())
+
+	perms = map[string]any{catchAllPattern: "deny", externalDirectoryKey: "ask"}
+	for key, rules := range allowed {
+		perms[key], _ = orderedActions(rules)
 	}
-	allowed[catchAllPattern] = "deny"
-	allowed["doom_loop"] = project.restrict("doom_loop", "ask")
-	allowed[externalDirectoryKey] = "ask"
 	if project != nil && project.outside != nil {
-		allowed[externalDirectoryKey] = project.outside
+		perms[externalDirectoryKey] = project.outside
 	}
-	return allowed, unmapped
+	return perms, unmapped
 }
 
-// restrict makes the agent's value for key no looser than the project's.
-// The project's catch-all action for key applies in place: to the
-// agent's catch-all, or to each pattern a scoped value allows, keeping
-// the stricter action, so the agent's own `"*": deny` stays first. The
-// project's scoped deny rules follow, so they still win, and so do its
-// ask rules on a pattern inside one the agent allows; an ask elsewhere
-// would loosen the agent's deny. Its allow rules stay out: they would
-// widen the agent's list.
-func (p *agentProject) restrict(key string, value any) any {
-	if p == nil {
-		return value
-	}
-	own, set := p.rules[key]
-	if !set {
-		own = emit.NewOrderedJSON()
-	}
-	catchAll := p.catchAll(key)
+func actionRules(pattern, action string) *emit.OrderedJSON {
 	rules := emit.NewOrderedJSON()
-	var agentAllows []string
-	patterns, scoped := value.(map[string]any)
-	if scoped {
-		_ = rules.Set(catchAllPattern, "deny")
-		for _, pattern := range slices.Sorted(maps.Keys(patterns)) {
-			if pattern != catchAllPattern {
-				_ = rules.Set(pattern, stricter("allow", catchAll))
-				agentAllows = append(agentAllows, pattern)
+	_ = rules.Set(pattern, action)
+	return rules
+}
+
+// permissionRule is one entry of OpenCode's flat rule list.
+type permissionRule struct{ key, pattern, action string }
+
+// builtinRestrictive are the ask and deny rules among OpenCode's own
+// defaults, which come before the project's: `defaults` in
+// packages/opencode/src/agent/agent.ts (v1.19.0). Its `read` block
+// "mirrors github.com/github/gitignore Node.gitignore pattern for .env
+// files", so an agent that may read still asks before reading `.env`.
+var builtinRestrictive = []permissionRule{
+	{"doom_loop", catchAllPattern, "ask"},
+	{externalDirectoryKey, catchAllPattern, "ask"},
+	{"question", catchAllPattern, "deny"},
+	{"plan_enter", catchAllPattern, "deny"},
+	{"plan_exit", catchAllPattern, "deny"},
+	{"read", "*.env", "ask"},
+	{"read", "*.env.*", "ask"},
+}
+
+// restrictive returns the default and project ask and deny rules. Allow
+// rules never reach the agent: after its catch-all deny they would
+// widen its list.
+func (p *agentProject) restrictive() []permissionRule {
+	rules := slices.Clone(builtinRestrictive)
+	if p == nil {
+		return rules
+	}
+	for _, key := range slices.Sorted(maps.Keys(p.rules)) {
+		for _, pattern := range p.rules[key].Keys() {
+			if action := ruleAction(p.rules[key], pattern); action == "ask" || action == "deny" {
+				rules = append(rules, permissionRule{key, pattern, action})
 			}
 		}
-	} else {
-		action, _ := value.(string)
-		_ = rules.Set(catchAllPattern, stricter(action, catchAll))
 	}
-	for _, pattern := range own.Keys() {
-		action := ruleAction(own, pattern)
-		if pattern == catchAllPattern || action == "allow" || action == "" {
-			continue
+	return rules
+}
+
+// tighten makes every agent allow no looser than the restrictive rules
+// before it. For a rule (K, P, A) and an agent allow (k, q) whose keys
+// and patterns overlap:
+//
+//   - when K and P cover k and q, q takes the stricter action in place;
+//   - when k and q cover K and P, the rule is repeated after q, so it
+//     wins for its own inputs only; under another key it must sort
+//     after k, since the encoder writes keys in order;
+//   - otherwise q takes the stricter action in place, stricter than the
+//     project for the inputs outside the rule, never looser.
+func tighten(allowed map[string]*emit.OrderedJSON, restrictive []permissionRule) {
+	type grantRef struct{ key, pattern string }
+	var grants, appended []grantRef
+	for _, key := range slices.Sorted(maps.Keys(allowed)) {
+		for _, pattern := range allowed[key].Keys() {
+			if ruleAction(allowed[key], pattern) != "deny" {
+				grants = append(grants, grantRef{key, pattern})
+			}
 		}
-		if action == "ask" && scoped && !slices.ContainsFunc(agentAllows, func(allowed string) bool {
-			return wildcardMatch(allowed, pattern)
-		}) {
-			continue
-		}
-		rules.Delete(pattern)
-		_ = rules.Set(pattern, action)
 	}
-	ordered, _ := orderedActions(rules)
-	return ordered
+	for _, r := range restrictive {
+		for _, g := range grants {
+			if !wildcardOverlap(r.key, g.key) || !wildcardOverlap(r.pattern, g.pattern) {
+				continue
+			}
+			rules := allowed[g.key]
+			covered := wildcardContains(r.key, g.key) && wildcardContains(r.pattern, g.pattern)
+			inside := wildcardContains(g.key, r.key) && wildcardContains(g.pattern, r.pattern)
+			if inside && !covered && r.key >= g.key {
+				target, set := allowed[r.key]
+				if !set {
+					target = emit.NewOrderedJSON()
+					allowed[r.key] = target
+				}
+				action := stricter(ruleAction(target, r.pattern), r.action)
+				target.Delete(r.pattern)
+				_ = target.Set(r.pattern, action)
+				appended = append(appended, grantRef{r.key, r.pattern})
+				continue
+			}
+			_ = rules.Set(g.pattern, stricter(ruleAction(rules, g.pattern), r.action))
+		}
+	}
+	// A repeated rule sits after the allows, so once a later rule makes
+	// an allow it overlaps stricter, the repeated rule must follow suit.
+	for changed := true; changed; {
+		changed = false
+		for _, g := range grants {
+			action := ruleAction(allowed[g.key], g.pattern)
+			for _, a := range appended {
+				rules := allowed[a.key]
+				if permissionSeverity[ruleAction(rules, a.pattern)] >= permissionSeverity[action] ||
+					!wildcardOverlap(a.key, g.key) || !wildcardOverlap(a.pattern, g.pattern) {
+					continue
+				}
+				_ = rules.Set(a.pattern, action)
+				changed = true
+			}
+		}
+	}
 }
 
 // catchAll returns the project's action for every input of key: the
@@ -249,31 +308,107 @@ func ruleAction(rules *emit.OrderedJSON, pattern string) string {
 	return action
 }
 
+// wildcardAlternatives spells out OpenCode's one special case: "If
+// pattern ends with " *" (space + wildcard), make the trailing part
+// optional", so `git *` also matches a bare `git`
+// (packages/opencode/src/util/wildcard.ts, v1.19.0).
+func wildcardAlternatives(pattern string) []string {
+	if prefix, found := strings.CutSuffix(pattern, " *"); found {
+		return []string{pattern, prefix}
+	}
+	return []string{pattern}
+}
+
 // wildcardMatch reports whether s matches an OpenCode pattern, where `*`
 // is zero or more of any character, `?` exactly one, and the rest is
 // literal.
 func wildcardMatch(pattern, s string) bool {
-	p, i, star, mark := 0, 0, -1, 0
-	for i < len(s) {
-		switch {
-		case p < len(pattern) && (pattern[p] == '?' || pattern[p] == s[i]):
-			p++
-			i++
-		case p < len(pattern) && pattern[p] == '*':
-			star, mark = p, i
-			p++
-		case star >= 0:
-			p = star + 1
-			mark++
-			i = mark
-		default:
+	return slices.ContainsFunc(wildcardAlternatives(pattern), func(alt string) bool {
+		return globCovers(alt, s, false)
+	})
+}
+
+// wildcardContains reports whether every input b matches also matches
+// a. It may answer false for a true containment, never the reverse.
+func wildcardContains(a, b string) bool {
+	for _, altB := range wildcardAlternatives(b) {
+		if !slices.ContainsFunc(wildcardAlternatives(a), func(altA string) bool {
+			return globCovers(altA, altB, true)
+		}) {
 			return false
 		}
 	}
-	for p < len(pattern) && pattern[p] == '*' {
-		p++
+	return true
+}
+
+// wildcardOverlap reports whether some input matches both patterns.
+func wildcardOverlap(a, b string) bool {
+	for _, altA := range wildcardAlternatives(a) {
+		for _, altB := range wildcardAlternatives(b) {
+			if globsIntersect(altA, altB) {
+				return true
+			}
+		}
 	}
-	return p == len(pattern)
+	return false
+}
+
+// globCovers reports whether pattern a matches s. With glob set, s is a
+// pattern too, and a must cover each of its wildcards: only a `*` in a
+// covers a `*` in s, and a `?` in s needs a `?` or `*` in a.
+func globCovers(a, s string, glob bool) bool {
+	memo := map[[2]int]bool{}
+	var covers func(i, j int) bool
+	covers = func(i, j int) bool {
+		key := [2]int{i, j}
+		if v, ok := memo[key]; ok {
+			return v
+		}
+		var result bool
+		switch {
+		case i == len(a):
+			result = j == len(s)
+		case a[i] == '*':
+			result = covers(i+1, j) || (j < len(s) && covers(i, j+1))
+		case j == len(s):
+			result = false
+		case glob && s[j] == '*':
+			result = false
+		case glob && s[j] == '?':
+			result = a[i] == '?' && covers(i+1, j+1)
+		default:
+			result = (a[i] == '?' || a[i] == s[j]) && covers(i+1, j+1)
+		}
+		memo[key] = result
+		return result
+	}
+	return covers(0, 0)
+}
+
+// globsIntersect reports whether some string matches both globs.
+func globsIntersect(a, b string) bool {
+	memo := map[[2]int]bool{}
+	var meet func(i, j int) bool
+	meet = func(i, j int) bool {
+		key := [2]int{i, j}
+		if v, ok := memo[key]; ok {
+			return v
+		}
+		var result bool
+		switch {
+		case i < len(a) && a[i] == '*':
+			result = meet(i+1, j) || (j < len(b) && meet(i, j+1))
+		case j < len(b) && b[j] == '*':
+			result = meet(i, j+1) || (i < len(a) && meet(i+1, j))
+		case i == len(a) || j == len(b):
+			result = i == len(a) && j == len(b)
+		default:
+			result = (a[i] == '?' || b[j] == '?' || a[i] == b[j]) && meet(i+1, j+1)
+		}
+		memo[key] = result
+		return result
+	}
+	return meet(0, 0)
 }
 
 // stricter returns the more restrictive of two actions.

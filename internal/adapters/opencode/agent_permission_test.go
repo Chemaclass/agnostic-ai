@@ -13,6 +13,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// readAllowed is a whole read grant: OpenCode's own .env asks stay after it.
+const readAllowed = "  read:\n    \"*\": allow\n    \"*.env\": ask\n    \"*.env.*\": ask\n"
+
 func emitAgent(t *testing.T, meta map[string]any) string {
 	t.Helper()
 	dir := testutil.TempCwd(t)
@@ -28,7 +31,7 @@ func emitAgent(t *testing.T, meta map[string]any) string {
 
 func TestEmit_Agent_CanReadBecomesReadOnlyPermission(t *testing.T) {
 	got := emitAgent(t, map[string]any{"description": "d", "can": []any{"read"}})
-	want := "permission:\n  \"*\": deny\n  doom_loop: ask\n  external_directory: ask\n  read: allow\n"
+	want := "permission:\n  \"*\": deny\n  doom_loop: ask\n  external_directory: ask\n" + readAllowed
 	if !strings.Contains(got, want) {
 		t.Errorf("want read-only permission map %q in:\n%s", want, got)
 	}
@@ -48,7 +51,7 @@ func TestEmit_Agent_XOpencodePermissionWinsForItsKeys(t *testing.T) {
 		"tools":       []any{"Read", "Bash"},
 		"x-opencode":  map[string]any{"permission": map[string]any{"bash": "ask"}},
 	})
-	for _, want := range []string{"\"*\": deny", "bash: ask", "read: allow"} {
+	for _, want := range []string{"\"*\": deny", "bash: ask", readAllowed} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
@@ -64,7 +67,7 @@ func TestEmit_Agent_XOpencodeScalarPermissionWinsOutright(t *testing.T) {
 		"tools":       []any{"Read"},
 		"x-opencode":  map[string]any{"permission": "ask"},
 	})
-	if !strings.Contains(got, "permission: ask\n") || strings.Contains(got, "read: allow") {
+	if !strings.Contains(got, "permission: ask\n") || strings.Contains(got, "read:") {
 		t.Errorf("scalar x-opencode.permission must win outright:\n%s", got)
 	}
 }
@@ -72,7 +75,7 @@ func TestEmit_Agent_XOpencodeScalarPermissionWinsOutright(t *testing.T) {
 func TestEmit_Agent_UnknownToolPrintsCoverageNote(t *testing.T) {
 	buf := swapNoteWarner(t)
 	got := emitAgent(t, map[string]any{"description": "d", "tools": []any{"Read", "NotebookEdit"}})
-	if !strings.Contains(got, "read: allow") {
+	if !strings.Contains(got, readAllowed) {
 		t.Errorf("known tool must still translate:\n%s", got)
 	}
 	emit.FlushCoverageNotes()
@@ -186,7 +189,7 @@ func TestEmit_Agent_ProjectScopedDenySurvivesListedTool(t *testing.T) {
 	got := emitAgentWithSettings(t,
 		map[string]any{"permissions": map[string]any{"deny": []any{"Read(/secrets/**)"}}},
 		map[string]any{"description": "d", "tools": []any{"Read"}})
-	want := "  read:\n    \"*\": allow\n    /secrets/**: deny\n"
+	want := readAllowed + "    /secrets/**: deny\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("want %q in:\n%s", want, got)
 	}
