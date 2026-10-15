@@ -273,7 +273,10 @@
 # (19861664): the sync summary counts a shared entry-point file for each
 # target that reads it. Same Linux amd64 release flags; retain the 8 KB
 # allowance.
-# #2251 measured 19886240 on Go1.27.2, up 12288 from main 8b5ac293
-# (19873952): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
+# #2252 measured 19882144 on Go1.27.2, up 8192 from main 8b5ac293
+# (19873952): Copilot sets chat.useAgentsMdFile in .vscode/settings.json and notes a double load. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19894432
+# #2251 measured 19890336 on Go1.27.2, up 8192 from main b38b1b72
+# (19882144): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+19898528
