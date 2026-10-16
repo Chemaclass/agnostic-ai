@@ -4,16 +4,6 @@ description = "Set up your project, share instructions across coding tools, and 
 sort_by = "weight"
 template = "docs/section.html"
 page_template = "docs/page.html"
-
-[extra.demo]
-title = "Watch it run."
-muted_title = "The talk demo."
-body = "Twenty minutes from one spec to files for every tool."
-video_id = "uEG6ITlqyHU"
-video_title = "One spec, every AI CLI"
-play_label = "Play the demo video, 20 minutes"
-upload_date = "2026-09-17"
-duration = "PT19M55S"
 +++
 
 Start with one project note. Generate the files your coding tools read, then change the note once and update them together.

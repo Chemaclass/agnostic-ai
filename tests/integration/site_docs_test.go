@@ -387,24 +387,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 			t.Errorf("documentation index is missing %q", required)
 		}
 	}
-	for _, required := range []string{
-		`id="demo"`,
-		"Watch it run.",
-		`data-video-id="uEG6ITlqyHU"`,
-		`href="https://www.youtube.com/watch?v=uEG6ITlqyHU"`,
-		"assets/images/demo-poster.webp",
-		"assets/scripts/video.js",
-		`"@type": "VideoObject"`,
-	} {
-		if !strings.Contains(normalizedIndex, required) {
-			t.Errorf("documentation index is missing the demo %q", required)
-		}
-	}
-	if strings.Contains(index, "<iframe") {
-		t.Error("documentation index loads the demo player before the visitor asks for it")
-	}
-	if directoryIndex, demoIndex := strings.Index(index, `class="docs-directory"`), strings.Index(index, `id="demo"`); directoryIndex < 0 || demoIndex < 0 || demoIndex < directoryIndex {
-		t.Errorf("the demo does not close the documentation index: %d, %d", directoryIndex, demoIndex)
+	if strings.Contains(normalizedIndex, `id="demo"`) || strings.Contains(normalizedIndex, "uEG6ITlqyHU") {
+		t.Error("documentation index still carries the retired talk demo")
 	}
 	for _, required := range []string{
 		"Browse documentation",
@@ -517,8 +501,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Errorf("the explorer shows %d generated files at rest across %d entries, want one per entry", shown, entries)
 	}
 
-	// The hero plays the explainer video through the same click-to-load
-	// poster as the docs demo, so nothing loads from YouTube before a click.
+	// The explainer video loads through a click-to-load poster, so nothing
+	// loads from YouTube before a click.
 	for _, required := range []string{
 		`data-video-id="oHeKVk6bidA"`,
 		`href="https://www.youtube.com/watch?v=oHeKVk6bidA"`,
@@ -533,16 +517,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if strings.Contains(home, "<iframe") {
 		t.Error("home page loads the video player before the visitor asks for it")
 	}
-	// The talk demo lives at the foot of the documentation index.
-	for _, moved := range []string{`id="demo"`, "demo-poster.webp"} {
-		if strings.Contains(normalizedHome, moved) {
-			t.Errorf("home page still carries the demo %q", moved)
-		}
-	}
-	for _, poster := range []string{"demo-poster.webp", "hero-video-poster.webp"} {
-		if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", poster)); err != nil {
-			t.Errorf("video poster is not published: %v", err)
-		}
+	if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", "hero-video-poster.webp")); err != nil {
+		t.Errorf("video poster is not published: %v", err)
 	}
 	missionIndex := strings.Index(home, `id="mission"`)
 	explorerIndex := strings.Index(home, `id="source-explorer"`)

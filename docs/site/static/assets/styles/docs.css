@@ -233,38 +233,6 @@
   transform: translateX(0.2rem);
 }
 
-/* The talk demo closes the index. It is a poster and a link until clicked,
-   so the docs page never ships a player it was not asked for. */
-.docs-demo {
-  padding-block: clamp(3rem, 7vw, 5rem);
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-  scroll-margin-top: 5rem;
-}
-
-.docs-demo-head {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.docs-demo-head h2 {
-  font-size: clamp(1.75rem, 4vw, 2.75rem);
-}
-
-.docs-demo-head h2 span {
-  color: var(--muted);
-}
-
-.docs-demo-head p {
-  max-width: 37em;
-  color: var(--ink-soft);
-}
-
-.demo-frame {
-  width: min(100%, 56rem);
-  margin: 2rem auto 0;
-}
-
 .docs-page-layout {
   width: min(calc(100% - 2rem), 48rem);
   display: grid;

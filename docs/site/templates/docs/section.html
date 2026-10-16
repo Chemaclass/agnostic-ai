@@ -7,24 +7,7 @@
 {% block twitter_title %}{{ section.title }} | agnostic-ai{% endblock twitter_title %}
 {% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/docs.css', trailing_slash=false) }}">{% endblock styles %}
-{% block scripts %}<script src="{{ get_url(path='assets/scripts/video.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}
 {% block skip_label %}Skip to documentation{% endblock skip_label %}
-{% block structured_data %}
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "VideoObject",
-  "@id": "{{ section.permalink | safe }}#demo",
-  "name": {{ section.extra.demo.video_title | json_encode | safe }},
-  "description": {{ section.extra.demo.body | json_encode | safe }},
-  "thumbnailUrl": "{{ get_url(path='assets/images/demo-poster.webp', trailing_slash=false) }}",
-  "uploadDate": "{{ section.extra.demo.upload_date }}",
-  "duration": "{{ section.extra.demo.duration }}",
-  "contentUrl": "https://www.youtube.com/watch?v={{ section.extra.demo.video_id }}",
-  "embedUrl": "https://www.youtube-nocookie.com/embed/{{ section.extra.demo.video_id }}"
-}
-</script>
-{% endblock structured_data %}
 
 {% block content %}
 <main id="content">
@@ -77,17 +60,6 @@
         </div>
       </div>
       {% endfor %}
-    </div>
-  </section>
-
-  {% set demo = section.extra.demo %}
-  <section class="docs-demo" id="demo" aria-labelledby="docs-demo-title">
-    <div class="wrap">
-      <div class="docs-demo-head">
-        <h2 id="docs-demo-title">{{ demo.title }} <span>{{ demo.muted_title }}</span></h2>
-        <p>{{ demo.body }}</p>
-      </div>
-      {{ <video.poster video_id={demo.video_id} video_title={demo.video_title} play_label={demo.play_label} poster={get_url(path='assets/images/demo-poster.webp', trailing_slash=false)} loading="lazy" /> }}
     </div>
   </section>
 </main>
