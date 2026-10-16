@@ -76,36 +76,23 @@
         <div class="lead">{{ landing.hero.body | markdown | safe }}</div>
         <div class="button-row">
           <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a class="button button-secondary" href="#first-sync">{{ landing.hero.secondary_label }}</a>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <section class="section-band" id="first-sync" aria-labelledby="example-title">
-    <div class="wrap">
-      <h2 class="section-title" id="example-title">{{ landing.proof.title }}</h2>
-      <div class="section-lead">{{ landing.proof.body | markdown | safe }}</div>
-      <div class="instruction-proof">
-        <div class="spec-card">
-          <div class="file-name">.agnostic-ai/AGNOSTIC_AI.md</div>
-          <pre><code>{{ landing.proof.note }}</code></pre>
-        </div>
-        <p class="proof-sync"><code>agnostic-ai sync</code></p>
-        <div class="proof-outputs" aria-label="{{ landing.proof.output_label }}">
-          <p>{{ landing.proof.output_label }}</p>
-          <div class="spec-card">
-            <div class="file-name">CLAUDE.md</div>
-            <pre><code>@AGENTS.md</code></pre>
-          </div>
-          <div class="spec-card">
-            <div class="file-name">AGENTS.md</div>
-            <pre><code>{{ landing.proof.note }}</code></pre>
-          </div>
-          <p>{{ landing.proof.output_caption | markdown(inline=true) | safe }}</p>
+          <a class="button button-secondary" href="#source-explorer">{{ landing.hero.secondary_label }}</a>
         </div>
       </div>
+      {% set fanout = landing.hero.fanout %}{% set matrix = load_data(path="data/capabilities.toml") %}
+      <figure class="fanout" id="first-sync" aria-label="{{ fanout.label }}">
+        <div class="spec-card fanout-source">
+          <div class="file-name">{{ fanout.source }}</div>
+          <pre><code>{{ fanout.note }}</code></pre>
+        </div>
+        <p class="fanout-sync"><code>agnostic-ai sync</code></p>
+        <ul class="fanout-outputs">
+          {% for output in fanout.outputs %}
+          <li style="--i: {{ loop.index0 }}"><code class="fanout-path">{{ output.path }}</code><span class="fanout-tools">{{ output.tools }}</span><svg class="fanout-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></li>
+          {% endfor %}
+          <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ matrix.targets | length - fanout.targets | length }} {{ fanout.more_label }}</a></li>
+        </ul>
+      </figure>
     </div>
   </section>
 
@@ -118,11 +105,17 @@
         <article><h3>{{ principle.title }}</h3><div>{{ principle.body | markdown | safe }}</div></article>
         {% endfor %}
       </div>
+      <div class="mission-media">
         {% set video = landing.hero.video %}
         <div class="hero-video">
           {{ <video.poster video_id={video.video_id} video_title={video.video_title} play_label={video.play_label} poster={get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false)} loading="lazy" /> }}
         </div>
-      <p class="mission-question"><strong>{{ landing.mission.symlinks.question }}</strong> {{ landing.mission.symlinks.answer }} <a href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">{{ landing.mission.symlinks.link_label }}</a></p>
+        <div class="mission-question">
+          <h3>{{ landing.mission.symlinks.question }}</h3>
+          <p>{{ landing.mission.symlinks.answer }}</p>
+          <a href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">{{ landing.mission.symlinks.link_label }} <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </div>
     </div>
   </section>
 

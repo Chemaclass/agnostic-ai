@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- The homepage opens with one source note syncing into the file each tool reads, places the symlink answer beside the video, and the documentation index drops the retired talk demo.
 - Target audits resume completed local research after fresh source verification and reject changed evidence or research inputs (#2280).
 - Target audits record stage intervals, review routing, and known triage usage, preserving unknown measurements (#2278).
 - Target audits confirm permission, rule order, path discovery, and import claims before filing, with explicit proof limits and an independent check (#2275).

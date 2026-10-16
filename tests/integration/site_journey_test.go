@@ -59,7 +59,7 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 		}
 	}
 	if strings.Contains(proof, " hidden") || strings.Contains(proof, "data-source-panel") {
-		t.Error("first-sync proof must show its source and both outputs without JavaScript")
+		t.Error("first-sync proof must show its source and every output without JavaScript")
 	}
 	assertFirstSyncProof(t, proof)
 	if !strings.Contains(home[:proofStart], `class="button button-primary" href="https://agnostic-ai.org/docs/getting-started/"`) {
@@ -85,11 +85,19 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 func assertFirstSyncProof(t *testing.T, proof string) {
 	t.Helper()
 	var landing struct {
-		Proof struct{ Note string }
+		Hero struct {
+			Fanout struct {
+				Source  string
+				Note    string
+				Targets []string
+				Outputs []struct{ Path string }
+			}
+		}
 	}
 	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
 		t.Fatalf("decode first-sync example: %v", err)
 	}
+	fanout := landing.Hero.Fanout
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(dir, "global"))
@@ -97,8 +105,8 @@ func assertFirstSyncProof(t *testing.T, proof string) {
 		t.Fatal(err)
 	}
 	for path, body := range map[string]string{
-		"agnostic-ai.yaml":            "version: 1\ntargets: [claude, codex]\n",
-		".agnostic-ai/AGNOSTIC_AI.md": landing.Proof.Note + "\n",
+		"agnostic-ai.yaml": "version: 1\ntargets: [" + strings.Join(fanout.Targets, ", ") + "]\n",
+		fanout.Source:      fanout.Note + "\n",
 	} {
 		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 			t.Fatalf("write %s: %v", path, err)
@@ -111,17 +119,23 @@ func assertFirstSyncProof(t *testing.T, proof string) {
 	if err := command.Execute(); err != nil {
 		t.Fatalf("sync first-note example: %v", err)
 	}
-	shown := map[string]string{}
-	for _, match := range regexp.MustCompile(`(?s)<div class="file-name">([^<]+)</div>\s*<pre><code>(.*?)</code></pre>`).FindAllStringSubmatch(proof, -1) {
-		shown[html.UnescapeString(match[1])] = strings.TrimSpace(html.UnescapeString(match[2]))
+	source := regexp.MustCompile(`(?s)<div class="file-name">([^<]+)</div>\s*<pre><code>(.*?)</code></pre>`).FindStringSubmatch(proof)
+	if source == nil || html.UnescapeString(source[1]) != fanout.Source || strings.TrimSpace(html.UnescapeString(source[2])) != fanout.Note {
+		t.Errorf("homepage does not show %s with the note %q", fanout.Source, fanout.Note)
 	}
-	for _, path := range []string{".agnostic-ai/AGNOSTIC_AI.md", "CLAUDE.md", "AGENTS.md"} {
+	shown := regexp.MustCompile(`<code class="fanout-path">([^<]+)</code>`).FindAllStringSubmatch(proof, -1)
+	if len(shown) != len(fanout.Outputs) {
+		t.Errorf("homepage shows %d generated files, landing.toml lists %d", len(shown), len(fanout.Outputs))
+	}
+	for _, match := range shown {
+		path := html.UnescapeString(match[1])
 		body, err := os.ReadFile(path)
 		if err != nil {
-			t.Fatalf("read first-note output %s: %v", path, err)
+			t.Errorf("homepage shows %s, but sync for %v does not write it: %v", path, fanout.Targets, err)
+			continue
 		}
-		if want := strings.TrimSpace(withoutProvenanceBanner(string(body))); shown[path] != want {
-			t.Errorf("homepage shows %s as %q, sync writes %q", path, shown[path], want)
+		if text := withoutProvenanceBanner(string(body)); !strings.Contains(text, fanout.Note) && !strings.Contains(text, "@AGENTS.md") {
+			t.Errorf("%s carries neither the note nor a reference to it:\n%s", path, text)
 		}
 	}
 }
