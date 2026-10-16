@@ -527,7 +527,13 @@ changed_classes() {
     }
     END {
       if (invalid) exit 1
-      if (reasons) exit
+      if (reasons) {
+        for (i = 1; i <= n; i++) {
+          t = order[i]
+          if (!(t in observed)) print t "\tsource-recovery\t-\trequested-targets.txt\tmissing-source\trecover-source"
+        }
+        exit
+      }
       for (i = 1; i <= n; i++) {
         t = order[i]
         if (!(t in observed)) deep[t] = 1

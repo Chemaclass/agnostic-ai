@@ -742,3 +742,15 @@ function test_review_reasons_rejects_unrequested_targets_in_frozen_scope() {
   assert_not_equals 0 "$status"
   assert_not_contains $'zed\tvendor-delta' "$out"
 }
+
+function test_review_reasons_reports_missing_requested_source() {
+  builtin_regression_fixture
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\nzed\n' >"$CHANGED_DIR/requested-targets.txt"
+  local before reasons
+  before=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  reasons=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_equals $'1: claude\nsweep: zed' "$before"
+  assert_equals $'target\treason\tbaseline\tevidence\tstate\tchecklist\nclaude\tsource-recovery\t-\trequested-targets.txt\tmissing-source\trecover-source' "$reasons"
+  assert_equals "$before" "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
