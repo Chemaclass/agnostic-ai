@@ -75,7 +75,7 @@ Read the issue first: `gh issue view <number> --json number,url,title,body,label
    - Wrap returned errors per `.agnostic-ai/rules/error-wrapping.md`.
    - Follow `.agnostic-ai/rules/test-conventions.md` (use `t.TempDir()`, `testutil.Chdir`, behavior-named tests).
 
-7. **Run the gate**: the pre-push checks in `.agnostic-ai/skills/pr-sweep/SKILL.md` step 5 (`make ci-local` and the rest), each checked by its own exit code, never through `| grep | head`. Fix every failure before continuing.
+7. **Run the gate**: select and pass checks under the policy in repository-root `docs/internal/contributing.md`, section "Choose checks for your change". Follow its serial execution, evidence recording, and reuse rules. Fix every failure before continuing.
 
 8. **Regenerate generated files when touched**:
    - Edited `internal/config/config.go` struct tags → `go run ./cmd/schemagen` (see `.agnostic-ai/skills/regen-schema/SKILL.md`).
