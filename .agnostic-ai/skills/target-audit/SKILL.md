@@ -21,6 +21,8 @@ The report and issues are the only published output. Never create or edit site a
 
 All paths below are relative to the repository root, including when this skill is emitted into a nested directory.
 
+The coordinator owns shared inputs, routing, manifest coverage, synthesis, publication, finalization, and metrics. Auditors own per-target investigation, comparisons, reproductions, and evidence reports. Read `.agnostic-ai/skills/target-audit/references/evidence-and-output.md` before delegating or researching inline; it defines the shared evidence and output contract.
+
 ## 1. Prepare shared inputs once
 
 Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
@@ -55,7 +57,19 @@ In the `--changed` output from step 1, numbered lines are deep batches, at most 
 
 The coordinator preserves copied assignments and records each pending assignment and each source's separate reviewed, justified fast-path or research-limit disposition using `scripts/target-audit/manifest.md`. Finish evidence artifacts before recording their hashes. A research limit accounts for coverage but keeps the previous source hash.
 
-Then run `scripts/jev-triage.sh local/target-audit/<date>-run`. It always exits 0 and writes `triage.tsv`, likeliest drift first: target, url, delta, claim, verdict, probability, p_contradicts, via. With `TYPESAFE_API_KEY`, Jev judges every claim of each changed page's target (`contradicts`, `supports`) and gives each changed page a surface score (`noul`: whether the page changes a project-scoped config setting, which leads to a capability signal no claim covers). Without a key, or once the API fails, rows are lexical leads (verdict `paired`, via `lexical`): claims that share a path, key, or term with the moved words. Where Jev does not run, or leaves a page part unjudged, trim-1 leads follow them (verdict `paired`, via `trim`): claims for which a changed line ranks in the top 5 against the target's other claims; they need Go, and stderr says `trim-1 skipped (reason)` when they cannot run. Its stderr line says which ran and how many input tokens it spent. A Jev row is kept only when its verdict is `contradicts` or its `p_contradicts` reaches 0.4, the cutoff that separated confirmed drift from everything else on the replay cases, so an empty file after a Jev run means no lead, not a clean page. Move targets with a Jev row, or a `noul` of 0.5 or more, into the earliest batches, and pass each batch its targets' rows as leads. A lead is a question, never a fact. `triage-pages.tsv` gives each changed page a status: `clear` (Jev answered every question for it, kept no row, its surface score stayed under 0.1, and no path we write moved on it), `lead`, `judged` (no lead, but a `mentions:` page or a surface score of 0.1 or more), `unjudged` (a request was capped or failed), or `lexical` (Jev did not run). A target whose every `new` or `changed` row is `clear` there, and which is absent from the `builtin-deep:` set, is a Jev fast path. Jev never reads the built-in evidence, so first read that target's changed deltas against the hook and skill checklist in `.agnostic-ai/skills/target-audit/references/builtins.md` (event, launcher, output, project and global paths, root discovery); any hit keeps the deep read. Otherwise take it out of its batch and give it a Clean row marked `fast path by Jev`. Any other status, and any row missing from the file (no delta, a failed fetch), keeps the deep read, so without Jev every changed row is read as before. When a run has a Jev fast path, audit one of those targets anyway, chosen at random, and record in the report whether it was clean. A finding there turns the fast path off until a replay case for it passes. `scripts/jev-triage.sh --replay scripts/target-audit/triage-cases.tsv` measures the recall of Jev, the lexical pairing, and trim-1 on past confirmed drift, and `--replay-surface scripts/target-audit/surface-cases.tsv` measures the `noul`. After filing, add a row to the matching cases file for each confirmed finding or signal, with a short exact vendor quote. Setup, cost, and the measurements behind these cutoffs: `docs/internal/jev-triage.md`.
+Run `scripts/jev-triage.sh local/target-audit/<date>-run` before dispatch. It always exits 0. Its `triage.tsv` columns are target, url, delta, claim, verdict, probability, p_contradicts, via. With `TYPESAFE_API_KEY`, Jev checks every target claim against each changed page and scores project-config additions (`noul`). Without a key or after API failure, lexical `paired` leads match paths, keys, or terms; unjudged page parts also get trim-1 top-five changed-line matches against the target's other claims. Trim needs Go; stderr records skipped reasons, method, and input tokens. Leads are questions, never findings. Empty leads never clear a page.
+
+Prioritize targets with Jev leads or `noul >= 0.5`. Pass only each batch's leads. Jev keeps `contradicts` or `p_contradicts >= 0.4`. `triage-pages.tsv` statuses control eligibility:
+
+- `clear`: all questions answered, no retained lead, `noul < 0.1`, and no emitted path moved.
+- `lead`: retained lead.
+- `judged`: no lead, but a `mentions:` page or `noul >= 0.1`.
+- `unjudged`: capped or failed request.
+- `lexical`: Jev did not run.
+
+Deep review is the default. A Jev fast path requires every `new`/`changed` row to be `clear` and the target absent from `builtin-deep:`. First read its changed deltas against the built-ins reference's hook and skill checklist (event, launcher, output, project/global paths, root discovery), which Jev never sees. Any hit keeps deep review. Only then remove it from its batch and mark `fast path by Jev`. Any other status or missing row, including no delta or failed fetch, requires deep review. Without Jev, every changed row is read.
+
+Randomly select one Jev-fast-path target for deep review and record whether it was clean. A finding disables that fast path until a replay case passes. After filing each confirmed finding or signal, add its exact vendor quote to the matching `triage-cases.tsv` or `surface-cases.tsv`. Recall checks are `scripts/jev-triage.sh --replay scripts/target-audit/triage-cases.tsv` (Jev, lexical, trim-1) and `--replay-surface scripts/target-audit/surface-cases.tsv` (`noul`). Setup and cutoff measurements: `docs/internal/jev-triage.md`.
 
 Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order. Use returned agent IDs for all messages. Start each agent with minimal context when supported. Pass:
 
@@ -68,21 +82,11 @@ Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch
 
 Do not paste this skill, the full issue history, or unrelated source sections into each prompt. Auditors already have their role instructions. No broad tests during research. Build one current binary for compatible read-only reproductions when needed.
 
-Read only each assigned target's source section. `scripts/target-facts.sh --sources <target>...` extracts those sections without loading the other targets. Run `scripts/target-facts.sh <target>...` once per batch for our claims; read exact implementation lines when checking a candidate.
-
-Every source URL was fetched fresh this run, so the lock decides what a model must read, never whether the evidence is current. Auditors read `deltas.tsv` first: each `new` or `changed` row carries a label (`mentions:<paths>`, `prose`, `chrome-only`, `whitespace-only`, `no-snapshot`) and, when a snapshot exists, a word `.delta` beside its page. Labels rank the reading order and never clear a row. Then each `schema` row's delta, which lists added and removed key paths only, and each `code` row's delta, a vendor source file that moves before the docs, then the changelog delta, then each changed page's delta and saved text, retaining each page's URL, fetch date, and exact relevant excerpt. Read the full relevant section when an excerpt leaves scope or precedence unclear. Never treat a prior run's saved page, report, or lock row as current evidence. Use the coverage checks above and the built-in reference for fast-path eligibility; mark each such row as fast path. Recover every `failed`, `app-shell`, `soft-404`, and `redirected` row by hand through `.agnostic-ai/skills/target-audit/references/fetch-playbook.md`, and report what stays unreadable as a research limit.
-
-Keep raw pages and reproductions in the local run directory when useful. Return concise evidence blocks, capability signals separately, and one coverage row per target. Report inaccessible sources as research limits, never as clean targets.
+Auditors follow `.agnostic-ai/agents/target-auditor.md`, including per-target source extraction, delta reading, recovery, comparisons, and reproduction rules. Keep pages and reproductions in the run directory. Require evidence artifacts and one coverage row per target under the shared contract before recording completed coverage.
 
 ## 3. Synthesize and verify
 
-Every drift finding requires:
-
-- vendor URL and a short exact quote proving the behavior;
-- contradictory repository `file:line`;
-- concrete user loss and the smallest fix.
-
-Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
+Accept findings only under the shared evidence contract. Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
 
 For permission boundaries, overlapping order or precedence, path discovery, and import fidelity, apply `.agnostic-ai/skills/target-audit/references/behavior-evidence.md` before accepting or filing a claim. Verify its recorded confirmation outcome and complete the independent check, even without `--compare-models`. Keep unresolved claims in `Needs a human` with the missing evidence; never send them to a fixer. Source-only URL corrections and capability opportunities keep their existing evidence paths.
 

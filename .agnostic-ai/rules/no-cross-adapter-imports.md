@@ -5,19 +5,6 @@ globs: "internal/adapters/**/*.go"
 alwaysApply: false
 ---
 
-Adapter packages live under `internal/adapters/<target>/` and must stay independent.
+Target adapter packages under `internal/adapters/<target>/` must not import one another.
 
-Allowed imports inside an adapter:
-
-- `internal/adapters/internal/emit` (shared write helpers)
-- `internal/config`
-- `internal/spec`
-- Standard library
-- `gopkg.in/yaml.v3`
-
-Forbidden:
-
-- Importing one adapter package from another (`internal/adapters/<a>` importing `internal/adapters/<b>`).
-- Adding shared business logic across adapters in the registry file.
-
-If you need to share code between two adapters, lift it into `internal/adapters/internal/emit` first.
+Reuse shared helpers under `internal/adapters/internal/` and other internal packages where appropriate. Put shared output-writing logic in `internal/adapters/internal/emit/`, not in the adapter registry. A helper must not depend on a target adapter.

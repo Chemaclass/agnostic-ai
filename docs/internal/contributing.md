@@ -104,11 +104,11 @@ Verify examples in a temporary project. Describe what the generated files prove 
 
 ## Documentation checklist
 
-- New or changed flags, targets, or output fields: update the target's page under [targets](../site/content/docs/targets/_index.md) and [configuration](../site/content/docs/configuration.md), plus the [CLI reference](../site/content/docs/cli-reference/_index.md) for command changes.
+- New or changed flags, targets, or output fields: update the target's page under [targets](../site/content/docs/targets/_index.md) and [configuration](../site/content/docs/configuration.md), plus [target behavior](../site/content/docs/target-behavior.md) for cross-target notes and the [CLI reference](../site/content/docs/cli-reference/_index.md) for command changes.
 - New or changed spec fields: update the matching page under [spec format](../site/content/docs/spec-format/_index.md).
 - Config struct tag changes: regenerate [config.schema.json](../schemas/config.schema.json).
 - New commands or visible behavior: update the matching capability or quickstart explanation in [README](../../README.md).
-- User-visible changes: add an `[Unreleased]` entry in [CHANGELOG](../../CHANGELOG.md).
+- User-visible changes: add an `[Unreleased]` entry in [CHANGELOG](../../CHANGELOG.md), under `General` or the matching tool in `By tool`. Follow [.agnostic-ai/agents/changelog-curator.md](../../.agnostic-ai/agents/changelog-curator.md) for entry format.
 
 Keep tutorials focused on one working outcome. Put optional workflows in task guides and field details in references. Link to the main explanation instead of copying tables or setup instructions. Preserve existing page paths and section anchors when reorganizing docs.
 

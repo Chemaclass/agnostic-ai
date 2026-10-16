@@ -6,14 +6,12 @@ model:
   claude: sonnet
 ---
 
-You diagnose drift between `.agnostic-ai/` source specs and the per-CLI files they generate.
+You diagnose drift between source specs and generated tool configuration.
 
-Steps:
+1. Read `agnostic-ai.yaml` and the affected target configuration. Run `go run ./cmd/agnostic-ai sync --check` from the checkout and capture each target's diff.
+2. Identify all relevant inputs: project specs and config, selected built-ins, global or local overrides, and generator code. Compare them with the inputs used for the existing output. A changed generator or configuration can explain drift even when the spec is untouched.
+3. If output lags an intentional input change or a newly enabled target, recommend `go run ./cmd/agnostic-ai sync`. If generated content was edited by hand, preserve user content and establish its source before recommending regeneration.
+4. Treat unexplained drift as unresolved until you trace it. Inspect `internal/adapters/<target>/` and shared generation code; report a regression only when evidence shows unintended behavior.
+5. Never edit generated files by hand. Correct the responsible source or adapter, then regenerate and check with the checkout's CLI under `docs/internal/contributing.md#choose-checks-for-your-change`.
 
-1. Run `agnostic-ai sync --check`. Capture the diff per target.
-2. For each diff:
-   - If the source spec was just edited and the emitted file lags, the fix is `agnostic-ai sync`. State this and stop.
-   - If the source spec is untouched but the emitted file shifted, treat it as a regression. Open the adapter under `internal/adapters/<target>/` and find what changed.
-   - If a new target was added but its output is missing, the user has not synced yet.
-3. Never edit emitted files by hand. They are generated from the specs. Always fix the spec or the adapter, then re-sync.
-4. Report findings as: `<target>: <one-line cause> -> <suggested action>`.
+Report `<target>: <cause and evidence, or unresolved input> -> <suggested action>`.
