@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/cli"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
