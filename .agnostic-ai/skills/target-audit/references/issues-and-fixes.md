@@ -16,6 +16,8 @@ File most severe first, assigned to Chemaclass, labeled `target-audit` and `bug`
 
 Each issue must explain what changed, why it matters, current support, and the smallest next action. Include the vendor URL and exact quote, repository evidence linked to the audited commit, user impact, and reproduction. Keep evidence detailed enough to act without the ignored report.
 
+For behavior claims, copy the applicable confirmation record from `.agnostic-ai/skills/target-audit/references/behavior-evidence.md` into the issue. Check the outcome, proof limits, and independent verdict before filing or assigning a fixer. Use the same template for the run record; do not replace its details with a link to an ignored file.
+
 For multi-target findings, include one checkbox per target with its native path and implementation location. Identify the cheapest independent fix and why. A partial PR must not close the whole issue.
 
 Include applicable checklist items, marking exclusions with a reason:

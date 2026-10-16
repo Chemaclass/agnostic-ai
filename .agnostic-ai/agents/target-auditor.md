@@ -105,8 +105,12 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
      capability signal, not a drift finding, unless it also meets the
      finding rules below.
 6. Verify before reporting. Re-read the exact sentence in the vendor doc
-   and the exact line in our source. If either is ambiguous, downgrade
-   the finding to `unconfirmed` and say what would settle it.
+   and the exact line in our source. For permission, order or precedence,
+   path discovery, and import fidelity claims, follow
+   `.agnostic-ai/skills/target-audit/references/behavior-evidence.md`.
+   Record the confirmation outcome and request an independent check before
+   the orchestrator accepts a high-risk claim. If evidence is ambiguous or
+   incomplete, downgrade it to `unconfirmed` and say what would settle it.
 7. Never generalize one target's answer to another, even an adjacent
    one. Field names and tool vocabularies split between tools (Qoder uses
    Claude-style tool names, Augment its own). Check each target
@@ -161,6 +165,10 @@ unchanged:
 - impact: <what a user of this target loses today>
 - fix: <the smallest change that closes it>
 ```
+
+Link each behavior claim to its run-directory confirmation record using
+the template in the behavior-evidence reference. Keep the finding block's
+schema above unchanged.
 
 Then report capability signals in a separate section:
 
