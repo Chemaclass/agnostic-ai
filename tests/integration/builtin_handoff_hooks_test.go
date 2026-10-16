@@ -1321,7 +1321,11 @@ func handoffRunInput(t *testing.T, target string, h handoffNativeHandler, dir st
 		}
 	}
 	pathParts = append(pathParts, os.Getenv("PATH"))
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	timeout := 15 * time.Second
+	if runtime.GOOS == "windows" {
+		timeout = 45 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, shell, args...)
 	cmd.Dir = dir
@@ -1350,7 +1354,7 @@ func handoffRunInput(t *testing.T, target string, h handoffNativeHandler, dir st
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("direct %s command failed: %v\nstdout: %s\nstderr: %s", target, err, &stdout, &stderr)
+		t.Fatalf("direct %s command failed: %v (context: %v)\nstdout: %s\nstderr: %s", target, err, ctx.Err(), &stdout, &stderr)
 	}
 	return stdout.String(), stderr.String()
 }

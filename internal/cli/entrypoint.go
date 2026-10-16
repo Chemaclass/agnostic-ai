@@ -51,7 +51,7 @@ func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bun
 		return nil, err
 	}
 	if adapters.VSCodeReadsRootAgents(cfg) {
-		adapters.NoteProject("copilot: .vscode/settings.json keeps chat.useAgentsMdFile on, so VS Code chat loads both .github/copilot-instructions.md and AGENTS.md; set it to false to load the instructions once")
+		adapters.NoteProject("copilot: .vscode/settings.json keeps chat.useAgentsMdFile on, so VS Code's local chat loads both .github/copilot-instructions.md and AGENTS.md; set it to false to load the instructions once")
 	}
 	for _, f := range files {
 		// A user-owned file is expected to be hand-authored. sess still
@@ -214,7 +214,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		// Mirror sess.WriteFile's trailing-newline normalization so Content
 		// equals the bytes on disk and the drift check never false-positives
 		// (an AGNOSTIC_AI.md ending in several newlines, fenced or not).
-		rendered := renderContextInstructions(content, layers)
+		rendered := renderContextInstructions(cfg, consumers[path], content, layers)
 		if rendered != "" {
 			rendered = strings.TrimRight(rendered, "\n") + "\n"
 		}
@@ -287,7 +287,7 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 	if err != nil {
 		return nil, err
 	}
-	companion := renderContextInstructions(strings.Join(parts, "\n\n")+"\n", companionLayers)
+	companion := renderContextInstructions(cfg, files[claudeAt].Readers, strings.Join(parts, "\n\n")+"\n", companionLayers)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = companionLayers
 	return files, nil
@@ -329,12 +329,12 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 		agentsText = adapters.AppendLocalInstructions(agentsText, shared[1])
 	}
 	sharedLayers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText, Sources: sharedSources}}
-	rendered := strings.TrimRight(renderContextInstructions(agentsText, sharedLayers), "\n") + "\n"
+	rendered := strings.TrimRight(renderContextInstructions(cfg, []string{"claude"}, agentsText, sharedLayers), "\n") + "\n"
 	parts, err := appendMemoryPart(cfg, parts, files[claudeAt].Path)
 	if err != nil {
 		return nil, err
 	}
-	companion := renderContextInstructions(strings.Join(parts, "\n\n")+"\n", companionLayers)
+	companion := renderContextInstructions(cfg, files[claudeAt].Readers, strings.Join(parts, "\n\n")+"\n", companionLayers)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = companionLayers
 	return append(files, entryPointFile{
@@ -621,8 +621,38 @@ func appendMemoryPart(cfg *config.Config, parts []string, path string) ([]string
 	return append(parts, strings.TrimRight(memory, "\n")), nil
 }
 
-func renderContextInstructions(text string, layers []instructionLayer) string {
-	rendered, copied := header.WithCopiedRanges(text, header.FormatMarkdown)
+// entryPointWantsHeader reports whether an instructions file carries the
+// provenance header: unless every reader opts out with provenance-header: false.
+func entryPointWantsHeader(cfg *config.Config, readers []string) bool {
+	return len(readers) == 0 || slices.ContainsFunc(readers, cfg.ProvenanceHeaderEnabled)
+}
+
+// headerlessEntryPoints lists the entry-point files sync writes without
+// the provenance header, so a check that reads the header still knows them.
+func headerlessEntryPoints(cfg *config.Config) map[string]bool {
+	readers := map[string][]string{}
+	for _, t := range cfg.Targets {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			continue
+		}
+		if path := adapters.EntryPointPath(cfg, t); path != "" && path != adapters.AgnosticEntryPointPath {
+			readers[path] = append(readers[path], t)
+		}
+	}
+	out := map[string]bool{}
+	for path, rs := range readers {
+		if !entryPointWantsHeader(cfg, rs) {
+			out[filepath.ToSlash(path)] = true
+		}
+	}
+	return out
+}
+
+func renderContextInstructions(cfg *config.Config, readers []string, text string, layers []instructionLayer) string {
+	rendered, copied := text, []header.CopiedRange{{Length: len(text)}}
+	if entryPointWantsHeader(cfg, readers) {
+		rendered, copied = header.WithCopiedRanges(text, header.FormatMarkdown)
+	}
 	if len(layers) > 0 {
 		layers[0].Rendering = &instructionRendering{Text: text, Copied: copied}
 	}

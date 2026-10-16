@@ -287,4 +287,10 @@
 # #2251 measured 19959968 on Go1.27.2, up 12288 from main 77792f6a
 # (19947680): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
 # retain the 8 KB allowance.
-19968160
+# #2254 measured 20013216 on Go1.27.2, up 53248 from main bfddcf0e
+# (19959968): Kilo restricted agents replay the project rules and Kilo defaults per listed tool, read back the planned kilo.jsonc, and map Write to edit. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2264 measured 20029600 on Go1.27.2, up 8192 from main 2e5866a6
+# (20021408): prefer-spec names the target whose version each shared file takes.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+20037792

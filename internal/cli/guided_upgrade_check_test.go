@@ -11,34 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestReleaseGuidance_CoversSkippedVersionsAndExcludesOtherReleases(t *testing.T) {
-	doc := "## [Unreleased]\nfuture\n## v0.83.0 - 2026-10-11\nfuture version\n## v0.82.0 - 2026-10-10\nBreaking: manual task\n## [0.81.0] - 2026-10-07\nBuilt-in migration\n## v0.80.0 - 2026-10-01\nold task\n"
-	guidance, err := releaseGuidance(doc, "0.80.0", "0.82.0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"Breaking: manual task", "Built-in migration"} {
-		if !strings.Contains(guidance, want) {
-			t.Errorf("missing %s in %s", want, guidance)
-		}
-	}
-	for _, no := range []string{"future", "old task"} {
-		if strings.Contains(guidance, no) {
-			t.Errorf("unexpected %s in %s", no, guidance)
-		}
-	}
-	if _, err := releaseGuidance(doc, "0.82.0", "0.84.0"); err == nil {
-		t.Error("missing target guidance accepted")
-	}
-}
-
 func TestCachedUpgradeOffer_DailyChecksAndPromptsIncludeOfflineFailures(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cache.json")
 	now := time.Now()
 	calls := 0
 	fetch := func(string) (upgradeOffer, error) {
 		calls++
-		return upgradeOffer{Latest: "0.82.0", Guidance: "notes"}, nil
+		return upgradeOffer{Latest: "0.82.0"}, nil
 	}
 	offer, err := cachedUpgradeOfferAt(path, "0.81.0", now, fetch)
 	if err != nil || offer.Latest != "0.82.0" {

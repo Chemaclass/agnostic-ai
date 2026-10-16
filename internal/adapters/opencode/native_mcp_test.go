@@ -34,7 +34,7 @@ func TestEmitNativeMCP_RefusesConflictingSpecOwners(t *testing.T) {
 func TestEmitNativeMCP_KeepsUserServersAndDefaults(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	if err := os.WriteFile("opencode.json", []byte(`{"mcp":{"servers":{"user":{"type":"local","command":["user-srv"]}},"timeout":{"catalog":17},"user_option":false},"permissions":[{"effect":"deny","action":"shell"}]}`), 0o644); err != nil {
+	if err := os.WriteFile("opencode.json", []byte(`{"mcp":{"servers":{"user":{"type":"local","command":["user-srv"]}},"timeout":{"catalog":17},"user_option":false},"permissions":[{"effect":"deny","action":"shell","resource":"*"}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	native := spec.Entry{Kind: spec.KindSettings, Meta: map[string]any{
@@ -46,9 +46,30 @@ func TestEmitNativeMCP_KeepsUserServersAndDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, "opencode.json")
-	for _, want := range []string{"user-srv", "srv", `"catalog": 17`, `"user_option": false`, `"permissions"`} {
+	for _, want := range []string{"user-srv", "srv", `"catalog": 17`, `"user_option": false`, `"permissions"`, `"action": "shell"`, `"resource": "*"`, `"effect": "deny"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("native merge loses %q: %s", want, got)
+		}
+	}
+}
+
+func TestEmitNativeMCP_NoAgentsDoesNotInterpretProjectPermissions(t *testing.T) {
+	testutil.TempCwd(t)
+	if err := os.WriteFile("opencode.json", []byte(`{"permissions":[{"effect":"deny","action":"shell"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	native := spec.Entry{Kind: spec.KindSettings, Meta: map[string]any{
+		"x-opencode": map[string]any{"mcp": map[string]any{
+			"servers": map[string]any{"docs": map[string]any{"type": "local", "command": []any{"srv"}}},
+		}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.Bundle{Settings: []spec.Entry{native}}, &config.Config{}, false); err != nil {
+		t.Fatalf("MCP-only sync must leave unrelated permission values to OpenCode: %v", err)
+	}
+	got := readFile(t, "opencode.json")
+	for _, want := range []string{`"servers"`, `"srv"`, `"permissions"`, `"action": "shell"`, `"effect": "deny"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("native MCP sync loses %q: %s", want, got)
 		}
 	}
 }

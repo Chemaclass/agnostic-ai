@@ -6,13 +6,46 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- `project --bootstrap` installs bun projects with `bun install --frozen-lockfile`, and names the install to run when it cannot help (#2246).
-
-- A rule's `paths` scopes it like `globs` on every tool, so Copilot and Cursor stop loading it everywhere; `validate` rejects the two if they differ (#2243).
-
-- `sync --keep-edits` no longer keeps a skill file Codex and Amp share as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+- The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
 
 ### By tool
+
+#### OpenCode
+
+- Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269).
+- Restricted agents keep native V2 project permission limits from `opencode.json`, including ordered deny and ask rules (#2267).
+
+## v0.85.0 - 2026-10-15
+
+### General
+
+- A rule's `paths` scopes it like `globs` on every tool, so Copilot and Cursor stop loading it everywhere; `validate` rejects a mismatch (#2243).
+- A rule with `globs` that sync inlines into a root file now says `Applies to:`; run `sync` and commit the one-time diff (#2244).
+- `sync --keep-edits` no longer keeps a skill file shared by Codex and Amp as a hand edit after a branch switch, so `sync --check` stays clean (#2245).
+- With `sync.collision-policy: prefer-spec`, a file several tools write differently gets the last target's version, and `sync --check` expects it (#2257).
+- With `sync.collision-policy: prefer-spec`, sync notes which tool's version wins each shared file and which tools it overrides (#2263).
+
+- Root `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and `copilot-instructions.md` skip the header when every reader sets `provenance-header: false` (#2256).
+- `project --bootstrap` installs bun projects with `bun install --frozen-lockfile`, and names the install to run when it cannot help (#2246).
+
+### By tool
+
+#### Copilot
+
+- Set `chat.useAgentsMdFile: false` in `.vscode/settings.json` when another target writes `AGENTS.md`, so VS Code's local chat loads them once (#2247).
+- Write a stdio server's `sandbox` (write paths, denied paths, network domains) to `.vscode/mcp.json`, and keep it through `import copilot` (#2212).
+- Read an MCP server's VS Code fields (`cwd`, `envFile`, `sandboxEnabled`, `sandbox`, `oauth`, `dev`) from `x-copilot` too (#2224).
+
+#### OpenCode
+
+- A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
+- An agent's `can` or `tools` list becomes its `permission` map and denies unlisted tools; names with no OpenCode key print a note (#2236).
+
+#### Kilo
+
+- A restricted agent gets the stricter of the project's rules and its own tool list, so a project `ask` or `deny` is never loosened (#2242).
+- A bare `Bash` in an agent's tool list now asks, and outside paths and `doom_loop` stay at `ask` instead of being denied (#2239, #2242).
+- `Write` rules land under `edit`, the permission Kilo's write tool checks (#2242).
 
 #### Claude Code
 
@@ -20,29 +53,18 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Remove the handoff grant from `.claude/settings.local.json` in one sync after turning handoff off, and the file when it held nothing else (#2222).
 - `lint` warns (LINT047) when a skill or command name holds a character Claude Code refuses, such as a zero-width space or `<`, so it would never load (#2217).
 
-#### Codex
-
-- Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
-
-#### Copilot
-
-- Write a stdio server's `sandbox` (write paths, denied paths, network domains) to `.vscode/mcp.json`, and keep it through `import copilot` (#2212).
-- Read an MCP server's VS Code fields (`cwd`, `envFile`, `sandboxEnabled`, `sandbox`, `oauth`, `dev`) from `x-copilot` too (#2224).
-- Set `chat.useAgentsMdFile: false` in `.vscode/settings.json` when another target writes `AGENTS.md`, so VS Code loads the instructions once (#2247).
-
-#### OpenCode
-
-- A `deny` or `ask` now wins over a narrower `allow`, as on Claude Code, so a broad `ask` also asks for the commands it allows (#2211).
-- An agent's `can` or `tools` list becomes its `permission` map, denying unlisted tools; names with no OpenCode key print a note (#2236).
-
-#### Kilo
-
-- A restricted agent's `permission` map keeps Kilo's `ask` default for `external_directory` and `doom_loop` instead of denying them (#2239).
-
 #### Factory
 
 - Allow writes to the shared handoff store from linked worktrees when Factory's sandbox is on (#2215).
 - The dropped `disable-model-invocation` note names `outputs.factory.skills-dir: .factory/skills`, needed for `x-factory` beside `.agents/skills` (#2213).
+
+#### Windsurf / Devin
+
+- Accept `PreCompact` and `PostCompact` hooks with `manual` and `auto` matchers, as in Devin CLI v3000.11.92; `hook run` takes them from `--payload` (#2237).
+
+#### Codex
+
+- Report an agent `service_tier` that Codex ignores; Codex follows the root session's tier (#2216).
 
 #### Ellipsis
 
@@ -65,7 +87,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The first sync in a fresh clone is several times faster, and the change summary counts only the targets each change reaches (#2205, #2183, #2204).
 - `import --dry-run` matches the real import, `import` keeps frontmatter that parses the same, and `lint` flags a repeated key (#2181, #2182, #2202).
 - Set one personal session age limit for Claude Code, Gemini CLI, and Qoder CLI with `session-retention-days` (#2127).
-- A rule with `globs` that sync inlines into a root file now states `Applies to:` under its heading, so it no longer reads as a repo-wide rule (#2244).
 
 ### By tool
 
@@ -79,7 +100,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Windsurf / Devin
 
-- Accept `PreCompact` and `PostCompact` hooks with `manual` and `auto` matchers, as in Devin CLI v3000.11.92; `hook run` takes them from `--payload` (#2237).
 - Rules you add by hand to `allow`, `deny`, or `ask` in `.devin/config.json` stay next to the rules your specs write (#2184).
 - Load shared memory through a Devin CLI session-start hook, and allow writes to the shared handoff store from linked worktrees (#2106, #2155).
 - Handoff grants you add by hand stay, and `import windsurf` leaves the memory and handoff rules sync wrote out of the spec (#2176, #2186).

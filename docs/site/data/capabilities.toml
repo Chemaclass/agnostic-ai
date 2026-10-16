@@ -263,7 +263,7 @@ web = ["web_fetch", "google_web_search"]
 
 [tool_translations.kilo]
 read = ["read"]
-write = ["write"]
+write = ["edit"]
 edit = ["edit"]
 delete = []
 shell = ["bash"]

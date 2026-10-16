@@ -129,7 +129,11 @@ type Session struct {
 	// on a session other goroutines already write through.
 	unmanaged atomic.Pointer[[]string]
 	skipped   []string // user-owned paths refused; may repeat a path
-	userTier  bool
+	// collisionWinners maps each path several targets render differently
+	// to the content sync.collision-policy chose, atomic for the same
+	// reason as unmanaged.
+	collisionWinners atomic.Pointer[map[string]string]
+	userTier         bool
 	// codexSkillsDir is a skills dir Codex was configured to emit into,
 	// atomic for the same reason as unmanaged.
 	codexSkillsDir atomic.Pointer[string]
@@ -210,6 +214,28 @@ func (s *Session) SetUnmanaged(patterns []string) {
 		return
 	}
 	s.unmanaged.Store(&patterns)
+}
+
+// SetCollisionWinners makes every write to one of these paths use the
+// content the collision policy chose, so concurrent targets write the
+// same bytes and a capture matches what sync wrote.
+func (s *Session) SetCollisionWinners(winners map[string]string) {
+	if len(winners) == 0 {
+		s.collisionWinners.Store(nil)
+		return
+	}
+	s.collisionWinners.Store(&winners)
+}
+
+func (s *Session) collisionWinner(path, content string) string {
+	winners := s.collisionWinners.Load()
+	if winners == nil {
+		return content
+	}
+	if won, ok := (*winners)[filepath.Clean(path)]; ok {
+		return won
+	}
+	return content
 }
 
 // SetCodexSkillsDir records the skills dir the codex target writes, so
@@ -834,6 +860,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if s.skipUnmanaged(path) {
 		return nil
 	}
+	content = s.collisionWinner(path, content)
 	s.mu.Lock()
 	capturing := s.capturing
 	backup := s.backup

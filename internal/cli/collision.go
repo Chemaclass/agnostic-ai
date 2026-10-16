@@ -21,7 +21,9 @@ import (
 //
 //   - prompt (default): error with a resolution hint. On non-interactive
 //     stdin an extra CI hint is appended.
-//   - prefer-spec: skip the collision check; let the last adapter win.
+//   - prefer-spec: the last target in `targets:` that writes the path wins.
+//     The returned winners map each contested path to that content; sync
+//     writes it and `sync --check` expects it (Session.SetCollisionWinners).
 //   - fail: hard error with no resolution hint.
 //
 // AGENTS.md is the canonical shared path: Codex, Amp, Warp, and OpenCode all
@@ -36,27 +38,33 @@ import (
 // outputs.<target>.rules-file: AGENTS.md, or a skill whose x-codex/x-amp
 // overrides diverge), which would otherwise cause silent last-writer-wins
 // and perpetual drift in `sync --check`.
-func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error {
+func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) (winners map[string]string, err error) {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
-		return err
+		return nil, err
 	}
 	readers := append(append([]string(nil), cfg.Targets...), targets...)
 	if _, err := renderEntryPointFiles(cfg, b, readers, ""); err != nil {
-		return err
+		return nil, err
 	}
 	policy := cfg.Sync.CollisionPolicy
 	if policy == "" {
 		policy = "prompt"
 	}
+	// The winner must not depend on which targets one run selects, so
+	// prefer-spec renders every configured target.
+	writers := targets
 	if policy == "prefer-spec" {
-		return nil
+		writers = cfg.Targets
 	}
 
 	owners := map[string][]string{}
 	contents := map[string]map[string]bool{}
+	last := map[string]string{}
+	lastOwner := map[string]string{}
+	written := map[string]map[string]string{}
 	sess := adapters.NewSession()
-	for _, t := range targets {
+	for _, t := range writers {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
@@ -64,7 +72,11 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 		sess.StartCapture()
 		if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, false); err != nil {
 			sess.StopCapture()
-			return fmt.Errorf("%s: %w", t, err)
+			// The target's own emit reports the error, after the others write.
+			if policy == "prefer-spec" {
+				continue
+			}
+			return nil, fmt.Errorf("%s: %w", t, err)
 		}
 		for _, f := range sess.StopCapture() {
 			owners[f.Path] = append(owners[f.Path], t)
@@ -72,7 +84,25 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 				contents[f.Path] = map[string]bool{}
 			}
 			contents[f.Path][f.Content] = true
+			last[f.Path] = f.Content
+			lastOwner[f.Path] = t
+			if written[f.Path] == nil {
+				written[f.Path] = map[string]string{}
+			}
+			written[f.Path][t] = f.Content
 		}
+	}
+	if policy == "prefer-spec" {
+		for path, variants := range contents {
+			if len(variants) > 1 {
+				if winners == nil {
+					winners = map[string]string{}
+				}
+				winners[filepath.Clean(path)] = last[path]
+			}
+		}
+		noteCollisionWinners(writers, contents, lastOwner, written)
+		return winners, nil
 	}
 	warnSharedAgentsTreeReaders(owners, targets)
 
@@ -87,12 +117,12 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 		lines = append(lines, fmt.Sprintf("  %s ← %s", path, strings.Join(ts, ", ")))
 	}
 	if len(lines) == 0 {
-		return nil
+		return nil, nil
 	}
 	sort.Strings(lines)
 
 	if policy == "fail" {
-		return errs.Coded(errs.CodeOutputCollision,
+		return nil, errs.Coded(errs.CodeOutputCollision,
 			"output collision: targets emit to the same path\n%s",
 			strings.Join(lines, "\n"))
 	}
@@ -104,8 +134,64 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 	if !term.IsTerminal(os.Stdin.Fd()) {
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}
-	return errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
+	return nil, errs.Coded(errs.CodeOutputCollision, msg, strings.Join(lines, "\n"))
 }
+
+// noteCollisionWinners names, per winning target, the contested paths it won
+// and the targets whose different version it overrode, so a reorder of
+// `targets:` is the visible way to change the outcome.
+func noteCollisionWinners(order []string, contents map[string]map[string]bool, lastOwner map[string]string, written map[string]map[string]string) {
+	type won struct {
+		paths      []string
+		overridden map[string]bool
+	}
+	byWinner := map[string]*won{}
+	for path, variants := range contents {
+		if len(variants) < 2 {
+			continue
+		}
+		winner := lastOwner[path]
+		w := byWinner[winner]
+		if w == nil {
+			w = &won{overridden: map[string]bool{}}
+			byWinner[winner] = w
+		}
+		w.paths = append(w.paths, filepath.ToSlash(filepath.Clean(path)))
+		for t, content := range written[path] {
+			if content != written[path][winner] {
+				w.overridden[t] = true
+			}
+		}
+	}
+	for _, winner := range order {
+		w := byWinner[winner]
+		if w == nil {
+			continue
+		}
+		delete(byWinner, winner)
+		sort.Strings(w.paths)
+		examples := w.paths[:min(len(w.paths), maxCollisionExamples)]
+		list := strings.Join(examples, ", ")
+		if len(w.paths) > len(examples) {
+			list += ", ..."
+		}
+		var losers []string
+		for _, t := range order {
+			if w.overridden[t] {
+				losers = append(losers, t)
+			}
+		}
+		noun := "shared file uses"
+		if len(w.paths) > 1 {
+			noun = "shared files use"
+		}
+		adapters.NoteProject(fmt.Sprintf("prefer-spec: %d %s %s's version over %s (%s); reorder targets to change it",
+			len(w.paths), noun, winner, strings.Join(losers, ", "), list))
+	}
+}
+
+// maxCollisionExamples caps the paths a prefer-spec note lists per winner.
+const maxCollisionExamples = 3
 
 // sharedAgentsTree is the project subagent root several vendors read.
 const sharedAgentsTree = ".agents/agents/"

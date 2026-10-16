@@ -257,12 +257,12 @@ func TestEmit_AgentToolsBecomePermissionFrontmatter(t *testing.T) {
 	if strings.Contains(got, "tools:") {
 		t.Errorf("tools has no Kilo Code key and must not be written, got:\n%s", got)
 	}
-	for _, want := range []string{"permission:", `"*": deny`, "read: allow", "grep: allow", "glob: allow"} {
+	for _, want := range []string{"permission:", `"*": deny`, "grep: allow", "glob: allow", "read:\n    \"*\": allow\n    \"*.env\": ask\n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
 	}
-	if strings.Index(got, `"*": deny`) > strings.Index(got, "read: allow") {
+	if strings.Index(got, `"*": deny`) > strings.Index(got, "glob: allow") {
 		t.Errorf("the catch-all must come before every allow, got:\n%s", got)
 	}
 	for _, want := range []string{"doom_loop: ask", "external_directory: ask"} {

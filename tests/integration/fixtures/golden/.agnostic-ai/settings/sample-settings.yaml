@@ -17,3 +17,8 @@ x-claude:
   permissions:
     deny:
       - AuthorOnly
+x-opencode:
+  permissions:
+    - action: read
+      resource: secrets/*
+      effect: deny
