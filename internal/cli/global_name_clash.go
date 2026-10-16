@@ -22,8 +22,8 @@ import (
 
 // globalNameWinners records, per kind and target, which copy the tool
 // loads when a project spec and a user-level one share a name: true
-// when the user-level one wins. Only documented precedence is listed.
-// Codex shows both skills, and the other targets document none.
+// when the user-level one wins. This is the current warning scope.
+// Codex shows both skills, so it has no warning entry.
 var globalNameWinners = map[spec.Kind]map[string]bool{
 	// code.claude.com/docs/en/skills: personal over project.
 	// geminicli.com/docs/cli/skills: workspace over user.
