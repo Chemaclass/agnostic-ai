@@ -144,6 +144,10 @@ func sameEvidence(a, b *fetch) bool {
 }
 
 func copyArtifact(m, prior *manifest, entry artifact) (artifact, error) {
+	clean := filepath.Clean(entry.Path)
+	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return artifact{}, fmt.Errorf("%s: copied artifact escapes run directory", entry.Path)
+	}
 	actual, err := getArtifact(prior.Directory, entry.Path)
 	if err != nil {
 		return artifact{}, err
@@ -158,17 +162,23 @@ func copyArtifact(m, prior *manifest, entry artifact) (artifact, error) {
 	if digest(b) != actual.SHA256 {
 		return artifact{}, fmt.Errorf("%s: prior artifact changed during copy", entry.Path)
 	}
-	path := filepath.Join("resumed", prior.RunID, entry.Path)
+	path := filepath.Join("resumed", prior.RunID, clean)
+	parent := m.Directory
+	for _, component := range strings.Split(filepath.Dir(path), string(filepath.Separator)) {
+		parent = filepath.Join(parent, component)
+		info, statErr := os.Lstat(parent)
+		if errors.Is(statErr, os.ErrNotExist) {
+			break
+		}
+		if statErr != nil {
+			return artifact{}, fmt.Errorf("%s: %w", parent, statErr)
+		}
+		if !info.IsDir() {
+			return artifact{}, fmt.Errorf("%s: copied artifact parent must be a directory without symlinks", parent)
+		}
+	}
 	if err = os.MkdirAll(filepath.Dir(filepath.Join(m.Directory, path)), 0o755); err != nil {
 		return artifact{}, fmt.Errorf("%s: %w", path, err)
-	}
-	parent, err := filepath.EvalSymlinks(filepath.Dir(filepath.Join(m.Directory, path)))
-	if err != nil {
-		return artifact{}, fmt.Errorf("%s: %w", path, err)
-	}
-	rel, err := filepath.Rel(m.Directory, parent)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return artifact{}, fmt.Errorf("%s: copied artifact escapes run directory", path)
 	}
 	if err = atomicWrite(filepath.Join(m.Directory, path), b); err != nil {
 		return artifact{}, err

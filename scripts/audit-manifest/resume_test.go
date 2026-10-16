@@ -423,3 +423,62 @@ func TestResumeSelectsOnePriorRunEvenWhenEverythingIsPending(t *testing.T) {
 		t.Fatal("accepted a second prior-run selection")
 	}
 }
+
+func TestResumeRejectsUnsafeCopyBeforeCreatingDirectories(t *testing.T) {
+	for _, name := range []string{"donor-traversal", "destination-symlink"} {
+		t.Run(name, func(t *testing.T) {
+			a, _ := fixture(t)
+			workspace := t.TempDir()
+			prior := filepath.Join(workspace, "a", "b", "c", "prior")
+			call(t, a, "start", "--out", prior, "--builtins-since", "HEAD", "alpha", "beta")
+			fetched(t, a, prior, "changed")
+			covered(t, a, prior, false)
+			fresh := filepath.Join(workspace, "fresh")
+			call(t, a, "start", "--out", fresh, "--builtins-since", "HEAD", "alpha", "beta")
+			fetched(t, a, fresh, "changed")
+			m, err := load(prior)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var outside string
+			if name == "donor-traversal" {
+				alias := "audit-resume-" + filepath.Base(workspace)
+				if err = os.Symlink(prior, filepath.Join(workspace, alias)); err != nil {
+					t.Fatal(err)
+				}
+				escape := filepath.Join("..", "..", "..", "..", alias, "report.md")
+				mutate(t, prior, func(m map[string]any) {
+					m["assignments"].([]any)[0].(map[string]any)["outcome"].(map[string]any)["artifact"].(map[string]any)["path"] = escape
+				})
+				outside = filepath.Join(filepath.Dir(workspace), alias)
+				t.Cleanup(func() { _ = os.Remove(outside) })
+			} else {
+				outsideRoot := t.TempDir()
+				if err = os.Symlink(outsideRoot, filepath.Join(fresh, "resumed")); err != nil {
+					t.Fatal(err)
+				}
+				outside = filepath.Join(outsideRoot, m.RunID)
+			}
+			if _, err = os.Stat(outside); !os.IsNotExist(err) {
+				t.Fatalf("outside path must start absent: %s: %v", outside, err)
+			}
+			before, err := os.ReadFile(filepath.Join(fresh, "audit.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = a.run([]string{"resume", fresh, prior}); err == nil {
+				t.Fatal("accepted unsafe artifact destination")
+			}
+			if _, err = os.Stat(outside); !os.IsNotExist(err) {
+				t.Errorf("resume created an outside directory before rejecting: %s: %v", outside, err)
+			}
+			after, err := os.ReadFile(filepath.Join(fresh, "audit.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(before) != string(after) {
+				t.Error("unsafe artifact copy changed progress")
+			}
+		})
+	}
+}
