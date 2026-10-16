@@ -74,6 +74,32 @@ function test_resolve_urls_tags_each_line_with_its_kind() {
   assert_contains "docs	https://aider.chat/docs/usage/conventions.html" "$out"
 }
 
+function test_resolve_urls_keeps_distinct_kinds_for_the_same_url() {
+  # shellcheck disable=SC2329
+  function source_sections() {
+    printf '%s\n' '- docs: https://vendor.example/shared' '- changelog: https://vendor.example/shared'
+  }
+  assert_equals "$(printf 'docs\thttps://vendor.example/shared\nchangelog\thttps://vendor.example/shared')" "$(resolve_urls vendor)"
+}
+
+function test_update_requires_validated_coverage_before_changing_the_lock() {
+  write_lock https://vendor.example/old old
+  run_row claude https://vendor.example/new new 2026-10-16 >"$FIXTURES/docfetch.tsv"
+  local before status=0
+  before=$(cat "$LOCK")
+  docfetch_main --update "$FIXTURES/docfetch.tsv" >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+  assert_equals "$before" "$(cat "$LOCK")"
+}
+
+function test_manual_unvalidated_update_is_explicit() {
+  run_row claude https://code.claude.com/docs/en/memory new 2026-10-16 >"$FIXTURES/docfetch.tsv"
+  local out
+  out=$(docfetch_main --update-unvalidated "$FIXTURES/docfetch.tsv" 2>&1)
+  assert_contains 'coverage not checked' "$out"
+  assert_contains 'new' "$(cat "$LOCK")"
+}
+
 function test_every_registered_target_resolves_docs_and_a_changelog() {
   local t missing="" kinds
   for t in $(list_targets); do
