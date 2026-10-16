@@ -31,13 +31,7 @@ Create a branch, keep the change to one outcome, and add tests for behavior you 
 
 ## Check
 
-```bash
-make preflight
-```
-
-It runs formatting, lint (including `govet`), and the Go tests. Continuous integration (CI) also checks concurrent Go code, shell scripts, configuration schemas (the allowed fields and values), browser WebAssembly builds, and editor extensions. [Checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) says which of those your change needs. `make hooks` installs quick formatting and commit-message checks.
-
-PR Go tests run on Linux. Nightly and manual runs add macOS tests and a focused Windows smoke check with a seven-minute job limit. The full Windows Go suite is optional and manual only: dispatch `gh workflow run ci.yml --ref <branch> -f full_windows=true` for a ten-minute job limit.
+Follow [checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) to select the required local checks and remote CI. That policy covers focused documentation checks, the full gate for runtime changes, and evidence to record in the PR. `make hooks` installs quick formatting and commit-message checks.
 
 ## Submit
 
