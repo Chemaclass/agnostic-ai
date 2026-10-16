@@ -18,7 +18,7 @@ code or site content. The orchestrator triages your report and files issues.
 
 ## Inputs
 
-The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, published signals and built-in evidence described in `.agnostic-ai/skills/target-audit/references/builtins.md`. Reuse those inputs; do not fetch the full issue index again. Read matching issue bodies and comments only when a candidate overlaps.
+The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, published signals and built-in evidence described in `.agnostic-ai/skills/target-audit/references/builtins.md`. Reuse those inputs; do not fetch the full issue index again. Read your targets' review-reason rows using `.agnostic-ai/skills/target-audit/references/review-reasons.md`. Read matching issue bodies and comments only when a candidate overlaps.
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, the adapter package doc, the lines of
@@ -202,6 +202,8 @@ End with:
 - <target>: verified against <url> (<date on the changelog entry you read>)
 - <target>: fast path, docs and changelog unchanged since <lock changed date>, changelog <url> read
 ```
+
+Resolve every assigned review item before marking a target Clean. Pending built-in checks block Clean even when vendor text is unchanged.
 
 Use the first row for a target you audited deeply and the second for one
 whose rows were all `unchanged`. The orchestrator copies the marker into

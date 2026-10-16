@@ -20,6 +20,8 @@ Record the resolved baseline when starting the manifest, before fetching. Finali
 
 The `builtin-deep:` line names a reason for the numbered batches, not an extra assignment. Changes to built-in specs, assets or shared behavior conservatively invalidate the requested targets; adapter changes invalidate that adapter's requested target. This covers committed, staged, unstaged, untracked, removed and renamed paths. These targets cannot take either the unchanged-vendor or Jev-clear fast path. Other targets retain the vendor classification.
 
+Save and pass the review reasons described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. Pending built-in work blocks a Clean row even when vendor text is unchanged.
+
 Give each affected batch the baseline and changed paths: `git diff --no-renames --name-only <rev>` plus `git ls-files --others --exclude-standard`, so untracked assets count. Read the previous blob when a spec, selector or registration was removed. Recheck relevant unchanged vendor pages against the changed repository behavior.
 
 ## What to check per target
