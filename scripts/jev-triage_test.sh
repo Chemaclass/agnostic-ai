@@ -64,7 +64,7 @@ if [ "${code#2}" = "$code" ]; then
   exit 0
 fi
 cp "$data" "$FAKE_CURL_LOG.request.$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
-jq '. as $r | {model: "jev-stub", usage: {input_tokens: 100, output_tokens: 10}, answers: (.questions | with_entries(.key as $k | .value |= (
+jq --arg call "$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')" '. as $r | {model: "jev-stub", usage: {input_tokens: ($ENV.FAKE_INPUT_TOKENS // "100" | tonumber), output_tokens: 10}, answers: (.questions | with_entries(.key as $k | .value |= (
   if .type == "noul" then {type: "noul", noul: ($ENV.FAKE_NOUL // "0.85" | tonumber)}
   else
     (($r.state.claims[$k] | ascii_downcase) as $c
@@ -75,7 +75,7 @@ jq '. as $r | {model: "jev-stub", usage: {input_tokens: 100, output_tokens: 10},
     | {type: "choice", choice: $pick,
        probabilities: ({supports: 0.05, contradicts: 0.05, says_nothing: 0.05} + {($pick): 0.9}),
        confidence: 0.8}
-  end)))}' "$data" >"$out"
+  end)))} | if $ENV.FAKE_MISSING_USAGE == "1" or $ENV.FAKE_MISSING_USAGE_CALL == $call then del(.usage) else . end' "$data" >"$out"
 printf '%s' "$code"
 EOF
   chmod +x "$FIXTURES/bin/curl"
@@ -145,6 +145,58 @@ function write_run() {
 function triage() {
   PATH="$FIXTURES/bin:$PATH" TYPESAFE_API_KEY="${KEY-$SECRET}" JEV_BACKOFF=0 \
     JEV_TRIM_HELPER="${TRIM_HELPER-$FIXTURES/bin/trim-leads}" bash "$JEV" "$@" 2>&1
+}
+
+function test_metrics_keep_missing_usage_distinct_from_measured_zero() {
+  FAKE_MISSING_USAGE=1 triage "$RUN" >/dev/null
+  assert_equals 'null 0 3' "$(jq -r '[.usage.input_tokens, .usage.known_input_tokens, .usage.missing_input_requests] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  FAKE_INPUT_TOKENS=0 triage "$RUN" >/dev/null
+  assert_equals '0 0 0' "$(jq -r '[.usage.input_tokens, .usage.known_input_tokens, .usage.missing_input_requests] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+}
+
+function test_metrics_keep_known_subtotals_when_some_usage_or_answers_are_missing() {
+  FAKE_MISSING_USAGE_CALL=2 JEV_JOBS=1 triage "$RUN" >/dev/null
+  assert_equals 'null 200 1' "$(jq -r '[.usage.input_tokens, .usage.known_input_tokens, .usage.missing_input_requests] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  rm -f "$FAKE_CURL_LOG.calls"
+  FAKE_CURL_FAIL_CALL=2 FAKE_CURL_FAIL_CODE=400 JEV_JOBS=1 triage "$RUN" >/dev/null
+  assert_equals 'fallback 2 1 null 200' "$(jq -r '[.mode, .requests.answered, .requests.unanswered, .usage.input_tokens, .usage.known_input_tokens] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+}
+
+function test_metrics_failure_preserves_no_key_fallback() {
+  printf '#!/usr/bin/env bash\nexit 127\n' >"$FIXTURES/bin/jq"
+  chmod +x "$FIXTURES/bin/jq"
+  local out code=0
+  out=$(KEY='' triage "$RUN") || code=$?
+  assert_equals 0 "$code"
+  assert_contains 'metrics unavailable (cannot write artifact)' "$out"
+  assert_contains 'lexical and trim-1 leads only (no TYPESAFE_API_KEY)' "$out"
+  assert_file_exists "$RUN/triage.tsv"
+  assert_file_not_exists "$RUN/triage-metrics.json"
+}
+
+function test_metrics_interrupted_snapshot_keeps_end_answers_and_usage_unknown() {
+  bash -c '. "$1"; jev_metrics "$2" "$3" 100 running "" 3 0 2 0' _ "$JEV" "$RUN" "$FIXTURES"
+  assert_equals 'pending null null null' "$(jq -r '[.mode, .stage.end, .requests.answered, .usage.input_tokens] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  assert_equals '3 2' "$(jq -r '[.requests.planned, .requests.capped] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+}
+
+function test_metrics_inherit_coordinator_identity_and_render_in_the_report() {
+  bash "$SCRIPT_DIR/audit-metrics.sh" init "$RUN" fixture-run '{"scenario":"clean"}'
+  KEY='' triage "$RUN" >/dev/null
+  assert_equals fixture-run "$(jq -r '.run.id' "$RUN/triage-metrics.json")"
+  assert_contains 'Triage: lexical-trim (completed); 0/0 requests answered, 0 capped; input tokens: 0' "$(bash "$SCRIPT_DIR/audit-metrics.sh" report "$RUN")"
+}
+
+function test_metrics_record_success_and_fallback_without_changing_tsv() {
+  triage "$RUN" >/dev/null
+  assert_equals '1 jev 3 3 300 30' "$(jq -r '[.schema_version, .mode, .requests.planned, .requests.answered, .usage.input_tokens, .usage.output_tokens] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  JEV_MAX_REQUESTS=1 triage "$RUN" >/dev/null
+  assert_equals '1 1 2' "$(jq -r '[.requests.planned, .requests.answered, .requests.capped] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  JEV_JOBS=1 FAKE_CURL_CODE=401 triage "$RUN" >/dev/null
+  assert_equals 'fallback 0 3' "$(jq -r '[.mode, .requests.answered, .requests.unanswered] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  KEY='' triage "$RUN" >/dev/null
+  assert_equals 'lexical-trim 0 0' "$(jq -r '[.mode, .requests.planned, .usage.input_tokens] | map(tostring) | join(" ")' "$RUN/triage-metrics.json")"
+  assert_equals 'no TYPESAFE_API_KEY' "$(jq -r '.research_limits[0]' "$RUN/triage-metrics.json")"
 }
 
 # ---- without Jev -------------------------------------------------------------

@@ -25,11 +25,15 @@ All paths below are relative to the repository root, including when this skill i
 
 Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
 
-Select the built-in baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`, then start a unique audit run and fetch once using `scripts/target-audit/manifest.md`. Freeze the requested target-kind-URL set before fetching, capture the fetched evidence, then use that run path below wherever `<date>-run` appears. The fetch saves fresh bodies, comparison hashes and statuses against `scripts/target-audit/sources.lock`. Read its summary and failed rows before delegating. Fetch-only watcher runs do not need a manifest.
+Select the built-in baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`, then start a unique audit run using `scripts/target-audit/manifest.md`. Freeze the requested target-kind-URL set before fetching and use that run path below wherever `<date>-run` appears.
 
-For an explicit research continuation, independently start, fetch and capture a new run, then run `resume <new-run> <prior-run-directory>` as the manifest reference defines. Reuse only its validated completed targets; assign the pending targets below. Read `reused` in the new manifest and preserve the findings and coverage in their copied artifacts. Remove those targets from deep batches and sweeps before dispatch or recording. Reused research is completed coverage, not an automatic Clean verdict. A same-day report alone does not authorize evidence reuse.
+Initialize the run metrics before fetching, using `.agnostic-ai/skills/target-audit/references/metrics.md`. Record observed stages, routing decisions, usage, and outcomes there, including a no-change early return.
 
-Start saves `builtins.txt`. Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. When it prints no numbered batch, preserve reused coverage and write each pending target as a fast-path Clean row, record only the pending assignments and page dispositions, and finalize the manifest. Skip the issue index, signals, auditors and filing.
+Fetch once and capture the fetched evidence using `scripts/target-audit/manifest.md`. The fetch saves fresh bodies, comparison hashes and statuses against `scripts/target-audit/sources.lock`. Read its summary and failed rows before delegating. Fetch-only watcher runs do not need a manifest.
+
+For an explicit research continuation, independently start, initialize metrics, fetch and capture a new run, then run `resume <new-run> <prior-run-directory>` as the manifest reference defines. Reuse only its validated completed targets; assign the pending targets below. Read `reused` in the new manifest and preserve the findings and coverage in their copied artifacts. Remove those targets from deep batches and sweeps before dispatch or recording. Reused research is completed coverage, not an automatic Clean verdict. A same-day report alone does not authorize evidence reuse.
+
+Start saves `builtins.txt`. Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. Save the separate review-reason TSV and pass each batch its rows as described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. When it prints no numbered batch, preserve reused coverage and write each pending target as a fast-path Clean row, record only the pending assignments and page dispositions, and finalize the manifest. Skip the issue index, signals, auditors and filing.
 
 Fetch the `target-audit` issue index into the run directory with three scoped calls rather than paginating the whole collection: `--state open`, `--state all --search 'created:>=<window start>'`, and `--state closed --search 'closed:>=<window start>'`. Before treating a candidate as new, run one title-scoped search for it (`--state all --search '<target> in:title <keyword>'`). Fetch bodies and comments only for relevant matches. Refresh matching issue state before filing.
 
@@ -93,6 +97,8 @@ When requested, run that reference's bounded challenger pass after synthesis. Re
 ## 4. Write the report
 
 Write `local/target-audit/<YYYY-MM-DD>.md`. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, issue/PR links, and research limits. Add a `Built-ins` line naming each target whose built-in behavior this run checked, but only when `scripts/target-facts.sh --changed <run>/docfetch.tsv --builtins-since HEAD` prints no `builtin-deep:` line, so the files audited match the recorded commit. The next run takes its baseline only from a report with that line.
+
+Include the metrics summary and artifact links per `.agnostic-ai/skills/target-audit/references/metrics.md`. End the audit interval before later implementation or merge work; state unavailable measurements as unknown.
 
 The report is the decision view. For each finding write the heading, kind, severity, one paragraph of impact and smallest fix, the issue or PR link, and a relative link to its run-directory file, for example `local/target-audit/<date>-run/claude-mcp.md`. Vendor quotes, repository lines, and reproduction commands live once, in that file. Do not paste a run-directory file into the report.
 

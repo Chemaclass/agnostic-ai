@@ -6,10 +6,12 @@ This development helper needs Go. JSON comparison hashes also need `jq` when the
 
 ## Start and fetch
 
-Start before fetching. Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md). Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable.
+Start before fetching. Initialize the run metrics before the fetch using the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md). Use the completed built-in baseline selected by the [built-in audit reference](../../.agnostic-ai/skills/target-audit/references/builtins.md). Omit `--builtins-since` when no usable baseline exists; fast paths then remain unavailable.
 
 ```bash
 run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
+provenance=$(jq '{audited_commit, targets, builtin_baseline: .builtins_since, source_lock: .lock_baseline_sha256}' "$run/audit.json")
+scripts/audit-metrics.sh init "$run" "$(jq -r .run_id "$run/audit.json")" "$provenance"
 scripts/docfetch.sh --out "$run" claude zed
 go run ./scripts/audit-manifest capture "$run"
 ```
@@ -26,6 +28,8 @@ Explicit resume selects one prior run directory. Start a new run with the indepe
 
 ```bash
 run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
+provenance=$(jq '{audited_commit, targets, builtin_baseline: .builtins_since, source_lock: .lock_baseline_sha256}' "$run/audit.json")
+scripts/audit-metrics.sh init "$run" "$(jq -r .run_id "$run/audit.json")" "$provenance"
 scripts/docfetch.sh --out "$run" claude zed
 go run ./scripts/audit-manifest capture "$run"
 go run ./scripts/audit-manifest resume "$run" <prior-run-directory>

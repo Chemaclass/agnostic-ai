@@ -128,7 +128,7 @@ func findSource(sources []source, key string) *source {
 }
 
 func reusableOutcome(m *manifest, target string, out *outcome) bool {
-	return out != nil && out.Disposition != "research-limit" && !(out.Disposition == "fast-path" && slices.Contains(m.BuiltinDeep, target))
+	return out != nil && out.Disposition != "research-limit" && (out.Disposition != "fast-path" || !slices.Contains(m.BuiltinDeep, target))
 }
 
 func sameEvidence(a, b *fetch) bool {

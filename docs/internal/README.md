@@ -17,5 +17,5 @@ Build and run the CLI first using the contributor setup guide. Then choose the a
 | Work on the browser playground | [Playground development](../playground/README.md) |
 | Ship a version | [Release process](release-process.md) |
 | Understand past choices or planned work | [Decisions](decisions.md) and [Roadmap](roadmap.md) |
-| Check adapters against vendor documentation | [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md) and [coverage manifest](../../scripts/target-audit/manifest.md) |
+| Check adapters against vendor documentation | [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md), [coverage manifest](../../scripts/target-audit/manifest.md), [review reasons](../../.agnostic-ai/skills/target-audit/references/review-reasons.md) |
 | Use Jev to decide which vendor changes need review | [Jev triage](jev-triage.md) |

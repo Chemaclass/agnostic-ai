@@ -7,9 +7,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Target audits resume completed local research after fresh source verification and reject changed evidence or research inputs (#2280).
+- Target audits record stage intervals, review routing, and known triage usage, preserving unknown measurements (#2278).
 - Target audits confirm permission, rule order, path discovery, and import claims before filing, with explicit proof limits and an independent check (#2275).
 - Target audits validate recorded target and page coverage before updating the vendor source lock; manual updates use `--update-unvalidated` (#2277).
 - The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
+- Target audits report separate vendor, built-in, repository and source recovery work with baseline evidence (#2279).
 - Reusing a target-audit fetch directory reports only the requested targets and their current mirrors (#2276).
 
 ### By tool
