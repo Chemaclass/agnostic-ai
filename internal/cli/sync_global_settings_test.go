@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -250,7 +251,8 @@ x-claude:
 	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc["model"] != "opus" || doc["effortLevel"] != nil || doc["permissions"] != nil || doc["hooks"] != nil || doc["theme"] != "dark" {
+	permissions, _ := doc["permissions"].(map[string]any)
+	if doc["model"] != "opus" || doc["effortLevel"] != nil || !reflect.DeepEqual(permissions, map[string]any{"allow": []any{"Read"}}) || doc["hooks"] != nil || doc["theme"] != "dark" {
 		t.Errorf("settings.json = %v", doc)
 	}
 }
@@ -522,8 +524,13 @@ x-claude:
 			t.Errorf("missing %q: %s", want, warnings)
 		}
 	}
-	if got := readGlobalTest(t, filepath.Join(home, ".claude", "settings.json")); strings.Contains(got, "permissions") {
-		t.Errorf("unsupported permissions written: %s", got)
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"allow": []any{"Read"}, "deny": []any{"Write"}, "ask": []any{"Bash"}}
+	if got := doc["permissions"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("only the rule lists may be written, got %v", got)
 	}
 }
 
