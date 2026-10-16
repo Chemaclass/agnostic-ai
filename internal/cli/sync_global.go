@@ -32,8 +32,9 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
-	// Version 6 records the hooks file containers sync created.
-	globalStateVersion = 7
+	// Version 6 records the hooks file containers sync created; version
+	// 8 records the permission rules sync wrote.
+	globalStateVersion = 8
 )
 
 type globalSyncOptions struct {
@@ -62,7 +63,11 @@ type globalState struct {
 	// Settings records the value written per target and native key of
 	// its user settings file, so a later sync changes or removes only
 	// keys it placed.
-	Settings         map[string]map[string]any          `json:"settings,omitempty"`
+	Settings map[string]map[string]any `json:"settings,omitempty"`
+	// PermissionRules records, per target and permission list, the rules
+	// sync wrote into its user settings file, so a later sync removes
+	// only its own and import leaves them out.
+	PermissionRules  map[string]map[string][]string     `json:"permissionRules,omitempty"`
 	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
@@ -236,6 +241,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
 	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
+	// A permission rule the target cannot read would be written as it
+	// stands, so a deny rule could stop guarding anything.
+	if slices.ContainsFunc(targets, func(t string) bool { return globalTargets[t].settings.permissionLists }) {
+		issues = append(issues, permissionCapabilityIssues(bundle.Settings)...)
+	}
 	if err := stopOnIssues(issues); err != nil {
 		return err
 	}
@@ -717,7 +727,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -741,6 +751,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, rules := range old.PermissionRules {
+		if !slices.Contains(targets, target) {
+			next.PermissionRules[target] = rules
 		}
 	}
 	for target, original := range old.SessionRetention {
@@ -1108,9 +1123,18 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		current = target
 		g := globalTargets[target]
 		want := globalSettingsFor(target, g, b.Settings)
+		var wantRules map[string][]string
+		if g.settings.permissionLists {
+			var err error
+			wantRules, err = globalPermissionRules(target, b.Settings, onUnsupported)
+			if err != nil {
+				return nil, next, err
+			}
+		}
 		if g.settings.path != "" {
 			path := g.path(home, g.settings.path)
 			previous := old.Settings[target]
+			previousRules := old.PermissionRules[target]
 			var original *globalRetentionOriginal
 			if saved, present := old.SessionRetention[target]; present {
 				original = &saved
@@ -1122,10 +1146,14 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				if err != nil {
 					return nil, next, err
 				}
+				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules); err != nil {
+					return nil, next, err
+				}
 				if err := placeEdit(moved, m, 0o644); err != nil {
 					return nil, next, err
 				}
 				previous = nil
+				previousRules = nil
 				original = nil
 			}
 			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
@@ -1134,6 +1162,16 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 			if retention != nil {
 				next.SessionRetention[target] = *retention
+			}
+			var rules map[string][]string
+			if g.settings.permissionLists {
+				if m, rules, err = withGlobalPermissionRules(path, m, baseFor(path), wantRules, previousRules); err != nil {
+					return nil, next, err
+				}
+			}
+			if len(rules) > 0 {
+				next.PermissionRules[target] = rules
+				next.SettingsPaths[target] = path
 			}
 			if len(m.owned) > 0 {
 				next.Settings[target] = m.owned

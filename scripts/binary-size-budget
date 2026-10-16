@@ -293,4 +293,8 @@
 # #2264 measured 20029600 on Go1.27.2, up 8192 from main 2e5866a6
 # (20021408): prefer-spec names the target whose version each shared file takes.
 # Same Linux amd64 release flags; retain the 8 KB allowance.
-20037792
+# #2259 measured 20050080 on Go 1.27.2, up 45056 from main 0ad5df49
+# (20005024): global Claude permissions import, managed rule merging,
+# shape validation and credential safeguards. Same Linux amd64 release
+# flags; retain the current 32 KB headroom. No new dependencies.
+20082848

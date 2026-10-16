@@ -27,7 +27,8 @@ const globalImportSettingsSpec = "settings/imported.yaml"
 // writes and turns them into specs in the home, so a following sync
 // adopts them and changes nothing. A spec file that already exists is
 // never replaced: an equal one is left as it is, and a different one is
-// reported and skipped.
+// reported and skipped. The permissions spec is the exception: it is
+// the import's own, so the rules it lacks are appended to it.
 func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	home, err := globalUserHome()
 	if err != nil {
@@ -68,6 +69,13 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err := stageGlobalSettings(home, stage, targets, bundle.Settings); err != nil {
 		return err
 	}
+	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+	if err != nil {
+		return err
+	}
+	if err := stageGlobalPermissions(home, stage, targets, bundle.Settings, state, warn); err != nil {
+		return err
+	}
 	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, warn); err != nil {
 		return err
 	}
@@ -76,7 +84,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	}
 
 	out := cmd.OutOrStdout()
-	var created, kept, differ int
+	var created, updated, kept, differ int
 	err = filepath.WalkDir(stage, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -95,6 +103,25 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 		case readErr == nil && bytes.Equal(existing, data):
 			kept++
 			return nil
+		case readErr == nil && filepath.ToSlash(rel) == globalImportPermissionsSpec:
+			merged, added, err := appendPermissionsSpec(dst, existing, data)
+			if err != nil {
+				return err
+			}
+			if added == 0 {
+				kept++
+				return nil
+			}
+			updated++
+			if dryRun {
+				_, err := fmt.Fprintf(out, "dry-run: update %s: add %d permission rule(s)\n", dst, added)
+				return err
+			}
+			if err := importWriteFile(dst, merged, 0o644); err != nil {
+				return fmt.Errorf("write %s: %w", dst, err)
+			}
+			_, err = fmt.Fprintf(out, "updated %s: added %d permission rule(s)\n", dst, added)
+			return err
 		case readErr == nil:
 			differ++
 			_, err := fmt.Fprintf(warn, "skipped %s: it exists with other content; compare it with what the tool holds, then edit it by hand\n", dst)
@@ -119,14 +146,18 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	if created+kept+differ == 0 {
-		_, err := fmt.Fprintf(out, "No user settings, MCP servers, or hooks found for %s.\n", strings.Join(targets, ", "))
+	if created+updated+kept+differ == 0 {
+		_, err := fmt.Fprintf(out, "No user settings, permission rules, MCP servers, or hooks found for %s.\n", strings.Join(targets, ", "))
 		return err
 	}
 	if dryRun {
 		return nil
 	}
-	_, err = fmt.Fprintf(out, "Imported into %s: %d written, %d already there, %d skipped. Run `agnostic-ai sync --global --check` to confirm nothing would change.\n", source, created, kept, differ)
+	written := fmt.Sprintf("%d written", created)
+	if updated > 0 {
+		written += fmt.Sprintf(", %d updated", updated)
+	}
+	_, err = fmt.Fprintf(out, "Imported into %s: %s, %d already there, %d skipped. Run `agnostic-ai sync --global --check` to confirm nothing would change.\n", source, written, kept, differ)
 	return err
 }
 

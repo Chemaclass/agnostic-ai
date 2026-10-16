@@ -154,7 +154,7 @@ A bare capability under `allow` or `ask` covers the whole tool. Before permissio
 
 Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issue` to limit the rule. `edit(<path>)` also covers writes and edits. `web` has no scoped form. To limit web access, use the tool's own permission fields, or the `WebFetch(domain:example.com)` alias to allow fetches from one domain.
 
-Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists have no native allow or ask rule and raise no LINT038.
+Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists are written only for Claude Code; global sync and lint do not report LINT038 for these user-level lists.
 
 A Claude Code rule is a bare tool name (the whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 
@@ -175,7 +175,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, and output prerequisites. It also reports the global-only scope of `permissions.default-mode`. Other settings fields remain outside comparison. Written policy does not prove runtime enforcement.
 
-`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, and `permissions.default-mode`. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` rule lists. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 ## Effort by target
 
