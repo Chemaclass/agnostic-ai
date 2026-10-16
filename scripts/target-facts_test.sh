@@ -232,6 +232,21 @@ function test_changed_classes_marks_a_moved_page_deep() {
   assert_contains "sweep: zed" "$out"
 }
 
+function test_requested_targets_survive_a_missing_fetch_row() {
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\nzed\n' >"$CHANGED_DIR/requested-targets.txt"
+  assert_equals "$(printf 'claude\nzed')" "$(run_targets "$CHANGED_RUN")"
+  assert_contains 'deep: claude' "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_rejects_an_unrequested_fetch_target() {
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\n' >"$CHANGED_DIR/requested-targets.txt"
+  local status=0
+  changed_classes "$CHANGED_RUN" >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+}
+
 function test_changed_classes_marks_a_moved_changelog_deep() {
   write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c changed"
   assert_contains "deep: zed" "$(changed_classes "$CHANGED_RUN")"
@@ -704,4 +719,38 @@ function test_review_reasons_legacy_rows_use_the_same_lock_as_classification() {
   printf 'factory\tdocs\thttps://f/1\t200\thtml\tnew-sha\t2026-09-01\n' >"$CHANGED_RUN"
   printf 'factory\tdocs\thttps://f/1\t200\thtml\told-sha\t2026-08-01\n' >"$LOCK"
   assert_contains $'factory\tvendor-delta\told-sha\thttps://f/1\tchanged\tvendor-review' "$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_preserves_routing_with_frozen_requested_targets() {
+  builtin_regression_fixture
+  write_run "factory docs https://f/1 changed" "claude docs https://c/1 unchanged" "continue docs https://n/1 failed"
+  printf 'continue\nclaude\nfactory\n' >"$CHANGED_DIR/requested-targets.txt"
+  local before reasons
+  before=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  reasons=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_equals $'1: continue\n2: factory\nsweep: claude' "$before"
+  assert_contains $'factory\tvendor-delta\t-\thttps://f/1\tchanged\tvendor-review' "$reasons"
+  assert_contains $'continue\tsource-recovery\t-\thttps://n/1\tfailed\trecover-source' "$reasons"
+  assert_equals "$before" "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_rejects_unrequested_targets_in_frozen_scope() {
+  write_run "zed docs https://z/1 changed"
+  printf 'claude\n' >"$CHANGED_DIR/requested-targets.txt"
+  local status=0 out
+  out=$(review_reasons "$CHANGED_RUN" HEAD 2>/dev/null) || status=$?
+  assert_not_equals 0 "$status"
+  assert_not_contains $'zed\tvendor-delta' "$out"
+}
+
+function test_review_reasons_reports_missing_requested_source() {
+  builtin_regression_fixture
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\nzed\n' >"$CHANGED_DIR/requested-targets.txt"
+  local before reasons
+  before=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  reasons=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_equals $'1: claude\nsweep: zed' "$before"
+  assert_equals $'target\treason\tbaseline\tevidence\tstate\tchecklist\nclaude\tsource-recovery\t-\trequested-targets.txt\tmissing-source\trecover-source' "$reasons"
+  assert_equals "$before" "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }

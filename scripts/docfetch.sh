@@ -23,13 +23,14 @@
 # request merges, before any docs page, and is hashed as raw text.
 #
 # Usage:
-#   scripts/docfetch.sh                      # every target, into today's run dir
+#   scripts/docfetch.sh                      # every target, into a unique run dir
 #   scripts/docfetch.sh claude zed           # only the named targets
 #   scripts/docfetch.sh --out DIR [target...]
 #   scripts/docfetch.sh --urls claude        # resolved URLs, no network
 #   scripts/docfetch.sh --update RUN/docfetch.tsv [target...]
+#   scripts/docfetch.sh --update-unvalidated RUN/docfetch.tsv [target...]
 #
-# Portable: POSIX-ish bash + awk + grep + diff + curl only. No GNU-only flags.
+# Fetching uses portable bash, awk, grep, diff and curl. Audited updates need Go.
 
 set -euo pipefail
 
@@ -46,13 +47,16 @@ docfetch_usage() {
 Usage: scripts/docfetch.sh [--out DIR] [<target>...]
        scripts/docfetch.sh --urls <target>...
        scripts/docfetch.sh --update <docfetch.tsv> [<target>...]
+       scripts/docfetch.sh --update-unvalidated <docfetch.tsv> [<target>...]
        scripts/docfetch.sh --compare-mirrors <run dir a> <run dir b>
 
   (no args)      fetch every registered target's docs, changelog, schema, and code URLs
   <target>...    fetch only the named targets
-  --out DIR      run directory (default local/target-audit/<utc date>-run)
+  --out DIR      run directory (default: a unique directory under local/target-audit)
   --urls         print "<target>\t<kind>\t<url>" without fetching
-  --update FILE  merge a run's rows into scripts/target-audit/sources.lock
+  --update FILE  validate the run's audit.json coverage, then update the lock
+  --update-unvalidated FILE
+                 manual compatibility path, skips audit coverage validation
   --mirrors      also fetch each scraped page's .md copy into mirrors.tsv
                  (measurement only, never hashed into the lock)
   --compare-mirrors A B
@@ -70,8 +74,8 @@ resolve_urls() {
   source_sections "$1" | awk '
     function emit(u,   k) {
       sub(/[.,;:]+$/, "", u)
-      if (u == "" || seen[u]) return
-      seen[u] = 1
+      if (u == "" || seen[kind SUBSEP u]) return
+      seen[kind SUBSEP u] = 1
       print kind "\t" u
     }
     function strip_parens(s,   out, depth, i, c) {
@@ -1047,9 +1051,7 @@ fetch_target() {
   done < <(resolve_urls "$target")
 }
 
-# lock_merge <docfetch.tsv> [target...] rewrites the lock from a finished run.
-# It runs after the report, never before: a crash mid-run must not mark pages
-# as seen that no auditor read.
+# lock_merge <docfetch.tsv> [target...] is the manual unvalidated compatibility update.
 lock_merge() {
   local file="$1"
   shift
@@ -1104,6 +1106,10 @@ docfetch_main() {
         mode=update
         shift
         ;;
+      --update-unvalidated)
+        mode=update-unvalidated
+        shift
+        ;;
       --mirrors)
         export DOCFETCH_MIRRORS=1
         shift
@@ -1151,15 +1157,29 @@ docfetch_main() {
       compare_mirrors "$1" "$2"
       return 0
       ;;
-    update)
+    update | update-unvalidated)
       if [ -z "${1:-}" ]; then
         echo "--update needs a docfetch.tsv path" >&2
         return 2
       fi
       local file="$1"
       shift
-      lock_merge "$file" "$@" || return
-      lock_prune
+      if [ "$mode" = update ]; then
+        if [ ! -r "$file" ]; then
+          echo "cannot read $file" >&2
+          return 1
+        fi
+        if [ "$(basename "$file")" != docfetch.tsv ]; then
+          echo "--update needs a run's readable docfetch.tsv" >&2
+          return 2
+        fi
+        go -C "$DOCFETCH_ROOT" run ./scripts/audit-manifest --root "$ROOT" --lock "$LOCK" finalize "$(dirname "$file")" "$@" || return
+        snapshot_store "$file"
+      else
+        echo "docfetch: manual unvalidated lock update (coverage not checked)" >&2
+        lock_merge "$file" "$@" || return
+        lock_prune
+      fi
       snapshot_prune
       return
       ;;
@@ -1171,7 +1191,11 @@ docfetch_main() {
   else
     targets="$*"
   fi
-  [ -n "$out" ] || out="$ROOT/local/target-audit/$(date -u +%Y-%m-%d)-run"
+  if [ -z "$out" ]; then
+    mkdir -p "$ROOT/local/target-audit"
+    out=$(mktemp -d "$ROOT/local/target-audit/$(date -u +%Y-%m-%dT%H%M%SZ)-fetch.XXXXXX")
+    printf 'run: %s\n' "$out"
+  fi
   mkdir -p "$out/rows"
 
   # Wait on each worker by PID: a bare `wait` returns 0 even when one

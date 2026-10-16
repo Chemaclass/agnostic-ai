@@ -15,7 +15,9 @@ The TSV has `target`, `reason`, `baseline`, `evidence`, `state` and `checklist` 
 | `vendor-delta` | A new or changed vendor URL. `baseline` is the lock's previous content hash, or `-` if absent. `vendor-review`: read the delta and relevant current text using the auditor's normal method. |
 | `built-in` | A shipped built-in path, including assets and registration. `baseline` is the resolved repository commit. `built-in-review`: apply the existing skill and hook checklist in `.agnostic-ai/skills/target-audit/references/builtins.md`. |
 | `shared-repository` | A shared runtime, selection, config, emission, test or documented claim, or a target's own adapter or page. `target-claims`: trace the changed repository claim to current vendor evidence. Also complete `built-in-review`. |
-| `source-recovery` | A vendor row whose resolved status is neither unchanged nor a new or changed source. `baseline` is the previous locked hash if available. `recover-source`: use `.agnostic-ai/skills/target-audit/references/fetch-playbook.md`; record unresolved access as a research limit. |
+| `source-recovery` | A vendor row whose resolved status is neither unchanged nor a new or changed source, or a requested target with no fetched rows. `baseline` is the previous locked hash if available. `recover-source`: use `.agnostic-ai/skills/target-audit/references/fetch-playbook.md`; record unresolved access as a research limit. |
+
+A target listed in `requested-targets.txt` with no fetched rows gets `evidence=requested-targets.txt`, `state=missing-source` and `baseline=-`. Recover the missing fetch coverage before capture or finalization. Normal batching keeps that target deep.
 
 Repository ownership follows the current classifier: a registered adapter package or target page belongs to its requested target; shipped built-ins, shared paths and unknown adapter packages belong to every requested target. Selector exclusions never narrow these assignments. No supported-target table is maintained here.
 
