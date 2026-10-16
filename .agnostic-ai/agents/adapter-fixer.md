@@ -61,8 +61,10 @@ vendor accepts.
      moved
 5. `agnostic-ai sync`, then inspect the local `sync --check` result. Generated
    per-target files are mostly ignored here; commit source specs, adapter changes, and any intentional tracked output changes.
-6. `make preflight` and `agnostic-ai sync --check` must both pass before
-   you push. Never push red.
+6. Select and pass the checks in repository-root
+   `docs/internal/contributing.md`, section "Choose checks for your change",
+   before pushing. Report the commands, outcomes, tested inputs, and limits;
+   reuse evidence only under that policy. Never push red.
 7. Add a `[Unreleased]` entry to `CHANGELOG.md`, per
    `.agnostic-ai/agents/changelog-curator.md`.
 8. Push and open the PR:
