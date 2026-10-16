@@ -25,6 +25,8 @@ All paths below are relative to the repository root, including when this skill i
 
 Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
 
+Initialize the run metrics before fetching, using `.agnostic-ai/skills/target-audit/references/metrics.md`. Record observed stages, routing decisions, usage, and outcomes there, including a no-change early return.
+
 Run `scripts/docfetch.sh` once. It fetches every source URL fresh, runs the recovery ladder on pages that do not serve usable text, saves the bodies under `local/target-audit/<date>-run/pages/`, and writes `docfetch.tsv` with one row per URL carrying its mode, content hash, and status against `scripts/target-audit/sources.lock`. Read its summary line and the `failed` rows before delegating.
 
 Prepare the shared built-in inventory and audit baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`. Then run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. Save the separate review-reason TSV and pass each batch its rows as described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. When it prints no numbered batch, write the report with every requested target as a fast-path Clean row and stop. Skip the issue index, signals, auditors and filing. The lock does not move on such a day, so there is nothing to commit.
@@ -89,6 +91,8 @@ When requested, run that reference's bounded challenger pass after synthesis. Re
 ## 4. Write the report
 
 Write `local/target-audit/<YYYY-MM-DD>.md`. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, issue/PR links, and research limits. Add a `Built-ins` line naming each target whose built-in behavior this run checked, but only when `scripts/target-facts.sh --changed <run>/docfetch.tsv --builtins-since HEAD` prints no `builtin-deep:` line, so the files audited match the recorded commit. The next run takes its baseline only from a report with that line.
+
+Include the metrics summary and artifact links per `.agnostic-ai/skills/target-audit/references/metrics.md`. End the audit interval before later implementation or merge work; state unavailable measurements as unknown.
 
 The report is the decision view. For each finding write the heading, kind, severity, one paragraph of impact and smallest fix, the issue or PR link, and a relative link to its run-directory file, for example `local/target-audit/<date>-run/claude-mcp.md`. Vendor quotes, repository lines, and reproduction commands live once, in that file. Do not paste a run-directory file into the report.
 
