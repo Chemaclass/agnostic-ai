@@ -104,7 +104,7 @@
 // as `.factory/mcp.json` above: this is a plain WriteFile, so a hand
 // edit to the file is lost on the next sync (#745).
 //
-// Factory MCP options preserve disabledTools, timeout and connectTimeout
+// Factory MCP options preserve enabledTools, disabledTools, timeout and connectTimeout
 // (milliseconds, including zero). HTTP/SSE oauth accepts false or Factory
 // metadata fields. x-factory overrides corresponding top-level options.
 // Commands emit at `.factory/commands/<name>.md` with the documented

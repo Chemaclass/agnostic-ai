@@ -115,11 +115,11 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md", Meta: map[string]any{"description": "Review changes"}, Body: "Review $ARGUMENTS."},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",
-			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}},
+			Meta: map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"}, "x-factory": map[string]any{"enabledTools": []any{"read_file", "shared"}, "disabledTools": []any{"shared"}}},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
-			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp"},
+			Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "x-factory": map[string]any{"enabledTools": []any{}, "disabledTools": []any{}}},
 		},
 		{
 			Kind: spec.KindMCP, Name: "disabled-server",

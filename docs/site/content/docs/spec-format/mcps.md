@@ -168,7 +168,7 @@ These fields apply only to the listed tools.
 | [Gemini](@/docs/targets/gemini.md) | `trust`, `includeTools`, `excludeTools` |
 | [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
 | [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauthScopes` |
-| [Factory](@/docs/targets/factory.md) | `disabledTools`, `connectTimeout` |
+| [Factory](@/docs/targets/factory.md) | `x-factory.enabledTools`, `disabledTools`, `connectTimeout` |
 | [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `bareElicitationCapability`, `headersHelper` |
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` and `sandbox` (VS Code file only), `tools` (Copilot CLI files only) |
@@ -176,6 +176,14 @@ These fields apply only to the listed tools.
 | [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in `~/.openhands/mcp.json` |
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
+
+Set Factory's native tool list with `x-factory.enabledTools`. See [Factory MCP behavior](@/docs/targets/factory.md#mcp) for filtering and import details.
+
+```yaml
+x-factory:
+  enabledTools: [read_file, shared_tool]
+  disabledTools: [shared_tool]
+```
 
 Crush's `channel_enabled` keeps explicit `true` and `false`. `channel_reply` selects direct and group reply tools, their argument names and tools that suppress duplicate replies. Set these fields at the top level or under `x-crush`, which wins. Import and sync preserve them. See [Crush MCP channels](@/docs/targets/crush.md#mcp).
 

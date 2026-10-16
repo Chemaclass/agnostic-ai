@@ -12,8 +12,10 @@ func addFactoryMCPFields(out, meta map[string]any, transport string) {
 			out[key] = value
 		}
 	}
-	if tools, ok := scopeList(meta, "disabledTools"); ok {
-		out["disabledTools"] = tools
+	for _, key := range []string{"enabledTools", "disabledTools"} {
+		if tools, ok := scopeList(meta, key); ok {
+			out[key] = tools
+		}
 	}
 	if transport != "http" && transport != "sse" {
 		return
