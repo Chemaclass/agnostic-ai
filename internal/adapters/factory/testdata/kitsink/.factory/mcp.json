@@ -5,6 +5,8 @@
       "disabled": true
     },
     "http-server": {
+      "disabledTools": [],
+      "enabledTools": [],
       "type": "http",
       "url": "https://example.test/mcp"
     },
@@ -13,7 +15,14 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
-      "command": "npx"
+      "command": "npx",
+      "disabledTools": [
+        "shared"
+      ],
+      "enabledTools": [
+        "read_file",
+        "shared"
+      ]
     }
   }
 }

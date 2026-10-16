@@ -78,6 +78,9 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, error) {
 	for _, raw := range servers {
 		if server, ok := raw.(map[string]any); ok {
+			if target == "factory" {
+				normalizeFactoryMCPEntry(server)
+			}
 			// codexMCPDocs escapes Codex's literals itself, before it
 			// spells forwarded variables as `${NAME}`.
 			if target != "codex" {

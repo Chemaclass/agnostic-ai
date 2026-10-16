@@ -94,6 +94,7 @@ Written once to the tree that codex, amp, zed, and crush share. Factory also rea
 - `sync` rewrites the file whole. Factory's [MCP docs](https://docs.factory.com/harness/mcp) say to remove project servers by editing this file, but sync would undo that edit, so remove the MCP spec instead.
 - `disabled: true` becomes Factory's per-server boolean. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 - Both transports keep `disabledTools`, `timeout`, and `connectTimeout` (milliseconds), zeros included. Remote HTTP and SSE servers also accept `oauth: false` or an OAuth object with `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`.
+- Set `x-factory.enabledTools` to load only the named tools. An empty list adds no restriction. `disabledTools` excludes named tools, including a name present in both lists. Sync preserves both lists, including explicit `[]`, without removing overlapping names. See [Factory tool filtering](https://docs.factory.com/harness/mcp#tool-filtering).
 - `x-factory` overrides each top-level option. A `type: ws` spec writes no server and raises a sync note, because Factory supports only stdio, HTTP, and SSE.
 
 ### Settings
@@ -150,6 +151,7 @@ With `handoff` or `handoff-hook` on, sync adds the main checkout's handoff store
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 - **Droids**: `tools` names map back (`Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`). A list with a category (`read-only`) or an MCP tool ID goes under `x-factory.tools` as written. `reasoningEffort` becomes `effort`. Other droid keys go under `x-factory`.
+- **MCP servers**: `enabledTools` imports under `x-factory.enabledTools`. Empty lists and names shared with `disabledTools` stay intact.
 - **Command lists**: these read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes `Bash(x:*)`. Other `settings.json` keys stay in the file.
 
 <details>

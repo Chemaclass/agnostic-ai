@@ -86,3 +86,37 @@ func TestEmit_MCPPreservesFactoryControls(t *testing.T) {
 		t.Errorf("native OAuth object = %#v", got.Servers["custom"]["oauth"])
 	}
 }
+
+func TestEmit_MCPPreservesEnabledTools(t *testing.T) {
+	testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "server", "x-factory": map[string]any{"enabledTools": []any{"safe", "shared"}, "disabledTools": []any{"shared"}}}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "x-factory": map[string]any{"enabledTools": []any{"safe", "shared"}, "disabledTools": []any{"shared"}}}},
+		{Kind: spec.KindMCP, Name: "empty", Meta: map[string]any{"type": "sse", "url": "https://example.test/sse", "x-factory": map[string]any{"enabledTools": []any{}, "disabledTools": []any{}}}},
+		{Kind: spec.KindMCP, Name: "absent", Meta: map[string]any{"command": "server"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Servers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, ".factory/mcp.json")), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"local", "remote", "empty"} {
+		wantEnabled, wantDisabled := []any{"safe", "shared"}, []any{"shared"}
+		if name == "empty" {
+			wantEnabled, wantDisabled = []any{}, []any{}
+		}
+		if !reflect.DeepEqual(got.Servers[name]["enabledTools"], wantEnabled) {
+			t.Errorf("%s enabledTools = %#v, want %#v", name, got.Servers[name]["enabledTools"], wantEnabled)
+		}
+		if !reflect.DeepEqual(got.Servers[name]["disabledTools"], wantDisabled) {
+			t.Errorf("%s disabledTools = %#v, want %#v", name, got.Servers[name]["disabledTools"], wantDisabled)
+		}
+	}
+	if _, present := got.Servers["absent"]["enabledTools"]; present {
+		t.Error("absent enabledTools must remain absent")
+	}
+}

@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -163,4 +165,44 @@ func TestImportFactory_DryRunMatchesRealImport(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+}
+
+func TestImportFactory_MCPEnabledToolsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	servers := map[string]map[string]any{
+		"local":  {"type": "stdio", "command": "server", "enabledTools": []any{"safe", "shared"}, "disabledTools": []any{"shared"}},
+		"remote": {"type": "http", "url": "https://example.test/mcp", "enabledTools": []any{"safe"}, "disabledTools": []any{"destroy"}},
+		"empty":  {"type": "sse", "url": "https://example.test/sse", "enabledTools": []any{}, "disabledTools": []any{}},
+	}
+	native, err := json.Marshal(map[string]any{"mcpServers": servers})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".factory", "mcp.json"), string(native))
+	execCLI(t, "import", "factory")
+	for name := range servers {
+		imported := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml"))
+		if !strings.Contains(imported, "x-factory:") || !strings.Contains(imported, "    enabledTools:") {
+			t.Errorf("%s must import enabledTools under x-factory:\n%s", name, imported)
+		}
+	}
+	execCLI(t, "lint", "--strict")
+	execCLI(t, "sync")
+	var got struct {
+		Servers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".factory", "mcp.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range servers {
+		for _, key := range []string{"enabledTools", "disabledTools"} {
+			if !reflect.DeepEqual(got.Servers[name][key], want[key]) {
+				t.Errorf("%s %s = %#v, want %#v", name, key, got.Servers[name][key], want[key])
+			}
+		}
+	}
+	execCLI(t, "sync", "--check")
 }

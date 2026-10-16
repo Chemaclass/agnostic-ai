@@ -16,6 +16,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Factory
+
+- MCP `x-factory.enabledTools` survives sync and native import, including empty lists and names also listed in `disabledTools` (#2291).
+
 #### OpenCode
 
 - Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269).
