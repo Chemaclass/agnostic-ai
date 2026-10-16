@@ -232,6 +232,21 @@ function test_changed_classes_marks_a_moved_page_deep() {
   assert_contains "sweep: zed" "$out"
 }
 
+function test_requested_targets_survive_a_missing_fetch_row() {
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\nzed\n' >"$CHANGED_DIR/requested-targets.txt"
+  assert_equals "$(printf 'claude\nzed')" "$(run_targets "$CHANGED_RUN")"
+  assert_contains 'deep: claude' "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_rejects_an_unrequested_fetch_target() {
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\n' >"$CHANGED_DIR/requested-targets.txt"
+  local status=0
+  changed_classes "$CHANGED_RUN" >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+}
+
 function test_changed_classes_marks_a_moved_changelog_deep() {
   write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c changed"
   assert_contains "deep: zed" "$(changed_classes "$CHANGED_RUN")"

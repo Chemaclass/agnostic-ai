@@ -289,6 +289,12 @@ builtin_inventory() {
 
 # run_targets <docfetch.tsv> prints the targets a run requested, in order.
 run_targets() {
+  local requested
+  requested="$(dirname "$1")/requested-targets.txt"
+  if [ -r "$requested" ]; then
+    cat "$requested"
+    return
+  fi
   awk -F '\t' '/^#/ || NF < 6 { next } !seen[$1]++ { print $1 }' "$1"
 }
 
@@ -421,13 +427,16 @@ target_for_pkg() {
 # targets whose shipped built-ins changed. Everything else is hash-identical
 # to the committed lock and only needs a coverage row.
 changed_classes() {
-  local file="$1" forced="${2:-}"
+  local file="$1" forced="${2:-}" requested
   if [ ! -r "$file" ]; then
     echo "cannot read $file" >&2
     return 1
   fi
-  awk -F '\t' -v lock="$LOCK" -v forced="$forced" '
+  requested=$(run_targets "$file" | tr '\n' ' ')
+  awk -F '\t' -v lock="$LOCK" -v forced="$forced" -v requested="$requested" '
     BEGIN {
+      count = split(requested, names, /[[:space:]]+/)
+      for (i = 1; i <= count; i++) if (names[i] != "") { seen[names[i]] = 1; order[++n] = names[i] }
       count = split(forced, names, /[[:space:]]+/)
       for (i = 1; i <= count; i++) if (names[i] != "") deep[names[i]] = 1
       while ((getline line < lock) > 0) {
@@ -446,13 +455,16 @@ changed_classes() {
         else if (locked[url] == sha) status = "unchanged"
         else status = "changed"
       }
-      if (!(target in seen)) { seen[target] = 1; order[++n] = target }
+      if (!(target in seen)) { print "unrequested fetch target: " target > "/dev/stderr"; invalid = 1; exit 1 }
+      observed[target] = 1
       if (status != "unchanged") deep[target] = 1
       if (kind == "changelog" && status != "unchanged") deep[target] = 1
     }
     END {
+      if (invalid) exit 1
       for (i = 1; i <= n; i++) {
         t = order[i]
+        if (!(t in observed)) deep[t] = 1
         if (t in deep) d = d (d ? " " : "") t
         else sw = sw (sw ? " " : "") t
       }

@@ -6,7 +6,7 @@ Built-ins are specs that agnostic-ai ships inside the binary, such as the handof
 
 ## Repository evidence
 
-Run `scripts/target-facts.sh --builtins` once and save its compact source inventory as `builtins.txt` in the run directory. Pass that path to each batch. Its metadata is evidence to inspect, not a computed support verdict.
+The start command in `scripts/target-audit/manifest.md` saves `scripts/target-facts.sh --builtins` as `builtins.txt` and records its exact digest. Pass that path to each batch. Its metadata is evidence to inspect, not a computed support verdict.
 
 - Registration and specs: `internal/builtins/builtins.go` and `internal/builtins/data/<built-in>/`. Read selectors, exclusions and `x-<target>` overrides. Confirm selection through `internal/spec/spec.go`, the adapter and emitted output; never copy a target table into the audit instructions.
 - Docs: the matching pages under `docs/site/content/docs/`. The current handoff built-ins share `handoff.md` and `configuration.md`; the memory built-in has `memory.md`.
@@ -15,6 +15,8 @@ Run `scripts/target-facts.sh --builtins` once and save its compact source invent
 ## Coverage since the last audit
 
 Use the audited commit from a completed report whose `Built-ins` coverage line names every requested target as `--builtins-since <rev>`. A report without that line, including a run whose built-in inputs differed from its recorded commit and every report written before built-ins entered the audit, a date, a vendor lock update, or a partial report cannot establish that baseline. Without a usable revision, `--changed` keeps the requested targets deep.
+
+Record the resolved baseline when starting the manifest, before fetching. Finalization checks the repository context and built-in classification again. The helper rejects fast paths for a target whose built-ins require deep review.
 
 The `builtin-deep:` line names a reason for the numbered batches, not an extra assignment. Changes to built-in specs, assets or shared behavior conservatively invalidate the requested targets; adapter changes invalidate that adapter's requested target. This covers committed, staged, unstaged, untracked, removed and renamed paths. These targets cannot take either the unchanged-vendor or Jev-clear fast path. Other targets retain the vendor classification.
 
