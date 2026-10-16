@@ -375,7 +375,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	for _, required := range []string{
 		"Documentation.",
-		"Paste into your coding agent",
+		"Set up your project",
 		"/agent-setup.txt",
 		"/docs/agent-setup/",
 		"/docs/installation/",
@@ -473,14 +473,13 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		"Set up agnostic-ai with a coding agent",
-		"Install and start",
-		"Recommended installer",
+		"Set up your project",
+		"Install agnostic-ai",
 		`data-installer-os="macos"`,
 		`data-installer-os="windows"`,
 		`data-installer-os="linux"`,
 		"brew install --cask Chemaclass/tap/agnostic-ai",
-		"agnostic-ai init --from all",
+		"agnostic-ai init",
 		"agnostic-ai sync --plan",
 		"Keep the setup current.",
 		"Read the latest briefing",
@@ -546,7 +545,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		}
 	}
 	missionIndex := strings.Index(home, `id="mission"`)
-	explorerIndex := strings.Index(home, `id="explorer"`)
+	explorerIndex := strings.Index(home, `id="source-explorer"`)
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
 	if missionIndex < 0 || explorerIndex < 0 || quickstartIndex < 0 || updatesIndex < 0 || missionIndex >= explorerIndex || explorerIndex >= quickstartIndex || quickstartIndex >= updatesIndex {
@@ -565,10 +564,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Error("home page still references the legacy GitHub Pages project URL")
 	}
 	for _, required := range []string{
-		"TL;DR · Paste into your coding agent",
+		"Paste into your coding agent",
 		`data-copy aria-label="Copy agent setup prompt"`,
 		"Follow https://agnostic-ai.org/agent-setup.txt exactly.",
-		"You do not need to read the rest of this page",
 	} {
 		if !strings.Contains(normalizedAgentSetupGuide, required) {
 			t.Errorf("agent setup guide is missing quick handoff %q", required)
@@ -906,6 +904,21 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	}
 	if !strings.Contains(fullDocs, "# Set up agnostic-ai with a coding agent") {
 		t.Error("llms-full.txt does not include the agent setup guide")
+	}
+	_, setup, ok := strings.Cut(fullDocs, "# Set up your project {#getting-started}")
+	if !ok {
+		t.Fatal("llms-full.txt is missing the setup walkthrough")
+	}
+	setup, _, _ = strings.Cut(setup, "\n---\n")
+	for _, required := range []string{
+		"Setup prompt and checklist: https://agnostic-ai.org/agent-setup.txt",
+		"Install options and commands: https://agnostic-ai.org/docs/installation/",
+		"Run the project tests before finishing a change.",
+		"Summarize which tests you ran.",
+	} {
+		if !strings.Contains(setup, required) {
+			t.Errorf("exported setup walkthrough is missing %q", required)
+		}
 	}
 	if err := filepath.WalkDir(siteDocsContentDir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {

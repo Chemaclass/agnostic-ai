@@ -7,26 +7,26 @@ aliases = ["/docs/alternatives-why-not-symlinks/"]
 [extra]
 group = "Start"
 next = "@/docs/getting-started.md"
-next_label = "Build your first shared setup"
+next_label = "Set up your project"
 +++
 
 # Understand the setup {#why-agnostic-ai}
 
-Claude Code and Codex are coding agents: tools you ask to inspect a project, change files, and run commands. They work better when they know where the code lives, how to check changes, and which project conventions to follow.
-
-Start small. Give your tool a few project notes and one useful convention. Add a longer procedure or an outside connection when a task needs it.
-
-## A small useful setup
-
-A project's starting instructions can say:
+Claude Code and Codex are coding agents: tools you ask to inspect a project, change files, and run commands. A short project note tells them how to work here:
 
 ```markdown
 Application code is in src/. Tests are in tests/.
-Before changing code, find the existing test command in CONTRIBUTING.md.
+Before changing code, read CONTRIBUTING.md for the test command.
 Run the relevant tests before finishing a change.
 ```
 
-A rule can add a standing convention, such as the prefixes your team uses in commit messages. These are instructions to the model. They do not enforce themselves like a test or a permission setting.
+If you use both tools, you would otherwise maintain that note in `CLAUDE.md` and `AGENTS.md`. agnostic-ai generates both from `.agnostic-ai/AGNOSTIC_AI.md`. Edit the source once and sync to keep both current.
+
+[Set up your project](@/docs/getting-started.md) with your coding agent or in your terminal. You can start with one note and add the features below when you need them.
+
+## A small useful setup
+
+Begin with where code lives and how to check a change, as in the note above. These are instructions to the model; they do not enforce themselves like tests or permission settings.
 
 ## What to add, and when
 
@@ -101,4 +101,4 @@ This writes the connection settings. You still authenticate with the service as 
 
 ## Start
 
-Follow [Getting started](@/docs/getting-started.md) to share one useful setup between Claude Code and Codex. Already have tool files? [Import your existing setup](@/docs/migration.md).
+[Set up your project](@/docs/getting-started.md) to share one useful note between your tools. The walkthrough includes importing existing tool files.

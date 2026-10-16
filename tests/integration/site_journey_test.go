@@ -2,10 +2,19 @@ package integration
 
 import (
 	"encoding/json"
+	"html"
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
+
+	"github.com/chemaclass/agnostic-ai/internal/cli"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
@@ -16,12 +25,14 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 	}
 
 	index := readBuiltFile(t, filepath.Join(outputDir, "docs", "index.html"))
+	home := readBuiltFile(t, filepath.Join(outputDir, "index.html"))
+	home = strings.ReplaceAll(home, "&#x2F;", "/")
 	intro := readBuiltFile(t, filepath.Join(outputDir, "docs", "why-agnostic-ai", "index.html"))
 	guide := readBuiltFile(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"))
 	guide = strings.ReplaceAll(guide, "&#x2F;", "/")
 	memory := readBuiltFile(t, filepath.Join(outputDir, "docs", "memory", "index.html"))
 
-	for _, text := range []string{"Understand the setup", "/docs/why-agnostic-ai/", "Build your first setup"} {
+	for _, text := range []string{"Understand the setup", "/docs/why-agnostic-ai/", "Set up your project"} {
 		if !strings.Contains(index, text) {
 			t.Errorf("documentation entry has no beginner route %q", text)
 		}
@@ -31,10 +42,28 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 			t.Errorf("introduction does not explain %q", text)
 		}
 	}
-	for _, text := range []string{"CLAUDE.md", "AGENTS.md", ".claude/rules/conventional-commits.md", "aria-label=\"Next lesson\""} {
+	for _, text := range []string{"CLAUDE.md", "AGENTS.md", `id="with-your-coding-agent"`, `id="in-your-terminal"`, `id="daily-use"`, "data-install-picker", "Copy agent setup prompt", "aria-label=\"Next lesson\""} {
 		if !strings.Contains(guide, text) {
 			t.Errorf("first setup is missing %q", text)
 		}
+	}
+	proofStart := strings.Index(home, `id="first-sync"`)
+	explorerStart := strings.Index(home, `id="source-explorer"`)
+	if proofStart < 0 || explorerStart < 0 || proofStart >= explorerStart {
+		t.Fatal("first-sync proof must precede the full source explorer")
+	}
+	proof := home[proofStart : strings.Index(home[proofStart:], "</section>")+proofStart]
+	for _, text := range []string{".agnostic-ai/AGNOSTIC_AI.md", "CLAUDE.md", "AGENTS.md", "agnostic-ai sync"} {
+		if !strings.Contains(proof, text) {
+			t.Errorf("static first-sync proof is missing %q", text)
+		}
+	}
+	if strings.Contains(proof, " hidden") || strings.Contains(proof, "data-source-panel") {
+		t.Error("first-sync proof must show its source and both outputs without JavaScript")
+	}
+	assertFirstSyncProof(t, proof)
+	if !strings.Contains(home[:proofStart], `class="button button-primary" href="https://agnostic-ai.org/docs/getting-started/"`) {
+		t.Error("homepage primary action must open the setup guide")
 	}
 	for _, text := range []string{"<details", "How each tool loads it", "Save and recall a fact", `parent.open = true`, `addEventListener("hashchange"`} {
 		if !strings.Contains(memory, text) {
@@ -51,6 +80,50 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 		t.Fatalf("check rendered fragment behavior: %v\n%s", err, output)
 	}
 
+}
+
+func assertFirstSyncProof(t *testing.T, proof string) {
+	t.Helper()
+	var landing struct {
+		Proof struct{ Note string }
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
+		t.Fatalf("decode first-sync example: %v", err)
+	}
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(dir, "global"))
+	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, body := range map[string]string{
+		"agnostic-ai.yaml":            "version: 1\ntargets: [claude, codex]\n",
+		".agnostic-ai/AGNOSTIC_AI.md": landing.Proof.Note + "\n",
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	command := cli.NewRootCmd("test")
+	command.SetArgs([]string{"sync", "--gitignore=off"})
+	command.SetOut(io.Discard)
+	command.SetErr(io.Discard)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("sync first-note example: %v", err)
+	}
+	shown := map[string]string{}
+	for _, match := range regexp.MustCompile(`(?s)<div class="file-name">([^<]+)</div>\s*<pre><code>(.*?)</code></pre>`).FindAllStringSubmatch(proof, -1) {
+		shown[html.UnescapeString(match[1])] = strings.TrimSpace(html.UnescapeString(match[2]))
+	}
+	for _, path := range []string{".agnostic-ai/AGNOSTIC_AI.md", "CLAUDE.md", "AGENTS.md"} {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read first-note output %s: %v", path, err)
+		}
+		if want := strings.TrimSpace(withoutProvenanceBanner(string(body))); shown[path] != want {
+			t.Errorf("homepage shows %s as %q, sync writes %q", path, shown[path], want)
+		}
+	}
 }
 
 const journeyFragmentChecks = `

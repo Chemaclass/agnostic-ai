@@ -28,8 +28,8 @@ main > section[id] {
 }
 
 .hero h1 {
-  max-width: 14ch;
-  font-family: var(--mono);
+  max-width: 23ch;
+  font-family: var(--sans);
   font-size: clamp(2.6rem, 6.2vw, 5rem);
   font-weight: 760;
   letter-spacing: -0.035em;
@@ -62,14 +62,6 @@ main > section[id] {
   margin-top: 2rem;
 }
 
-.hero-facts {
-  margin: 1rem 0 0;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-}
-
 
 .hero-install {
   width: min(100%, 32.5rem);
@@ -91,9 +83,6 @@ main > section[id] {
   color: var(--accent);
 }
 
-/* The poster follows the buttons in the source, which is where a single
-   column shows it. The frame text sits in the middle, so the play button
-   moves to a corner instead of covering it. */
 .hero-video {
   margin-top: 2rem;
 }
@@ -113,30 +102,6 @@ main > section[id] {
   height: 1.35rem;
 }
 
-/* Beside the copy, the poster takes the wider column and spans every row of
-   the copy. Below 1200px the install command no longer fits the copy column. */
-@media (min-width: 1200px) {
-  .hero-copy {
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    column-gap: clamp(2rem, 3.5vw, 3rem);
-  }
-
-  .hero-copy > * {
-    grid-column: 1;
-  }
-
-  .hero h1 {
-    font-size: clamp(2.4rem, 4vw, 3.8rem);
-  }
-
-  .hero-video {
-    grid-column: 2;
-    grid-row: 1 / span 6;
-    align-self: center;
-    margin-top: 0;
-  }
-}
 
 .agent-shortcut {
   display: grid;
@@ -607,10 +572,6 @@ main > section[id] {
   margin-top: 2.4rem;
 }
 
-.feature-list {
-  counter-reset: principle;
-}
-
 .workflow-steps article,
 .feature-list article {
   display: grid;
@@ -620,20 +581,6 @@ main > section[id] {
   border: 1px solid var(--line-soft);
   border-radius: 14px;
   background: var(--surface);
-}
-
-/* The principles are a sequence, not a set: numbering them says read in
-   order, and costs no markup. */
-.feature-list article {
-  counter-increment: principle;
-}
-
-.feature-list article::before {
-  content: counter(principle, decimal-leading-zero);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.69rem;
-  letter-spacing: 0.08em;
 }
 
 .workflow-steps h3,
@@ -926,5 +873,60 @@ main > section[id] {
 @media (min-width: 1040px) {
   .feature-list {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.instruction-proof {
+  display: grid;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+
+.instruction-proof > *,
+.proof-outputs {
+  min-width: 0;
+}
+
+.instruction-proof pre {
+  margin: 0;
+  padding: 1rem;
+  color: var(--slab-ink);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.instruction-proof pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.proof-sync {
+  margin: 0;
+  color: var(--accent);
+  text-align: center;
+}
+
+.proof-outputs {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.proof-outputs > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+#mission .hero-video {
+  width: min(100%, 40rem);
+}
+
+@media (min-width: 1000px) {
+  .instruction-proof {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
 }

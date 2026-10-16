@@ -27,7 +27,6 @@
 {% endblock structured_data %}
 
 {% block content %}
-{% set agent_setup = get_page(path="docs/agent-setup.md") %}
 <main id="content">
   <section class="docs-hero">
     <div class="wrap docs-hero-grid">
@@ -35,9 +34,8 @@
       <div>
         <p>{{ section.description }}</p>
         <div class="docs-hero-actions">
-          <a class="button button-primary" href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">Understand the setup</a>
-          <a class="button button-secondary" href="{{ get_url(path='@/docs/getting-started.md') }}">Build your first setup</a>
-          <a href="{{ get_url(path='@/docs/migration.md') }}">Bring an existing setup</a>
+          <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">Set up your project</a>
+          <a class="button button-secondary" href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">Understand the setup</a>
         </div>
       </div>
     </div>
@@ -46,19 +44,6 @@
   <section class="docs-start" aria-labelledby="choose-your-first-task">
     <div class="wrap">
       <div class="docs-content">{{ section.content | safe }}</div>
-    </div>
-  </section>
-
-  <section class="agent-handoff" aria-labelledby="agent-handoff-title">
-    <div class="wrap agent-handoff-grid">
-      <div class="agent-handoff-copy">
-        <h2 id="agent-handoff-title">Prefer help with setup?</h2>
-        <p>Paste this into an installed coding agent. <a href="{{ agent_setup.permalink | safe }}">Review the setup checklist</a> or open <a href="{{ get_url(path='agent-setup.txt', trailing_slash=false) }}">the full agent instructions</a>.</p>
-      </div>
-      <div class="agent-prompt" data-copy-container>
-        <div class="agent-prompt-head"><span>Paste into your coding agent</span><button type="button" data-copy aria-label="Copy agent setup prompt">Copy</button></div>
-        <pre><code>{{ config.extra.agent_setup_prompt }}</code></pre>
-      </div>
     </div>
   </section>
 
