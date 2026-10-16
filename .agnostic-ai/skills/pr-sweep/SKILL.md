@@ -48,16 +48,11 @@ Then post one PR comment listing the commit that applied the findings, the issue
 
 ## 5. Gate
 
-Before every push, all green. Check each command by its own exit code; a pipe such as `make ci-local | grep FAIL | head` exits 0 when the gate fails.
+Before every push, select and pass checks under the policy in repository-root `docs/internal/contributing.md`, section "Choose checks for your change". Follow its serial execution, evidence recording, and reuse rules. Apply it again after review fixes or merges change relevant inputs. Check each command's own exit code; a filtering pipe can hide a failure.
 
-- `make ci-local`; use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable, report the skip, and check JetBrains CI when its inputs changed
-- `make site-test` when site content changes, counting skips, not the exit code
-- `./agnostic-ai sync --check`. Drift only in gitignored generated files after a fresh checkout means sync's ledger is stale: run `sync`, confirm 0 tracked files change.
-- CHANGELOG bullets pass the length check in `.agnostic-ai/agents/changelog-curator.md`.
+Review tracked changes after sync and keep ignored output ignored. CHANGELOG bullets must pass the length check in `.agnostic-ai/agents/changelog-curator.md`.
 
-Commit with conventional commits, GPG-signed, no AI attribution or session links. Push.
-
-PR checks run Go tests on Linux only. When the PR touches paths, renames, permissions, file watching, or import, dispatch cross-platform checks on the branch (`gh workflow run ci.yml --ref <branch>`) and wait for them on the head SHA before merging. Windows runs a focused smoke check with a seven-minute job limit. The full Windows Go race suite is optional and manual only: add `-f full_windows=true` for a ten-minute job limit.
+Commit with conventional commits, GPG-signed, no AI attribution or session links. Push. Before merging, wait for required CI on the current head SHA, including remote OS checks selected by the validation policy. Missing or pending checks are not green.
 
 ## 6. Merge
 
