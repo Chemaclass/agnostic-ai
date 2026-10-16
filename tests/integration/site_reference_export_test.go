@@ -58,6 +58,10 @@ func TestSiteDocs_IndexesDeepReferenceSections(t *testing.T) {
 		{"/cli-reference/hook-diagnostics/#matcher-and-plugin-limits", "does not simulate their runtime"},
 		{"/spec-format/environments/#claude-cleanup-limits", "1.5-second budget"},
 		{"/memory/#claude-code-s-own-memory", "autoMemoryDirectory"},
+		{"/targets/windsurf/#settings", "read_config_from"},
+		{"/targets/windsurf/#mcp", "oauthClientSecret"},
+		{"/targets/cursor/#environment", "setup-worktree-unix"},
+		{"/targets/opencode/#v1-hooks", "experimental.session.compacting"},
 	} {
 		found := false
 		for _, entry := range entries {

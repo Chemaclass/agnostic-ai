@@ -54,30 +54,53 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
+### Instructions
 
-- **Instructions**: `.github/copilot-instructions.md` holds the whole `AGNOSTIC_AI.md` body, even when another target writes a root `AGENTS.md`. Copilot Chat on GitHub.com, Visual Studio, and JetBrains, and code review in the IDEs, read that file and not `AGENTS.md` ([support by surface](https://docs.github.com/en/copilot/reference/custom-instructions-support)).
-  - VS Code chat, the cloud agent, and GitHub.com code review can also read `AGENTS.md`, so the shared body can load twice. Sync sets `chat.useAgentsMdFile: false` in `.vscode/settings.json` for VS Code's local agent in a trusted workspace. This also disables nested `AGENTS.md`; native `.instructions.md` files carry those rules instead.
-  - Your explicit setting wins. A true value gets a double-load note. Removing Copilot or the last `AGENTS.md` writer removes the generated setting. Cloud and code-review surfaces have no such switch. See [support by surface](https://docs.github.com/en/copilot/reference/custom-instructions-support).
-- **Rules**: a rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its own `.instructions.md` file with `applyTo`.
-  - Scope and patterns combine: `scope: src/a` with `globs: tests/a/**` writes `applyTo: src/a/**,tests/a/**`.
-  - An always-on rule with no scope (no globs, or `alwaysApply: true`) gets `applyTo: "**"`.
-  - A rule with `alwaysApply: false` and no scope or globs gets no `applyTo`. VS Code loads it when its `description` matches the task ([custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions)). `import copilot` reads it back the same way.
-  - `description` and every `x-copilot` key go next to `applyTo`.
-- **Agents**: [custom agent profiles](https://docs.github.com/en/copilot/reference/custom-agents-configuration) at `.github/agents/<name>.agent.md`. An existing `<name>.md` keeps its path. VS Code reads any `.md` there, so a second file would load twice.
-  - Frontmatter has `name`, `description`, and `tools` and `model` when set.
-  - `x-copilot.name` sets a display name that differs from the file name. Import fills it when the two differ.
-  - Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) are copied as written.
-  - The profile has no effort key, so a portable `effort` gets a sync note. Per-agent `effortLevel` exists only in the `subagents.agents` setting of your personal `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/target-behavior.md#global-output)).
-- **Skills**: [Copilot skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) at `.github/skills/<name>/SKILL.md`. Copilot also reads `.claude/skills/` and `.agents/skills/`. A skill found there and not in `.github/skills/` is written in place. `outputs.copilot.skills-dir` sends every skill to one directory.
-- **Old copies**: sync removes old `agent-<name>.instructions.md` and `skill-<name>.instructions.md` files.
-- **Chat modes**: with `outputs.copilot.chatmodes-dir` set, each agent is also written as a VS Code [Custom Chat Mode](https://code.visualstudio.com/docs/copilot/customization/custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`, `model`, and `tools` frontmatter.
-- **Settings**: `.github/copilot/settings.json` keeps its other keys and gets:
-  - the last portable `model`, as the Copilot CLI repository default.
-  - a portable `effort` of `low`, `medium`, `high`, or `xhigh`, as `effortLevel`. Other values get a sync note.
-  - a settings spec's `x-copilot` block, for keys agnostic-ai has no field for, such as `respectGitignore`.
-  - `x-copilot.deniedUrls`, Copilot's blocked URL list. No portable rule sets it. `allowedUrls` works only in your personal settings.
-  - every MCP spec with `disabled: true`, sorted, in `disabledMcpServers`. It is the only file setting that stops a configured server from starting ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
-  - `import copilot` restores the model to `settings/copilot.yaml` and `effortLevel` as `effort` (or `x-copilot.effortLevel` when another settings spec sets a different effort). Keys only Copilot uses stay in the native file.
+`.github/copilot-instructions.md` holds the whole `AGNOSTIC_AI.md` body, even when another target writes a root `AGENTS.md`. Copilot Chat on GitHub.com, Visual Studio, and JetBrains, and code review in the IDEs, read that file and not `AGENTS.md` ([support by surface](https://docs.github.com/en/copilot/reference/custom-instructions-support)).
+
+- VS Code chat, the cloud agent, and GitHub.com code review can also read `AGENTS.md`, so the shared body can load twice. Sync sets `chat.useAgentsMdFile: false` in `.vscode/settings.json` for VS Code's local agent in a trusted workspace. This also disables nested `AGENTS.md`; native `.instructions.md` files carry those rules instead.
+- Your explicit setting wins. A true value gets a double-load note. Removing Copilot or the last `AGENTS.md` writer removes the generated setting. Cloud and code-review surfaces have no such switch. See [support by surface](https://docs.github.com/en/copilot/reference/custom-instructions-support).
+
+### Rules
+
+A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its own `.instructions.md` file with `applyTo`.
+
+- Scope and patterns combine: `scope: src/a` with `globs: tests/a/**` writes `applyTo: src/a/**,tests/a/**`.
+- An always-on rule with no scope (no globs, or `alwaysApply: true`) gets `applyTo: "**"`.
+- A rule with `alwaysApply: false` and no scope or globs gets no `applyTo`. VS Code loads it when its `description` matches the task ([custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions)). `import copilot` reads it back the same way.
+- `description` and every `x-copilot` key go next to `applyTo`.
+
+### Agents
+
+[custom agent profiles](https://docs.github.com/en/copilot/reference/custom-agents-configuration) at `.github/agents/<name>.agent.md`. An existing `<name>.md` keeps its path. VS Code reads any `.md` there, so a second file would load twice.
+
+- Frontmatter has `name`, `description`, and `tools` and `model` when set.
+- `x-copilot.name` sets a display name that differs from the file name. Import fills it when the two differ.
+- Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) are copied as written.
+- The profile has no effort key, so a portable `effort` gets a sync note. Per-agent `effortLevel` exists only in the `subagents.agents` setting of your personal `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/target-behavior.md#global-output)).
+
+### Skills
+
+[Copilot skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) at `.github/skills/<name>/SKILL.md`. Copilot also reads `.claude/skills/` and `.agents/skills/`. A skill found there and not in `.github/skills/` is written in place. `outputs.copilot.skills-dir` sends every skill to one directory.
+
+### Old copies
+
+Sync removes old `agent-<name>.instructions.md` and `skill-<name>.instructions.md` files.
+
+### Chat modes
+
+With `outputs.copilot.chatmodes-dir` set, each agent is also written as a VS Code [Custom Chat Mode](https://code.visualstudio.com/docs/copilot/customization/custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`, `model`, and `tools` frontmatter.
+
+### Settings
+
+`.github/copilot/settings.json` keeps its other keys and gets:
+
+- the last portable `model`, as the Copilot CLI repository default.
+- a portable `effort` of `low`, `medium`, `high`, or `xhigh`, as `effortLevel`. Other values get a sync note.
+- a settings spec's `x-copilot` block, for keys agnostic-ai has no field for, such as `respectGitignore`.
+- `x-copilot.deniedUrls`, Copilot's blocked URL list. No portable rule sets it. `allowedUrls` works only in your personal settings.
+- every MCP spec with `disabled: true`, sorted, in `disabledMcpServers`. It is the only file setting that stops a configured server from starting ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
+- `import copilot` restores the model to `settings/copilot.yaml` and `effortLevel` as `effort` (or `x-copilot.effortLevel` when another settings spec sets a different effort). Keys only Copilot uses stay in the native file.
 
 ### MCP
 

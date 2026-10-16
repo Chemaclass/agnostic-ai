@@ -116,6 +116,13 @@ function test_doc_section_extracts_only_the_requested_target() {
   assert_not_contains "### Warp" "$out"
 }
 
+function test_doc_section_includes_the_targets_native_reference() {
+  local out
+  out=$(doc_section codex)
+  assert_contains "approval_policy" "$out"
+  assert_not_contains "+++" "$out"
+}
+
 # ---- dump_target -------------------------------------------------------------
 
 function test_dump_target_rejects_an_unknown_target() {
@@ -130,6 +137,7 @@ function test_dump_target_emits_every_section_for_a_real_target() {
   assert_contains "declared capabilities" "$out"
   assert_contains "default output paths" "$out"
   assert_contains "docs/site/content/docs/target-behavior.md lines" "$out"
+  assert_contains "docs/site/content/docs/global-configuration.md lines" "$out"
   assert_contains "**kilo**" "$out"
   assert_contains "docs/site/content/docs/targets/kilo.md" "$out"
   assert_contains "# Kilo" "$out"
@@ -453,6 +461,22 @@ function test_builtin_regression_target_docs_limit_deep_to_requested_target() {
   out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
   assert_contains 'builtin-deep: continue' "$out"
   assert_contains '1: continue' "$out"
+  assert_contains 'sweep: factory claude' "$out"
+}
+
+function test_builtin_regression_split_references_keep_their_review_scope() {
+  builtin_regression_fixture
+  local path out
+  for path in global-configuration.md spec-format/hook-reference.md spec-format/hook-recipes.md cli-reference/hook-diagnostics.md; do
+    mkdir -p "$(dirname "$ROOT/docs/site/content/docs/$path")"
+    printf 'reference docs\n' >"$ROOT/docs/site/content/docs/$path"
+    out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+    assert_builtin_regression_shared_deep "$out"
+    rm "$ROOT/docs/site/content/docs/$path"
+  done
+  printf 'native reference\n' >"$ROOT/docs/site/content/docs/targets/continue-reference.md"
+  out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  assert_contains 'builtin-deep: continue' "$out"
   assert_contains 'sweep: factory claude' "$out"
 }
 

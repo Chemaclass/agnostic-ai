@@ -93,7 +93,7 @@ This also keeps an environment named by that review trackable. Independent envir
 
 ## Protected paths
 
-A review file cannot block edits. Put path-specific checks in a review spec and verify that they trigger on relevant pull requests. Portable `permissions` and `protected` settings have no Ellipsis effect.
+Not enforced. Put path-specific checks in a review spec and verify that they trigger on relevant pull requests. Portable `permissions` and `protected` settings have no Ellipsis effect.
 
 ## Verify
 

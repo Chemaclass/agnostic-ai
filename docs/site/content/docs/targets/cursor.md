@@ -51,46 +51,84 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
+### Rules
 
-- **Rules**: `alwaysApply: true`, or `false` when the spec sets `globs` without `alwaysApply`.
-  - A catch-all such as `**/*` stays always-on (override in frontmatter). An always-apply rule omits `globs`.
-  - A non-always rule without `globs` falls back to the `paths` list (comma-joined).
-  - With neither, `globs` is omitted, so Cursor treats the rule as "Apply Intelligently" (description-driven) or "Apply Manually".
-- **Per-file check**: `agnostic-ai explain --file <path> --target cursor` checks each planned `.mdc` rule and every `AGENTS.md` Cursor reads against one file, using the [Rules](https://cursor.com/docs/rules) matrix.
-- **Agents**: [Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The body is the system prompt.
-  - Cursor has no `tools` field, so sync drops a `tools` list with a sync note. Use `readonly: true` instead.
-  - Cursor has no effort field, so a portable `effort` raises a sync note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
-- **Commands**: Markdown files under `.cursor/commands/`, body as the prompt. Cursor no longer documents this path; see its [migrate commands to skills](https://cursor.com/help/customization/skills.md) FAQ.
-- **Old copies**: sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` files.
-- **Skills**: `.cursor/skills/<name>/SKILL.md`, the [Agent Skills](https://cursor.com/docs/skills.md) layout (Cursor 2.4+), bundled files copied unchanged.
-  - Frontmatter has `name`, `description`, and any declared `paths`, `disable-model-invocation`, `icon`, `color`, and `metadata`. `icon` and `color` style the badge when the skill backs a [Custom Mode](https://cursor.com/docs/agent/prompting.md#custom-modes).
-  - A directory scope from the source folder moves the folder under that directory.
-  - Cursor loads skills only from the workspace it opens, so a skill's `workspaces` list adds a `<dir>/.cursor/skills/<name>/` copy per directory, beside the root copy.
-  - Skill `model` and `effort` are omitted with a sync note when a value resolves for Cursor.
-- **Review**: [Bugbot](https://cursor.com/docs/bugbot) files, root `.cursor/BUGBOT.md` for specs with no directory scope and `<scope>/.cursor/BUGBOT.md` for scoped ones.
-  - Same-scope specs are joined into one file.
-  - [Rule limits](https://cursor.com/docs/bugbot#rule-limits): Bugbot truncates each BUGBOT.md at 30,000 characters and caps one review's rules at 100,000 in total.
-  - agnostic-ai never truncates. An over-cap file is written in full, with a sync note. The size counts the whole file, header included, so several small specs joined can pass the cap. Split the review across sibling scopes.
-  - `sync` also notes a scope whose chain (the scope and its parent directories) passes 100,000 characters. Team and repository rules share that budget, so a shorter chain can still lose rules. To see what Bugbot dropped, run `bugbot run verbose=true` or `cursor review verbose=true` on a pull request.
-- **Environment**: `.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) setup).
-  - Spec keys pass through as written, except fields that select a tool or directory and `cleanup`, which gets a no-effect note. Specs merge by top-level key.
-  - `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (Windows only) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
-  - A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
-- **Ignore**: `.cursorignore` (gitignore syntax). Specs are joined into one file.
-- **Hooks**: [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). With `builtins: [memory]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
-  - A `type: prompt` hook writes `prompt` and optional `model`. Command and prompt hooks keep `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`.
-  - camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...) pass through. `validate` flags unknown ones.
-  - Fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each). `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`.
-  - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks, and on Windows too. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hook-reference.md#hook-target).
-  - A hook has only `command`, run through `$SHELL -c` (PowerShell on Windows). A spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`).
-  - A [portable](@/docs/spec-format/hook-reference.md#portable-events) `before-tool` hook lands on `preToolUse` and a `prompt-submit` hook on `beforeSubmitPrompt`, each through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes a deny reply with stderr as the message, and exit 0 an allow reply. `session-start` and `session-end` land on `sessionStart` and `sessionEnd`. `sync --global` writes the wrapper to `~/.cursor/hooks/`.
-- **MCP**: `.cursor/mcp.json` under `mcpServers`. Each sync replaces the whole file from MCP specs. Cursor-only fields ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
-  - A stdio server accepts `envFile`, a path to an env file with extra variables.
-  - A `${NAME}` reference in `env`, `headers`, `url`, or `args` is written as Cursor's `${env:NAME}`; `${workspaceFolder}` and Cursor's other variables stay as written. See [environment references](@/docs/spec-format/mcps.md#environment-references).
-  - A remote (`url`) server accepts a static-OAuth `auth`, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for providers without OAuth Dynamic Client Registration.
-  - A stdio server carries an explicit `"type": "stdio"`, which Cursor requires.
-  - A `roots` list passes through, though Cursor documents no per-server `roots` key.
-  - `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+`alwaysApply: true`, or `false` when the spec sets `globs` without `alwaysApply`.
+
+- A catch-all such as `**/*` stays always-on (override in frontmatter). An always-apply rule omits `globs`.
+- A non-always rule without `globs` falls back to the `paths` list (comma-joined).
+- With neither, `globs` is omitted, so Cursor treats the rule as "Apply Intelligently" (description-driven) or "Apply Manually".
+
+### Per-file check
+
+`agnostic-ai explain --file <path> --target cursor` checks each planned `.mdc` rule and every `AGENTS.md` Cursor reads against one file, using the [Rules](https://cursor.com/docs/rules) matrix.
+
+### Agents
+
+[Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The body is the system prompt.
+
+- Cursor has no `tools` field, so sync drops a `tools` list with a sync note. Use `readonly: true` instead.
+- Cursor has no effort field, so a portable `effort` raises a sync note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
+
+### Commands
+
+Markdown files under `.cursor/commands/`, body as the prompt. Cursor no longer documents this path; see its [migrate commands to skills](https://cursor.com/help/customization/skills.md) FAQ.
+
+### Old copies
+
+Sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` files.
+
+### Skills
+
+`.cursor/skills/<name>/SKILL.md`, the [Agent Skills](https://cursor.com/docs/skills.md) layout (Cursor 2.4+), bundled files copied unchanged.
+
+- Frontmatter has `name`, `description`, and any declared `paths`, `disable-model-invocation`, `icon`, `color`, and `metadata`. `icon` and `color` style the badge when the skill backs a [Custom Mode](https://cursor.com/docs/agent/prompting.md#custom-modes).
+- A directory scope from the source folder moves the folder under that directory.
+- Cursor loads skills only from the workspace it opens, so a skill's `workspaces` list adds a `<dir>/.cursor/skills/<name>/` copy per directory, beside the root copy.
+- Skill `model` and `effort` are omitted with a sync note when a value resolves for Cursor.
+
+### Review
+
+[Bugbot](https://cursor.com/docs/bugbot) files, root `.cursor/BUGBOT.md` for specs with no directory scope and `<scope>/.cursor/BUGBOT.md` for scoped ones.
+
+- Same-scope specs are joined into one file.
+- [Rule limits](https://cursor.com/docs/bugbot#rule-limits): Bugbot truncates each BUGBOT.md at 30,000 characters and caps one review's rules at 100,000 in total.
+- agnostic-ai never truncates. An over-cap file is written in full, with a sync note. The size counts the whole file, header included, so several small specs joined can pass the cap. Split the review across sibling scopes.
+- `sync` also notes a scope whose chain (the scope and its parent directories) passes 100,000 characters. Team and repository rules share that budget, so a shorter chain can still lose rules. To see what Bugbot dropped, run `bugbot run verbose=true` or `cursor review verbose=true` on a pull request.
+
+### Environment
+
+`.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) setup).
+
+- Spec keys pass through as written, except fields that select a tool or directory and `cleanup`, which gets a no-effect note. Specs merge by top-level key.
+- `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (Windows only) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
+- A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
+
+### Ignore
+
+`.cursorignore` (gitignore syntax). Specs are joined into one file.
+
+### Hooks
+
+[Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). With `builtins: [memory]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
+
+- A `type: prompt` hook writes `prompt` and optional `model`. Command and prompt hooks keep `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`.
+- camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...) pass through. `validate` flags unknown ones.
+- Fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each). `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`.
+- When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks, and on Windows too. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hook-reference.md#hook-target).
+- A hook has only `command`, run through `$SHELL -c` (PowerShell on Windows). A spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`).
+- A [portable](@/docs/spec-format/hook-reference.md#portable-events) `before-tool` hook lands on `preToolUse` and a `prompt-submit` hook on `beforeSubmitPrompt`, each through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes a deny reply with stderr as the message, and exit 0 an allow reply. `session-start` and `session-end` land on `sessionStart` and `sessionEnd`. `sync --global` writes the wrapper to `~/.cursor/hooks/`.
+
+### MCP
+
+`.cursor/mcp.json` under `mcpServers`. Each sync replaces the whole file from MCP specs. Cursor-only fields ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
+
+- A stdio server accepts `envFile`, a path to an env file with extra variables.
+- A `${NAME}` reference in `env`, `headers`, `url`, or `args` is written as Cursor's `${env:NAME}`; `${workspaceFolder}` and Cursor's other variables stay as written. See [environment references](@/docs/spec-format/mcps.md#environment-references).
+- A remote (`url`) server accepts a static-OAuth `auth`, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for providers without OAuth Dynamic Client Registration.
+- A stdio server carries an explicit `"type": "stdio"`, which Cursor requires.
+- A `roots` list passes through, though Cursor documents no per-server `roots` key.
+- `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 <details>
 <summary>Hook args with apostrophes or spaces</summary>

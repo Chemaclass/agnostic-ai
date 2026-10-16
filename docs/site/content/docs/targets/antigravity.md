@@ -59,34 +59,63 @@ Antigravity expands includes before checking its 24,000-byte rule limit. All alw
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
+### Entry point
 
-- **Entry point**: `.agents/AGENTS.md` is the [documented per-directory entry point](https://antigravity.google/docs/rules) (`<dir>/.agents/AGENTS.md` or `<dir>/.agents/GEMINI.md`, both `always_on` and frontmatter-free). It stays apart from the root `AGENTS.md` that Codex, Amp, and Warp use.
-- **Paths**: rules, skills, and MCP go to the plural `.agents/` form Antigravity prefers ([rules](https://antigravity.google/docs/rules), [skills](https://antigravity.google/docs/skills?tab=ide)). Antigravity lists the singular paths as legacy.
-- **Plugins**: Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, covering the five components (`skills/`, `agents/`, `rules/`, `mcp_config.json`, `hooks.json`). A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
-- **Rules**: every file starts with frontmatter declaring a `trigger`. Antigravity [silently discards](https://antigravity.google/docs/rules) a file without one or with an unknown value. The generated-file header follows the closing `---`.
-  - `alwaysApply` is checked first, as in [Devin Desktop / windsurf](@/docs/targets/windsurf.md) and Cursor. `true` writes `trigger: always_on` and ignores `globs`, so the rule that `new rule` creates (`globs: "**/*"` plus `alwaysApply: true`) stays always-on. When unset, it counts as `false` if `globs` holds something other than a catch-all such as `**/*`, and as `true` otherwise.
-  - With `alwaysApply: false` (or `globs` and no `alwaysApply`), `globs` becomes `trigger: glob` plus a quoted, comma-joined `globs`. A `description` alone becomes `trigger: model_decision`. Neither becomes `trigger: manual` (loads only on an @-mention). Each case has the field it needs, so no sync note appears. `description` is kept on any trigger.
-  - **`x-antigravity.trigger` overrides the mapping.** `import antigravity` writes it, because the portable fields cannot always recover the trigger. A `manual` rule with a `description` would come back as `model_decision`. An override missing its field (`globs` for `glob`, `description` for `model_decision`), or outside `always_on`/`glob`/`model_decision`/`manual`, becomes `trigger: manual` with a sync note, never `always_on`.
-  - **24,000-byte cap.** Antigravity [truncates](https://antigravity.google/docs/rules) a rule file over 24,000 bytes after expanding `@[label](path)` includes. agnostic-ai writes it in full and adds a sync note, so split the rule. The count covers the written file (frontmatter, generated-file header, heading) and expands the built-in memory rule's project and checkout personal indexes, stripping included frontmatter. Other rules' includes are not counted.
-  - **20,000-token budget.** All `always_on` rules share 20,000 tokens. Past it, Antigravity replaces its largest rules with a `path: description` pointer. `sync` gives no note, so give large rules a `description`.
-  - **Scoped rules**: `scope: <dir>` writes to `<dir>/.agents/rules/<name>.md` with the same frontmatter. Antigravity walks up from each file it reads or edits and [loads rules at each level](https://antigravity.google/docs/rules). It scans only the `.md` files directly inside `.agents/rules/`, so rules never nest deeper.
-- **Agents**: one custom subagent at `.agents/agents/<name>/agent.md`, the nested form in [Antigravity's subagent reference](https://antigravity.google/docs/subagents) (a flat form also exists). Frontmatter has the required `name` and `description`. The body is the system prompt.
-  - Goose and OpenHands scan only top-level `.md` files in that folder. The nested form keeps Antigravity's `model` tier apart from their model IDs. `import antigravity` reads flat files only when no nested profile exists, so it skips their agents.
-  - **Devin reads this folder too.** With `windsurf` in `targets`, Devin finds this profile and `.devin/agents/<name>.md` under one name, and only the Devin copy has `allowed-tools`. See the [shared agent discovery](@/docs/target-behavior.md#spec-kind-behavior).
-  - A portable `tools` list is dropped with a sync note. Antigravity has its own names (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...), and an unknown one can hang the subagent. Set `x-antigravity.tools` instead.
-  - `model` is a tier (`inherit`, `flash`, `pro`), so any other value is dropped the same way.
-  - Other documented keys (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`, `skills`/`plugins`) go under `x-antigravity`.
-- **Skills**: Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --global` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
-- **MCP**: one `mcpServers` object in `.agents/mcp_config.json` ([docs](https://antigravity.google/docs/mcp?tab=ide)).
-  - Remote servers use `serverUrl`, not the legacy `url` / `httpUrl` or the `url` form that Claude Code and Cursor share. stdio servers have `command`, `args`, `env`, and `cwd`. Remote ones add `headers`.
-  - Both kinds accept `disabled` by that name (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)), unlike Codex and Kilo, which write `enabled: false`.
-  - `authProviderType`, `oauth`, `disabledTools`, `description`, `roots`, and any new field go under `x-antigravity`, like Zed and Warp.
-- **Hooks**: hooks are merged into `.agents/hooks.json` (or `outputs.antigravity.hooks-file`), the [documented location](https://antigravity.google/docs/hooks?tab=ide).
-  - **Keyed by definition name, not event**, unlike every other tool with hooks. Each spec becomes a top-level definition named after it, holding its one event. `disabled: true` writes `enabled: false` beside the event key, the reverse of MCP's literal `disabled`.
-  - Six events: `PreToolUse`, `PostToolUse`, `SessionStart`, `PreInvocation`, `PostInvocation`, `Stop`. Other events are skipped with a sync note. The first two hold `{matcher, hooks: [...]}` groups. The other four hold a plain handler list and ignore the matcher, which gets a note. `SessionStart` runs once when a conversation starts, before the first model call. The portable `on: session-start` is not mapped; set `event: SessionStart` or `x-antigravity: {event: SessionStart}`.
-  - Per handler: `type` (defaults to `"command"`, and is always written), `command`, and optional `timeout` (seconds, vendor default 30).
-  - A Claude-style matcher is valid regex that matches none of Antigravity's tool names. It is written as is with a sync note, as in OpenHands, Crush, and Windsurf.
-- **Commands**: the public-preview docs do not confirm them, so they are skipped with a warning. `on-unsupported: silent` suppresses it.
+`.agents/AGENTS.md` is the [documented per-directory entry point](https://antigravity.google/docs/rules) (`<dir>/.agents/AGENTS.md` or `<dir>/.agents/GEMINI.md`, both `always_on` and frontmatter-free). It stays apart from the root `AGENTS.md` that Codex, Amp, and Warp use.
+
+### Paths
+
+Rules, skills, and MCP go to the plural `.agents/` form Antigravity prefers ([rules](https://antigravity.google/docs/rules), [skills](https://antigravity.google/docs/skills?tab=ide)). Antigravity lists the singular paths as legacy.
+
+### Plugins
+
+Point any output folder or file key at `.agents/plugins/<name>/` to ship those specs as a [workspace plugin](https://antigravity.google/docs/plugins), active only in that project. agnostic-ai writes the required `plugin.json` at the plugin root, one per plugin, covering the five components (`skills/`, `agents/`, `rules/`, `mcp_config.json`, `hooks.json`). A path inside a component, such as `.agents/plugins/team/skills/extra`, gets none.
+
+### Rules
+
+Every file starts with frontmatter declaring a `trigger`. Antigravity [silently discards](https://antigravity.google/docs/rules) a file without one or with an unknown value. The generated-file header follows the closing `---`.
+
+- `alwaysApply` is checked first, as in [Devin Desktop / windsurf](@/docs/targets/windsurf.md) and Cursor. `true` writes `trigger: always_on` and ignores `globs`, so the rule that `new rule` creates (`globs: "**/*"` plus `alwaysApply: true`) stays always-on. When unset, it counts as `false` if `globs` holds something other than a catch-all such as `**/*`, and as `true` otherwise.
+- With `alwaysApply: false` (or `globs` and no `alwaysApply`), `globs` becomes `trigger: glob` plus a quoted, comma-joined `globs`. A `description` alone becomes `trigger: model_decision`. Neither becomes `trigger: manual` (loads only on an @-mention). Each case has the field it needs, so no sync note appears. `description` is kept on any trigger.
+- **`x-antigravity.trigger` overrides the mapping.** `import antigravity` writes it, because the portable fields cannot always recover the trigger. A `manual` rule with a `description` would come back as `model_decision`. An override missing its field (`globs` for `glob`, `description` for `model_decision`), or outside `always_on`/`glob`/`model_decision`/`manual`, becomes `trigger: manual` with a sync note, never `always_on`.
+- **24,000-byte cap.** Antigravity [truncates](https://antigravity.google/docs/rules) a rule file over 24,000 bytes after expanding `@[label](path)` includes. agnostic-ai writes it in full and adds a sync note, so split the rule. The count covers the written file (frontmatter, generated-file header, heading) and expands the built-in memory rule's project and checkout personal indexes, stripping included frontmatter. Other rules' includes are not counted.
+- **20,000-token budget.** All `always_on` rules share 20,000 tokens. Past it, Antigravity replaces its largest rules with a `path: description` pointer. `sync` gives no note, so give large rules a `description`.
+- **Scoped rules**: `scope: <dir>` writes to `<dir>/.agents/rules/<name>.md` with the same frontmatter. Antigravity walks up from each file it reads or edits and [loads rules at each level](https://antigravity.google/docs/rules). It scans only the `.md` files directly inside `.agents/rules/`, so rules never nest deeper.
+
+### Agents
+
+One custom subagent at `.agents/agents/<name>/agent.md`, the nested form in [Antigravity's subagent reference](https://antigravity.google/docs/subagents) (a flat form also exists). Frontmatter has the required `name` and `description`. The body is the system prompt.
+
+- Goose and OpenHands scan only top-level `.md` files in that folder. The nested form keeps Antigravity's `model` tier apart from their model IDs. `import antigravity` reads flat files only when no nested profile exists, so it skips their agents.
+- **Devin reads this folder too.** With `windsurf` in `targets`, Devin finds this profile and `.devin/agents/<name>.md` under one name, and only the Devin copy has `allowed-tools`. See the [shared agent discovery](@/docs/target-behavior.md#spec-kind-behavior).
+- A portable `tools` list is dropped with a sync note. Antigravity has its own names (`view_file`, `replace_file_content`, `grep_search`, `run_command`, ...), and an unknown one can hang the subagent. Set `x-antigravity.tools` instead.
+- `model` is a tier (`inherit`, `flash`, `pro`), so any other value is dropped the same way.
+- Other documented keys (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`, `skills`/`plugins`) go under `x-antigravity`.
+
+### Skills
+
+Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --global` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
+
+### MCP
+
+One `mcpServers` object in `.agents/mcp_config.json` ([docs](https://antigravity.google/docs/mcp?tab=ide)).
+
+- Remote servers use `serverUrl`, not the legacy `url` / `httpUrl` or the `url` form that Claude Code and Cursor share. stdio servers have `command`, `args`, `env`, and `cwd`. Remote ones add `headers`.
+- Both kinds accept `disabled` by that name (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)), unlike Codex and Kilo, which write `enabled: false`.
+- `authProviderType`, `oauth`, `disabledTools`, `description`, `roots`, and any new field go under `x-antigravity`, like Zed and Warp.
+
+### Hooks
+
+Hooks are merged into `.agents/hooks.json` (or `outputs.antigravity.hooks-file`), the [documented location](https://antigravity.google/docs/hooks?tab=ide).
+
+- **Keyed by definition name, not event**, unlike every other tool with hooks. Each spec becomes a top-level definition named after it, holding its one event. `disabled: true` writes `enabled: false` beside the event key, the reverse of MCP's literal `disabled`.
+- Six events: `PreToolUse`, `PostToolUse`, `SessionStart`, `PreInvocation`, `PostInvocation`, `Stop`. Other events are skipped with a sync note. The first two hold `{matcher, hooks: [...]}` groups. The other four hold a plain handler list and ignore the matcher, which gets a note. `SessionStart` runs once when a conversation starts, before the first model call. The portable `on: session-start` is not mapped; set `event: SessionStart` or `x-antigravity: {event: SessionStart}`.
+- Per handler: `type` (defaults to `"command"`, and is always written), `command`, and optional `timeout` (seconds, vendor default 30).
+- A Claude-style matcher is valid regex that matches none of Antigravity's tool names. It is written as is with a sync note, as in OpenHands, Crush, and Windsurf.
+
+### Commands
+
+The public-preview docs do not confirm them, so they are skipped with a warning. `on-unsupported: silent` suppresses it.
 
 <details>
 <summary>Leftovers from older versions</summary>

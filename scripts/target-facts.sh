@@ -3,8 +3,8 @@
 # target-facts.sh - print what agnostic-ai currently claims about a target.
 #
 # One compact dump per target: declared capabilities, default output paths,
-# the adapter's package doc comment, the lines docs/site/content/docs/target-behavior.md
-# publishes about it, and its own docs/site/content/docs/targets/<target>.md page.
+# the adapter's package doc comment, cross-target and global reference lines,
+# and its own target guide and native reference.
 # Feeds the `target-audit` skill so an auditing agent reads the repo's side of
 # the comparison in one call instead of grepping Go and the docs tree.
 #
@@ -167,16 +167,18 @@ caps() {
   ' "$1"
 }
 
-# doc_rows <target> prints every target-behavior.md line naming the target.
+# doc_rows <target> [page] prints lines naming the target.
 doc_rows() {
-  grep -n -i -w "$1" "$BEHAVIOR_PAGE" || true
+  grep -n -i -w "$1" "${2:-$BEHAVIOR_PAGE}" || true
 }
 
-# doc_section <target> prints the target's own page, without its front matter.
+# doc_section <target> prints its guide and native reference without front matter.
 doc_section() {
-  local page="$TARGETS_DIR/$1.md"
-  [ -f "$page" ] || return 0
-  awk 'NR == 1 && /^\+\+\+$/ { fm = 1; next } fm && /^\+\+\+$/ { fm = 0; next } !fm { print }' "$page"
+  local page
+  for page in "$TARGETS_DIR/$1.md" "$TARGETS_DIR/$1-reference.md"; do
+    [ -f "$page" ] || continue
+    awk 'NR == 1 && /^\+\+\+$/ { fm = 1; next } fm && /^\+\+\+$/ { fm = 0; next } !fm { print }' "$page"
+  done
 }
 
 # source_sections keeps unrelated vendor history out of each auditor's context.
@@ -224,7 +226,11 @@ tests/integration/fixtures/builtin-
 tests/integration/fixtures/golden/builtin-
 docs/site/content/docs/handoff.md
 docs/site/content/docs/configuration.md
-docs/site/content/docs/spec-format/hooks.md"
+docs/site/content/docs/global-configuration.md
+docs/site/content/docs/spec-format/hooks.md
+docs/site/content/docs/spec-format/hook-reference.md
+docs/site/content/docs/spec-format/hook-recipes.md
+docs/site/content/docs/cli-reference/hook-diagnostics.md"
 
 # builtin_names prints the registered built-in names from the Go registry, so
 # a stray data folder the binary never loads is not evidence.
@@ -394,6 +400,7 @@ builtin_review_reasons() {
         docs/site/content/docs/targets/*.md)
           owners=${path#docs/site/content/docs/targets/}
           owners=${owners%.md}
+          owners=${owners%-reference}
           ;;
       esac
     fi
@@ -596,7 +603,10 @@ dump_target() {
   echo "--- docs/site/content/docs/target-behavior.md lines ---"
   doc_rows "$t"
   echo
-  echo "--- docs/site/content/docs/targets/$t.md ---"
+  echo "--- docs/site/content/docs/global-configuration.md lines ---"
+  doc_rows "$t" "$ROOT/docs/site/content/docs/global-configuration.md"
+  echo
+  echo "--- docs/site/content/docs/targets/$t.md and native reference ---"
   doc_section "$t"
   echo
 }

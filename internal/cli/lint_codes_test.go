@@ -61,7 +61,7 @@ func TestExplain_LintCode_Unknown(t *testing.T) {
 }
 
 // Every code lint can raise needs an explain entry and a row on the
-// check reference page, and neither may list a code lint never raises.
+// lint-code reference page, and neither may list a code lint never raises.
 func TestLintCodes_MatchSourceAndDocs(t *testing.T) {
 	inSource := map[string]bool{}
 	files, err := filepath.Glob("*.go")
@@ -81,7 +81,7 @@ func TestLintCodes_MatchSourceAndDocs(t *testing.T) {
 			inSource[m[1]] = true
 		}
 	}
-	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "site", "content", "docs", "cli-reference", "check.md"))
+	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "site", "content", "docs", "cli-reference", "lint-codes.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestLintCodes_MatchSourceAndDocs(t *testing.T) {
 		}
 	}
 	compare("lintCodes", inRegistry)
-	compare("check.md table", inDocs)
+	compare("lint-codes.md table", inDocs)
 	for code, e := range lintCodes {
 		if e.Title == "" || e.Cause == "" || e.Fix == "" || (e.Severity != lintWarn && e.Severity != lintError) {
 			t.Errorf("%s: incomplete entry %+v", code, e)

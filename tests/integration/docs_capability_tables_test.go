@@ -8,24 +8,11 @@ import (
 	"testing"
 )
 
-// The capability tables in docs/site/content/docs/target-behavior.md and README.md are edited
-// by hand, and parallel target-audit PRs kept landing both sides of a
-// change instead of merging them. That left duplicated rows whose cells
-// disagreed: one trae row claimed no MCP surface while the next gave
-// `.trae/mcp.json`, and one qoder row claimed no skills while the next
-// gave `.qoder/skills/<name>/SKILL.md`. Each pair had one current and one
-// stale row, and not consistently in the same position, so a reader had
-// no way to tell which to believe (#597).
-//
-// A duplicate row is always a mistake here: these tables carry one row
-// per target. Assert that directly, so the next merge that lands both
-// sides fails the build instead of shipping a contradiction.
-
 var docTableRow = regexp.MustCompile(`^\|\s*(?:\*\*)?([A-Za-z][A-Za-z0-9 ()/.-]*?)(?:\*\*)?\s*\|`)
 
 func TestDocs_CapabilityTablesHaveNoDuplicateRows(t *testing.T) {
 	t.Parallel()
-	for _, rel := range []string{"docs/site/content/docs/target-behavior.md", "README.md"} {
+	for _, rel := range []string{"docs/site/content/docs/target-behavior.md", "docs/site/content/docs/global-configuration.md", "README.md"} {
 		rel := rel
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
