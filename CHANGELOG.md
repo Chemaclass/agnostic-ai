@@ -27,7 +27,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
-- Docs guide new users through a Claude Code or Codex setup, with focused reference pages and complete details for coding agents (#2288).
+- Docs guide new users through a Claude Code or Codex setup, with focused reference pages and complete details for coding agents (#2289).
 
 ## v0.85.0 - 2026-10-15
 
