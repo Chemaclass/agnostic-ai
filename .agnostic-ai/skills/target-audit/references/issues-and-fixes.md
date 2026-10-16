@@ -6,6 +6,10 @@ Read this when filing audit findings or running `--fix`. All paths are repositor
 
 Refresh matching issue state and relevant comments before filing. Open findings are `still-open #N`; resolved gaps that return are regressions. Never file an unconfirmed finding.
 
+Before issue creation, save the stable finding identity and intended issue title in the run artifact. Use an existing stable signal ID when available; otherwise choose a durable identity from the target, native surface and vendor change. Include `Audit finding: <identity>` in the issue body and retain it across resumed research.
+
+An interrupted or timed-out issue creation has an ambiguous outcome. Do not replay the write. Refresh matching remote issues and comments using that stable identity and inspect the complete matching body. A unique matching issue confirms publication; save its URL in the run artifact. No match, several matches, an incomplete response or unavailable remote state leaves publication uncertain. Stop that write and report the identity and uncertainty for reconciliation. Research resume never retries external writes or promises exactly-once issue creation.
+
 Create the `target-audit` label only if absent:
 
 ```bash

@@ -97,6 +97,6 @@ make preflight  # format, lint, and Go tests
 
 This repository keeps its own agent setup in `.agnostic-ai/`. Edit those source specs, then run `./agnostic-ai sync`. See [CONTRIBUTING.md](CONTRIBUTING.md) for checks by change type and the [architecture guide](docs/internal/architecture.md) for the Go packages.
 
-[Target audits](scripts/target-audit/manifest.md) record coverage before updating the vendor source lock. Manual updates that skip coverage use `scripts/docfetch.sh --update-unvalidated`.
+[Target audits](scripts/target-audit/manifest.md) record coverage before updating the vendor source lock and can resume completed research after fresh source verification. Manual updates that skip coverage use `scripts/docfetch.sh --update-unvalidated`.
 
 [Getting started](https://agnostic-ai.org/docs/getting-started/) · [Playground](https://agnostic-ai.org/playground/) · [Editor extensions](editors/) · [Claude Code plugin](plugins/agnostic-ai/) · [CLI reference](https://agnostic-ai.org/docs/cli-reference/) · [Changelog](CHANGELOG.md)

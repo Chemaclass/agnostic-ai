@@ -20,6 +20,25 @@ The manifest fixes the requested targets and target-kind-URL source set before a
 
 `capture` requires exactly one fetched row for every expected source and rejects unknown rows. It saves the fetch-row digest, each source's normalized `comparison_sha256`, the exact saved evidence path and SHA-256, and related response and release-note artifacts. A failed HTTP fetch with no body path gets a saved failure-row artifact. JSON key sorting can give two byte-different files the same comparison hash; their evidence digests still differ. Auditors read the captured evidence paths and preserve those files.
 
+## Resume completed research
+
+Explicit resume selects one prior run directory. Start a new run with the independently requested target list and baseline, fetch every requested source fresh, and capture it before selecting reuse:
+
+```bash
+run=$(go run ./scripts/audit-manifest start --builtins-since <commit> claude zed)
+scripts/docfetch.sh --out "$run" claude zed
+go run ./scripts/audit-manifest capture "$run"
+go run ./scripts/audit-manifest resume "$run" <prior-run-directory>
+```
+
+Resume runs once before assignments or page dispositions are added. It validates both runs in the same checkout, including the repository commit, staged index, working and untracked files, embedded ignored built-ins, policy/extraction version, source inventory, exact lock baseline and built-in baseline. Any unknown context change rejects reuse for the whole run. It does not adopt a prior run's requested targets or baseline. Old manifests without the research version cannot resume.
+
+A target is reused only when its assignment and every requested page are complete, eligible, and backed by valid artifacts. Fresh saved evidence, response and release-note artifact bytes must match the prior run exactly. Matching normalized comparison hashes alone is insufficient. A changed successful source leaves its target pending for fresh research; corrupt or missing saved artifacts reject resume. Pending assignments, research limits and failed fetches remain pending. Resume prints the number of reused and pending targets. Assign and review the pending targets normally; missing coverage still rejects finalization.
+
+Copied research artifacts live under `resumed/<prior-run-id>/` in the new run. Each reused target records the prior run ID and the digest of a saved prior manifest. The current run retains its fresh fetch paths and hashes. Finalization validates the copies, so deleting the prior directory later does not invalidate completed copies. Copies without an atomically saved manifest entry are unfinished work and authorize no reuse. A retry after fixing a copy failure validates all inputs again.
+
+This is local research continuation for one checkout. Resume does not execute issue creation, comments, fixes, or any other external action. Reconcile interrupted publication using the [issue filing reference](../../.agnostic-ai/skills/target-audit/references/issues-and-fixes.md).
+
 ## Record coverage
 
 One coordinator writes progress. Assign every requested target exactly once, including targets taking a fast path. Owners can be an auditor name, a batch name, or the coordinator.
@@ -41,15 +60,15 @@ go run ./scripts/audit-manifest validate "$run"
 scripts/docfetch.sh --update "$run/docfetch.tsv"
 ```
 
-Finalization rechecks assignments, coverage, versions, source inventory, built-in classification, repository context, exact evidence and artifact bytes, fetched rows, and the lock baseline. Structural gaps reject the whole update and leave the lock unchanged. Fully accounted research limits retain their old hashes while eligible reviewed or justified fast-path pages advance. Finalized manifests cannot run again.
+Finalization rechecks assignments, coverage, versions, source inventory, built-in classification, repository context, exact evidence and artifact bytes, fetched rows, and the lock baseline. Structural gaps reject the whole update and leave the lock unchanged. Fully accounted research limits retain their old hashes while eligible reviewed or justified fast-path pages advance. Repeating `finalize` on a finalized manifest revalidates its inputs, evidence and exact committed lock hash, then succeeds without rewriting the lock. Other mutations are rejected.
 
 Source identity is target, kind and URL. The lock still has one row per URL. Every registered owner of a shared URL must be present in this run and eligible before that URL advances. An owner outside the requested scope, a failed page, or a research limit retains the prior URL row for all owners. Eligible owners must agree on the comparison hash; disagreement rejects finalization. The first registry owner supplies the one lock row. Finalization preserves sorting and prunes URLs absent from the current registry. Snapshot storage and age-based pruning retain their existing behavior.
 
 Keep tracked source corrections, signal-history edits and implementation changes until after finalization. If the audited repository, source list or lock changes first, start a fresh run and fetch again. Reports and evidence stay in the ignored run directory. A source correction that must precede completion needs a fresh run against that correction.
 
-Manifest and lock writes use temporary files and atomic renames. Concurrent state writes or lock finalizations fail closed. A killed writer can leave `<run>/.audit-writing` or `<lock>.audit-finalizing`; the latter records its PID and run. Confirm that writer has exited before removing that exact marker, then start a fresh run. Half-written temporary files never become valid progress. There is no resume command.
+Manifest and lock writes use temporary files and atomic renames. Concurrent state writes or lock finalizations fail closed. A killed writer can leave `<run>/.audit-writing` or `<lock>.audit-finalizing`; the latter records its PID and run. Confirm that writer has exited before removing that exact marker, then use a new fresh-fetch run and explicit resume, or retry finalization when reconciling its saved receipt. Half-written temporary files never become valid progress.
 
-The lock commits before the final manifest marker is saved. If saving that marker fails, the error says `lock committed; manifest finalization marker failed` and includes the committed lock's SHA-256. Compare the current lock's exact file hash with that checksum. A match confirms the lock update succeeded. Preserve the run, evidence, error and checksum in the report, fix the filesystem problem, then start a fresh run for further work. If the checksum differs, reconcile the later lock change first. Do not retry the old run or use an unvalidated update as a repair.
+Finalization saves `finalization.json` with the validated manifest digest and intended exact lock hash before committing the lock. If saving the final manifest marker fails afterwards, the error says `lock committed; manifest finalization marker failed` and includes that hash. Preserve the run and error, fix the filesystem problem, and rerun `finalize`. It verifies the receipt, unchanged research inputs and exact current lock bytes before saving the missing marker. A different current lock rejects reconciliation. If the lock still equals the original baseline, validation runs before any new commit. This receipt reconciles only this local lock write.
 
 ## Manual compatibility path
 

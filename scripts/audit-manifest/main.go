@@ -56,6 +56,9 @@ type fetch struct {
 
 type manifest struct {
 	Version           int          `json:"version"`
+	ResearchVersion   int          `json:"research_version"`
+	ResumeFrom        string       `json:"resume_prior_run_id,omitempty"`
+	Reused            []reuse      `json:"reused,omitempty"`
 	RunID             string       `json:"run_id"`
 	Directory         string       `json:"directory"`
 	Repository        string       `json:"repository"`
@@ -203,7 +206,13 @@ func (a app) context() (string, string, error) {
 		}
 	}
 	sort.Strings(names)
+	index, err := a.command("git", "ls-files", "--stage", "-z")
+	if err != nil {
+		return "", "", err
+	}
 	var b bytes.Buffer
+	b.WriteString(index)
+	b.WriteByte(0)
 	for _, path := range names {
 		full := filepath.Join(a.root, path)
 		info, statErr := os.Lstat(full)
@@ -312,11 +321,9 @@ func load(dir string) (*manifest, error) {
 	if m.Version != 1 {
 		return nil, fmt.Errorf("%s: unsupported version %d", path, m.Version)
 	}
-	if len(m.RunID) != 32 || m.Directory != abs || m.Created == "" {
+	_, idErr := hex.DecodeString(m.RunID)
+	if idErr != nil || len(m.RunID) != 32 || m.Directory != abs || m.Created == "" {
 		return nil, fmt.Errorf("%s: invalid run identity", path)
-	}
-	if m.Finalized != "" {
-		return nil, fmt.Errorf("%s: run already finalized", path)
 	}
 	return &m, nil
 }
@@ -383,7 +390,7 @@ func (a app) start(args []string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", *out, err)
 	}
-	m := &manifest{Version: 1, RunID: runID, Directory: abs, Created: time.Now().UTC().Format(time.RFC3339), Commit: commit, Context: context, BuiltinsSince: *baseline, SourceList: sourceList, LockBaseline: lock, Targets: targets, Inventory: inventory, Assignments: []assignment{}}
+	m := &manifest{Version: 1, ResearchVersion: researchVersion, RunID: runID, Directory: abs, Created: time.Now().UTC().Format(time.RFC3339), Commit: commit, Context: context, BuiltinsSince: *baseline, SourceList: sourceList, LockBaseline: lock, Targets: targets, Inventory: inventory, Assignments: []assignment{}}
 	m.Repository, err = filepath.EvalSymlinks(a.root)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", a.root, err)
@@ -430,6 +437,13 @@ func equalSources(a, b []source) bool {
 }
 
 func (a app) inputs(m *manifest) error {
+	return a.inputsAtLock(m, m.LockBaseline)
+}
+
+func (a app) inputsAtLock(m *manifest, expectedLock string) error {
+	if m.ResearchVersion != researchVersion {
+		return errors.New("research policy/extraction version changed; start a fresh run")
+	}
 	root, err := filepath.EvalSymlinks(a.root)
 	if err != nil {
 		return fmt.Errorf("%s: %w", a.root, err)
@@ -462,7 +476,7 @@ func (a app) inputs(m *manifest) error {
 	if err != nil {
 		return err
 	}
-	if lock != m.LockBaseline {
+	if lock != expectedLock {
 		return errors.New("source-lock baseline changed; start a fresh run")
 	}
 	inventory, registered, err := a.inventory()
@@ -687,8 +701,8 @@ func validateOutcome(m *manifest, out *outcome) error {
 	return checkArtifact(m.Directory, out.Artifact)
 }
 
-func (a app) validate(m *manifest) error {
-	if err := a.inputs(m); err != nil {
+func (a app) validateEvidence(m *manifest, expectedLock string) error {
+	if err := a.inputsAtLock(m, expectedLock); err != nil {
 		return err
 	}
 	if m.RowsSHA256 == "" {
@@ -701,30 +715,12 @@ func (a app) validate(m *manifest) error {
 	if hash != m.RowsSHA256 {
 		return errors.New("fetched rows changed after capture")
 	}
-	seen := map[string]bool{}
-	for _, as := range m.Assignments {
-		if !slices.Contains(m.Targets, as.Target) || seen[as.Target] || strings.TrimSpace(as.Owner) == "" {
-			return fmt.Errorf("%s: unknown, duplicate or unowned assignment", as.Target)
-		}
-		seen[as.Target] = true
-		if err = validateOutcome(m, as.Outcome); err != nil {
-			return fmt.Errorf("assignment %s: %w", as.Target, err)
-		}
-	}
-	if len(seen) != len(m.Targets) {
-		return errors.New("every requested target needs exactly one completed assignment")
-	}
 	deep, err := a.builtinDeep(m)
 	if err != nil {
 		return err
 	}
 	if !slices.Equal(deep, m.BuiltinDeep) {
 		return errors.New("built-in baseline classification changed")
-	}
-	for _, as := range m.Assignments {
-		if slices.Contains(deep, as.Target) && as.Outcome.Disposition == "fast-path" {
-			return fmt.Errorf("%s: changed built-ins require deep review", as.Target)
-		}
 	}
 	rowBytes, err := os.ReadFile(filepath.Join(m.Directory, "docfetch.tsv"))
 	if err != nil {
@@ -763,6 +759,46 @@ func (a app) validate(m *manifest) error {
 		if err = comparisonValid(m.Directory, s.Fetch.Row); err != nil {
 			return err
 		}
+	}
+	for _, entry := range m.Reused {
+		if err := checkArtifact(m.Directory, entry.Manifest); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a app) validate(m *manifest) error {
+	return a.validateAtLock(m, m.LockBaseline)
+}
+
+func (a app) validateAtLock(m *manifest, expectedLock string) error {
+	if err := a.validateEvidence(m, expectedLock); err != nil {
+		return err
+	}
+	var err error
+	seen := map[string]bool{}
+	for _, as := range m.Assignments {
+		if !slices.Contains(m.Targets, as.Target) || seen[as.Target] || strings.TrimSpace(as.Owner) == "" {
+			return fmt.Errorf("%s: unknown, duplicate or unowned assignment", as.Target)
+		}
+		seen[as.Target] = true
+		if err = validateOutcome(m, as.Outcome); err != nil {
+			return fmt.Errorf("assignment %s: %w", as.Target, err)
+		}
+	}
+	if len(seen) != len(m.Targets) {
+		return errors.New("every requested target needs exactly one completed assignment")
+	}
+
+	deep := m.BuiltinDeep
+	for _, as := range m.Assignments {
+		if slices.Contains(deep, as.Target) && as.Outcome.Disposition == "fast-path" {
+			return fmt.Errorf("%s: changed built-ins require deep review", as.Target)
+		}
+	}
+
+	for _, s := range m.Sources {
 		if err = validateOutcome(m, s.Outcome); err != nil {
 			return fmt.Errorf("source %s: %w", s.key(), err)
 		}
@@ -793,6 +829,9 @@ func (a app) finalize(m *manifest) (string, error) {
 	}
 	if closeErr != nil {
 		return "", fmt.Errorf("%s: %w", guard, closeErr)
+	}
+	if out, handled, err := a.reconcileFinalization(m); handled {
+		return out, err
 	}
 	if err := a.validate(m); err != nil {
 		return "", err
@@ -858,6 +897,9 @@ func (a app) finalize(m *manifest) (string, error) {
 	if err = os.MkdirAll(filepath.Dir(a.lock), 0o755); err != nil {
 		return "", fmt.Errorf("%s: %w", a.lock, err)
 	}
+	if err = writeFinalizationReceipt(m, digest([]byte(result))); err != nil {
+		return "", err
+	}
 	if err = atomicWrite(a.lock, []byte(result)); err != nil {
 		return "", err
 	}
@@ -870,7 +912,7 @@ func (a app) finalize(m *manifest) (string, error) {
 
 func (a app) run(args []string) (string, error) {
 	if len(args) == 0 {
-		return "", errors.New("usage: start|capture|assign|complete|record|validate|finalize (see scripts/target-audit/manifest.md)")
+		return "", errors.New("usage: start|capture|resume|assign|complete|record|validate|finalize (see scripts/target-audit/manifest.md)")
 	}
 	if args[0] == "start" {
 		return a.start(args[1:])
@@ -891,7 +933,15 @@ func (a app) run(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if m.Finalized != "" && args[0] != "finalize" {
+		return "", errors.New("run already finalized")
+	}
 	switch args[0] {
+	case "resume":
+		if len(args) != 3 {
+			return "", errors.New("resume requires fresh captured run and explicit prior run directory")
+		}
+		return a.resume(m, args[2])
 	case "capture":
 		if len(args) != 2 {
 			return "", errors.New("capture requires only a run directory")
