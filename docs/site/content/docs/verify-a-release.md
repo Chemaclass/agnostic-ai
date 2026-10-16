@@ -1,15 +1,15 @@
 +++
 title = "Verify a release"
 description = "Check that the agnostic-ai binary you install is the one this repository's release workflow built."
-weight = 12
+weight = 145
 
 [extra]
-group = "Start"
+group = "Reference"
 +++
 
 # Verify a release
 
-Choose the release tag and archive for your operating system and CPU, then check the downloaded file before extracting or running it. In the examples below, replace `vX.Y.Z` with your release tag and `agnostic-ai_linux_amd64.tar.gz` with your archive name. Each check answers a different question.
+The install scripts and `agnostic-ai upgrade` check the downloaded archive against the release checksum. Use the methods below for a manual download or additional proof of origin. Replace `vX.Y.Z` and the archive filename with the release and platform you chose.
 
 | Check | Proves | Command |
 |---|---|---|
@@ -18,6 +18,9 @@ Choose the release tag and archive for your operating system and CPU, then check
 | List of included modules (SBOM) | Which Go modules and versions are in the binary. | `<archive>.sbom.json` |
 | Proof of where the npm package was built | The npm package came from this repository's release workflow. | `npm audit signatures` |
 | Signed tag | The maintainer signed the release commit and tag. | `git verify-tag` |
+
+<details>
+<summary>Check a downloaded archive</summary>
 
 ## Checksums
 
@@ -30,6 +33,11 @@ grep ' agnostic-ai_linux_amd64.tar.gz$' checksums.txt | sha256sum -c    # macOS:
 ```
 
 The checksum comes from the same release page. It catches a corrupted download, not a compromised release.
+
+</details>
+
+<details>
+<summary>Verify where the archive was built</summary>
 
 ## Check where the archive was built {#build-provenance}
 
@@ -47,9 +55,19 @@ gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-
 
 To make the installers run this check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh` or pass `-VerifyAttestation` to `install.ps1`. Both stop if `gh` is missing or the check fails.
 
+</details>
+
+<details>
+<summary>Inspect the included modules</summary>
+
 ## List of included modules {#sbom}
 
 Each archive has a list of included modules in SPDX format, called a software bill of materials (SBOM), such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`. It lists every Go module in the binary. Its checksum is in `checksums.txt`, and it has its own signed record of where it was built. Scan it with a tool such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json`.
+
+</details>
+
+<details>
+<summary>Verify npm packages</summary>
 
 ## npm
 
@@ -73,6 +91,11 @@ verify_npm_provenance @agnostic-ai/linux-x64 X.Y.Z
 
 If verification fails because the registry is temporarily unavailable, retry when it recovers. A package version published without its required signed build record cannot be repaired in place; maintainers must release a new version of all seven packages.
 
+</details>
+
+<details>
+<summary>Verify signed tags and commits</summary>
+
 ## Signed tags and commits
 
 Release commits and `vX.Y.Z` tags are GPG-signed with the maintainer's key, published at [github.com/Chemaclass.gpg](https://github.com/Chemaclass.gpg):
@@ -82,9 +105,16 @@ curl -fsSL https://github.com/Chemaclass.gpg | gpg --import
 git verify-tag vX.Y.Z
 ```
 
+</details>
+
+<details>
+<summary>Build the tagged source yourself</summary>
+
 ## Build from source
 
 `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@vX.Y.Z` builds the tagged source on your machine. Go checks the module against the [checksum database](https://sum.golang.org/), so a tag moved after publication fails.
+
+</details>
 
 ## Report a problem
 

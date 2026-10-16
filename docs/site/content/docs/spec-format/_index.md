@@ -20,10 +20,6 @@ mcp-servers = "@/docs/spec-format/mcps.md"
 
 Each AI coding tool keeps its configuration in its own place and format: `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, `.gemini/settings.json`. A spec is one file under `.agnostic-ai/` that says what you want, once. `agnostic-ai sync` writes it for every tool you enable, in that tool's own format.
 
-- **One source to review.** A new rule or permission is one diff, not one per tool.
-- **Files stay in sync.** `sync --check` fails when a tool's file no longer matches its spec.
-- **Easy to add tools.** Adding a tool is one entry in `targets:`.
-- **Visible gaps.** When a tool cannot hold a field, sync prints a note.
 
 ## Choose what to write
 
@@ -59,7 +55,7 @@ Each folder holds one kind of spec. Pick the one that fits what you want the age
 | [`settings/`](@/docs/spec-format/settings.md) | Permissions, default model, and effort | one policy should decide what agents may run |
 | [`reviews/`](@/docs/spec-format/reviews.md) | Guidance for code-review bots | a review bot should check project rules |
 | [`environments/`](@/docs/spec-format/environments.md) | Worktree setup, dev servers, and cleanup | agents work in fresh worktrees |
-| [`ignore/`](@/docs/spec-format/ignore.md) | Paths the agent must not read | secrets or build output must stay out of context |
+| [`ignore/`](@/docs/spec-format/ignore.md) | Context and indexing exclusions for supported tools | irrelevant files crowd search or context |
 | [`overlays/`](@/docs/spec-format/overlays.md) | Native settings and helper files that `import` captured | a tool setting has no portable spec |
 
 Two more entries sit next to them:
@@ -69,11 +65,11 @@ Two more entries sit next to them:
 
 Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [tool support table](@/docs/targets/_index.md#capability-matrix) shows which tools get each kind. Each tool's page shows how it writes that kind.
 
-`agnostic-ai new <kind> <name>` creates a starter spec for an agent, skill, rule, hook, or MCP server. [Getting started](@/docs/getting-started.md) walks through a first rule.
+`agnostic-ai new <kind> <name>` creates a starter spec for [each supported kind](@/docs/cli-reference/start.md#new). [Getting started](@/docs/getting-started.md) walks through a first rule.
 
 Specs also load from subfolders:
 
-- Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads.
+- Every `.md` under `agents/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads. Under `skills/`, Markdown beside a folder's `SKILL.md` is bundled reference material, not another skill.
 - Every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/` loads.
 
 ## Nested layout: per-directory scope
@@ -116,7 +112,7 @@ A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini
 - YAML between two `---` lines at the top of the file.
 - Empty frontmatter (`---\n---\n`) means no metadata.
 - A file without frontmatter still loads; its name defaults to the filename.
-- Malformed frontmatter counts as no metadata, and the whole file becomes the body.
+- Malformed YAML inside a closed frontmatter block fails loading. An unclosed block becomes body text, and `lint` reports LINT006.
 - Fields not listed on a kind's page are written as given.
 
 ## Per-target body fences

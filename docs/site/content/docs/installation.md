@@ -10,7 +10,7 @@ scripts = ["assets/scripts/landing.js"]
 
 # Installation
 
-The package managers and install scripts provide a ready-to-run command. You do not need Go unless you choose the Go install method. macOS needs 13 Ventura or later.
+Install the agnostic-ai command on macOS, Linux, or Windows. This does not install Claude Code, Codex, or their accounts. The npm method needs Node 18 or newer; the ready-made binary needs neither Node nor Go. macOS needs 13 Ventura or later.
 
 {{ <install_picker /> }}
 
@@ -24,6 +24,9 @@ agnostic-ai --version
 Command not found? Open a new terminal, or add the install directory to `PATH`. To prove the binary came from this repository, see [Verify a release](@/docs/verify-a-release.md).
 
 Next: [Getting started](@/docs/getting-started.md), or [Migration](@/docs/migration.md) if you already have `CLAUDE.md`, `AGENTS.md`, or other tool files.
+
+<details>
+<summary>Upgrade agnostic-ai or pin a project version</summary>
 
 ## Upgrade
 
@@ -63,6 +66,8 @@ pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
 
 From the project root, run `agnostic-ai upgrade --requires` with that installed CLI, such as `pnpm exec agnostic-ai upgrade --requires`. It sets [`requires`](@/docs/configuration.md#requires) and the schema URL to the installed release, then syncs. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install. If the installed version does not meet the project requirement, commands stop with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires).
 
+</details>
+
 ## Optional extras
 
 - Shell completion for Bash, Zsh, Fish, and PowerShell: [completion](@/docs/cli-reference/maintain.md#completion).
@@ -73,6 +78,9 @@ From the project root, run `agnostic-ai upgrade --requires` with that installed 
 /plugin install agnostic-ai@chemaclass
 ```
 
+<details>
+<summary>Install with Go or download an archive</summary>
+
 ## Other install methods
 
 | Method | Instructions |
@@ -80,9 +88,13 @@ From the project root, run `agnostic-ai upgrade --requires` with that installed 
 | Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`, with the Go version from [go.mod](https://github.com/Chemaclass/agnostic-ai/blob/main/go.mod) or newer. Put `$(go env GOPATH)/bin` on `PATH`. |
 | Manual | Download your archive and `checksums.txt` from [GitHub Releases](https://github.com/Chemaclass/agnostic-ai/releases), verify the checksum, and put the binary on `PATH`. |
 
+</details>
+
 ## Troubleshooting
 
-{% <details summary="npm reports a missing platform package"> %}
+<details>
+<summary>npm reports a missing platform package</summary>
+
 npm skipped the optional dependency that holds the binary. This happens with `--omit=optional`, and with a lockfile copied from another platform. Reinstall with the optional dependencies included:
 
 ```bash
@@ -90,10 +102,14 @@ npm install -g agnostic-ai --force --include=optional
 ```
 
 Drop `-g` for a project install. `--include=optional` also overrides an `omit=optional` left in your npm config. The CLI's error message names the right form for your install.
-{% </details> %}
 
-{% <details summary="How the npm package works"> %}
+</details>
+
+<details>
+<summary>How the npm package works</summary>
+
 [`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It's a wrapper, and its optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
-{% </details> %}
+
+</details>

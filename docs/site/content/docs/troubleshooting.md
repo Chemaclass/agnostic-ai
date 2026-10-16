@@ -18,6 +18,7 @@ Run commands from the directory containing `agnostic-ai.yaml`. Start with the sy
 | Config is missing | Change to the project root, or run `agnostic-ai init` for a new project |
 | A new clone or linked checkout (worktree) has no tool files | Run `agnostic-ai sync`; ignored outputs are absent from Git |
 | An edited spec has no effect | Run `agnostic-ai list` to confirm it loads, then `agnostic-ai sync --dry-run` to see the planned output |
+| Files match, but the agent ignores an instruction | Start a new session from the right directory and check the tool's [loading limits](@/docs/targets/_index.md) |
 | A tool gets only some spec kinds | Check its [capabilities](@/docs/targets/_index.md#capability-matrix) and any unsupported-kind warnings |
 | `sync --check` fails | Run `agnostic-ai sync`, review the result, and commit the generated files if the project tracks them |
 | CI fails on every fresh checkout | Match the [CI recipe](@/docs/ci.md) to whether you commit generated files |
@@ -41,6 +42,9 @@ agnostic-ai doctor
 
 See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes. To trace a generated file to its source, use [why](@/docs/trace.md). To see which tools receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, run `agnostic-ai explain` with it, such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`.
 
+<details>
+<summary>Fix directory-specific rule problems</summary>
+
 ## Scoped rules
 
 | Symptom | Next step |
@@ -53,6 +57,11 @@ See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes
 | An `outputs` override is rejected | Remove the named override and keep headers enabled. |
 | Cursor has no scoped `.mdc` file | It can share a nested `AGENTS.md` with Codex. Run `agnostic-ai graph --spec <name>` to see. |
 | An old scope file remains | Run a full sync, then `sync --check`. Hand-authored files stay. |
+
+</details>
+
+<details>
+<summary>Fix broken references inside a skill</summary>
 
 ## Broken skill references
 
@@ -67,6 +76,8 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 | The tool flattens skills to one file and drops bundled files | Link to a URL, put the content in the skill, or accept the gap for that tool |
 | You deleted a generated file by hand | Run `agnostic-ai sync` to restore it |
 | A placeholder link in an example, such as `[Logs](url)`, can never resolve | List its destination under [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) |
+
+</details>
 
 ## Report a problem
 

@@ -16,7 +16,9 @@ scripts = ["assets/scripts/capability-matrix.js"]
 # Targets
 
 
-See what `agnostic-ai sync` writes for each supported tool. Filter the table, then open a tool's name for its exact paths and settings.
+A target is the writer for one coding tool. Select the tools you use; sync turns the same source specs into their native files.
+
+Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule). For an existing setup, filter the table and open a tool for its paths, import coverage, and native limits.
 
 [Compare targets](@/docs/compare.md) puts two or three tools side by side, with the paths each one gets.
 
@@ -28,7 +30,7 @@ See what `agnostic-ai sync` writes for each supported tool. Filter the table, th
 
 Many tools read the root `AGENTS.md` and `.agents/skills/`. Enable a target that writes both, such as [codex](@/docs/targets/codex.md) with its default output paths. Those tools then get your project-wide rules and skills. Codex includes project-wide rules in `AGENTS.md`; see [cross-target behavior](@/docs/target-behavior.md#entry-point-files).
 
-Copy MCP servers and commands into the tool's own config by hand. For [pi](https://pi.dev), that is `.pi/mcp.json` and `.pi/prompts/<name>.md`. Pi loads them only after you trust the project.
+Check the tool's own discovery rules before relying on those shared paths. MCP servers, commands, and permissions need its native configuration; enabling a compatible target does not translate them for an unknown tool.
 
 To ask for full support, [open an issue](https://github.com/Chemaclass/agnostic-ai/issues).
 

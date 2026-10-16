@@ -17,6 +17,27 @@ render_doc() {
     NR == 1 && $0 == "+++" { in_frontmatter = 1; next }
     in_frontmatter && $0 == "+++" { in_frontmatter = 0; next }
     !in_frontmatter && $0 ~ /^\{\{ <[a-z_]+ \/> \}\}$/ { next }
+    !in_frontmatter && $0 ~ /^\{% <details summary=".*"> %\}$/ {
+      summary = $0
+      sub(/^\{% <details summary="/, "", summary)
+      sub(/"> %\}$/, "", summary)
+      print "### " summary
+      next
+    }
+    !in_frontmatter && $0 ~ /^\{% <\/details> %\}$/ { next }
+    !in_frontmatter && $0 ~ /^<summary>.*<\/summary>$/ {
+      summary = $0
+      sub(/^<summary>/, "", summary)
+      sub(/<\/summary>$/, "", summary)
+      gsub(/&lt;/, "<", summary)
+      gsub(/&gt;/, ">", summary)
+      gsub(/&amp;/, "\\&", summary)
+      print "### " summary
+      next
+    }
+    !in_frontmatter && $0 ~ /^<\/?details>$/ { next }
+    !in_frontmatter && $0 ~ /^<span id="[a-z0-9-]+" hidden><\/span>$/ { next }
+    !in_frontmatter && $0 ~ /^## .* \{#[a-z0-9-]+ \.legacy-anchor\}$/ { next }
     !in_frontmatter { print }
   ' "$1" | sed -E \
     -e 's|\]\(@/docs/([^)#]+)/_index\.md(#[^)]+)?\)|](https://agnostic-ai.org/docs/\1/\2)|g' \
@@ -41,7 +62,7 @@ revision=${GITHUB_SHA:-$(git -C "$root" rev-parse --verify HEAD 2>/dev/null || p
   echo "Generated from docs/site/content/docs/ at ${revision}. Source of truth:"
   echo "https://github.com/Chemaclass/agnostic-ai"
   for doc in _index installation agent-setup getting-started migration troubleshooting \
-             trace spec-format targets target-behavior target-updates configuration \
+             trace spec-format targets target-behavior target-updates configuration global-configuration \
              cli-reference ci packs local-overrides scoped-context memory handoff \
              rtk-and-caveman git-hooks graph compare errors verify-a-release \
              why-agnostic-ai; do

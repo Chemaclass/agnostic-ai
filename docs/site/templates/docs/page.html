@@ -28,13 +28,19 @@
     <article class="docs-content" id="doc-body">
       <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span>{% if page.extra.target_id %}<a href="{{ get_url(path='@/docs/targets/_index.md') }}">Targets</a>{% elif page.ancestors | length > 1 %}{% set parent = get_section(path=page.ancestors | last) %}<a href="{{ parent.permalink }}">{{ parent.title }}</a>{% else %}<span>{{ page.extra.group }}</span>{% endif %}</div>
       {{ page.content | safe }}
+      {% if page.extra.next %}
+      <nav aria-label="Next lesson">
+        <p>Next: <a href="{{ get_url(path=page.extra.next) | safe }}">{{ page.extra.next_label }}</a></p>
+      </nav>
+      {% endif %}
       <footer class="docs-source-link"><a href="{{ config.extra.repository_url }}/blob/main/docs/site/content/{{ page.relative_path | safe }}">Edit this page on GitHub</a></footer>
     </article>
 
     {% if page.toc | length > 0 %}
     <aside class="docs-toc">
       <p>On this page</p>
-      {{ <docs.toc headings={page.toc} /> }}
+      {% set moved = page.extra.moved | default(value=[]) %}
+      {{ <docs.toc headings={page.toc} moved={moved} /> }}
     </aside>
     {% endif %}
   </div>
@@ -42,21 +48,37 @@
 {% endblock content %}
 
 {% block scripts %}
-{% if page.extra.moved %}
 <script>
-  // Anchors that moved to another page when this one was split.
   (function () {
-    var hash = decodeURIComponent(window.location.hash.slice(1));
-    if (!hash || document.getElementById(hash)) return;
-    var moved = {
+    function revealTarget() {
+      var hash;
+      try { hash = decodeURIComponent(window.location.hash.slice(1)); } catch (_) { return; }
+      if (!hash) return;
+      {% if page.extra.moved %}
+      var moved = {
 {%- for anchor, path in page.extra.moved %}
-      "{{ anchor }}": "{{ get_url(path=path) | safe }}",{% endfor %}
-      "": ""
-    };
-    if (moved[hash]) window.location.replace(moved[hash] + "#" + hash);
+{%- set destination = path | split(pat="#") %}
+        "{{ anchor }}": "{{ get_url(path=destination[0]) | safe }}{% if destination | length > 1 %}#{{ destination[1] | safe }}{% else %}#{{ anchor }}{% endif %}",{% endfor %}
+        "": ""
+      };
+      if (moved[hash]) {
+        window.location.replace(moved[hash]);
+        return;
+      }
+      {% endif %}
+      var target = document.getElementById(hash);
+      if (target) {
+        for (var parent = target.parentElement; parent; parent = parent.parentElement) {
+          if (parent.tagName === "DETAILS") parent.open = true;
+        }
+        target.scrollIntoView();
+        return;
+      }
+    }
+    revealTarget();
+    window.addEventListener("hashchange", revealTarget);
   })();
 </script>
-{% endif %}
 {% if page.extra.scripts %}
   {% for script in page.extra.scripts %}<script src="{{ get_url(path=script, trailing_slash=false) }}" defer></script>{% endfor %}
 {% endif %}

@@ -13,12 +13,17 @@ A pack is a collection of source specs, such as agents, skills, rules, hooks, an
 
 ## Install
 
+Review the pack's instructions and scripts before using them.
+
 ```bash
 agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 agnostic-ai packs add ./shared/security-rules
 ```
 
 `packs add` copies the pack into `.agnostic-ai/packs/<name>/` and records its version in `agnostic.packs.lock`. Run `agnostic-ai sync` after adding the pack to generate its files for your tools. If your project has a spec with the same name, yours wins.
+
+<details>
+<summary>Find example packs</summary>
 
 ## Packs you can install
 
@@ -27,6 +32,8 @@ Checked on 2026-10-03. Each repo keeps its skills in a root `skills/` directory.
 - `github.com/anthropics/skills`: Anthropic's example skills. Installs as `skills`.
 - `github.com/obra/superpowers@v6.4.2`: a development workflow skill set. Installs as `superpowers`.
 - `github.com/vercel-labs/agent-skills`: Vercel's web and deployment skills. Installs as `agent-skills`.
+
+</details>
 
 ## List, update, remove
 
@@ -38,6 +45,9 @@ agnostic-ai packs remove superpowers
 ```
 
 `update` fetches each pack again at the version in the lockfile.
+
+<details>
+<summary>Share a pack, choose its source, and inspect its lockfile</summary>
 
 ## Sources
 
@@ -75,7 +85,9 @@ packs:
     sha: 8ca22dba9a94f28898bbce59f2537ff4d87c747d
 ```
 
-Commit it so teammates and CI install the same versions. Review pack instructions and any scripts before using them in a coding session.
+Commit it so teammates and CI install the same versions. Review pack instructions and scripts before using them in a coding session.
+
+</details>
 
 ## Which spec wins
 

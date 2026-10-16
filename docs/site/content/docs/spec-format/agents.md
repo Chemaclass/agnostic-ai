@@ -12,43 +12,30 @@ group = "Reference"
 
 `agents/` defines subagents: specialists the main agent hands a task to. Each has its own instructions, tools, and model. Examples: a reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
 
-- **Separate working context.** A subagent works in its own context and hands back a result.
-- **Limited access.** `can`, `readonly`, and `mcpServers` limit what it may touch.
-- **The right model per role.** `model` and `effort` set cost and depth per agent, and per tool.
-- **One definition.** Every tool that supports agents gets its own file from the same spec. The rest get a sync note.
-
 Give the agent one responsibility, the files or decisions it owns, and a clear return format. Include how it should check its result. Use `description` to help the main agent decide when to delegate, and keep the body focused on the delegated task.
 
 ## Write one
 
-`agnostic-ai new agent code-reviewer` creates `agents/code-reviewer.md`. YAML settings between `---` lines at the top, called frontmatter, configure the agent. The body is its system prompt.
+```bash
+agnostic-ai new agent code-reviewer
+```
+
+Edit `.agnostic-ai/agents/code-reviewer.md` (or its configured source path). Claude Code can restrict this agent's tools; Codex drops `can` with a note. `readonly` also does not give a Codex child agent a separate sandbox. See [tool support](#tools-support-by-target).
+
+YAML settings between `---` lines configure the agent. The body is its prompt.
 
 ```markdown
 ---
 name: code-reviewer
 description: Reviews diffs for bugs, style, and architectural issues. Use after a change set is complete.
 can: [read, shell(git diff *)]
-model: sonnet
+model: {claude: sonnet, codex: sol}
 ---
 
 You are a code reviewer. Report concise findings with `file:line` references.
 ```
 
-Write `description` for the main agent: what the agent does and when to use it.
-
-This read-only auditor uses a stronger model on Claude Code, another everywhere else, and one MCP server:
-
-```markdown
----
-name: security-auditor
-description: Checks a diff for injection, leaked secrets, and unsafe input handling. Use before merging auth or payment changes.
-readonly: true
-model: {claude: opus, default: gpt-6.1-sol}
-mcpServers: [github]
----
-
-List each finding with its `file:line`, the attack it enables, and the smallest fix.
-```
+Run `agnostic-ai explain agents/code-reviewer.md` to inspect the translations, then `agnostic-ai sync` and `agnostic-ai sync --check`.
 
 ## Fields
 
@@ -69,7 +56,7 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 
 Any other frontmatter field is written as given.
 
-`memory` gives the agent a directory that lasts across sessions. [Claude Code](@/docs/targets/claude.md#agent-memory) uses it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key, unconfirmed. Junie gets it as written. Every other tool drops it.
+`memory` gives the agent a directory that lasts across sessions. [Claude Code](@/docs/targets/claude-reference.md#agent-memory) uses it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key, unconfirmed. Junie gets it as written. Every other tool drops it.
 
 ### `readonly` by target {#readonly-by-target}
 
@@ -105,7 +92,7 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 
 - Each capability becomes the tool's own name for it. `delete` raises a sync note on tools with no delete tool.
 - Claude Code names still work as aliases. A list can mix both: `can: [read, Grep]`.
-- The names match the hook [`match:` tool kinds](@/docs/spec-format/hooks.md#portable-events).
+- The names match the hook [`match:` tool kinds](@/docs/spec-format/hook-reference.md#portable-events).
 - A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this.
 - `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`.
 - A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
@@ -222,7 +209,9 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 
 `explain agents/architect.md` lists the model and effort each configured tool gets.
 
-{% <details summary="Lint and import with tiers"> %}
+<details>
+<summary>Lint and import with tiers</summary>
+
 `lint` flags:
 
 - a tier a spec names with no entry and no `default` for one of the spec's targets
@@ -230,7 +219,8 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 - a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026)
 
 `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool.
-{% </details> %}
+
+</details>
 
 ## Agents as skills {#agents-as-skills}
 
@@ -305,4 +295,3 @@ On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disable
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
 `color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), which has no `color`, so a portable `color` prints a sync note there.
-

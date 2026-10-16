@@ -9,9 +9,7 @@ group = "Workflows"
 
 # Shared memory
 
-Keep useful project facts in shared Markdown files so other AI coding tools can read them in later sessions. For example, a fact saved while using Codex can tell Claude Code and Cursor which operating systems your project checks.
-
-Memory is plain Markdown in your project, so every tool can read it and your team reviews it like any other file.
+Save useful project facts once so other coding tools can read them next session. Memory is Markdown: your team can inspect and review shared facts in Git.
 
 ## Turn it on
 
@@ -19,16 +17,16 @@ Add `memory` to `agnostic-ai.yaml` and sync once:
 
 ```yaml
 requires: ">=0.81.0"
-builtins: [handoff, memory]
+builtins: [memory]
 ```
 
 ```bash
 agnostic-ai sync
 ```
 
-New memory facts are read from these Markdown files. Saving a fact does not need another sync; team facts still need your confirmation as described below.
+Saving a fact needs no further sync. Team facts require your confirmation.
 
-To turn it on for every project, add `memory` to `builtins` in `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global` instead. Pick one place: with both, some tools load memory twice. Claude Code still loads it only after a sync in the project.
+Use [global configuration](@/docs/global-configuration.md) to enable it across projects. Choose project or global setup: enabling both can load the same facts twice. Claude Code needs a project sync either way.
 
 ## Two memories
 
@@ -39,13 +37,41 @@ To turn it on for every project, add `memory` to `builtins` in `~/.agnostic-ai/a
 | Holds | Team facts: conventions, decisions, known problems | Your preferences and corrections |
 | Tools save | After you confirm | Without asking |
 
-Each folder has one file per fact and a `MEMORY.md` list with one line per fact. Tools read the list at the start of a session and open a fact only when they need it.
+Each folder has one file per fact and a `MEMORY.md` list. Tools read the list at the start of a session and open relevant facts when needed.
 
 ```
 .agnostic-ai/memory/
   MEMORY.md        # - [CI runs on Ubuntu](ci-ubuntu.md): PR CI skips macOS and Windows
   ci-ubuntu.md
 ```
+
+## Save and recall a fact
+
+Ask your coding tool: “Remember that this project's integration tests need the local database running.” It proposes the team fact for your approval. Ask it to save a personal preference, such as shorter answers, and it can save that without asking.
+
+Inspect the fact and its `MEMORY.md` entry. Start another tool in the project and ask what it knows about integration tests.
+
+Keep your coding tool's own memory on. Shared memory adds a team layer and facts other tools can read. Your request wins over saved facts.
+
+Ask for the `shared-memory` skill to recall a topic or clean up stale facts. Cleanup needs your confirmation.
+
+See [Gemini CLI](@/docs/targets/gemini.md#shared-memory) for how it keeps its own memory alongside these shared facts.
+
+## Check and repair
+
+`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, text that looks like a secret, and hidden characters a reviewer cannot see. They skip personal memory when its folder is missing, so CI never checks it.
+
+```bash
+agnostic-ai memory lint     # run only the memory checks
+agnostic-ai memory index    # rebuild each MEMORY.md, for example after a merge conflict
+agnostic-ai memory list     # list each fact
+agnostic-ai memory path     # print both memory folders
+```
+
+See [memory](@/docs/cli-reference/maintain.md#memory) in the CLI reference.
+
+<details>
+<summary>Write or review a memory fact by hand</summary>
 
 A fact file:
 
@@ -66,11 +92,12 @@ PR CI runs on Ubuntu alone.
 
 `type` is `user`, `feedback`, `project`, or `reference`. The `sources:` setting does not move these folders.
 
-Every tool gets the `shared-memory-policy` rule, which tells it when to read, save, and update facts. It has tools save only what the code, Git history, and rules don't already say, update a fact instead of adding a copy, check that a file or command a fact names still exists, and never save secrets. Your request always wins over a saved fact. Anyone who can push can change what every tool reads, so review memory changes in pull requests.
+The `shared-memory-policy` rule asks tools to save facts absent from code, history, and rules; update rather than duplicate them; verify named files and commands still exist; and exclude secrets. Review shared memory changes like code, because every tool reads them.
 
-To recall what the project knows about a topic, or to clean memory up (merge duplicates, drop stale facts), ask your tool to use the `shared-memory` skill. You confirm each change.
+</details>
 
-Gemini CLI also gets the `gemini-memory-tiers` rule. Gemini CLI keeps its own memory, saves team facts here instead of in the `GEMINI.md` that sync writes over, and copies its private facts to personal memory. See [Gemini CLI](@/docs/targets/gemini.md#shared-memory).
+<details>
+<summary>How each tool loads memory and keeps its own notes</summary>
 
 ## How each tool loads it {#how-each-tool-loads-it}
 
@@ -150,6 +177,11 @@ Keep your tool's own memory on. Shared memory adds what none of them gives alone
 | Windsurf (Devin) | Devin Local keeps none. Cloud Devin has its own Memory | Cloud Devin Memory is on; whether it reaches Devin Desktop, Local, or the CLI is not documented |
 | Cursor | None documented | Not applicable |
 
+</details>
+
+<details>
+<summary>Share personal memory across linked worktrees</summary>
+
 ## Share personal memory across worktrees {#one-store-per-repository}
 
 For a new Git project, `agnostic-ai init --memory` enables shared memory and starts personal memory in repo mode when managed ignores are on. It keeps an existing `agnostic-ai.local.yaml`. Teammates who clone and sync choose their own mode. Without Git or with `--gitignore=off`, it enables memory in checkout mode.
@@ -198,15 +230,4 @@ Notes:
 
 Cloud agents start from a fresh clone, so they never see personal memory.
 
-## Check and repair
-
-`agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, text that looks like a secret, and hidden characters a reviewer cannot see. They skip personal memory when its folder is missing, so CI never checks it.
-
-```bash
-agnostic-ai memory lint     # run only the memory checks
-agnostic-ai memory index    # rebuild each MEMORY.md, for example after a merge conflict
-agnostic-ai memory list     # list each fact
-agnostic-ai memory path     # print both memory folders
-```
-
-See [memory](@/docs/cli-reference/maintain.md#memory) in the CLI reference.
+</details>

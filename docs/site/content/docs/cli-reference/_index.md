@@ -30,9 +30,10 @@ Run project commands from the folder containing `agnostic-ai.yaml`, unless the c
 | Find which specs each tool reads | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |
-| Check and repair shared memory | [memory](@/docs/cli-reference/maintain.md#memory) |
-| Write and test hook commands | [hook paths](@/docs/cli-reference/maintain.md#hook-paths), [hook run](@/docs/cli-reference/maintain.md#hook-run), [hook worktree-remove](@/docs/cli-reference/maintain.md#hook-worktree-remove) |
-| Set up your environment | [completion](@/docs/cli-reference/maintain.md#completion), [upgrade or update](@/docs/cli-reference/maintain.md#upgrade), [migrate](@/docs/cli-reference/maintain.md#migrate), [install-hook](@/docs/cli-reference/maintain.md#install-hook), [lsp](@/docs/cli-reference/maintain.md#lsp) |
+| Check and maintain shared memory | [memory commands](@/docs/cli-reference/memory.md#memory) |
+| Write and test hook commands | [hook paths](@/docs/cli-reference/maintain.md#hook-paths), [hook run](@/docs/cli-reference/hook-diagnostics.md#hook-run), [hook worktree-remove](@/docs/cli-reference/maintain.md#hook-worktree-remove) |
+| Check or prepare the project CLI | [project](@/docs/cli-reference/project.md#project), [readiness checks](@/docs/cli-reference/project.md#project-readiness) |
+| Set up your environment | [completion](@/docs/cli-reference/maintain.md#completion), [upgrade or update](@/docs/cli-reference/upgrades.md#upgrade), [migrate](@/docs/cli-reference/upgrades.md#migrate), [install-hook](@/docs/cli-reference/maintain.md#install-hook), [lsp](@/docs/cli-reference/maintain.md#lsp) |
 
 Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/migration.md). Automation: [exit codes](#exit-codes), [CI guide](@/docs/ci.md).
 
@@ -70,8 +71,4 @@ The lock file is `.agnostic-ai/.command-lock`, which the managed `.gitignore` bl
 
 ## Which config wins {#config-precedence}
 
-The last one wins:
-
-1. Built-in defaults (see [configuration](@/docs/configuration.md))
-2. `agnostic-ai.yaml`
-3. CLI flags (e.g. `-t`)
+Configuration loads built-in defaults, `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, then CLI flags. See [which value wins](@/docs/configuration.md#precedence) for merge rules.

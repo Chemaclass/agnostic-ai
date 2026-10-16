@@ -11,10 +11,6 @@ group = "Reference"
 
 `reviews/` tells code-review bots what to check in this project: the layering rule, the error handling, the migrations that need a second look. Each review bot reads its guidance from its own files. A review spec feeds all of them from one source.
 
-- **Project rules in every review.** The bot flags what your team cares about, not only generic issues.
-- **Scoped guidance.** A review under `reviews/services/api/` applies only to changes in that directory.
-- **No copies.** An `@path` line pulls a folder's `README.md` into its review, so the docs and the review stay the same text.
-
 | Target | Reads |
 |--------|-------|
 | [Cursor](@/docs/targets/cursor.md) (Bugbot) | `.cursor/BUGBOT.md`, and `<scope>/.cursor/BUGBOT.md` for scoped specs |
@@ -26,17 +22,15 @@ Other tools report review specs as unsupported.
 
 Ellipsis also needs the reviewer, its model, and any review posting rules from a [settings spec](@/docs/spec-format/settings.md) under `x-ellipsis`. Without a reviewer, sync writes no file and says what is missing. See [Ellipsis](@/docs/targets/ellipsis.md).
 
-Write checks a reviewer can verify against changed files. For each reported issue, ask for the file and line, the effect on behavior, and a suggested fix. Keep general coding instructions in [rules](@/docs/spec-format/rules.md).
-
 ## Write one
 
 ```bash
 agnostic-ai new review code-quality
 ```
 
-Replace the description and body with the checks your review bot should apply. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+Replace the description and body with the checks your review bot should apply.
 
-Write Markdown with optional YAML settings between `---` lines at the top, one file per group of guidance.
+Save Markdown with optional YAML settings as `.agnostic-ai/reviews/code-quality.md`. Sync, check the output, then start a review in a supported tool. These specs supply guidance; they do not install or start a review bot.
 
 ```markdown
 ---

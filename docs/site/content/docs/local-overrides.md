@@ -9,7 +9,26 @@ group = "Workflows"
 
 # Local overrides
 
-Use `.agnostic-ai/local/` for personal specs and instructions, and `agnostic-ai.local.yaml` for personal configuration values. A `local/` folder holds your personal setup. It changes shared specs field by field, adds new specs, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` stays the team's setup.
+Keep personal instructions in `.agnostic-ai/local/` without changing the team's source files. For example, create `.agnostic-ai/local/AGNOSTIC_AI.md`:
+
+```markdown
+Answer in Spanish.
+```
+
+Then run `agnostic-ai sync`. The text extends the shared project instructions. Your local folder stays out of Git. If the project commits generated instruction files, your personal text appears there too; review before committing.
+
+For personal configuration values, use `agnostic-ai.local.yaml`. To alter a shared skill or rule, add a local spec with the same kind and name and write only the fields you want to change.
+
+## Why use it
+
+Personal preferences and experiments stay on your machine. The team keeps one shared setup.
+
+## Add a spec
+
+A new local spec name adds a spec for your machine. Run `agnostic-ai sync`, then `agnostic-ai list` to check which source won.
+
+<details>
+<summary>Choose project-local or machine-wide personal sources</summary>
 
 There are two `local/` folders:
 
@@ -19,16 +38,6 @@ There are two `local/` folders:
 | `global-local` | `~/.agnostic-ai/local/` (or `$AGNOSTIC_AI_HOME/local/`) | `agnostic-ai sync --global` | `agnostic-ai list --global` |
 
 A folder loads only when it exists. Project sync ignores `~/.agnostic-ai/`, and global sync ignores every project. Your personal setup wins over the shared one.
-
-## Why use it
-
-The team agrees on `.agnostic-ai/`, but you work your own way. If you edit the shared specs, the change lands in your next commit. If you edit generated files, the next `sync` overwrites them. A `local/` folder keeps your changes on your machine.
-
-- **Model and effort.** Your plan includes Opus; the team default is Sonnet. Change one field, keep the rest of the skill.
-- **Personal steps.** Add "run my local benchmark" to the shared review skill without keeping a separate copy.
-- **Experiments.** Try a new agent or rule for a week. Move it to `.agnostic-ai/` if it works, or delete it.
-- **Machine specifics.** Point an MCP server at your local port, or add an environment variable.
-- **Tools.** Drop or add a tool for an agent on your machine only.
 
 ## Layout
 
@@ -47,11 +56,12 @@ my-project/.agnostic-ai/
 
 The project folder reads every spec kind: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`, `commands/`, `settings/`, `reviews/`, `environments/`, and `ignore/`. It stays at `.agnostic-ai/local/` even when custom `sources` paths in `agnostic-ai.yaml` move the shared specs.
 
-The global folder reads `AGNOSTIC_AI.md`, `agents/`, `skills/`, `rules/`, and `hooks/`. See [global configuration](@/docs/configuration.md#global-configuration).
+For the global folder’s supported kinds and layout, see [global configuration](@/docs/global-configuration.md#source-and-targets).
 
-## Add a spec
+</details>
 
-A local spec with a new name joins the shared set. Run `agnostic-ai sync` to generate its files for each selected tool.
+<details>
+<summary>Change shared fields, extend bodies, and keep supporting files</summary>
 
 ## Override fields
 
@@ -80,18 +90,7 @@ model:
 ---
 ```
 
-What every target receives:
-
-```md
----
-name: custom
-description: Draft the release notes.
-model:
-  claude: opus
-  codex: gpt-5.6-terra
----
-Read the merged PRs since the last tag.
-```
+After sync, Claude uses `opus`; the description, body, and Codex model stay as shared. A personal change replaces only the fields it names.
 
 Frontmatter (the YAML fields between `---` lines) merges key by key, the same way `agnostic-ai.local.yaml` merges over `agnostic-ai.yaml`:
 
@@ -146,12 +145,7 @@ name: custom
 Then run my local benchmark.
 ```
 
-Result:
-
-```md
-Review the changed code.
-Then run my local benchmark.
-```
+The result is the shared review instruction followed by your benchmark step.
 
 `::parent` must start at column 0 and stand alone on its line. Keep it outside a `::target` fence. In a spec with a new name, `::parent` has nothing to extend, so sync drops it.
 
@@ -191,6 +185,8 @@ Hooks are matched by event, matcher, and handler. A local handler is removed fro
 
 Settings, reviews, and environments share one native file per target. If your local folder holds one of these kinds, import leaves every shared spec of that kind unchanged and says so.
 
+</details>
+
 ## Stay out of Git
 
 `init` and `sync` add `/.agnostic-ai/local/` to the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Add nothing by hand. See [gitignore](@/docs/configuration.md#gitignore).
@@ -205,7 +201,7 @@ Put per-machine config tweaks in `agnostic-ai.local.yaml`, which merges over `ag
 
 ## See what wins
 
-`agnostic-ai list` prints each loaded spec as `kind`, `name`, and the setup that supplied it:
+`agnostic-ai list` prints each spec and the source that won:
 
 ```console
 $ agnostic-ai list

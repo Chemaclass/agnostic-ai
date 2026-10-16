@@ -11,13 +11,7 @@ group = "Reference"
 
 `rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Each tool loads rules in its own format (Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections). You write a rule once, and every tool gets it.
 
-- **Always on, or only where it matters.** A rule can apply to every session, to one directory, or to files that match a pattern. A payments convention stays out of frontend work.
-- **Close to the code.** A rule under `rules/services/payments/` applies inside `services/payments/`, and supported tools load it only there.
-- **Checked like code.** `sync --check` fails when a tool's copy differs from the spec. `agnostic-ai explain --file <path>` lists which rules apply to a file.
-
 Keep a rule short and write it as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md) instead, so it loads only when needed.
-
-Write instructions the agent can act on and you can check, such as which test command to run or which files to edit. Keep one convention per rule. Set a directory or file pattern when the instruction applies to only part of the project.
 
 ## Write one
 
@@ -70,7 +64,9 @@ When several rules share a file, such as Codex's `AGENTS.md` or Gemini's `GEMINI
 
 The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`. Import moves the headings back, so a rule comes through sync and import unchanged.
 
-{% <details summary="Edge cases for heading shifts"> %}
+<details>
+<summary>Edge cases for heading shifts</summary>
+
 - Fenced code (including fences inside lists) and raw HTML blocks keep their headings as written.
 - Link reference definitions stay separate from underlined (Setext) headings.
 - List items followed by a thematic break remain lists.
@@ -79,7 +75,8 @@ The section's source comment records the shift, as in `<!-- source: .agnostic-ai
 - An underlined (Setext) heading comes back from import as a `#` heading. Hard line breaks in its text become `<br>` tags.
 - Headings and source-comment examples inside fenced code and raw HTML stay in their rule body. They do not start another rule.
 - When a rule leaves a code or HTML block open, its source comment also records `body-lines: <count>`. Import uses that count to find the next section. Sync updates the count from the spec.
-{% </details> %}
+
+</details>
 
 ## Fields
 

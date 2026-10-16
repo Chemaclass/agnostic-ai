@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The hooks page prints the guard script `init --demo` seeds, so a reader
+// The hook recipes page prints the guard script `init --demo` seeds, so a reader
 // copies the code that ships.
 func TestDemoHookScript_HooksPageShowsSeededScript(t *testing.T) {
 	t.Parallel()
@@ -21,7 +21,7 @@ func TestDemoHookScript_HooksPageShowsSeededScript(t *testing.T) {
 	}
 	const (
 		scriptRel = "internal/cli/initdata/scripts/no-force-push.sh"
-		docRel    = "docs/site/content/docs/spec-format/hooks.md"
+		docRel    = "docs/site/content/docs/spec-format/hook-recipes.md"
 	)
 	if script := read(scriptRel); !strings.Contains(read(docRel), "```sh\n"+script+"```\n") {
 		t.Errorf("%s does not show %s verbatim; copy the script into its sh block", docRel, scriptRel)

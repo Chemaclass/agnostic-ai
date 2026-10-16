@@ -27,6 +27,9 @@ agnostic-ai explain builtin:handoff --json
 | `--json` | Stable JSON for editor extensions and scripts. |
 | `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
 
+<details>
+<summary>Read contribution paths, model resolution, and explain JSON</summary>
+
 Contributions are grouped by configured target. A "would emit if enabled" list covers tools that are not enabled. Each entry is tagged `(full file)` or `(section "<name>")`.
 
 With `--global`, contributions read like this:
@@ -50,6 +53,8 @@ A spec that sets `model` or `effort` also lists the [tier](@/docs/spec-format/ag
 
 `model_tier` and `models` are omitted when the spec sets neither `model` nor `effort`.
 
+</details>
+
 For an agent's `can` or `tools`, and for settings `permissions`, the report lists each configured target's native names. Unsupported rules stay visible. A widening line names the extra access a target grants. Tool-specific overrides show their values and name the field that wins. For Codex, the report calculates extra access from the merged permissions and any explicit command policy source.
 
 ```bash
@@ -57,7 +62,14 @@ agnostic-ai explain agents/reviewer.md
 agnostic-ai explain settings/permissions.yaml --json
 ```
 
-The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, and `supported`. `widening` lists extra access when present. `override` names a native field or policy source that replaces the portable rule. The array is omitted for specs without these fields. `explain` still shows translations with `on-unsupported: error`. `sync` fails on widening.
+`explain` still shows translations with `on-unsupported: error`. `sync` fails on widening.
+
+<details>
+<summary>Read capability JSON fields</summary>
+
+The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, and `supported`. `widening` lists extra access when present. `override` names a native field or policy source that replaces the portable rule. The array is omitted for specs without these fields.
+
+</details>
 
 ### Explain a source file
 
@@ -73,6 +85,11 @@ agnostic-ai explain --file services/payments/handler.go --target codex
 |------|-------------|
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot combine with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Supported: `cursor`, `claude`, `codex`. |
+
+The report describes planned project configuration, not the instructions the model has actually loaded. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
+
+<details>
+<summary>Read instruction statuses, native discovery rules, and JSON</summary>
 
 | Status | Meaning |
 |--------|---------|
@@ -91,12 +108,12 @@ For Codex, root `AGENTS.md` and `AGENTS.override.md` instructions have no file c
 
 For Claude Code, the report reads the generated `paths` values, including tool-specific overrides, and discovers Markdown rules recursively under `.claude/rules/`. Nested `CLAUDE.md` files cover files beneath their directory. For other files, loading depends on the directory where the session starts, so the result is `unknown`. Imported instructions and outputs outside native discovery also report `unknown` when session approval or settings are needed. Complex path patterns the command cannot evaluate, including brace expansion and character classes, name that limit in their reason. See [Claude Code's instruction discovery](https://code.claude.com/docs/en/memory).
 
-The report describes planned project configuration, not the instructions the model has actually loaded. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
-
 ```json
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
  "instructions": [{"status": "match", "source": "...", "output": "...", "selector": "...", "reason": "..."}]}
 ```
+
+</details>
 
 ### Rank context contributions
 
@@ -108,11 +125,14 @@ agnostic-ai explain --context --target claude --json
 agnostic-ai explain --context --target cursor --file src/main.go
 ```
 
+These are estimates from planned output and spec text, not model tokens or observed context. Runtime context, external imports, user-owned files, and host truncation are unknown. Inlined imports retain their source paths; unresolved imports are not expanded or read by this report.
+
+<details>
+<summary>Read context accounting groups and JSON</summary>
+
 Entry-point layers, marked rule and review sections, inlined imports, always-on rules, and individual skill and agent descriptions used to find skills and agents are counted separately. Generated framing has its own contribution so the startup word total stays consistent with lint. Sources sharing a generated document are counted once for the selected target.
 
 Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup totals. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope`, with a separate additional total. Unmatched or uncertain rule bodies remain on demand. Entries sort by loading group, descending words and bytes, then source path and category.
-
-These are estimates from planned output and spec text, not model tokens or observed context. Runtime context, external imports, user-owned files, and host truncation are unknown. Inlined imports retain their source paths; unresolved imports are not expanded or read by this report.
 
 ```json
 {"version": "1", "command": "explain", "target": "claude", "note": "...",
@@ -122,6 +142,8 @@ These are estimates from planned output and spec text, not model tokens or obser
 ```
 
 `file` is present when requested. `load` is `startup`, `file-scope`, or `on-demand`. The text and JSON reports use the same contributions and totals.
+
+</details>
 
 ### List generator inputs
 
@@ -151,6 +173,13 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
+`preserved` describes the written file. It does not prove the tools behave the same, that a hook ran, or that an MCP server connects. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
+
+The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
+
+<details>
+<summary>Read compared fields, result labels, permission mappings, and JSON</summary>
+
 It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Portable settings permissions are compared one source rule at a time, including allow, ask, deny, and default-mode. Other settings, spec kinds, and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex's separate policy files. Each field gets one result per target:
 
 | Result | Meaning |
@@ -161,13 +190,9 @@ It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApp
 | `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
 | `unknown` | The written files do not show either way. |
 
-`preserved` describes the written file. It does not prove the tools behave the same, that a hook ran, or that an MCP server connects. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
-
 MCP comparison names fields and output paths without showing command, argument, URL, environment or header values, including defaults and unknown reference text. If the tool's configuration cannot represent a reference in the server URL or arguments, the whole server can be omitted. If the native file has no explicit transport, the result is `unknown`.
 
 Permission rows use the source list index, such as `permissions.deny[0]`, name the rule, and show native override values and partial mappings. Recognized credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries. Filename patterns and ordinary permission actions remain visible. Matching and comparison still use the original values. Codex shell permissions require `outputs.codex.exec-policies-from-permissions: true`. Portable default-mode applies to global sync, so project comparison reports it as unsupported. Differences include effective decisions and partial support, even when both results are translated.
-
-The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
 ```json
 {"version": "1", "command": "compare", "targets": ["claude", "cursor"], "coverage": "...", "caveat": "...",
@@ -175,6 +200,8 @@ The command fails on unknown targets, the same target twice, invalid specs or co
    "results": [{"target": "cursor", "status": "unsupported", "reason": "...", "next": "..."}]}]}],
  "fields": 6, "differences": 3}
 ```
+
+</details>
 
 ## render
 

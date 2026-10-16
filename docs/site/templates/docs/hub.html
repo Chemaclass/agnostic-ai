@@ -34,7 +34,8 @@
     {% if section.toc | length > 0 %}
     <aside class="docs-toc">
       <p>On this page</p>
-      {{ <docs.toc headings={section.toc} /> }}
+      {% set moved = section.extra.moved | default(value=[]) %}
+      {{ <docs.toc headings={section.toc} moved={moved} /> }}
     </aside>
     {% endif %}
   </div>

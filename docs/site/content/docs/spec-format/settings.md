@@ -17,43 +17,28 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 
 `settings/` sets what agents may run without asking, what they must never run, and which model and effort they start with. Every tool spells this differently: Claude Code uses `permissions` in `.claude/settings.json`, Factory uses command lists, Codex uses `config.toml`. A settings spec states the policy once.
 
-- **One policy.** Allow `go test`, deny `rm`, and ask before pushing, in every tool that supports permissions.
-- **No silent widening.** A rule a tool cannot express raises a sync note.
-- **Protected files.** List the files an agent must not edit without asking. Each tool gets its own guard.
-- **One default model.** Set it per tool with a fallback, since model names differ between vendors.
-- **Tool-only keys.** An `x-<target>` block merges into that tool's own settings file.
-
-Ellipsis reads no portable settings field. Its reviewer, pull request filters, posting rules, and budget are written under `x-ellipsis` in a settings spec, and sync copies them into `.ellipsis/code-review.yaml`. The same block selects the environment, its repository, and its native options for `.ellipsis/environments/<name>.yaml`. See [Ellipsis](@/docs/targets/ellipsis.md).
-
-OpenCode V2 MCP imports use `x-opencode.mcp` to retain native connection details, disabled states, OAuth settings and separate timeouts. Keep this target-specific configuration in a settings spec instead of portable MCP specs for OpenCode. See [OpenCode](@/docs/targets/opencode.md).
-
-Start with the commands and paths a task needs, then check what each tool can enforce. Use narrow permission patterns and a per-tool model when model names differ. The support tables below explain which settings are written and which are left out.
-
 ## Write one
 
 ```bash
 agnostic-ai new settings project-defaults
 ```
 
-Replace the description and add the policy or model settings you need. The template sets no permissions or model by default. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+Replace the description and add the policy or model settings you need. The template sets no permissions or model by default.
 
-Settings specs are plain YAML, one file per group of settings, such as `settings/permissions.yaml`.
+Settings specs are plain YAML. Save this as `.agnostic-ai/settings/project-defaults.yaml`:
 
 ```yaml
 permissions:
   allow:
-    - read(src/**)
     - shell(go test:*)
-  deny:
-    - shell(rm:*)
-    - edit(.env)
-  ask:
-    - shell(git push:*)
-model: claude-opus-4-8
-effort:
-  claude: xhigh
-  default: high
+model:
+  claude: sonnet
+  codex: sol
 ```
+
+Claude Code writes the permission into `.claude/settings.json`. Codex writes a model default, but portable shell rules require `outputs.codex.exec-policies-from-permissions: true`. Review the [translation limits](@/docs/targets/codex-reference.md#translate-bash-permissions) before enabling it. Other tools' support is listed [below](#support-by-target).
+
+Run `agnostic-ai explain settings/project-defaults.yaml`, then sync and check the generated files. This previews written policy; confirm actual approval behavior in your coding tool.
 
 ## Fields
 
@@ -171,11 +156,11 @@ Keep a `shell` wildcard at the end of an `allow` or `deny` rule.
 
 Several files merge. Permission lists are joined in source order with duplicates removed. The last `model` and `effort` that is set wins. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
 
-Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude.md#claude-settings)).
+Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude-reference.md#claude-settings)).
 
 `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, and output prerequisites. It also reports the global-only scope of `permissions.default-mode`. Other settings fields remain outside comparison. Written policy does not prove runtime enforcement.
 
-`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` rule lists. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` rule lists. See [default model and effort](@/docs/global-configuration.md#global-default-model-and-effort).
 
 ## Effort by target
 
@@ -205,15 +190,19 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 Every other target takes neither. A field a tool cannot hold raises a sync note, and the other tools still get their files.
 
 - Copilot and Junie report the whole policy in a note.
-- Codex does too, unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies. The rest raise a note ([Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions)).
+- Codex does too, unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies. The rest raise a note ([Bash permission translation](@/docs/targets/codex-reference.md#translate-bash-permissions)).
 - Rules carry over only as far as the vendor allows. Augment gates `read`, `edit`, and `write` as whole tools. Factory's command lists take shell patterns. A path-scoped rule raises a note instead of widening.
 - Factory's `commandDenylist` prompts, so `ask` goes there and `deny` goes to `commandBlocklist`.
 - Review an imported `model` before you enable more tools, because model names differ between vendors.
-- A shared Claude model name raises the same sync note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex.md#codex-config) sets the model.
+- A shared Claude model name raises the same sync note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model.
 
 ## Target-specific keys
 
-Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Ellipsis reads only this block, and a later spec replaces each top-level block it sets (see [Ellipsis](@/docs/targets/ellipsis.md#how-specs-map-to-the-file)). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
+Ellipsis reads no portable settings field. Its reviewer, pull request filters, posting rules, and budget are written under `x-ellipsis` in a settings spec, and sync copies them into `.ellipsis/code-review.yaml`. The same block selects the environment, its repository, and its native options for `.ellipsis/environments/<name>.yaml`. See [Ellipsis](@/docs/targets/ellipsis.md).
+
+OpenCode V2 MCP imports use `x-opencode.mcp` to retain native connection details, disabled states, OAuth settings and separate timeouts. Keep this target-specific configuration in a settings spec instead of portable MCP specs for OpenCode. See [OpenCode](@/docs/targets/opencode.md).
+
+Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Ellipsis reads only this block, and a later spec replaces each top-level block it sets (see [Ellipsis](@/docs/targets/ellipsis-reference.md#how-specs-map-to-the-file)). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
 
 When agnostic-ai also writes the same key:
 

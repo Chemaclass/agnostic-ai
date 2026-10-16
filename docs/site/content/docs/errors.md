@@ -9,7 +9,7 @@ group = "Reference"
 
 # Error codes
 
-Every error starts with a code in square brackets, `[AAI-NNN]`. The fix follows on the next line:
+Find the `[AAI-NNN]` code from your terminal below, or run `agnostic-ai explain AAI-NNN`. If you have a symptom rather than a code, use [Troubleshooting](@/docs/troubleshooting.md). The suggested fix appears after each error:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project

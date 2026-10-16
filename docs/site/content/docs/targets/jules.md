@@ -6,23 +6,28 @@ weight = 230
 [extra]
 group = "Reference"
 target_id = "jules"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/jules.md#first-rule"
 +++
 
 # Jules (`jules`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared instructions that point to source specs and the embedded `## Rules` block there.
 
-## Set up this tool
+## First rule
 
-Add `jules` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Select `jules` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Jules is sync-only: there is no importer or output for agents, skills, hooks, or MCP servers.
 
-Follow [Verify](#verify) to check that Jules loads the rules. Jules supports sync only; it has no import command.
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Make sure the generated `AGENTS.md` is committed to the branch Jules reads, then start a Jules task asking for a commit subject for a small fix; it should use `fix:`.
+
+Next, [compare another target](@/docs/compare.md) if you also need skills, hooks, or MCP servers.
 
 ## Output
 
@@ -39,9 +44,3 @@ None.
 ## Protected paths
 
 Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Sign in to Jules ([docs](https://jules.google/docs)).
-2. Check the file: `ls AGENTS.md`.
-3. Point Jules at the repo. It reads `AGENTS.md` as project context.

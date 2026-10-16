@@ -9,51 +9,69 @@ group = "Start"
 
 # Import existing tool configuration
 
-Move your existing AI tool instructions into `.agnostic-ai/`, review them, then generate files for the tools you pick. Start from a clean Git working tree so you can inspect and undo the import with Git. When finished, edit the source specs and run `sync` for future changes.
+Keep your current instructions while moving their editable sources into `.agnostic-ai/`. Start from the project root with a clean Git working tree so you can review and undo the import. [Install agnostic-ai](@/docs/installation.md) first.
 
-## 1. Import
+## Import the existing setup {#1-import}
 
-From the project root, with a clean Git working tree:
-
-```bash
-agnostic-ai init --from claude   # or --from all to detect every tool
-```
-
-Already using agnostic-ai? Run `agnostic-ai import claude` instead.
-
-Import writes specs only. It does not sync or change your targets. Re-running it with no edits leaves every spec as it is. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool and holds nothing the tool's file cannot carry, such as `::target` blocks for other tools. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges the YAML fields at the top of a Markdown spec and imports from several tools.
-
-After you import from several tools, replacing a spec that a later tool overwrote needs `--overwrite`. A sync that skips edited or unmanaged files does not count as approval.
-
-## 2. Review
-
-Preview before writing:
+For a project not yet using agnostic-ai:
 
 ```bash
-agnostic-ai import claude codex --dry-run --diff
+agnostic-ai init --from claude
 ```
 
-It shows each spec it would create or change and flags specs that two tools disagree on. The last tool listed wins, so reorder the tools or merge by hand.
+Use `--from all` to detect every tool. Select only the coding tools the project uses. Already configured? Preview an import before writing:
 
-Then check:
+```bash
+agnostic-ai import claude --dry-run --diff
+agnostic-ai import claude
+```
 
-- `.agnostic-ai/AGNOSTIC_AI.md` against your original instructions. With several tools, the last one's instructions win, except a hand-written root `AGENTS.md`, whose missing sections `--from all` appends.
-- Helper scripts that hooks or settings call. Skill folders and some tool scripts (such as `.claude/statusline.sh`, which goes under `.agnostic-ai/overlays/`) come along. Keep any other script in Git yourself.
-- MCP `env` and `headers` values. Import writes each one as a `${NAME}` reference and prints the variable to set, so a token never reaches a committed spec. Plain settings such as `NODE_ENV` become variables too: export them, or put the plain value back by hand. Sync leaves a reference out of a tool that cannot read it, such as Gemini headers or Amp `env`, with a note. Continue MCP files are copied as they are. See [environment references](@/docs/spec-format/mcps.md#environment-references).
+Import writes source specs. It does not sync. The separate `import` command does not change selected targets.
 
-Optional: commit the reviewed specs, `agnostic-ai.yaml`, and `.gitignore` before generating files.
+## Review what was imported {#review-what-was-imported}
 
-## Keep directory-specific instructions
+Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, review differences before syncing: the last imported tool wins for conflicting shared content. A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
 
-`import codex` and `import gemini` keep nested instruction directories as `scope`. `import claude` keeps subfolders of `.claude/rules/`, but not nested `CLAUDE.md` files. For those, run `agnostic-ai new rule <name> --scope <directory>` and copy the text in.
+Check scripts called by hooks and settings, and inspect MCP connection variables before committing. Skill folders and some tool scripts are imported; other referenced scripts must remain available in your project. [MCP import details](@/docs/spec-format/mcp-import.md) explain credential references and connection differences.
 
-## 3. Generate
+## Generate and check {#3-generate}
 
 ```bash
 agnostic-ai sync --dry-run
 agnostic-ai sync --backup
 agnostic-ai sync --check
 ```
+
+Review the diff for content. The first sync adds generated headers and replaces root instruction files with the shared instructions. Read the resulting native files before starting a fresh coding-tool session.
+
+## Commit or ignore outputs {#4-commit-or-ignore-outputs}
+
+Choose a [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit outputs, keep the first sync in its own commit.
+
+Ignoring files Git already tracks needs an explicit step: `sync --untrack` runs `git rm --cached`, keeping your working copy. Other clones lose those files on the next pull. Teammates must run `agnostic-ai sync` after pulling, or install [checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) first.
+
+From now on, edit `.agnostic-ai/` sources and sync. Use [Daily use](@/docs/getting-started.md#daily-use) for the normal workflow.
+
+## Review imports from several tools {#2-review}
+
+To preview another import, run `agnostic-ai import claude codex --dry-run --diff`. The last tool listed wins for a shared spec. Reorder the tools or merge the sources by hand before generating files.
+
+<details>
+<summary>Re-import after editing a native tool file</summary>
+
+Re-running it with no edits leaves every spec as it is. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool and holds nothing the tool's file cannot carry, such as `::target` blocks for other tools. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges the YAML fields at the top of a Markdown spec and imports from several tools.
+
+After you import from several tools, replacing a spec that a later tool overwrote needs `--overwrite`. A sync that skips edited or unmanaged files does not count as approval.
+
+</details>
+
+<details>
+<summary>Keep directory-specific and alternate instruction files</summary>
+
+## Keep directory-specific instructions
+
+`import codex` and `import gemini` keep nested instruction directories as `scope`. `import claude` imports `.claude/rules/` when that directory exists. Otherwise, it imports nested `CLAUDE.md` files as directory-scoped rules. If `.claude/rules/` exists alongside nested `CLAUDE.md` files, create a rule with `agnostic-ai new rule <name> --scope <directory>` and copy each nested file’s text into it.
+
 
 For directory-specific instruction files, sync replaces a hand-written file only when the specs contain all its text. Otherwise it stops and quotes the missing line. Move that line into a spec, or set the original aside:
 
@@ -63,13 +81,10 @@ mv services/payments/AGENTS.md services/payments/AGENTS.md.before-agnostic
 
 Keep the saved copy until you have checked the output. `--backup` does not bypass this directory-specific check. Root instruction files have a separate [backup and overwrite rule](@/docs/cli-reference/sync.md#sync).
 
-Review the diff for content, not only formatting. The first sync adds generated-file headers and replaces root instruction files such as `AGENTS.md` with the shared instructions.
+</details>
 
-## 4. Commit or ignore outputs
-
-Choose a [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit generated files, put this first sync in its own commit.
-
-Ignoring files Git already tracks needs one more step. `sync` and `doctor` list them; `sync --untrack` runs `git rm --cached` (your copy stays). Other clones lose those files on their next pull, so have teammates run `agnostic-ai install-hook --post-checkout` first, or `agnostic-ai sync` after pulling.
+<details>
+<summary>Restore generated files from backups</summary>
 
 ## Back up and restore
 
@@ -79,7 +94,12 @@ Ignoring files Git already tracks needs one more step. `sync` and `doctor` list 
 agnostic-ai revert
 ```
 
-It restores backups and leaves other files. `revert --force` also deletes generated files with no backup. It never undoes spec edits, and each `--backup` sync replaces the last backup, so use Git to keep a lasting copy. When done, `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
+It restores backups and leaves other files. `revert --force` also deletes generated files with no backup. It never undoes spec edits, and an existing backup is kept rather than replaced. Use Git for a lasting copy. When done, `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
+
+</details>
+
+<details>
+<summary>Upgrade an older agnostic-ai setup</summary>
 
 ## Upgrading from older versions
 
@@ -98,3 +118,5 @@ An upgrade can move or skip files that older versions wrote for scoped rules. Ru
 ### Codex skills moved in 0.75
 
 Codex skills moved from `.codex/skills/` to `.agents/skills/`. Add `.agents/skills/**` to `.npmignore`, `.vscodeignore`, or `.dockerignore` where you exclude them. `agnostic-ai doctor` names generated paths that a packaging ignore file misses; confirm with `npm pack --dry-run`, `vsce ls`, or your Docker context.
+
+</details>
