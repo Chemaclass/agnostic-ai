@@ -13,6 +13,7 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -31,8 +32,17 @@ func globalPermissionRules(target string, settings []spec.Entry, mode string) (m
 		if !entry.EmitsTo(target) {
 			continue
 		}
+		if raw, present := entry.Meta["permissions"]; present {
+			if _, err := globalNativePermissionLists(entry.Path, "permissions", raw); err != nil {
+				return nil, err
+			}
+		}
 		var native map[string][]string
-		if hatch, ok := entry.Meta["x-"+target].(map[string]any); ok {
+		if raw, present := entry.Meta["x-"+target]; present {
+			hatch, ok := raw.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("%s: x-%s must be a mapping", entry.Path, target)
+			}
 			if raw, present := hatch["permissions"]; present {
 				var err error
 				native, err = globalNativePermissionLists(entry.Path, "x-"+target+".permissions", raw)
@@ -210,22 +220,43 @@ func globalPermissionCredentialDetected(rule string) bool {
 	if !bash {
 		return false
 	}
-	command = strings.TrimSuffix(command, ")")
+	return globalPermissionCommandCredentialDetected(strings.TrimSuffix(command, ")"), 0)
+}
+
+func globalPermissionCommandCredentialDetected(command string, depth int) bool {
+	if depth >= 4 || mcpCredentialDetected(command) {
+		return true
+	}
 	file, err := syntax.NewParser().Parse(strings.NewReader(command), "")
 	if err != nil {
-		return strings.Contains(command, "-H") || strings.Contains(command, "--header")
+		return preview.Display("permission.sh", command).Hidden
 	}
 	credential := false
 	syntax.Walk(file, func(node syntax.Node) bool {
 		if credential {
 			return false
 		}
+		if assignment, ok := node.(*syntax.Assign); ok {
+			credential = assignment.Name != nil && mcpCredentialKey(assignment.Name.Value) &&
+				(assignment.Array != nil || globalPermissionLiteralCredential(globalPermissionArgument(assignment.Value)))
+			return !credential
+		}
 		call, ok := node.(*syntax.CallExpr)
 		if !ok {
 			return true
 		}
+		args := make([]string, len(call.Args))
 		for i, word := range call.Args {
-			arg := globalPermissionArgument(word)
+			args[i] = globalPermissionArgument(word)
+		}
+		if globalPermissionNestedShellCredential(args, depth) {
+			credential = true
+			return false
+		}
+		for i, arg := range args {
+			if name, value, ok := strings.Cut(arg, "="); ok && mcpFlagName.MatchString(strings.TrimLeft(name, "_")) && mcpCredentialKey(name) && globalPermissionLiteralCredential(value) {
+				credential = true
+			}
 			header, attached := strings.CutPrefix(arg, "--header=")
 			if strings.HasPrefix(arg, "-H") && len(arg) > 2 {
 				header, attached = arg[2:], true
@@ -233,12 +264,12 @@ func globalPermissionCredentialDetected(rule string) bool {
 			if attached && globalPermissionCredentialHeader(header) {
 				credential = true
 			}
-			if (arg == "-H" || arg == "--header") && i+1 < len(call.Args) {
-				credential = credential || globalPermissionCredentialHeader(globalPermissionArgument(call.Args[i+1]))
+			if (arg == "-H" || arg == "--header") && i+1 < len(args) {
+				credential = credential || globalPermissionCredentialHeader(args[i+1])
 			}
 			if flag, value, inline := mcpCredentialFlag(arg); flag != "" {
-				if !inline && i+1 < len(call.Args) {
-					value = globalPermissionArgument(call.Args[i+1])
+				if !inline && i+1 < len(args) {
+					value = args[i+1]
 				}
 				if !strings.HasPrefix(value, "-") && globalPermissionLiteralCredential(value) {
 					credential = true
@@ -251,9 +282,50 @@ func globalPermissionCredentialDetected(rule string) bool {
 }
 
 func globalPermissionArgument(word *syntax.Word) string {
+	if word == nil {
+		return ""
+	}
 	var text bytes.Buffer
-	_ = syntax.NewPrinter().Print(&text, word)
-	return mcpShellUnquote.Replace(text.String())
+	var writeParts func([]syntax.WordPart)
+	writeParts = func(parts []syntax.WordPart) {
+		for _, part := range parts {
+			switch p := part.(type) {
+			case *syntax.Lit:
+				text.WriteString(strings.ReplaceAll(p.Value, `\`, ""))
+			case *syntax.SglQuoted:
+				text.WriteString(p.Value)
+			case *syntax.DblQuoted:
+				writeParts(p.Parts)
+			default:
+				_ = syntax.NewPrinter().Print(&text, part)
+			}
+		}
+	}
+	writeParts(word.Parts)
+	return text.String()
+}
+
+func globalPermissionNestedShellCredential(args []string, depth int) bool {
+	for i, arg := range args {
+		switch filepath.Base(arg) {
+		case "sh", "bash", "dash", "ash", "zsh", "ksh":
+		default:
+			continue
+		}
+		for j := i + 1; j < len(args); j++ {
+			flag := args[j]
+			if !strings.HasPrefix(flag, "-") || flag == "--" {
+				break
+			}
+			if !strings.HasPrefix(flag, "--") && strings.Contains(flag, "c") && j+1 < len(args) {
+				if globalPermissionCommandCredentialDetected(args[j+1], depth+1) {
+					return true
+				}
+				break
+			}
+		}
+	}
+	return false
 }
 
 func globalPermissionCredentialHeader(header string) bool {
@@ -313,7 +385,7 @@ func stageGlobalPermissions(home, stage string, targets []string, have []spec.En
 				continue
 			}
 			if globalPermissionCredentialDetected(rule) {
-				if _, err := fmt.Fprintf(warn, "warning: %s: left out a permissions.%s rule in %s: it holds a credential; add it under local/settings by hand\n", target, list, path); err != nil {
+				if _, err := fmt.Fprintf(warn, "warning: %s: left out a permissions.%s rule in %s: it holds a credential or cannot be checked safely; add it under local/settings by hand\n", target, list, path); err != nil {
 					return fmt.Errorf("write import warning: %w", err)
 				}
 				continue

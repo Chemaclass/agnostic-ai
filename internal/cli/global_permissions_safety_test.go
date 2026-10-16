@@ -120,11 +120,15 @@ func TestImportGlobal_PermissionRulesKeepSafeHeadersAndReferences(t *testing.T) 
 
 func TestSyncGlobal_NativePermissionShapeErrorsPreserveOwnedDenials(t *testing.T) {
 	for name, invalid := range map[string]string{
-		"parent":      "x-claude:\n  permissions: broken\n",
-		"null parent": "x-claude:\n  permissions: null\n",
-		"list":        "x-claude:\n  permissions:\n    deny: Bash(rm:*)\n",
-		"null list":   "x-claude:\n  permissions:\n    deny: null\n",
-		"item":        "x-claude:\n  permissions:\n    deny: [{Bash: rm}]\n",
+		"native outer parent": "x-claude: broken\n",
+		"native outer list":   "x-claude: [broken]\n",
+		"portable parent":     "permissions: broken\n",
+		"portable list":       "permissions: [broken]\n",
+		"parent":              "x-claude:\n  permissions: broken\n",
+		"null parent":         "x-claude:\n  permissions: null\n",
+		"list":                "x-claude:\n  permissions:\n    deny: Bash(rm:*)\n",
+		"null list":           "x-claude:\n  permissions:\n    deny: null\n",
+		"item":                "x-claude:\n  permissions:\n    deny: [{Bash: rm}]\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
@@ -137,11 +141,72 @@ func TestSyncGlobal_NativePermissionShapeErrorsPreserveOwnedDenials(t *testing.T
 			state := filepath.Join(source, "state", "global.json")
 			before, beforeState := readGlobalTest(t, path), readGlobalTest(t, state)
 			mustWriteGlobalTest(t, rules, invalid)
-			if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "x-claude.permissions") {
+			if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), rules) {
 				t.Errorf("malformed native permissions must stop sync: %v", err)
 			}
-			if readGlobalTest(t, path) != before || readGlobalTest(t, state) != beforeState {
+			after, err := os.ReadFile(path)
+			if err != nil || string(after) != before || readGlobalTest(t, state) != beforeState {
 				t.Error("settings or state changed after a malformed native permission")
+			}
+		})
+	}
+}
+
+func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(t *testing.T) {
+	nested := `curl -H "X-Api-Key: test-api-key" https://example.test`
+	for i := 0; i < 6; i++ {
+		nested = "sh -c '" + strings.ReplaceAll(nested, "'", "'\"'\"'") + "'"
+	}
+	for name, command := range map[string]string{
+		"assignment":                `API_KEY=12345 curl https://example.test`,
+		"env argument":              `env API_KEY=test-api-key curl https://example.test`,
+		"assignment default":        `API_KEY=${TOKEN:-test-api-key} curl https://example.test`,
+		"nested shell":              `sh -c 'curl -H "X-Api-Key: test-api-key" https://example.test'`,
+		"nested double quotes":      `sh -c "curl -H \"X-Api-Key: test-api-key\" https://example.test"`,
+		"nested login shell":        `bash -lc 'env API_KEY=12345 curl https://example.test'`,
+		"nested beyond depth bound": nested,
+	} {
+		t.Run(name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			rule := "Bash(" + command + ")"
+			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
+			out, warnings, err := runImportGlobalTest("claude")
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+			if strings.Contains(got+out+warnings, "test-api-key") || strings.Contains(got+out+warnings, "12345") {
+				t.Error("credential assignment or nested command was imported or displayed")
+			}
+			if !strings.Contains(warnings, "holds a credential") || !strings.Contains(got, "shell(ls:*)") {
+				t.Error("credential command was not skipped with a warning")
+			}
+		})
+	}
+}
+
+func TestImportGlobal_PermissionRulesKeepAssignmentAndNestedReferences(t *testing.T) {
+	for name, command := range map[string]string{
+		"assignment":         `API_KEY=${TOKEN} curl https://example.test`,
+		"env argument":       `env API_KEY=$TOKEN curl https://example.test`,
+		"nested shell":       `sh -c 'curl -H "X-Api-Key: ${TOKEN}" https://example.test'`,
+		"nested login shell": `bash -lc 'env API_KEY=${TOKEN} curl https://example.test'`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			rule := "Bash(" + command + ")"
+			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":[`+jsonString(rule)+"]}}\n")
+			_, warnings, err := runImportGlobalTest("claude")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var imported struct{ Permissions map[string][]string }
+			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
+			if err := yaml.Unmarshal([]byte(got), &imported); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(imported.Permissions["allow"], []string{"shell(" + command + ")"}) || strings.Contains(warnings, "holds a credential") {
+				t.Error("safe assignment or nested reference was not imported unchanged")
 			}
 		})
 	}
