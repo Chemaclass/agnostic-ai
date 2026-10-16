@@ -10,7 +10,9 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"mvdan.cc/sh/v3/syntax"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -23,29 +25,82 @@ const globalImportPermissionsSpec = "settings/" + claudePermissionsSpec + ".yaml
 // give target at user level, in the spelling the target reads: each
 // spec's portable permissions, then its x-<target>.permissions, in spec
 // order, each rule once.
-func globalPermissionRules(target string, settings []spec.Entry) map[string][]string {
+func globalPermissionRules(target string, settings []spec.Entry, mode string) (map[string][]string, error) {
 	out := map[string][]string{}
 	for _, entry := range settings {
 		if !entry.EmitsTo(target) {
 			continue
 		}
-		entry = entry.NativePermissions()
-		layers := []any{entry.Meta["permissions"]}
+		var native map[string][]string
 		if hatch, ok := entry.Meta["x-"+target].(map[string]any); ok {
-			layers = append(layers, hatch["permissions"])
+			if raw, present := hatch["permissions"]; present {
+				var err error
+				native, err = globalNativePermissionLists(entry.Path, "x-"+target+".permissions", raw)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
-		for _, layer := range layers {
-			perms, _ := layer.(map[string]any)
-			for _, list := range spec.PermissionLists {
-				for _, rule := range stringSliceFromAny(perms[list]) {
-					if rule != "" {
-						out[list] = appendUnique(out[list], rule)
+		entry = entry.NativePermissions()
+		perms, _ := entry.Meta["permissions"].(map[string]any)
+		for _, list := range spec.PermissionLists {
+			for _, rule := range stringSliceFromAny(perms[list]) {
+				if rule == "" {
+					continue
+				}
+				translated := adapters.TranslatePermissionCapability(target, list, rule, nil)
+				if !translated.Supported {
+					message := fmt.Sprintf("%s: %s: permissions.%s has no native rule", target, entry.Path, list)
+					if mode == "error" {
+						return nil, fmt.Errorf("%s", message)
 					}
+					if mode != "silent" {
+						adapters.NoteSettingsFieldNoOp(target, "permissions."+list, 1, "capability has no native rule")
+					}
+					continue
+				}
+				for _, value := range translated.Native {
+					out[list] = appendUnique(out[list], value)
+				}
+			}
+			for _, value := range native[list] {
+				if value != "" {
+					out[list] = appendUnique(out[list], value)
 				}
 			}
 		}
 	}
-	return out
+	return out, nil
+}
+
+func globalNativePermissionLists(path, field string, raw any) (map[string][]string, error) {
+	perms, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: %s must be a mapping", path, field)
+	}
+	out := map[string][]string{}
+	for _, list := range spec.PermissionLists {
+		value, present := perms[list]
+		if !present {
+			continue
+		}
+		if values, ok := value.([]string); ok {
+			out[list] = values
+			continue
+		}
+		values, ok := value.([]any)
+		if !ok {
+			return nil, fmt.Errorf("%s: %s.%s must be a list of rules", path, field, list)
+		}
+		for _, value := range values {
+			rule, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("%s: %s.%s must contain only strings; quote rules that hold a colon followed by a space", path, field, list)
+			}
+			out[list] = append(out[list], rule)
+		}
+	}
+	return out, nil
 }
 
 // globalPermissionMerge is the planned change to the rule lists of one
@@ -96,7 +151,7 @@ func mergeGlobalPermissionRules(path string, data []byte, want, previous map[str
 		edited := false
 		for _, item := range native {
 			if rule, ok := item.(string); ok && slices.Contains(previous[list], rule) && !slices.Contains(want[list], rule) {
-				m.changes = append(m.changes, fmt.Sprintf("remove %s from %s", jsonString(rule), key))
+				m.changes = append(m.changes, fmt.Sprintf("remove %s from %s", globalPermissionPreview(key, rule), key))
 				edited = true
 				continue
 			}
@@ -105,11 +160,11 @@ func mergeGlobalPermissionRules(path string, data []byte, want, previous map[str
 		for _, rule := range want[list] {
 			if holds(rule) {
 				if !slices.Contains(previous[list], rule) {
-					m.adopted = append(m.adopted, key+" "+jsonString(rule))
+					m.adopted = append(m.adopted, key+" "+globalPermissionPreview(key, rule))
 				}
 				continue
 			}
-			m.changes = append(m.changes, fmt.Sprintf("add %s to %s", jsonString(rule), key))
+			m.changes = append(m.changes, fmt.Sprintf("add %s to %s", globalPermissionPreview(key, rule), key))
 			next = append(next, rule)
 			edited = true
 		}
@@ -140,6 +195,77 @@ func mergeGlobalPermissionRules(path string, data []byte, want, previous map[str
 	return m, nil
 }
 
+func globalPermissionPreview(key, rule string) string {
+	if globalPermissionCredentialDetected(rule) {
+		return "\"<redacted>\""
+	}
+	return settingsValueText(key, rule)
+}
+
+func globalPermissionCredentialDetected(rule string) bool {
+	if mcpCredentialDetected(rule) {
+		return true
+	}
+	command, bash := strings.CutPrefix(rule, "Bash(")
+	if !bash {
+		return false
+	}
+	command = strings.TrimSuffix(command, ")")
+	file, err := syntax.NewParser().Parse(strings.NewReader(command), "")
+	if err != nil {
+		return strings.Contains(command, "-H") || strings.Contains(command, "--header")
+	}
+	credential := false
+	syntax.Walk(file, func(node syntax.Node) bool {
+		if credential {
+			return false
+		}
+		call, ok := node.(*syntax.CallExpr)
+		if !ok {
+			return true
+		}
+		for i, word := range call.Args {
+			arg := globalPermissionArgument(word)
+			header, attached := strings.CutPrefix(arg, "--header=")
+			if strings.HasPrefix(arg, "-H") && len(arg) > 2 {
+				header, attached = arg[2:], true
+			}
+			if attached && globalPermissionCredentialHeader(header) {
+				credential = true
+			}
+			if (arg == "-H" || arg == "--header") && i+1 < len(call.Args) {
+				credential = credential || globalPermissionCredentialHeader(globalPermissionArgument(call.Args[i+1]))
+			}
+			if flag, value, inline := mcpCredentialFlag(arg); flag != "" {
+				if !inline && i+1 < len(call.Args) {
+					value = globalPermissionArgument(call.Args[i+1])
+				}
+				if !strings.HasPrefix(value, "-") && globalPermissionLiteralCredential(value) {
+					credential = true
+				}
+			}
+		}
+		return !credential
+	})
+	return credential
+}
+
+func globalPermissionArgument(word *syntax.Word) string {
+	var text bytes.Buffer
+	_ = syntax.NewPrinter().Print(&text, word)
+	return mcpShellUnquote.Replace(text.String())
+}
+
+func globalPermissionCredentialHeader(header string) bool {
+	name, value, ok := strings.Cut(header, ":")
+	return ok && mcpCredentialKey(strings.TrimSpace(name)) && globalPermissionLiteralCredential(value)
+}
+
+func globalPermissionLiteralCredential(value string) bool {
+	value = mcpDetectorText(strings.TrimSpace(value))
+	return !mcpRefOnly(value) && mcpLiteralCredential(mcpSchemeWord.ReplaceAllString(value, ""))
+}
+
 // stageGlobalPermissions writes the permission rules of the Claude Code
 // user settings file into one settings spec. A rule a home spec already
 // gives Claude is left out, and so is one the ownership state records
@@ -165,16 +291,28 @@ func stageGlobalPermissions(home, stage string, targets []string, have []spec.En
 	if err != nil {
 		return err
 	}
-	provided := globalPermissionRules(target, have)
-	recorded := state.PermissionRules[target]
+	provided, err := globalPermissionRules(target, have, "silent")
+	if err != nil {
+		return err
+	}
+	var recorded map[string][]string
+	if samePath(state.SettingsPaths[target], path) {
+		recorded = state.PermissionRules[target]
+	}
+	var native map[string][]string
+	if raw, present := values["permissions"]; present {
+		native, err = globalNativePermissionLists(path, "permissions", raw)
+		if err != nil {
+			return err
+		}
+	}
 	lists := map[string][]string{}
 	for _, list := range spec.PermissionLists {
-		raw, _ := settingsLookup(values, "permissions."+list, g.settings.format)
-		for _, rule := range stringSliceFromAny(raw) {
+		for _, rule := range native[list] {
 			if rule == "" || slices.Contains(provided[list], rule) || slices.Contains(recorded[list], rule) {
 				continue
 			}
-			if mcpCredentialDetected(rule) {
+			if globalPermissionCredentialDetected(rule) {
 				if _, err := fmt.Fprintf(warn, "warning: %s: left out a permissions.%s rule in %s: it holds a credential; add it under local/settings by hand\n", target, list, path); err != nil {
 					return fmt.Errorf("write import warning: %w", err)
 				}

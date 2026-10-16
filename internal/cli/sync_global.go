@@ -1125,7 +1125,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		want := globalSettingsFor(target, g, b.Settings)
 		var wantRules map[string][]string
 		if g.settings.permissionLists {
-			wantRules = globalPermissionRules(target, b.Settings)
+			var err error
+			wantRules, err = globalPermissionRules(target, b.Settings, onUnsupported)
+			if err != nil {
+				return nil, next, err
+			}
 		}
 		if g.settings.path != "" {
 			path := g.path(home, g.settings.path)

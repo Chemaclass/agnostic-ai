@@ -122,7 +122,10 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 			}
 		}
 		if g.settings.permissionLists {
-			rules := globalPermissionRules(target, []spec.Entry{entry})
+			rules, err := globalPermissionRules(target, []spec.Entry{entry}, "silent")
+			if err != nil {
+				return nil, err
+			}
 			for _, list := range spec.PermissionLists {
 				if len(rules[list]) > 0 {
 					out = append(out, contribution{Target: target, Path: g.path(home, g.settings.path), Section: "permissions." + list, Mode: "key"})

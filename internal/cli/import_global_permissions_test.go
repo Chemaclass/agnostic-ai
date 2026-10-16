@@ -115,8 +115,7 @@ func TestImportGlobal_PermissionRulesAppendOnALaterImport(t *testing.T) {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	specPath := filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec))
-	// The user keeps notes in the spec, and an "Always allow" click adds
-	// rules to the user file.
+	// The user keeps notes in the spec and adds rules to the user file.
 	mustWriteGlobalTest(t, specPath, "# hoisted from Claude Code\npermissions:\n  allow:\n    - Bash(ls:*)\n")
 	mustWriteGlobalTest(t, path, `{"permissions":{"allow":["Bash(ls:*)","Bash(go test:*)"],"deny":["Bash(rm:*)"]}}`)
 

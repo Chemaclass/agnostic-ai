@@ -10,8 +10,7 @@ import (
 	"testing"
 )
 
-// userClaudeSettings is a user settings file with a rule the tool
-// itself added, as an "Always allow" click does.
+// userClaudeSettings holds an existing user-level permission rule.
 const userClaudeSettings = `{
   "theme": "dark",
   "permissions": {

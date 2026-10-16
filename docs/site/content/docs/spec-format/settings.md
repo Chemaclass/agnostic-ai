@@ -154,7 +154,7 @@ A bare capability under `allow` or `ask` covers the whole tool. Before permissio
 
 Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issue` to limit the rule. `edit(<path>)` also covers writes and edits. `web` has no scoped form. To limit web access, use the tool's own permission fields, or the `WebFetch(domain:example.com)` alias to allow fetches from one domain.
 
-Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists have no native allow or ask rule and raise no LINT038.
+Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists are written only for Claude Code; global sync and lint do not report LINT038 for these user-level lists.
 
 A Claude Code rule is a bare tool name (the whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 

@@ -786,10 +786,12 @@ permissions:
 Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule:
 
 - Sync appends each rule a list lacks after the rules already there. A rule already there is adopted.
-- Rules you or Claude Code added, such as an "Always allow" click, stay in place.
-- Sync records its rules in `state/global.json`. A rule you drop from the specs is removed, unless you already removed it by hand.
+- Sync records both added and adopted rules in `state/global.json`. Dropping a rule from the specs removes it, including a rule you wrote before adoption.
+- Rules absent from the home specs and ownership record keep their order.
 - `--check` fails while a spec rule is missing or a dropped one remains. `--plan` and `--dry-run` list each rule added or removed.
-- Run `import --global claude` to copy rules Claude Code saved into `settings/permissions-claude.yaml`, so they reach your other machines.
+- Run `import --global claude` to copy user-level rules into `settings/permissions-claude.yaml`, so they reach your other machines.
+
+Claude Code saves standing permission approvals to the project's `.claude/settings.local.json`, which global import does not read. See [Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files).
 
 Other targets report a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 

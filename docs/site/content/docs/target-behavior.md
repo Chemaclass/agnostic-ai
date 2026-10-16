@@ -56,7 +56,7 @@ Some settings files also hold your own keys, such as `.gemini/settings.json`, `.
 
 OpenCode V2 MCP imports retain the native `mcp.servers` configuration in a target-specific settings spec. Sync records ownership per server and keeps servers and defaults added by hand. Portable MCP specs cannot claim the same OpenCode configuration alongside native settings.
 
-- In a permission list you share with it, sync tracks only the rules it added.
+- In a permission list you share with it, sync tracks the rules its specs provide. Claude's user-level sync also adopts matching rules already present ([rule ownership](@/docs/configuration.md#global-default-model-and-effort)).
 - MCP servers merge by name. Servers you add stay. A server whose spec goes away is removed. A spec server with the same name as one of yours replaces it, with a note.
 - Once no spec writes the file, or its tool leaves `targets`, sync and `doctor --fix` remove only what they added. The file is deleted only when sync created it and nothing else is left.
 
