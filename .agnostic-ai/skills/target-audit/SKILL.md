@@ -76,6 +76,8 @@ Every drift finding requires:
 
 Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
 
+For permission boundaries, overlapping order or precedence, path discovery, and import fidelity, apply `.agnostic-ai/skills/target-audit/references/behavior-evidence.md` before accepting or filing a claim. Verify its recorded confirmation outcome and complete the independent check, even without `--compare-models`. Keep unresolved claims in `Needs a human` with the missing evidence; never send them to a fixer. Source-only URL corrections and capability opportunities keep their existing evidence paths.
+
 Keep built-in drift (a target the built-in emits to stopped behaving as it needs) apart from a coverage opportunity (a target it does not list gained compatible support). Drift is a finding; an opportunity goes under Cross-target opportunities. Apply the fix rule in the built-ins reference: hook capability alone never enables a target.
 
 Collapse one vendor change affecting several targets into one finding, with independent evidence for each target. Sort `breaking`, `missing-feature`, `degraded`, `cosmetic`. Unconfirmed findings belong only in the report, with the question that would settle them.
