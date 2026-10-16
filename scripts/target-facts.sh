@@ -20,6 +20,7 @@
 #   scripts/target-facts.sh --sources zed warp  # selected vendor references
 #   scripts/target-facts.sh --changed <run>/docfetch.tsv  # batches sized by drift
 #   scripts/target-facts.sh --changed <tsv> 5 --builtins-since <rev>  # plus built-in changes
+#   scripts/target-facts.sh --review-reasons <tsv> --builtins-since <rev>  # review work TSV
 #   scripts/target-facts.sh --builtins   # shipped built-in evidence
 #
 # Portable: POSIX-ish bash + awk + grep only. No GNU-only flags.
@@ -55,6 +56,10 @@ Usage: scripts/target-facts.sh [--list | --batches N | --sources <target>... | <
                  may have changed since <rev> is deep too, on a
                  "builtin-deep:" line. Without a usable <rev>, every
                  target in the run is.
+  --review-reasons <docfetch.tsv> [--builtins-since <rev>]
+                 print a TSV of vendor, built-in, shared repository and
+                 source recovery work with baseline evidence and checklist
+                 IDs. This does not change --changed or fast-path rules.
   -h, --help     this message
 EOF
 }
@@ -318,65 +323,116 @@ builtin_embedded_ignored() {
   rm -f "$list"
 }
 
-# builtin_deep_targets <docfetch.tsv> [rev] prints the run's targets whose
-# shipped built-in behavior may have changed since <rev>, space-separated. A
-# shared path or an adapter folder that maps to no target invalidates every
-# requested target; an adapter folder or target page invalidates its own.
-# Without a usable <rev> it cannot prove anything unchanged, so every
-# requested target is deep and one line on stderr says why.
-builtin_deep_targets() {
-  local file="$1" rev="${2:-}" requested all=0 deep="" path rest pkg target list
+# tsv_field escapes paths containing delimiters without splitting evidence rows.
+tsv_field() {
+  local value="$1"
+  value=${value//\\/\\\\}
+  value=${value//$'\t'/\\t}
+  value=${value//$'\n'/\\n}
+  value=${value//$'\r'/\\r}
+  printf '%s' "$value"
+}
+
+review_row() {
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$(tsv_field "$3")" \
+    "$(tsv_field "$4")" "$5" "$6"
+}
+
+# builtin_review_reasons is also the source of --changed's forced target set.
+# Selectors never narrow ownership: removed selectors and native overrides
+# require reading the baseline blob as well as the current source.
+builtin_review_reasons() {
+  local file="$1" rev="${2:-}" detailed="${3:-1}" requested baseline="-" failure=""
+  local path rest pkg target owners reason checklist state list
   requested=$(run_targets "$file" | tr '\n' ' ')
   [ -n "$requested" ] || return 0
   list=$(mktemp) || return 1
   if [ -z "$rev" ]; then
     echo "built-ins: no --builtins-since baseline, so every requested target is read deep" >&2
-    all=1
-  elif ! git -C "$ROOT" rev-parse -q --verify "$rev^{commit}" >/dev/null 2>&1; then
+    failure=missing
+  elif ! baseline=$(git -C "$ROOT" rev-parse -q --verify "$rev^{commit}" 2>/dev/null); then
     echo "built-ins: baseline $rev is not a commit here, so every requested target is read deep" >&2
-    all=1
+    baseline="$rev"
+    failure=invalid
   elif ! builtin_changed_paths "$rev" >"$list" 2>/dev/null; then
     echo "built-ins: git could not compare with $rev, so every requested target is read deep" >&2
-    all=1
+    failure=compare-failed
   fi
-  if [ "$all" -eq 0 ]; then
-    while IFS= read -r -d '' path; do
-      if builtin_shared_path "$path" || builtin_cli_path "$path"; then
-        all=1
-        break
+  if [ -n "$failure" ]; then
+    for target in $requested; do
+      if [ "$detailed" -eq 0 ]; then
+        printf '%s\n' "$target"
+      else
+        review_row "$target" built-in "$baseline" baseline-unavailable "$failure" built-in-review,baseline-recovery
       fi
+    done
+    rm -f "$list"
+    return 0
+  fi
+  while IFS= read -r -d '' path; do
+    owners="" reason=shared-repository checklist=target-claims,built-in-review
+    if builtin_shared_path "$path" || builtin_cli_path "$path"; then
+      owners="$requested"
+      case "$path" in
+        internal/builtins/*) reason=built-in; checklist=built-in-review ;;
+      esac
+    else
       case "$path" in
         internal/adapters/*/*)
           rest=${path#internal/adapters/}
           pkg=${rest%%/*}
-          target=$(target_for_pkg "$pkg")
-          if [ -z "$target" ]; then
-            all=1
-            break
-          fi
-          deep="$deep $target"
+          owners=$(target_for_pkg "$pkg")
+          [ -n "$owners" ] || owners="$requested"
           ;;
-        internal/adapters/*)
-          all=1
-          break
-          ;;
+        internal/adapters/*) owners="$requested" ;;
         docs/site/content/docs/targets/*.md)
-          target=${path#docs/site/content/docs/targets/}
-          deep="$deep ${target%.md}"
+          owners=${path#docs/site/content/docs/targets/}
+          owners=${owners%.md}
           ;;
       esac
-    done <"$list"
-  fi
-  rm -f "$list"
-  local out=""
-  for target in $requested; do
-    if [ "$all" -eq 1 ]; then
-      out="$out $target"
-    else
-      case " $deep " in *" $target "*) out="$out $target" ;; esac
     fi
-  done
-  printf '%s\n' "${out# }"
+    [ -n "$owners" ] || continue
+    state=changed
+    if [ "$detailed" -eq 1 ]; then
+      if [ ! -e "$ROOT/$path" ] && [ ! -L "$ROOT/$path" ]; then
+        state=removed
+        checklist="$checklist,previous-blob"
+      elif ! git -C "$ROOT" cat-file -e "$baseline:$path" 2>/dev/null; then
+        state=added
+      fi
+    fi
+    for target in $requested; do
+      case " $owners " in
+        *" $target "*)
+          if [ "$detailed" -eq 0 ]; then
+            printf '%s\n' "$target"
+          else
+            review_row "$target" "$reason" "$baseline" "$path" "$state" "$checklist"
+          fi
+          ;;
+      esac
+    done
+    if [ "$detailed" -eq 0 ] && [ "$owners" = "$requested" ]; then
+      break
+    fi
+  done <"$list"
+  rm -f "$list"
+}
+
+# builtin_deep_targets preserves run order and the existing conservative set.
+builtin_deep_targets() {
+  local file="$1" rev="${2:-}" reasons
+  reasons=$(builtin_review_reasons "$file" "$rev" 0) || return 1
+  printf '%s\n' "$reasons" | awk -F '\t' -v requested="$(run_targets "$file" | tr '\n' ' ')" '
+    NF { deep[$1] = 1 }
+    END {
+      count = split(requested, targets, " ")
+      for (i = 1; i <= count; i++) {
+        if (targets[i] in deep) out = out (out ? " " : "") targets[i]
+      }
+      print out
+    }
+  '
 }
 
 # builtin_shared_path <path> succeeds when the path is one of
@@ -421,12 +477,12 @@ target_for_pkg() {
 # targets whose shipped built-ins changed. Everything else is hash-identical
 # to the committed lock and only needs a coverage row.
 changed_classes() {
-  local file="$1" forced="${2:-}"
+  local file="$1" forced="${2:-}" reasons="${3:-0}"
   if [ ! -r "$file" ]; then
     echo "cannot read $file" >&2
     return 1
   fi
-  awk -F '\t' -v lock="$LOCK" -v forced="$forced" '
+  awk -F '\t' -v lock="$LOCK" -v forced="$forced" -v reasons="$reasons" '
     BEGIN {
       count = split(forced, names, /[[:space:]]+/)
       for (i = 1; i <= count; i++) if (names[i] != "") deep[names[i]] = 1
@@ -446,11 +502,21 @@ changed_classes() {
         else if (locked[url] == sha) status = "unchanged"
         else status = "changed"
       }
+      if (reasons) {
+        if (status != "unchanged") {
+          reason = (status == "new" || status == "changed") ? "vendor-delta" : "source-recovery"
+          checklist = (reason == "vendor-delta") ? "vendor-review" : "recover-source"
+          baseline = (url in locked && locked[url] != "") ? locked[url] : "-"
+          print target "\t" reason "\t" baseline "\t" url "\t" status "\t" checklist
+        }
+        next
+      }
       if (!(target in seen)) { seen[target] = 1; order[++n] = target }
       if (status != "unchanged") deep[target] = 1
       if (kind == "changelog" && status != "unchanged") deep[target] = 1
     }
     END {
+      if (reasons) exit
       for (i = 1; i <= n; i++) {
         t = order[i]
         if (t in deep) d = d (d ? " " : "") t
@@ -460,6 +526,18 @@ changed_classes() {
       if (sw != "") print "sweep: " sw
     }
   ' "$file"
+}
+
+# review_reasons prints work items without changing batching or fast paths.
+review_reasons() {
+  local file="$1" rev="${2:-}"
+  if [ ! -r "$file" ]; then
+    echo "cannot read $file" >&2
+    return 1
+  fi
+  printf 'target\treason\tbaseline\tevidence\tstate\tchecklist\n'
+  changed_classes "$file" "" 1 || return 1
+  builtin_review_reasons "$file" "$rev" | awk '!seen[$0]++'
 }
 
 # changed_batches <docfetch.tsv> [n] [forced] formats the classification as
@@ -530,6 +608,23 @@ main() {
     --sources)
       shift
       source_sections "$@"
+      return
+      ;;
+    --review-reasons)
+      if [ -z "${2:-}" ]; then
+        echo "--review-reasons needs a docfetch.tsv path" >&2
+        return 2
+      fi
+      local file="$2" rev=""
+      shift 2
+      if [ "$#" -gt 0 ]; then
+        if [ "$#" -ne 2 ] || [ "$1" != --builtins-since ] || [ -z "$2" ]; then
+          echo "--review-reasons accepts only --builtins-since <rev>" >&2
+          return 2
+        fi
+        rev="$2"
+      fi
+      review_reasons "$file" "$rev"
       return
       ;;
     --changed)
