@@ -34,6 +34,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Global configuration docs distinguish shared-name checks from Kiro, Qoder, and Warp skill-name behavior (#2292).
 - Onboarding starts with one project note, shows both tool outputs, and keeps agent-assisted and terminal setup in one guide.
 - Docs guide new users through a Claude Code or Codex setup, with focused reference pages and complete details for coding agents (#2289).
+- OpenCode docs distinguish V1 and V2 outside-project access defaults and show a native V2 rule that requests approval (#2293).
 
 ## v0.85.0 - 2026-10-15
 
