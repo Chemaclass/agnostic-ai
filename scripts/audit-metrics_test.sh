@@ -73,3 +73,63 @@ function test_invalid_interval_cannot_replace_the_artifact() {
   assert_not_equals 0 "$code"
   assert_equals 0 "$(jq '.stages | length' "$RUN/audit-metrics.json")"
 }
+
+function test_report_rejects_triage_from_another_run_or_schema() {
+  metrics init "$RUN" current '{}' 100
+  printf '%s\n' '{"schema_version":1,"run":{"id":"old"},"mode":"old-run-mode"}' >"$RUN/triage-metrics.json"
+  local summary
+  summary=$(metrics report "$RUN")
+  assert_contains 'Triage metrics: unavailable.' "$summary"
+  assert_contains 'triage metrics run ID does not match' "$summary"
+  assert_not_contains old-run-mode "$summary"
+  printf '%s\n' '{"schema_version":2,"run":{"id":"current"}}' >"$RUN/triage-metrics.json"
+  summary=$(metrics report "$RUN")
+  assert_contains 'Triage metrics: unavailable.' "$summary"
+  assert_contains 'triage metrics schema does not match' "$summary"
+}
+
+function test_report_marks_malformed_triage_unavailable_without_failing() {
+  metrics init "$RUN" current '{}' 100
+  local fixture summary code
+  for fixture in '{' 'null' '{"schema_version":1,"run":{"id":"current"}}'; do
+    printf '%s\n' "$fixture" >"$RUN/triage-metrics.json"
+    code=0
+    summary=$(metrics report "$RUN" 2>/dev/null) || code=$?
+    assert_equals 0 "$code"
+    assert_contains 'Triage metrics: unavailable.' "$summary"
+    assert_contains 'triage metrics are malformed' "$summary"
+  done
+}
+
+function test_audit_stage_bounds_reject_records_outside_the_run() {
+  metrics init "$RUN" fixture '{}' 100
+  local code=0
+  metrics record "$RUN" stage '{"id":"before","phase":"audit","name":"review","start":99,"end":110,"status":"completed"}' 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  metrics finish "$RUN" 120
+  code=0
+  metrics record "$RUN" stage '{"id":"after","phase":"audit","name":"review","start":110,"end":121,"status":"completed"}' 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  code=0
+  metrics record "$RUN" stage '{"id":"running-after","phase":"audit","name":"review","start":121,"end":null,"status":"running"}' 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  assert_equals 0 "$(jq '.stages | length' "$RUN/audit-metrics.json")"
+  metrics record "$RUN" stage '{"id":"delivery","phase":"delivery","name":"implementation","start":90,"end":130,"status":"completed"}'
+  assert_equals 1 "$(jq '.stages | length' "$RUN/audit-metrics.json")"
+}
+
+function test_audit_finish_cannot_precede_observed_stage_bounds() {
+  metrics init "$RUN" fixture '{}' 100
+  metrics record "$RUN" stage '{"id":"review","phase":"audit","name":"review","start":100,"end":130,"status":"completed"}'
+  local code=0
+  metrics finish "$RUN" 110 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  assert_equals null "$(jq '.audit.end' "$RUN/audit-metrics.json")"
+  metrics record "$RUN" stage '{"id":"incomplete","phase":"audit","name":"review","start":140,"end":null,"status":"running"}'
+  code=0
+  metrics finish "$RUN" 135 2>/dev/null || code=$?
+  assert_not_equals 0 "$code"
+  metrics finish "$RUN" 150
+  assert_equals null "$(jq '.stages[1].end' "$RUN/audit-metrics.json")"
+  assert_contains 'incomplete | audit | 140 | unknown | unknown | running' "$(metrics report "$RUN")"
+}

@@ -16,7 +16,7 @@ EOF
 }
 
 metrics_main() {
-  local action="${1:-}" dir="${2:-}" file tmp value key now
+  local action="${1:-}" dir="${2:-}" file tmp value key now triage_error=""
   case "$action" in -h | --help) metrics_usage; return ;; esac
   if [ -z "$dir" ] || ! command -v jq >/dev/null 2>&1; then
     printf 'audit-metrics: run directory and jq are required\n' >&2
@@ -56,11 +56,16 @@ metrics_main() {
         def upsert($list; $id): .[$list] = ([.[$list][] | select(.[$id] != $v[$id])] + [$v]);
         if .schema_version != 1 then error("unsupported metrics schema")
         elif $key == "finish" then
-          if ($v | nonnegative) and $v >= .audit.start then .audit.end = $v else error("invalid audit end") end
+          .audit.start as $start
+          | if ($v | nonnegative) and $v >= $start
+              and all(.stages[] | select(.phase == "audit"); .start >= $start and .start <= $v and (.end == null or .end <= $v))
+            then .audit.end = $v else error("invalid audit end or stage outside audit bounds") end
         elif $key == "stage" then
           if ($v.id | text) and ($v.name | text) and ($v.phase == "audit" or $v.phase == "delivery")
             and ($v.start | nonnegative) and ($v.end | optional_number)
             and ($v.end == null or $v.end >= $v.start)
+            and ($v.phase != "audit" or ($v.start >= .audit.start
+              and (.audit.end == null or ($v.start <= .audit.end and ($v.end == null or $v.end <= .audit.end)))))
             and (($v.status == "running" and $v.end == null) or
               (($v.status == "completed" or $v.status == "interrupted") and $v.end != null))
           then upsert("stages"; "id") else error("invalid stage") end
@@ -91,15 +96,34 @@ metrics_main() {
     report)
       [ -r "$file" ] || { printf 'Audit metrics: unavailable (%s).\n' "$file"; return; }
       value=null
-      [ ! -r "$dir/triage-metrics.json" ] || value=$(cat "$dir/triage-metrics.json")
-      jq -r --argjson triage "$value" '
+      if [ -e "$dir/triage-metrics.json" ]; then
+        if ! value=$(jq -cse 'if length == 1 and (.[0] | type) == "object" then .[0] else error("invalid triage metrics") end' "$dir/triage-metrics.json" 2>/dev/null); then
+          value=null
+          triage_error="triage metrics are malformed or unreadable"
+        fi
+      fi
+      jq -r --argjson triage "$value" --arg triage_error "$triage_error" '
         def show: if . == null then "unknown" else tostring end;
+        def nonnegative: type == "number" and . >= 0;
+        def optional_number: . == null or nonnegative;
+        def valid_triage:
+          try ((.mode | type) == "string" and (.stage.status | type) == "string"
+            and all(.requests.planned, .requests.capped, .usage.known_input_tokens, .usage.known_output_tokens; nonnegative)
+            and all(.requests.answered, .requests.unanswered, .usage.input_tokens, .usage.output_tokens; optional_number)
+            and (.research_limits | type) == "array" and all(.research_limits[]; type == "string")) catch false;
         def total($key): if length == 0 or any(.[]; .[$key] == null) then null else map(.[$key]) | add end;
         def union:
           sort_by(.start) | reduce .[] as $s ({end: null, seconds: 0};
             if .end == null or $s.start > .end then .seconds += ($s.end - $s.start) | .end = $s.end
             elif $s.end > .end then .seconds += ($s.end - .end) | .end = $s.end else . end) | .seconds;
-        [.stages[] | select(.phase == "audit" and .end != null)] as $closed
+        (if $triage_error != "" then $triage_error
+          elif $triage == null then "triage metrics unavailable"
+          elif $triage.schema_version != 1 then "triage metrics schema does not match"
+          elif (try ($triage.run.id == .run.id) catch false) != true then "triage metrics run ID does not match"
+          elif ($triage | valid_triage) != true then "triage metrics are malformed"
+          else "" end) as $triage_limit
+        | (if $triage_limit == "" then $triage else null end) as $triage
+        | [.stages[] | select(.phase == "audit" and .end != null)] as $closed
         | ($closed | union) as $union
         | ($closed | map(.end - .start) | add // 0) as $sum
         | "Run: \(.run.id); metrics schema: \(.schema_version).",
@@ -114,7 +138,7 @@ metrics_main() {
           "Auditor input tokens: \(.auditor_usage | total("input_tokens") | show); output tokens: \(.auditor_usage | total("output_tokens") | show); effort seconds: \(.auditor_usage | total("effort_seconds") | show).",
           (if $triage == null then "Triage metrics: unavailable."
             else "Triage: \($triage.mode) (\($triage.stage.status)); \($triage.requests.answered | show)/\($triage.requests.planned) requests answered, \($triage.requests.capped) capped; input tokens: \($triage.usage.input_tokens | show) (known subtotal \($triage.usage.known_input_tokens)); output tokens: \($triage.usage.output_tokens | show) (known subtotal \($triage.usage.known_output_tokens))." end),
-          ((.research_limits + ($triage.research_limits // [])) | unique | if length == 0 then "Research limits: none recorded." else "Research limits: " + join("; ") + "." end)
+          ((.research_limits + ($triage.research_limits // []) + [$triage_limit]) | map(select(length > 0)) | unique | if length == 0 then "Research limits: none recorded." else "Research limits: " + join("; ") + "." end)
       ' "$file"
       ;;
     *) metrics_usage >&2; return 2 ;;
