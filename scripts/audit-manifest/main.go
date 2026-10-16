@@ -863,7 +863,7 @@ func (a app) finalize(m *manifest) (string, error) {
 	}
 	m.Finalized = digest([]byte(result))
 	if err = save(m); err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: lock committed; manifest finalization marker failed (committed sha256 %s); preserve the run and see scripts/target-audit/manifest.md: %w", a.lock, m.Finalized, err)
 	}
 	return fmt.Sprintf("coverage validated: %d targets, %d sources; %d eligible URLs, %d retained URLs\n", len(m.Targets), len(m.Sources), advanced, withheld), nil
 }

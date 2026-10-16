@@ -49,6 +49,8 @@ Keep tracked source corrections, signal-history edits and implementation changes
 
 Manifest and lock writes use temporary files and atomic renames. Concurrent state writes or lock finalizations fail closed. A killed writer can leave `<run>/.audit-writing` or `<lock>.audit-finalizing`; the latter records its PID and run. Confirm that writer has exited before removing that exact marker, then start a fresh run. Half-written temporary files never become valid progress. There is no resume command.
 
+The lock commits before the final manifest marker is saved. If saving that marker fails, the error says `lock committed; manifest finalization marker failed` and includes the committed lock's SHA-256. Compare the current lock's exact file hash with that checksum. A match confirms the lock update succeeded. Preserve the run, evidence, error and checksum in the report, fix the filesystem problem, then start a fresh run for further work. If the checksum differs, reconcile the later lock change first. Do not retry the old run or use an unvalidated update as a repair.
+
 ## Manual compatibility path
 
 `scripts/docfetch.sh --update-unvalidated <docfetch.tsv> [target...]` explicitly keeps the old manual update behavior, including failed-fetch preservation, URL pruning and snapshots. It prints that coverage was not checked. It can advance successfully fetched pages without review and has no shared-owner protection. Use it only when deliberately making an unvalidated manual lock update. Fetch-only watcher workflows never update the source lock.

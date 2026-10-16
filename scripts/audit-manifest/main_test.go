@@ -512,3 +512,67 @@ func TestMalformedManifestRejectsWithoutChangingLock(t *testing.T) {
 	}
 	rejectedUnchanged(t, a, run)
 }
+
+func obstructFinalizationMarker(t *testing.T, run string) *manifest {
+	t.Helper()
+	m, err := load(run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(run, "audit.json")
+	if err = os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func TestFinalizationReportsCommittedLockWhenManifestMarkerFails(t *testing.T) {
+	a, run := fixture(t)
+	fetched(t, a, run, "changed")
+	covered(t, a, run, false)
+	m := obstructFinalizationMarker(t, run)
+	before, err := os.ReadFile(a.lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.finalize(m)
+	if err == nil {
+		t.Fatal("finalization accepted an unwritable manifest destination")
+	}
+	after, readErr := os.ReadFile(a.lock)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(before) == string(after) || !strings.Contains(string(after), "https://vendor.test/alpha") {
+		t.Fatal("valid coverage did not commit the lock before the marker failed")
+	}
+	for _, text := range []string{"lock committed; manifest finalization marker failed", digest(after), a.lock, "scripts/target-audit/manifest.md"} {
+		if !strings.Contains(err.Error(), text) {
+			t.Errorf("error %q does not contain %q", err, text)
+		}
+	}
+}
+
+func TestInvalidCoveragePreservesLockWhenManifestMarkerCannotBeSaved(t *testing.T) {
+	a, run := fixture(t)
+	fetched(t, a, run, "changed")
+	m := obstructFinalizationMarker(t, run)
+	before, err := os.ReadFile(a.lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.finalize(m)
+	if err == nil || strings.Contains(err.Error(), "lock committed") {
+		t.Fatalf("invalid coverage must reject before committing: %v", err)
+	}
+	after, readErr := os.ReadFile(a.lock)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(before) != string(after) {
+		t.Fatal("invalid coverage changed the lock")
+	}
+}
