@@ -612,6 +612,101 @@ function test_main_fails_when_a_target_returns_fewer_rows_than_urls() {
   assert_not_equals 0 "$status"
 }
 
+function stub_run_pages() {
+  function resolve_urls() { printf 'docs\thttps://%s.example/docs\n' "$1"; }
+  local text
+  text="$(printf 'Hooks run on events. %.0s' $(seq 1 40))"
+  stub_curl "https://*.example/*.md|200|$text" \
+    "https://*.example/*|200|<html><body><main>$text</main></body></html>"
+}
+
+function test_main_reused_directory_reports_only_current_targets() {
+  stub_run_pages
+  local out old_rows old_page
+  out=$(docfetch_main --out "$FIXTURES/run" claude zed)
+  assert_contains '2 targets, 2 urls: 2 new' "$out"
+  assert_contains 'deltas: 2 (2 no-snapshot)' "$out"
+  old_rows=$(cat "$FIXTURES/run/rows/zed.tsv")
+  old_page="$FIXTURES/run/$(cut -f10 "$FIXTURES/run/rows/zed.tsv")"
+
+  out=$(docfetch_main --out "$FIXTURES/run" claude)
+  assert_equals claude "$(cut -f1 "$FIXTURES/run/docfetch.tsv")"
+  assert_equals claude "$(cut -f1 "$FIXTURES/run/deltas.tsv")"
+  assert_contains '1 targets, 1 urls: 1 new' "$out"
+  assert_contains 'deltas: 1 (1 no-snapshot)' "$out"
+  assert_equals "$old_rows" "$(cat "$FIXTURES/run/rows/zed.tsv")"
+  assert_file_exists "$old_page"
+}
+
+function test_main_repeated_target_does_not_accumulate_rows_or_deltas() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/run" claude >/dev/null
+  local out
+  out=$(docfetch_main --out "$FIXTURES/run" claude)
+  assert_equals 1 "$(wc -l <"$FIXTURES/run/docfetch.tsv" | tr -d ' ')"
+  assert_equals 1 "$(wc -l <"$FIXTURES/run/deltas.tsv" | tr -d ' ')"
+  assert_contains '1 targets, 1 urls: 1 new' "$out"
+}
+
+function test_main_reused_directory_mirrors_only_current_targets() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null
+  local old_mirrors out
+  old_mirrors=$(cat "$FIXTURES/run/rows/zed.mirrors")
+  out=$(docfetch_main --out "$FIXTURES/run" --mirrors claude)
+  assert_equals claude "$(cut -f1 "$FIXTURES/run/mirrors.tsv")"
+  assert_contains 'mirrors: 1 of 1 scraped rows' "$out"
+  assert_equals "$old_mirrors" "$(cat "$FIXTURES/run/rows/zed.mirrors")"
+}
+
+function test_main_reused_directory_drops_mirrors_when_current_mode_changes() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null
+  function docfetch_curl() {
+    printf 'Plain page text. %.0s' $(seq 1 40) >"$2"
+    printf '200\t%s\ttext/plain\n' "$1"
+  }
+  local out
+  out=$(docfetch_main --out "$FIXTURES/run" --mirrors claude)
+  assert_equals text "$(cut -f5 "$FIXTURES/run/docfetch.tsv")"
+  assert_empty "$(cat "$FIXTURES/run/mirrors.tsv")"
+  assert_contains 'mirrors: 0 of 0 scraped rows' "$out"
+  assert_file_exists "$FIXTURES/run/rows/zed.mirrors"
+}
+
+function test_main_mirror_flag_applies_only_to_its_invocation() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/mirrored" --mirrors claude >/dev/null
+  docfetch_main --out "$FIXTURES/plain" claude >/dev/null
+  assert_file_not_exists "$FIXTURES/plain/mirrors.tsv"
+}
+
+function test_main_failed_rerun_keeps_the_last_complete_reports() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null
+  local rows deltas mirrors status=0
+  rows=$(cat "$FIXTURES/run/docfetch.tsv")
+  deltas=$(cat "$FIXTURES/run/deltas.tsv")
+  mirrors=$(cat "$FIXTURES/run/mirrors.tsv")
+  stub_targets zed ""
+  docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+  assert_equals "$rows" "$(cat "$FIXTURES/run/docfetch.tsv")"
+  assert_equals "$deltas" "$(cat "$FIXTURES/run/deltas.tsv")"
+  assert_equals "$mirrors" "$(cat "$FIXTURES/run/mirrors.tsv")"
+}
+
+function test_main_short_rerun_keeps_the_last_complete_report() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/run" claude zed >/dev/null
+  local rows status=0
+  rows=$(cat "$FIXTURES/run/docfetch.tsv")
+  stub_targets "" zed
+  docfetch_main --out "$FIXTURES/run" claude zed >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+  assert_equals "$rows" "$(cat "$FIXTURES/run/docfetch.tsv")"
+}
+
 function test_reader_text_keeps_the_space_between_words() {
   assert_not_equals \
     "$(printf 'Markdown Content:\nrun foo bar\n' | reader_text)" \

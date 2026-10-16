@@ -1089,7 +1089,7 @@ lock_merge() {
 }
 
 docfetch_main() {
-  local out="" mode=fetch
+  local out="" mode=fetch DOCFETCH_MIRRORS="${DOCFETCH_MIRRORS:-}"
   while [ "$#" -gt 0 ]; do
     case "$1" in
       -h | --help)
@@ -1196,12 +1196,16 @@ docfetch_main() {
     return 1
   fi
 
-  cat "$out/rows/"*.tsv >"$out/docfetch.tsv"
+  for t in $targets; do
+    cat "$out/rows/$t.tsv"
+  done >"$out/docfetch.tsv"
   sort -t"$(printf '\t')" -k8,8 -k1,1 "$out/docfetch.tsv" |
     awk -F '\t' '{ print $8 "\t" $1 "\t" $2 "\t" $5 "\t" $4 "\t" $3 }'
   write_deltas "$out"
   if [ -n "${DOCFETCH_MIRRORS:-}" ]; then
-    cat "$out/rows/"*.mirrors >"$out/mirrors.tsv" 2>/dev/null || : >"$out/mirrors.tsv"
+    for t in $targets; do
+      [ ! -f "$out/rows/$t.mirrors" ] || cat "$out/rows/$t.mirrors"
+    done >"$out/mirrors.tsv"
     awk -F '\t' '{ n++; if ($6 != "-") ok++ } END { printf "mirrors: %d of %d scraped rows serve a Markdown copy\n", ok, n }' "$out/mirrors.tsv"
   fi
   awk -F '\t' '
