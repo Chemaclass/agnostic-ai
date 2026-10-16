@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
+- Target audits report separate vendor, built-in, repository and source recovery work with baseline evidence (#2279).
 
 ### By tool
 
