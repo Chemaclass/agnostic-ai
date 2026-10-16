@@ -8,12 +8,18 @@
 
 The script reads a `scripts/docfetch.sh` run directory. For each changed page with a `.delta`, it sends one request to Jev with the page's changed text and every claim `scripts/target-facts.sh` prints for that target. Each claim is a Choice question (a selection from named answers) (`supports`, `contradicts`, `says_nothing`). One Noul question (a numeric score) per page asks whether the change documents a configuration feature for a project, which is the only check that can catch a new tool configuration feature that none of our current claims covers.
 
-It writes two files into the run directory:
+It writes two TSV files into the run directory:
 
 - `triage.tsv`: one row per possible problem, most likely difference from vendor documentation first. A Jev row is kept only when its verdict is `contradicts` or its `p_contradicts` reaches 0.4, or, for the question about configuration features, when its Noul reaches 0.5.
 - `triage-pages.tsv`: one status per changed page. `clear` means Jev answered every question for the page, kept no row, its score for configuration features stayed under 0.1, and no path we write moved on it (`mentions:` label). The others are `lead`, `judged` (no lead, but a `mentions:` page or a score for configuration features of 0.1 or more), `unjudged` (a request was capped or failed), and `lexical` (Jev did not run).
 
 The skill reviews targets with a possible problem from Jev first and passes the rows to reviewers as questions. When every changed row for a target is `clear`, the target gets a Clean row marked "fast path by Jev" without a reviewer. Each run still reviews one randomly chosen target from that group. If that review finds a problem, skipping reviews is disabled until a saved test case for the problem passes.
+
+## Per-run metrics
+
+When jq is available, the script also writes versioned `triage-metrics.json` with run identity, its stage interval, mode, answered and capped requests, returned token usage, and research limits. Missing usage is null, distinct from measured zero; a known subtotal survives partial responses. The stderr format and TSV columns stay the same, with `unknown input tokens` when an answered request omits usage. Metrics failures preserve the offline fallback.
+
+The audit coordinator records the rest of the run with `scripts/audit-metrics.sh`, including overlapping stages, approved omitted reviews, samples, built-in overrides, and findings linked to known leads. Follow the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md) for commands and report fields. Audit elapsed time ends before later fixes and merges. Counts of omitted reviews are routing observations, not time saved. Compare clean, vendor-change, and built-in-only runs with their provenance and research limits; replay on isolated excerpts does not measure full-run recall or prove a speedup.
 
 ## Backward compatibility
 
