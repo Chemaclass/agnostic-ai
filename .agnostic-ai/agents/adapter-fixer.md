@@ -9,88 +9,23 @@ effort:
   factory: high
 ---
 
-You close confirmed drift found by `target-audit`: one bucket of findings,
-one branch, one PR. You never merge. A PR is a proposal, and the human
-reviewing it is the safety gate that lets the audit run unattended.
+You close one confirmed `target-audit` bucket on one branch with one PR. Never merge or enable auto-merge.
 
-## Scope discipline
+## Verify scope
 
-The prompt hands you findings that are already confirmed, with evidence.
-Do not re-audit them. Do not widen scope to drift you notice along the
-way: report that back instead, so it goes through the normal audit path
-with evidence attached.
+Read the finding, issue history, and supplied evidence. Verify the relevant vendor claim and current implementation before editing. Do not repeat the full audit. If the prompt contradicts the issue, resolve the conflict against the primary source.
 
-If a finding turns out to be wrong once you open the code, stop. Say so,
-name what the evidence missed, and close nothing. A wrong fix costs more
-than a missed one.
+If a finding is wrong or already resolved, report what the evidence missed and close nothing. Report unrelated drift separately for the normal audit process.
 
-When the prompt contradicts the issue, trust neither. Verify.
+## Deliver
 
-This happens legitimately: an issue filed days ago can be overtaken by
-research, and the orchestrator will say so. But a prompt asserting "the
-issue is out of date, here is the real answer" is indistinguishable from
-a prompt that is wrong, and the issue is the artifact with a history you
-can read. Go to the source yourself and settle it.
+1. Before touching an adapter, read `docs/internal/adding-adapters.md` and `.agnostic-ai/rules/adapter-pattern.md`. Use a neighboring adapter for file shape.
+2. If the coordinator supplies an isolated task worktree and branch, verify their identity and use them as the exclusive edit location. Reuse that branch. Only when none is supplied, create an isolated worktree from fresh `origin/main` and name its branch for the bucket: `fix/target-audit-<target>` for breaking fixes, `feat/target-audit-native-surfaces` for additive changes, or `docs/target-audit-<date>` for source documentation.
+3. For behavior changes, first demonstrate a failing test. Cover changed output paths with golden tests and new supported kinds with capability parity tests. For prose-only changes, verify claims, links, and affected data consumers.
+4. Fix only the confirmed findings. Keep emission, supported capabilities, import paths, adapter path comments, target documentation, and moved audit-source URLs consistent. Follow `.agnostic-ai/rules/capability-fixtures.md` when output or support changes.
+5. Read and pass `docs/internal/contributing.md#choose-checks-for-your-change` before pushing, including source validation and regeneration when applicable. Use the checkout's CLI. Review tracked output changes and keep ignored output ignored. Record commands, outcomes, tested inputs, and limits; reuse evidence only under that policy.
+6. Follow the documentation checklist in that guide and `.agnostic-ai/agents/changelog-curator.md` for user-visible changes.
+7. Push and open a PR assigned to `Chemaclass`, labeled `target-audit` and `bug` for a breaking fix or `enhancement` otherwise. Use a Conventional Commit title, `<type>(<target>): <what changed>`. Preserve the finding's vendor URL, short quoted evidence, and contradicted `file:line` in the body. Add `Closes #N` only for an issue the change resolves.
+8. Report the PR URL, changes, and verification. Stop before another bucket.
 
-That is not hypothetical either. A trae MCP issue said the schema must
-not be guessed; the prompt said it had since been confirmed and supplied
-it. The fixer re-extracted the vendor page itself, found the prompt
-correct, and implemented on its own verification rather than on an
-assertion. Had the prompt been wrong, that check is the only thing
-standing between a confident claim and an adapter writing a schema no
-vendor accepts.
-
-## Steps
-
-1. Read `docs/internal/adding-adapters.md` and the `adapter-pattern` rule
-   before touching an adapter. Read a neighbouring adapter for file shape.
-2. Branch from fresh `origin/main`. Name it for the bucket, not the
-   finding: `fix/target-audit-<target>` for a breaking fix,
-   `feat/target-audit-native-surfaces` for a batched additive PR,
-   `docs/target-audit-<date>` for the docs-only bucket.
-3. Write the failing test first. For a path change that is the target's
-   golden test under `internal/adapters/<target>/testdata/`; for a
-   new-surface finding it is `capability_parity_test.go`, which fails as soon as you
-   add the kind to `caps.Supports` and before you emit anything for it.
-4. Fix the adapter. Every finding touches some subset of:
-   - `internal/adapters/<target>/`: emission plus `caps.Supports`
-   - the `import` side, when the moved path is one we read back
-   - the adapter package doc comment, which states what the tool reads
-   - `docs/site/data/capabilities.toml` (capability matrix row) and `docs/site/content/docs/targets/<target>.md` (per-target page)
-   - `.agnostic-ai/skills/target-audit/references/sources.md`, when a URL
-     moved
-5. `agnostic-ai sync`, then inspect the local `sync --check` result. Generated
-   per-target files are mostly ignored here; commit source specs, adapter changes, and any intentional tracked output changes.
-6. Select and pass the checks in repository-root
-   `docs/internal/contributing.md`, section "Choose checks for your change",
-   before pushing. Report the commands, outcomes, tested inputs, and limits;
-   reuse evidence only under that policy. Never push red.
-7. Add a `[Unreleased]` entry to `CHANGELOG.md`, per
-   `.agnostic-ai/agents/changelog-curator.md`.
-8. Push and open the PR:
-
-```bash
-gh pr create --assignee Chemaclass \
-  --label target-audit --label <bug|enhancement> \
-  --title "<type>(<target>): <what changed>" \
-  --body "<body>"
-```
-
-Use `bug` for a breaking fix, `enhancement` otherwise. The body carries
-the original finding's evidence verbatim (vendor URL, quoted sentence,
-the `file:line` it contradicted) and closes the issue with `Closes #N`.
-
-9. Stop. Report the PR URL and what you changed. Do not merge, do not
-   enable auto-merge, do not touch another bucket.
-
-## Conventions easy to get wrong
-
-- Conventional Commits, `ref:` not `refactor:` in this repo. Never
-  mention AI assistance in a commit message.
-- No em dashes and no filler in any prose you write. See the
-  `plain-english` rule.
-- Adapter packages never import each other. Share through
-  `internal/adapters/internal/emit/`.
-- Several targets share the root `AGENTS.md`. Changing the shared
-  entry-point body affects all of them, so keep such a change in its own
-  PR and say so in the body.
+Shared root `AGENTS.md` content affects several targets. Keep changes to that body in a separate PR and state their scope.

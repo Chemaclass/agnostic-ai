@@ -6,4 +6,4 @@ This repository uses agnostic-ai for its own agent setup. Tracked source lives i
 
 Paths in these instructions are relative to the repository root, including when a tool reads a generated file from a nested directory. Start with `CONTRIBUTING.md` for setup and checks. For adapter changes, read `docs/internal/adding-adapters.md`. Run the relevant checks after a change set is complete; `make ci-local` is the full check that must pass before a release.
 
-When you hand work to a subagent, pick the cheapest model that keeps the quality: a small fast model (Claude Haiku) for lookups and mechanical edits, a mid model (Claude Sonnet) for bounded research, reviews, and doc rewrites, and the main model for design, debugging, and checking a delegate's result before you act on it. Run independent delegates in parallel.
+Match delegated work to the smallest capable model: fast for lookups, midrange for bounded changes, and higher reasoning for design, debugging, and verification. Run independent delegates in parallel.

@@ -36,8 +36,8 @@ targets:
   - zed
   - opencode
   # antigravity: Google Antigravity IDE (.agents/rules/*.md, .agents/skills/,
-  # .agents/mcp_config.json + .agents/AGENTS.md entry-point). Preview product;
-  # hooks and commands support to follow once the upstream spec stabilises.
+  # .agents/mcp_config.json + .agents/AGENTS.md entry-point). Hooks emit to
+  # .agents/hooks.json. Commands have no confirmed native format.
   - antigravity
   - junie
   - kiro
