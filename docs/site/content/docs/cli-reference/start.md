@@ -39,27 +39,30 @@ It then syncs and shows what each added tool now reads:
 
 A tool already in `targets` changes nothing. A run that stopped partway finishes on the next try. A mistyped name fails and suggests the closest one. `use` only adds tools. Remove one from `targets` by hand.
 
-{% <details summary="When use refuses or stops"> %}
+<details>
+<summary>When use refuses or stops</summary>
+
 - A tool whose instructions file is in `sync.unmanaged` stops `use`, because importing it would copy that file to every tool. Import it by hand instead.
 - If `use` is interrupted before its imports finish, `sync` stops until `use` runs again.
 - `use` refuses to start a project inside a directory that an existing project already holds.
 - `use` refuses to add a tool when `agnostic-ai.local.yaml` sets `targets`, because that list wins. Add the tool there instead.
-{% </details> %}
+
+</details>
 
 ## init
 
 Create the project setup files: `agnostic-ai.yaml` and the managed `.gitignore` block. It errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` fill; `new` and `import` create the rest on first use.
 
 ```bash
-agnostic-ai init specs --demo     # base dir specs/, example specs to start from
 echo "claude,codex" | agnostic-ai init
+agnostic-ai sync
 ```
 
 | Flag | Description |
 |------|-------------|
 | `[dir]` | Base directory for the source folders (`.` for the old root layout). Writes matching `sources:` paths; the default `.agnostic-ai/` writes none. |
 | `--memory` | Enable shared memory. In Git with managed ignores, write `memory.personal: repo` to a new `agnostic-ai.local.yaml`. Existing local config keeps its content. See [repo memory](@/docs/memory.md#one-store-per-repository) for the Kilo Code setup. |
-| `--demo` | Add example specs, one per source folder plus the `memory-curator` skill, so the first `sync` writes output. The [`no-force-push` hook](@/docs/spec-format/hooks.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. The two [spec guard hooks](@/docs/spec-format/hooks.md#spec-guard) report spec lint errors and unsynced specs to the agent. Never overwrites files. |
+| `--demo` | Add example specs, one per source folder plus the `memory-curator` skill, so the first `sync` writes output. The [`no-force-push` hook](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. The two [spec guard hooks](@/docs/spec-format/hook-reference.md#spec-guard) report spec lint errors and unsynced specs to the agent. Never overwrites files. |
 | `--preset <name>` | Add starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
 | `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore=off` commits them instead. `true` and `false` work too, here and on `sync`. Write the value after `=`. `--gitignore off` stops with a hint, because `off` would read as the folder argument. |
@@ -93,26 +96,6 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
-### import reconcile
-
-Plan how to bring later edits from a tool's skill folder into the source specs after an import:
-
-```bash
-agnostic-ai import reconcile \
-  --base before-migration \
-  --migrated migration-commit \
-  --upstream other-branch \
-  --map .cursor/skills=.agnostic-ai/skills
-```
-
-`--base` identifies the commit containing the original tool skill folder. `--migrated` identifies the commit containing the first complete source specs, so changes made by import are part of the baseline. `--upstream` identifies the branch's later edits to the tool skill folder. The current source specs come from `HEAD`. The base must be an ancestor of both branches, and the migration must be an ancestor of `HEAD`.
-
-Each row reports `add`, `remove`, `update`, or `conflict`, followed by the tool and source spec file paths. Asset files and executable modes are included. Concurrent source edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including source files outside a skill. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
-
-The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a source counterpart at the migration revision. Content is compared using the file contents stored in Git, without merging text or normalizing later edits.
-
-Commit changes in mapped trees first. The command reads Git revisions and reports a plan; it does not copy files, restore deleted skills, or change the index. Applying a plan is a separate manual step. Other uncommitted project changes are allowed.
-
 ### Import behavior
 
 `import all` detects tools from their configuration files and directories. It imports each detected tool that has an importer.
@@ -125,7 +108,7 @@ A root `AGENTS.md` is not a marker, so `import all` (and `init --from all`) read
 
 When no tool is detected, a hand-written root `AGENTS.md` becomes `.agnostic-ai/AGNOSTIC_AI.md`, and a `seeded from AGENTS.md` line says so. A generated one is left alone, and `no importable AI CLI configs detected` is printed.
 
-See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
+See [Claude import](@/docs/targets/claude-reference.md#import) for what `import claude` leaves in place.
 
 `import --global` reads your user config (default model and effort, Claude Code permission rules, MCP servers, and Kiro hook files) from the tools that `sync --global` writes. It writes `settings/imported.yaml`, `settings/permissions-claude.yaml`, one `mcps/<name>.yaml` per server, and one `hooks/<name>.yaml` per supported Kiro hook file into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. See [Kiro import limits](@/docs/targets/kiro.md).
 
@@ -188,6 +171,26 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads 
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
 Import strips the leading `# <heading>` block that the adapter adds when it writes. It adds a `name:` field between `---` lines.
+
+### import reconcile
+
+Plan how to bring later edits from a tool's skill folder into the source specs after an import:
+
+```bash
+agnostic-ai import reconcile \
+  --base before-migration \
+  --migrated migration-commit \
+  --upstream other-branch \
+  --map .cursor/skills=.agnostic-ai/skills
+```
+
+`--base` identifies the commit containing the original tool skill folder. `--migrated` identifies the commit containing the first complete source specs, so changes made by import are part of the baseline. `--upstream` identifies the branch's later edits to the tool skill folder. The current source specs come from `HEAD`. The base must be an ancestor of both branches, and the migration must be an ancestor of `HEAD`.
+
+Each row reports `add`, `remove`, `update`, or `conflict`, followed by the tool and source spec file paths. Asset files and executable modes are included. Concurrent source edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including source files outside a skill. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
+
+The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a source counterpart at the migration revision. Content is compared using the file contents stored in Git, without merging text or normalizing later edits.
+
+Commit changes in mapped trees first. The command reads Git revisions and reports a plan; it does not copy files, restore deleted skills, or change the index. Applying a plan is a separate manual step. Other uncommitted project changes are allowed.
 
 ## list
 

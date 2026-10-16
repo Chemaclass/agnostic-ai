@@ -9,11 +9,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-func TestSiteDocs_QuickstartSharedAcrossEntryPoints(t *testing.T) {
+func TestSiteDocs_LandingQuickstartMatchesREADME(t *testing.T) {
 	want := readQuickstart(t, "README.md")
-	if got := readQuickstart(t, "docs/site/content/docs/getting-started.md"); got != want {
-		t.Errorf("getting started quickstart differs from README:\n%s\nwant:\n%s", got, want)
-	}
 
 	var landing struct {
 		Workflow struct {
@@ -51,6 +48,23 @@ func TestSiteDocs_QuickstartSharedAcrossEntryPoints(t *testing.T) {
 	}
 	if lines[1] != "agnostic-ai init --from all" || lines[2] != "agnostic-ai sync --plan" || lines[3] != "agnostic-ai sync" {
 		t.Errorf("quickstart must import before previewing and syncing:\n%s", want)
+	}
+}
+
+func TestSiteDocs_FreshSetupRoutesExistingConfigurationToImport(t *testing.T) {
+	guide := readRepoFile(t, "docs/site/content/docs/getting-started.md")
+	migration := strings.Index(guide, "[Import existing tool configuration](@/docs/migration.md)")
+	init := strings.Index(guide, "agnostic-ai init\n")
+	if migration < 0 || init < 0 || migration > init {
+		t.Error("fresh setup must route existing configuration to import before initializing")
+	}
+	if got := readQuickstart(t, "docs/site/content/docs/getting-started.md"); got != "agnostic-ai init" {
+		t.Errorf("fresh setup starts with %q, want project initialization", got)
+	}
+	for _, command := range []string{"agnostic-ai sync --plan", "agnostic-ai sync\n", "agnostic-ai sync --check"} {
+		if !strings.Contains(guide, command) {
+			t.Errorf("fresh setup is missing %q", command)
+		}
 	}
 }
 

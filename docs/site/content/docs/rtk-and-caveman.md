@@ -11,7 +11,7 @@ group = "Workflows"
 
 [RTK](https://github.com/rtk-ai/rtk) shortens the output of common terminal commands before the coding agent reads it. [Caveman](https://github.com/JuliusBrussee/caveman/tree/main/skills/caveman) is a skill that asks the agent to answer in fewer words. agnostic-ai can set up either one for you.
 
-Start with RTK if you want to reduce the command output your agent reads. In our tests, adding Caveman on top of RTK cost more. Choose Caveman for shorter answers if you like its style; measure cost on your own tasks.
+Use RTK to shorten command output, or Caveman if you prefer shorter answers. Our small test found no extra cost saving from combining them. Measure a task in your project before choosing.
 
 ## Turn them on
 
@@ -63,6 +63,9 @@ A copy you installed yourself, outside agnostic-ai, needs its own removal.
 
 The [example packs](https://github.com/Chemaclass/agnostic-ai/tree/main/docs/examples/rtk-and-caveman) offer RTK and Caveman as separate [packs](../packs/) instead of built-ins. Use a pack or a built-in for each tool, not both.
 
+<details>
+<summary>Distinguish the Caveman program and read the test results</summary>
+
 <a id="caveman-runtime-is-a-separate-choice"></a>
 
 ## Caveman's output shrinking is separate
@@ -82,3 +85,5 @@ We ran 24 short debugging sessions in Claude Code 2.1.295 with RTK 0.51.0 and `c
 All 24 answers were correct. On a short command RTK does not shorten, RTK did not help.
 
 These are price estimates from a small test, not your bill. Measure a full task in your own project before you decide. See the [full results](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/experiments/trio-evaluation-results.md) and the [investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957).
+
+</details>

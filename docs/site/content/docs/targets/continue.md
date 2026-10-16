@@ -6,23 +6,32 @@ weight = 90
 [extra]
 group = "Reference"
 target_id = "continue"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/continue.md#first-rule"
 +++
 
 # Continue (`continue`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 agnostic-ai writes Continue rules, skills, and MCP servers under `.continue/`, plus optional assistant files.
 
-## Set up this tool
+## First rule
 
-Add `continue` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://marketplace.visualstudio.com/items?itemName=Continue.continue), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `continue` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.continue/rules/conventional-commits.md`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import continue`](@/docs/cli-reference/start.md#import).
+Agents become rule content by default. Optional assistant files are standalone configs, not automatically discovered subagents.
+
+For existing files, check [what `import continue` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `.continue/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Continue. Find the rule in the rules picker, then ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -32,6 +41,12 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 .continue/mcpServers/<name>.yaml       # one per MCP entry
 .continue/assistants/<name>.yaml       # one per agent, only when assistants-dir is set
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
 
 - **Rule activation**: a scoped rule matches its scope directory plus its `globs` or `paths`, and gets no `alwaysApply`. A rule with no directory scope keeps `globs`, `alwaysApply`, and `description`. A comma-separated `globs` string becomes an array, because Continue reads a string as one pattern. `x-continue.regex` works only without `scope`. See [file-pattern limits for directory rules](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Skills**: `.continue/skills/<name>/SKILL.md` and bundled files are copied unchanged. The IDE extension and `cn` read this folder and `.claude/skills/`. Continue requires `name` and `description`, and offers the other files on demand ([`loadMarkdownSkills.ts`](https://github.com/continuedev/continue/blob/main/core/config/markdown/loadMarkdownSkills.ts)). It does not merge names across the two folders, so with the `claude` target each skill shows up twice.
@@ -44,6 +59,8 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
   - Continue may not scan this directory. Its [config docs](https://docs.continue.dev/guides/understanding-configs) describe one global `~/.continue/config.yaml` and no project-level agent directory.
   - Each file is a standalone `config.yaml` for `cn --config <dir>/<name>.yaml` or the IDE's config picker. It has no models or rules, so your defaults apply.
   - The rule form (`.continue/rules/agent-<name>.md`) is written either way.
+
+</details>
 
 ## Config keys
 
@@ -65,18 +82,13 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 
 MCP import replaces literal `env` and header values with `${NAME}` references and tells you which variables to set. Continue's `{% raw %}${{ secrets.NAME }}{% endraw %}` comes back as `${NAME}`. Sync writes Continue's secret syntax in stdio `env` and `args` and in remote `url` and `requestOptions.headers`, including `x-continue` overrides. The IDE reads secrets from a project `.env`, `.continue/.env`, or `~/.continue/.env` file. The CLI also reads process environment variables. See [Continue's secrets guide](https://docs.continue.dev/guides/configuring-models-rules-tools#working-with-secrets) and [secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables). Keep those files out of Git.
 
-{% <details summary="Skill rules from older versions"> %}
+<details>
+<summary>Skill rules from older versions</summary>
+
 Sync removes the `.continue/rules/skill-<name>.md` files it wrote in older versions. Import still reads a `skill-<name>.md` rule as a skill.
-{% </details> %}
+
+</details>
 
 ## Protected paths
 
 Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install the [Continue extension](https://marketplace.visualstudio.com/items?itemName=Continue.continue) in VS Code or JetBrains.
-2. Check the files with `ls .continue/rules/ .continue/skills/ .continue/mcpServers/`, the generated-file header with `grep "Generated by agnostic-ai" .continue/rules/*.md .continue/mcpServers/*.yaml`, and the YAML with `python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in __import__('glob').glob('.continue/mcpServers/*.yaml')]"`.
-3. Open the project. Each `.continue/rules/*.md` shows in the rules picker without a "failed to parse" warning. A rule with `globs` is active only while a matching file is in context.
-4. The MCP picker shows each `.continue/mcpServers/<name>.yaml` green.
-5. With `outputs.continue.assistants-dir` set, each `<dir>/<name>.yaml` parses (`python -c "import yaml; yaml.safe_load(open('<dir>/<name>.yaml'))"`), and `cn --config <dir>/<name>.yaml` accepts it.

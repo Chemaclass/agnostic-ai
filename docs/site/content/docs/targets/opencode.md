@@ -6,23 +6,32 @@ weight = 130
 [extra]
 group = "Reference"
 target_id = "opencode"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/opencode.md#first-rule"
 +++
 
 # OpenCode (`opencode`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 OpenCode reads the root `AGENTS.md`, `.opencode/`, and `opencode.json`. Hook plugins use V1 by default. For OpenCode V2, select [V2 hooks](#opencode-v2-hooks) in each hook spec.
 
-## Set up this tool
+## First rule
 
-Add `opencode` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://opencode.ai/docs/), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `opencode` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import opencode`](@/docs/cli-reference/start.md#import).
+Generated hooks use the V1 plugin API by default. Select [V2 hooks](#opencode-v2-hooks) explicitly for OpenCode V2.
+
+For existing files, check [what `import opencode` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Launch `opencode` from the project and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -36,22 +45,25 @@ AGENTS.md                                 # entry-point pointer body + rules (wr
 opencode.json                             # when MCP entries exist (merged with user config)
 ```
 
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Rules**: [OpenCode](https://opencode.ai/docs/rules/) finds the repo-root `AGENTS.md` by walking up from the current directory. Codex, Amp, Warp, and the other `AGENTS.md` tools share the same file, so `sync` writes it once.
 - **Agents** ([docs](https://opencode.ai/docs/agents/)): `.opencode/agents/<name>.md` (the singular directory is legacy), with `description`, `mode`, `model`, `temperature`, `permission`, and any `x-opencode` key. The body is the system prompt.
   - OpenCode deprecated the agent `tools` key, so a `can` or `tools` list becomes the agent [`permission`](https://opencode.ai/docs/agents/#permissions) map: `can: [read]` writes `permission: {"*": deny, doom_loop: ask, external_directory: ask, read: {"*": allow, "*.env": ask, "*.env.*": ask, "*.env.example": allow}}`. Every tool not listed is denied. The catch-all comes first because the last matching rule wins.
-  - OpenCode checks one rule list per agent: its own defaults, then the project rules in `opencode.json`, then the agent's. Sync reads `opencode.json` after writing it, hand-written keys included, and repeats inside each listed tool what that list decides, so a restricted agent asks, allows, or denies exactly as the project does for what it may use, `.env` reads included. `doom_loop` and `external_directory` follow the project too, memory and handoff store grants included. OpenCode's default allows for its temp, skill, and reference folders outside the project are per machine, so a restricted agent asks before using them.
-  - Project rules include the legacy `permission` map followed by the [native V2 `permissions` array](https://opencode.ai/v2/docs/permissions), in order. Native `action` wildcards match V2 names, including `shell` and `subagent`; generated agent maps keep the legacy `bash` and `task` names that V2 migrates. `sync --check` and `sync --dry-run` use the planned project rules too. Malformed native rules fail sync when generating agents. A resource rule that cannot fit the legacy agent format, such as a scoped `doom_loop` rule, fails with the project and agent paths. Explicit agent permission overrides take precedence before these checks.
-  - V2 expands `~` and `$HOME` resources only for exact `read`, `edit`, and `external_directory` actions. Whole-tool grants retain these resources for OpenCode to expand at runtime. With native project rules, sync rejects scoped filesystem grants that need the runtime home to intersect their rules, and action wildcards whose home-relative resources would change meaning when specialized. Use absolute resources or an explicit agent permission override.
-  - OpenCode ignores case only on Windows, and sync writes the same files on every OS. So when only case separates a settings rule from a listed pattern, an `ask` or `deny` still reaches the agent and an `allow` does not: the agent can be stricter than the project on one OS, never looser.
-  - Sync reads only the project's `opencode.json`. It does not read `opencode.jsonc`, `.opencode/opencode.json`, or your global `~/.config/opencode/opencode.json`, so a restricted agent can override a rule written there. `x-opencode: {permission: {...}}` on the agent is your own override and is written as is, even when it is looser than the project.
-  - Native agent `permission` and `x-opencode.permission` maps keep tool keys and pattern rules in source order through import and sync. OpenCode applies the last matching rule, so order keeps an overlapping `deny` or `ask` effective. With a portable tool list, generated keys come first and native keys follow in their own order.
+  - Restricted agents keep project permission decisions for their allowed tools, including `.env` prompts, and deny other tools. Sync reads root `opencode.json`, including native V2 `permissions` in order. It does not read `opencode.jsonc`, `.opencode/opencode.json`, or global user policy, so agent rules can override restrictions kept only there.
+  - Native `permission` keys retain source order because the last matching rule wins. `x-opencode.permission` overrides the keys it names; an explicit native action wins outright. Malformed project rules or resource rules that cannot fit the agent format fail sync with the affected paths.
+  - V2 home-relative resources and Windows case differences can make restrictions stricter. Use absolute resources for scoped filesystem grants. Sync rejects grants whose intersection depends on the runtime home. See [native permissions](https://opencode.ai/v2/docs/permissions) for matching semantics.
   - These names translate: `Read`, `Edit` and `Write` (both `edit`), `Bash`, `Glob`, `Grep`, `Task`, `Skill`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>` as `<server>_<tool>`, and a whole server (`mcp:<server>` or `mcp__<server>`) as `<server>_*`. Other names drop with a sync note. If nothing translates, no map is written, because `{"*": deny}` alone would lock the agent out. `x-opencode: {permission: {...}}` wins for each key it names; a single action such as `permission: ask` wins outright.
 - **Skills** ([docs](https://opencode.ai/docs/skills/)): `.opencode/skills/<name>/SKILL.md` plus bundled files. OpenCode also scans `.claude/skills/` and `.agents/skills/`. A directory scope from the source folder moves the folder under that directory, and import keeps it.
   - `disable-model-invocation: true` keeps a skill out of the model's available list in OpenCode V2 (verified with 2.0.26). Explicit loading by ID still works. V1 does not enforce this field. Native `metadata.opencode/autoinvoke` takes precedence when both forms are set, and import preserves both.
   - `outputs.opencode.emit-skills-as-commands: true` also writes the command form. Its relative links to bundled files point into the skill folder (`../skills/<name>/references/x.md`). Other links stay as written.
   - Names must be 1-64 lowercase letters or digits, with single hyphens between segments (the vendor's `name` rule, which Zed also enforces). `Deploy`, `my_skill`, and `my--skill` fail sync with the required format. Sync does not rename them, because OpenCode would skip the folder.
 - **Commands**: `.opencode/commands/<name>.md` keeps `description`, `agent`, `model`, and `subtask`.
-- **V1 hooks**: one [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. This is the only generated output that is code. OpenCode loads every JS or TS file in `.opencode/plugins/` at startup.
+- **V1 hooks**: one [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. The generated TypeScript module runs the hook command. OpenCode loads every JS or TS file in `.opencode/plugins/` at startup.
   - Modules follow the vendor's example: `import type { Plugin } from "@opencode-ai/plugin"`, then `export const <Name>Plugin: Plugin = async ({ $ }) => { return { ... } }`. The type-only import is removed at runtime, so `@opencode-ai/plugin` is optional. A `//` comment at the top marks the file as generated.
   - `PreToolUse` and `PostToolUse` map to `tool.execute.before` and `tool.execute.after`. OpenCode's dotted names are kept. Other documented events (`session.idle`, `file.edited`, `permission.asked`, ...) use the single `event` hook with an `event.type` guard.
   - `matcher` becomes an anchored `new RegExp("^(?:...)$")` tested against `input.tool`, so `write` does not match `todowrite`. OpenCode tool names are lowercase, so a Claude-style `Edit` or `Edit|Write` is written as is with a sync note.
@@ -83,9 +95,12 @@ opencode.json                             # when MCP entries exist (merged with 
   - A project synced before this change has one record for the whole `permission` value. If you edit another key in the same sync where a spec drops a tool, that tool stays as yours, since sync kept only a checksum of what it wrote.
   - `import opencode` reads the map back, except namespaced MCP keys, where the server name cannot be told from the tool name.
 
-{% <details summary="Old .opencode/AGENTS.md leftovers"> %}
+<details>
+<summary>Old .opencode/AGENTS.md leftovers</summary>
+
 Sync removes a generated file at the old `.opencode/AGENTS.md` path, which OpenCode never read. It leaves a hand-written one.
-{% </details> %}
+
+</details>
 
 ## OpenCode V2 hooks
 
@@ -114,6 +129,8 @@ On Windows, use OpenCode V1 with the default V1 hooks. OpenCode V2 cannot run V1
 `timeout` is a positive whole number of seconds, up to 86400; the default is 60 seconds. A timeout stops the owned process tree and logs a failure. Unloading the plugin also stops active commands and removes its callbacks. `x-opencode.env` adds string values to each command's inherited environment. Each invocation receives `AGNOSTIC_AI_TARGET=opencode`.
 
 Sync writes `.opencode/plugins/<name>.ts`. The type-only `@opencode/plugin` import adds no runtime dependency. Arbitrary plugin code is not imported back into specs.
+
+</details>
 
 ## Config keys
 
@@ -148,14 +165,3 @@ Plugin hooks in `.opencode/plugins/` are not imported.
 ## Protected paths
 
 Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install: `npm install -g opencode-ai` ([install docs](https://opencode.ai/docs/#install)).
-2. Check the files:
-   - `ls AGENTS.md .opencode/agents/ .opencode/skills/ .opencode/commands/ .opencode/plugins/ opencode.json`
-   - `grep "Generated by agnostic-ai" .opencode/agents/*.md` (the header follows the frontmatter)
-   - `python -m json.tool opencode.json > /dev/null`
-3. Launch `opencode`. `AGENTS.md` rules are in context, and each agent, skill, and command is in its picker.
-4. The MCP panel shows each `mcp.<name>` ready, or disabled for disabled specs.
-5. Trigger a hook's event and confirm its command ran. OpenCode reports plugins it cannot parse at startup, so a clean launch means every `.opencode/plugins/<name>.ts` loaded.

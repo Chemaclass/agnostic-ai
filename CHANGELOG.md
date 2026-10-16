@@ -21,6 +21,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269).
 - Restricted agents keep native V2 project permission limits from `opencode.json`, including ordered deny and ask rules (#2267).
 
+#### Claude Code
+
+- `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
+
+### Site
+
+- Docs guide new users through a Claude Code or Codex setup, with focused reference pages and complete details for coding agents (#2288).
+
 ## v0.85.0 - 2026-10-15
 
 ### General
@@ -55,7 +63,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
-- `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
 - Remove the handoff grant from `.claude/settings.local.json` in one sync after turning handoff off, and the file when it held nothing else (#2222).
 - `lint` warns (LINT047) when a skill or command name holds a character Claude Code refuses, such as a zero-width space or `<`, so it would never load (#2217).
 

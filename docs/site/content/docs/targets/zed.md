@@ -6,25 +6,34 @@ weight = 110
 [extra]
 group = "Reference"
 target_id = "zed"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/zed.md#first-rule"
 +++
 
 # Zed (`zed`)
+
+## Set up this tool {#set-up-this-tool .legacy-anchor}
 
 Zed reads `.rules`, `.agents/skills/`, `.zed/settings.json` MCP servers, and optional tasks.
 
 Set `outputs.zed.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
-## Set up this tool
+## First rule
 
-Add `zed` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://zed.dev), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `zed` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.rules`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import zed`](@/docs/cli-reference/start.md#import).
+Hooks become optional Zed Tasks. They do not provide general before-tool enforcement.
+
+For existing files, check [what `import zed` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `.rules` for the commit-prefix rule. Open the project in Zed and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -34,6 +43,12 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 .zed/settings.json                     # when MCP entries exist (merged with existing user config)
 .zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
 
 - **Rules**: Zed 1.4.2 retired its rules library, so `sync` writes the instructions that point to source specs and a marked `## Rules` block to `.rules`.
   - Zed reads [the first matching file](https://zed.dev/docs/ai/instructions) of `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. Nothing agnostic-ai writes ranks above `.rules`. `AGENTS.md` ranks below Copilot's file that only points to source specs. With copilot enabled, rules in `AGENTS.md` never reach Zed.
@@ -50,9 +65,14 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
   - `WorktreeCreate` writes `hooks: ["create_worktree"]`, so the task runs after Zed creates a linked worktree. Import restores it. Other tasks import as `OnDemand` (command palette).
   - Sync controls `label`, `command`, `args`, and `hooks` (adding `create_worktree` keeps other hook names). `x-zed` sets other fields, such as `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, and `reevaluate_context`.
 
-{% <details summary="Source for the MCP keys"> %}
+<details>
+<summary>Source for the MCP keys</summary>
+
 [Zed's MCP docs](https://zed.dev/docs/ai/mcp) do not name the `enabled` toggle. Zed's settings source, [`crates/settings_content/src/project.rs`](https://github.com/zed-industries/zed/blob/main/crates/settings_content/src/project.rs), defines it, plus `timeout`, `oauth`, and `remote`.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -70,11 +90,3 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 ## Protected paths
 
 Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install Zed from [zed.dev](https://zed.dev).
-2. Check the files: `ls .rules .agents/skills/ .zed/settings.json .zed/tasks.json`, `ls .agents/skills/*/SKILL.md >/dev/null`, `python -m json.tool .zed/settings.json > /dev/null`, `python -m json.tool .zed/tasks.json > /dev/null`.
-3. Open the project. The agent panel reads `.rules` as project instructions and lists each `.agents/skills/<name>/` as a skill (`@skill` or slash command).
-4. The MCP picker shows each `context_servers.<name>` ready.
-5. The command palette runs every entry from `.zed/tasks.json` as a Zed Task.

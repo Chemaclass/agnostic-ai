@@ -94,6 +94,14 @@ The repository's output ignore block is maintained by hand. Preserve hierarchica
 
 CI lints source specs. It does not run `sync --check` against a fresh checkout because generated files are not committed. After generating locally, `sync --check` can confirm local output matches the specs.
 
+## Write documentation people can use
+
+Start with the reader's task, one complete example, and a clear next action. Explain a term where the reader first needs it. Keep each fact on one canonical page and link to it from related guides.
+
+Cut repeated benefits and cautions. Put necessary edge cases in a named disclosure or focused reference page, keeping limits that affect the example visible. Preserve full details in HTML and agent exports, and keep old links pointed at meaningful answers.
+
+Verify examples in a temporary project. Describe what the generated files prove separately from what the coding tool does at run time.
+
 ## Documentation checklist
 
 - New or changed flags, targets, or output fields: update the target's page under [targets](../site/content/docs/targets/_index.md) and [configuration](../site/content/docs/configuration.md), plus the [CLI reference](../site/content/docs/cli-reference/_index.md) for command changes.

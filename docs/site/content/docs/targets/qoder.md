@@ -6,25 +6,34 @@ weight = 190
 [extra]
 group = "Reference"
 target_id = "qoder"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/qoder.md#first-rule"
 +++
 
 # Qoder (`qoder`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 agnostic-ai writes Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) rules, agents, skills, and commands under `.qoder/`, and merges MCP, hooks, and settings into `.qoder/settings.json`.
 
-## Set up this tool
+## First rule
 
-Add `qoder` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://qoder.com), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `qoder` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.qoder/rules/conventional-commits.md`, or shared `AGENTS.md` when another selected target already puts the rule there.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import qoder`](@/docs/cli-reference/start.md#import).
+When another target includes the rule in `AGENTS.md`, Qoder uses that copy. Keep `AGENTS.md` in the CLI context file list.
+
+For existing files, check [what `import qoder` reads](#import) before syncing.
 
 With `handoff` or `handoff-hook`, linked worktrees get shared handoff write access through `permissions.additionalDirectories` in the ignored `.qoder/settings.json`. See [shared handoff access](@/docs/handoff.md#write-from-a-linked-worktree) for preserved configuration and fallback behavior.
+
+## Verify
+
+Run `agnostic-ai sync --check` and find the commit-prefix rule in `.qoder/rules/conventional-commits.md` or the shared `AGENTS.md`. Open the project in Qoder. Confirm the rule is active, then ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -36,6 +45,12 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
 .qoder/commands/<name>.md        # one per command
 .qoder/settings.json             # MCP, hooks, and settings (merged; other keys are kept)
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
 
 - **Rules**: Qoder reads `.qoder/rules/` and the root `AGENTS.md`. Per-rule files win a conflict, so rules go there instead of including them in that file. When Codex or another tool that copies rules into `AGENTS.md` adds the `## Rules` block, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file. The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files. Keep it listed there, or the CLI misses the rules that have no file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
 - **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`. `name` and `description` are required. `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, and `hooks` are optional. `effort` takes a single value or a per-tool map, and an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
@@ -60,13 +75,21 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
   - HTTP handlers have `url`, optional `headers`, and `allowedEnvVars`. Prompt handlers have `prompt` and optional `model`. Both keep filters, timeouts in seconds, and matcher groups.
   - Other handler types get a sync note. Sync writes only one `env` entry, `AGNOSTIC_AI_TARGET`, and no `rewakeMessage`, `rewakeSummary`, or agent handlers.
 
-{% <details summary="Unmanaged AGENTS.md"> %}
-Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. But sync then stops writing `AGENTS.md`, so other tools that read it, such as Codex, miss rule changes.
-{% </details> %}
+<details>
+<summary>Unmanaged AGENTS.md</summary>
 
-{% <details summary="Leftover root .mcp.json"> %}
+Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. But sync then stops writing `AGENTS.md`, so other tools that read it, such as Codex, miss rule changes.
+
+</details>
+
+<details>
+<summary>Leftover root .mcp.json</summary>
+
 Older versions wrote MCP servers to the root `.mcp.json` shared with Claude Code. The two tools' per-server fields differed, so Qoder moved to `.qoder/settings.json`, which Claude Code never reads. A leftover `.mcp.json` still loads and wins over `.qoder/settings.json` for a server with the same name. Sync cannot remove it, because it has no generated-file header and may belong to Claude Code. Delete it by hand in a Qoder-only project.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -126,16 +149,3 @@ Hooks, personal settings, and the separate project `.mcp.json` are not imported.
 ## Protected paths
 
 Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install Qoder from [qoder.com](https://qoder.com).
-2. Check the files:
-   - `ls AGENTS.md .qoder/rules/ .qoder/agents/ .qoder/skills/ .qoder/commands/ .qoder/settings.json`
-   - `grep "Generated by agnostic-ai" .qoder/rules/*.md .qoder/agents/*.md .qoder/skills/*/SKILL.md .qoder/commands/*.md` for the generated-file header
-   - `python -m json.tool .qoder/settings.json > /dev/null`
-3. Open the project:
-   - The rules panel lists every `.qoder/rules/*.md` with no parse warnings, and the agent picker every `.qoder/agents/*.md`.
-   - Each `.qoder/skills/<name>/` loads as a skill, and each `.qoder/commands/<name>.md` runs from `/`.
-   - The MCP picker shows each `mcpServers.<name>` connected (project servers need approval on first use).
-   - A hook fires on its event (for example a `PreToolUse` hook prints or blocks first).

@@ -11,18 +11,11 @@ group = "Reference"
 
 `skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, investigate a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files only when the skill applies.
 
-- **Fewer instructions loaded every session.** A long procedure costs nothing until it is used. An always-on rule loads every session.
-- **Files that travel with it.** Scripts, templates, and sample files sit next to `SKILL.md` and are copied beside it for tools that support skill folders.
-- **Used by the model or by name.** The model picks a skill from its description. A person can also call it directly.
-- **One format across tools.** Tools that read the `SKILL.md` layout get the skill as written. Tools without skill support get a rule and a sync note.
-
 Use a [rule](@/docs/spec-format/rules.md) for what applies to every task, and a skill for a procedure some tasks need.
-
-Write the trigger, prerequisites, steps, and expected result. Name commands and paths the agent can use directly. State when it must stop for missing information or approval. Link supporting files beside `SKILL.md` instead of repeating long reference text in the body.
 
 ## Write one
 
-`agnostic-ai new skill release-notes` creates a starter file. Two layouts:
+`agnostic-ai new skill yaml-validator` creates a starter under `.agnostic-ai/skills/`. Two layouts:
 
 - **Flat:** `skills/yaml-validator.md`
 - **Nested**, for skills with attached files: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
@@ -39,8 +32,6 @@ description: Validate YAML against a schema. Use when a YAML file changes or the
 2. Parse YAML and compare against `schema.yaml`
 3. Report violations as `path: message`
 ```
-
-Write `description` as the trigger: what the skill does and when to use it. The model uses that line to decide whether the skill fits the task.
 
 This manual-only release skill runs on a stronger model in Claude Code and ships its own script:
 
@@ -62,6 +53,8 @@ model: {claude: opus}
 2. Run `scripts/bump-version.sh <version>` from this skill's folder.
 3. Commit `chore(release): v<version>` and tag it.
 ```
+
+After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file and its schema. The example body describes the procedure; put the actual schema beside `SKILL.md` when using the nested layout.
 
 ## Fields
 

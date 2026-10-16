@@ -6,29 +6,38 @@ weight = 80
 [extra]
 group = "Reference"
 target_id = "windsurf"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/windsurf.md#first-rule"
 +++
 
 # Windsurf / Devin Desktop (`windsurf`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 Windsurf became Devin Desktop (2026-06). The tool keeps its `windsurf` name, so existing `outputs.windsurf.*` keys and `x-windsurf` meta still work.
 
-## Set up this tool
+## First rule
 
-Add `windsurf` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://devin.ai/desktop), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `windsurf` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.devin/rules/conventional-commits.md`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import windsurf`](@/docs/cli-reference/start.md#import).
+The target ID stays `windsurf`. It writes the current `.devin/` paths; Desktop and CLI differ in when scoped rules load.
+
+For existing files, check [what `import windsurf` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `.devin/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Devin Desktop or CLI and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Shared memory
 
-With `builtins: [memory]`, sync writes the native `memory-windsurf-session-start` hook for Devin CLI `SessionStart` that adds both memory indexes through tagged `hookSpecificOutput.additionalContext`. General portable `on: session-start` hooks stay unsupported because Devin does not define startup blocking decisions. The memory hook starts `sh` explicitly and sets a 10-second timeout. It uses `DEVIN_PROJECT_DIR`, then runs from the selected project, so an unrelated hook-process directory does not select another project. It prefers the project's installed `agnostic-ai` and otherwise uses PATH. See [shared memory](@/docs/memory.md#load-at-session-start).
+With `builtins: [memory]`, a Devin CLI `SessionStart` hook adds shared memory indexes. It needs POSIX `sh` and prefers the project's installed agnostic-ai. Native memory stays available. See [shared memory](@/docs/memory.md#load-at-session-start).
 
-This launcher needs a POSIX `sh`. Devin does not document its default hook shell, working directory, timeout, or Windows execution. The shared memory rule remains the fallback when hooks do not run, including Restricted Mode. Local `hook run` checks use a supplied SessionStart payload because Devin does not document values for `source`; modeled execution does not establish native session recall or Windows support.
+Devin does not document the hook's default shell, working directory, timeout, or Windows execution. Local modeled checks do not establish native recall or Windows support; the memory rule remains the fallback when hooks do not run.
 
 ## Output
 
@@ -44,6 +53,12 @@ AGENTS.md                            # shared pointer body, plus the rules block
 .devin/hooks.v1.json                 # when hook entries exist
 .devin/config.json                   # when settings entries carry permission rules, or with repo-mode memory
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
 
 - **Rules**: Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurfrules` is legacy). Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync removes the files it wrote there earlier and leaves hand-written files alone.
 - **Entry point**: Devin also reads the root `AGENTS.md`, so `sync` writes the shared instructions that point to source specs there.
@@ -81,7 +96,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
   - Per entry: `type`, `command`, and optional `timeout` (seconds). `type` is `"command"`, or `"prompt"` for an LLM prompt. A hook spec gets `"prompt"` only through a hand-written `type`/`prompt` Meta pair.
   - `matcher` on `PreCompact` and `PostCompact` is `manual` or `auto`, the changelog's two triggers. The built-in `handoff-pre-compact` hook does not reach Devin, because its payload is undocumented.
   - `matcher` is a regex on `tool_name` for `PreToolUse`, `PostToolUse`, and `PermissionRequest`. **Devin CLI names tools in lowercase snake_case** (`exec`, `edit`, `read`, `write`, `apply_patch`, `grep`, `glob`, `webfetch`, ...), so a Claude-style matcher matches nothing. Sync adds a sync note and does not rename it.
-  - [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Devin CLI's event data on an [assumed shell, working directory, and timeout](@/docs/spec-format/hooks.md#assumed-results). `--edit` is listed as not run, because Devin does not document the edit tools' input.
+  - [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them with Devin CLI's event data on an [assumed shell, working directory, and timeout](@/docs/cli-reference/hook-diagnostics.md#assumed-results). `--edit` is listed as not run, because Devin does not document the edit tools' input.
 - **Settings**: portable `permissions` are merged into `.devin/config.json`, the committed project policy ([permissions reference](https://docs.devin.ai/cli/reference/permissions)).
   - Project configs accept only `permissions`, `read_config_from`, and `hooks` ([config file reference](https://docs.devin.ai/cli/reference/configuration/config-file)). Sync sets only `permissions`, so other keys, and other entries inside it, are kept.
   - In `allow`, `deny`, and `ask`, sync owns only the rules your specs write. A rule you add by hand stays, and a rule leaves with its spec.
@@ -95,12 +110,17 @@ AGENTS.md                            # shared pointer body, plus the rules block
   - With `handoff` or `handoff-hook` enabled in a linked worktree, sync adds `Write(<store>/**)` for the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree). Existing memory and user rules stay. A main checkout path with pattern characters, including parentheses, gets no rule. For a tracked, hand-written, or unmanaged file sync skips only this grant and reports the permission to add by hand (once you add it, it stays); the rest of its output is unchanged.
 - **Workflows**: `outputs.windsurf.workflows-dir` writes nothing. It only prints a warning about moving to skills. `.devin/agents/<name>.md` is written either way.
 
-{% <details summary="Older paths and removed features"> %}
+<details>
+<summary>Older paths and removed features</summary>
+
 - `outputs.windsurf.workflows-dir` wrote each agent as a Cascade Workflow. Devin Desktop v3.9.19 removed Cascade ([changelog](https://docs.devin.ai/desktop/changelog.md)). Devin Local does not support Workflows and points users to skills ([Devin Local limitations](https://docs.devin.ai/desktop/devin-local)).
 - Sync removes the `.devin/rules/agent-<name>.md` files it wrote for each current agent, and the old `.devin/rules/<scope>/<name>.md` folders.
 - The MCP file moved here in v3000.3 (Local 3.6). Devin moves `mcpServers` from the older `.devin/config.json` on startup, so the path works for both.
 - Devin CLI also reads a gitignored `.devin/mcp_config.local.json` for personal secrets, which agnostic-ai does not write. The generated `.devin/mcp_config.json` is in the managed `.gitignore` block by default (`gitignore.enabled: true`), so you do not need that split.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -127,15 +147,3 @@ AGENTS.md                            # shared pointer body, plus the rules block
 ## Protected paths
 
 Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). To tell the agent about them, list the paths in a rule.
-
-## Verify
-
-1. Install Devin Desktop from [devin.ai](https://devin.ai) (formerly windsurf.com).
-2. Check the files: `ls .devin/rules/ .devin/agents/ .agents/skills/`, `grep "Generated by agnostic-ai" .devin/rules/*.md`, `ls .agents/skills/*/SKILL.md >/dev/null`, `python -m json.tool .devin/mcp_config.json > /dev/null` when MCP specs exist, `python -m json.tool .devin/hooks.v1.json > /dev/null` when hook specs exist.
-3. Open the project. Devin Local loads every `.devin/rules/*.md` ([rules docs](https://docs.devin.ai/cli/extensibility/rules)) into the Rules panel without "failed to parse" warnings. Each `.agents/skills/<name>/` loads as a skill.
-   A scoped rule at `<scope>/.devin/rules/<name>.md` shows there too, and a `trigger:` rule shows that mode instead of Always On.
-   Ask Devin CLI for a subagent by name (`review this using the <name> subagent`). Each `.devin/agents/<name>.md` lists beside the built-in `subagent_explore` and `subagent_general` without a "profile skipped" warning.
-4. With ignore specs, `cat .devinignore` shows the patterns and indexing skips them. `cat .windsurfignore` matches, and the agent refuses to open those paths.
-5. Each `mcpServers.<name>` from `.devin/mcp_config.json` connects in Devin Local, and a disabled spec shows disabled.
-6. `/hooks` in Devin CLI lists each `.devin/hooks.v1.json` entry with that file as its source.
-7. With settings specs, `python -m json.tool .devin/config.json > /dev/null` parses, a `deny` command is refused, and an `allow` one runs without a prompt.

@@ -6,25 +6,32 @@ weight = 170
 [extra]
 group = "Reference"
 target_id = "crush"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/crush.md#first-rule"
 +++
 
 # Crush (`crush`)
+
+## Set up this tool {#set-up-this-tool .legacy-anchor}
 
 Charm [Crush](https://github.com/charmbracelet/crush) reads `AGENTS.md`, `.agents/skills/`, `crush.json`, and `.crushignore`.
 
 Set `outputs.crush.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
-## Set up this tool
+## First rule
 
-Add `crush` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Select `crush` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Crush has no native custom-agent profiles. Hooks support only `PreToolUse`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import crush`](@/docs/cli-reference/start.md#import).
+For existing files, check [what `import crush` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Launch `crush` from the project and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -34,15 +41,25 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 crush.json                         # when MCP or PreToolUse hook entries exist (merged with existing user config)
 .crushignore                       # project-root ignore patterns
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Rules**: Crush has no per-rule directory, so rule bodies are included in `AGENTS.md`.
 - **Skills**: `.agents/skills/` is the first project path Crush scans. The files are identical to those the other `.agents/skills/` tools get, so the shared folder is written once. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
-- **Agents**: Crush has no agent support. Agents are skipped with a warning.
+- **Agents**: Crush has no native agent profiles. By default, agents are skipped with a warning; `outputs.crush.agents: skill` converts them to skills.
 - **`crush.json`**: sync keeps your `models`, `providers`, `lsp`, and `options` keys. Crush now prefers `crushrc`, a Bash script it runs on startup, and adds new options only there. JSON is deprecated but still works, so sync writes `crush.json` and never `crushrc`. An MCP field that exists only in `crushrc` cannot be set here.
 - **Ignore**: `.crushignore` uses gitignore syntax, supported since [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The usual protection for hand-written files applies.
 
-{% <details summary="A hand-written crushrc too"> %}
+<details>
+<summary>A hand-written crushrc too</summary>
+
 Crush merges every config file: `./.crushrc`, then `./crushrc`, then `$XDG_CONFIG_HOME/crush/crushrc`. It also merges the legacy `crush.json` and `.crush.json` (project over global, `crushrc` over JSON in the same directory). A directory with both logs a warning on every launch.
-{% </details> %}
+
+</details>
 
 ### MCP
 
@@ -90,7 +107,9 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
 - Crush runs a command as a script only when it starts with `./`, `../`, or `/`. A hook command that starts with a `.agnostic-ai/scripts/<name>` script, which sync copies, becomes `./.crush/hooks/<name>`. Other commands, such as `bin/guard` or `.crush/hooks/guard`, stay as written. Import keeps every command as written.
 - Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, for example `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a note that the field has no effect.
-- [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them in Crush's embedded shell, with its event data and timeout, so you can test them before a session does.
+- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them in Crush's embedded shell, with its event data and timeout, so you can test them before a session does.
+
+</details>
 
 ## Config keys
 
@@ -118,9 +137,3 @@ Crush has no documented directory scope. Sync skips scoped rules, and import can
 ## Protected paths
 
 Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install: `brew install charmbracelet/tap/crush` (or see the [README](https://github.com/charmbracelet/crush)).
-2. Check the files: `ls AGENTS.md .agents/skills/`, `python -m json.tool crush.json > /dev/null`.
-3. Launch `crush`. It loads `AGENTS.md`, lists each `.agents/skills/<name>/`, and connects each `mcp.<name>`. A `PreToolUse` hook fires, or stays silent, as its matcher says on a real tool call.

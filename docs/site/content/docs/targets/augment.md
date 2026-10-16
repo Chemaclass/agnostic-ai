@@ -6,23 +6,30 @@ weight = 250
 [extra]
 group = "Reference"
 target_id = "augment"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/augment.md#first-rule"
 +++
 
 # Augment (`augment`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 [Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`, `.augment/`, and the shared `.agents/skills/` tree.
 
-## Set up this tool
+## First rule
 
-Add `augment` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Select `augment` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+MCP, hooks, and permission settings on this page apply to Auggie CLI; the IDE reads the project rules and skills.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import augment`](@/docs/cli-reference/start.md#import).
+Already configured? [Import](#import) reads ignore patterns and selected permission rules only. Review the remaining native files before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Augment and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -38,6 +45,12 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
 .augment-guidelines           # opt-in legacy joined rules, only when rules-file is set
 ```
 
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Rules**: rule bodies go into the shared `## Rules` block of `AGENTS.md`. Augment also loads `.augment/rules/`.
   - An always-applied rule that is already in the block gets no `.augment/rules/` file. See [target behavior](@/docs/target-behavior.md#entry-point-files).
   - A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). Rules have no `name` key.
@@ -48,9 +61,12 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
 - **Commands**: `.augment/commands/<scope>/<name>.md`, with a directory scope from the source folder as a nested folder name. `description`, `argument-hint`, and `model` stay in frontmatter.
 - **Ignore**: ignore specs write `.augmentignore`. `import augment` restores a hand-written one, keeping pattern order and negation.
 
-{% <details summary="Entry point off AGENTS.md"> %}
+<details>
+<summary>Entry point off AGENTS.md</summary>
+
 A `file` output override can move the entry point off the root `AGENTS.md`. Or `AGENTS.md` can be in `sync.unmanaged`, which stops sync writing it, so codex and every other tool that reads it miss rule changes. Either way every rule gets a `.augment/rules/` file, and the default `always_apply` is left out.
-{% </details> %}
+
+</details>
 
 ### MCP
 
@@ -63,7 +79,7 @@ Servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `comm
 
 ### Hooks
 
-Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Auggie's event data, shell, and timeout, so you can test them before a session.
+Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them with Auggie's event data, shell, and timeout, so you can test them before a session.
 
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
 - `command` must be a script ending in `.sh`, `.ps1`, `.cmd`, or `.bat`, because Augment never runs an inline shell string. Other commands are written as is with a sync note. A hook with `args` is skipped with a note, because Augment has no shell to fold them into.
@@ -93,6 +109,8 @@ These are not written and raise a sync note:
 
 `x-augment.toolPermissions` writes Augment's rule objects as is, ahead of the translated ones. Other `x-augment` keys, such as `shell` or `startupScript`, merge in as written.
 
+</details>
+
 ## Config keys
 
 | Key | Default | Notes |
@@ -112,11 +130,3 @@ These are not written and raise a sync note:
 ## Protected paths
 
 Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
-2. Check the files: `ls AGENTS.md .augment/agents/ .agents/skills/`, plus `.augment/rules/` (a rule with `alwaysApply: false`), `.augment-guidelines` (`outputs.augment.rules-file` set), and `.augment/settings.json` (MCP, hook, or settings specs).
-3. Open the project. Augment reads `AGENTS.md`, `.augment/rules/`, `.augment/agents/`, `.agents/skills/`, `.augment-guidelines` when present, and (through Auggie CLI) `.augment/settings.json`.
-4. With hook specs, `auggie` starts with no "invalid hook" warning, and a `PreToolUse` hook on a `.sh`/`.ps1`/`.cmd`/`.bat` script runs on the matching tool call.
-5. With settings specs, `auggie` starts with no dropped-rule warning. A `deny` tool is blocked, and an `allow` tool runs without approval.

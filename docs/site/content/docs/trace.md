@@ -10,7 +10,7 @@ group = "Workflows"
 
 # `agnostic-ai why <file>`
 
-Use `why` when you need to change a generated file. It finds the tool that wrote it, the source specs to edit, the `outputs.<target>.*` keys behind its path, and the last sync time. Edit those sources and run `agnostic-ai sync` to apply the change.
+Use `why` to find the source of a generated file before changing it. It lists the source specs, the tool that writes the file, and its last sync time.
 
 [`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the reverse: it lists the files a spec writes.
 
@@ -21,9 +21,9 @@ agnostic-ai why <file>
 agnostic-ai why <file> --format json
 ```
 
-`<file>` is relative to the project root. The file does not have to exist yet. Symlinks are followed, so a project opened through a link gives the same answer as its real path. `--format json` returns the same data with fixed keys, for editor extensions and CI scripts.
+Use a project-relative path, even for a planned file. Symlinks resolve to the real path. `--format json` exposes the report to scripts.
 
-The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) uses this command. `agnostic-ai: Open canonical source` opens the source spec of the current file. If several specs feed the file, it lets you pick one.
+In [VS Code](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode), use `agnostic-ai: Open canonical source` for the current file.
 
 ## Example
 
@@ -36,6 +36,11 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
   sources:
     [rule] no-console-log (.agnostic-ai/rules/no-console-log.md): full
 ```
+
+Edit the path listed under `sources`, then run `agnostic-ai sync`. To see which tools receive that source, use [graph](@/docs/graph.md).
+
+<details>
+<summary>Interpret report fields and shared instruction files</summary>
 
 ## Output fields
 
@@ -61,6 +66,8 @@ CLAUDE.md
 ```
 
 The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Tools with no rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) also get rule text in a `## Rules` block in the entry-point file. Augment does the same in `AGENTS.md`. Each such rule is a `section` source. The file is credited to the first tool that reads it.
+
+</details>
 
 ## Errors
 

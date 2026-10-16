@@ -6,23 +6,32 @@ weight = 40
 [extra]
 group = "Reference"
 target_id = "cursor"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/cursor.md#first-rule"
 +++
 
 # Cursor (`cursor`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 Cursor reads its project configuration from `.cursor/`, including `.cursor/rules/`.
 
-## Set up this tool
+## First rule
 
-Add `cursor` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://cursor.com), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `cursor` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.cursor/rules/conventional-commits.mdc`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import cursor`](@/docs/cli-reference/start.md#import).
+The IDE and CLI share rules, but the permission settings below guard only the Cursor CLI.
+
+For existing files, check [what `import cursor` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `.cursor/rules/conventional-commits.mdc` for the commit-prefix rule. Open the project in Cursor. Confirm the rule is Always Apply in the Rules panel, then ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -36,6 +45,13 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
 .cursor/mcp.json                     # when MCP entries exist
 .cursor/cli.json                     # from settings permissions and deny protected paths (merged)
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Rules**: `alwaysApply: true`, or `false` when the spec sets `globs` without `alwaysApply`.
   - A catch-all such as `**/*` stays always-on (override in frontmatter). An always-apply rule omits `globs`.
   - A non-always rule without `globs` falls back to the `paths` list (comma-joined).
@@ -65,9 +81,9 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
   - A `type: prompt` hook writes `prompt` and optional `model`. Command and prompt hooks keep `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`.
   - camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...) pass through. `validate` flags unknown ones.
   - Fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each). `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`.
-  - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks, and on Windows too. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
+  - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks, and on Windows too. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hook-reference.md#hook-target).
   - A hook has only `command`, run through `$SHELL -c` (PowerShell on Windows). A spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`).
-  - A [portable](@/docs/spec-format/hooks.md#portable-events) `before-tool` hook lands on `preToolUse` and a `prompt-submit` hook on `beforeSubmitPrompt`, each through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes a deny reply with stderr as the message, and exit 0 an allow reply. `session-start` and `session-end` land on `sessionStart` and `sessionEnd`. `sync --global` writes the wrapper to `~/.cursor/hooks/`.
+  - A [portable](@/docs/spec-format/hook-reference.md#portable-events) `before-tool` hook lands on `preToolUse` and a `prompt-submit` hook on `beforeSubmitPrompt`, each through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes a deny reply with stderr as the message, and exit 0 an allow reply. `session-start` and `session-end` land on `sessionStart` and `sessionEnd`. `sync --global` writes the wrapper to `~/.cursor/hooks/`.
 - **MCP**: `.cursor/mcp.json` under `mcpServers`. Each sync replaces the whole file from MCP specs. Cursor-only fields ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
   - A stdio server accepts `envFile`, a path to an env file with extra variables.
   - A `${NAME}` reference in `env`, `headers`, `url`, or `args` is written as Cursor's `${env:NAME}`; `${workspaceFolder}` and Cursor's other variables stay as written. See [environment references](@/docs/spec-format/mcps.md#environment-references).
@@ -76,9 +92,12 @@ Follow [Verify](#verify) for the outputs you enable. To keep existing tool confi
   - A `roots` list passes through, though Cursor documents no per-server `roots` key.
   - `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
-{% <details summary="Hook args with apostrophes or spaces"> %}
+<details>
+<summary>Hook args with apostrophes or spaces</summary>
+
 PowerShell reads that quoting the same way unless an arg has an apostrophe. A command path with a space is quoted too, and PowerShell does not run it. Use a shell-form `command` in those cases.
-{% </details> %}
+
+</details>
 
 ### Third-party reads
 
@@ -86,8 +105,10 @@ The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor S
 
 - **Skills** ([docs](https://cursor.com/docs/skills.md)): Native project roots are `.cursor/skills/` and `.agents/skills/`. Compatibility roots include `.claude/skills/`, `.codex/skills/`, and their home equivalents. Cursor does not document which root wins on a duplicate.
 - **Subagents** ([docs](https://cursor.com/docs/subagents.md)): Cursor reads `.claude/agents/` and `.codex/agents/` (current project only) beside `.cursor/agents/`. On a name clash, `.cursor/` wins. Cursor documents only Markdown agents, so it may not parse the `codex` target's TOML files.
-- **Hooks** ([docs](https://cursor.com/docs/reference/third-party-hooks.md)): Cursor merges seven hook sources, including `.cursor/hooks.json` and `.claude/settings.json`, runs every matching hook, and maps Claude event names to Cursor ones. A repo syncing `claude` and `cursor` runs every hook twice, except a portable hook, whose Claude Code copy exits under Cursor ([details](@/docs/spec-format/hooks.md#claude-settings-copies)). The setting is the only way to stop the rest.
+- **Hooks** ([docs](https://cursor.com/docs/reference/third-party-hooks.md)): Cursor merges seven hook sources, including `.cursor/hooks.json` and `.claude/settings.json`, runs every matching hook, and maps Claude event names to Cursor ones. A repo syncing `claude` and `cursor` runs every hook twice, except a portable hook, whose Claude Code copy exits under Cursor ([details](@/docs/spec-format/hook-reference.md#claude-settings-copies)). The setting is the only way to stop the rest.
 - **Hook `args`**: Cursor's third-party hooks docs do not list `args`, so a claude hook spec with `args` may run as a bare interpreter that reads the JSON event data as its program. `sync` notes this when `claude` runs and `cursor` is configured. Use a shell-form `command`, or turn off the setting.
+
+</details>
 
 ## Config keys
 
@@ -170,11 +191,3 @@ Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block 
 - **Other settings fields**: `model`, `effort`, and `x-cursor` raise a sync note, since a project `cli.json` takes `permissions` only.
 
 `cli.json` merges as [Permissions](#permissions) describes: your own rules and other keys stay, and removing a path or its block removes its rules on the next sync. A matching rule that was in `cli.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
-
-## Verify
-
-1. Install Cursor from [cursor.com](https://cursor.com).
-2. Check the files: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` (the header sits after the frontmatter), `python -m json.tool .cursor/mcp.json > /dev/null`.
-3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` with the right `alwaysApply` and no "failed to parse" warnings. The Skills list, agent picker, and `/` picker show each skill, agent, and command.
-4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
-5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses. Trigger the matched event (for example a shell command for `beforeShellExecution`) and check that the `command` runs.

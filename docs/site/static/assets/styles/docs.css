@@ -1819,3 +1819,8 @@
     display: block !important;
   }
 }
+
+/* Keep historical fragments valid without adding a second reading path. */
+.legacy-anchor {
+  display: none;
+}

@@ -11,13 +11,7 @@ group = "Reference"
 
 `commands/` holds slash commands: saved prompts a person starts by name, such as `/deploy` or `/review-pr`. The body is the prompt the tool sends when someone runs it.
 
-- **Repeatable prompts.** The team runs the same `/review-pr` instead of retyping a slightly different version each time.
-- **Started by a person.** A command runs when someone types it, which suits steps with side effects, such as a deploy.
-- **Same name everywhere.** Each tool that supports commands lists it in its own picker.
-
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
-
-Name the inputs the command needs, the steps to follow, and the result to report. State any approval needed before a deploy or other external change. Use a skill when the same procedure also needs scripts or templates.
 
 ## Write one
 
@@ -25,18 +19,17 @@ Name the inputs the command needs, the steps to follow, and the result to report
 agnostic-ai new command review-changes
 ```
 
-Replace the description and prompt body before running `agnostic-ai sync`. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+Replace the description and prompt body before running `agnostic-ai sync`.
 
-Markdown with optional YAML settings between `---` lines at the top. Each spec becomes one slash command in the tool's own format.
+Save this as `.agnostic-ai/commands/review-changes.md`, then sync and use `/review-changes` in a supported tool. Codex command output is opt-in through `outputs.codex.commands-dir`; use a skill for its default on-demand workflow.
 
 ```markdown
 ---
-name: deploy
-description: Deploy the app to staging.
-argument-hint: <env>
+name: review-changes
+description: Review the current branch against main.
 ---
 
-Deploy the app to the environment the user names. Run the smoke tests afterwards and report the result.
+Diff the branch against `main` and report bugs with `file:line`, most severe first.
 ```
 
 ## Fields

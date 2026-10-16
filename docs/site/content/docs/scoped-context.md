@@ -16,11 +16,11 @@ Use a scoped rule for instructions that apply to one directory, such as a servic
 Run commands from the project root. For a new scratch project:
 
 ```bash
-echo "claude,codex,gemini,cursor" | agnostic-ai init
+echo "claude,codex" | agnostic-ai init
 agnostic-ai new rule payments-context --scope services/payments
 ```
 
-In an existing project, skip `init` and check [tool compatibility](#shared-files-and-safe-updates). If `new rule --help` does not list `--scope`, your binary is too old. With Go, install main: `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@main`.
+In an existing project, skip `init` and check [tool compatibility](#shared-files-and-safe-updates). If `new rule --help` does not list `--scope`, [upgrade agnostic-ai](@/docs/installation.md#upgrade).
 
 Edit `.agnostic-ai/rules/payments-context.md`:
 
@@ -41,7 +41,7 @@ agnostic-ai sync --check
 agnostic-ai graph --spec payments-context
 ```
 
-Claude gets a rule that applies only to that directory. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. Cursor on its own would get an `.mdc` rule.
+Claude gets a rule for that directory. Codex gets `services/payments/AGENTS.md`. Start Codex inside `services/payments` so that it loads the nested instructions. See [native support](#native-support) for other tools.
 
 Edit the source and sync again. Preview with `agnostic-ai render .agnostic-ai/rules/payments-context.md`, or trace a generated file with `agnostic-ai why services/payments/AGENTS.md`.
 
@@ -54,6 +54,9 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
 The report lists each instruction for the selected tool with its source spec, output path, file or directory condition (selector), and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the output sync plans to write, so a shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. It shows what is set to apply, not what the model loaded. Claude Code, Codex, and Cursor are supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
+
+<details>
+<summary>Set directory scope and understand Codex directory patterns</summary>
 
 ## Scope rules
 
@@ -75,6 +78,11 @@ Every pattern must cover a whole directory tree. `src/api/**/*.ts`, `Dockerfile`
 
 Codex loads instructions for the directory it starts in. Start it inside the rule's directory. Starting at the root does not load nested files for later edits.
 
+</details>
+
+<details>
+<summary>Combine directory scope with file patterns</summary>
+
 ## Narrow a rule to certain files
 
 `scope` plus `globs` or `paths` applies to the whole scope directory **and** every matching file. Use both for a module and its tests:
@@ -92,14 +100,22 @@ Patterns are project-relative, including `**/*.go`. They are not relative to the
 
 **Breaking change:** earlier versions applied a rule only where scope and patterns overlapped. Remove `scope` from rules that used it to narrow `globs`, and write the full project-relative filters instead. Remove a catch-all `globs: "**/*"` from a rule that should apply only to its scope. See [migration](@/docs/migration.md#scope-and-pattern-unions).
 
-{% <details summary="Selector limits by target"> %}
+</details>
+<details>
+<summary>Selector limits by target</summary>
+
 - Tools that read a file per directory accept whole-directory patterns such as `tests/payments/**`. They reject file filters such as `tests/payments/**/*.go` instead of applying them to every file in that directory. Root patterns such as `CHANGELOG.md` and `**/*` are also unsupported with scope on those tools. Tools with file filters keep those patterns.
 - The tool's own keys `regex`, `applyTo`, `fileMatchPattern`, and `glob` cannot be combined with `scope`.
 - Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array is unsupported with scope.
 - Windsurf, Trae, and Antigravity write the rule in the project's rules directory when a pattern reaches outside the scope.
 - Imported file patterns without an explicit `scope` keep their exact behavior. Their folder adds no files to the patterns. A tool with no equivalent skips that rule under `on-unsupported`.
 - Tools that take a list keep literal commas inside a pattern. Tools that take one comma-separated string reject those commas. Commas inside brace patterns such as `tests/{a,b}/**` work everywhere.
-{% </details> %}
+
+</details>
+
+
+<details>
+<summary>Check scoped-rule support and runtime limits by tool</summary>
 
 ## Native support
 
@@ -136,7 +152,14 @@ Runtime limits:
 - Copilot support varies by host. OpenHands path rules work in local conversations, not ACP.
 - Qoder Desktop and Kiro custom-agent loading are not yet checked at runtime.
 
+</details>
+
 ## Shared files and safe updates
+
+Tools that read the same generated file must agree on its text and loading conditions. Sync refuses incompatible combinations. Use compatible tools or separate worktrees; a partial sync cannot bypass the conflict.
+
+<details>
+<summary>Resolve shared files, output overrides, and old scoped outputs</summary>
 
 Sync checks every configured tool that reads a shared output file, even with `--only`:
 
@@ -151,3 +174,5 @@ Keep headers enabled. Tools that read a file per directory reject `file` and `ru
 For hand-written files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After you move or delete a scope, run a full sync to remove the old files. A partial sync keeps the files of tools it skips. Backups and revert cover scoped outputs too.
 
 See [troubleshooting](@/docs/troubleshooting.md#scoped-rules) for common errors.
+
+</details>

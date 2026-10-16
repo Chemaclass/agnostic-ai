@@ -6,23 +6,30 @@ weight = 200
 [extra]
 group = "Reference"
 target_id = "openhands"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/openhands.md#first-rule"
 +++
 
 # OpenHands (`openhands`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 [OpenHands](https://docs.openhands.dev/overview/skills) gets `AGENTS.md`, agents and skills under `.agents/`, hooks, and a setup script. MCP servers install globally.
 
-## Set up this tool
+## First rule
 
-Add `openhands` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Select `openhands` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+MCP servers have no project output. Put home MCP specs through `sync --global` as described below.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import openhands`](@/docs/cli-reference/start.md#import).
+For existing files, check [what `import openhands` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in OpenHands and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -34,13 +41,19 @@ AGENTS.md                          # pointer body + inlined always-on rules (sha
 .openhands/setup.sh                # when an environment spec sets `install`
 ```
 
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Skills**: written identically to the other `.agents/skills/` tools, so the shared folder is written once.
 - **Agents**: OpenHands loads `.agents/agents/<name>.md` in local conversations. The writer is shared with Goose and writes `name`, `description`, an optional free-form `model`, and the prompt body.
   - A generic `tools` list is dropped with a sync note, because OpenHands uses its own tool names (`file_editor`, `terminal`). Set `x-openhands.tools` with those names instead. For an OpenHands profile that differs from Goose's, point `outputs.openhands.agents-dir` at `.openhands/agents`.
   - A portable `color` is dropped with a sync note, because [Goose's agent frontmatter](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md) has no color. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) to write it.
 - **Rules**: an always-on rule goes into the `## Rules` block of `AGENTS.md`. So does a rule with a catch-all `globs` or `paths`. A rule is always-on when it has no `globs` or `paths` and no scope from its folder or frontmatter.
 - **Path-triggered rules**: a scoped rule becomes `.agents/skills/<name>/SKILL.md` with a `paths:` list (its scope directory plus file patterns). OpenHands [loads it only when a matching file is touched](https://docs.openhands.dev/overview/skills/path). It uses the folder form (a flat `.md` also works), so these rules share `outputs.openhands.skills-dir` with skills.
-- **Hooks**: OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per repository in Cloud, CLI, and local GUI](https://docs.openhands.dev/openhands/usage/customization/hooks). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with OpenHands's event data, shell, and timeout, so you can test them before a session does.
+- **Hooks**: OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per repository in Cloud, CLI, and local GUI](https://docs.openhands.dev/openhands/usage/customization/hooks). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them with OpenHands's event data, shell, and timeout, so you can test them before a session does.
   - Six events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`.
   - Sync writes the Claude form (PascalCase keys inside a `{"hooks": {...}}` wrapper). OpenHands also accepts its own unwrapped snake_case form.
   - Each entry has `command`, `type` (always `command`), and optional `timeout` (seconds, default 60) and `async`. `matcher` applies only to the two ToolUse events.
@@ -54,9 +67,14 @@ AGENTS.md                          # pointer body + inlined always-on rules (sha
   - `terminals` (Cursor's long-running dev processes) gets a sync note, because the script runs once when the repo starts.
   - With several environment specs, the last `install` wins, as for Cursor.
 
-{% <details summary="Legacy config.toml"> %}
+<details>
+<summary>Legacy config.toml</summary>
+
 The next sync removes a `config.toml` that an earlier release wrote. `import openhands` still reads the `[mcp]` table of a legacy `config.toml` into specs.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -97,15 +115,3 @@ Import loses these details (none change what OpenHands loads):
 ## Protected paths
 
 Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
-2. Check the files: `ls AGENTS.md .agents/agents/ .agents/skills/ .openhands/setup.sh`, `ls .agents/agents/*.md >/dev/null`, `ls .agents/skills/*/SKILL.md >/dev/null`.
-3. Launch OpenHands:
-   - It loads `AGENTS.md` as context.
-   - Each `.agents/skills/<name>/` appears as a skill.
-   - A path-triggered rule injects only when a file matching its `paths:` globs is touched.
-   - After `agnostic-ai sync --global`, each `~/.openhands/mcp.json` server connects.
-   - `.openhands/setup.sh` runs at session start.
-   - Each `.openhands/hooks.json` entry runs on its event (`OPENHANDS_EVENT_TYPE` in the hook's environment shows which).

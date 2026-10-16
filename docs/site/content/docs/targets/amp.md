@@ -6,25 +6,34 @@ weight = 100
 [extra]
 group = "Reference"
 target_id = "amp"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/amp.md#first-rule"
 +++
 
 # Amp (`amp`)
+
+## Set up this tool {#set-up-this-tool .legacy-anchor}
 
 Amp gets `AGENTS.md`, skills, MCP servers, `x-amp` settings, and orb setup from environment specs. It has no file-based agents or commands.
 
 Set `outputs.amp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
 
-## Set up this tool
+## First rule
 
-Add `amp` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://ampcode.com/docs), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `amp` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import amp`](@/docs/cli-reference/start.md#import).
+Agent prompts can become skills, but Amp has no native file-based custom agents.
+
+For existing files, check [what `import amp` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Open the project in Amp and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -36,15 +45,21 @@ AGENTS.md                              # entry-point pointer body (written by sy
 .amp/settings.json                     # when MCP entries or settings keys exist (merged with existing user config)
 ```
 
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Rules**: root rules go into `AGENTS.md`. Scoped rules use `<scope>/AGENTS.md`. See [directory-specific instructions](@/docs/scoped-context.md) for how other tools read them.
 - **Skills**: Amp's [native skills layout](https://ampcode.com/docs/customize/skills). Frontmatter carries `name` and `description`. Files next to the skill are copied as they are. Amp [replaced custom slash commands with skills](https://ampcode.com/news/slashing-custom-commands), so skills are no longer written as `.agents/commands/skill-<name>.md`.
   - Any `x-amp` key passes through. `x-amp.mcpServers` ties MCP servers to one skill and hides their tools until it loads. Amp recommends this over user settings for most cases ([Amp skills docs](https://ampcode.com/docs/customize/skills)). A sibling `mcp.json` also works, and frontmatter wins.
   - Amp also loads `.claude/skills/`, `~/.claude/skills/`, and `~/.claude/plugins/cache/`. The first skill with a given `name` wins, and `.agents/skills/` comes before `.claude/skills/` ([skill order](https://ampcode.com/docs/customize/skills)). A skill synced to both `claude` and `amp` loads once. A skill for `claude` only still loads.
   - A skill with the same name in `~/.config/agents/skills/`, `~/.agents/skills/`, or `~/.config/amp/skills/` hides the project skill. `~/.claude/skills/` does not.
   - `amp.skills.disableClaudeCodeSkills` skips the Claude Code directories. `amp.skills.disableGlobalAgentsSkills` skips `~/.config/agents/skills/` and `~/.agents/skills/` ([settings schema](https://ampcode.com/cli-settings.schema.json)). Set both with `x-amp` on a settings spec. Neither has a portable field. `amp.skills.path` adds directories, separated by colons or semicolons.
-- **Agents**: no output. Amp [removed custom commands](https://ampcode.com/news/slashing-custom-commands), so sync no longer writes `.agents/commands/<name>.md` and removes old ones.
+- **Agents**: no native agent output. The default writes no agent file; `outputs.amp.agents: skill` converts the prompt to a skill. Amp [removed custom commands](https://ampcode.com/news/slashing-custom-commands), so sync no longer writes `.agents/commands/<name>.md` and removes old ones.
   - With `outputs.amp.rules-file` set, agent bodies reach Amp in the combined document. Otherwise Amp only gets the entry-point pointer to the source specs, and `sync` says so.
-  - Agents do not go to `.agents/skills/<name>/SKILL.md`. Other tools share that tree, so an agent would duplicate the spec and overwrite a skill with the same name.
+  - By default, agents do not go to `.agents/skills/<name>/SKILL.md`. Other tools share that tree, so an agent would duplicate the spec and overwrite a skill with the same name.
   - Amp's native agent API (`amp.createAgent(...)` / `amp.registerAgentMode(...)` in [plugins](https://ampcode.com/docs/customize/plugins)) works only in code.
 - **Commands**: not supported. Commands register in plugin code via `amp.registerCommand(...)` ([Amp docs index](https://ampcode.com/llms.txt)). A command spec for amp is skipped with a warning (`on-unsupported: warn` by default). `.agents/checks/` is gone from Amp's docs, so there is no review output either.
 - **MCP**: under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `command`, `args`, and `env`. HTTP and SSE write `url` and `headers`. Other fields go through `x-amp`.
@@ -73,9 +88,14 @@ AGENTS.md                              # entry-point pointer body (written by sy
   - There is no `.agents/resume`. It runs after activation and on every wake with thread credentials, so it is neither dependency setup nor a service.
   - Environment specs merge by top-level field, and the last one wins.
 
-{% <details summary="Old AGENT.md files"> %}
+<details>
+<summary>Old AGENT.md files</summary>
+
 Amp uses `AGENTS.md` (plural). On the first sync after upgrading, a generated `AGENT.md` at the configured root is renamed to `AGENT.md.bak`. A hand-written `AGENT.md` (no `Generated by agnostic-ai` marker) is left alone.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -96,13 +116,3 @@ Amp uses `AGENTS.md` (plural). On the first sync after upgrading, a generated `A
 ## Protected paths
 
 Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install with `curl -fsSL https://ampcode.com/install.sh | bash` (Amp's recommended installer) or `npm install -g @ampcode/cli`. The VS Code extension reads the same files.
-2. Check the files with `ls AGENTS.md .agents/skills/ .agents/setup .amp/services.yaml .amp/settings.json`, `grep "Generated by agnostic-ai" .agents/skills/*/SKILL.md .agents/setup .amp/services.yaml`, and `test -x .agents/setup`.
-3. Confirm no command files were written: `test ! -d .agents/commands`.
-4. Validate with `python -m json.tool .amp/settings.json > /dev/null`, and run `amp orb services ensure` inside an orb.
-5. Open the project. Amp lists `AGENTS.md` under "Project rules", loads each `.agents/skills/<name>/SKILL.md`, runs `.agents/setup` while preparing a new snapshot, and supervises each declared service.
-6. The MCP picker lists every `amp.mcpServers` entry green, after the first-open approval.
-7. Confirm no nested workspace settings hide the generated file: `find . -name settings.json -path '*/.amp/*' -not -path './.amp/*'` prints nothing.

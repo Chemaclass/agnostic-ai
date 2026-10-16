@@ -6,23 +6,32 @@ weight = 180
 [extra]
 group = "Reference"
 target_id = "trae"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/trae.md#first-rule"
 +++
 
 # Trae (`trae`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 ByteDance [Trae](https://docs.trae.ai/ide/rules) reads `.trae/rules/`, the root `AGENTS.md`, and project subagents in `.trae/agents/`.
 
-## Set up this tool
+## First rule
 
-Add `trae` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Install the client using the [official setup guide](https://www.trae.ai), then open your project in it.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Select `trae` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `.trae/rules/conventional-commits.md`.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import trae`](@/docs/cli-reference/start.md#import).
+Project hooks and subagent directories require separate switches in Trae settings. Syncing their files does not enable those features.
+
+For existing files, check [what `import trae` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `.trae/rules/conventional-commits.md` for the commit-prefix rule. Open the project in Trae. Confirm the rule is active in the Rules panel, then ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -36,6 +45,11 @@ AGENTS.md                     # pointer body, plus the rules block when another 
 .trae/.ignore                 # when ignore entries exist
 .trae/mcp.json                # MCP server registry
 ```
+
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
 
 Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Settings > Rules & Memories). So every rule keeps its `.trae/rules/` file. With that switch on and codex or another tool that includes rules in instruction files enabled, always-on rules load twice. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
@@ -55,7 +69,7 @@ Trae reads `AGENTS.md` only when **Include AGENTS.md in the context** is on (Set
 - **MCP servers** ([MCP docs](https://docs.trae.ai/ide/add-mcp-servers)): a root `mcpServers` map. Stdio entries carry `command` (required), `args`, and `env`. HTTP entries carry `url` (required) and `headers`. Trae works out the `type` from `command` or `url`, so none is written.
   - A stdio `command` with spaces fails to parse in Trae.
   - Trae has no per-server `disabled` key, only a project toggle (Settings > MCP). `disabled: true` is dropped with a sync note.
-- **Hooks**: `.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Trae's event data, shell, and timeout, so you can test them before a session.
+- **Hooks**: `.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them with Trae's event data, shell, and timeout, so you can test them before a session.
   - A `version` field (always 1) wraps the `hooks` map. Each event holds `{matcher, hooks: [{type, command, timeout}]}` groups. Claude Code, Codex, OpenHands, and Qoder use the same shape, so one hook spec feeds all five.
   - Six [events](https://docs.trae.ai/ide/automate-actions-with-hooks): `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`. Each entry takes `type` (only `command`), `command`, and `timeout` (seconds, default 30).
   - `loop_limit` caps how often a `Stop` hook can block the agent (default 5).
@@ -71,9 +85,14 @@ With `builtins: [memory]`, sync adds the native `memory-trae-session-start` hook
 
 Trae sets `TRAE_PROJECT_DIR` to the workspace used by the hook, so the command finds that project's indexes even when its shell starts elsewhere. The command uses the project's installed agnostic-ai package when one is declared; install or upgrade that package before starting Trae. If hooks are disabled, the shared memory rule still tells Trae to read the indexes.
 
-{% <details summary="Agents from older versions"> %}
+<details>
+<summary>Agents from older versions</summary>
+
 For every current agent, sync removes a generated copy at the old `.trae/rules/agent-<name>.md` path.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -108,20 +127,3 @@ Hook commands that share an event and matcher become one spec with a `command:` 
 ## Protected paths
 
 Not enforced. Trae takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install Trae from [trae.ai](https://www.trae.ai).
-2. Check the files:
-   - `ls AGENTS.md .trae/rules/ .trae/agents/ .trae/skills/ .trae/commands/ .trae/mcp.json .trae/hooks.json .trae/.ignore`
-   - `grep "Generated by agnostic-ai" .trae/rules/*.md`
-   - `python -m json.tool .trae/mcp.json > /dev/null`
-   - `python -m json.tool .trae/hooks.json > /dev/null`
-3. Open the project:
-   - The Rules panel lists every `.trae/rules/*.md` with no parse warnings.
-   - Each `.trae/skills/<name>/` loads as a skill.
-   - Each `.trae/commands/<name>.md` can be run from chat.
-   - Settings > MCP lists each `.trae/mcp.json` server (project-level MCP toggled on).
-4. Turn on Settings > Beta > Subagents > Enable Subagents Directory and ask the Agent to delegate by name. Each `.trae/agents/<name>.md` can receive a delegated task, with no BOM or delimiter error.
-5. Enable the project hook under Settings > Hooks (accept the security panel). Configured Hooks lists the file, and triggering the matched tool runs the command.
-6. Edit `.trae/.ignore`, then Build under Settings > Indexing & Docs. The ignored paths drop out of `#Workspace` context.

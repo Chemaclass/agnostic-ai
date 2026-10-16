@@ -16,24 +16,24 @@ upload_date = "2026-09-17"
 duration = "PT19M55S"
 +++
 
-Keep one editable set of instructions in `.agnostic-ai/`. Run `agnostic-ai sync` to write the files your coding tools read.
+New to coding agents? Start with a small setup: project notes that explain how to work here, and one convention the tool should follow.
 
 ## Choose your first task
 
 | You want to | Start here |
 |---|---|
-| Ask a coding agent to set up the project | [Agent setup](@/docs/agent-setup.md) |
-| Set up the project yourself | [Getting started](@/docs/getting-started.md) |
-| Keep an existing tool setup | [Migration](@/docs/migration.md) |
-| Work in a project that already uses agnostic-ai | Run `agnostic-ai sync` from its root, then follow [Daily use](@/docs/getting-started.md#daily-use) |
-| Find a command, field, or tool's output path | [CLI reference](@/docs/cli-reference/_index.md), [Configuration](@/docs/configuration.md), or [Targets](@/docs/targets/_index.md) |
+| Understand instructions, rules, skills, and the other pieces | [Start here: understand the setup](@/docs/why-agnostic-ai.md) |
+| Build one shared Claude Code and Codex setup | [Getting started](@/docs/getting-started.md) |
+| Keep the tool files you already use | [Import existing configuration](@/docs/migration.md) |
+| Ask a coding agent to do the setup | [Assisted setup](@/docs/agent-setup.md) |
+| Work in an already configured project | [Daily use](@/docs/getting-started.md#daily-use) |
+| Look up a command, field, or supported tool | [CLI reference](@/docs/cli-reference/_index.md), [Configuration](@/docs/configuration.md), [Supported tools](@/docs/targets/_index.md) |
 | Fix a failed command or missing file | [Troubleshooting](@/docs/troubleshooting.md) |
-| Contribute to agnostic-ai itself | [Contributor setup](https://github.com/Chemaclass/agnostic-ai/blob/main/CONTRIBUTING.md) |
 
 ## Terms used in these guides
 
-A **spec** is a source file that describes instructions, a task, or a setting. A **target** is a coding tool selected in `agnostic-ai.yaml`. **Generated files** are the files sync writes for those tools. **Drift** means those files differ from what the current sources would generate.
+A **spec** is an editable source file under `.agnostic-ai/`. A **target** is a selected coding tool. **Generated files** are the native files `sync` writes for those tools. **Drift** means those files no longer match what the sources produce.
 
-Edit the sources, preview with `agnostic-ai sync --plan`, then sync. Check the result with `agnostic-ai sync --check`.
+For agents, [agent-setup.txt](https://agnostic-ai.org/agent-setup.txt) contains the setup checklist. [llms.txt](https://agnostic-ai.org/llms.txt) lists guides; [llms-full.txt](https://agnostic-ai.org/llms-full.txt) includes the full documentation, including the detailed sections.
 
-For coding agents, [agent-setup.txt](https://agnostic-ai.org/agent-setup.txt) contains the setup checklist. [llms.txt](https://agnostic-ai.org/llms.txt) links to guides by task; [llms-full.txt](https://agnostic-ai.org/llms-full.txt) provides the full user documentation in one fetch.
+Contributing to agnostic-ai itself? Use the [contributor setup](https://github.com/Chemaclass/agnostic-ai/blob/main/CONTRIBUTING.md).

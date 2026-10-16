@@ -9,14 +9,7 @@ group = "Reference"
 
 # Environments
 
-`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree, a cloud sandbox, or a preview. That means install dependencies, copy local config, start the dev server, and stop it afterwards. Each tool has its own file for this, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
-
-- **Ready worktrees.** Every new worktree runs the same setup, so an agent does not start in a checkout with no dependencies.
-- **Preview buttons.** `dev-commands` become the dev servers a tool can start and preview.
-- **Clean exits.** `cleanup` stops what setup started when the worktree goes away.
-- **One spec for every tool.** A field one tool ignores raises no note when another enabled tool uses it.
-
-Use setup scripts that work from a fresh checkout. List the tools they need, install dependencies before starting servers, and name the command that confirms the project is ready. Keep long setup procedures in scripts so developers and agents can run the same steps.
+`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree (a separate checkout of the same repository), a cloud sandbox, or a preview. That means install dependencies, copy local config, start the dev server, and stop it afterwards. Each tool has its own file for this, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
 
 ## Write one
 
@@ -24,9 +17,9 @@ Use setup scripts that work from a fresh checkout. List the tools they need, ins
 agnostic-ai new environment development
 ```
 
-Replace the description and add the reviewed commands you need. The template has no executable setup, install, or cleanup command. The file uses this kind's configured source directory. See [new](@/docs/cli-reference/start.md#new) for preview and path options.
+Replace the description and add the reviewed commands you need. The template has no executable setup, install, or cleanup command.
 
-Plain YAML, one file per environment group.
+Save plain YAML as `.agnostic-ai/environments/development.yaml`. Create the referenced setup and cleanup scripts before syncing:
 
 ```yaml
 name: dev
@@ -71,7 +64,7 @@ Specs merge by top-level key, and the last value wins. A field that no enabled t
 - [Ellipsis](@/docs/targets/ellipsis.md): `install` runs as `hooks.build_base` and `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, in `.ellipsis/environments/<name>.yaml`. Sync writes the file only for the environment that `x-ellipsis.environment` selects. `setup-windows`, `cleanup`, `dev-commands`, and `terminals` get a note that they have no effect. `import ellipsis` reads the file back.
 - Other tools report the spec as unsupported.
 
-Before starting a cached environment, use the [project readiness checks](@/docs/cli-reference/maintain.md#project-readiness) after installation and sync. A successful install alone does not check the current generated files.
+Before starting a cached environment, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync. A successful install alone does not check the current generated files.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 
@@ -96,6 +89,8 @@ How the script runs:
 - Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context.
 - The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads the hooks in `.claude/settings.json`, such as Cursor, then does not run setup a second time.
 
+### Refresh an existing worktree
+
 After changing setup or dependencies, sync the selected worktree and explicitly rerun its Claude setup:
 
 ```bash
@@ -103,6 +98,8 @@ agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/link
 ```
 
 The helper checks repository ownership and the current generated setup script, including `outputs.claude.dir`. It resets only that linked worktree's completion marker and runs setup again. A failure leaves no marker so a later attempt can recover. It refuses the main checkout and unregistered paths. It does not install dependencies unless your setup command does. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for the command requirements.
+
+### Include setup in new worktrees
 
 A new worktree needs `.claude/settings.json` and the script.
 
@@ -116,6 +113,8 @@ setup: composer install
 x-claude:
   setup: false
 ```
+
+### Claude cleanup limits
 
 `cleanup` has no Claude Code equivalent. Claude Code documents `WorktreeRemove` as the removal step for a worktree a `WorktreeCreate` hook made. `SessionEnd` runs at the end of every session with a 1.5-second budget.
 

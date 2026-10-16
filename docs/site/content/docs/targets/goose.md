@@ -6,23 +6,30 @@ weight = 240
 [extra]
 group = "Reference"
 target_id = "goose"
+
+[extra.moved]
+set-up-this-tool = "@/docs/targets/goose.md#first-rule"
 +++
 
 # Goose (`goose`)
 
+## Set up this tool {#set-up-this-tool .legacy-anchor}
+
 Block [Goose](https://goose-docs.ai) reads the root `AGENTS.md` and a `.goosehints` file. Goose is opt-in. See [Selecting targets](@/docs/configuration.md#targets).
 
-## Set up this tool
+## First rule
 
-Add `goose` to the [`targets` list](@/docs/configuration.md#targets) in `agnostic-ai.yaml`. Run these commands from the project root:
+Select `goose` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
-```
+Project MCP specs have no output for Goose. Configure servers in Goose itself.
 
-Follow [Verify](#verify) for the outputs you enable. To keep existing tool configuration, start with [`agnostic-ai import goose`](@/docs/cli-reference/start.md#import).
+For existing files, check [what `import goose` reads](#import) before syncing.
+
+## Verify
+
+Run `agnostic-ai sync --check` and inspect `AGENTS.md` for the commit-prefix rule. Launch `goose` from the project and ask for a commit subject for a small fix; it should use `fix:`.
+
+Next, [add a skill](@/docs/spec-format/skills.md).
 
 ## Output
 
@@ -38,18 +45,29 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 <scope>/.agents/REVIEW.md          # directory-specific review instructions
 ```
 
+## Native mappings
+
+<details>
+<summary>Field mappings, discovery, and compatibility</summary>
+
+
 - **Rules**: are included in the `## Rules` block of `AGENTS.md`. `outputs.goose.rules-file: .goosehints` also writes all rules into one `.goosehints`, which Goose reads only with the `Developer` extension enabled ([using goosehints](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md)).
 - **Scoped rules**: Goose reads context files (`CONTEXT_FILE_NAMES`, default `AGENTS.md` and `.goosehints`) in the subdirectories it works in. Scoped rules go to a nested `AGENTS.md`, or with `rules-file` set, to `backend/.goosehints` for a `backend/` scope. Rules with the same scope share one file.
 - **Agents**: each file has `name`, `description`, an optional free-form `model`, and the prompt body. OpenHands reads the same path and fields, so the file is written once. A generic `tools` list is dropped with a sync note, because Goose does not document it. `x-goose` fields work. If they make the file differ from what another tool gets, set a different `outputs.goose.agents-dir`.
 - **Skills**: `.agents/skills/` is Goose's [recommended path](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md), read ahead of `.goose/skills/` and `.claude/skills/`. The other `.agents/skills/` tools get the same files, so the shared folder is written once.
-- **Hooks**: an [Open Plugins](https://goose-docs.ai/docs/guides/context-engineering/hooks/) package (`.agents/plugins/agnostic-ai/plugin.json` plus `hooks/hooks.json`). All 12 documented events are supported. `matcher` is a regular expression. `timeout` is in seconds (default 30). `x-goose.on_failure` takes `allow` or `block` for `PreToolUse` failures. [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs these hooks with Goose's event data, shell, and timeout, so you can test them before a session does.
+- **Hooks**: an [Open Plugins](https://goose-docs.ai/docs/guides/context-engineering/hooks/) package (`.agents/plugins/agnostic-ai/plugin.json` plus `hooks/hooks.json`). All 12 documented events are supported. `matcher` is a regular expression. `timeout` is in seconds (default 30). `x-goose.on_failure` takes `allow` or `block` for `PreToolUse` failures. [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs these hooks with Goose's event data, shell, and timeout, so you can test them before a session does.
 - **Plugin skills**: set `outputs.goose.skills-dir: .agents/plugins/<name>/skills` to bundle skills as a plugin ([plugins](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/plugins.md)), with or without hooks. Skills and hooks share one manifest. Goose prefixes names with the plugin name, so `review` in `agnostic-ai` loads as `agnostic-ai:review`.
 - **Reviews**: `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from every directory with changed files and every parent directory, so root and scoped guidance combine ([v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md)). Specs with the same scope are joined into one file, without frontmatter, because Goose reads plain text. Agent-style check files are not written.
 - **MCP**: skipped with a warning.
 
-{% <details summary="Skills dir outside skills/"> %}
+<details>
+<summary>Skills dir outside skills/</summary>
+
 A skills directory inside a plugin folder but outside its `skills/` folder is not a Goose component and gets no manifest.
-{% </details> %}
+
+</details>
+
+</details>
 
 ## Config keys
 
@@ -93,9 +111,3 @@ See [scoped context](@/docs/scoped-context.md).
 ## Protected paths
 
 Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
-
-## Verify
-
-1. Install Goose ([docs](https://goose-docs.ai)).
-2. Check the files: `ls AGENTS.md .agents/agents/ .agents/skills/`, plus `.goosehints` when `outputs.goose.rules-file` is set.
-3. Launch `goose`. It reads `AGENTS.md` (and `.goosehints` when present) as context. It lists each `.agents/agents/<name>.md` as a project agent and each `.agents/skills/<name>/` as a skill.

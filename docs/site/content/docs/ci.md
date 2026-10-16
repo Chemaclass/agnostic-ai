@@ -23,6 +23,9 @@ agnostic-ai sync --check
 
 Never run `sync` right before this check in CI. It would hide the problem you are testing for.
 
+<details>
+<summary>Check committed files after another step rewrites the working tree</summary>
+
 If an earlier step already rewrote the files, as a `postinstall` sync does, check against the commit instead:
 
 ```bash
@@ -37,6 +40,8 @@ A committed file that no spec produces anymore also fails, so this command catch
 
 After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Only Cursor reads it there. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
 
+</details>
+
 ## Ignored outputs
 
 A fresh checkout has no generated files. Check the specs and confirm that sync works:
@@ -50,9 +55,10 @@ Add `agnostic-ai lint` to check spec quality. `sync --check` after `sync` adds n
 
 In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync`. See [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
-This repository ignores generated tool files and runs `lint` in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
-
 For cached environments that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/maintain.md#project-readiness). They check every configured tool without approving local hooks.
+
+<details>
+<summary>Install a pinned CLI in your CI job</summary>
 
 ## Install the CLI in CI
 
@@ -119,9 +125,14 @@ steps:
 
 `AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check [where the archive was built](@/docs/verify-a-release.md#build-provenance). This needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
 
+</details>
+
 ## Diagnose drift
 
 Drift means generated files differ from what your current specs produce. Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output and the failure types.
+
+<details>
+<summary>Check the coding tool against tasks from your project</summary>
 
 ## Gate model and CLI changes
 
@@ -142,3 +153,5 @@ Add the gate after installing the AI CLI it needs:
 ```
 
 `verify` first checks that generated files are current, then sends JSON to the script on stdin. Your script runs the tasks and decides whether the results pass. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON format.
+
+</details>

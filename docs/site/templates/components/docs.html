@@ -4,7 +4,7 @@
   {% set groups = ["Start", "Workflows", "Reference"] %}
   {% for group in groups %}
   <div class="docs-nav-group">
-    <p>{{ group }}</p>
+    <p>{% if group == "Start" %}Start here{% elif group == "Workflows" %}Guides{% else %}Reference{% endif %}</p>
     {% for slot in ["nav_first", "nav_second"] %}
       {% for path in section.subsections %}{% set hub = get_section(path=path) %}
         {% if hub.extra[slot] == group %}{{ <docs.subnav node={hub} current_path={current_path} /> }}{% endif %}
@@ -29,17 +29,17 @@
 {% if current_path is starting_with(pat=node.path) %}<div class="docs-nav-sub">{% for item in node.pages %}<a{% if item.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ item.permalink | safe }}">{{ item.title }}</a>{% endfor %}</div>{% endif %}
 {% endcomponent docs.subnav %}
 
-{% component docs.toc(headings) %}
+{% component docs.toc(headings, moved) %}
 <nav class="docs-toc-links" aria-label="On this page">
   {% for heading in headings %}
     {% if heading.level == 1 %}
       {% for child in heading.children %}
-      <a href="{{ child.permalink | safe }}">{{ child.title }}</a>
-        {% for grandchild in child.children %}<a class="is-nested" href="{{ grandchild.permalink | safe }}">{{ grandchild.title }}</a>{% endfor %}
+      {% if child.id not in moved %}<a href="{{ child.permalink | safe }}">{{ child.title }}</a>{% endif %}
+        {% for grandchild in child.children %}{% if grandchild.id not in moved %}<a class="is-nested" href="{{ grandchild.permalink | safe }}">{{ grandchild.title }}</a>{% endif %}{% endfor %}
       {% endfor %}
     {% else %}
-      <a href="{{ heading.permalink | safe }}">{{ heading.title }}</a>
-      {% for child in heading.children %}<a class="is-nested" href="{{ child.permalink | safe }}">{{ child.title }}</a>{% endfor %}
+      {% if heading.id not in moved %}<a href="{{ heading.permalink | safe }}">{{ heading.title }}</a>{% endif %}
+      {% for child in heading.children %}{% if child.id not in moved %}<a class="is-nested" href="{{ child.permalink | safe }}">{{ child.title }}</a>{% endif %}{% endfor %}
     {% endif %}
   {% endfor %}
 </nav>
