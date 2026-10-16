@@ -135,6 +135,10 @@
   }
 }
 
+.agent-prompt-guide .agent-prompt-head button {
+  opacity: 1;
+}
+
 .agent-prompt pre {
   margin: 0;
   padding: 1rem;

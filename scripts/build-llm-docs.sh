@@ -16,6 +16,14 @@ render_doc() {
   awk '
     NR == 1 && $0 == "+++" { in_frontmatter = 1; next }
     in_frontmatter && $0 == "+++" { in_frontmatter = 0; next }
+    !in_frontmatter && $0 == "{{ <agent_setup_prompt /> }}" {
+      print "Setup prompt and checklist: https://agnostic-ai.org/agent-setup.txt"
+      next
+    }
+    !in_frontmatter && $0 == "{{ <install_picker /> }}" {
+      print "Install options and commands: https://agnostic-ai.org/docs/installation/"
+      next
+    }
     !in_frontmatter && $0 ~ /^\{\{ <[a-z_]+ \/> \}\}$/ { next }
     !in_frontmatter && $0 ~ /^\{% <details summary=".*"> %\}$/ {
       summary = $0

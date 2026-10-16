@@ -1,6 +1,6 @@
 # agnostic-ai
 
-agnostic-ai keeps one set of instructions for all your AI coding tools. You write agents, skills, rules, hooks, and MCP server settings once, and `agnostic-ai sync` writes the files each tool reads.
+agnostic-ai keeps your coding tools working from the same project instructions. Edit one source, then run `agnostic-ai sync` to write the files Claude Code, Codex, and your other tools read.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agnostic-ai?logo=npm&label=npm)](https://www.npmjs.com/package/agnostic-ai)
@@ -19,7 +19,7 @@ Paste this into Claude Code, Codex, Cursor, or another coding agent:
 Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior. Before any sync, check for existing CLAUDE.md, AGENTS.md, and similar files, and ask me what to do with their content. Finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
 ```
 
-The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) is the checklist the agent follows.
+The [setup guide](https://agnostic-ai.org/docs/getting-started/) walks through agent-assisted or terminal setup, including keeping existing instructions.
 
 <a id="set-up-manually"></a>
 <a id="install"></a>
@@ -30,23 +30,25 @@ From your project root, with Node 18 or newer:
 
 ```bash
 npm install -g agnostic-ai
-agnostic-ai init --from all
-agnostic-ai sync --plan
+agnostic-ai init
+mkdir -p .agnostic-ai
 ```
 
-Review the planned files. If they match the tools and instructions you want, run:
+Select the tools you use. In a terminal, `init` offers to import existing tool files; keep their instructions before syncing. Create or edit `.agnostic-ai/AGNOSTIC_AI.md` with one useful project note, keeping imported content. See the [one-note walkthrough](https://agnostic-ai.org/docs/getting-started/#scaffold).
+
+Preview the planned files, then generate and check them:
 
 ```bash
+agnostic-ai sync --plan
 agnostic-ai sync
+agnostic-ai sync --check
 ```
 
-`init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
-
-Then edit your shared instructions in `.agnostic-ai/AGNOSTIC_AI.md` and your specs under `.agnostic-ai/`, and run `agnostic-ai sync` again. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated. Do not edit them by hand.
+Open the generated files and follow any instruction-file references to find your note. With Claude Code and Codex selected in a fresh setup, `CLAUDE.md` points to the shared `AGENTS.md`. Change the source note and sync again to update the instructions both tools read. Keep editing `.agnostic-ai/`, since sync replaces generated output.
 
 Next steps:
 
-- [Getting started](https://agnostic-ai.org/docs/getting-started/): add your first rule.
+- [Set up your project](https://agnostic-ai.org/docs/getting-started/): share one note and update your tools together.
 - [Installation](https://agnostic-ai.org/docs/installation/): other ways to install.
 - [Migration](https://agnostic-ai.org/docs/migration/): review an existing setup before you sync.
 - [Global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration): personal specs in `~/.agnostic-ai/`, written with `agnostic-ai sync --global`.
