@@ -47,6 +47,8 @@ A change seen in a tool, support in agnostic-ai, and a release are three separat
 
 Target audit reports and issues are research notes. They hold the evidence from the tool's docs, the comparison between tools, and next steps. The `target-audit` skill does not publish articles or open pull requests for them.
 
+Behavior findings state whether they were reproduced with the vendor tool or evaluated against released vendor source, and what that evidence proves. Permission, rule order, path discovery, and import claims receive an independent check before filing. Claims that lack enough evidence stay unresolved in the report.
+
 ## Publishing workflow
 
 The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article right before the release commit. The article, version bump, and dated changelog section go in one commit and tag. Its front matter (the metadata at the top of the file) holds the release identity, summary highlights, permanent identifier for the RSS feed (`rss_guid`), alternative `.html` URL (`aliases`), and tool IDs. It needs no audit counts, audit marker, or report checksum.

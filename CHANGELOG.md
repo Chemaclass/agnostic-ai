@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Target audits confirm permission, rule order, path discovery, and import claims before filing, with explicit proof limits and an independent check (#2275).
 - Target audits validate recorded target and page coverage before updating the vendor source lock; manual updates use `--update-unvalidated` (#2277).
 - The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
 - Reusing a target-audit fetch directory reports only the requested targets and their current mirrors (#2276).
