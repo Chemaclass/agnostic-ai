@@ -109,6 +109,21 @@ A settings spec's default `model` merges into `opencode.json`, and import restor
 
 ### Permissions
 
+[OpenCode's V2 migration guide](https://opencode.ai/v2/docs/migrate-v1#permissions-and-tools) distinguishes the defaults: V1 asks before accessing paths outside the project; V2 allows `external_directory` by default.
+
+To request approval in V2, add the rule below to your existing `x-opencode.permissions` array, keeping all its rules and their order. If your native `permissions` array exists only in `opencode.json`, move the full array into one settings spec under `x-opencode.permissions` before adding the rule. Only when neither location has a V2 policy, save this settings spec as `.agnostic-ai/settings/outside-project.yaml`:
+
+```yaml
+targets: [opencode]
+x-opencode:
+  permissions:
+    - action: external_directory
+      resource: "*"
+      effect: ask
+```
+
+Keep the native `permissions` array in one settings spec: arrays from separate specs replace each other rather than combine. Put this broad `ask` rule before intentional exceptions. [V2 permissions](https://opencode.ai/v2/docs/permissions#directories) use the last matching rule.
+
 Portable `allow`, `deny`, and `ask` lists become [OpenCode's `permission` map](https://opencode.ai/docs/permissions/).
 
 - A bare tool name covers the whole tool (`Read` becomes `read: allow`). A scoped rule becomes a glob (`Bash(go test:*)` becomes `bash: {"go test *": "allow"}`).

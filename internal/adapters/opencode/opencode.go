@@ -27,8 +27,9 @@
 // Settings specs merge their last non-empty `model` into the project
 // `opencode.json` file without replacing unrelated native keys. With
 // `memory.personal: repo`, that file also allows the personal memory
-// store under `permission.external_directory`, since OpenCode asks
-// before a tool touches a path outside the project.
+// store under `permission.external_directory`, since OpenCode V1 asks
+// before a tool touches a path outside the project. V2 allows external
+// directories by default; an explicit native permissions rule can ask.
 // Restricted agents replay its legacy permission map and ordered native
 // V2 permissions array before applying their tool list.
 //
