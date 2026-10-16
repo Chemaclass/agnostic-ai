@@ -34,8 +34,7 @@
 # On the replay cases, with every claim of a target in one request, real
 # drift scored p_contradicts 0.63 or more and everything else 0.16 or less.
 #
-# The triage only orders reading. It never clears a row, and it always
-# exits 0, so an audit with no key or no network runs as it would without it.
+# Metrics are best effort and never gate the lexical fallback.
 #
 # Usage:
 #   scripts/jev-triage.sh [--lexical] <run dir> [target...]
@@ -547,15 +546,70 @@ jev_pages() {
   ' "$work/units.tsv"
 }
 
+jev_metrics() {
+  local dir="$1" work="$2" start="$3" status="$4" reason="$5" planned="$6" answered="$7" capped="$8" trim="$9"
+  local end=null mode=jev tmp identity
+  if ! command -v jq >/dev/null 2>&1; then
+    jev_note "metrics unavailable (jq not found)"
+    return 0
+  fi
+  [ "$status" = running ] || end=$(date +%s)
+  if [ "$planned" -eq 0 ]; then
+    mode=lexical
+    [ "$trim" = 0 ] || mode="lexical-trim"
+  elif [ "$answered" -lt "$planned" ] || [ "$capped" -gt 0 ]; then
+    mode=fallback
+  fi
+  [ "$status" != running ] || mode=pending
+  identity=$(jq -n --arg id "$(basename "$dir")" '{id: $id, provenance: {}}')
+  if [ -r "$dir/audit-metrics.json" ]; then
+    identity=$(jq -c '.run' "$dir/audit-metrics.json") || return 1
+  fi
+  tmp=$(mktemp "$dir/triage-metrics.json.XXXXXX") || return 1
+  if { cat "$work"/resp/*.json 2>/dev/null || true; } | jq -s \
+    --argjson identity "$identity" --argjson start "$start" --argjson end "$end" --arg status "$status" \
+    --arg mode "$mode" --arg model "$JEV_MODEL" --arg reason "$reason" \
+    --argjson planned "$planned" --argjson answered "$answered" --argjson capped "$capped" \
+    --arg trim_reason "${10:-}" --argjson cap "$JEV_MAX_REQUESTS" --argjson jobs "$JEV_JOBS" '
+      def valid_count: type == "number" and . >= 0;
+      def counts($key): [.[].usage[$key] | select(valid_count)];
+      (counts("input_tokens")) as $input | (counts("output_tokens")) as $output
+      | {schema_version: 1, run: $identity, model: $model, mode: $mode,
+         stage: {name: "triage", phase: "audit", start: $start, end: $end, status: $status},
+         requests: {planned: $planned,
+           answered: (if $status == "running" then null else $answered end),
+           unanswered: (if $status == "running" then null else $planned - $answered end), capped: $capped},
+         configuration: {request_cap: $cap, concurrent_requests: $jobs},
+         usage: {
+           scope: "returned responses; failed attempts may have unreported usage",
+           input_tokens: (if $status == "running" or ($input | length) != $planned then null else ($input | add // 0) end),
+           output_tokens: (if $status == "running" or ($output | length) != $planned then null else ($output | add // 0) end),
+           known_input_tokens: ($input | add // 0), known_output_tokens: ($output | add // 0),
+           missing_input_requests: ($answered - ($input | length)), missing_output_requests: ($answered - ($output | length))},
+         research_limits: ([$reason, $trim_reason,
+           (if $capped > 0 then "requests over cap remain unjudged" else "" end),
+           (if $planned > $answered then "unanswered requests have unknown usage" else "" end),
+           (if ($input | length) < $answered or ($output | length) < $answered then "response usage missing" else "" end)] | map(select(length > 0)))}
+    ' >"$tmp"; then
+    mv "$tmp" "$dir/triage-metrics.json"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 jev_triage() {
   local dir="$1" reason="" work out prio unit target kind url delta file
   local sel noul n=0 pages=0 capped=0 total i chunk lines label pages_out jev_ran=0
+  local started answered=0 failed=0 trim_ran=0 trim_why=""
   shift
+  started=$(date +%s)
   out="$dir/triage.tsv"
   pages_out="$dir/triage-pages.tsv"
-  rm -f "$out" "$out.tmp" "$pages_out"
+  rm -f "$out" "$out.tmp" "$pages_out" "$dir/triage-metrics.json"
   if [ ! -r "$dir/deltas.tsv" ]; then
     jev_note "skipped (no deltas.tsv in $dir)"
+    jev_metrics "$dir" /nonexistent "$started" completed "no deltas.tsv" 0 0 0 0 || jev_note "metrics unavailable (cannot write artifact)"
     return 0
   fi
   reason=$(jev_ready) || true
@@ -565,6 +619,7 @@ jev_triage() {
   trap "rm -rf '$work'" EXIT
   mkdir -p "$work/claims" "$work/lex" "$work/req" "$work/meta" "$work/sel"
   : >"$work/rows"
+  jev_metrics "$dir" "$work" "$started" running "$reason" 0 0 0 0 || jev_note "metrics unavailable (cannot write artifact)"
 
   while IFS="$TAB" read -r prio unit target kind url delta file label; do
     pages=$((pages + 1))
@@ -608,11 +663,13 @@ jev_triage() {
     : >"$out"
     : >"$pages_out"
     jev_note "no changed page with a delta in $dir, wrote an empty $out"
+    jev_metrics "$dir" "$work" "$started" completed "$reason" 0 0 0 0 || jev_note "metrics unavailable (cannot write artifact)"
     return 0
   fi
 
-  local answered=0 failed=0 m r
+  local m r
   if [ -z "$reason" ]; then
+    jev_metrics "$dir" "$work" "$started" running "$reason" "$n" 0 "$capped" 0 || jev_note "metrics unavailable (cannot write artifact)"
     jev_run "$work"
     for m in "$work"/meta/*.tsv; do
       [ -e "$m" ] || continue
@@ -649,7 +706,6 @@ jev_triage() {
   done
 
   # trim-1 ranks the parts Jev did not judge: every part when Jev never ran.
-  local trim_ran=0 trim_why
   if [ "$jev_ran" = 1 ]; then
     local job
     while IFS= read -r job; do
@@ -689,9 +745,10 @@ jev_triage() {
 
   jev_finish "$work/rows" "$out"
   jev_pages "$work" "$out" "$jev_ran" >"$pages_out"
+  jev_metrics "$dir" "$work" "$started" completed "$reason" "$n" "$answered" "$capped" "$trim_ran" "$trim_why" || jev_note "metrics unavailable (cannot write artifact)"
   local tokens=0
   if [ "$answered" -gt 0 ]; then
-    tokens=$(cat "$work"/resp/*.json | jq -s 'map(.usage.input_tokens // 0) | add // 0' 2>/dev/null || echo 0)
+    tokens=$(cat "$work"/resp/*.json | jq -rs 'if any(.[]; (.usage.input_tokens | type) != "number") then "unknown" else map(.usage.input_tokens) | add end' 2>/dev/null || echo unknown)
   fi
   local clear
   clear=$(awk -F '\t' '$5 == "clear"' "$pages_out" | grep -c . || true)
@@ -699,7 +756,7 @@ jev_triage() {
     { rows++; if ($5 == "contradicts") c++; if ($5 == "noul") s++; if ($8 == "lexical") l++; if ($8 == "trim") t++ }
     END {
       if (n == 0) head = (trim ? "lexical and trim-1" : "lexical") " leads only (" (why != "" ? why : "no claims to ask about") ")"
-      else head = sprintf("%d of %d Jev requests answered, %d input tokens", ok, n, tokens) (why != "" ? " (" why ")" : "")
+      else head = sprintf("%d of %d Jev requests answered, %s input tokens", ok, n, tokens) (why != "" ? " (" why ")" : "")
       printf "jev-triage: %s over %d page parts%s, %d rows (%d contradicts, %d surface, %d lexical, %d trim) in %s, %d pages clear\n",
         head, pages, (capped ? ", " capped " requests over the cap" : ""), rows, c, s, l, t, out, clear
     }
