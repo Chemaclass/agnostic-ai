@@ -79,6 +79,8 @@ A home skill can hide a project skill with the same name. Claude Code and Amp do
 
 A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here. When both copies hold the same content, it says to delete one before they drift apart.
 
+The table shows the targets currently covered by the shared-name check, including Codex's no-warning case.
+
 | Target | Skill with the same name | Agent with the same name |
 |--------|--------------------------|--------------------------|
 | Amp | Global wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
@@ -86,7 +88,7 @@ A winning global copy changes what you run, not what others run from the reposit
 | Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
 | Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
 
-Other tools do not document which settings win, so sync does not warn for them.
+Other tools also document skill-name behavior, but sync and doctor do not check them: [Kiro](https://kiro.dev/docs/skills/#skill-scope) gives workspace skills priority over global skills, and [Qoder](https://docs.qoder.com/extensions/skills) gives project skills priority over user skills. [Warp](https://docs.warp.dev/agents/capabilities/skills#skill-name-conflicts) prefers home skills, then higher directories, when resolving names in the background. Its slash-command menu shows all matches; natural-language requests give the agent all in-scope options with their paths.
 
 <details>
 <summary>Which pairs the check compares</summary>
