@@ -6,7 +6,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Target audits confirm permission, rule order, path discovery, and import claims before filing, with explicit proof limits and an independent check (#2275).
 - The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
+- Target audits report separate vendor, built-in, repository and source recovery work with baseline evidence (#2279).
+- Reusing a target-audit fetch directory reports only the requested targets and their current mirrors (#2276).
 
 ### By tool
 

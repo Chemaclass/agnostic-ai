@@ -27,7 +27,7 @@ Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state,
 
 Run `scripts/docfetch.sh` once. It fetches every source URL fresh, runs the recovery ladder on pages that do not serve usable text, saves the bodies under `local/target-audit/<date>-run/pages/`, and writes `docfetch.tsv` with one row per URL carrying its mode, content hash, and status against `scripts/target-audit/sources.lock`. Read its summary line and the `failed` rows before delegating.
 
-Prepare the shared built-in inventory and audit baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`. Then run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. When it prints no numbered batch, write the report with every requested target as a fast-path Clean row and stop. Skip the issue index, signals, auditors and filing. The lock does not move on such a day, so there is nothing to commit.
+Prepare the shared built-in inventory and audit baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`. Then run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. Save the separate review-reason TSV and pass each batch its rows as described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. When it prints no numbered batch, write the report with every requested target as a fast-path Clean row and stop. Skip the issue index, signals, auditors and filing. The lock does not move on such a day, so there is nothing to commit.
 
 Fetch the `target-audit` issue index into the run directory with three scoped calls rather than paginating the whole collection: `--state open`, `--state all --search 'created:>=<window start>'`, and `--state closed --search 'closed:>=<window start>'`. Before treating a candidate as new, run one title-scoped search for it (`--state all --search '<target> in:title <keyword>'`). Fetch bodies and comments only for relevant matches. Refresh matching issue state before filing.
 
@@ -75,6 +75,8 @@ Every drift finding requires:
 - concrete user loss and the smallest fix.
 
 Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
+
+For permission boundaries, overlapping order or precedence, path discovery, and import fidelity, apply `.agnostic-ai/skills/target-audit/references/behavior-evidence.md` before accepting or filing a claim. Verify its recorded confirmation outcome and complete the independent check, even without `--compare-models`. Keep unresolved claims in `Needs a human` with the missing evidence; never send them to a fixer. Source-only URL corrections and capability opportunities keep their existing evidence paths.
 
 Keep built-in drift (a target the built-in emits to stopped behaving as it needs) apart from a coverage opportunity (a target it does not list gained compatible support). Drift is a finding; an opportunity goes under Cross-target opportunities. Apply the fix rule in the built-ins reference: hook capability alone never enables a target.
 

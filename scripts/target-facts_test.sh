@@ -599,3 +599,109 @@ function test_builtin_regression_dirty_built_in_against_head_is_deep() {
   printf 'name: end\ntargets: [claude]\nevent: Stop\n' >"$BUILTINS_DIR/demo-hook/hooks/end.yaml"
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since HEAD)"
 }
+
+# ---- review reasons ----------------------------------------------------------
+
+function test_review_reasons_separates_vendor_builtin_and_recovery_work() {
+  builtin_regression_fixture
+  write_run "factory docs https://f/1 changed" "claude docs https://c/1 unchanged" "continue docs https://n/1 failed"
+  printf 'changed\n' >>"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'target\treason\tbaseline\tevidence\tstate\tchecklist' "$out"
+  assert_contains $'factory\tvendor-delta\t-\thttps://f/1\tchanged\tvendor-review' "$out"
+  assert_contains $'continue\tsource-recovery\t-\thttps://n/1\tfailed\trecover-source' "$out"
+  assert_contains $'claude\tbuilt-in\t'"$BUILTIN_BASE"$'\tinternal/builtins/data/demo/skills/demo/SKILL.md\tchanged\tbuilt-in-review' "$out"
+  assert_not_contains $'claude\tvendor-delta' "$out"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_target_ownership_comes_from_the_registry() {
+  builtin_regression_fixture
+  printf 'changed\n' >>"$ROOT/internal/adapters/continueai/continueai.go"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'continue\tshared-repository\t'"$BUILTIN_BASE"$'\tinternal/adapters/continueai/continueai.go\tchanged\ttarget-claims,built-in-review' "$out"
+  assert_not_contains $'factory\t' "$out"
+  assert_not_contains $'claude\t' "$out"
+}
+
+function test_review_reasons_keeps_all_shared_paths_after_a_builtin_change() {
+  builtin_regression_fixture
+  printf 'changed\n' >>"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  printf 'changed\n' >>"$ROOT/internal/spec/spec.go"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'factory\tbuilt-in\t' "$out"
+  assert_contains $'factory\tshared-repository\t'"$BUILTIN_BASE"$'\tinternal/spec/spec.go\tchanged\ttarget-claims,built-in-review' "$out"
+  assert_not_contains $'zed\t' "$out"
+}
+
+function test_review_reasons_removed_selector_keeps_the_previous_blob_work() {
+  builtin_regression_fixture
+  git -C "$ROOT" rm -q internal/builtins/data/demo-hook/hooks/end.yaml
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'factory\tbuilt-in\t'"$BUILTIN_BASE"$'\tinternal/builtins/data/demo-hook/hooks/end.yaml\tremoved\tbuilt-in-review,previous-blob' "$out"
+  assert_contains $'claude\tbuilt-in\t' "$out"
+  assert_contains $'continue\tbuilt-in\t' "$out"
+}
+
+function test_review_reasons_keeps_untracked_and_ignored_embedded_assets() {
+  builtin_regression_fixture
+  printf 'AGENT.md\n' >"$ROOT/.git/info/exclude"
+  mkdir -p "$BUILTINS_DIR/demo/agents"
+  printf 'ignored\n' >"$BUILTINS_DIR/demo/agents/AGENT.md"
+  printf 'untracked\n' >"$BUILTINS_DIR/demo/skills/demo/references/new notes.txt"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'\tinternal/builtins/data/demo/agents/AGENT.md\tadded\tbuilt-in-review' "$out"
+  assert_contains $'\tinternal/builtins/data/demo/skills/demo/references/new notes.txt\tadded\tbuilt-in-review' "$out"
+}
+
+function test_review_reasons_escapes_path_delimiters() {
+  builtin_regression_fixture
+  printf 'new\n' >"$BUILTINS_DIR/demo/skills/demo/references/notes"$'\t\n'".txt"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains 'references/notes\t\n.txt' "$out"
+  assert_equals 4 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+}
+
+function test_review_reasons_missing_and_invalid_baselines_remain_conservative() {
+  builtin_regression_fixture
+  local out rev
+  for rev in '' unknown-revision; do
+    if [ -n "$rev" ]; then
+      out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$rev" 2>/dev/null)
+    else
+      out=$(main --review-reasons "$CHANGED_RUN" 2>/dev/null)
+    fi
+    assert_contains $'factory\tbuilt-in\t' "$out"
+    assert_contains $'\tbaseline-unavailable\t' "$out"
+    assert_contains 'built-in-review,baseline-recovery' "$out"
+  done
+}
+
+function test_review_reasons_unknown_adapter_path_is_shared_work() {
+  builtin_regression_fixture
+  mkdir -p "$ROOT/internal/adapters/unmapped"
+  printf 'new\n' >"$ROOT/internal/adapters/unmapped/hooks.go"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'factory\tshared-repository\t' "$out"
+  assert_contains $'claude\tshared-repository\t' "$out"
+  assert_contains $'continue\tshared-repository\t' "$out"
+}
+
+function test_review_reasons_unchanged_inputs_have_no_work_rows() {
+  builtin_regression_fixture
+  assert_equals $'target\treason\tbaseline\tevidence\tstate\tchecklist' "$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_legacy_rows_use_the_same_lock_as_classification() {
+  builtin_regression_fixture
+  printf 'factory\tdocs\thttps://f/1\t200\thtml\tnew-sha\t2026-09-01\n' >"$CHANGED_RUN"
+  printf 'factory\tdocs\thttps://f/1\t200\thtml\told-sha\t2026-08-01\n' >"$LOCK"
+  assert_contains $'factory\tvendor-delta\told-sha\thttps://f/1\tchanged\tvendor-review' "$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")"
+}
