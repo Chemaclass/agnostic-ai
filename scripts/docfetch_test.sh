@@ -681,6 +681,22 @@ function test_main_mirror_flag_applies_only_to_its_invocation() {
   assert_file_not_exists "$FIXTURES/plain/mirrors.tsv"
 }
 
+function test_main_nonmirror_rerun_rejects_stale_mirror_comparisons() {
+  stub_run_pages
+  docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null
+  mkdir -p "$FIXTURES/previous"
+  cp "$FIXTURES/run/docfetch.tsv" "$FIXTURES/run/mirrors.tsv" "$FIXTURES/previous/"
+  local old_mirrors status=0
+  old_mirrors=$(cat "$FIXTURES/run/rows/zed.mirrors")
+  stub_curl "https://*.example/*|200|<html><body><main>$(printf 'Changed page text. %.0s' $(seq 1 40))</main></body></html>"
+  docfetch_main --out "$FIXTURES/run" claude >/dev/null
+
+  docfetch_main --compare-mirrors "$FIXTURES/previous" "$FIXTURES/run" >/dev/null 2>&1 || status=$?
+  assert_equals 1 "$status"
+  assert_file_not_exists "$FIXTURES/run/mirrors.tsv"
+  assert_equals "$old_mirrors" "$(cat "$FIXTURES/run/rows/zed.mirrors")"
+}
+
 function test_main_failed_rerun_keeps_the_last_complete_reports() {
   stub_run_pages
   docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null
@@ -689,7 +705,7 @@ function test_main_failed_rerun_keeps_the_last_complete_reports() {
   deltas=$(cat "$FIXTURES/run/deltas.tsv")
   mirrors=$(cat "$FIXTURES/run/mirrors.tsv")
   stub_targets zed ""
-  docfetch_main --out "$FIXTURES/run" --mirrors claude zed >/dev/null 2>&1 || status=$?
+  docfetch_main --out "$FIXTURES/run" claude zed >/dev/null 2>&1 || status=$?
   assert_not_equals 0 "$status"
   assert_equals "$rows" "$(cat "$FIXTURES/run/docfetch.tsv")"
   assert_equals "$deltas" "$(cat "$FIXTURES/run/deltas.tsv")"

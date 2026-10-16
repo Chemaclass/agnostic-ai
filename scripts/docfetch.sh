@@ -1207,6 +1207,8 @@ docfetch_main() {
       [ ! -f "$out/rows/$t.mirrors" ] || cat "$out/rows/$t.mirrors"
     done >"$out/mirrors.tsv"
     awk -F '\t' '{ n++; if ($6 != "-") ok++ } END { printf "mirrors: %d of %d scraped rows serve a Markdown copy\n", ok, n }' "$out/mirrors.tsv"
+  else
+    rm -f "$out/mirrors.tsv"
   fi
   awk -F '\t' '
     { n[$8]++; total++; t[$1] = 1 }

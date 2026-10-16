@@ -180,7 +180,7 @@ The `target-audit` skill runs that comparison across every registered
 target in parallel and files an issue for each confirmed difference. Run it after
 adding an adapter to confirm the new rows read correctly.
 
-To fetch a subset again, run `scripts/docfetch.sh --out DIR <target>...`. Its reports and delta counts cover only those targets, even when `DIR` already holds other targets' files. Add `--mirrors` to refresh the mirror report too. Other targets' saved files stay in place. If a worker fails or returns too few rows, the command fails and keeps the last complete reports.
+To fetch a subset again, run `scripts/docfetch.sh --out DIR <target>...`. Its reports and delta counts cover only those targets, even when `DIR` already holds other targets' files. Add `--mirrors` to refresh the mirror report too. A successful fetch that skips mirrors removes the previous mirror report. Other targets' saved files stay in place. If a worker fails or returns too few rows, the command fails and keeps the last complete reports.
 
 ## Conventions
 
