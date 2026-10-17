@@ -17,14 +17,14 @@ type domainInfo struct {
 
 // domainCatalog holds the eight curated domains in display order.
 var domainCatalog = []domainInfo{
-	{DomainSourceControl, "Source Control", "Repositories, branches, pull requests, and issues.", []string{"GitHub", "GitLab", "Bitbucket"}},
-	{DomainCloud, "Cloud & Deployment", "Cloud accounts, deployments, and infrastructure.", []string{"Railway", "Vercel", "AWS"}},
+	{DomainSourceControl, "Source Code & Version Control", "Repositories, branches, pull requests, and issues.", []string{"GitHub", "GitLab", "Bitbucket"}},
+	{DomainCloud, "Cloud Infrastructure & Deployment", "Cloud accounts, deployments, and infrastructure.", []string{"Railway", "Vercel", "AWS"}},
 	{DomainData, "Data & Storage", "Databases, warehouses, caches, and object stores.", []string{"PostgreSQL", "Snowflake", "Redis"}},
 	{DomainFilesystem, "Filesystem & Execution", "Project files and the commands a tool runs on this machine.", []string{"Local files", "Shell commands", "Docker"}},
 	{DomainWeb, "Web & Browser", "Fetching pages, searching the web, and driving a browser.", []string{"Web fetch", "Playwright", "Brave Search"}},
-	{DomainCommunication, "Communication", "Chat, email, issue trackers, and calendars.", []string{"Slack", "Gmail", "Linear"}},
+	{DomainCommunication, "Communication & Collaboration", "Chat, email, issue trackers, and calendars.", []string{"Slack", "Gmail", "Linear"}},
 	{DomainSecrets, "Secrets & Identity", "Credentials the configuration references, and identity providers.", []string{"Vault", "1Password", "Okta"}},
-	{DomainAgentOps, "AI & Agent Ops", "Other AI services, and any server the curated table does not place.", []string{"Model APIs", "Agent memory", "Unknown servers"}},
+	{DomainAgentOps, "AI & Agent Operations", "Other AI services, and any server the curated table does not place.", []string{"Model APIs", "Agent memory", "Unknown servers"}},
 }
 
 // domainKeyword places an MCP server in domains when its name, URL, or
