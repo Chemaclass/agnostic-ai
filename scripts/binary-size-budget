@@ -26,4 +26,280 @@
 # checks and owned metadata snapshots add 12 KB to main after #1945.
 # #1964 measured 18596000 on Go 1.27.2: the opt-in RTK hook and
 # pinned Caveman skill, source notices, and licenses add 28672 bytes.
-18610000
+# #1985 measured 18661536 on Go 1.27.2, up 12288 from main 790f22d2:
+# hook comparison traces written event groups and required command fields.
+# #1988 measured 18677920 on Go 1.27.2, up 28672 from main a500a503:
+# Claude file explanations classify planned instructions and import routes.
+# #1986 measured 18714784 on Go 1.27.2, up 24576 from main 5b4990b7:
+# MCP comparison traces written connection fields without exposing values.
+# #1990 measured 18698400 on Go 1.27.2, up 8192 from main 5b4990b7:
+# new creates and previews every spec kind in its configured source folder.
+# After merging #1990, measured 18722976, up 24576 from main b64322dc.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# #2015 measured 18755744, up 32768 from main 7df02fd1: bounded RTK
+# diagnostics compare declared Bash rules while keeping unsupported
+# syntax and live host decisions unknown. Keep CI's 8 KB allowance.
+# #2014 measured 18739360, up 16384 from main 7df02fd1: registered
+# worktree ownership, complete payloads, and hidden index flags are checked
+# before cleanup. Keep the same 8 KB allowance for CI's Linux build.
+# #2012 measured 18763936, up 24576 from main badb5ae3: pinned project
+# binaries, locked bootstrap and portable lifecycle launchers.
+# Keep the established 8 KB allowance for CI.
+# After contract fixes, measured 18784416, up 45056 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+# #2013 measured 18751648, up 28672 from main 7df02fd1: committed
+# native and canonical skill trees produce a deterministic reconciliation
+# plan with explicit migration baselines. Keep CI's 8 KB build allowance.
+# After merging #2014, measured 18768032, up 28672 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+# RTK branch history:
+# After merging #2014, measured 18772128, up 32768 from main badb5ae3.
+# Keep the established 8 KB allowance for CI.
+# After bounded diagnostic reads and settings identity checks, measured
+# 18776224. Keep the established 8 KB allowance for CI's Linux build.
+# #1989 measured 18702496 before #1990, up 12288 from main 575a8a36:
+# Codex file explanations report planned source and discovery limits.
+# After #1990 and the tagged switch, measured 18706592, up 8192 from b64322dc.
+# After #1986, measured 18735264, up 12288 from main 7df02fd1.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #2014, measured 18751648, up 12288 from main badb5ae3.
+# Context contributions with Codex file explanations measured 18808992.
+# Keep the established 8 KB allowance for CI's Linux build.
+# Lifecycle branch history:
+# After merging Codex file context, measured 18796704.
+# Keep the established 8 KB allowance for CI's Linux build.
+# Source reconciliation branch history:
+# After merging Codex file context, measured 18780320.
+# Keep the established 8 KB allowance for CI's Linux build.
+# RTK branch history:
+# After merging Codex file context, measured 18784416.
+# Keep the established 8 KB allowance for CI's Linux build.
+# After combining reviewed source reconciliation and RTK diagnostics,
+# measured 18813088. Keep the established 8 KB allowance for CI.
+# After combining reviewed lifecycle, source reconciliation and RTK,
+# measured 18858144. Keep the established 8 KB allowance for CI.
+# Permissions branch history:
+# #1987 measured 18768032, up 28672 from main eec372ab: permission
+# comparison checks emitted fields, target overrides, and partial translations.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After #1989, measured 18784416, up 32768 from main cc7eb45c.
+# Keep room for the 8 KB difference seen in CI's Linux build.
+# After lifecycle, reconciliation and RTK changes, #1987 measured18886816,
+# up28672 from mainf535cae3. Keep the established CI allowance.
+# After combining reviewed context reporting with lifecycle, source
+# reconciliation and RTK, measured 18911392. Keep CI's 8 KB allowance.
+# After trusted import spans, frontmatter mapping and native rule output
+# attribution, measured 18923680, up 65536 from main f535cae3.
+# Keep the established 8 KB allowance for CI.
+# Permission comparison with trusted context attribution measured
+# 18952352 bytes, up 28672 from main 66cc90dd.
+# Keep the established allowance for CI.
+# Credential preview branch history:
+# Credential preview redaction including global summaries measured 18964640,
+# up 53248 from main 19a1b04e. Keep CI's 8 KB allowance.
+# With reviewed context attribution fixes, credential previews measured
+# 18976928, up 53248 from main fbf6be54. Keep CI's 8 KB allowance.
+# Permission comparison after credential preview protection measured
+# 19005600 bytes, up 28672 from main 60d9dfb4.
+# Keep the established allowance for CI.
+# Worktree refresh with owned setup cancellation measured 19034272.
+# Keep the established 8 KB allowance for CI.
+# #2055 after #2060 measured 19046560 on Go 1.27.2, up 4096:
+# indexed shared-link lookups avoid scanning every tracked path per link.
+# #2063 after #2060 measured 19067040 on Go 1.27.2, up 24576:
+# preserve native V2 MCP fields and reject conflicting effective owners.
+# #2062 after #2063 measured 19108000 on Go 1.27.2, up 40960
+# from main 784cba1d (19067040 bytes):
+# native V2 hook validation, runner and Windows child ownership helper.
+# Keep the established CI build allowance for the combined changes.
+# #2068 measured 19091616 on Go 1.27.2, up 24576 from main 784cba1d:
+# Claude handoff hooks read native input and select the active checkout.
+# #2065 measured 19095712 on Go 1.27.2, up 28672 from main 784cba1d:
+# preserve Copilot user hooks and validate their imported source files.
+# Keep the established CI build allowance.
+# #2064 after #2063 measured 19079328 on Go 1.27.2, up 12288
+# from main 784cba1d (19067040 bytes):
+# preserve native skill policy and reconcile imported YAML ownership.
+# Keep the established CI build allowance.
+# #2062 macOS/Linux V2 hooks measured 19128480 on Go 1.27.2,
+# up 24576 from main 1d425332 (19103904 bytes).
+# Keep the established CI build allowance.
+# #2065 with #2064 measured 19103904, up 24576 from main 34d870e6
+# (19079328 bytes). Keep the established CI build allowance.
+# #2068 with merged #2062 measured 19153056 on Go 1.27.2,
+# up 24576 from main 70ccdb86 (19128480 bytes).
+# Keep the established CI build allowance.
+# #2087 measured 19161248 on Go 1.27.2, up 8192 from main
+# ebe5835c (19153056): Qoder project MCP import and OAuth secret checks.
+# Keep the established 8 KB build allowance.
+# #2086 measured 19165344 on Go 1.27.2, up 12288 from main
+# 38016ea0 (19153056): validated Crush MCP channels and reply routes.
+# Keep the established 8 KB build allowance.
+# Combined with #2087, measured 19165344, up 4096 from main
+# e48c1499 (19161248). Keep the established 8 KB build allowance.
+# #2100 measured 19251360 on Go 1.27.2, up 86016 from main 3891b845
+# (19165344): memory import copies earlier facts safely (Git checks, a
+# store lock, atomic writes) and lets users pick facts, the first sync
+# seeds them from Claude Code's own store, and LINT043 names stores left
+# behind. Keep the established 8 KB build allowance.
+# #2103 measured 19181728 on Go 1.27.2, up 16384 from main 766b81b9
+# (19165344): built-in rules for one tool stay out of entry files other
+# tools share, and out of sync --global. Keep the established 8 KB allowance.
+# #2112 after Gemini routing measured 19271840, up 90112 from main
+# 5d2c14be (19181728): safe memory import, resolved private destinations,
+# and worktree seeding. Keep the established 8 KB build allowance.
+# #2114 measured 19280032, up 8192 from main b3525196 (19271840):
+# hidden-character checks and cleaned hook context. Keep the established
+# 8 KB build allowance.
+# #2115 measured 19284128, up 4096 from main 3564b706 (19280032):
+# Kiro selects the personal include from its configured memory mode.
+# Keep the established 8 KB build allowance.
+# #2116 measured 19304608, up 20480 from the validated Kiro tree
+# (19284128): native Claude memory availability and worktree subagent
+# context. Keep the established 8 KB build allowance.
+# #2104 measured 19312800, up 8192 from main 124d29e9 (19304608):
+# worktree mode inheritance and guarded mode migration.
+# Keep the established 8 KB build allowance.
+# #2109 measured 19316896, up 4096 from the shared-memory tree
+# (19312800): opt-in shared memory during init.
+# Keep the established 8 KB build allowance.
+# #2117 access measured 19443872 on Go 1.27.2, up 16384 from
+# 3a2fed2a (19427488): native sandbox access to the shared handoff store.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 measured 19333280 on Go 1.27.2, up 20480 from
+# 5e78c4a5 (19312800): private per-branch handoffs and startup task notices, including init memory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2117 list measured 19427488 on Go 1.27.2, up 61440 from
+# 2cb6bbfe (19366048): the task listing command and bounded local Git state lookup.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#
+# #2126 measured 19320992 on Go 1.27.2, up 8192 from
+# 5e78c4a5 (19312800): Cline global hook scripts and their helper directory.
+# Linux amd64, CGO disabled, -trimpath and -s -w; keep the 8 KB allowance.
+#2126 with init repo memory measured 19325088 on Go 1.27.2, up
+# 8192 from main d20fe354 (19316896): Cline global hooks reuse the
+# project renderer. Keep the established 8 KB build allowance.
+# #2126 with shared handoffs measured 19341472 on Go 1.27.2, up
+# 8192 from main 2e6c2ec9 (19333280). Same Linux build flags;
+# keep the established 8 KB build allowance.
+#
+# #2127 measured 19341472, up 28672 from main 1880e7a2 (19312800):
+# personal session retention and exact native-value restoration.
+# Go 1.27.2, linux/amd64, CGO disabled, using make size-check flags.
+# Keep the established 8 KB build allowance.
+#2127 with Cline global hooks measured 19345568 on Go 1.27.2, up
+# 28672 from main d20fe354 (19316896): portable session retention,
+# original setting tokens, and state version 7. Keep the 8 KB allowance.
+# #2127 with Cline and shared handoffs measured 19366048 on
+# Go 1.27.2, up 32768 from main 2e6c2ec9 (19333280).
+# Same release build flags; keep the established 8 KB allowance.
+# #2117 sandbox access with retention and Cline measured 19488928
+# on Go1.27.2, up 147456 from main cd938228 (19341472).
+# Same release flags; keep the established 8 KB build allowance.
+# #2106 Cline VS Code measured 19488928 on Go1.27.2, up 20480 from
+# main 6b1dbe92 (19468448): native TaskStart context and runtime diagnostics.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2106 Cline VS Code with handoff access measured 19509408, up 20480 from
+# main 71d583c4 (19488928): native startup context, diagnostics and bounded reader.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+# #2108 Antigravity measured 19488928 on Go1.27.2, up 20480 from
+# main 6b1dbe92 (19468448): native includes retain inherited body and scoped paths.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2108 Antigravity with handoff access measured 19513504, up 24576 from
+# main 71d583c4 (19488928): inherited native includes use their actual scoped directory.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+# #2106 Augment measured 19493024 on Go1.27.2, up 24576 from
+# main 6b1dbe92 (19468448): executable builtin scripts retain inherited command assets.
+# Linux amd64 release flags; keep the established 8 KB allowance.
+# #2106 Augment with handoff access measured 19517600, up 28672 from
+# main 71d583c4 (19488928): inherited executable scripts and bounded startup context.
+# Go1.27.2, Linux amd64, CGO disabled, -trimpath, -s -w, version0.0.0.
+# Keep the established 8 KB build allowance.
+# #2106 Augment combined with Antigravity measured 19542176, up 28672
+# from main cb4df9bc (19513504), using the same Linux amd64 release flags.
+# Keep the established 8 KB build allowance.
+# #2106 Cline with Augment and Antigravity measured 19562656, up 49152
+# from main cb4df9bc (19513504), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2106 Devin combined memory measured 19562656, up 49152
+# from main cb4df9bc (19513504), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2106 Trae combined memory measured 19562656, up 20480
+# from main 27cb3ad8 (19542176), using Go1.27.2 Linux amd64 release flags.
+# CGO disabled, -trimpath, -s -w, version0.0.0; retain the 8 KB allowance.
+# #2165 measured 19587232 on Go1.27.2, up 16384 from main 8e2f291a
+# (19570848): agent TOML keeps nested booleans, arrays of tables, quoted
+# keys, and names the values it leaves out. Same Linux amd64 release
+# flags; retain the 8 KB allowance.
+# #2155 measured 19603616 on Go1.27.2, up 16384 from main 7efb85b9
+# (19587232): OpenCode and Devin write grants for the shared handoff store,
+# with ownership checks for hand-written and tracked config. Same Linux
+# amd64 release flags; retain the 8 KB allowance.
+# #2175 measured 19615904 on Go1.27.2, up 4096 from main 4a846b4b
+# (19611808): OpenCode permission keys are claimed per tool, and a
+# replaced hand key is backed up. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2179 measured 19640480 on Go1.27.2, up 16384 from main ba45a3f8
+# (19624096): one cached Git layout and file lookup per run instead of
+# repeated git processes. Same Linux amd64 release flags; retain the
+# 8 KB allowance.
+# #2184 measured 19632288 on Go1.27.2, up 8192 from main 038fdee4
+# (19624096): Devin permission lists are claimed per rule. Same Linux
+# amd64 release flags; retain the 8 KB allowance.
+# Combined with #2179 and #2181, #2184 measured 19656864; retain the 8 KB allowance.
+# #2183 measured 19652768 on Go1.27.2, up 4096 from main: built-in specs
+# leave .sync-state alone and the summary names only configured targets.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+# Combined with #2184, #2183 measured 19660960; retain the 8 KB allowance.
+# #2186 measured 19689632 on Go1.27.2, up 32768 from main 038fdee4 and
+# #2184 (19656864): import drops the writable roots sync grants and edits
+# Codex overlays in place. Same Linux amd64 release flags; retain the
+# 8 KB allowance.
+# Combined with #2183, #2186 measured 19697824; retain the 8 KB allowance.
+# #2187 measured 19738784 on Go1.27.2, up 40960 from main fbcf93e5
+# (19697824): the Ellipsis review target, its import, and the x-ellipsis
+# settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2196 review fixes measured 19742880, up 4096: the import keeps every
+# ellipsis key, a broken reviewer keeps the deployed file, and previews show
+# on_pass. Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2188 measured 19857568 on Go1.27.2, up 114688 from main 610ad66c
+# (19742880): the Ellipsis environment and MCP output, its import, and the
+# settings checks. Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2204 measured 19869856 on Go1.27.2, up 8192 from main b9f4806c
+# (19861664): the sync summary counts a shared entry-point file for each
+# target that reads it. Same Linux amd64 release flags; retain the 8 KB
+# allowance.
+# #2252 measured 19882144 on Go1.27.2, up 8192 from main 8b5ac293
+# (19873952): Copilot sets chat.useAgentsMdFile in .vscode/settings.json and notes a double load. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2236 measured 19923104 on Go1.27.2, up 40960 from main b38b1b72
+# (19882144): OpenCode restricted agents replay the project rules and
+# defaults per listed tool, read back the planned opencode.json, and match
+# ask and deny rules regardless of case. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2250 measured 19947680 on Go1.27.2, up 24576 from main ca6776ae
+# (19923104): rules read paths as a scope, and inlined scoped rules carry and import an Applies to line. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2251 measured 19959968 on Go1.27.2, up 12288 from main 77792f6a
+# (19947680): bun bootstrap, devEngines parsing, and hooks that name the right install. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2254 measured 20013216 on Go1.27.2, up 53248 from main bfddcf0e
+# (19959968): Kilo restricted agents replay the project rules and Kilo defaults per listed tool, read back the planned kilo.jsonc, and map Write to edit. Same Linux amd64 release flags;
+# retain the 8 KB allowance.
+# #2264 measured 20029600 on Go1.27.2, up 8192 from main 2e5866a6
+# (20021408): prefer-spec names the target whose version each shared file takes.
+# Same Linux amd64 release flags; retain the 8 KB allowance.
+# #2259 measured 20050080 on Go 1.27.2, up 45056 from main 0ad5df49
+# (20005024): global Claude permissions import, managed rule merging,
+# shape validation and credential safeguards. Same Linux amd64 release
+# flags; retain the current 32 KB headroom. No new dependencies.
+# #1998 measured 21160096 on Go 1.27.2: `view` and `serve` add the
+# Authority and overview packages (249 KB of symbols) and reach the
+# server half of net/http for the first time (221 KB), plus the JSON
+# type metadata of the view contracts. Same release flags, no new module
+# dependencies; keep the 32 KB headroom.
+21192864
