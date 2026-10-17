@@ -27,6 +27,7 @@ export type Effect =
 
 export type Resolution =
   | 'translated'
+  | 'translated-unverified'
   | 'hook'
   | 'not-expressed'
   | 'agent-scope'
@@ -86,6 +87,8 @@ export type UncertaintyCode =
   | 'secret-read-unknown'
   | 'alternate-route-not-modeled'
   | 'installed-not-checked'
+  | 'root-not-filesystem'
+  | 'target-matching-unverified'
   | (string & {})
 
 export interface Source {
@@ -260,6 +263,8 @@ export interface Operation {
   resolution: Resolution
   native?: string[]
   installed: InstalledStateValue
+  /** True when the effect describes what the tool would do once synced (installed is stale, not-generated, or not-checked). Word it conditionally. */
+  hypothetical: boolean
   runtime: 'not-observed'
   decided?: Grant
   grants: Grant[]
@@ -382,7 +387,9 @@ export interface EffectChange {
   declaredAfter: Effect
   effectiveBefore: Effect
   effectiveAfter: Effect
-  direction: 'widened' | 'narrowed' | 'moved'
+  /** Only known orders are ranked: allowed over ask over denied (unavailable counts as denied). Any default or unresolved side is indeterminate. */
+  direction: 'widened' | 'narrowed' | 'moved' | 'indeterminate'
+  reason?: string
 }
 
 export interface ImpactSummary {
@@ -390,6 +397,7 @@ export interface ImpactSummary {
   widened: number
   narrowed: number
   moved: number
+  indeterminate: number
 }
 
 export interface FileDiff {
