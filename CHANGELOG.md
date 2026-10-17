@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `view authority` shows what each agent may do on each coding tool, with the rule, file, and tool state behind every decision; `view overview` summarises the harness and lists evidence-backed findings; `serve` hosts both as versioned JSON for the web client under `ui/` (#1323).
 - The homepage opens with one source note syncing into the file each tool reads, places the symlink answer beside the video, and the documentation index drops the retired talk demo.
 - Target audits resume completed local research after fresh source verification and reject changed evidence or research inputs (#2280).
 - Target audits record stage intervals, review routing, and known triage usage, preserving unknown measurements (#2278).

@@ -1,0 +1,255 @@
+package cli
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/overview"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+// writeBareReadProject writes a claude project whose only spec allows
+// the bare read capability, which LINT038 reports.
+func writeBareReadProject(t *testing.T, dir string) {
+	t.Helper()
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read]\n")
+}
+
+func driftByPath(t *testing.T, findings []overview.Finding) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, f := range findings {
+		if f.Source != overview.SourceDrift {
+			continue
+		}
+		if f.Target != "claude" {
+			t.Errorf("drift finding for %q, want claude: %+v", f.Target, f)
+		}
+		out[f.Path] = f.Message
+	}
+	return out
+}
+
+func TestCollectFindings_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeBareReadProject(t, dir)
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	findings := collectFindings(".", cfg, b)
+
+	var bare []overview.Finding
+	for _, f := range findings {
+		if f.Source == overview.SourceLint && f.Code == "LINT038" {
+			bare = append(bare, f)
+		}
+	}
+	if len(bare) != 1 {
+		t.Fatalf("LINT038 findings = %+v, all = %+v", bare, findings)
+	}
+	if bare[0].Path != ".agnostic-ai/settings/permissions.yaml" || !strings.Contains(bare[0].Message, "bare read") || bare[0].Severity != "warn" {
+		t.Errorf("LINT038 finding = %+v", bare[0])
+	}
+	if bare[0].Explanation != lintCodes["LINT038"].Cause {
+		t.Errorf("explanation = %q, want the explain cause", bare[0].Explanation)
+	}
+	drift := driftByPath(t, findings)
+	for _, path := range []string{".claude/settings.json", "CLAUDE.md"} {
+		if drift[path] != driftNotGenerated {
+			t.Errorf("drift[%s] = %q, want %q (all drift: %v)", path, drift[path], driftNotGenerated, drift)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude")); !os.IsNotExist(err) {
+		t.Errorf("collecting findings wrote .claude: %v", err)
+	}
+}
+
+func TestCollectFindings_LeavesNoWarningOrNoteBuffered(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	// Claude Code reads no review spec, so rendering it raises a
+	// capability warning.
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "reviews", "checklist.md"), "---\nname: checklist\ndescription: Check the diff.\n---\n\nCheck the diff against the intent.\n")
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	buffered := adapters.PendingCapabilityWarningsCount() + adapters.PendingCoverageNotesCount()
+
+	collectFindings(".", cfg, b)
+
+	if n := adapters.PendingCapabilityWarningsCount() + adapters.PendingCoverageNotesCount(); n != buffered {
+		t.Errorf("collecting findings changed the buffered warnings and notes from %d to %d", buffered, n)
+	}
+}
+
+func TestCollectFindings_ReportsAHandEditedFileAsStale(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	captureLogOut(t)
+	writeBareReadProject(t, dir)
+	if err := runSyncOnce(dir, nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if drift := driftByPath(t, collectFindings(".", cfg, b)); len(drift) != 0 {
+		t.Fatalf("drift right after sync = %v", drift)
+	}
+	mustWrite(t, filepath.Join(dir, ".claude", "settings.json"), "{}\n")
+
+	drift := driftByPath(t, collectFindings(".", cfg, b))
+	if len(drift) != 1 || drift[".claude/settings.json"] != driftStale {
+		t.Errorf("drift = %v, want only .claude/settings.json stale", drift)
+	}
+}
+
+func TestOverviewInputs_BuildsTheSnapshotFromTheProject(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeBareReadProject(t, dir)
+
+	in, err := overviewInputs(".", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := in.Snapshot
+	if !regexp.MustCompile(`^[0-9a-f]{12}$`).MatchString(snap.Revision) {
+		t.Errorf("revision = %q, want 12 hex digits", snap.Revision)
+	}
+	if snap.Project.Name != filepath.Base(dir) || snap.Project.Root != "." {
+		t.Errorf("project = %+v", snap.Project)
+	}
+	if !slices.Equal(snap.Targets, []string{"claude"}) || !slices.Equal(snap.ConfigFiles, []string{"agnostic-ai.yaml"}) {
+		t.Errorf("targets = %v, config files = %v", snap.Targets, snap.ConfigFiles)
+	}
+	if len(snap.Specs) != 1 || snap.Specs[0].Path != ".agnostic-ai/settings/permissions.yaml" || snap.Specs[0].Kind != "settings" || snap.Specs[0].Layer != "project" {
+		t.Errorf("specs = %+v", snap.Specs)
+	}
+	if snap.Evidence.Declared != "loaded" || snap.Evidence.Installed != "checked" || snap.Evidence.Runtime != "not-observed" || !strings.Contains(snap.Evidence.Note, "claude") {
+		t.Errorf("evidence = %+v", snap.Evidence)
+	}
+	if in.Cfg == nil || len(in.Bundle.Settings) != 1 || len(in.Findings) == 0 {
+		t.Errorf("inputs = %+v", in)
+	}
+	if in.Authority == nil || in.Authority.Snapshot.Revision != snap.Revision || in.Authority.Harness.Target != "claude" {
+		t.Errorf("authority = %+v, want the session view on claude at the overview's revision %s", in.Authority, snap.Revision)
+	}
+
+	again, err := overviewInputs(dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Snapshot.Revision != snap.Revision {
+		t.Errorf("revision changed with nothing edited: %s, %s", snap.Revision, again.Snapshot.Revision)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read(src/**)]\n")
+	edited, err := overviewInputs(".", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edited.Snapshot.Revision == snap.Revision {
+		t.Errorf("revision %s survived a spec edit", snap.Revision)
+	}
+}
+
+func TestOverviewInputs_RefusesARootOtherThanTheWorkingDirectory(t *testing.T) {
+	testutil.TempCwd(t)
+	other := t.TempDir()
+	writeBareReadProject(t, other)
+	if _, err := overviewInputs(other, nil); err == nil || !strings.Contains(err.Error(), "not the working directory") {
+		t.Errorf("err = %v, want a refusal naming the working directory", err)
+	}
+}
+
+func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeBareReadProject(t, dir)
+	h := newOverviewHandler(".")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, overview.OverviewPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	var view overview.View
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatal(err)
+	}
+	var security, drift bool
+	for _, c := range view.Feed {
+		security = security || (c.Code == "LINT038" && c.Priority == overview.PrioritySecurity)
+		drift = drift || (c.Source == overview.SourceDrift && c.Title == "Claude Code runs on stale generated configuration")
+	}
+	if !security || !drift {
+		t.Errorf("feed = %+v, want the LINT038 security card and the claude drift card", view.Feed)
+	}
+}
+
+func TestNewOverviewHandler_FeedCarriesTheAuthorityViewsCards(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
+	h := newOverviewHandler(".")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, overview.FeedPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	var feed overview.FeedView
+	if err := json.Unmarshal(rec.Body.Bytes(), &feed); err != nil {
+		t.Fatal(err)
+	}
+	var shell *overview.Card
+	for i := range feed.Feed {
+		if feed.Feed[i].Source == overview.SourceAuthority && feed.Feed[i].Kind == overview.CardDecision {
+			shell = &feed.Feed[i]
+		}
+	}
+	if shell == nil {
+		t.Fatalf("feed = %+v, want the Authority view's shell decision card", feed.Feed)
+	}
+	if shell.Title != "Any shell command would be permitted without asking once synced" {
+		t.Errorf("title = %q, want the conditional wording: nothing is generated yet", shell.Title)
+	}
+	var propose *overview.CardAction
+	for i := range shell.Actions {
+		if shell.Actions[i].Kind == overview.ActionPropose {
+			propose = &shell.Actions[i]
+		}
+	}
+	if propose == nil || propose.Proposal == nil || propose.Proposal.Revision != feed.Snapshot.Revision {
+		t.Errorf("propose = %+v, want a proposal at the feed's own revision %s", propose, feed.Snapshot.Revision)
+	}
+}
+
+func TestCompareInstalled_PresentBesideMissingIsNotInSync(t *testing.T) {
+	testutil.TempCwd(t)
+	mustWrite(t, "a.txt", "same\n")
+	state, err := compareInstalled([]adapters.CapturedFile{{Path: "a.txt", Content: "same\n"}, {Path: "b.txt", Content: "missing\n"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.State != authority.InstalledStale {
+		t.Errorf("state = %s, want stale: one generated file is missing", state.State)
+	}
+	want := []authority.InstalledFile{{Path: "a.txt", State: authority.InstalledInSync}, {Path: "b.txt", State: authority.InstalledNotGenerated}}
+	if !reflect.DeepEqual(state.Files, want) {
+		t.Errorf("files = %+v, want %+v", state.Files, want)
+	}
+}

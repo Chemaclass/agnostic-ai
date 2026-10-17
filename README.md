@@ -71,7 +71,7 @@ agnostic-ai why AGENTS.md  # trace an output to its source
 agnostic-ai doctor --fix   # repair generated files
 ```
 
-The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers import, compare, explain, upgrade, and the other commands.
+The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers import, compare, explain, upgrade, view, serve, and the other commands.
 
 ## What you can share
 
