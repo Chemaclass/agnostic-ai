@@ -77,7 +77,7 @@ func TestSync_BareCapabilitiesWarnOnceEveryRunAndHonorSilent(t *testing.T) {
 		}
 	}
 	log.Reset()
-	warnBareCapabilities(&config.Config{OnUnsupported: "silent"}, spec.Bundle{Settings: []spec.Entry{{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell"}}}}}}, []string{"claude"})
+	warnBareCapabilitiesTo(logOut, &config.Config{OnUnsupported: "silent"}, spec.Bundle{Settings: []spec.Entry{{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell"}}}}}}, []string{"claude"})
 	if log.Len() != 0 {
 		t.Errorf("silent = %s", log.String())
 	}
@@ -101,7 +101,7 @@ func TestWarnBareCapabilities_QuietSuppressesSyncOnly(t *testing.T) {
 	verbosity = levelQuiet
 	t.Cleanup(func() { verbosity = old })
 	b := spec.Bundle{Settings: []spec.Entry{{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell"}}}}}}
-	warnBareCapabilities(&config.Config{}, b, []string{"claude"})
+	warnBareCapabilitiesTo(logOut, &config.Config{}, b, []string{"claude"})
 	if log.Len() != 0 {
 		t.Errorf("quiet = %s", log.String())
 	}
