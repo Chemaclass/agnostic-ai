@@ -1,0 +1,4230 @@
+{
+  "schemaVersion": "authority/v1",
+  "snapshot": {
+    "revision": "4d1c9a7e0b52",
+    "generatedAt": "2026-10-17T09:30:00Z",
+    "project": {
+      "root": "/workspace/demo-project",
+      "name": "demo-project"
+    },
+    "targets": [
+      "claude",
+      "codex",
+      "cursor"
+    ],
+    "configFiles": [
+      "agnostic-ai.yaml"
+    ],
+    "specs": [
+      {
+        "kind": "agent",
+        "name": "coding-agent",
+        "path": ".agnostic-ai/agents/coding-agent.md",
+        "layer": "project"
+      },
+      {
+        "kind": "agent",
+        "name": "data-analyst",
+        "path": ".agnostic-ai/agents/data-analyst.md",
+        "layer": "project"
+      },
+      {
+        "kind": "agent",
+        "name": "reviewer",
+        "path": ".agnostic-ai/agents/reviewer.md",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "analytics-db",
+        "path": ".agnostic-ai/mcps/analytics-db.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "github",
+        "path": ".agnostic-ai/mcps/github.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "railway",
+        "path": ".agnostic-ai/mcps/railway.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "workspace-files",
+        "path": ".agnostic-ai/mcps/workspace-files.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "rule",
+        "name": "testing",
+        "path": ".agnostic-ai/rules/testing.md",
+        "layer": "project"
+      },
+      {
+        "kind": "settings",
+        "name": "permissions",
+        "path": ".agnostic-ai/settings/permissions.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "settings",
+        "name": "protected",
+        "path": ".agnostic-ai/settings/protected.yaml",
+        "layer": "project"
+      }
+    ],
+    "evidence": {
+      "declared": "loaded",
+      "installed": "checked",
+      "runtime": "not-observed",
+      "note": "Declared state comes from the specs loaded at generation time. Installed state compares the files sync would write with disk. Runtime enforcement is never observed."
+    }
+  },
+  "harness": {
+    "target": "claude",
+    "label": "Claude Code",
+    "available": [
+      {
+        "target": "claude",
+        "label": "Claude Code"
+      },
+      {
+        "target": "codex",
+        "label": "Codex"
+      },
+      {
+        "target": "cursor",
+        "label": "Cursor"
+      }
+    ],
+    "identity": {
+      "kind": "local-process",
+      "description": "Claude Code runs as your local user. MCP servers receive the credentials their specs reference from the environment the tool starts in."
+    },
+    "installed": {
+      "state": "not-generated",
+      "files": [
+        {
+          "path": ".claude/settings.json",
+          "state": "not-generated"
+        },
+        {
+          "path": ".mcp.json",
+          "state": "not-generated"
+        },
+        {
+          "path": ".claude/agents/coding-agent.md",
+          "state": "not-generated"
+        }
+      ],
+      "checkedAt": "2026-10-17T09:30:00Z"
+    },
+    "permissionSupport": "native-rules",
+    "note": "Claude Code writes allow, ask, and deny rules natively; protected paths become ask rules."
+  },
+  "agent": {
+    "id": "coding-agent",
+    "label": "Coding agent",
+    "description": "Implements features and ships them to staging.",
+    "kind": "agent",
+    "source": {
+      "path": ".agnostic-ai/agents/coding-agent.md",
+      "layer": "project",
+      "line": 1
+    },
+    "toolScope": {
+      "mode": "listed",
+      "field": "can",
+      "declared": [
+        "read",
+        "edit",
+        "shell(go test *)",
+        "shell(git *)",
+        "mcp:github",
+        "mcp:railway",
+        "web"
+      ],
+      "capabilities": [
+        "read",
+        "edit",
+        "shell(go test *)",
+        "shell(git *)",
+        "mcp:github",
+        "mcp:railway",
+        "web"
+      ]
+    },
+    "readonly": false,
+    "mcpServers": {
+      "mode": "listed",
+      "names": [
+        "github",
+        "railway"
+      ]
+    }
+  },
+  "agents": [
+    {
+      "id": "session",
+      "label": "Tool session (no agent)",
+      "description": "The coding tool's own session, with no agent narrowing.",
+      "kind": "session"
+    },
+    {
+      "id": "coding-agent",
+      "label": "Coding agent",
+      "description": "Implements features and ships them to staging.",
+      "kind": "agent"
+    },
+    {
+      "id": "data-analyst",
+      "label": "Data analyst",
+      "description": "Answers questions from the reporting schema.",
+      "kind": "agent"
+    },
+    {
+      "id": "reviewer",
+      "label": "Reviewer",
+      "description": "Reviews pull requests without changing files.",
+      "kind": "agent"
+    }
+  ],
+  "domains": [
+    {
+      "id": "source-control",
+      "label": "Source Code & Version Control",
+      "description": "Repositories, branches, pull requests, and code review.",
+      "examples": [
+        "GitHub",
+        "GitLab",
+        "Bitbucket"
+      ],
+      "order": 1,
+      "providerIds": [
+        "mcp-github"
+      ],
+      "resourceIds": [
+        "mcp-github-scope"
+      ],
+      "summary": {
+        "allowed": 3,
+        "ask": 1,
+        "denied": 0,
+        "unavailable": 0,
+        "default": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "cloud-deployment",
+      "label": "Cloud Infrastructure & Deployment",
+      "description": "Hosting platforms, deployments, services, and their configuration.",
+      "examples": [
+        "Railway",
+        "Vercel",
+        "AWS",
+        "Fly.io"
+      ],
+      "order": 2,
+      "providerIds": [
+        "mcp-railway"
+      ],
+      "resourceIds": [
+        "mcp-railway-scope"
+      ],
+      "summary": {
+        "allowed": 2,
+        "ask": 1,
+        "denied": 1,
+        "unavailable": 0,
+        "default": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "data-storage",
+      "label": "Data & Storage",
+      "description": "Databases, warehouses, object storage, and the queries that reach them.",
+      "examples": [
+        "PostgreSQL",
+        "BigQuery",
+        "S3"
+      ],
+      "order": 3,
+      "providerIds": [
+        "mcp-analytics-db"
+      ],
+      "resourceIds": [
+        "mcp-analytics-db-scope"
+      ],
+      "summary": {
+        "allowed": 0,
+        "ask": 0,
+        "denied": 0,
+        "unavailable": 2,
+        "default": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "filesystem-execution",
+      "label": "Files & Local Execution",
+      "description": "Project files, shell commands, and anything the tool runs on this machine.",
+      "examples": [
+        "Project files",
+        "Shell",
+        "Filesystem servers"
+      ],
+      "order": 4,
+      "providerIds": [
+        "local-files",
+        "shell",
+        "mcp-workspace-files"
+      ],
+      "resourceIds": [
+        "files-all",
+        "files-src",
+        "files-env",
+        "files-github",
+        "files-migrations",
+        "shell-any",
+        "shell-go-test",
+        "shell-git-status",
+        "shell-git-diff",
+        "shell-git-push",
+        "shell-rm",
+        "mcp-workspace-files-root-1"
+      ],
+      "summary": {
+        "allowed": 9,
+        "ask": 3,
+        "denied": 1,
+        "unavailable": 3,
+        "default": 1,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "web-browser",
+      "label": "Web & Browser",
+      "description": "Fetching pages, searching the web, and driving a browser.",
+      "examples": [
+        "Web fetch",
+        "Web search",
+        "Browser automation"
+      ],
+      "order": 5,
+      "providerIds": [
+        "web"
+      ],
+      "resourceIds": [
+        "web-all"
+      ],
+      "summary": {
+        "allowed": 0,
+        "ask": 0,
+        "denied": 0,
+        "unavailable": 0,
+        "default": 2,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "communication",
+      "label": "Communication & Collaboration",
+      "description": "Chat, email, issue trackers, and documents shared with people.",
+      "examples": [
+        "Slack",
+        "Linear",
+        "Gmail"
+      ],
+      "order": 6,
+      "providerIds": [],
+      "resourceIds": [],
+      "summary": {
+        "allowed": 0,
+        "ask": 0,
+        "denied": 0,
+        "unavailable": 0,
+        "default": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "secrets-identity",
+      "label": "Secrets & Identity",
+      "description": "Credentials the configuration references by name, and who the tool acts as.",
+      "examples": [
+        "API tokens",
+        "Connection strings",
+        "Local identity"
+      ],
+      "order": 7,
+      "providerIds": [],
+      "resourceIds": [],
+      "summary": {
+        "allowed": 0,
+        "ask": 0,
+        "denied": 0,
+        "unavailable": 0,
+        "default": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "id": "ai-agent-ops",
+      "label": "AI & Agent Operations",
+      "description": "Other agents, model providers, and servers no curated domain covers.",
+      "examples": [
+        "Model APIs",
+        "Agent platforms",
+        "Unknown servers"
+      ],
+      "order": 8,
+      "providerIds": [],
+      "resourceIds": [],
+      "summary": {
+        "allowed": 0,
+        "ask": 0,
+        "denied": 0,
+        "unavailable": 0,
+        "default": 0,
+        "unresolved": 0
+      }
+    }
+  ],
+  "providers": [
+    {
+      "id": "local-files",
+      "label": "Local files",
+      "description": "Files in the project tree, read and edited by the coding tool itself.",
+      "kind": "builtin",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "domainResolution": "builtin",
+      "status": "configured",
+      "resourceIds": [
+        "files-all",
+        "files-src",
+        "files-env",
+        "files-github",
+        "files-migrations"
+      ],
+      "secretIds": [],
+      "resourceCoverage": "complete",
+      "coverageNote": "Every file resource comes from a rule pattern."
+    },
+    {
+      "id": "shell",
+      "label": "Shell",
+      "description": "Commands the coding tool runs in a local shell.",
+      "kind": "builtin",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "domainResolution": "builtin",
+      "status": "configured",
+      "resourceIds": [
+        "shell-any",
+        "shell-go-test",
+        "shell-git-status",
+        "shell-git-diff",
+        "shell-git-push",
+        "shell-rm"
+      ],
+      "secretIds": [],
+      "resourceCoverage": "complete",
+      "coverageNote": "Every command resource comes from a rule pattern; \"Any other command\" covers the rest."
+    },
+    {
+      "id": "mcp-workspace-files",
+      "label": "Workspace files",
+      "description": "Read-only access to the documentation folder through a filesystem server.",
+      "kind": "mcp",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "domainResolution": "curated",
+      "status": "unavailable-to-agent",
+      "transport": {
+        "type": "stdio",
+        "endpoint": "npx -y @modelcontextprotocol/server-filesystem /workspace/demo-project/docs"
+      },
+      "source": {
+        "path": ".agnostic-ai/mcps/workspace-files.yaml",
+        "layer": "project",
+        "line": 1
+      },
+      "resourceIds": [
+        "mcp-workspace-files-root-1"
+      ],
+      "secretIds": [],
+      "resourceCoverage": "declared",
+      "coverageNote": "One file root is declared. MCP roots are informational guidance for the server, not access control."
+    },
+    {
+      "id": "web",
+      "label": "Web",
+      "description": "Fetching pages and searching the web from the coding tool.",
+      "kind": "builtin",
+      "domainIds": [
+        "web-browser"
+      ],
+      "domainResolution": "builtin",
+      "status": "configured",
+      "resourceIds": [
+        "web-all"
+      ],
+      "secretIds": [],
+      "resourceCoverage": "complete"
+    },
+    {
+      "id": "mcp-github",
+      "label": "GitHub",
+      "description": "GitHub repositories, pull requests, and issues.",
+      "kind": "mcp",
+      "domainIds": [
+        "source-control"
+      ],
+      "domainResolution": "curated",
+      "status": "configured",
+      "transport": {
+        "type": "http",
+        "endpoint": "https://api.githubcopilot.com/mcp/"
+      },
+      "source": {
+        "path": ".agnostic-ai/mcps/github.yaml",
+        "layer": "project",
+        "line": 1
+      },
+      "resourceIds": [
+        "mcp-github-scope"
+      ],
+      "secretIds": [
+        "secret-github-token"
+      ],
+      "resourceCoverage": "undeclared",
+      "coverageNote": "The spec declares no file roots; what GITHUB_TOKEN reaches is not inspected."
+    },
+    {
+      "id": "mcp-railway",
+      "label": "Railway",
+      "description": "Railway projects, services, and deployments.",
+      "kind": "mcp",
+      "domainIds": [
+        "cloud-deployment"
+      ],
+      "domainResolution": "curated",
+      "status": "configured",
+      "transport": {
+        "type": "http",
+        "endpoint": "https://mcp.railway.app/mcp"
+      },
+      "source": {
+        "path": ".agnostic-ai/mcps/railway.yaml",
+        "layer": "project",
+        "line": 1
+      },
+      "resourceIds": [
+        "mcp-railway-scope"
+      ],
+      "secretIds": [
+        "secret-railway-token"
+      ],
+      "resourceCoverage": "undeclared",
+      "coverageNote": "The spec declares no file roots; what RAILWAY_TOKEN reaches is not inspected."
+    },
+    {
+      "id": "mcp-analytics-db",
+      "label": "Analytics database",
+      "description": "Read-only reporting schema of the staging PostgreSQL database.",
+      "kind": "mcp",
+      "domainIds": [
+        "data-storage"
+      ],
+      "domainResolution": "curated",
+      "status": "unavailable-to-agent",
+      "transport": {
+        "type": "stdio",
+        "endpoint": "npx -y @modelcontextprotocol/server-postgres ${ANALYTICS_DATABASE_URL}"
+      },
+      "source": {
+        "path": ".agnostic-ai/mcps/analytics-db.yaml",
+        "layer": "project",
+        "line": 1
+      },
+      "resourceIds": [
+        "mcp-analytics-db-scope"
+      ],
+      "secretIds": [
+        "secret-analytics-database-url"
+      ],
+      "resourceCoverage": "undeclared",
+      "coverageNote": "The spec declares no file roots; what ANALYTICS_DATABASE_URL reaches is not inspected."
+    }
+  ],
+  "resources": [
+    {
+      "id": "files-all",
+      "label": "All project files",
+      "description": "Every file under the project root.",
+      "kind": "file-pattern",
+      "providerId": "local-files",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "**"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "matches": {
+        "count": 9,
+        "samples": [
+          "agnostic-ai.yaml",
+          ".github/workflows/ci.yml",
+          "migrations/001_init.sql",
+          "src/api/server.go",
+          "src/worker/worker.go"
+        ],
+        "truncated": true
+      },
+      "operations": [
+        {
+          "id": "files-all:read",
+          "action": "read",
+          "label": "Read files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Read"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "read",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 3
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "read",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 3
+              },
+              "wins": true
+            },
+            {
+              "rule": "read",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes read.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Read"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "unresolved",
+              "native": [
+                "Read(**)"
+              ],
+              "note": "Written, but Cursor's documentation does not state how Read patterns match."
+            }
+          ],
+          "explanation": "The allow rule read covers every project file, and Claude Code writes it as Read. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "files-all:edit",
+          "action": "edit",
+          "label": "Edit files",
+          "declared": "default",
+          "effect": "default",
+          "resolution": "no-rule",
+          "installed": "not-applicable",
+          "hypothetical": false,
+          "runtime": "not-observed",
+          "grants": [
+            {
+              "rule": "edit",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes edit; no settings rule decides edits outside src/.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git checkout or git apply can change files outside this rule; no settings rule decides them."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "not-applicable",
+              "effect": "default",
+              "note": "No rule: Claude Code asks before an edit by default."
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-applicable",
+              "effect": "default"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-applicable",
+              "effect": "default"
+            }
+          ],
+          "explanation": "No allow, ask, or deny rule covers edits to every project file, so each tool decides with its own default. Narrower rules below decide src/, .env, and the protected paths."
+        }
+      ]
+    },
+    {
+      "id": "files-src",
+      "label": "Files under src/",
+      "description": "Application source code.",
+      "kind": "file-pattern",
+      "providerId": "local-files",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "src/**"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "matches": {
+        "count": 2,
+        "samples": [
+          "src/api/server.go",
+          "src/worker/worker.go"
+        ],
+        "truncated": false
+      },
+      "operations": [
+        {
+          "id": "files-src:read",
+          "action": "read",
+          "label": "Read files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Read"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "read",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 3
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "read",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 3
+              },
+              "wins": true
+            },
+            {
+              "rule": "read",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes read.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Read"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "unresolved",
+              "native": [
+                "Read(**)"
+              ],
+              "note": "Written, but Cursor's documentation does not state how Read patterns match."
+            }
+          ],
+          "explanation": "The allow rule read covers files under src/, and Claude Code writes it as Read. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "files-src:edit",
+          "action": "edit",
+          "label": "Edit files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Edit(src/**)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "edit(src/**)",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 4
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "edit(src/**)",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 4
+              },
+              "wins": true
+            },
+            {
+              "rule": "edit",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes edit.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git checkout or git apply can change files outside this rule; no settings rule decides them."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Edit(src/**)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "unresolved",
+              "native": [
+                "Write(src/**)"
+              ],
+              "note": "Written, but Cursor's documentation does not state how Write patterns match."
+            }
+          ],
+          "explanation": "The allow rule edit(src/**) wins, and Claude Code writes it as Edit(src/**). Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "files-env",
+      "label": ".env",
+      "description": "Local environment file.",
+      "kind": "file-pattern",
+      "providerId": "local-files",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": ".env"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "matches": {
+        "count": 0,
+        "samples": [],
+        "truncated": false
+      },
+      "operations": [
+        {
+          "id": "files-env:read",
+          "action": "read",
+          "label": "Read files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Read"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "read",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 3
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "read",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 3
+              },
+              "wins": true
+            },
+            {
+              "rule": "read",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes read.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Read"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "unresolved",
+              "native": [
+                "Read(**)"
+              ],
+              "note": "Written, but Cursor's documentation does not state how Read patterns match."
+            }
+          ],
+          "explanation": "The allow rule read covers .env, and Claude Code writes it as Read. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "files-env:edit",
+          "action": "edit",
+          "label": "Edit files",
+          "declared": "denied",
+          "effect": "denied",
+          "resolution": "translated",
+          "native": [
+            "Edit(.env)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "edit(.env)",
+            "list": "deny",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 20
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "edit(.env)",
+              "list": "deny",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 20
+              },
+              "wins": true
+            },
+            {
+              "rule": "edit",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes edit; the deny rule wins.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "No file matches .env today; the rule also covers one created later."
+          ],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git checkout or git apply can change files outside this rule; no settings rule decides them."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "denied",
+              "native": [
+                "Edit(.env)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "denied",
+              "native": [
+                "Write(.env)"
+              ]
+            }
+          ],
+          "explanation": "The deny rule edit(.env) wins over the agent's edit capability, and Claude Code writes it as Edit(.env)."
+        }
+      ]
+    },
+    {
+      "id": "files-github",
+      "label": "Files under .github/",
+      "description": "CI workflows.",
+      "kind": "file-pattern",
+      "providerId": "local-files",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": ".github/**"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "matches": {
+        "count": 1,
+        "samples": [
+          ".github/workflows/ci.yml"
+        ],
+        "truncated": false
+      },
+      "operations": [
+        {
+          "id": "files-github:read",
+          "action": "read",
+          "label": "Read files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Read"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "read",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 3
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "read",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 3
+              },
+              "wins": true
+            },
+            {
+              "rule": "read",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes read.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Read"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "unresolved",
+              "native": [
+                "Read(**)"
+              ],
+              "note": "Written, but Cursor's documentation does not state how Read patterns match."
+            }
+          ],
+          "explanation": "The allow rule read covers files under .github/, and Claude Code writes it as Read. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "files-github:edit",
+          "action": "edit",
+          "label": "Edit files",
+          "declared": "ask",
+          "effect": "ask",
+          "resolution": "translated",
+          "native": [
+            "Edit(.github/**)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": ".github/**",
+            "list": "protected",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/protected.yaml",
+              "layer": "project",
+              "line": 3
+            },
+            "note": "Protected path, decision ask: CI workflows and migrations change only after a human review.",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": ".github/**",
+              "list": "protected",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/protected.yaml",
+                "layer": "project",
+                "line": 3
+              },
+              "note": "Protected path, decision ask: CI workflows and migrations change only after a human review.",
+              "wins": true
+            },
+            {
+              "rule": "edit",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes edit; the protected path asks first.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every file under .github/."
+          ],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git checkout or git apply can change files outside this rule; no settings rule decides them."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "ask",
+              "native": [
+                "Edit(.github/**)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "hook",
+              "effect": "ask",
+              "native": [
+                "PreToolUse hook: protect .github/**"
+              ],
+              "note": "A generated hook asks before edits to protected paths."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor CLI permissions have no ask list; the CLI prompts before anything no allow rule covers."
+            }
+          ],
+          "explanation": ".github/** is a protected path with decision ask, and Claude Code writes it as an ask rule. Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "files-migrations",
+      "label": "Files under migrations/",
+      "description": "Database migrations.",
+      "kind": "file-pattern",
+      "providerId": "local-files",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "migrations/**"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "matches": {
+        "count": 1,
+        "samples": [
+          "migrations/001_init.sql"
+        ],
+        "truncated": false
+      },
+      "operations": [
+        {
+          "id": "files-migrations:read",
+          "action": "read",
+          "label": "Read files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Read"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "read",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 3
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "read",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 3
+              },
+              "wins": true
+            },
+            {
+              "rule": "read",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes read.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Read"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "unresolved",
+              "native": [
+                "Read(**)"
+              ],
+              "note": "Written, but Cursor's documentation does not state how Read patterns match."
+            }
+          ],
+          "explanation": "The allow rule read covers files under migrations/, and Claude Code writes it as Read. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "files-migrations:edit",
+          "action": "edit",
+          "label": "Edit files",
+          "declared": "ask",
+          "effect": "ask",
+          "resolution": "translated",
+          "native": [
+            "Edit(migrations/**)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "migrations/**",
+            "list": "protected",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/protected.yaml",
+              "layer": "project",
+              "line": 4
+            },
+            "note": "Protected path, decision ask: CI workflows and migrations change only after a human review.",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "migrations/**",
+              "list": "protected",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/protected.yaml",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "Protected path, decision ask: CI workflows and migrations change only after a human review.",
+              "wins": true
+            },
+            {
+              "rule": "edit",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes edit; the protected path asks first.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every file under migrations/."
+          ],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git checkout or git apply can change files outside this rule; no settings rule decides them."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "ask",
+              "native": [
+                "Edit(migrations/**)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "hook",
+              "effect": "ask",
+              "native": [
+                "PreToolUse hook: protect migrations/**"
+              ],
+              "note": "A generated hook asks before edits to protected paths."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor CLI permissions have no ask list; the CLI prompts before anything no allow rule covers."
+            }
+          ],
+          "explanation": "migrations/** is a protected path with decision ask, and Claude Code writes it as an ask rule. Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "shell-any",
+      "label": "Any other command",
+      "description": "Commands no shell rule names.",
+      "kind": "command-pattern",
+      "providerId": "shell",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "*"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "shell-any:run",
+          "action": "run",
+          "label": "Run commands",
+          "declared": "unavailable",
+          "effect": "unavailable",
+          "resolution": "agent-scope",
+          "native": [
+            "Agent tools: Bash(go test *), Bash(git *)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "can: [read, edit, shell(go test *), shell(git *), mcp:github, mcp:railway, web]",
+            "list": "can",
+            "scope": "agent",
+            "source": {
+              "path": ".agnostic-ai/agents/coding-agent.md",
+              "layer": "project",
+              "line": 4
+            },
+            "note": "The can list names only go test and git commands.",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "can: [read, edit, shell(go test *), shell(git *), mcp:github, mcp:railway, web]",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The can list names only go test and git commands.",
+              "wins": true
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "unavailable",
+              "native": [
+                "Agent tools: Bash(go test *), Bash(git *)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex agents carry no tool list."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor agents carry no tool list."
+            }
+          ],
+          "explanation": "The coding agent's can list names only go test and git commands, so any other command is outside its scope on Claude Code."
+        }
+      ]
+    },
+    {
+      "id": "shell-go-test",
+      "label": "go test",
+      "description": "Runs the project tests.",
+      "kind": "command-pattern",
+      "providerId": "shell",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "go test:*"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "shell-go-test:run",
+          "action": "run",
+          "label": "Run",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Bash(go test:*)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "shell(go test:*)",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 5
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "shell(go test:*)",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 5
+              },
+              "wins": true
+            },
+            {
+              "rule": "shell(go test *)",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes shell(go test *).",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Bash(go test:*)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor Shell rules match the first word only, so a multi-word rule would widen and is not written."
+            }
+          ],
+          "explanation": "The allow rule shell(go test:*) wins, and Claude Code writes it as Bash(go test:*). Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "shell-git-status",
+      "label": "git status",
+      "description": "Shows the working tree status.",
+      "kind": "command-pattern",
+      "providerId": "shell",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "git status"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "shell-git-status:run",
+          "action": "run",
+          "label": "Run",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Bash(git status)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "shell(git status)",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 6
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "shell(git status)",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 6
+              },
+              "wins": true
+            },
+            {
+              "rule": "shell(git *)",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes shell(git *).",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Bash(git status)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor Shell rules match the first word only, so a multi-word rule would widen and is not written."
+            }
+          ],
+          "explanation": "The allow rule shell(git status) wins, and Claude Code writes it as Bash(git status). Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "shell-git-diff",
+      "label": "git diff",
+      "description": "Shows changes.",
+      "kind": "command-pattern",
+      "providerId": "shell",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "git diff:*"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "shell-git-diff:run",
+          "action": "run",
+          "label": "Run",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "Bash(git diff:*)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "shell(git diff:*)",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 7
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "shell(git diff:*)",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 7
+              },
+              "wins": true
+            },
+            {
+              "rule": "shell(git *)",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes shell(git *).",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Bash(git diff:*)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor Shell rules match the first word only, so a multi-word rule would widen and is not written."
+            }
+          ],
+          "explanation": "The allow rule shell(git diff:*) wins, and Claude Code writes it as Bash(git diff:*). Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "shell-git-push",
+      "label": "git push",
+      "description": "Pushes commits to a remote.",
+      "kind": "command-pattern",
+      "providerId": "shell",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "git push:*"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "shell-git-push:run",
+          "action": "run",
+          "label": "Run",
+          "declared": "ask",
+          "effect": "ask",
+          "resolution": "translated",
+          "native": [
+            "Bash(git push:*)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "shell(git push:*)",
+            "list": "ask",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 15
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "shell(git push:*)",
+              "list": "ask",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 15
+              },
+              "wins": true
+            },
+            {
+              "rule": "shell(git *)",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes shell(git *).",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Approval is asked on every push, to any remote."
+          ],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "ask",
+              "native": [
+                "Bash(git push:*)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor CLI permissions have no ask list; the CLI prompts before anything no allow rule covers."
+            }
+          ],
+          "explanation": "The ask rule shell(git push:*) wins, and Claude Code writes it as Bash(git push:*). Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "shell-rm",
+      "label": "rm",
+      "description": "Removes files.",
+      "kind": "command-pattern",
+      "providerId": "shell",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "pattern": "rm:*"
+      },
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "shell-rm:run",
+          "action": "run",
+          "label": "Run",
+          "declared": "unavailable",
+          "effect": "unavailable",
+          "resolution": "agent-scope",
+          "native": [
+            "Agent tools: Bash(go test *), Bash(git *)"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "can: [read, edit, shell(go test *), shell(git *), mcp:github, mcp:railway, web]",
+            "list": "can",
+            "scope": "agent",
+            "source": {
+              "path": ".agnostic-ai/agents/coding-agent.md",
+              "layer": "project",
+              "line": 4
+            },
+            "note": "The agent's can list does not include shell(rm *).",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "can: [read, edit, shell(go test *), shell(git *), mcp:github, mcp:railway, web]",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list does not include shell(rm *).",
+              "wins": true
+            },
+            {
+              "rule": "shell(rm:*)",
+              "list": "deny",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 19
+              },
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "unavailable",
+              "native": [
+                "Agent tools: Bash(go test *), Bash(git *)"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex agents carry no tool list."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor agents carry no tool list."
+            }
+          ],
+          "explanation": "rm is outside the coding agent's can list, so the route is unavailable to it; the deny rule shell(rm:*) also applies, for every other subject."
+        }
+      ]
+    },
+    {
+      "id": "web-all",
+      "label": "The web",
+      "description": "Any page or search the tool can reach.",
+      "kind": "web",
+      "providerId": "web",
+      "domainIds": [
+        "web-browser"
+      ],
+      "identity": {},
+      "basis": "rule-pattern",
+      "labelResolved": true,
+      "operations": [
+        {
+          "id": "web-all:fetch",
+          "action": "fetch",
+          "label": "Fetch pages",
+          "declared": "default",
+          "effect": "default",
+          "resolution": "no-rule",
+          "installed": "not-applicable",
+          "hypothetical": false,
+          "runtime": "not-observed",
+          "grants": [
+            {
+              "rule": "web",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes web; no settings rule decides it.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "MCP servers that fetch URLs are not evaluated as web routes.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "not-applicable",
+              "effect": "default",
+              "note": "No rule: Claude Code asks before fetching by default."
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-applicable",
+              "effect": "default"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-applicable",
+              "effect": "default"
+            }
+          ],
+          "explanation": "No rule decides fetching pages, so each tool decides with its own default."
+        },
+        {
+          "id": "web-all:search",
+          "action": "search",
+          "label": "Search the web",
+          "declared": "default",
+          "effect": "default",
+          "resolution": "no-rule",
+          "installed": "not-applicable",
+          "hypothetical": false,
+          "runtime": "not-observed",
+          "grants": [
+            {
+              "rule": "web",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes web; no settings rule decides it.",
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "MCP servers that fetch URLs are not evaluated as web routes.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "not-applicable",
+              "effect": "default",
+              "note": "No rule: Claude Code asks before fetching by default."
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-applicable",
+              "effect": "default"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-applicable",
+              "effect": "default"
+            }
+          ],
+          "explanation": "No rule decides web searches, so each tool decides with its own default."
+        }
+      ]
+    },
+    {
+      "id": "mcp-github-scope",
+      "label": "Scope not declared",
+      "kind": "undeclared-scope",
+      "providerId": "mcp-github",
+      "domainIds": [
+        "source-control"
+      ],
+      "identity": {
+        "server": "github"
+      },
+      "basis": "undeclared",
+      "labelResolved": false,
+      "caveat": "The github spec declares no file roots: which repositories GITHUB_TOKEN reaches is not inspected.",
+      "unresolvedReason": "The github spec declares no roots, so the view cannot name what the server reaches.",
+      "operations": [
+        {
+          "id": "mcp-github-scope:get_pull_request",
+          "action": "get_pull_request",
+          "label": "Get pull request",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "mcp__github__get_pull_request"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:github/get_pull_request",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 8
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:github/get_pull_request",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 8
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:github",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every github tool.",
+              "wins": false
+            },
+            {
+              "rule": "github",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes github.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every repository GITHUB_TOKEN reaches; the github spec declares no scope."
+          ],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git fetch reads the same repository; no settings rule decides it."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "mcp__github__get_pull_request"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Mcp(github:get_pull_request)"
+              ]
+            }
+          ],
+          "explanation": "The allow rule mcp:github/get_pull_request wins for the coding agent, and Claude Code writes it as mcp__github__get_pull_request. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "mcp-github-scope:list_pull_request_files",
+          "action": "list_pull_request_files",
+          "label": "List pull request files",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "mcp__github__list_pull_request_files"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:github/list_pull_request_files",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 9
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:github/list_pull_request_files",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 9
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:github",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every github tool.",
+              "wins": false
+            },
+            {
+              "rule": "github",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes github.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every repository GITHUB_TOKEN reaches; the github spec declares no scope."
+          ],
+          "alternateRoutes": [
+            "shell: git (other subcommands): git fetch reads the same repository; no settings rule decides it."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "mcp__github__list_pull_request_files"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Mcp(github:list_pull_request_files)"
+              ]
+            }
+          ],
+          "explanation": "The allow rule mcp:github/list_pull_request_files wins for the coding agent, and Claude Code writes it as mcp__github__list_pull_request_files. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "mcp-github-scope:create_pull_request",
+          "action": "create_pull_request",
+          "label": "Create pull request",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "mcp__github__create_pull_request"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:github/create_pull_request",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 10
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:github/create_pull_request",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 10
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:github",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every github tool.",
+              "wins": false
+            },
+            {
+              "rule": "github",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes github.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every repository GITHUB_TOKEN reaches; the github spec declares no scope."
+          ],
+          "alternateRoutes": [
+            "shell: git push: pushes branches to GitHub with your git credentials, outside the github server; approval required."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git push",
+                "effect": "ask"
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "mcp__github__create_pull_request"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Mcp(github:create_pull_request)"
+              ]
+            }
+          ],
+          "explanation": "The allow rule mcp:github/create_pull_request wins for the coding agent, and Claude Code writes it as mcp__github__create_pull_request. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "mcp-github-scope:merge_pull_request",
+          "action": "merge_pull_request",
+          "label": "Merge pull request",
+          "declared": "ask",
+          "effect": "ask",
+          "resolution": "translated",
+          "native": [
+            "mcp__github__merge_pull_request"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:github/merge_pull_request",
+            "list": "ask",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 17
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:github/merge_pull_request",
+              "list": "ask",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 17
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:github",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every github tool.",
+              "wins": false
+            },
+            {
+              "rule": "github",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes github.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every repository GITHUB_TOKEN reaches; the github spec declares no scope."
+          ],
+          "alternateRoutes": [
+            "shell: git push: pushing to the default branch has the same effect as a merge; approval required."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "shell: git push",
+                "effect": "ask"
+              },
+              {
+                "route": "shell: git (other subcommands)",
+                "effect": "default",
+                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "ask",
+              "native": [
+                "mcp__github__merge_pull_request"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor CLI permissions have no ask list; the CLI prompts before anything no allow rule covers."
+            }
+          ],
+          "explanation": "The ask rule mcp:github/merge_pull_request wins for the coding agent, and Claude Code writes it as mcp__github__merge_pull_request. Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "mcp-railway-scope",
+      "label": "Scope not declared",
+      "kind": "undeclared-scope",
+      "providerId": "mcp-railway",
+      "domainIds": [
+        "cloud-deployment"
+      ],
+      "identity": {
+        "server": "railway"
+      },
+      "basis": "undeclared",
+      "labelResolved": false,
+      "caveat": "The railway spec declares no file roots: which projects and environments RAILWAY_TOKEN reaches is not inspected.",
+      "unresolvedReason": "The railway spec declares no roots, so the view cannot name what the server reaches.",
+      "operations": [
+        {
+          "id": "mcp-railway-scope:deploy",
+          "action": "deploy",
+          "label": "Deploy",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "mcp__railway__deploy"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:railway/deploy",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 11
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:railway/deploy",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 11
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:railway",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every railway tool.",
+              "wins": false
+            },
+            {
+              "rule": "railway",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes railway.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every Railway project and environment RAILWAY_TOKEN reaches, production included; the railway spec declares no scope."
+          ],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "mcp__railway__deploy"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Mcp(railway:deploy)"
+              ]
+            }
+          ],
+          "explanation": "The allow rule mcp:railway/deploy wins for the coding agent, and Claude Code writes it as mcp__railway__deploy. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "mcp-railway-scope:logs",
+          "action": "logs",
+          "label": "Read logs",
+          "declared": "allowed",
+          "effect": "allowed",
+          "resolution": "translated",
+          "native": [
+            "mcp__railway__logs"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:railway/logs",
+            "list": "allow",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 12
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:railway/logs",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 12
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:railway",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every railway tool.",
+              "wins": false
+            },
+            {
+              "rule": "railway",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes railway.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every Railway project and environment RAILWAY_TOKEN reaches, production included; the railway spec declares no scope."
+          ],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "mcp__railway__logs"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "allowed",
+              "native": [
+                "Mcp(railway:logs)"
+              ]
+            }
+          ],
+          "explanation": "The allow rule mcp:railway/logs wins for the coding agent, and Claude Code writes it as mcp__railway__logs. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "mcp-railway-scope:variables",
+          "action": "variables",
+          "label": "Manage variables",
+          "declared": "ask",
+          "effect": "ask",
+          "resolution": "translated",
+          "native": [
+            "mcp__railway__variables"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:railway/variables",
+            "list": "ask",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 16
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:railway/variables",
+              "list": "ask",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 16
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:railway",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every railway tool.",
+              "wins": false
+            },
+            {
+              "rule": "railway",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes railway.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every Railway project and environment RAILWAY_TOKEN reaches, production included; the railway spec declares no scope."
+          ],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "ask",
+              "native": [
+                "mcp__railway__variables"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor CLI permissions have no ask list; the CLI prompts before anything no allow rule covers."
+            }
+          ],
+          "explanation": "The ask rule mcp:railway/variables wins for the coding agent, and Claude Code writes it as mcp__railway__variables. Settings are not generated yet, so this is what Claude Code would do once synced."
+        },
+        {
+          "id": "mcp-railway-scope:delete",
+          "action": "delete",
+          "label": "Delete",
+          "declared": "denied",
+          "effect": "denied",
+          "resolution": "translated",
+          "native": [
+            "mcp__railway__delete"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcp:railway/delete",
+            "list": "deny",
+            "scope": "project",
+            "source": {
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "layer": "project",
+              "line": 21
+            },
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcp:railway/delete",
+              "list": "deny",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 21
+              },
+              "wins": true
+            },
+            {
+              "rule": "mcp:railway",
+              "list": "can",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 4
+              },
+              "note": "The agent's can list includes every railway tool.",
+              "wins": false
+            },
+            {
+              "rule": "railway",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "The agent's mcpServers list includes railway.",
+              "wins": false
+            }
+          ],
+          "conditions": [
+            "Applies to every Railway project and environment RAILWAY_TOKEN reaches, production included; the railway spec declares no scope."
+          ],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "denied",
+              "native": [
+                "mcp__railway__delete"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex receives no allow, ask, or deny rules; its own defaults apply."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "native-rule",
+              "effect": "denied",
+              "native": [
+                "Mcp(railway:delete)"
+              ]
+            }
+          ],
+          "explanation": "The deny rule mcp:railway/delete wins for the coding agent, and Claude Code writes it as mcp__railway__delete. Settings are not generated yet, so this is what Claude Code would do once synced."
+        }
+      ]
+    },
+    {
+      "id": "mcp-analytics-db-scope",
+      "label": "Scope not declared",
+      "kind": "undeclared-scope",
+      "providerId": "mcp-analytics-db",
+      "domainIds": [
+        "data-storage"
+      ],
+      "identity": {
+        "server": "analytics-db"
+      },
+      "basis": "undeclared",
+      "labelResolved": false,
+      "caveat": "The analytics-db spec declares no file roots: which databases and schemas ANALYTICS_DATABASE_URL reaches is not inspected.",
+      "unresolvedReason": "The analytics-db spec declares no roots, so the view cannot name what the server reaches.",
+      "operations": [
+        {
+          "id": "mcp-analytics-db-scope:query",
+          "action": "query",
+          "label": "Query",
+          "declared": "unavailable",
+          "effect": "unavailable",
+          "resolution": "agent-scope",
+          "native": [
+            "Agent mcpServers: github, railway"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcpServers: [github, railway]",
+            "list": "mcpServers",
+            "scope": "agent",
+            "source": {
+              "path": ".agnostic-ai/agents/coding-agent.md",
+              "layer": "project",
+              "line": 5
+            },
+            "note": "analytics-db is not in the coding agent's mcpServers list.",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcpServers: [github, railway]",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "analytics-db is not in the coding agent's mcpServers list.",
+              "wins": true
+            },
+            {
+              "rule": "mcp:analytics-db/query",
+              "list": "allow",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 13
+              },
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "unavailable",
+              "native": [
+                "Agent mcpServers: github, railway"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex agents carry no tool list."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor agents carry no tool list."
+            }
+          ],
+          "explanation": "analytics-db is not in the coding agent's mcpServers list, so the server is unavailable to it even though the project settings allow query."
+        },
+        {
+          "id": "mcp-analytics-db-scope:execute",
+          "action": "execute",
+          "label": "Execute",
+          "declared": "unavailable",
+          "effect": "unavailable",
+          "resolution": "agent-scope",
+          "native": [
+            "Agent mcpServers: github, railway"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcpServers: [github, railway]",
+            "list": "mcpServers",
+            "scope": "agent",
+            "source": {
+              "path": ".agnostic-ai/agents/coding-agent.md",
+              "layer": "project",
+              "line": 5
+            },
+            "note": "analytics-db is not in the coding agent's mcpServers list.",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcpServers: [github, railway]",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "analytics-db is not in the coding agent's mcpServers list.",
+              "wins": true
+            },
+            {
+              "rule": "mcp:analytics-db/execute",
+              "list": "deny",
+              "scope": "project",
+              "source": {
+                "path": ".agnostic-ai/settings/permissions.yaml",
+                "layer": "project",
+                "line": 22
+              },
+              "wins": false
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "unavailable",
+              "native": [
+                "Agent mcpServers: github, railway"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex agents carry no tool list."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor agents carry no tool list."
+            }
+          ],
+          "explanation": "analytics-db is not in the coding agent's mcpServers list, so the route is unavailable to it; the deny rule mcp:analytics-db/execute also applies, for every other subject."
+        }
+      ]
+    },
+    {
+      "id": "mcp-workspace-files-root-1",
+      "label": "docs folder",
+      "description": "Declared root of the workspace-files server.",
+      "kind": "declared-root",
+      "providerId": "mcp-workspace-files",
+      "domainIds": [
+        "filesystem-execution"
+      ],
+      "identity": {
+        "uri": "file:///workspace/demo-project/docs",
+        "server": "workspace-files"
+      },
+      "basis": "declared-root",
+      "labelResolved": true,
+      "caveat": "MCP roots are informational guidance for the server, not access control: this root proves neither that the server stays inside it nor that a tool enforces it.",
+      "operations": [
+        {
+          "id": "mcp-workspace-files-root-1:tools",
+          "action": "tools",
+          "label": "Use any tool",
+          "declared": "unavailable",
+          "effect": "unavailable",
+          "resolution": "agent-scope",
+          "native": [
+            "Agent mcpServers: github, railway"
+          ],
+          "installed": "not-generated",
+          "hypothetical": true,
+          "runtime": "not-observed",
+          "decided": {
+            "rule": "mcpServers: [github, railway]",
+            "list": "mcpServers",
+            "scope": "agent",
+            "source": {
+              "path": ".agnostic-ai/agents/coding-agent.md",
+              "layer": "project",
+              "line": 5
+            },
+            "note": "workspace-files is not in the coding agent's mcpServers list.",
+            "wins": true
+          },
+          "grants": [
+            {
+              "rule": "mcpServers: [github, railway]",
+              "list": "mcpServers",
+              "scope": "agent",
+              "source": {
+                "path": ".agnostic-ai/agents/coding-agent.md",
+                "layer": "project",
+                "line": 5
+              },
+              "note": "workspace-files is not in the coding agent's mcpServers list.",
+              "wins": true
+            }
+          ],
+          "conditions": [],
+          "alternateRoutes": [
+            "files: read: the read rule reaches the docs folder directly, without the workspace-files server."
+          ],
+          "routeCoverage": {
+            "checked": [
+              {
+                "route": "shell: any command",
+                "effect": "unavailable",
+                "note": "The coding agent's can list names only go test and git commands."
+              },
+              {
+                "route": "files: read",
+                "effect": "allowed",
+                "note": "The read rule covers every project file, the docs folder included."
+              }
+            ],
+            "notModeled": [
+              "Delegation to another agent is not evaluated.",
+              "Other providers that reach the same system are not evaluated.",
+              "The web is not evaluated as a route.",
+              "What a running tool does beyond its configuration is not observed."
+            ]
+          },
+          "enforcement": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "status": "native-rule",
+              "effect": "unavailable",
+              "native": [
+                "Agent mcpServers: github, railway"
+              ]
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Codex agents carry no tool list."
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "status": "not-expressed",
+              "effect": "unresolved",
+              "note": "Cursor agents carry no tool list."
+            }
+          ],
+          "explanation": "No rule names a workspace-files tool, so the view shows one operation for the whole server. The server is not in the coding agent's mcpServers list."
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "coding-agent|files-all:read",
+      "subjectId": "coding-agent",
+      "resourceId": "files-all",
+      "operationId": "files-all:read",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Read files"
+    },
+    {
+      "id": "coding-agent|files-all:edit",
+      "subjectId": "coding-agent",
+      "resourceId": "files-all",
+      "operationId": "files-all:edit",
+      "effect": "default",
+      "declared": "default",
+      "label": "Edit files"
+    },
+    {
+      "id": "coding-agent|files-src:read",
+      "subjectId": "coding-agent",
+      "resourceId": "files-src",
+      "operationId": "files-src:read",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Read files"
+    },
+    {
+      "id": "coding-agent|files-src:edit",
+      "subjectId": "coding-agent",
+      "resourceId": "files-src",
+      "operationId": "files-src:edit",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Edit files"
+    },
+    {
+      "id": "coding-agent|files-env:read",
+      "subjectId": "coding-agent",
+      "resourceId": "files-env",
+      "operationId": "files-env:read",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Read files"
+    },
+    {
+      "id": "coding-agent|files-env:edit",
+      "subjectId": "coding-agent",
+      "resourceId": "files-env",
+      "operationId": "files-env:edit",
+      "effect": "denied",
+      "declared": "denied",
+      "label": "Edit files"
+    },
+    {
+      "id": "coding-agent|files-github:read",
+      "subjectId": "coding-agent",
+      "resourceId": "files-github",
+      "operationId": "files-github:read",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Read files"
+    },
+    {
+      "id": "coding-agent|files-github:edit",
+      "subjectId": "coding-agent",
+      "resourceId": "files-github",
+      "operationId": "files-github:edit",
+      "effect": "ask",
+      "declared": "ask",
+      "label": "Edit files"
+    },
+    {
+      "id": "coding-agent|files-migrations:read",
+      "subjectId": "coding-agent",
+      "resourceId": "files-migrations",
+      "operationId": "files-migrations:read",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Read files"
+    },
+    {
+      "id": "coding-agent|files-migrations:edit",
+      "subjectId": "coding-agent",
+      "resourceId": "files-migrations",
+      "operationId": "files-migrations:edit",
+      "effect": "ask",
+      "declared": "ask",
+      "label": "Edit files"
+    },
+    {
+      "id": "coding-agent|shell-any:run",
+      "subjectId": "coding-agent",
+      "resourceId": "shell-any",
+      "operationId": "shell-any:run",
+      "effect": "unavailable",
+      "declared": "unavailable",
+      "label": "Run commands"
+    },
+    {
+      "id": "coding-agent|shell-go-test:run",
+      "subjectId": "coding-agent",
+      "resourceId": "shell-go-test",
+      "operationId": "shell-go-test:run",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Run"
+    },
+    {
+      "id": "coding-agent|shell-git-status:run",
+      "subjectId": "coding-agent",
+      "resourceId": "shell-git-status",
+      "operationId": "shell-git-status:run",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Run"
+    },
+    {
+      "id": "coding-agent|shell-git-diff:run",
+      "subjectId": "coding-agent",
+      "resourceId": "shell-git-diff",
+      "operationId": "shell-git-diff:run",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Run"
+    },
+    {
+      "id": "coding-agent|shell-git-push:run",
+      "subjectId": "coding-agent",
+      "resourceId": "shell-git-push",
+      "operationId": "shell-git-push:run",
+      "effect": "ask",
+      "declared": "ask",
+      "label": "Run"
+    },
+    {
+      "id": "coding-agent|shell-rm:run",
+      "subjectId": "coding-agent",
+      "resourceId": "shell-rm",
+      "operationId": "shell-rm:run",
+      "effect": "unavailable",
+      "declared": "unavailable",
+      "label": "Run"
+    },
+    {
+      "id": "coding-agent|web-all:fetch",
+      "subjectId": "coding-agent",
+      "resourceId": "web-all",
+      "operationId": "web-all:fetch",
+      "effect": "default",
+      "declared": "default",
+      "label": "Fetch pages"
+    },
+    {
+      "id": "coding-agent|web-all:search",
+      "subjectId": "coding-agent",
+      "resourceId": "web-all",
+      "operationId": "web-all:search",
+      "effect": "default",
+      "declared": "default",
+      "label": "Search the web"
+    },
+    {
+      "id": "coding-agent|mcp-github-scope:get_pull_request",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-github-scope",
+      "operationId": "mcp-github-scope:get_pull_request",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Get pull request"
+    },
+    {
+      "id": "coding-agent|mcp-github-scope:list_pull_request_files",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-github-scope",
+      "operationId": "mcp-github-scope:list_pull_request_files",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "List pull request files"
+    },
+    {
+      "id": "coding-agent|mcp-github-scope:create_pull_request",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-github-scope",
+      "operationId": "mcp-github-scope:create_pull_request",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Create pull request"
+    },
+    {
+      "id": "coding-agent|mcp-github-scope:merge_pull_request",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-github-scope",
+      "operationId": "mcp-github-scope:merge_pull_request",
+      "effect": "ask",
+      "declared": "ask",
+      "label": "Merge pull request"
+    },
+    {
+      "id": "coding-agent|mcp-railway-scope:deploy",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-railway-scope",
+      "operationId": "mcp-railway-scope:deploy",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Deploy"
+    },
+    {
+      "id": "coding-agent|mcp-railway-scope:logs",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-railway-scope",
+      "operationId": "mcp-railway-scope:logs",
+      "effect": "allowed",
+      "declared": "allowed",
+      "label": "Read logs"
+    },
+    {
+      "id": "coding-agent|mcp-railway-scope:variables",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-railway-scope",
+      "operationId": "mcp-railway-scope:variables",
+      "effect": "ask",
+      "declared": "ask",
+      "label": "Manage variables"
+    },
+    {
+      "id": "coding-agent|mcp-railway-scope:delete",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-railway-scope",
+      "operationId": "mcp-railway-scope:delete",
+      "effect": "denied",
+      "declared": "denied",
+      "label": "Delete"
+    },
+    {
+      "id": "coding-agent|mcp-analytics-db-scope:query",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-analytics-db-scope",
+      "operationId": "mcp-analytics-db-scope:query",
+      "effect": "unavailable",
+      "declared": "unavailable",
+      "label": "Query"
+    },
+    {
+      "id": "coding-agent|mcp-analytics-db-scope:execute",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-analytics-db-scope",
+      "operationId": "mcp-analytics-db-scope:execute",
+      "effect": "unavailable",
+      "declared": "unavailable",
+      "label": "Execute"
+    },
+    {
+      "id": "coding-agent|mcp-workspace-files-root-1:tools",
+      "subjectId": "coding-agent",
+      "resourceId": "mcp-workspace-files-root-1",
+      "operationId": "mcp-workspace-files-root-1:tools",
+      "effect": "unavailable",
+      "declared": "unavailable",
+      "label": "Use any tool"
+    }
+  ],
+  "secrets": [
+    {
+      "id": "secret-github-token",
+      "name": "GITHUB_TOKEN",
+      "label": "GitHub token",
+      "providerIds": [
+        "mcp-github"
+      ],
+      "referencedBy": [
+        {
+          "source": {
+            "path": ".agnostic-ai/mcps/github.yaml",
+            "layer": "project",
+            "line": 6
+          },
+          "field": "headers.Authorization"
+        }
+      ],
+      "rights": {
+        "discover": "allowed",
+        "readValue": "unknown",
+        "use": "allowed",
+        "manage": "unavailable"
+      },
+      "explanation": "The coding agent can use GITHUB_TOKEN through the github server. Whether a permitted command could print its value is not determined, and no tool manages it."
+    },
+    {
+      "id": "secret-railway-token",
+      "name": "RAILWAY_TOKEN",
+      "label": "Railway token",
+      "providerIds": [
+        "mcp-railway"
+      ],
+      "referencedBy": [
+        {
+          "source": {
+            "path": ".agnostic-ai/mcps/railway.yaml",
+            "layer": "project",
+            "line": 6
+          },
+          "field": "headers.Authorization"
+        }
+      ],
+      "rights": {
+        "discover": "allowed",
+        "readValue": "unknown",
+        "use": "allowed",
+        "manage": "unavailable"
+      },
+      "explanation": "The coding agent can use RAILWAY_TOKEN through the railway server. Manage variables changes service variables, not this token."
+    },
+    {
+      "id": "secret-analytics-database-url",
+      "name": "ANALYTICS_DATABASE_URL",
+      "label": "Analytics database URL",
+      "providerIds": [
+        "mcp-analytics-db"
+      ],
+      "referencedBy": [
+        {
+          "source": {
+            "path": ".agnostic-ai/mcps/analytics-db.yaml",
+            "layer": "project",
+            "line": 8
+          },
+          "field": "args[2]"
+        }
+      ],
+      "rights": {
+        "discover": "allowed",
+        "readValue": "unknown",
+        "use": "unavailable",
+        "manage": "unavailable"
+      },
+      "explanation": "analytics-db is outside the coding agent's mcpServers list, so the agent cannot use this credential through the server. The name appears in a spec the agent can read."
+    }
+  ],
+  "uncertainties": [
+    {
+      "id": "u-runtime",
+      "code": "runtime-not-observed",
+      "severity": "info",
+      "message": "Nothing here was observed at runtime. The view reads configuration only, so what a running tool enforced is not known.",
+      "relatedIds": []
+    },
+    {
+      "id": "u-scope-github",
+      "code": "provider-scope-undeclared",
+      "severity": "warning",
+      "message": "GitHub declares no file roots, so the repositories it reaches are not declared.",
+      "relatedIds": [
+        "mcp-github",
+        "mcp-github-scope"
+      ]
+    },
+    {
+      "id": "u-scope-railway",
+      "code": "provider-scope-undeclared",
+      "severity": "warning",
+      "message": "Railway declares no file roots, so the projects and environments it reaches, production included, are not declared.",
+      "relatedIds": [
+        "mcp-railway",
+        "mcp-railway-scope"
+      ]
+    },
+    {
+      "id": "u-scope-analytics-db",
+      "code": "provider-scope-undeclared",
+      "severity": "warning",
+      "message": "analytics-db declares no file roots, so the databases and schemas it reaches are not declared.",
+      "relatedIds": [
+        "mcp-analytics-db",
+        "mcp-analytics-db-scope"
+      ]
+    },
+    {
+      "id": "u-credential-reach",
+      "code": "credential-reach-not-inspected",
+      "severity": "info",
+      "message": "GITHUB_TOKEN, RAILWAY_TOKEN, and ANALYTICS_DATABASE_URL are referenced by name only; what each credential reaches is not inspected.",
+      "relatedIds": [
+        "secret-github-token",
+        "secret-railway-token",
+        "secret-analytics-database-url"
+      ]
+    },
+    {
+      "id": "u-tool-list",
+      "code": "tool-list-unknown",
+      "severity": "info",
+      "message": "No rule names a workspace-files tool, so the view shows one operation for the whole server.",
+      "relatedIds": [
+        "mcp-workspace-files",
+        "mcp-workspace-files-root-1"
+      ]
+    },
+    {
+      "id": "u-git-prefix",
+      "code": "pattern-containment-approximate",
+      "severity": "info",
+      "message": "The coding agent's shell(git *) entry is compared with shell(git push:*) and the other git rules by prefix; flags and quoting are not parsed.",
+      "relatedIds": [
+        "shell-git-push",
+        "shell-git-status",
+        "shell-git-diff"
+      ]
+    },
+    {
+      "id": "u-routes",
+      "code": "alternate-route-not-modeled",
+      "severity": "info",
+      "message": "Routes through other agents, other providers, and the web are listed per operation as not modeled; they are not evaluated.",
+      "relatedIds": []
+    },
+    {
+      "id": "u-secret-read",
+      "code": "secret-read-unknown",
+      "severity": "info",
+      "message": "Whether a permitted command, such as go test, could print a credential from the environment is not determined.",
+      "relatedIds": [
+        "secret-github-token",
+        "secret-railway-token",
+        "secret-analytics-database-url",
+        "shell-go-test"
+      ]
+    },
+    {
+      "id": "u-codex",
+      "code": "target-not-expressed",
+      "severity": "info",
+      "message": "Codex receives none of the allow, ask, or deny rules; only protected paths reach it, through a hook.",
+      "relatedIds": [
+        "codex"
+      ]
+    },
+    {
+      "id": "u-cursor-matching",
+      "code": "target-matching-unverified",
+      "severity": "info",
+      "message": "Cursor receives Read and Write rules for allow entries, but its documentation does not state how those patterns match, so they stay unresolved there.",
+      "relatedIds": [
+        "cursor",
+        "files-all",
+        "files-src"
+      ]
+    }
+  ],
+  "supportedActions": [
+    {
+      "id": "read-view",
+      "method": "GET",
+      "path": "/api/views/authority",
+      "description": "Read this view for any subject and coding tool.",
+      "status": "available"
+    },
+    {
+      "id": "validate-proposal",
+      "method": "POST",
+      "path": "/api/views/authority/impact",
+      "description": "Validate a proposed change to the permission lists and see its impact on every subject. Nothing is written.",
+      "status": "available"
+    },
+    {
+      "id": "apply-proposal",
+      "description": "Applying a proposal is not supported. Copy the diff into the spec file, then run agnostic-ai sync.",
+      "status": "unsupported"
+    }
+  ],
+  "explanations": {
+    "effects": {
+      "allowed": "An allow rule wins: the tool runs the operation without asking.",
+      "ask": "An ask rule wins: the tool asks for approval each time.",
+      "denied": "A deny rule wins: the tool refuses the operation.",
+      "unavailable": "The subject's own scope leaves this route out; another route may still reach the same system.",
+      "default": "No rule applies, so the tool's own default decides.",
+      "unresolved": "The view cannot tell what this tool does with the declaration."
+    },
+    "resolution": {
+      "translated": "The tool's own rule carries the decision, and how it matches is documented.",
+      "translated-unverified": "The tool receives a rule, but how it matches is not documented, so the effect stays unresolved.",
+      "hook": "A generated hook enforces the decision.",
+      "not-expressed": "Declared, but sync writes nothing for it on this tool.",
+      "agent-scope": "The subject's own spec decides, on a tool that reads agent tool lists.",
+      "no-rule": "Nothing is declared; the tool's default applies.",
+      "disabled": "The provider is switched off in its spec."
+    },
+    "lists": {
+      "allow": "Project settings: operations the tool may run without asking.",
+      "ask": "Project settings: operations that need approval each time.",
+      "deny": "Project settings: operations the tool must refuse.",
+      "protected": "Protected paths: edits need the declared decision, here approval.",
+      "can": "The agent's own capability list; anything outside it is unavailable to the agent.",
+      "tools": "The agent's own tool list; anything outside it is unavailable to the agent.",
+      "readonly": "The agent is read-only; it may not change files.",
+      "mcpServers": "The MCP servers the agent may use; any other server is unavailable to it."
+    },
+    "enforcement": {
+      "native-rule": "The tool's own permission rule carries the decision.",
+      "hook": "A generated hook carries the decision.",
+      "not-expressed": "Sync writes nothing for it; the tool's defaults apply.",
+      "not-applicable": "There is no decision to carry."
+    },
+    "installed": {
+      "in-sync": "The generated file matches disk.",
+      "stale": "The generated file differs from disk, so the tool runs on an older version.",
+      "not-generated": "Sync has not written the generated file yet.",
+      "not-checked": "The generated file was not compared with disk.",
+      "not-applicable": "No generated file carries this decision."
+    },
+    "rights": {
+      "allowed": "The subject has this right.",
+      "unavailable": "The subject's scope leaves this right out.",
+      "not-readable": "The value is not in anything the subject can read.",
+      "unknown": "The view cannot determine this right."
+    }
+  }
+}
