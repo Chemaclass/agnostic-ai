@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `view authority` shows what each agent may do on each coding tool, with the rule, file, and tool state behind every decision; `view overview` summarises the harness and lists evidence-backed findings; `serve` hosts both as versioned JSON for the web client under `ui/` (#1323).
 - Enable RTK and Caveman independently with `builtins` in YAML. Both stay off by default, and neither tool is installed automatically (#1964).
 - Interactive commands offer upgrades with release notes, project migrations, and sync checks (#1952).
 - Sync preserves JSON, hooks and ignore files; import avoids text loss; memory notes shrink and warnings name tools (#1889, #1923, #1943, #1934, #1935, #1937).

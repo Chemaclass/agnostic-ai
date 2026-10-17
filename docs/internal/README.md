@@ -7,6 +7,7 @@ Build and run the CLI first using the contributor setup guide. Then choose the a
 | Task | Guide |
 |---|---|
 | Find the relevant package and understand the data flow | [Architecture](architecture.md) |
+| Read or extend the Authority view, its API, and the feed | [Authority view](authority-view.md) |
 | Choose checks and prepare a change | [Development workflow](contributing.md) |
 | Support another coding tool | [Adding an adapter](adding-adapters.md) |
 | Build an adapter outside this repository | [Plugin protocol](plugin-protocol.md) |

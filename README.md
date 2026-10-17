@@ -57,6 +57,8 @@ agnostic-ai doctor --fix                         # repair generated files, choos
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
 agnostic-ai memory lint                          # check the shared memory index and facts
 agnostic-ai memory path                          # print the memory folders, including the repo store
+agnostic-ai view authority --agent reviewer      # what one agent may do on each tool, with the rule behind each decision
+agnostic-ai serve --ui ui/dist                   # host the views and the web client for this project
 ```
 
 Without a sync record, checks skip recreating older output for a handwritten Claude launch file or root `.gitignore` when the committed sources prove agnostic-ai did not generate them. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for how ownership is checked.

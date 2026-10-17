@@ -178,3 +178,46 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 |------|-------------|
 | `--format` | `text` (default) or `json`. |
 | `--json` | Alias for JSON output. |
+
+## view
+
+Show a read-only view of the configuration as versioned JSON or readable text. Nothing is written. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
+
+`view authority` answers, for one subject on one coding tool, which exact action on which exact target is permitted, with the rule and file behind each decision. Four states stay separate: what the specs declare, what the selected tool does with it, whether the generated file is installed, and runtime enforcement, which is never observed.
+
+```bash
+agnostic-ai view authority --agent reviewer --target claude
+agnostic-ai view authority --json
+agnostic-ai view overview --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--agent` | The subject: an agent name, or `session` (default) for the tool itself before any agent narrows it. |
+| `--target` | The coding tool to resolve effects for. Default: the first in `agnostic-ai.yaml`. |
+| `--json` | The full view as JSON, schema `authority/v1` or `overview/v1`. |
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
+| `--no-installed` | Skip comparing the generated files with disk. |
+
+`view overview` prints the six harness sections with their configured items and per-tool support, and a feed of findings from `lint`, `doctor`, and drift, each with its evidence.
+
+## serve
+
+Host the views as a local JSON API, and the built web client when `--ui` names its directory. The project loads on every request, so an edited spec shows on the next refresh. The API proposes changes and reports their impact, but never writes.
+
+```bash
+agnostic-ai serve --ui ui/dist --open
+agnostic-ai serve --global
+```
+
+| Flag | Description |
+|------|-------------|
+| `--addr` | Address to listen on. Default `127.0.0.1:4310`. |
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--ui` | Directory of the built client to serve, such as `ui/dist`. |
+| `--open` | Open the served URL in a browser. |
+| `--global` | Serve the user-level configuration; the overview and feed are not available there. |
+| `--no-installed` | Skip comparing the generated files with disk. |
+
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `GET /api/views/feed`, and `GET /api/health`.
