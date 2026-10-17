@@ -11,9 +11,7 @@ group = "Reference"
 
 `overlays/` keeps the parts of a tool's configuration that no shared spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files. Sync also restores a deleted `.claude/` or `.codex/` directory with those keys.
 
-An overlay reaches one tool only. When a shared spec kind covers a setting, move it into that spec so every tool gets it.
-
-To change an imported setting, edit its overlay below and run `agnostic-ai sync --dry-run` to review the result. Then sync and check the tool's generated file. Use a portable spec when the setting should also reach other tools.
+To change an imported setting, edit its overlay below and run `agnostic-ai sync --dry-run` to review the result. Then sync and check the tool's generated file. An overlay reaches one tool only; move a setting into a portable spec when it should reach other tools and that spec kind supports it.
 
 ## Files
 

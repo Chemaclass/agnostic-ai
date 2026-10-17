@@ -145,9 +145,7 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 
 `agnostic-ai sync --global --only antigravity` adds your home MCP specs to `~/.gemini/config/mcp_config.json`, using the same fields as project output. A disabled server keeps `disabled: true`.
 
-Servers you add under other names stay. A different server with the same name stops sync. See [global MCP servers](@/docs/configuration.md#global-mcp-servers) for how to resolve a conflict.
-
-`agnostic-ai import --global antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP servers](@/docs/configuration.md#global-mcp-servers).
+`agnostic-ai import --global antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP ownership and name conflicts](@/docs/global-configuration.md#global-mcp-servers).
 
 ## Import
 
@@ -159,4 +157,4 @@ Servers you add under other names stay. A different server with the same name st
 
 ## Protected paths
 
-Not enforced. Antigravity takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Antigravity takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

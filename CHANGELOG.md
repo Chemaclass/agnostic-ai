@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Documentation links to shared permission and ownership guidance, sorts lint codes in one lookup, and explains how to diagnose plugin hook timeouts.
 - The homepage opens with one source note syncing into the file each tool reads, places the symlink answer beside the video, and the documentation index drops the retired talk demo.
 - The agent setup checklist asks before installing the CLI, never prints token or key values from imported settings, and stops when a step fails. Collapsible sections on documentation pages now have spacing and an open or closed marker.
 - The documentation sidebar uses short one-line labels, such as "Understand the setup" and "Set up with agents".

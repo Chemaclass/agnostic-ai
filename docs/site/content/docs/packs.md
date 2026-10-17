@@ -85,7 +85,7 @@ packs:
     sha: 8ca22dba9a94f28898bbce59f2537ff4d87c747d
 ```
 
-Commit it so teammates and CI install the same versions. Review pack instructions and scripts before using them in a coding session.
+Commit it so teammates and CI install the same versions.
 
 </details>
 

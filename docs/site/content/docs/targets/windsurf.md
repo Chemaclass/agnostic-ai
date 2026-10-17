@@ -185,4 +185,4 @@ Portable `permissions` are merged into `.devin/config.json`, the committed proje
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). To tell the agent about them, list the paths in a rule.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

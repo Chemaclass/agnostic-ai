@@ -9,13 +9,9 @@ group = "Reference"
 
 # MCP recipes
 
-Four servers to start from. Copy one into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`) and run `agnostic-ai sync`. Each selected tool gets the entry in its own format. A tool that cannot read a `${NAME}` reference in that field gets a note instead, as the [reference tables](@/docs/spec-format/mcps.md#environment-references) show. Field meanings are in [MCP servers](@/docs/spec-format/mcps.md).
+Copy a recipe into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`). Replace example paths and export any variables named by `${NAME}` references before starting your coding tool. Run `agnostic-ai lint`, then `agnostic-ai sync`, and confirm the server connects in the tool.
 
-Checked on 2026-10-03. Upstream names and URLs change often, so compare with the linked source before you rely on one.
-
-No recipe contains a secret. Each reads one from your shell with a [`${NAME}` reference](@/docs/spec-format/mcps.md#environment-references). Export the variable before you start the tool.
-
-Before copying a recipe, check its linked source, replace example paths, and set any required environment variables. Run `agnostic-ai lint`, sync, then confirm the server connects in your coding tool.
+These recipes were checked on 2026-10-03. Compare each with its linked source before using it. See [MCP servers](@/docs/spec-format/mcps.md) for fields and [environment-reference support](@/docs/spec-format/mcps.md#environment-references) for values a tool cannot read.
 
 ## GitHub (remote)
 

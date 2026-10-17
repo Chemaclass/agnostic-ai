@@ -18,9 +18,15 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT004 | Warning. No enabled target supports the spec's kind, so sync writes it nowhere. The finding lists the tools that do. |
 | LINT005 | Warning. A hook sets `matcher` on an event that does not read one. Drop it or use a tool-call event such as `PreToolUse`. |
 | LINT006 | Error. Frontmatter opens with `---` and never closes. |
+| LINT007 | Warning. A frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), so the setting is lost. `sync` prints the same warning. Put tool-native keys under `x-<target>:`. A key some tools read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of them is in `targets`. Settings and environment specs are not checked. |
+| LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either. |
+| LINT009 | Warning. A permission that approves more than it says. An `allow` rule such as `Bash(git * main)` also matches a force push to main. Write the exact value, or keep `*` at the end (`Bash(go test:*)`). A `deny` rule with the same shape blocks nothing in Claude Code, so it is flagged too. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions. |
-| LINT014 | Error, `--global` only. A settings `effort` or `permissions.default-mode` that a tool's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. |
+| LINT011 | Warning. Startup instructions exceed a word or byte budget. See [context budgets](#context-budgets) below for counted sources and target limits. |
+| LINT012 | Warning. A skill or agent description (or `x-<target>.description`) is longer than [`lint.description-chars`](@/docs/configuration.md#lint) (default 1024). A skill description past 1024 warns even with a raised budget. |
 | LINT013 | Error. A rule's `globs`, `paths`, or `x-<target>.globs` is neither a string nor a list of strings, or `paths` and `globs` name different patterns. `validate` reports it too. |
+| LINT014 | Error, `--global` only. A settings `effort` or `permissions.default-mode` that a tool's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. |
+| LINT015 | Warning. A spec body names another spec by a target-native path such as `.claude/skills/style/SKILL.md`. The finding names the `.agnostic-ai/` source path to use. |
 | LINT016 | Error. A `dev-commands` entry in an environment spec has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no tool reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. |
 | LINT017 | Warning. A `gitignore.commit` entry such as `cursor:environments` names a target missing from `targets`. |
 | LINT018 | Warning. A skill's frontmatter sets `scope`, which does nothing. The scope comes from its folder under `skills/`. |
@@ -39,8 +45,8 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT031 | Warning. A spec's `description` starts with `TODO`, the placeholder `agnostic-ai new` writes. It shows in tool pickers and decides when a skill fires. Replace it. `lint --strict` fails. |
 | LINT032 | Error. A hook's `on:` or `match:` holds an unknown value, is mixed with `event:` or `matcher:`, names an event that an enabled tool it reaches does not read the same way (such as `on: stop` on Crush), or a tool kind that such a tool lacks (such as `match: read` on Codex). Sync leaves the hook out for that tool. See [portable events](@/docs/spec-format/hook-reference.md#portable-events). |
 | LINT033 | Error. A spec body holds an [agent or skill reference](@/docs/spec-format/_index.md#agent-and-skill-references) to a name that does not exist, or that does not sync to a tool the spec reaches. The finding lists the known names or the tools. |
-| LINT035 | Error. An MCP `env` or `headers` value is neither a `${NAME}` reference nor marked `!literal`, so it may be a secret that sync writes into every tool. The finding names the server, the field, and the key, never the value. `agnostic-ai migrate --only secrets` turns a credential into a reference and marks the rest. `sync` stops. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings). |
 | LINT034 | Warning, project only. A hook's `event:` and `matcher:` have a portable form that gives every enabled tool the same native event and matcher, such as `event: PreToolUse` with `matcher: Bash`. The finding names the `on:` and `match:` to write. `agnostic-ai migrate --only hooks` rewrites these hooks. `lint --strict` fails. |
+| LINT035 | Error. An MCP `env` or `headers` value is neither a `${NAME}` reference nor marked `!literal`, so it may be a secret that sync writes into every tool. The finding names the server, the field, and the key, never the value. `agnostic-ai migrate --only secrets` turns a credential into a reference and marks the rest. `sync` stops. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings). |
 | LINT036 | Error. An agent's `can:` or skill's `allowed-tools` holds an unknown capability, a malformed `read(<path>)`, `edit(<path>)`, `shell(<pattern>)`, or `mcp:<server>`, or a value that is not a list. For an agent it also fires when `can:` sits beside `tools:` or under `x-<target>`. A settings permission rule fails when it is an unknown capability, has a pattern on one that takes none (such as `write(.env)`), has an empty pattern, or is not a string (such as an unquoted rule holding `: `). `validate` reports it too, and `sync` stops. See [capabilities](@/docs/spec-format/agents.md#capabilities) and [permission rules](@/docs/spec-format/settings.md#permission-rules). |
 | LINT037 | Warning, only with `--suggest-capabilities`. A tool alias has an exact neutral capability form. |
 | LINT038 | Warning. A bare capability under settings `permissions.allow` or `permissions.ask` covers a whole tool. The finding names the tools that take it and a scoped alternative. Scoped and `deny` rules do not warn. `lint --strict` fails. See [permission rules](@/docs/spec-format/settings.md#permission-rules). |
@@ -53,16 +59,8 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT045 | Error. `session-retention-days` must be an integer of 1 or more. Remove the field to leave native retention unchanged. |
 | LINT046 | Warning. A spec writes one top-level key more than once, in its frontmatter or in a YAML spec such as a hook or MCP server. Sync uses the last value, and other YAML parsers reject the file. `import cursor` in 0.83.0 left a repeated `workspaces`. Remove the extra lines; `lint --strict` fails until you do. |
 | LINT047 | Warning. With Claude Code enabled, a skill or command name holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words. Claude Code does not load it. The finding names the code points. Rename the folder or file, or edit `name:`. `lint --strict` fails. |
-| LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either. |
 
-More warnings:
-
-| Code | Finding |
-|------|---------|
-| LINT007 | A frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), so the setting is lost. `sync` prints the same warning. Put tool-native keys under `x-<target>:`. A key some tools read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of them is in `targets`. Settings and environment specs are not checked. |
-| LINT009 | A permission that approves more than it says. An `allow` rule such as `Bash(git * main)` also matches a force push to main. Write the exact value, or keep `*` at the end (`Bash(go test:*)`). A `deny` rule with the same shape blocks nothing in Claude Code, so it is flagged too. |
-| LINT012 | A skill or agent description (or `x-<target>.description`) is longer than [`lint.description-chars`](@/docs/configuration.md#lint) (default 1024). A skill description past 1024 warns even with a raised budget. |
-| LINT015 | A spec body names another spec by a target-native path such as `.claude/skills/style/SKILL.md`. The finding names the `.agnostic-ai/` source path to use. |
+## Context budgets
 
 LINT011 warns when a tool loads more words at session start than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000). The count covers:
 

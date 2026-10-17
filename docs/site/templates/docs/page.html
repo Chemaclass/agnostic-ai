@@ -13,38 +13,7 @@
 
 {% block content %}
 {% set docs_section = get_section(path="docs/_index.md") %}
-<main id="content">
-  <div class="docs-mobile-nav">
-    <details>
-      <summary>Browse documentation</summary>
-      {{ <docs.navigation section={docs_section} current_path={current_path} /> }}
-    </details>
-  </div>
-  <div class="docs-page-layout">
-    <aside class="docs-sidebar">
-      {{ <docs.navigation section={docs_section} current_path={current_path} /> }}
-    </aside>
-
-    <article class="docs-content" id="doc-body">
-      <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span>{% if page.extra.target_id %}<a href="{{ get_url(path='@/docs/targets/_index.md') }}">Targets</a>{% elif page.ancestors | length > 1 %}{% set parent = get_section(path=page.ancestors | last) %}<a href="{{ parent.permalink }}">{{ parent.title }}</a>{% else %}<span>{{ page.extra.group }}</span>{% endif %}</div>
-      {{ page.content | safe }}
-      {% if page.extra.next %}
-      <nav aria-label="Next lesson">
-        <p>Next: <a href="{{ get_url(path=page.extra.next) | safe }}">{{ page.extra.next_label }}</a></p>
-      </nav>
-      {% endif %}
-      <footer class="docs-source-link"><a href="{{ config.extra.repository_url }}/blob/main/docs/site/content/{{ page.relative_path | safe }}">Edit this page on GitHub</a></footer>
-    </article>
-
-    {% if page.toc | length > 0 %}
-    <aside class="docs-toc">
-      <p>On this page</p>
-      {% set moved = page.extra.moved | default(value=[]) %}
-      {{ <docs.toc headings={page.toc} moved={moved} /> }}
-    </aside>
-    {% endif %}
-  </div>
-</main>
+{{ <docs.layout document={page} docs_section={docs_section} current_path={current_path} is_page={true} repository_url={config.extra.repository_url} /> }}
 {% endblock content %}
 
 {% block scripts %}

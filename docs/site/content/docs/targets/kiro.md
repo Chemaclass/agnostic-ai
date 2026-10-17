@@ -71,7 +71,7 @@ Kiro also has a global prompt folder. `sync --global` does not write commands.
 <details>
 <summary>Unmanaged AGENTS.md</summary>
 
-Listing `AGENTS.md` under `sync.unmanaged` also keeps every steering file. But sync then stops writing `AGENTS.md`, so Codex and every other tool that reads it miss rule changes.
+Listing `AGENTS.md` under `sync.unmanaged` keeps every steering file. Check [the effect on other targets sharing that file](@/docs/target-behavior.md#inlined-rules).
 
 </details>
 
@@ -183,4 +183,4 @@ The imported spec loses some data, but the Kiro files sync writes stay the same:
 
 ## Protected paths
 
-Not enforced. Kiro takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Kiro takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

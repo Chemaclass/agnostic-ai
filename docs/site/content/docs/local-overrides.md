@@ -15,7 +15,7 @@ Keep personal instructions in `.agnostic-ai/local/` without changing the team's 
 Answer in Spanish.
 ```
 
-Then run `agnostic-ai sync`. The text extends the shared project instructions. Your local folder stays out of Git. If the project commits generated instruction files, your personal text appears there too; review before committing.
+Then run `agnostic-ai sync`. The text extends the shared project instructions. Your local folder and generated instruction files are ignored by default. If the project commits generated instruction files, your personal text appears there too; review before committing.
 
 For personal configuration values, use `agnostic-ai.local.yaml`. To alter a shared skill or rule, add a local spec with the same kind and name and write only the fields you want to change.
 
@@ -173,7 +173,6 @@ Answer in Spanish. Run `make test` before every commit.
 
 - A legacy [`outputs.<target>.rules-file`](@/docs/configuration.md#entry-point-files) that names the entry point gets the block too, after the rule bodies.
 - `::target` fences and `@path` imports work as in the [shared file](@/docs/configuration.md#per-target-paragraphs).
-- Generated entry points are ignored by default. If your project commits them, your local text lands in the commit too.
 
 In the global folder, `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after the shared instructions and rules.
 
@@ -197,7 +196,7 @@ If `~/.agnostic-ai/` is a Git repository, add this line to its `.gitignore`:
 /local/
 ```
 
-Put per-machine config tweaks in `agnostic-ai.local.yaml`, which merges over `agnostic-ai.yaml`. See [configuration](@/docs/configuration.md#local-overrides).
+See [configuration](@/docs/configuration.md#local-overrides) for how `agnostic-ai.local.yaml` merges config values.
 
 ## See what wins
 

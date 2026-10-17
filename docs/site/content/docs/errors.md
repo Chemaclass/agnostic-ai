@@ -123,7 +123,7 @@ A name passed with `--target` fails the run. A config target that does not resol
 
 A known target that is not in this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
 
-**Fix:** check the spelling. If the target exists but is not in this run, add it to `targets` or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`, `ellipsis`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
+**Fix:** check the spelling. If the target exists but is not in this run, add it to `targets` or pass it with `-t`. Use the names in [Supported tools](@/docs/targets/_index.md). External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags
 

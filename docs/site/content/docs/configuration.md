@@ -94,21 +94,17 @@ requires: ">=0.80.0"
 builtins: [handoff]
 ```
 
-The names are `handoff` (the skill), `handoff-hook` (optional Git snapshots and resume notices), `memory` (a project memory every tool shares), `rtk` (a Claude hook that shortens command output), and `caveman` (a response skill copied from a fixed upstream version). See [session handoffs](@/docs/handoff.md), [shared memory](@/docs/memory.md), and [RTK and Caveman](@/docs/rtk-and-caveman.md) for supported tools and any programs you need to install. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
+| Name | Adds | Setup and supported tools |
+|---|---|---|
+| `handoff` | A skill to leave and resume a task | [Session handoffs](@/docs/handoff.md) |
+| `handoff-hook` | Automatic Git snapshots and startup notices | [Automatic snapshots](@/docs/handoff.md#add-automatic-git-snapshots) |
+| `memory` | Shared project and personal memory | [Shared memory](@/docs/memory.md) |
+| `rtk` | A Claude Code hook that shortens command output; install RTK separately | [RTK setup](@/docs/rtk-and-caveman.md#turn-them-on) |
+| `caveman` | An on-demand response skill from a fixed upstream version; no separate program needed | [Caveman setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 
-To add the hooks, enable both:
+Enable names together in one list, such as `builtins: [handoff, handoff-hook]` or `builtins: [rtk, caveman]`. Names other than `handoff` are off in new projects. Before enabling RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman).
 
-```yaml
-builtins: [handoff, handoff-hook]
-```
-
-RTK and Caveman are off unless named, including in projects created by `init`. Enable either independently, or both:
-
-```yaml
-builtins: [rtk, caveman]
-```
-
-`rtk` generates a Claude command-output hook; install RTK separately. `caveman` adds an on-demand response skill and needs no separate program. Before enabling either, [check your existing setup](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman) so an existing hook or skill does not run twice. That guide covers missing dependencies, adoption, removal, and licenses.
+Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
 
 The same list works in the [global home config](#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` turns them all off there. Removing a name removes the files or tool settings it manages on the next sync. Unrelated settings and project overrides remain.
 

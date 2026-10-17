@@ -120,6 +120,8 @@ agnostic-ai sync --check --against index
 
 A staged spec change without its regenerated output fails. The error names the file and tells you to run `agnostic-ai sync` and stage the output with `git add` (or, for `--against HEAD`, commit it). The hook from `agnostic-ai install-hook` runs this form. Run `install-hook` again to update a hook an older version wrote.
 
+With `gitignore.enabled: true`, the installed hook checks only that the staged specs render, because `--against index` compares only outputs Git tracks. A plain `sync --check` still compares every output.
+
 <details>
 <summary>Limits of --against</summary>
 
@@ -296,6 +298,4 @@ Keep formatters away from committed generated files, or each sync undoes their e
 ## Tips
 
 - Project hooks prefer `node_modules/.bin/agnostic-ai`; a global fallback needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found` on their first commit.
-- To fix a failing check, run `agnostic-ai sync` and stage the regenerated outputs with the spec change.
-- With `gitignore.enabled: true`, the `install-hook` hook only checks that the staged specs render, because `--against index` compares only outputs Git tracks. A plain `sync --check` still compares every output.
 - Skip a hook for one commit with `git commit --no-verify`. Save it for emergencies.

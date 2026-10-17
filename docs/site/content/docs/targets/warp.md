@@ -86,9 +86,7 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 
 `agnostic-ai sync --global --only warp` adds your home MCP specs to `~/.warp/.mcp.json`, using the same fields as project output. Warp starts these global servers automatically. Sync leaves out a spec with `disabled: true` and explains why.
 
-Servers you add under other names stay. A different server with the same name stops sync. See [global MCP servers](@/docs/configuration.md#global-mcp-servers) for how to resolve a conflict.
-
-`agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP servers](@/docs/configuration.md#global-mcp-servers).
+`agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration.md#global-mcp-servers).
 
 ## Import
 
@@ -98,4 +96,4 @@ Skills import, with all bundled files, from `<root>/skills/` for each root Warp 
 
 ## Protected paths
 
-Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

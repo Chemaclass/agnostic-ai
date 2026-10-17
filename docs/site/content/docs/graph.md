@@ -33,11 +33,7 @@ agnostic-ai graph --spec no-console-log
 
 # Only rules, as JSON
 agnostic-ai graph --kind rule --format json
-
-# Render an SVG of the whole graph
-agnostic-ai graph --format dot | dot -Tsvg > graph.svg
 ```
-
 
 For the flags, see [graph](@/docs/cli-reference/inspect.md#graph) in the CLI reference.
 

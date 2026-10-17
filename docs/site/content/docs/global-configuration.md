@@ -178,6 +178,17 @@ Sync edits only the keys it writes. Removing the spec removes only those keys, a
 - Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`. Tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` keys other than `allow`, `ask`, and `deny` raise a coverage note. Project sync does not route `x-codex` into `.codex/config.toml`.
 - `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets.
 
+### Agents {#global-agents}
+
+A personal agent such as `~/.agnostic-ai/agents/reviewer.md` with `targets: [claude, codex]` installs with:
+
+```console
+agnostic-ai sync --global --only claude,codex
+agnostic-ai sync --global --only claude,codex --check
+```
+
+Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. If a hand-copied file sits at an output path, save its edits in the source and move it aside first. `--backup` does not bypass unmanaged collisions.
+
 ### MCP servers {#global-mcp-servers}
 
 MCP specs in the home's `mcps/` install each server in the user MCP file of every target that has one, rendered as the target's project MCP file renders it:
@@ -204,18 +215,9 @@ Each server follows the per-key rules above:
 - Antigravity keeps disabled servers with `disabled: true` in its user file.
 - When `CLAUDE_CONFIG_DIR` or another root variable moves a file, the next sync removes its entries from the old one.
 
-A personal agent such as `~/.agnostic-ai/agents/reviewer.md` with `targets: [claude, codex]` installs with:
-
-```console
-agnostic-ai sync --global --only claude,codex
-agnostic-ai sync --global --only claude,codex --check
-```
-
-Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. If a hand-copied file sits at an output path, save its edits in the source and move it aside first. `--backup` does not bypass unmanaged collisions.
-
 ## Global output
 
-`sync --global` writes user-level configuration for 22 of the 26 targets, separate from project files. A dash means global sync writes nothing for that kind.
+A dash means global sync writes nothing for that kind.
 
 | Target | Instructions | Rules | Hooks | Skills | Agents | Session retention |
 |--------|--------------|-------|-------|--------|--------|-------------------|
@@ -242,9 +244,9 @@ Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. 
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` | - |
 | **augment** | - | `~/.augment/rules/<name>.md` | `~/.augment/settings.json` | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` | - |
 
-- **MCP** reaches the user MCP files of Antigravity, Augment, Claude Code, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. See [MCP servers](#global-mcp-servers).
-- **Settings** reach the user settings of Claude Code, Codex, Copilot, Qoder, Gemini (model and session retention), and Augment (`x-augment` keys only). Claude also maps `permissions.default-mode` and merges the `allow`, `ask`, and `deny` rule lists; Claude, Gemini, and Qoder map global-only `session-retention-days`; other targets' global permission lists are unsupported. Other tools raise a coverage note. See [default model and effort](#global-default-model-and-effort).
-- **Agents** use the same formats as project agents. Amp, Zed, Warp, and Crush have no global agent output. See [global configuration](#source-and-targets).
+- **MCP** paths and supported tools are listed under [MCP servers](#global-mcp-servers).
+- **Settings** paths, supported fields, and ownership rules are listed under [default model and effort](#global-default-model-and-effort).
+- **Agents** use the same formats as project agents. See [the agent example](#global-agents).
 - **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
 
 Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.

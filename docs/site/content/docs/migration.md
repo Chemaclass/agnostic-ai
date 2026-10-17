@@ -31,7 +31,7 @@ Import writes source specs. It does not sync. The separate `import` command does
 
 ## Review what was imported {#review-what-was-imported}
 
-Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, review differences before syncing (see [below](#2-review)). A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
+Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, [review their import order](#2-review) before syncing. A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
 
 Check scripts called by hooks and settings, and inspect MCP connection variables before committing. Skill folders and some tool scripts are imported; other referenced scripts must remain available in your project. [MCP import details](@/docs/spec-format/mcp-import.md) explain credential references and connection differences.
 

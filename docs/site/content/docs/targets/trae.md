@@ -150,4 +150,4 @@ Hook commands that share an event and matcher become one spec with a `command:` 
 
 ## Protected paths
 
-Not enforced. Trae takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Trae takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).

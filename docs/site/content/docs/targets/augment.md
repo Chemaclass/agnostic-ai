@@ -64,7 +64,7 @@ AGENTS.md                     # entry-point pointer body + rules (written by syn
 <details>
 <summary>Entry point off AGENTS.md</summary>
 
-A `file` output override can move the entry point off the root `AGENTS.md`. Or `AGENTS.md` can be in `sync.unmanaged`, which stops sync writing it, so codex and every other tool that reads it miss rule changes. Either way every rule gets a `.augment/rules/` file, and the default `always_apply` is left out.
+Moving the entry point off root `AGENTS.md` with a `file` override, or listing it in `sync.unmanaged`, makes every rule keep a `.augment/rules/` file. The default `always_apply` is left out. Before making the shared file unmanaged, check [its effect on other targets](@/docs/target-behavior.md#inlined-rules).
 
 </details>
 
@@ -129,4 +129,4 @@ These are not written and raise a sync note:
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

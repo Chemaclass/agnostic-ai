@@ -1,6 +1,6 @@
 +++
 title = "Ignore"
-description = "ignore/: paths an agent must not read or index, written into each tool's ignore file."
+description = "ignore/: patterns that supported tools leave out of context or indexing."
 weight = 100
 
 [extra]
@@ -11,9 +11,7 @@ group = "Reference"
 
 `ignore/` lists paths supported tools leave out of context or indexing, such as generated code, copied dependencies, and large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
 
-Claude Code and Codex have no ignore-spec output. Other tools differ on whether an ignore file affects reads, indexing, or shell commands. Check the [target support table](@/docs/targets/_index.md#capability-matrix) and [permission support](@/docs/spec-format/settings.md#support-by-target) before using a pattern as an access restriction.
-
-Use exact paths or narrow patterns. An ignore file alone does not establish an access restriction.
+Claude Code and Codex have no ignore-spec output. Other tools differ on whether an ignore file affects reads, indexing, or shell commands. An ignore file alone does not establish an access restriction. Check the [target support table](@/docs/targets/_index.md#capability-matrix) and [permission support](@/docs/spec-format/settings.md#support-by-target). Use exact paths or narrow patterns.
 
 ## Write one
 
@@ -26,7 +24,7 @@ Replace the description and comment inside the gitignore fence with your path pa
 Markdown with optional YAML settings between `---` lines at the top, one file per group. The body holds gitignore-syntax patterns.
 
 ````markdown
-Secrets and build artifacts the agent should never read.
+Paths to leave out of context or indexing.
 
 ```gitignore
 *.env

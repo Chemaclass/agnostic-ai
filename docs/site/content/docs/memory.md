@@ -151,7 +151,7 @@ Every tool reads personal memory, so the dry run lists each fact with its descri
 
 ### Each tool's own memory {#each-tools-own-memory}
 
-Keep your tool's own memory on. Shared memory adds what none of them gives alone: one set of facts every tool reads, and a team layer you review in pull requests. To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
+To share something a tool learned, ask it to save the fact in shared memory. Claude Code's own saves land there already, unless you set `autoMemoryDirectory` yourself.
 
 | Tool | Its own memory | Default |
 | --- | --- | --- |

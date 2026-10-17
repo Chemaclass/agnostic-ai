@@ -197,7 +197,7 @@ See [test a hook](@/docs/cli-reference/hook-diagnostics.md#hook-run) for the sam
 | `--payload <file>` | Send this JSON file to every tool, for events the flags above do not cover. |
 | `--expect allow\|block` | Fail unless every tool gives this result. |
 | `--include-assumed` | Count tools whose shell, timeout, or working directory is a guess toward `--expect` and the comparison between tools. See [assumed results](@/docs/cli-reference/hook-diagnostics.md#assumed-results). |
-| `--format text\|json` | `json` prints one object per tool with its result, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
+| `--format text\|json` | `json` prints one report with a `targets` array containing each tool's result, warnings, and command output. See the [JSON fields](@/docs/cli-reference/hook-diagnostics.md#json-output). Defaults to `text`. |
 
 ## install-hook
 
