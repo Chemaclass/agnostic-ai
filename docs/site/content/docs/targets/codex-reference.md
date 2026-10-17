@@ -4,6 +4,7 @@ description = "Native field mappings, output overrides, and import coverage for 
 weight = 21
 
 [extra]
+nav_title = "Codex reference"
 group = "Reference"
 +++
 

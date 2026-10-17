@@ -4,6 +4,7 @@ description = "Select the installed project CLI, repair dependencies, and check 
 weight = 56
 
 [extra]
+nav_title = "Project readiness"
 group = "Reference"
 +++
 

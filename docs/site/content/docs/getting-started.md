@@ -4,6 +4,7 @@ description = "Share one project note across your coding tools, then change it o
 weight = 20
 
 [extra]
+nav_title = "Set up your project"
 group = "Start"
 scripts = ["assets/scripts/landing.js"]
 next = "@/docs/scoped-context.md"

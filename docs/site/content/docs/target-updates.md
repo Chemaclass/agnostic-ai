@@ -4,6 +4,7 @@ description = "Find release announcements and tell current support from dated to
 weight = 100
 
 [extra]
+nav_title = "Releases and updates"
 group = "Reference"
 +++
 

@@ -4,6 +4,7 @@ description = "Check specs and generated files: validate, lint, verify, doctor, 
 weight = 30
 
 [extra]
+nav_title = "Check output"
 group = "Reference"
 +++
 

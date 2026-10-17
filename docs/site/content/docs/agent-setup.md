@@ -4,6 +4,7 @@ description = "Paste one prompt into your coding agent and it sets up agnostic-a
 weight = 15
 
 [extra]
+nav_title = "Set up with agents"
 group = "Start"
 +++
 

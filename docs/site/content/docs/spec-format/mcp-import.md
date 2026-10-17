@@ -4,6 +4,7 @@ description = "How import rewrites credential values and which servers it leaves
 weight = 66
 
 [extra]
+nav_title = "MCP credentials"
 group = "Reference"
 +++
 

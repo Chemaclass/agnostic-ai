@@ -4,6 +4,7 @@ description = "Run sample hook events and understand diagnostic results and runt
 weight = 55
 
 [extra]
+nav_title = "Test hooks"
 group = "Reference"
 +++
 

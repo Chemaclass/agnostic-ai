@@ -4,6 +4,7 @@ description = "Install agnostic-ai on macOS, Linux, or Windows, then verify and 
 weight = 10
 
 [extra]
+nav_title = "Install"
 group = "Start"
 scripts = ["assets/scripts/landing.js"]
 +++

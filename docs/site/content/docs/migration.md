@@ -4,6 +4,7 @@ description = "Import an existing AI tool setup into agnostic-ai and keep its be
 weight = 30
 
 [extra]
+nav_title = "Import existing setup"
 group = "Start"
 +++
 

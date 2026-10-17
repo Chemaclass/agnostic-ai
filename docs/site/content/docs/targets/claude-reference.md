@@ -4,6 +4,7 @@ description = "Native field mappings, output overrides, and import coverage for 
 weight = 11
 
 [extra]
+nav_title = "Claude Code reference"
 group = "Reference"
 +++
 

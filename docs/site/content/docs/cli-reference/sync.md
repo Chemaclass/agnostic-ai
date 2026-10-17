@@ -4,6 +4,7 @@ description = "Write each tool's config, preview changes, and read a failing che
 weight = 20
 
 [extra]
+nav_title = "Generate output"
 group = "Reference"
 +++
 

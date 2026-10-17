@@ -4,6 +4,7 @@ description = "Keep rules close to the directories where they apply across suppo
 weight = 40
 
 [extra]
+nav_title = "Folder instructions"
 group = "Workflows"
 +++
 

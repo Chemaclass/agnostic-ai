@@ -12,7 +12,7 @@
     {% endfor %}
     {% for doc in section.pages %}
       {% if doc.extra.group == group %}
-        <a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.title }}</a>
+        <a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.extra.nav_title | default(value=doc.title) }}</a>
         {% for path in section.subsections %}{% set sub = get_section(path=path) %}
           {% if sub.extra.nav_after == doc.slug %}{{ <docs.subnav node={sub} current_path={current_path} /> }}{% endif %}
         {% endfor %}
@@ -24,9 +24,9 @@
 {% endcomponent docs.navigation %}
 
 {% component docs.subnav(node, current_path) %}
-<a{% if current_path == node.path %} class="is-current" aria-current="page"{% endif %} href="{{ node.permalink | safe }}">{{ node.title }}</a>
+<a{% if current_path == node.path %} class="is-current" aria-current="page"{% endif %} href="{{ node.permalink | safe }}">{{ node.extra.nav_title | default(value=node.title) }}</a>
 {# Expanded only inside the section, so other pages keep a short sidebar. #}
-{% if current_path is starting_with(pat=node.path) %}<div class="docs-nav-sub">{% for item in node.pages %}<a{% if item.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ item.permalink | safe }}">{{ item.title }}</a>{% endfor %}</div>{% endif %}
+{% if current_path is starting_with(pat=node.path) %}<div class="docs-nav-sub">{% for item in node.pages %}<a{% if item.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ item.permalink | safe }}">{{ item.extra.nav_title | default(value=item.title) }}</a>{% endfor %}</div>{% endif %}
 {% endcomponent docs.subnav %}
 
 {% component docs.toc(headings, moved) %}

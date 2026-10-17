@@ -5,6 +5,7 @@ weight = 90
 aliases = ["/docs/why/"]
 
 [extra]
+nav_title = "Trace outputs"
 group = "Workflows"
 +++
 
