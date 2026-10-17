@@ -2,7 +2,7 @@
   "schemaVersion": "authority/v1",
   "snapshot": {
     "revision": "ee3e515f476e",
-    "generatedAt": "2026-10-17T02:39:34Z",
+    "generatedAt": "2026-10-17T02:50:16Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -137,7 +137,7 @@
           "state": "not-generated"
         }
       ],
-      "checkedAt": "2026-10-17T02:39:34Z"
+      "checkedAt": "2026-10-17T02:50:16Z"
     },
     "permissionSupport": "native-rules"
   },
@@ -6483,7 +6483,7 @@
         "use": "unavailable",
         "manage": "unknown"
       },
-      "explanation": "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules. Rotation and revocation happen in the provider, outside this configuration."
+      "explanation": "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules. Use reports whether the subject can call a server that authenticates with this credential on the selected tool, judged from that server's tool operations; other routes to the value are unknown. Rotation and revocation happen in the provider, outside this configuration."
     },
     {
       "id": "secret-GITHUB_TOKEN",
@@ -6507,7 +6507,7 @@
         "use": "allowed",
         "manage": "unknown"
       },
-      "explanation": "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules. Rotation and revocation happen in the provider, outside this configuration."
+      "explanation": "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules. Use reports whether the subject can call a server that authenticates with this credential on the selected tool, judged from that server's tool operations; other routes to the value are unknown. Rotation and revocation happen in the provider, outside this configuration."
     },
     {
       "id": "secret-RAILWAY_TOKEN",
@@ -6531,7 +6531,7 @@
         "use": "allowed",
         "manage": "unknown"
       },
-      "explanation": "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules. Rotation and revocation happen in the provider, outside this configuration."
+      "explanation": "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules. Use reports whether the subject can call a server that authenticates with this credential on the selected tool, judged from that server's tool operations; other routes to the value are unknown. Rotation and revocation happen in the provider, outside this configuration."
     }
   ],
   "uncertainties": [

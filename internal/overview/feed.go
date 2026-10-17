@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
@@ -237,8 +238,19 @@ func authorityCards(v *authority.View, labels labeler) []draft {
 }
 
 func notExpressedCard(ix authorityIndex, u authority.Uncertainty, labels labeler) draft {
-	target := ix.targetFor(u.RelatedIDs)
+	// The Authority view names the tool in the uncertainty id, as
+	// "target-not-expressed:<target>"; the related ids are operations.
+	target, ok := strings.CutPrefix(u.ID, u.Code+":")
+	if !ok || target == "" {
+		target = ix.targetFor(u.RelatedIDs)
+	}
 	tool := cmp.Or(labels.of(target), "A coding tool")
+	decisions := 0
+	for _, id := range u.RelatedIDs {
+		if strings.Contains(id, ":") {
+			decisions++
+		}
+	}
 	consequence := u.Message
 	if consequence == "" {
 		consequence = "Sync writes nothing on " + tool + " for these rules, so the tool's own defaults apply to them."
@@ -251,7 +263,7 @@ func notExpressedCard(ix authorityIndex, u authority.Uncertainty, labels labeler
 		card: Card{
 			Kind:        CardInsight,
 			Priority:    PriorityCoverage,
-			Title:       tool + " receives none of the permission rules it cannot express",
+			Title:       tool + " receives no rule for " + plural(decisions, "declared decision", "declared decisions"),
 			Consequence: consequence,
 			SectionID:   SectionAuthority,
 			DomainID:    ix.domainFor(u.RelatedIDs),
@@ -361,12 +373,21 @@ func shellAnyDraft(v *authority.View, r authority.Resource, op authority.Operati
 	if len(r.DomainIDs) > 0 {
 		domain = r.DomainIDs[0]
 	}
+	// The card states what the permission rules allow, never that a
+	// command ran, and stays conditional while the generated file is
+	// stale, missing, or unchecked.
+	title := "Any shell command is permitted without asking"
+	consequence := cmp.Or(tool, "The coding tool") + "'s permission rules allow any shell command without asking first; only a narrower ask or deny rule stops one."
+	if op.Hypothetical {
+		title = "Any shell command would be permitted without asking once synced"
+		consequence = "Once the generated permission file is synced (it is " + cmp.Or(op.Installed, "not checked") + "), " + cmp.Or(tool, "the coding tool") + " would allow any shell command without asking first; only a narrower ask or deny rule stops one."
+	}
 	return draft{
 		card: Card{
 			Kind:        CardDecision,
 			Priority:    PrioritySecurity,
-			Title:       "Any shell command is permitted without asking",
-			Consequence: cmp.Or(tool, "The coding tool") + " runs any shell command the session issues without asking first; only a narrower ask or deny rule stops one.",
+			Title:       title,
+			Consequence: consequence,
 			SectionID:   SectionAuthority,
 			DomainID:    domain,
 			Source:      SourceAuthority,
@@ -659,4 +680,12 @@ func cleanPath(p string) string {
 		return ""
 	}
 	return filepath.ToSlash(filepath.Clean(p))
+}
+
+// plural counts n with the singular or plural noun.
+func plural(n int, singular, pluralNoun string) string {
+	if n == 1 {
+		return "1 " + singular
+	}
+	return strconv.Itoa(n) + " " + pluralNoun
 }

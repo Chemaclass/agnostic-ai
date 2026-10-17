@@ -249,7 +249,7 @@ func TestBuildFeed_AuthorityUncertaintiesBecomeCoverageAndInformationCards(t *te
 	if coverage.Priority != PriorityCoverage || coverage.PriorityLabel != "Coverage" || coverage.Kind != CardInsight || coverage.Source != SourceAuthority {
 		t.Errorf("coverage card = %+v", coverage)
 	}
-	if coverage.Title != "Cursor receives none of the permission rules it cannot express" {
+	if coverage.Title != "Cursor receives no rule for 1 declared decision" {
 		t.Errorf("title = %q", coverage.Title)
 	}
 	if coverage.SectionID != SectionAuthority || coverage.DomainID != authority.DomainFilesystem {
@@ -440,5 +440,25 @@ func TestFirstSentence_EndsAtTheFirstBreak(t *testing.T) {
 		if got := firstSentence(in); got != want {
 			t.Errorf("firstSentence(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestBuildFeed_HypotheticalShellCardStaysConditional(t *testing.T) {
+	v := authorityView()
+	v.Resources[0].Operations[0].Hypothetical = true
+	v.Resources[0].Operations[0].Installed = authority.InstalledStale
+	c, ok := cardWithCode(feedOf(t, Inputs{Authority: v}), shellAnyCode)
+	if !ok {
+		t.Fatal("no shell card for a hypothetical allow")
+	}
+	if c.Title != "Any shell command would be permitted without asking once synced" {
+		t.Errorf("title = %q", c.Title)
+	}
+	if !strings.Contains(c.Consequence, "Once the generated permission file is synced (it is stale)") || strings.Contains(c.Consequence, " runs ") {
+		t.Errorf("consequence = %q, want a conditional statement that claims no execution", c.Consequence)
+	}
+	synced, _ := cardWithCode(feedOf(t, Inputs{Authority: authorityView()}), shellAnyCode)
+	if strings.Contains(synced.Consequence, " runs ") || !strings.Contains(synced.Consequence, "permission rules allow") {
+		t.Errorf("in-sync consequence = %q, want what the rules allow, not what ran", synced.Consequence)
 	}
 }

@@ -63,6 +63,7 @@ func Impact(cfg *config.Config, b spec.Bundle, opts Options, p Proposal) (*Impac
 	res.Valid = true
 	res.Diff = diff
 	res.ProposedRevision = Revision(after, opts)
+	proposedInstalled := proposedCarriers(opts.Installed)
 	for _, s := range subjects {
 		o := opts
 		o.Target, o.AgentID = target, s.id()
@@ -73,7 +74,9 @@ func Impact(cfg *config.Config, b spec.Bundle, opts Options, p Proposal) (*Impac
 		if err != nil {
 			return nil, err
 		}
-		proposed, err := buildWith(cfg, after, o, b.Settings)
+		po := o
+		po.Installed = proposedInstalled
+		proposed, err := buildWith(cfg, after, po, b.Settings)
 		if err != nil {
 			return nil, err
 		}
@@ -379,4 +382,34 @@ func deepCopy(v any) any {
 		return out
 	}
 	return v
+}
+
+// proposedCarriers copies the installed evidence with each tool's
+// permission file marked stale, because a proposal changes the rules
+// that file carries and nothing has written it. The proposed view then
+// reads as hypothetical even when the current output is in sync. A file
+// that is missing or already stale keeps its state.
+func proposedCarriers(installed map[string]InstalledState) map[string]InstalledState {
+	if installed == nil {
+		return nil
+	}
+	out := make(map[string]InstalledState, len(installed))
+	for target, st := range installed {
+		carrier := permissionFiles[target]
+		files := make([]InstalledFile, 0, len(st.Files))
+		touched := false
+		for _, f := range st.Files {
+			if f.Path == carrier && f.State == InstalledInSync {
+				f.State = InstalledStale
+				touched = true
+			}
+			files = append(files, f)
+		}
+		st.Files = files
+		if touched && st.State == InstalledInSync {
+			st.State = InstalledStale
+		}
+		out[target] = st
+	}
+	return out
 }
