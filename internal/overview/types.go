@@ -175,4 +175,11 @@ type Finding struct {
 	Target   string `json:"target,omitempty"`
 	// Fix is the command or edit that resolves the finding, when known.
 	Fix string `json:"fix,omitempty"`
+	// Explanation says why the finding matters, such as the cause
+	// `agnostic-ai explain <CODE>` prints for a lint code, when known.
+	// A card shows it as its consequence.
+	Explanation string `json:"explanation,omitempty"`
+	// Section is the harness section the finding belongs to, when the
+	// check knows it. Empty lets the overview place it by its path.
+	Section string `json:"section,omitempty"`
 }

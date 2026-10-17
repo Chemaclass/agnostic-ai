@@ -96,6 +96,8 @@ func NewRootCmd(version string) *cobra.Command {
 		newCompareCmd(),
 		newWhyCmd(),
 		newGraphCmd(),
+		newViewCmd(),
+		newServeCmd(),
 		newLSPCmd(),
 		newUpgradeCmd(),
 		newUseCmd(),
