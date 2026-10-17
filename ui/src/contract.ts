@@ -254,6 +254,18 @@ export interface Enforcement {
   note?: string
 }
 
+export interface RouteStatus {
+  route: string
+  effect: Effect
+  note?: string
+}
+
+/** Qualifies alternateRoutes: an empty list means no checked route is open, never that no route exists. */
+export interface RouteCoverage {
+  checked: RouteStatus[]
+  notModeled: string[]
+}
+
 export interface Operation {
   id: string
   action: string
@@ -270,6 +282,7 @@ export interface Operation {
   grants: Grant[]
   conditions: string[]
   alternateRoutes: string[]
+  routeCoverage: RouteCoverage
   enforcement: Enforcement[]
   explanation: string
 }
