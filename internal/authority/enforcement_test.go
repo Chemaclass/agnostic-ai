@@ -172,3 +172,34 @@ func TestClassifyRule_NamesEachRuleForm(t *testing.T) {
 		}
 	}
 }
+
+func TestBuild_OverlappingRulesResolveOnlyWhereThePrecedenceIsDocumented(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude, opencode]\n",
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  deny: [shell]\n  allow:\n    - shell(git push:*)\n",
+	})
+	pushOp := func(v *View) Operation {
+		t.Helper()
+		for _, res := range v.Resources {
+			if res.Kind == ResourceCommandPattern && strings.HasPrefix(res.Label, "git push") {
+				return res.Operations[0]
+			}
+		}
+		t.Fatalf("no git push resource in %+v", v.Resources)
+		return Operation{}
+	}
+	claude := pushOp(buildView(t, root, Options{Target: "claude"}))
+	if claude.Declared != EffectDenied || claude.Effect != EffectDenied || claude.Resolution != ResolutionTranslated {
+		t.Errorf("claude: declared %s, effect %s, resolution %s; want the documented deny-over-allow order", claude.Declared, claude.Effect, claude.Resolution)
+	}
+	opencode := pushOp(buildView(t, root, Options{Target: "opencode"}))
+	if opencode.Declared != EffectDenied || opencode.Effect != EffectUnresolved || opencode.Resolution != ResolutionTranslatedUnverified {
+		t.Errorf("opencode: declared %s, effect %s, resolution %s; want unresolved, since OpenCode applies the narrower rule written last", opencode.Declared, opencode.Effect, opencode.Resolution)
+	}
+	if note := enforcementOn(t, opencode, "opencode").Note; !strings.Contains(note, "overlapping rules") {
+		t.Errorf("opencode note = %q, want the overlap named", note)
+	}
+	if len(uncertaintiesWith(buildView(t, root, Options{Target: "opencode"}), UncertaintyMatchingUnverified)) == 0 {
+		t.Error("no target-matching-unverified uncertainty for the overlap on OpenCode")
+	}
+}

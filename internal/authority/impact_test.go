@@ -155,3 +155,30 @@ func TestJudgeDirection_RanksOnlyKnownDecisions(t *testing.T) {
 		}
 	}
 }
+
+func TestImpact_ProposedViewNeverInheritsInSyncCarriers(t *testing.T) {
+	installed := map[string]InstalledState{"claude": {State: InstalledInSync, Files: []InstalledFile{
+		{Path: ".claude/settings.json", State: InstalledInSync},
+		{Path: "CLAUDE.md", State: InstalledInSync},
+	}}}
+	current := findOp(t, buildView(t, demoRoot, Options{Target: "claude", Installed: installed}), "mcp-github-scope:create_pull_request")
+	if current.Installed != InstalledInSync || current.Hypothetical {
+		t.Fatalf("current = installed %s, hypothetical %v; want in sync before the proposal", current.Installed, current.Hypothetical)
+	}
+	res := impactOf(t, demoRoot, Options{Installed: installed}, Proposal{Target: "claude", Changes: []Change{{Op: "add", List: "deny", Rule: "mcp:github/create_pull_request"}}})
+	if res.After == nil {
+		t.Fatal("no proposed view")
+	}
+	after := findOp(t, res.After, "mcp-github-scope:create_pull_request")
+	if after.Effect != EffectDenied || after.Installed != InstalledStale || !after.Hypothetical {
+		t.Errorf("proposed = effect %s, installed %s, hypothetical %v; want a denial that waits for a sync", after.Effect, after.Installed, after.Hypothetical)
+	}
+	if res.After.Harness.Installed.State != InstalledStale {
+		t.Errorf("proposed harness installed = %s, want stale: the proposal writes nothing", res.After.Harness.Installed.State)
+	}
+	for _, f := range res.After.Harness.Installed.Files {
+		if f.Path == "CLAUDE.md" && f.State != InstalledInSync {
+			t.Errorf("CLAUDE.md = %s, want in-sync: the proposal does not touch it", f.State)
+		}
+	}
+}

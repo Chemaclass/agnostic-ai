@@ -6,12 +6,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -141,8 +143,11 @@ func TestOverviewInputs_BuildsTheSnapshotFromTheProject(t *testing.T) {
 	if snap.Evidence.Declared != "loaded" || snap.Evidence.Installed != "checked" || snap.Evidence.Runtime != "not-observed" || !strings.Contains(snap.Evidence.Note, "claude") {
 		t.Errorf("evidence = %+v", snap.Evidence)
 	}
-	if in.Cfg == nil || len(in.Bundle.Settings) != 1 || in.Authority != nil || len(in.Findings) == 0 {
+	if in.Cfg == nil || len(in.Bundle.Settings) != 1 || len(in.Findings) == 0 {
 		t.Errorf("inputs = %+v", in)
+	}
+	if in.Authority == nil || in.Authority.Snapshot.Revision != snap.Revision || in.Authority.Harness.Target != "claude" {
+		t.Errorf("authority = %+v, want the session view on claude at the overview's revision %s", in.Authority, snap.Revision)
 	}
 
 	again, err := overviewInputs(dir, nil)
@@ -192,5 +197,59 @@ func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) 
 	}
 	if !security || !drift {
 		t.Errorf("feed = %+v, want the LINT038 security card and the claude drift card", view.Feed)
+	}
+}
+
+func TestNewOverviewHandler_FeedCarriesTheAuthorityViewsCards(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
+	h := newOverviewHandler(".")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, overview.FeedPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	var feed overview.FeedView
+	if err := json.Unmarshal(rec.Body.Bytes(), &feed); err != nil {
+		t.Fatal(err)
+	}
+	var shell *overview.Card
+	for i := range feed.Feed {
+		if feed.Feed[i].Source == overview.SourceAuthority && feed.Feed[i].Kind == overview.CardDecision {
+			shell = &feed.Feed[i]
+		}
+	}
+	if shell == nil {
+		t.Fatalf("feed = %+v, want the Authority view's shell decision card", feed.Feed)
+	}
+	if shell.Title != "Any shell command would be permitted without asking once synced" {
+		t.Errorf("title = %q, want the conditional wording: nothing is generated yet", shell.Title)
+	}
+	var propose *overview.CardAction
+	for i := range shell.Actions {
+		if shell.Actions[i].Kind == overview.ActionPropose {
+			propose = &shell.Actions[i]
+		}
+	}
+	if propose == nil || propose.Proposal == nil || propose.Proposal.Revision != feed.Snapshot.Revision {
+		t.Errorf("propose = %+v, want a proposal at the feed's own revision %s", propose, feed.Snapshot.Revision)
+	}
+}
+
+func TestCompareInstalled_PresentBesideMissingIsNotInSync(t *testing.T) {
+	testutil.TempCwd(t)
+	mustWrite(t, "a.txt", "same\n")
+	state, err := compareInstalled([]adapters.CapturedFile{{Path: "a.txt", Content: "same\n"}, {Path: "b.txt", Content: "missing\n"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.State != authority.InstalledStale {
+		t.Errorf("state = %s, want stale: one generated file is missing", state.State)
+	}
+	want := []authority.InstalledFile{{Path: "a.txt", State: authority.InstalledInSync}, {Path: "b.txt", State: authority.InstalledNotGenerated}}
+	if !reflect.DeepEqual(state.Files, want) {
+		t.Errorf("files = %+v, want %+v", state.Files, want)
 	}
 }

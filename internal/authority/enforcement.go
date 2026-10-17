@@ -273,6 +273,8 @@ func (bd *builder) ruleOn(target string, d *declaration) effective {
 		out.note = "the written rule grants more than declared: " + strings.Join(t.Widening, "; ")
 	case t.Override != "":
 		out.note = t.Override + " replaces the written rule, and this view does not read it"
+	case target != "claude" && overlappingProjectDecisions(d):
+		out.note = label + " orders overlapping rules by its own precedence, which this view does not model (OpenCode, for one, applies the narrower rule written last); the specs' neutral precedence declares " + string(d.declared)
 	case target == "claude" && form == formShellGlob:
 		out.note = "Claude Code matches a mid-command * in a deny rule literally, so it blocks nothing, and an allow rule also approves options placed at the * (" + docSettings + ")"
 	default:
@@ -287,6 +289,22 @@ func (bd *builder) ruleOn(target string, d *declaration) effective {
 		}
 	}
 	return out
+}
+
+// overlappingProjectDecisions reports settings rules from more than one
+// list applying to the same operation, such as a bare deny beside a
+// narrower allow. Neutral precedence picks deny over ask over allow, and
+// Claude Code documents that order, but another tool may apply its own:
+// OpenCode's emitter writes the narrower rule last and the tool applies
+// the last match. Such an overlap is therefore claimed only on Claude Code.
+func overlappingProjectDecisions(d *declaration) bool {
+	lists := map[string]bool{}
+	for _, g := range d.grants {
+		if g.Scope == "project" && (g.List == "allow" || g.List == "ask" || g.List == "deny") {
+			lists[g.List] = true
+		}
+	}
+	return len(lists) > 1
 }
 
 // protectedOn resolves a decision a protected path won, following the

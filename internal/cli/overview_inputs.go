@@ -309,7 +309,31 @@ func overviewInputs(root string, authorityView *authority.View) (overview.Inputs
 	if err != nil {
 		return overview.Inputs{}, err
 	}
+	if authorityView == nil {
+		authorityView = overviewAuthority(cfg, b)
+	}
 	return overview.Inputs{Cfg: cfg, Bundle: b, Snapshot: snapshot, Authority: authorityView, Findings: checks.findings}, nil
+}
+
+// overviewAuthority builds the session subject's Authority view on the
+// first configured target from the same loaded project, so the feed
+// carries the view's uncertainties and proposals and its revision
+// matches the overview's. A view that cannot be built leaves the feed
+// without those cards rather than failing the overview.
+func overviewAuthority(cfg *config.Config, b spec.Bundle) *authority.View {
+	if cfg == nil || len(cfg.Targets) == 0 {
+		return nil
+	}
+	target := cfg.Targets[0]
+	opts := authority.Options{Root: ".", Target: target, ConfigFiles: overviewConfigFiles()}
+	if state, err := installedState(target, cfg, b, "."); err == nil {
+		opts.Installed = map[string]authority.InstalledState{target: state}
+	}
+	v, err := authority.Build(cfg, b, opts)
+	if err != nil {
+		return nil
+	}
+	return v
 }
 
 // requireOverviewRoot refuses a root other than the working directory.

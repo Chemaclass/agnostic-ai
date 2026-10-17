@@ -12,6 +12,7 @@ import (
 // Secret explanations.
 const (
 	secretReadExplanation   = "The configuration references the value by name only. Whether the subject can read it another way, through a shell command or a file, depends on the Filesystem & Execution rules."
+	secretUseExplanation    = "Use reports whether the subject can call a server that authenticates with this credential on the selected tool, judged from that server's tool operations; other routes to the value are unknown."
 	secretManageExplanation = "Rotation and revocation happen in the provider, outside this configuration."
 )
 
@@ -55,7 +56,7 @@ func mcpSecretRefs(e spec.Entry) []secretRef {
 
 // buildSecrets returns each referenced secret with the subject's rights
 // over it, and records each provider's secret ids on providers.
-func buildSecrets(mcps []*mcpInfo, providers map[string]*Provider, subject *subjectInfo, source func(spec.Entry) *Source) []Secret {
+func buildSecrets(mcps []*mcpInfo, providers map[string]*Provider, use func(providerID string) string, source func(spec.Entry) *Source) []Secret {
 	var out []Secret
 	index := map[string]int{}
 	for _, m := range mcps {
@@ -72,7 +73,7 @@ func buildSecrets(mcps []*mcpInfo, providers map[string]*Provider, subject *subj
 					ProviderIDs:  []string{},
 					ReferencedBy: []SecretRef{},
 					Rights:       SecretRights{Discover: "allowed", ReadValue: "unknown", Use: "unavailable", Manage: "unknown"},
-					Explanation:  secretReadExplanation + " " + secretManageExplanation,
+					Explanation:  secretReadExplanation + " " + secretUseExplanation + " " + secretManageExplanation,
 				})
 			}
 			s := &out[i]
@@ -80,9 +81,7 @@ func buildSecrets(mcps []*mcpInfo, providers map[string]*Provider, subject *subj
 				s.ProviderIDs = append(s.ProviderIDs, m.id)
 			}
 			s.ReferencedBy = append(s.ReferencedBy, SecretRef{Source: *source(m.entry), Field: ref.field})
-			if !m.disabled && subject.reaches(m.name) {
-				s.Rights.Use = "allowed"
-			}
+			s.Rights.Use = strongerUse(s.Rights.Use, use(m.id))
 			if p != nil && !slices.Contains(p.SecretIDs, id) {
 				p.SecretIDs = append(p.SecretIDs, id)
 			}
@@ -105,4 +104,40 @@ func secretLabel(s Secret, providers map[string]*Provider) string {
 		return s.Name + " (" + labels[0] + " credential)"
 	}
 	return s.Name + " (credential for " + strings.Join(labels, ", ") + ")"
+}
+
+// strongerUse keeps the more permissive of two use rights for a secret
+// that several servers reference: allowed over unknown over unavailable.
+func strongerUse(a, b string) string {
+	rank := map[string]int{"unavailable": 0, "unknown": 1, "allowed": 2}
+	if rank[b] > rank[a] {
+		return b
+	}
+	return a
+}
+
+// useRightOf judges, from a provider's tool operations on the selected
+// harness, whether the subject can use the provider's credential:
+// allowed when any operation is permitted or permitted with approval,
+// unknown when the rest is left to the tool's default or unresolved,
+// unavailable when every operation is unavailable or blocked. Other
+// routes to the value stay unknown, as the explanation says.
+func useRightOf(built []*builtResource) func(providerID string) string {
+	return func(providerID string) string {
+		right := "unavailable"
+		for _, br := range built {
+			if br.res.ProviderID != providerID {
+				continue
+			}
+			for _, op := range br.res.Operations {
+				switch op.Effect {
+				case EffectAllowed, EffectAsk:
+					return "allowed"
+				case EffectDefault, EffectUnresolved:
+					right = "unknown"
+				}
+			}
+		}
+		return right
+	}
 }

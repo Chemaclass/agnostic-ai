@@ -41,7 +41,9 @@ headers:
 	if token.Label != "GITHUB_TOKEN (github credential)" || token.ReferencedBy[0].Field != "headers.Authorization" {
 		t.Errorf("secret = %+v", token)
 	}
-	want := SecretRights{Discover: "allowed", ReadValue: "unknown", Use: "allowed", Manage: "unknown"}
+	// No rule names a github tool, so its use is left to the tool's
+	// default and the right is unknown rather than claimed.
+	want := SecretRights{Discover: "allowed", ReadValue: "unknown", Use: "unknown", Manage: "unknown"}
 	if token.Rights != want {
 		t.Errorf("rights = %+v, want %+v", token.Rights, want)
 	}
@@ -117,5 +119,33 @@ func TestRedactURL_KeepsReferencesAndHidesWrittenCredentials(t *testing.T) {
 		if got := redactURL(in); got != want {
 			t.Errorf("redactURL(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestBuild_CredentialUseFollowsTheSubjectsToolPermissions(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude, codex]\n",
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow:\n    - mcp:github/get_pull_request\n",
+		".agnostic-ai/mcps/github.yaml":          "name: github\ntype: http\nurl: https://api.example.com/mcp\nheaders:\n  Authorization: Bearer ${GITHUB_TOKEN}\n",
+		".agnostic-ai/agents/reader.md":          "---\nname: reader\ndescription: Reads files only.\ncan: [read]\n---\n\nRead.\n",
+	})
+	useOf := func(v *View) string {
+		t.Helper()
+		for _, s := range v.Secrets {
+			if s.Name == "GITHUB_TOKEN" {
+				return s.Rights.Use
+			}
+		}
+		t.Fatal("no GITHUB_TOKEN secret")
+		return ""
+	}
+	if got := useOf(buildView(t, root, Options{Target: "claude"})); got != "allowed" {
+		t.Errorf("session on claude: use = %s, want allowed: a github tool is permitted", got)
+	}
+	if got := useOf(buildView(t, root, Options{AgentID: "reader", Target: "claude"})); got != "unavailable" {
+		t.Errorf("reader on claude: use = %s, want unavailable: its can list leaves every github tool out", got)
+	}
+	if got := useOf(buildView(t, root, Options{Target: "codex"})); got != "unknown" {
+		t.Errorf("session on codex: use = %s, want unknown: the rule is not expressed there", got)
 	}
 }

@@ -254,7 +254,7 @@ func (bd *builder) view() *View {
 		built = append(built, br)
 	}
 	applyRoutes(built)
-	secrets := buildSecrets(bd.mcps, byID, s, bd.paths.source)
+	secrets := buildSecrets(bd.mcps, byID, useRightOf(built), bd.paths.source)
 	resources := make([]Resource, 0, len(built))
 	edges := []Edge{}
 	for _, br := range built {

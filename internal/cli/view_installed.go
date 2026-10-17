@@ -66,13 +66,14 @@ func compareInstalled(captured []adapters.CapturedFile) (authority.InstalledStat
 	}
 	slices.Sort(paths)
 	state := authority.InstalledState{Files: []authority.InstalledFile{}}
-	present, stale := 0, false
+	present, missing, stale := 0, 0, false
 	for _, p := range paths {
 		file := authority.InstalledFile{Path: p, State: authority.InstalledInSync}
 		disk, err := os.ReadFile(filepath.FromSlash(p))
 		switch {
 		case err != nil && notOnDisk(err):
 			file.State = authority.InstalledNotGenerated
+			missing++
 		case err != nil:
 			return authority.InstalledState{}, fmt.Errorf("read %s: %w", p, err)
 		case string(disk) != content[p]:
@@ -84,8 +85,11 @@ func compareInstalled(captured []adapters.CapturedFile) (authority.InstalledStat
 		}
 		state.Files = append(state.Files, file)
 	}
+	// The whole is in sync only when every generated file is. A file
+	// that sync would write but that is missing leaves the output
+	// incomplete, so present files beside missing ones count as stale.
 	switch {
-	case stale:
+	case stale, present > 0 && missing > 0:
 		state.State = authority.InstalledStale
 	case present == 0:
 		state.State = authority.InstalledNotGenerated
