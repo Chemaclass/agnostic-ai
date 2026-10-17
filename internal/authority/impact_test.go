@@ -182,3 +182,33 @@ func TestImpact_ProposedViewNeverInheritsInSyncCarriers(t *testing.T) {
 		}
 	}
 }
+
+func TestImpact_FirstPermissionProposalNeverReadsAsInstalled(t *testing.T) {
+	// A synced project with instructions only: sync wrote CLAUDE.md and
+	// no settings file, because no settings spec exists yet.
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":              "version: 1\ntargets: [claude]\n",
+		".agnostic-ai/rules/testing.md": "---\nname: testing\ndescription: Run the tests.\n---\n\nRun the tests.\n",
+	})
+	installed := map[string]InstalledState{"claude": {State: InstalledInSync, Files: []InstalledFile{{Path: "CLAUDE.md", State: InstalledInSync}}}}
+	res := impactOf(t, root, Options{Installed: installed}, Proposal{Target: "claude", Changes: []Change{{Op: "add", List: "deny", Rule: "shell"}}})
+	if !res.Valid || res.After == nil {
+		t.Fatalf("result = valid %v, problems %v", res.Valid, res.Problems)
+	}
+	after := findOp(t, res.After, operationID("shell-any", "run"))
+	if after.Effect != EffectDenied || after.Installed == InstalledInSync || !after.Hypothetical {
+		t.Errorf("proposed = effect %s, installed %s, hypothetical %v; want a denial that waits for the first sync of .claude/settings.json", after.Effect, after.Installed, after.Hypothetical)
+	}
+	if res.After.Harness.Installed.State == InstalledInSync {
+		t.Error("proposed harness reads in-sync although the proposal introduces a permission file that was never written")
+	}
+	var carrier *InstalledFile
+	for i := range res.After.Harness.Installed.Files {
+		if res.After.Harness.Installed.Files[i].Path == ".claude/settings.json" {
+			carrier = &res.After.Harness.Installed.Files[i]
+		}
+	}
+	if carrier == nil || carrier.State == InstalledInSync {
+		t.Errorf("carrier = %+v, want .claude/settings.json listed as not yet written", carrier)
+	}
+}

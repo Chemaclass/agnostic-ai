@@ -41,11 +41,11 @@ export async function scrollToTop(page: Page, selector: string, offset = 84): Pr
   )
 }
 
-export async function saveScreenshot(page: Page, name: string): Promise<void> {
+export async function saveScreenshot(page: Page, name: string, options: { fullPage?: boolean } = {}): Promise<void> {
   mkdirSync(SCREENSHOT_DIR, { recursive: true })
   // Park the pointer in a corner so no hover state shows in the picture.
   await page.mouse.move(1, 1)
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, name), animations: 'disabled' })
+  await page.screenshot({ path: resolve(SCREENSHOT_DIR, name), animations: 'disabled', fullPage: options.fullPage === true })
 }
 
 /** Waits until the feed has loaded, whether it holds cards or says it is empty. */

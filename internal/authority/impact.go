@@ -396,14 +396,24 @@ func proposedCarriers(installed map[string]InstalledState) map[string]InstalledS
 	out := make(map[string]InstalledState, len(installed))
 	for target, st := range installed {
 		carrier := permissionFiles[target]
-		files := make([]InstalledFile, 0, len(st.Files))
-		touched := false
+		files := make([]InstalledFile, 0, len(st.Files)+1)
+		touched, found := false, false
 		for _, f := range st.Files {
-			if f.Path == carrier && f.State == InstalledInSync {
-				f.State = InstalledStale
-				touched = true
+			if f.Path == carrier {
+				found = true
+				if f.State == InstalledInSync {
+					f.State = InstalledStale
+					touched = true
+				}
 			}
 			files = append(files, f)
+		}
+		// A first permission rule introduces the carrier: the current
+		// output never wrote it, so the proposed view must not fall back
+		// to the aggregate and read the new rule as installed.
+		if carrier != "" && !found {
+			files = append(files, InstalledFile{Path: carrier, State: InstalledNotChecked})
+			touched = true
 		}
 		st.Files = files
 		if touched && st.State == InstalledInSync {

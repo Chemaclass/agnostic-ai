@@ -38,7 +38,7 @@ test.describe('feed', () => {
     const revision = (await page.locator('.footer code').first().innerText()).trim()
     await expect(page.locator('main')).not.toContainText(revision)
 
-    await saveScreenshot(page, '00-feed.png')
+    await saveScreenshot(page, '00-feed.png', { fullPage: true })
   })
 
   test('moves with j and k, dismisses with n, and keeps the dismissal in this browser', async ({ page }) => {
