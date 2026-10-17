@@ -66,6 +66,8 @@ agnostic-ai status       # see selected tools and out-of-date files
 agnostic-ai sync --plan  # preview what will change
 agnostic-ai sync         # write the tool files
 agnostic-ai sync --check # confirm they match the sources
+agnostic-ai view authority --agent reviewer # inspect one agent's permissions
+agnostic-ai serve --ui ui/dist              # serve the local web interface
 ```
 
 When something looks wrong:
