@@ -77,3 +77,99 @@ func TestBuild_ShellOperationChecksLocalFileRoutes(t *testing.T) {
 		t.Error("a shell operation lists the shell route as its own alternate")
 	}
 }
+
+func TestBuild_RouteWordingAndBadgeCarryTheRouteOwnInstalledState(t *testing.T) {
+	for _, target := range []string{"claude", "codex"} {
+		for _, agent := range []string{"", "coding-agent", "reviewer"} {
+			v := buildView(t, demoRoot, Options{AgentID: agent, Target: target})
+			byID := map[string]Operation{}
+			for _, res := range v.Resources {
+				for _, op := range res.Operations {
+					byID[op.ID] = op
+				}
+			}
+			for _, res := range v.Resources {
+				for _, op := range res.Operations {
+					for _, st := range op.RouteCoverage.Checked {
+						src, ok := byID[routeOperationID(st.Route, v)]
+						if !ok {
+							t.Fatalf("%s/%s %s: route %q names no operation", target, agent, op.ID, st.Route)
+						}
+						if st.Effect != src.Effect || st.Hypothetical != src.Hypothetical || st.Installed != src.Installed {
+							t.Errorf("%s/%s %s: route %q = %+v, want the state of %s (%s, hypothetical %v, installed %s)", target, agent, op.ID, st.Route, st, src.ID, src.Effect, src.Hypothetical, src.Installed)
+						}
+					}
+					for _, sentence := range op.AlternateRoutes {
+						st := routeForSentence(t, op, sentence)
+						if got := strings.Contains(sentence, "once synced"); got != st.Hypothetical {
+							t.Errorf("%s/%s %s: sentence %q says once synced = %v, but route %q is hypothetical = %v", target, agent, op.ID, sentence, got, st.Route, st.Hypothetical)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// routeOperationID maps a checked route back to the operation whose
+// state it reports.
+func routeOperationID(route string, v *View) string {
+	switch route {
+	case routeShellAny:
+		return operationID("shell-any", "run")
+	case routeLocalFiles, routeFilesRead:
+		return operationID("files-all", capRead)
+	case routeFilesEdit:
+		return operationID("files-all", capEdit)
+	}
+	label := strings.TrimPrefix(route, "shell: ")
+	for _, res := range v.Resources {
+		if res.Kind == ResourceCommandPattern && res.Label == label {
+			return operationID(res.ID, "run")
+		}
+	}
+	return ""
+}
+
+// routeForSentence finds the checked route an open-route sentence
+// describes, by the route's label inside the sentence.
+func routeForSentence(t *testing.T, op Operation, sentence string) RouteStatus {
+	t.Helper()
+	switch {
+	case strings.HasPrefix(sentence, "Shell access "):
+		return findRoute(t, op, routeShellAny)
+	case strings.HasPrefix(sentence, "Reading local files "):
+		if r, ok := lookupRoute(op, routeLocalFiles); ok {
+			return r
+		}
+		return findRoute(t, op, routeFilesRead)
+	case strings.HasPrefix(sentence, "Editing local files "):
+		return findRoute(t, op, routeFilesEdit)
+	}
+	rest := strings.TrimPrefix(sentence, "Shell commands matching ")
+	for _, st := range op.RouteCoverage.Checked {
+		if label, ok := strings.CutPrefix(st.Route, "shell: "); ok && strings.HasPrefix(rest, label+" ") {
+			return st
+		}
+	}
+	t.Fatalf("%s: no checked route for sentence %q", op.ID, sentence)
+	return RouteStatus{}
+}
+
+func lookupRoute(op Operation, name string) (RouteStatus, bool) {
+	for _, st := range op.RouteCoverage.Checked {
+		if st.Route == name {
+			return st, true
+		}
+	}
+	return RouteStatus{}, false
+}
+
+func findRoute(t *testing.T, op Operation, name string) RouteStatus {
+	t.Helper()
+	st, ok := lookupRoute(op, name)
+	if !ok {
+		t.Fatalf("%s: no checked route %q", op.ID, name)
+	}
+	return st
+}

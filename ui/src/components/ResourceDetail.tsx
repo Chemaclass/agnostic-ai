@@ -305,8 +305,8 @@ export function RouteCoverageView({ op }: { op: Operation }) {
           {op.routeCoverage.checked.map((route) => (
             <li key={route.route}>
               <span className="route-name">{route.route}</span>
-              {/* No rule waits for a sync, so a default is never worded conditionally. */}
-              <EffectBadge effect={route.effect} hypothetical={op.hypothetical && route.effect !== 'default'} />
+              {/* The route's own flag: the server takes it from the operation the route stands for. */}
+              <EffectBadge effect={route.effect} hypothetical={route.hypothetical} />
               {route.note && <span className="cell-note">{route.note}</span>}
             </li>
           ))}

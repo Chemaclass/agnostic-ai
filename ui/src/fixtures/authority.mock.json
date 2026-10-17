@@ -651,7 +651,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -724,12 +725,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -843,7 +846,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -941,12 +945,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -1064,7 +1070,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -1164,12 +1171,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -1288,7 +1297,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -1390,12 +1400,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -1515,7 +1527,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -1617,12 +1630,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -1829,7 +1844,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -1939,7 +1955,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -2049,7 +2066,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -2161,7 +2179,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -2272,7 +2291,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -2355,7 +2375,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -2418,7 +2439,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -2540,12 +2562,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -2656,12 +2680,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -2772,16 +2798,19 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git push",
-                "effect": "ask"
+                "effect": "ask",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -2892,16 +2921,19 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "shell: git push",
-                "effect": "ask"
+                "effect": "ask",
+                "hypothetical": true
               },
               {
                 "route": "shell: git (other subcommands)",
                 "effect": "default",
-                "note": "shell(git *) in the can list covers them; no settings rule decides them."
+                "note": "shell(git *) in the can list covers them; no settings rule decides them.",
+                "hypothetical": false
               }
             ],
             "notModeled": [
@@ -3026,7 +3058,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -3135,7 +3168,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -3244,7 +3278,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -3351,7 +3386,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -3465,7 +3501,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -3559,7 +3596,8 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               }
             ],
             "notModeled": [
@@ -3663,12 +3701,14 @@
               {
                 "route": "shell: any command",
                 "effect": "unavailable",
-                "note": "The coding agent's can list names only go test and git commands."
+                "note": "The coding agent's can list names only go test and git commands.",
+                "hypothetical": true
               },
               {
                 "route": "files: read",
                 "effect": "allowed",
-                "note": "The read rule covers every project file, the docs folder included."
+                "note": "The read rule covers every project file, the docs folder included.",
+                "hypothetical": true
               }
             ],
             "notModeled": [

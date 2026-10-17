@@ -2,7 +2,7 @@
   "schemaVersion": "authority/v1",
   "snapshot": {
     "revision": "ee3e515f476e",
-    "generatedAt": "2026-10-17T02:13:11Z",
+    "generatedAt": "2026-10-17T02:39:34Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -137,7 +137,7 @@
           "state": "not-generated"
         }
       ],
-      "checkedAt": "2026-10-17T02:13:11Z"
+      "checkedAt": "2026-10-17T02:39:34Z"
     },
     "permissionSupport": "native-rules"
   },
@@ -203,7 +203,7 @@
   "domains": [
     {
       "id": "source-control",
-      "label": "Source Control",
+      "label": "Source Code & Version Control",
       "description": "Repositories, branches, pull requests, and issues.",
       "examples": [
         "GitHub",
@@ -228,7 +228,7 @@
     },
     {
       "id": "cloud-deployment",
-      "label": "Cloud & Deployment",
+      "label": "Cloud Infrastructure & Deployment",
       "description": "Cloud accounts, deployments, and infrastructure.",
       "examples": [
         "Railway",
@@ -341,7 +341,7 @@
     },
     {
       "id": "communication",
-      "label": "Communication",
+      "label": "Communication & Collaboration",
       "description": "Chat, email, issue trackers, and calendars.",
       "examples": [
         "Slack",
@@ -387,7 +387,7 @@
     },
     {
       "id": "ai-agent-ops",
-      "label": "AI & Agent Ops",
+      "label": "AI & Agent Operations",
       "description": "Other AI services, and any server the curated table does not place.",
       "examples": [
         "Model APIs",
@@ -629,33 +629,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -744,33 +756,45 @@
             "Narrower rules decide part of this pattern: allow edit(src/**); deny edit(.env); protected .github/** (ask); protected migrations/** (ask)."
           ],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -857,33 +881,45 @@
             "Narrower rules decide part of this pattern: allow edit(src/**); deny edit(.env); protected .github/** (ask); protected migrations/** (ask)."
           ],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -968,33 +1004,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1096,33 +1144,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1220,33 +1280,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1343,33 +1415,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1454,33 +1538,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1579,33 +1675,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1703,33 +1811,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1826,33 +1946,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -1937,33 +2069,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2059,33 +2203,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2184,33 +2340,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2307,33 +2475,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2418,33 +2598,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2542,33 +2734,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2667,33 +2871,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2790,33 +3006,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -2901,33 +3129,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3026,17 +3266,21 @@
             "Narrower rules decide part of this pattern: allow shell(go test:*); allow shell(git status); allow shell(git diff:*); ask shell(git push:*); and 1 more."
           ],
           "alternateRoutes": [
-            "Reading local files is permitted for this subject; this rule does not govern that route."
+            "Reading local files would be permitted once synced for this subject; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "local files: read",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files: edit",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3137,17 +3381,21 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Reading local files is permitted for this subject; this rule does not govern that route."
+            "Reading local files would be permitted once synced for this subject; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "local files: read",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files: edit",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3248,17 +3496,21 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Reading local files is permitted for this subject; this rule does not govern that route."
+            "Reading local files would be permitted once synced for this subject; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "local files: read",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files: edit",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3349,17 +3601,21 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Reading local files is permitted for this subject; this rule does not govern that route."
+            "Reading local files would be permitted once synced for this subject; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "local files: read",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files: edit",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3463,17 +3719,21 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Reading local files is permitted for this subject; this rule does not govern that route."
+            "Reading local files would be permitted once synced for this subject; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "local files: read",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files: edit",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3574,17 +3834,21 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Reading local files is permitted for this subject; this rule does not govern that route."
+            "Reading local files would be permitted once synced for this subject; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "local files: read",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files: edit",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3674,33 +3938,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3773,33 +4049,45 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               }
             ],
             "notModeled": [
@@ -3912,38 +4200,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4040,38 +4342,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4157,38 +4473,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4281,38 +4611,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4389,38 +4733,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4507,38 +4865,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4623,38 +4995,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4728,38 +5114,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -4874,38 +5274,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -5002,38 +5416,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -5130,38 +5558,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -5258,38 +5700,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -5375,38 +5831,52 @@
           ],
           "conditions": [],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],
@@ -5513,38 +5983,52 @@
             "The rule names the server, not this root; the same decision applies to every root."
           ],
           "alternateRoutes": [
-            "Shell commands matching git diff … are permitted for this subject and could reach the same system; this rule does not govern that route.",
-            "Reading local files is permitted for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
+            "Shell commands matching git diff … would be permitted once synced for this subject and could reach the same system; this rule does not govern that route.",
+            "Reading local files would be permitted once synced for this subject and could reach the same system's data on disk, such as its configuration or credentials; this rule does not govern that route."
           ],
           "routeCoverage": {
             "checked": [
               {
                 "route": "shell: any command",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: go test …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git status",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git diff …",
-                "effect": "allowed"
+                "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: git push …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "shell: rm …",
-                "effect": "unavailable"
+                "effect": "unavailable",
+                "hypothetical": true,
+                "installed": "not-generated"
               },
               {
                 "route": "local files",
                 "effect": "allowed",
+                "hypothetical": true,
+                "installed": "not-generated",
                 "note": "read on All project files"
               }
             ],

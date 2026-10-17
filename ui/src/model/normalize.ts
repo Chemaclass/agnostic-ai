@@ -60,7 +60,10 @@ function normalizeOperation(raw: unknown): Operation {
     grants: arr(o.grants),
     conditions: arr(o.conditions),
     alternateRoutes: arr(o.alternateRoutes),
-    routeCoverage: { checked: arr(coverage.checked), notModeled: arr(coverage.notModeled) },
+    routeCoverage: {
+      checked: arr<Record<string, unknown>>(coverage.checked).map((r) => ({ ...r, hypothetical: r.hypothetical === true })) as Operation['routeCoverage']['checked'],
+      notModeled: arr(coverage.notModeled),
+    },
     enforcement: arr(o.enforcement),
     hypothetical: o.hypothetical === true,
     runtime: 'not-observed',

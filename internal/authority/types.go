@@ -452,11 +452,18 @@ type RouteCoverage struct {
 	NotModeled []string `json:"notModeled"`
 }
 
-// RouteStatus is one checked route and the subject's decision on it.
+// RouteStatus is one checked route and the subject's decision on it. It
+// carries the route's own installed state and hypothetical flag, taken
+// from the operation the route stands for, so a client never borrows
+// the inspected operation's state for it.
 type RouteStatus struct {
 	Route  string `json:"route"`
 	Effect Effect `json:"effect"`
-	Note   string `json:"note,omitempty"`
+	// Hypothetical is true when the route's decision waits for a sync,
+	// as Operation.Hypothetical does for the route's own operation.
+	Hypothetical bool   `json:"hypothetical"`
+	Installed    string `json:"installed,omitempty"`
+	Note         string `json:"note,omitempty"`
 }
 
 // Grant is one declaration that applies to an operation.
