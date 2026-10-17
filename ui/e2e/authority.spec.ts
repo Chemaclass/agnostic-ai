@@ -270,3 +270,23 @@ test.describe('authority', () => {
     await expect(edit.locator('.badge-muted')).toHaveText(/Declared: permitted/)
   })
 })
+
+test.describe('authority secrets', () => {
+  test('shows four separate rights per credential for a restricted subject', async ({ page }) => {
+    // The reviewer agent reaches only the github server, so its use of
+    // the Railway and database credentials is unavailable while its
+    // read and manage rights stay unknown.
+    await openApp(page, '?agentId=reviewer&target=claude')
+    await page.getByRole('navigation', { name: 'Harness' }).getByRole('link', { name: 'Authority' }).click()
+    await domainCard(page, 'secrets-identity').click()
+    await expect(page.locator('.secret-card').first()).toBeVisible()
+    const rightOf = (secret: string, name: string) =>
+      page.locator('.secret-card', { hasText: secret }).locator('.right', { hasText: name }).locator('.badge, [class*="badge"]').first()
+    await expect(rightOf('RAILWAY_TOKEN', 'Use')).toHaveText('Unavailable')
+    await expect(rightOf('RAILWAY_TOKEN', 'Read value')).toHaveText('Unknown')
+    await expect(rightOf('RAILWAY_TOKEN', 'Manage')).toHaveText('Unknown')
+    await expect(rightOf('RAILWAY_TOKEN', 'Discover')).toHaveText('Allowed')
+    await expect(rightOf('GITHUB_TOKEN', 'Use')).toHaveText('Allowed')
+    await saveScreenshot(page, '09-secrets-identity.png', { fullPage: true })
+  })
+})
