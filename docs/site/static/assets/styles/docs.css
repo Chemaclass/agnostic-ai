@@ -460,7 +460,57 @@
 }
 
 .docs-content .agent-prompt-guide {
-  margin-block: 2rem 0;
+  margin-block: 2rem 1.5rem;
+}
+
+/* Prose disclosures, from raw HTML or the details component. They match the
+   ones on update pages: a ruled row that opens with + and closes with -. */
+.docs-content > details {
+  margin-block: 1.5rem;
+  padding-bottom: 0.25rem;
+  border-block: 1px solid var(--line);
+}
+
+.docs-content > details + details {
+  margin-top: -1.5rem;
+  border-top: 0;
+}
+
+.docs-content > details > summary {
+  position: relative;
+  padding: 1rem 2rem 1rem 0;
+  color: var(--ink);
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+
+.docs-content > details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-content > details > summary::after {
+  content: "+";
+  position: absolute;
+  right: 0.25rem;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.docs-content > details[open] > summary::after {
+  content: "\2212";
+}
+
+.docs-content > details > summary + * {
+  margin-top: 0.25rem;
+}
+
+.docs-content > details > :last-child {
+  margin-bottom: 1.25rem;
+}
+
+.docs-content .details-body > :last-child {
+  margin-bottom: 0;
 }
 
 .docs-content .agent-prompt-guide pre {

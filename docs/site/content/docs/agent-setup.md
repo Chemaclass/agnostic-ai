@@ -25,11 +25,13 @@ Follow this when a user asks you to install or set up agnostic-ai in a repositor
 ### Setup rules {#safety-contract}
 
 - Work from the repository root. Read its contributor and agent instructions first.
-- Run `git status --short`. Never discard user changes.
+- Run `git status --short`. Never discard user changes. If the tree is not clean, tell the user before writing so they can tell your changes from theirs.
 - Look for existing instructions files such as `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`. Tell the user what they hold and ask whether to import them before any sync.
 - Import existing tool files before the first sync. Sync writes files; it does not import them.
 - Enable only the targets the project uses or the user names. Never enable every target.
 - Preview before writing. If sync reports a file it does not own or would overwrite, stop and name the path.
+- Never print token or key values found in imported settings or MCP config.
+- Stop and ask when a step fails or the project state does not match this checklist.
 - After setup, edit instructions and specs under `.agnostic-ai/`, and project settings in `agnostic-ai.yaml`. The tool files are generated.
 
 ### 1. Install or verify the CLI
@@ -38,7 +40,7 @@ Follow this when a user asks you to install or set up agnostic-ai in a repositor
 agnostic-ai --version
 ```
 
-If missing, install it:
+If missing, ask the user before installing. The script downloads the latest release and checks it against the published checksums:
 
 ```bash
 # macOS or Linux
