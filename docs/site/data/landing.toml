@@ -43,7 +43,7 @@ title = "You own the source"
 body = "Markdown and YAML in your repo. No account, no service."
 [[mission.principles]]
 title = "Generated files are outputs"
-body = "Same input, same bytes. `sync --check` catches drift in CI."
+body = "Same input, same bytes. Catch drift in CI with `sync --check`."
 [[mission.principles]]
 title = "Keep native tool files"
 body = "Each tool reads its own files. Sync flags what a tool cannot use."
