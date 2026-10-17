@@ -298,7 +298,7 @@ func TestUse_FinishesAnImportAnInterruptedRunLeft(t *testing.T) {
 	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
 	mustWriteFile(t, ".claude/settings.json", "{}\n")
 
-	for _, args := range [][]string{{"sync"}, {"sync", "--check"}, {"sync", "--plan"}, {"sync", "--dry-run", "--json"}} {
+	for _, args := range [][]string{{"sync"}, {"sync", "--json"}, {"sync", "--check"}, {"sync", "--plan"}, {"sync", "--dry-run", "--json"}} {
 		if _, err := runCLI(t, args...); err == nil || !strings.Contains(err.Error(), "run agnostic-ai use claude before syncing") {
 			t.Fatalf("%v err = %v, want it to wait for the pending import", args, err)
 		}
