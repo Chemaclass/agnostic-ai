@@ -1,10 +1,18 @@
-// Authority view contract, schema `authority/v1`.
+// Authority view contract, schema `authority/v1`, and the overview and
+// feed contract, schema `overview/v1`.
 //
-// This file mirrors internal/authority/types.go field for field. The Go
-// side is canonical: the server builds the view, the client renders it.
-// Change both together, and docs/internal/authority-view.md with them.
+// This file mirrors internal/authority/types.go and
+// internal/overview/types.go field for field. The Go side is canonical:
+// the server builds the views, the client renders them. Change both
+// together, and docs/internal/authority-view.md with them.
+//
+// Four states are kept apart and never collapsed into one badge:
+// declared (what the specs say), effective (what the selected coding
+// tool does with it), installed (whether the generated file matches
+// disk), and runtime (what a running tool enforced, never observed here).
 
 export const SCHEMA_VERSION = 'authority/v1'
+export const OVERVIEW_SCHEMA_VERSION = 'overview/v1'
 
 export type SubjectKind = 'agent' | 'session'
 export const SESSION_SUBJECT_ID = 'session'
@@ -16,6 +24,21 @@ export type Effect =
   | 'unavailable'
   | 'default'
   | 'unresolved'
+
+export type Resolution =
+  | 'translated'
+  | 'hook'
+  | 'not-expressed'
+  | 'agent-scope'
+  | 'no-rule'
+  | 'disabled'
+
+export type InstalledStateValue =
+  | 'in-sync'
+  | 'stale'
+  | 'not-generated'
+  | 'not-checked'
+  | 'not-applicable'
 
 export type DomainId =
   | 'source-control'
@@ -31,13 +54,14 @@ export type DomainId =
 export type DomainResolution = 'curated' | 'builtin' | 'default'
 export type ProviderKind = 'mcp' | 'builtin'
 export type ProviderStatus = 'configured' | 'disabled' | 'unavailable-to-agent'
-export type ResourceCoverage = 'declared' | 'complete' | 'unresolved'
+export type ResourceCoverage = 'declared' | 'complete' | 'undeclared'
 export type ResourceKind =
-  | 'mcp-server'
+  | 'undeclared-scope'
   | 'declared-root'
   | 'file-pattern'
   | 'command-pattern'
   | 'web'
+export type ResourceBasis = 'rule-pattern' | 'declared-root' | 'undeclared'
 export type GrantList =
   | 'allow'
   | 'ask'
@@ -53,12 +77,15 @@ export type SecretRight = 'allowed' | 'unavailable' | 'not-readable' | 'unknown'
 export type Severity = 'info' | 'warning'
 export type UncertaintyCode =
   | 'runtime-not-observed'
-  | 'provider-resources-unresolved'
+  | 'provider-scope-undeclared'
+  | 'credential-reach-not-inspected'
   | 'domain-defaulted'
   | 'target-not-expressed'
   | 'tool-list-unknown'
   | 'pattern-containment-approximate'
   | 'secret-read-unknown'
+  | 'alternate-route-not-modeled'
+  | 'installed-not-checked'
   | (string & {})
 
 export interface Source {
@@ -79,12 +106,52 @@ export interface Project {
   name: string
 }
 
+export interface Evidence {
+  declared: 'loaded'
+  installed: 'checked' | 'not-checked'
+  runtime: 'not-observed'
+  note: string
+}
+
 export interface Snapshot {
   revision: string
   generatedAt: string
   project: Project
   targets: string[]
+  configFiles: string[]
   specs: SpecRef[]
+  evidence: Evidence
+}
+
+export interface HarnessOption {
+  target: string
+  label: string
+}
+
+export interface ExecutionIdentity {
+  kind: 'local-process'
+  description: string
+}
+
+export interface InstalledFile {
+  path: string
+  state: InstalledStateValue
+}
+
+export interface InstalledState {
+  state: InstalledStateValue
+  files: InstalledFile[]
+  checkedAt?: string
+}
+
+export interface Harness {
+  target: string
+  label: string
+  available: HarnessOption[]
+  identity: ExecutionIdentity
+  installed: InstalledState
+  permissionSupport: 'native-rules' | 'hooks-only' | 'none'
+  note?: string
 }
 
 export interface SubjectSummary {
@@ -179,6 +246,7 @@ export interface Enforcement {
   target: string
   label: string
   status: EnforcementStatus
+  effect: Effect
   native?: string[]
   note?: string
 }
@@ -187,10 +255,16 @@ export interface Operation {
   id: string
   action: string
   label: string
+  declared: Effect
   effect: Effect
+  resolution: Resolution
+  native?: string[]
+  installed: InstalledStateValue
+  runtime: 'not-observed'
   decided?: Grant
   grants: Grant[]
   conditions: string[]
+  alternateRoutes: string[]
   enforcement: Enforcement[]
   explanation: string
 }
@@ -203,6 +277,8 @@ export interface Resource {
   providerId: string
   domainIds: DomainId[]
   identity: Identity
+  basis: ResourceBasis
+  caveat?: string
   operations: Operation[]
   matches?: Matches
   labelResolved: boolean
@@ -215,6 +291,7 @@ export interface Edge {
   resourceId: string
   operationId: string
   effect: Effect
+  declared: Effect
   label: string
 }
 
@@ -256,21 +333,19 @@ export interface SupportedAction {
   status: 'available' | 'unsupported'
 }
 
-export interface RuntimeStatus {
-  enforcement: 'not-observed'
-  note: string
-}
-
 export interface Explanations {
   effects: Record<string, string>
+  resolution: Record<string, string>
   lists: Record<string, string>
   enforcement: Record<string, string>
+  installed: Record<string, string>
   rights: Record<string, string>
 }
 
 export interface AuthorityView {
   schemaVersion: string
   snapshot: Snapshot
+  harness: Harness
   agent: Subject
   agents: SubjectSummary[]
   domains: Domain[]
@@ -280,7 +355,6 @@ export interface AuthorityView {
   secrets: Secret[]
   uncertainties: Uncertainty[]
   supportedActions: SupportedAction[]
-  runtime: RuntimeStatus
   explanations: Explanations
 }
 
@@ -293,6 +367,7 @@ export interface Change {
 
 export interface Proposal {
   agentId: string
+  target?: string
   revision?: string
   changes: Change[]
 }
@@ -303,8 +378,10 @@ export interface EffectChange {
   resourceLabel: string
   operationId: string
   operationLabel: string
-  before: Effect
-  after: Effect
+  declaredBefore: Effect
+  declaredAfter: Effect
+  effectiveBefore: Effect
+  effectiveAfter: Effect
   direction: 'widened' | 'narrowed' | 'moved'
 }
 
@@ -323,6 +400,8 @@ export interface FileDiff {
 
 export interface ImpactResult {
   schemaVersion: string
+  status: 'proposed'
+  target: string
   baseRevision: string
   proposedRevision: string
   valid: boolean
@@ -334,15 +413,125 @@ export interface ImpactResult {
   after?: AuthorityView
 }
 
+// ---------------------------------------------------------------------
+// Overview and feed, schema `overview/v1` (internal/overview/types.go).
+// ---------------------------------------------------------------------
+
+export type SectionId =
+  | 'context'
+  | 'memory'
+  | 'control'
+  | 'authority'
+  | 'tools'
+  | 'verification'
+
+export type CardKind = 'decision' | 'insight'
+export type CardSource = 'authority' | 'drift' | 'doctor' | 'lint'
+export type CardActionKind = 'open' | 'propose' | 'copy-command' | 'dismiss' | 'snooze'
+
+export interface KindCount {
+  kind: string
+  label: string
+  count: number
+}
+
+export interface KindSupport {
+  kind: string
+  label: string
+  supported: string[]
+  unsupported: string[]
+}
+
+export interface SectionItem {
+  kind: string
+  name: string
+  label: string
+  description: string
+  path: string
+  layer: string
+  scope?: string
+}
+
+export interface Section {
+  id: SectionId
+  label: string
+  question: string
+  description: string
+  order: number
+  status: 'deep-view' | 'overview'
+  deepView?: string
+  kinds: KindCount[]
+  items: SectionItem[]
+  support: KindSupport[]
+  cardIds: string[]
+}
+
+export interface CardEvidence {
+  path: string
+  line?: number
+  detail: string
+}
+
+export interface CardAction {
+  id: string
+  kind: CardActionKind
+  label: string
+  href?: string
+  command?: string
+  proposal?: Proposal
+}
+
+export interface Card {
+  id: string
+  fingerprint: string
+  kind: CardKind
+  priority: number
+  priorityLabel: string
+  title: string
+  consequence: string
+  sectionId: SectionId
+  domainId?: DomainId
+  source: CardSource
+  code?: string
+  evidence: CardEvidence[]
+  actions: CardAction[]
+  revision: string
+}
+
+export interface TargetSupport {
+  target: string
+  label: string
+  kinds: string[]
+}
+
+export interface OverviewView {
+  schemaVersion: string
+  snapshot: Snapshot
+  sections: Section[]
+  feed: Card[]
+  targets: TargetSupport[]
+  explanations: Record<string, string>
+}
+
+export interface FeedView {
+  schemaVersion: string
+  snapshot: Snapshot
+  feed: Card[]
+}
+
 // HTTP API served by `agnostic-ai serve`.
 //
-//   GET  /api/views/authority?agentId=<id>   → AuthorityView
-//   POST /api/views/authority/impact         → ImpactResult   (body: Proposal)
-//   GET  /api/views/authority/schema         → { schemaVersion, endpoints }
-//   GET  /api/health                         → { ok, revision }
+//   GET  /api/views/authority?agentId=<id>&target=<tool>  → AuthorityView
+//   POST /api/views/authority/impact                      → ImpactResult (body: Proposal)
+//   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
+//   GET  /api/views/overview                              → OverviewView
+//   GET  /api/views/feed                                  → FeedView
+//   GET  /api/health                                      → { ok, revision }
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
   schema: '/api/views/authority/schema',
+  overview: '/api/views/overview',
+  feed: '/api/views/feed',
   health: '/api/health',
 } as const
