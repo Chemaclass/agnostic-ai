@@ -9,21 +9,33 @@ group = "Workflows"
 
 # Git hooks
 
-Catch out-of-date generated files at commit time, before CI. Each recipe runs `agnostic-ai sync --check` when a spec or `agnostic-ai.yaml` is staged. It blocks the commit if a generated file is out of date.
+Check generated files before committing, and restore ignored files when switching branches. Choose a recipe that matches whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs).
 
-It is the same check as the [CI gate](@/docs/ci.md). It compares the whole working tree, not only staged files.
+A plain `sync --check` reads the working tree. The installed commit hook uses `--against index` to check staged files instead.
 
-If outputs are ignored, run `sync` once in each checkout before you enable the hook. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
+If your team commits generated files, use [the staged-file check](#check-staged-files) to catch output you forgot to stage. If outputs are ignored, run `sync` once in each checkout before enabling a hook, and use [checkout and pull hooks](#regenerate-on-checkout) to keep them available to coding agents. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
 
 ## Why a pre-commit hook
 
-- You see the problem when you cause it, not in the next CI run.
-- Every contributor gets the same check.
-- Enable it for each checkout. A fresh clone works without this setup.
+A local commit check catches stale generated files before CI. Each checkout needs its own hook installation.
+
+## Install the project hooks
+
+Git hooks run at Git events such as a commit or checkout. They are separate from [coding-agent hooks](@/docs/spec-format/hooks.md), which run at events inside a coding tool.
+
+```bash
+agnostic-ai install-hook
+agnostic-ai install-hook --post-checkout
+```
+
+The first command installs the commit check. The second regenerates files after checkout and pull. Install once per checkout. If your project uses a hook manager, use the recipes below instead of replacing its hooks.
+
+<details>
+<summary>Use pre-commit, lefthook, or husky instead</summary>
 
 ## pre-commit (Python)
 
-[pre-commit](https://pre-commit.com) is common in polyglot repos. Add `.pre-commit-config.yaml`:
+[pre-commit](https://pre-commit.com) works in projects using several languages. Add `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
@@ -96,7 +108,9 @@ Install once per checkout:
 npm install
 ```
 
-The trailing `--` swallows the file paths lint-staged adds. `sync --check` checks the whole project, not single files.
+The trailing `--` keeps the file paths lint-staged adds from being read as command options. `sync --check` checks the whole project, not single files.
+
+</details>
 
 ## Check the staged files {#check-staged-files}
 
@@ -108,14 +122,17 @@ agnostic-ai sync --check --against index
 
 A staged spec change without its regenerated output fails. The error names the file and tells you to run `agnostic-ai sync` and stage the output with `git add` (or, for `--against HEAD`, commit it). The hook from `agnostic-ai install-hook` runs this form. Run `install-hook` again to update a hook an older version wrote.
 
-{% <details summary="Limits of --against"> %}
+<details>
+<summary>Limits of --against</summary>
+
 - `--against` needs agnostic-ai 0.74.0 or later. A `--shared` hook blocks commits for a teammate on an older release until they upgrade.
 - The check copies the tracked files to a temporary folder on each commit. In a large repository, use the lint-staged recipe above so it runs only when specs are staged.
 - `--against HEAD` checks the last commit instead. Use it in a CI job that runs after `postinstall` has rewritten the working tree.
 - Only outputs Git tracks are compared, so an ignored output never fails.
 - A tracked output whose spec is gone fails until you delete it.
 - An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
-{% </details> %}
+
+</details>
 
 If your hook manager runs a command only when matching files are staged, the glob must list every input, including a README that a review pulls in with `@path`. `agnostic-ai explain --inputs` prints them, one per line:
 
@@ -136,7 +153,7 @@ Commit hooks do not help when generated outputs are gitignored (`gitignore.enabl
 
 A `post-checkout` hook fixes this. `git checkout`, `git clone`, and `git worktree add` all run it. A pull that merges runs `post-merge` instead, which restores generated files that an incoming commit untracks.
 
-`agnostic-ai install-hook --post-checkout` writes both hooks. Both run `agnostic-ai sync -q` from the worktree root and do nothing when the binary or `agnostic-ai.yaml` is missing. In a clone with the older checkout-only hook, run the command again to add pull coverage. These hooks run a plain `sync`, which overwrites a hand edit to a generated file such as `AGENTS.md`. Git carries an uncommitted edit across a checkout, so to keep such edits, use the recipes below.
+`agnostic-ai install-hook --post-checkout` writes both hooks. Both prefer the local binary and run `agnostic-ai project` from the worktree root, preserving manual edits without installing dependencies. They skip a checkout without `agnostic-ai.yaml`; a missing binary produces a recovery command. In a clone with older generated hooks, run the command again to update their checks and add pull coverage.
 
 The recipes use `sync --keep-edits`. It writes every other output and leaves each file you edited since the last sync alone, printing `~ kept <path>`. In a new linked worktree, a file counts as edited when it differs from `HEAD`. Move the edit into `.agnostic-ai/`, then run `agnostic-ai sync`.
 
@@ -168,6 +185,9 @@ The same command works in `post-merge` and in a `postinstall` script. Leave out 
 
 `agnostic-ai` must be on `PATH` wherever the repo is checked out. If some contributors lack the CLI, commit the generated outputs instead of ignoring them. A Node project can install the CLI with its dependencies instead (see [Node monorepos](#node-monorepos)).
 
+<details>
+<summary>Pin the CLI and restore files in Node workspaces and worktrees</summary>
+
 ## Node monorepos {#node-monorepos}
 
 In a pnpm workspace with ignored outputs, `pnpm install` creates every tool file, and git hooks regenerate them on each branch switch. npm and Yarn workspaces work the same way.
@@ -180,7 +200,7 @@ Add the npm package to the workspace root as an exact dev dependency:
 pnpm add -D -E -w agnostic-ai
 ```
 
-Everyone then runs the same release. Generated files can differ between releases, so also set `requires: "X.Y.Z"` in `agnostic-ai.yaml`. A newer global install or an out-of-date `node_modules` then stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) before it rewrites those files. [`requires`](@/docs/configuration.md#requires) accepts ranges too.
+Also set `requires: "X.Y.Z"` in `agnostic-ai.yaml`. An incompatible installed version then stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) before rewriting files. [Requires](@/docs/configuration.md#requires) also accepts ranges.
 
 ### Sync on install
 
@@ -189,7 +209,7 @@ Root `package.json`:
 ```json
 {
   "scripts": {
-    "postinstall": "agnostic-ai sync --keep-edits --quiet"
+    "postinstall": "agnostic-ai project"
   }
 }
 ```
@@ -204,36 +224,39 @@ Package scripts find the pinned binary in `node_modules/.bin`. Cloud agents and 
 post-checkout:
   commands:
     agnostic-ai-sync:
-      run: '[ ! -x node_modules/.bin/agnostic-ai ] || node_modules/.bin/agnostic-ai sync --keep-edits --quiet'
+      run: node_modules/.bin/agnostic-ai project
 post-merge:
   commands:
     agnostic-ai-sync:
-      run: '[ ! -x node_modules/.bin/agnostic-ai ] || node_modules/.bin/agnostic-ai sync --keep-edits --quiet'
+      run: node_modules/.bin/agnostic-ai project
 post-rewrite:
   commands:
     agnostic-ai-sync:
-      run: '[ ! -x node_modules/.bin/agnostic-ai ] || node_modules/.bin/agnostic-ai sync --keep-edits --quiet'
+      run: node_modules/.bin/agnostic-ai project
 ```
 
-`post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend`. Git hooks do not put `node_modules/.bin` on `PATH`, so the command names the binary by path. The `[ ! -x ... ]` test skips a checkout that has not installed dependencies yet.
+`post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend`. Git hooks do not put `node_modules/.bin` on `PATH`, so these commands name the installed binary by path. A missing helper requires an explicit package install or a global `agnostic-ai project --bootstrap` using a version that supports the command.
 
-`--quiet` hides the routine summary. A `~ kept <path>` line still prints for each file the hook left alone.
+`--quiet` hides the summary, but still reports `~ kept <path>` for preserved edits.
 
 ### First pull
 
-A developer on a commit from before agnostic-ai has no checkout hooks yet. The pull that adds agnostic-ai removes the outputs that commit tracked, and no hook regenerates them. A pre-commit step in the new `lefthook.yml` runs on their next commit. It installs dependencies when the CLI in `node_modules` is not the pinned one. The install runs the `postinstall` sync and adds the checkout hooks:
+When a branch changes the pinned version, check mode reports the installed and required versions without installing anything. Use the supported helper instead of comparing manifest text in shell:
 
-```yaml
-pre-commit:
-  commands:
-    agnostic-ai-install:
-      run: |
-        want=$(node -p "require('./package.json').devDependencies['agnostic-ai']")
-        have=$(node_modules/.bin/agnostic-ai --version 2>/dev/null | awk '{print $3}')
-        [ "$have" = "$want" ] || pnpm install --frozen-lockfile --prefer-offline
+```bash
+agnostic-ai project --check
+agnostic-ai project --bootstrap
 ```
 
-When the pinned version is installed, the step costs one `--version` call.
+Bootstrap installs from the npm, pnpm, or bun lockfile once only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
+
+Bootstrap reads the package manager from `packageManager` or `devEngines.packageManager` in `package.json`, or from the only committed lockfile. It runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile` (`bun.lock` or the older `bun.lockb`). For any other package manager, or a missing lockfile, it exits with an error that names the install to run yourself. When no `agnostic-ai` is on `PATH`, the generated hooks name that install too, for example `bun install --frozen-lockfile`.
+
+Only stable exact npm versions are checked against the installed version. Ranges, tags, aliases, prereleases, and file dependencies are not interpreted as npm version contracts; set `requires` to enforce the accepted releases. `--against index` and `--against HEAD` read both the config and package declarations from that Git view while using the installed binary in the working checkout.
+
+Generated hooks first check that the selected binary supports `project`. Released v0.82.0 does not support it. An unsupported selected package produces an upgrade instruction; update its declared version and `requires` explicitly before using these setup hooks. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
+
+A hook manager can call `agnostic-ai project --check --against index` for a read-only pre-commit gate. Use `agnostic-ai project` after checkout or merge to regenerate without installing. The helper prefers the local package even when an older global binary is on `PATH`; call the local helper or use a global version supporting this command. A missing helper must first be installed through your package manager. The command does not rewrite hook-manager configuration or widen an exact requirement.
 
 ### New worktrees
 
@@ -243,10 +266,10 @@ Put the install in an environment spec, `.agnostic-ai/environments/dev.yaml`:
 
 ```yaml
 name: dev
-setup: pnpm install --frozen-lockfile
+setup: agnostic-ai project --bootstrap
 ```
 
-Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes hooks that run it once in each new worktree. Delete any hand-written `bootstrap.yaml` hook from an earlier version of this recipe, because Claude Code runs matching hooks in parallel. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
+This recipe needs an agnostic-ai version supporting `project` installed globally before worktree setup. Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes hooks that run it once in each new worktree. Delete any hand-written `bootstrap.yaml` hook from an earlier version of this recipe, because Claude Code runs matching hooks in parallel. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
 
 Claude Code copies the gitignored files that `.worktreeinclude` lists into each new worktree. When `claude` is a target, sync keeps its block there (see [gitignore](@/docs/configuration.md#gitignore)), so the ignored `.claude/settings.json` and the setup script reach the worktree. Otherwise, commit both, so a new worktree has them before any sync runs. In `agnostic-ai.yaml`:
 
@@ -284,9 +307,11 @@ Keep formatters away from committed generated files, or each sync undoes their e
 .claude/settings.json
 ```
 
+</details>
+
 ## Tips
 
-- The hook needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found` on their first commit.
+- Project hooks prefer `node_modules/.bin/agnostic-ai`; a global fallback needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found` on their first commit.
 - To fix a failing check, run `agnostic-ai sync` and stage the regenerated outputs with the spec change.
 - With `gitignore.enabled: true`, the `install-hook` hook only checks that the staged specs render, because `--against index` compares only outputs Git tracks. A plain `sync --check` still compares every output.
 - Skip a hook for one commit with `git commit --no-verify`. Save it for emergencies.

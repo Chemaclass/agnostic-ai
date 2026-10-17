@@ -52,6 +52,7 @@ var allTargets = []targetChoice{
 	{Name: "jules", Desc: "Jules (Google, cloud)"},
 	{Name: "goose", Desc: "Goose (Block)"},
 	{Name: "augment", Desc: "Augment Code"},
+	{Name: "ellipsis", Desc: "Ellipsis (code review, environment)"},
 }
 
 // allTargetNames returns just the canonical names of allTargets.
@@ -230,6 +231,7 @@ var targetMarkers = map[string][]string{
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
 	"goose":       {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
 	"augment":     {".augment", ".augment-guidelines", ".augmentignore"},
+	"ellipsis":    {".ellipsis"},
 }
 
 // detectExistingTargets returns the canonical-ordered subset of

@@ -72,16 +72,36 @@ func (r *syncReport) addWrites(target string, writes []adapters.WrittenFile) {
 			continue
 		}
 		if target != "" {
-			if r.targets == nil {
-				r.targets = map[string]bool{}
-			}
-			r.targets[target] = true
+			r.markTarget(target)
 		}
 	}
 }
 
+func (r *syncReport) markTarget(target string) {
+	if r.targets == nil {
+		r.targets = map[string]bool{}
+	}
+	r.targets[target] = true
+}
+
+// entryWritesRead returns the entry-point writes target reads. Sync writes a
+// shared file such as AGENTS.md once and records it under no target, so each
+// reader claims it here.
+func entryWritesRead(target string, writes []adapters.WrittenFile, files []entryPointFile) []adapters.WrittenFile {
+	var out []adapters.WrittenFile
+	for _, w := range writes {
+		for _, f := range files {
+			if filepath.ToSlash(f.Path) == filepath.ToSlash(w.Path) && slices.Contains(f.Readers, target) {
+				out = append(out, w)
+				break
+			}
+		}
+	}
+	return out
+}
+
 func (r *syncReport) changedPaths() []string {
-	out := make([]string, 0, len(r.created)+len(r.updated)+len(r.removed))
+	out := []string{}
 	out = append(out, r.created...)
 	out = append(out, r.updated...)
 	out = append(out, r.removed...)
@@ -168,17 +188,56 @@ func capPaths(paths []string, verbose bool) string {
 	return fmt.Sprintf("%s  (+%d more)", strings.Join(paths[:reportPathsShown], "  "), len(paths)-reportPathsShown)
 }
 
-// specSums fingerprints every source spec and the merged config, keyed by
-// a stable identity, so the next sync can name what changed since this one.
-func specSums(cfg *config.Config, b spec.Bundle) map[string]string {
-	sums := map[string]string{}
+// specBaseline is what a sync records of its sources: a fingerprint per
+// spec, and the targets that emit it, so a spec moved to other tools reads
+// as changed.
+type specBaseline struct {
+	sums    map[string]string
+	targets map[string][]string
+}
+
+// specSums fingerprints the merged config and each source spec a target in
+// targets emits, keyed by a stable identity, so the next sync can name what
+// changed since this one. A spec only other tools read, such as a built-in
+// hook for a tool outside targets, is left out.
+func specSums(cfg *config.Config, b spec.Bundle, targets []string) specBaseline {
+	base := specBaseline{sums: map[string]string{}, targets: map[string][]string{}}
 	if data, err := json.Marshal(cfg); err == nil {
-		sums[configSpecKey] = sha256Hex(data)
+		base.sums[configSpecKey] = sha256Hex(data)
+	}
+	for _, target := range targets {
+		adapter, err := adapters.Resolve(target)
+		if err != nil {
+			continue
+		}
+		caps := adapter.Capabilities()
+		for _, e := range b.For(target).All() {
+			if len(caps) > 0 && !slices.Contains(caps, e.Kind) && (e.Kind != spec.KindAgent || !adapters.WritesAgentsAsSkills(cfg, target)) {
+				continue
+			}
+			key := specKey(e)
+			if !slices.Contains(base.targets[key], target) {
+				base.targets[key] = append(base.targets[key], target)
+			}
+		}
 	}
 	for _, e := range b.All() {
-		sums[specKey(e)] = entrySum(e)
+		key := specKey(e)
+		if _, ok := base.targets[key]; ok {
+			base.sums[key] = entrySum(e)
+			slices.Sort(base.targets[key])
+		}
 	}
-	return sums
+	return base
+}
+
+// bundleSpecKeys lists the key of every spec in b, emitted or not.
+func bundleSpecKeys(b spec.Bundle) map[string]bool {
+	keys := map[string]bool{}
+	for _, e := range b.All() {
+		keys[specKey(e)] = true
+	}
+	return keys
 }
 
 func specKey(e spec.Entry) string {
@@ -226,23 +285,36 @@ func sha256Hex(data []byte) string {
 // diffSpecSums names the specs added, changed, or removed between two
 // syncs. A missing baseline (first sync, older state file) yields nothing:
 // every spec would read as added, which says nothing the file list does not.
-func diffSpecSums(prev, cur map[string]string) []specChange {
-	if len(prev) == 0 {
+// A spec in prev.sums that no configured target emits now but still exists
+// changed which tools read it, so it reads as changed. An older state file
+// recorded no targets and kept every spec, so there it is not a removal.
+func diffSpecSums(prev, cur specBaseline, existing map[string]bool) []specChange {
+	if len(prev.sums) == 0 {
 		return nil
 	}
+	// A changed config explains a move between targets; `~ config` says so.
+	sameConfig := prev.sums[configSpecKey] == cur.sums[configSpecKey]
 	var out []specChange
-	for k, sum := range cur {
-		old, ok := prev[k]
+	for k, sum := range cur.sums {
+		old, ok := prev.sums[k]
 		switch {
 		case !ok:
 			out = append(out, specChange{mark: "+", label: k})
 		case old != sum:
 			out = append(out, specChange{mark: "~", label: k})
+		case sameConfig && prev.targets[k] != nil && !slices.Equal(prev.targets[k], cur.targets[k]):
+			out = append(out, specChange{mark: "~", label: k})
 		}
 	}
-	for k := range prev {
-		if _, ok := cur[k]; !ok {
+	for k := range prev.sums {
+		if _, ok := cur.sums[k]; ok {
+			continue
+		}
+		switch {
+		case !existing[k]:
 			out = append(out, specChange{mark: "-", label: k})
+		case sameConfig && prev.targets[k] != nil:
+			out = append(out, specChange{mark: "~", label: k})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].label < out[j].label })

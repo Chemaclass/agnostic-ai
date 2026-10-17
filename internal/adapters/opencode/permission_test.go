@@ -23,6 +23,21 @@ func projectConfig(t *testing.T, dir string) map[string]any {
 	return doc
 }
 
+// asJSON reads a permission map back as it lands in opencode.json, so an
+// ordered tool object compares equal to a plain map.
+func asJSON(t *testing.T, v map[string]any) map[string]any {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 func settingsEntry(name string, lists map[string]any) spec.Entry {
 	return spec.Entry{Kind: spec.KindSettings, Name: name, Meta: map[string]any{"permissions": lists}}
 }
@@ -174,7 +189,7 @@ func TestBuildPermissions(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, dropped := buildPermissions(tc.entries)
-			if !reflect.DeepEqual(got, tc.want) {
+			if !reflect.DeepEqual(asJSON(t, got), asJSON(t, tc.want)) {
 				t.Errorf("buildPermissions() = %#v, want %#v", got, tc.want)
 			}
 			if dropped != tc.dropped {

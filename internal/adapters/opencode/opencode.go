@@ -27,20 +27,15 @@
 // Settings specs merge their last non-empty `model` into the project
 // `opencode.json` file without replacing unrelated native keys. With
 // `memory.personal: repo`, that file also allows the personal memory
-// store under `permission.external_directory`, since OpenCode asks
-// before a tool touches a path outside the project.
+// store under `permission.external_directory`, since OpenCode V1 asks
+// before a tool touches a path outside the project. V2 allows external
+// directories by default; an explicit native permissions rule can ask.
+// Restricted agents replay its legacy permission map and ordered native
+// V2 permissions array before applying their tool list.
 //
-// Hooks are the one surface here that is codegen rather than a config
-// key. opencode.ai/docs/plugins documents `.opencode/plugins/` as a
-// project-level plugin directory whose JavaScript and TypeScript files
-// load at startup, so each hook spec emits one `<name>.ts` module
-// exporting a plugin function that returns the hook object. PreToolUse
-// and PostToolUse map onto the `tool.execute.before` and
-// `tool.execute.after` keys; every other documented event rides the
-// single `event` hook with an `event.type` guard. The command runs
-// through Bun's injected `$` helper. The generated module is one-way:
-// `import opencode` does not read `.opencode/plugins/` back, since
-// recovering a spec would mean parsing TypeScript.
+// Hooks emit V1 plugin functions by default. A hook selects native V2
+// tool callbacks with x-opencode.plugin-api: v2. Plugin code cannot be
+// imported back into specs.
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters
 // separated by single hyphens, per opencode.ai/docs/skills. Invalid
@@ -89,6 +84,7 @@ var caps = emit.Capabilities{
 
 func capabilities(cfg *config.Config) emit.Capabilities {
 	coverage := caps
+	coverage.SkillFields.Markdown = (Adapter{}).SkillMarkdown
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		coverage.SkillFields.AdditionalFields = func(skill spec.Entry) map[string]any {
 			fields, _ := commandMeta(skill)
@@ -142,6 +138,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	if err := validateMCPOwners(b.MCPs, b.Settings); err != nil {
+		return err
+	}
 	if err := reportPermissionWidening(b.Settings, cfg.OnUnsupported); err != nil {
 		return err
 	}
@@ -149,22 +148,39 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err
 	}
+	hooks, err := prepareHooks(b.Hooks)
+	if err != nil {
+		return err
+	}
 	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {
 		return err
 	}
 
-	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
+	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
+	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
+	if err != nil {
 		return err
+	}
+	handoff, handoffKept, err := sess.HandoffAccess(cfg, path, target, "permission.external_directory", dryRun)
+	if err != nil {
+		return err
+	}
+	if handoff != "" {
+		directories = append(directories, handoff+"/**")
+	}
+	kept := make([]string, len(handoffKept))
+	for i, dir := range handoffKept {
+		kept[i] = dir + "/**"
 	}
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	if err := emitHooks(sess, b.Hooks, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
+	if err := hooks.emit(sess, emit.OutputHooksDir(cfg, target, defaultPluginsDir), dryRun); err != nil {
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteScopedSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := sess.WriteScopedSkillFoldersWith(b.Skills, skillsDir, dryRun, (Adapter{}).SkillMarkdown); err != nil {
 		return err
 	}
 	if emit.EmitSkillsAsCommands(cfg, target) {
@@ -175,16 +191,27 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	path := emit.OutputMCPFile(cfg, target, defaultMCPFile)
 	memory, err := emit.MemoryIndexPaths(cfg, path, target)
 	if err != nil {
 		return err
 	}
-	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
+	sess.WatchPlannedFile(path)
+	if err := emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, kept, path, dryRun); err != nil {
+		return err
+	}
+	if len(b.Agents) == 0 {
+		return nil
+	}
+	// Agents go last: a restricted agent repeats the project permission
+	// as opencode.json now holds it, hand-written keys included.
+	project, err := readProjectPermission(sess, path, dryRun)
 	if err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, path, dryRun)
+	for _, server := range b.MCPs {
+		project.servers = append(project.servers, server.Name)
+	}
+	return emitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), project, dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
@@ -205,11 +232,8 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 	return sess.RemoveGenerated(legacyEntryPointFile, dryRun)
 }
 
-// emitMCPConfig writes (or merges into) opencode.json with the `mcp`
-// map and a `$schema` link. Routes through emit.MergeJSONFile so any
-// pre-existing user-managed keys (theme, small_model, ...) survive the
-// sync; only `$schema`, `mcp`, and the portable `model` field are owned.
-func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, directories []string, path string, dryRun bool) error {
+// Native V2 MCP settings claim servers individually inside mcp.servers.
+func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, directories, kept []string, path string, dryRun bool) error {
 	permissions, dropped := buildPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
 	// An `x-opencode` block on a settings spec carries the keys this
@@ -222,7 +246,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 	// The block is read twice, once to decide whether the file is
 	// written at all and once to merge it in.
 	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
-	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && emit.SettingsModel(settings, target) == "" {
+	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && len(memory) == 0 && len(directories) == 0 && emit.SettingsModel(settings, target) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
@@ -259,9 +283,20 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)
 	}
-	nested, err := mergeExternalDirectories(sess, keys, settings, path, directories, dryRun)
+	nested, err := mergeExternalDirectories(sess, keys, settings, path, directories, kept, dryRun)
 	if err != nil {
 		return err
+	}
+	nativeMCP, err := mergeNativeMCP(sess, keys, path, dryRun)
+	if err != nil {
+		return err
+	}
+	if nativeMCP {
+		nestedKeys := []string{"mcp"}
+		if nested {
+			nestedKeys = append(nestedKeys, permissionKey)
+		}
+		return sess.MergeJSONFileNested(path, keys, nestedKeys, dryRun)
 	}
 	emit.MergeEntriesOf(keys, "mcp")
 	if nested {

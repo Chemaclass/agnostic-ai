@@ -8,7 +8,7 @@ alwaysApply: false
 Every adapter has the same shape: a stateless `Adapter` with `New()`, `Name()`, and `Emit(sess, bundle, cfg, dryRun)`, a `caps` value listing every spec kind the tool natively reads, and `emit.ReportUnsupported(caps, b, cfg.OnUnsupported)` first in `Emit`. Copy the shape of an existing adapter under `internal/adapters/<target>/`.
 
 - Keep `Adapter` free of state: no fields. Create it only with `New()`.
-- One concern per file. Logic two adapters share goes in `internal/adapters/internal/emit/` first.
+- One concern per file. Reuse shared helpers under `internal/adapters/internal/`; output-writing helpers belong in `emit/`.
 - Resolve every output path through an `emit.Output*` helper so `outputs.<target>.<field>` can override it.
 - Emit only the target-native MCP path. A portable root `.mcp.json` is opt-in via `outputs.<target>.root-mcp-file`.
 - When an output is opt-in and not configured, skip it and return nil. Never write a file the user did not ask for.

@@ -16,11 +16,30 @@
   },
   "mcp": {
     "disabled-server": {
+      "channel_enabled": false,
       "command": "x",
       "disabled": true,
       "type": "stdio"
     },
     "http-server": {
+      "channel_enabled": true,
+      "channel_reply": {
+        "group": {
+          "target_meta": "room",
+          "target_param": "group_id",
+          "tool": "send_group"
+        },
+        "message_param": "text",
+        "suppress_tools": [
+          "send",
+          "reply"
+        ],
+        "user": {
+          "target_meta": "sender_id",
+          "target_param": "user_id",
+          "tool": "send_user"
+        }
+      },
       "disabled_tools": [
         "delete_file"
       ],

@@ -191,3 +191,49 @@ func TestEntryPointRuleInliner(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderRulesAppendix_StatesGlobScope(t *testing.T) {
+	t.Parallel()
+	rule := func(name string, meta map[string]any) spec.Entry {
+		return spec.Entry{Kind: spec.KindRule, Name: name, Path: "rules/" + name + ".md", Body: "# Title\n\nbody of " + name, Meta: meta}
+	}
+	got := RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{
+		rule("js", map[string]any{"description": "Inertia React conventions.", "globs": []any{"resources/js/**"}}),
+		rule("backend", map[string]any{"globs": "app/Http/**, routes/**"}),
+		rule("always", map[string]any{"globs": "src/**", "alwaysApply": true}),
+		rule("catchall", map[string]any{"globs": "**/*"}),
+		rule("plain", nil),
+	}})
+	for _, want := range []string{
+		"### js\n\n<!-- source: rules/js.md headings: +3 scope: 1 -->\nApplies to: `resources/js/**`\n\n_Inertia React conventions._\n\n#### Title",
+		"### backend\n\n<!-- source: rules/backend.md headings: +3 scope: 1 -->\nApplies to: `app/Http/**`, `routes/**`\n\n#### Title",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("appendix missing %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count(got, "Applies to:"); n != 2 {
+		t.Errorf("want 2 scope lines, got %d:\n%s", n, got)
+	}
+}
+
+func TestRenderRulesAppendix_ScopeLineEdgeCases(t *testing.T) {
+	t.Parallel()
+	rule := func(name string, meta map[string]any) spec.Entry {
+		return spec.Entry{Kind: spec.KindRule, Name: name, Path: "rules/" + name + ".md", Body: "body of " + name, Meta: meta}
+	}
+	got := RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{
+		rule("viapaths", map[string]any{"paths": []any{"src/**"}}),
+		rule("mixed", map[string]any{"globs": []any{"**/*", "src/**"}}),
+		rule("tick", map[string]any{"globs": "src/`x`/**"}),
+	}})
+	if !strings.Contains(got, "<!-- source: rules/viapaths.md scope: 1 -->\nApplies to: `src/**`\n\n") {
+		t.Errorf("paths-scoped rule lacks the marked scope line:\n%s", got)
+	}
+	if n := strings.Count(got, "Applies to:"); n != 1 {
+		t.Errorf("want only the paths rule scoped, got %d lines:\n%s", n, got)
+	}
+	if n := strings.Count(got, "scope: 1"); n != 1 {
+		t.Errorf("want one scope marker, got %d:\n%s", n, got)
+	}
+}

@@ -298,13 +298,13 @@ var gitBash = func() string {
 }
 
 // gitBashBeside finds bin\bash.exe in the Git for Windows install that
-// holds git: git sits in its cmd\ or bin\ directory, or in
-// mingw64\bin\ or mingw32\bin\.
+// holds git: git sits in its cmd\ or bin\ directory, or in the bin\ of
+// an MSYS2 environment such as mingw64\ or, in newer releases, ucrt64\.
 func gitBashBeside(git string) string {
 	dir := filepath.Dir(git)
 	root := filepath.Dir(dir)
 	switch base := strings.ToLower(filepath.Base(dir)); {
-	case base == "cmd", base == "bin" && !strings.HasPrefix(strings.ToLower(filepath.Base(root)), "mingw"):
+	case base == "cmd", base == "bin" && !msysEnvironment(filepath.Base(root)):
 	case base == "bin":
 		root = filepath.Dir(root)
 	default:
@@ -314,6 +314,14 @@ func gitBashBeside(git string) string {
 		return bash
 	}
 	return ""
+}
+
+func msysEnvironment(name string) bool {
+	switch strings.ToLower(name) {
+	case "mingw64", "mingw32", "ucrt64", "clang64", "clang32", "clangarm64":
+		return true
+	}
+	return false
 }
 
 func isFile(path string) bool {

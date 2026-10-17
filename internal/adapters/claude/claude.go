@@ -838,6 +838,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	keyOrder := []matcherKey{}
 	onceNoOp := 0
+	var emittedHooks []spec.Entry
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		matcher, _ := h.Meta["matcher"].(string)
@@ -851,12 +852,14 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		if hookBoolMeta(h.Meta, "once") {
 			onceNoOp++
 		}
+		emittedHooks = append(emittedHooks, h)
 		k := matcherKey{event: event, matcher: matcher}
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
 		byKey[k] = append(byKey[k], handlers...)
 	}
+	NoteFailClosedNoOps(emittedHooks)
 	emit.NoteFieldNoOp(target, spec.KindHook, "once", onceNoOp,
 		"Claude Code only honors once for hooks declared in skill frontmatter; a settings.json or agent-frontmatter hook keeps running every time")
 	byEvent := map[string][]claudehooks.Group{}
@@ -1103,41 +1106,4 @@ func mergeHooksInto(doc *emit.OrderedJSON, path string, hooks []spec.Entry) ([]e
 		}
 	}
 	return claimed, nil
-}
-
-// autoMemoryDirectoryKey is Claude Code's setting for where auto memory
-// lives. It takes an absolute path only, so sync writes it to the
-// personal, git-ignored settings.local.json (code.claude.com/docs/en/memory).
-const autoMemoryDirectoryKey = "autoMemoryDirectory"
-
-// emitAutoMemoryDirectory points Claude Code's auto memory at the shared
-// personal store, so what Claude saves on its own reaches every tool
-// (#1846). A value the user set stays theirs. CLAUDE.md still imports the
-// personal index: Claude ignores the key until the workspace is trusted.
-func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
-	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
-		return nil
-	}
-	path := filepath.Join(dir, "settings.local.json")
-	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
-		return nil
-	}
-	store, err := emit.PersonalMemoryDir(cfg, ".")
-	if err != nil {
-		return err
-	}
-	if err := sess.CreateRepoMemoryStore(cfg, store, dryRun); err != nil {
-		return err
-	}
-	if store, err = filepath.Abs(store); err != nil {
-		return fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
-	}
-	// The file holds this checkout's absolute path, so it must never be
-	// committed, even when sync creates it before Claude Code ignores it.
-	if !dryRun && !sess.IsCapturing() {
-		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
-			return err
-		}
-	}
-	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
 }

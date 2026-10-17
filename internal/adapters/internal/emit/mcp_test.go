@@ -2,6 +2,7 @@ package emit
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -837,5 +838,129 @@ func TestMCPDocument_StdioTypeStaysOffByDefault(t *testing.T) {
 	}
 	if strings.Contains(got, `"type"`) {
 		t.Errorf("stdio must stay type-less without the cursor option: %s", got)
+	}
+}
+
+// VS Code documents a per-server sandbox object on stdio servers with
+// filesystem.allowWrite/denyRead/denyWrite and
+// network.allowedDomains/deniedDomains (#2212).
+func TestMCPDocument_VSCodeExtras_SandboxOnStdioServers(t *testing.T) {
+	t.Parallel()
+	sandbox := map[string]any{
+		"filesystem": map[string]any{
+			"allowWrite": []any{"${workspaceFolder}"},
+			"denyRead":   []any{"secrets/"},
+			"denyWrite":  []any{"dist/"},
+			"readOnly":   []any{"unknown"},
+		},
+		"network": map[string]any{
+			"allowedDomains": []any{"api.example.test"},
+			"deniedDomains":  []any{"evil.example.test"},
+		},
+		"process": map[string]any{"allow": []any{"x"}},
+	}
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "box", Meta: map[string]any{"command": "node", "sandboxEnabled": true, "sandbox": sandbox}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "sandbox": sandbox}},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaVSCodeServers, WithVSCodeMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		Servers map[string]map[string]any `json:"servers"`
+	}
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	want := map[string]any{
+		"filesystem": map[string]any{
+			"allowWrite": []any{"${workspaceFolder}"},
+			"denyRead":   []any{"secrets/"},
+			"denyWrite":  []any{"dist/"},
+		},
+		"network": map[string]any{
+			"allowedDomains": []any{"api.example.test"},
+			"deniedDomains":  []any{"evil.example.test"},
+		},
+	}
+	if box := parsed.Servers["box"]["sandbox"]; !reflect.DeepEqual(box, want) {
+		t.Errorf("box sandbox = %#v, want %#v", box, want)
+	}
+	if _, ok := parsed.Servers["remote"]["sandbox"]; ok {
+		t.Errorf("remote server must not carry the stdio-only sandbox: %s", got)
+	}
+
+	plain, err := MCPDocument(mcps, MCPSchemaVSCodeServers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(plain, "sandbox") {
+		t.Errorf("sandbox must not appear without WithVSCodeMCPExtras: %s", plain)
+	}
+}
+
+func TestMCPDocument_VSCodeExtras_ReadXCopilot(t *testing.T) {
+	t.Parallel()
+	mcps := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "scoped", Meta: map[string]any{
+			"command": "node",
+			"x-copilot": map[string]any{
+				"cwd":            "${workspaceFolder}/app",
+				"envFile":        "${workspaceFolder}/.env",
+				"sandboxEnabled": true,
+				"sandbox":        map[string]any{"filesystem": map[string]any{"allowWrite": []any{"${workspaceFolder}/out"}}},
+				"dev":            map[string]any{"watch": "src/**"},
+			},
+		}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{
+			"type": "http", "url": "https://example.test/mcp",
+			"x-copilot": map[string]any{"oauth": map[string]any{"clientId": "scoped-id"}},
+		}},
+		{Kind: spec.KindMCP, Name: "wins", Meta: map[string]any{
+			"command": "node",
+			"cwd":     "top",
+			"x-copilot": map[string]any{
+				"cwd": "scoped",
+			},
+		}},
+		{Kind: spec.KindMCP, Name: "top", Meta: map[string]any{"command": "node", "cwd": "top", "sandboxEnabled": true}},
+	}
+	got, err := MCPDocument(mcps, MCPSchemaVSCodeServers, WithVSCodeMCPExtras())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		Servers map[string]map[string]any `json:"servers"`
+	}
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	scoped := parsed.Servers["scoped"]
+	if scoped["cwd"] != "${workspaceFolder}/app" || scoped["envFile"] != "${workspaceFolder}/.env" || scoped["sandboxEnabled"] != true {
+		t.Errorf("x-copilot stdio fields missing: %s", got)
+	}
+	if _, ok := scoped["sandbox"].(map[string]any); !ok {
+		t.Errorf("x-copilot sandbox missing: %s", got)
+	}
+	if dev, ok := scoped["dev"].(map[string]any); !ok || dev["watch"] != "src/**" {
+		t.Errorf("x-copilot dev missing: %s", got)
+	}
+	if oauth, ok := parsed.Servers["remote"]["oauth"].(map[string]any); !ok || oauth["clientId"] != "scoped-id" {
+		t.Errorf("x-copilot oauth missing: %s", got)
+	}
+	if parsed.Servers["wins"]["cwd"] != "scoped" {
+		t.Errorf("x-copilot must win over the top level: %s", got)
+	}
+	if top := parsed.Servers["top"]; top["cwd"] != "top" || top["sandboxEnabled"] != true {
+		t.Errorf("top-level fields must still work: %s", got)
+	}
+
+	plain, err := MCPDocument(mcps, MCPSchemaVSCodeServers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(plain, "scoped-id") || strings.Contains(plain, "sandbox") {
+		t.Errorf("x-copilot VS Code fields must not appear without WithVSCodeMCPExtras: %s", plain)
 	}
 }

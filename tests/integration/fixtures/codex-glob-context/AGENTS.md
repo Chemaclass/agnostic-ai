@@ -10,7 +10,9 @@ Root guidance.
 
 ### deploy
 
-<!-- source: .agnostic-ai/rules/deploy.md -->
+<!-- source: .agnostic-ai/rules/deploy.md scope: 1 -->
+Applies to: `.kamal/**`, `Dockerfile`, `scripts/*.sh`
+
 Deployment conventions.
 
 

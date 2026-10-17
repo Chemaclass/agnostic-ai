@@ -55,7 +55,7 @@ func TestToolBuiltins_DefaultOffAndIndependent(t *testing.T) {
 			t.Fatalf("omitted config: %+v, %v", bundle, err)
 		}
 	})
-	if config := renderConfig("", []string{"claude"}, false, "dev"); strings.Contains(config, "rtk") || strings.Contains(config, "caveman") {
+	if config := renderConfig("", []string{"claude"}, false, "dev", false); strings.Contains(config, "rtk") || strings.Contains(config, "caveman") {
 		t.Errorf("init enables tools: %s", config)
 	}
 }

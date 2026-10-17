@@ -20,8 +20,9 @@ type hookBlock struct {
 	file     string
 	sentinel string
 	// legacy is the line older versions wrote without a sentinel.
-	legacy string
-	checks string
+	legacy       string
+	checks       string
+	legacyChecks string
 	// upgrades maps a check line an older version wrote to the line that
 	// replaces it, so installing again updates an existing hook.
 	upgrades map[string]string
@@ -47,10 +48,12 @@ var projectHook = hookBlock{
 	legacy:   "agnostic-ai sync --check",
 	// The staged state is what the commit holds: checking the working
 	// tree passed a commit that left regenerated outputs unstaged.
-	checks: "agnostic-ai sync --check --against index || exit 1",
+	checks: projectPreCommitHookChecks,
 	upgrades: map[string]string{
-		"agnostic-ai sync --check || exit 1": "agnostic-ai sync --check --against index || exit 1",
-		"agnostic-ai sync --check":           "agnostic-ai sync --check --against index || exit 1",
+		"agnostic-ai sync --check || exit 1":                 projectPreCommitHookChecks,
+		"agnostic-ai sync --check":                           projectPreCommitHookChecks,
+		"agnostic-ai sync --check --against index || exit 1": projectPreCommitHookChecks,
+		projectHookMissingV1:                                 projectHookMissing,
 	},
 }
 
@@ -72,21 +75,71 @@ if [ "$git_dir" = "$common_dir" ]; then
 fi`,
 }
 
-const projectSyncHookChecks = `root="$(git rev-parse --show-toplevel)" || exit 0
+const legacyProjectSyncHookChecks = `root="$(git rev-parse --show-toplevel)" || exit 0
 command -v agnostic-ai >/dev/null 2>&1 || exit 0
 [ -f "$root/agnostic-ai.yaml" ] || exit 0
 cd "$root" && agnostic-ai sync -q`
 
+const projectHookResolver = `root="$(git rev-parse --show-toplevel)" || exit 1
+cd "$root" || exit 1
+agnostic_ai_bin=agnostic-ai
+if [ -x "$root/node_modules/.bin/agnostic-ai" ]; then
+	agnostic_ai_bin="$root/node_modules/.bin/agnostic-ai"
+fi`
+
+const projectHookMissingV1 = `command -v "$agnostic_ai_bin" >/dev/null 2>&1 || { echo 'agnostic-ai is missing; install it, then run agnostic-ai project --bootstrap' >&2; exit 1; }`
+
+// Without any agnostic-ai on PATH, project --bootstrap cannot run, so a
+// project that declares the package names its package manager's install.
+// Like bootstrap, a declared manager wins over the lockfiles present.
+const projectHookMissing = `if ! command -v "$agnostic_ai_bin" >/dev/null 2>&1; then
+	agnostic_ai_next='install it, then run agnostic-ai project --bootstrap'
+	if grep -q '"agnostic-ai"' package.json 2>/dev/null; then
+		agnostic_ai_json="$(tr -d ' \t\r\n' < package.json)"
+		agnostic_ai_pm="$(printf '%s' "$agnostic_ai_json" | sed -n 's/.*"packageManager":"\([a-z]*\).*/\1/p')"
+		[ -n "$agnostic_ai_pm" ] || agnostic_ai_pm="$(printf '%s' "$agnostic_ai_json" | sed -n 's/.*"devEngines":.*"packageManager":\[\{0,1\}{[^}]*"name":"\([a-z]*\)".*/\1/p')"
+		if [ -n "$agnostic_ai_pm" ]; then :
+		elif [ -f bun.lock ] || [ -f bun.lockb ]; then agnostic_ai_pm=bun
+		elif [ -f pnpm-lock.yaml ]; then agnostic_ai_pm=pnpm
+		elif [ -f package-lock.json ]; then agnostic_ai_pm=npm
+		elif [ -f yarn.lock ]; then agnostic_ai_pm=yarn
+		fi
+		case "$agnostic_ai_pm" in
+		bun | pnpm) agnostic_ai_next="run $agnostic_ai_pm install --frozen-lockfile" ;;
+		npm) agnostic_ai_next='run npm ci' ;;
+		?*) agnostic_ai_next="run $agnostic_ai_pm install" ;;
+		esac
+	fi
+	echo "agnostic-ai is missing; $agnostic_ai_next" >&2
+	exit 1
+fi`
+
+const projectHookProbe = `AGNOSTIC_AI_NO_UPDATE_CHECK=1 "$agnostic_ai_bin" project --help >/dev/null 2>&1 || { echo 'agnostic-ai: upgrade the selected package to a release supporting project; update its declared version and requires explicitly' >&2; exit 1; }`
+
+const projectHookCapabilityV1 = projectHookMissingV1 + "\n" + projectHookProbe
+
+const projectHookCapability = projectHookMissing + "\n" + projectHookProbe
+
+const projectPreCommitHookChecks = projectHookResolver + "\n" + projectHookCapability + "\n\"$agnostic_ai_bin\" project --check --against index || exit 1"
+
+const projectSyncHookChecks = projectHookResolver + `
+[ -f "$root/agnostic-ai.yaml" ] || exit 0
+` + projectHookCapability + "\n\"$agnostic_ai_bin\" project"
+
 var postCheckoutHook = hookBlock{
-	file:     "post-checkout",
-	sentinel: "# agnostic-ai install-hook --post-checkout",
-	checks:   `[ "$3" = "1" ] || exit 0` + "\n" + projectSyncHookChecks,
+	file:         "post-checkout",
+	sentinel:     "# agnostic-ai install-hook --post-checkout",
+	checks:       `[ "$3" = "1" ] || exit 0` + "\n" + projectSyncHookChecks,
+	legacyChecks: `[ "$3" = "1" ] || exit 0` + "\n" + legacyProjectSyncHookChecks,
+	upgrades:     map[string]string{projectHookMissingV1: projectHookMissing},
 }
 
 var postMergeHook = hookBlock{
-	file:     "post-merge",
-	sentinel: "# agnostic-ai install-hook --post-checkout (post-merge)",
-	checks:   projectSyncHookChecks,
+	file:         "post-merge",
+	sentinel:     "# agnostic-ai install-hook --post-checkout (post-merge)",
+	checks:       projectSyncHookChecks,
+	legacyChecks: legacyProjectSyncHookChecks,
+	upgrades:     map[string]string{projectHookMissingV1: projectHookMissing},
 }
 
 func newInstallHookCmd() *cobra.Command {
@@ -100,7 +153,7 @@ func newInstallHookCmd() *cobra.Command {
 			"global home kept in git, writes a hook that runs lint --global --strict, " +
 			"validate --global, and sync --global --check. With --post-checkout, writes " +
 			"post-checkout and post-merge in .git/hooks (or .githooks with --shared) instead: " +
-			"they run `agnostic-ai sync -q` from the worktree root after a branch or " +
+			"they run `agnostic-ai project` with the local binary from the worktree root after a branch or " +
 			"worktree checkout or a merge, including a pull, to restore the tool files.",
 		Example: `  # Install into .git/hooks/pre-commit (local only)
   agnostic-ai install-hook
@@ -136,7 +189,7 @@ func newInstallHookCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/<hook> and set core.hooksPath so the hook is shared with the team.")
 	cmd.Flags().BoolVar(&global, "global", false, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
-	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout and post-merge hooks that run `agnostic-ai sync -q` after a checkout or pull, when the binary and agnostic-ai.yaml exist.")
+	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout and post-merge hooks that run `agnostic-ai project` after a checkout or pull, preserving edits and never installing dependencies.")
 	cmd.MarkFlagsMutuallyExclusive("shared", "global")
 	cmd.MarkFlagsMutuallyExclusive("global", "post-checkout")
 	return cmd
@@ -230,7 +283,7 @@ func parseConfigOrigin(line string) (string, string) {
 // place in the global home's hook.
 func hasProjectCheck(content string) bool {
 	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) {
+		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) || strings.HasPrefix(strings.TrimSpace(line), "agnostic-ai project --check") || strings.HasPrefix(strings.TrimSpace(line), `"$agnostic_ai_bin" project --check`) {
 			return true
 		}
 	}
@@ -382,7 +435,7 @@ func reportHook(out io.Writer, path string, written hookWrite, suffix string) {
 	case hookUnchanged:
 		_, _ = fmt.Fprintf(out, "✓ %s already runs the checks%s\n", path, suffix)
 	case hookUpdated:
-		_, _ = fmt.Fprintf(out, "✓ updated the checks in %s to compare the staged files%s\n", path, suffix)
+		_, _ = fmt.Fprintf(out, "✓ updated the checks in %s%s\n", path, suffix)
 	default:
 		_, _ = fmt.Fprintf(out, "✓ installed %s%s\n", path, suffix)
 	}
@@ -404,6 +457,10 @@ func writeHookAt(dir string, block hookBlock) (hookWrite, error) {
 		return hookCreated, os.WriteFile(path, []byte("#!/bin/sh\n"+block.text()), 0o755)
 	}
 	if block.installedIn(string(existing)) {
+		if block.legacyChecks != "" && strings.Contains(string(existing), block.legacyChecks) {
+			content := strings.Replace(string(existing), block.legacyChecks, block.checks, 1)
+			return hookUpdated, os.WriteFile(path, []byte(content), 0o755)
+		}
 		lines := strings.Split(string(existing), "\n")
 		updated := false
 		for i, line := range lines {

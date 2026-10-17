@@ -64,8 +64,12 @@ type globalTarget struct {
 	agentsWindows string
 	// hooks is the hooks file.
 	hooks string
+	// hooksDir is a native directory of standalone hook definition files.
+	hooksDir string
+	// hookScriptsDir keeps command scripts outside the native definitions directory.
+	hookScriptsDir string
 	// hooksFormat selects the native hooks schema: "claude", "cursor",
-	// or "augment", Claude's grouping with Augment's narrower fields.
+	// "copilot", or "augment".
 	hooksFormat string
 	// hookTarget is how a hook learns which target ran it, the same way
 	// the project adapter tells it: the settings `env` (claude), an
@@ -129,10 +133,12 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".claude/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
-			permissionMode: "permissions.defaultMode",
+			permissionMode:  "permissions.defaultMode",
+			permissionLists: true,
+			retention:       "cleanupPeriodDays",
 			reserved: map[string]string{
 				"hooks":       "sync --global writes hooks from hook specs",
-				"permissions": "use permissions.default-mode for the user default mode; sync --global does not write permission rule lists",
+				"permissions": "use permissions.default-mode for the user default mode; sync --global writes only the allow, ask, and deny rule lists under permissions",
 			},
 		},
 	},
@@ -180,6 +186,7 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".gemini/settings.json", format: "json", key: "mcpServers"},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".gemini/settings.json", format: "json",
+			retention: "general.sessionRetention.maxAge",
 			// Gemini sets thinking per model under modelConfigs, with no
 			// default effort key, so a portable effort raises a note.
 			model: "model.name",
@@ -202,7 +209,8 @@ var globalTargets = map[string]globalTarget{
 		mcp:          globalMCPFile{path: globalPathHome + ".qoder/settings.json", format: "json", key: "mcpServers"},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".qoder/settings.json", format: "json",
-			model: "model.name", effort: "model.reasoningEffort", effortLevel: qoderUserEffortLevels,
+			retention: "general.sessionRetention.maxAge",
+			model:     "model.name", effort: "model.reasoningEffort", effortLevel: qoderUserEffortLevels,
 			reserved: map[string]string{
 				"hooks":       "sync --global writes hooks from hook specs",
 				"mcpServers":  "sync --global writes MCP servers from MCP specs",
@@ -211,6 +219,8 @@ var globalTargets = map[string]globalTarget{
 		},
 	},
 	"copilot": {
+		hooks:        globalPathHome + ".copilot/hooks/agnostic-ai.json",
+		hooksFormat:  "copilot",
 		rootEnv:      "COPILOT_HOME",
 		root:         globalPathHome + ".copilot",
 		agents:       globalPathHome + ".copilot/agents",
@@ -225,11 +235,13 @@ var globalTargets = map[string]globalTarget{
 		},
 	},
 	"cline": {
-		rootEnv:      "CLINE_DIR",
-		root:         globalPathHome + ".cline",
-		agents:       globalPathHome + ".cline/agents",
-		instructions: globalPathHome + ".agents/AGENTS.md",
-		skills:       globalPathHome + ".cline/skills",
+		hooksDir:       globalPathHome + ".cline/hooks",
+		hookScriptsDir: globalPathHome + ".cline/hook-scripts",
+		rootEnv:        "CLINE_DIR",
+		root:           globalPathHome + ".cline",
+		agents:         globalPathHome + ".cline/agents",
+		instructions:   globalPathHome + ".agents/AGENTS.md",
+		skills:         globalPathHome + ".cline/skills",
 	},
 	"windsurf": {
 		agents:        globalPathHome + ".config/devin/agents",
@@ -246,6 +258,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".agents/skills",
 	},
 	"warp": {
+		mcp:          globalMCPFile{path: globalPathHome + ".warp/.mcp.json", format: "json", key: "mcpServers"},
 		instructions: globalPathHome + ".agents/AGENTS.md",
 		skills:       globalPathHome + ".agents/skills",
 	},
@@ -255,15 +268,16 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathXDG + "opencode/skills",
 	},
 	"antigravity": {
+		mcp:          globalMCPFile{path: globalPathHome + ".gemini/config/mcp_config.json", format: "json", key: "mcpServers"},
 		agents:       globalPathHome + ".gemini/config/agents",
 		instructions: globalPathHome + ".gemini/GEMINI.md",
 		// antigravity.google/docs/skills?tab=ide rows the global scope
 		// as "`~/.gemini/config/skills/<skill-folder>/` | Global (all
 		// workspaces; legacy `~/.gemini/antigravity/skills/` is also
-		// supported)", and the Antigravity 2.0 tab names the config
+		// supported)", and the Antigravity app section names the config
 		// path with no legacy alternative at all. The legacy tree still
-		// loads in the IDE, so nothing breaks there, but Antigravity
-		// 2.0 on the same machine reads only the config path
+		// loads in the IDE, but the Antigravity app on the same
+		// machine reads only the config path
 		// (target-audit 2026-09-19, #896).
 		skills: globalPathHome + ".gemini/config/skills",
 	},
@@ -275,11 +289,13 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".junie/skills",
 	},
 	"kiro": {
-		rootEnv:      "KIRO_HOME",
-		root:         globalPathHome + ".kiro",
-		agents:       globalPathHome + ".kiro/agents",
-		instructions: globalPathHome + ".kiro/steering/AGENTS.md",
-		skills:       globalPathHome + ".kiro/skills",
+		rootEnv:        "KIRO_HOME",
+		root:           globalPathHome + ".kiro",
+		agents:         globalPathHome + ".kiro/agents",
+		instructions:   globalPathHome + ".kiro/steering/AGENTS.md",
+		skills:         globalPathHome + ".kiro/skills",
+		hooksDir:       globalPathHome + ".kiro/hooks",
+		hookScriptsDir: globalPathHome + ".kiro/scripts",
 	},
 	"crush": {
 		instructions: globalPathXDG + "crush/CRUSH.md",
@@ -361,7 +377,7 @@ func globalKindSupport() kindSupport {
 			spec.KindAgent:    g.agents != "",
 			spec.KindSkill:    g.skills != "",
 			spec.KindRule:     g.instructions != "" || g.rules != "",
-			spec.KindHook:     g.hooks != "",
+			spec.KindHook:     g.hooks != "" || g.hooksDir != "",
 			spec.KindSettings: g.settings.path != "",
 			spec.KindMCP:      g.mcp.path != "",
 		} {
@@ -378,7 +394,7 @@ func globalKindSupport() kindSupport {
 func globalHookTargets(targets []string) []string {
 	var out []string
 	for _, name := range slices.Sorted(slices.Values(targets)) {
-		if globalTargets[name].hooks != "" {
+		if globalTargets[name].hooks != "" || globalTargets[name].hooksDir != "" {
 			out = append(out, name)
 		}
 	}
@@ -423,7 +439,7 @@ func (g globalTarget) trees(home string) []string {
 	if g.hooks != "" {
 		out = append(out, filepath.Join(filepath.Dir(g.path(home, g.hooks)), "hooks"))
 	}
-	for _, p := range []string{g.skills, g.rules} {
+	for _, p := range []string{g.skills, g.rules, g.hooksDir, g.hookScriptsDir} {
 		if p != "" {
 			out = append(out, g.path(home, p))
 		}

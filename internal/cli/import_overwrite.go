@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -58,6 +59,11 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 		}
 		filter, filtered := adapter.(importSpecFileFilter)
 		for _, e := range b.For(target).All() {
+			// Built-in specs live in a materialized copy outside the project,
+			// at a path that changes between syncs; import never replaces them.
+			if e.Layer == layerNameBuiltin {
+				continue
+			}
 			if caps := adapter.Capabilities(); len(caps) > 0 && !slices.Contains(caps, e.Kind) {
 				continue
 			}
@@ -87,6 +93,9 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 		})
 	}
 	for path, old := range prev {
+		if materializedBuiltinPath(path) {
+			continue
+		}
 		rec, ok := next[path]
 		switch {
 		case !ok && old.By == specSumByImport:
@@ -112,6 +121,17 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 		next[path] = rec
 	}
 	return next
+}
+
+// The temporary copy is agnostic-ai-builtin-<name>-<digits>; the cache copy
+// is agnostic-ai/builtins/<hash>. Only an absolute key can name either: a
+// key inside the project is relative.
+var materializedBuiltinPattern = regexp.MustCompile(`^(?:[A-Za-z]:)?/(?:.*/)?(?:agnostic-ai-builtin-[a-z-]+-[0-9]+|agnostic-ai/builtins/[0-9a-f]{64})/`)
+
+// materializedBuiltinPath reports whether a state key points into a copy of
+// a built-in spec, which earlier versions recorded under its random path.
+func materializedBuiltinPath(key string) bool {
+	return materializedBuiltinPattern.MatchString(key)
 }
 
 // specFileLister lists spec files for every target of one sync. Targets

@@ -21,8 +21,8 @@ func foldSharedDrift(reports []driftReport) []driftReport {
 			continue
 		}
 		idx := len(out)
-		// variant tells apart renderings of one path that differ, which
-		// sync.collision-policy: prefer-spec allows, so each stays visible.
+		// variant tells apart renderings of one path that differ, so
+		// each stays visible.
 		claim := func(path, variant string) bool {
 			key := filepath.ToSlash(filepath.Clean(path))
 			if i, ok := owner[key+"\x00"+variant]; ok {

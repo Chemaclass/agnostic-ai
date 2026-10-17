@@ -174,7 +174,8 @@ func parseEntry(kind spec.Kind, body string) (spec.Entry, error) {
 	case spec.KindHook, spec.KindMCP, spec.KindSettings, spec.KindEnvironment:
 		return spec.ParseYAMLBytes(kind, []byte(body))
 	default:
-		return spec.ParseMarkdownBytes(kind, []byte(body))
+		e, err := spec.ParseMarkdownBytes(kind, []byte(body))
+		return e.PathsAsGlobs(), err
 	}
 }
 

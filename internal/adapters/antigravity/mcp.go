@@ -26,7 +26,23 @@ func emitMCP(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) er
 // skipped, so a spec with nothing to run or connect to never produces a
 // dead entry.
 func buildMCPDocument(mcps []spec.Entry) (string, error) {
-	servers := map[string]map[string]any{}
+	servers := buildMCPServers(mcps)
+	if len(servers) == 0 {
+		return "", nil
+	}
+	raw, err := emit.MarshalJSONIndent(map[string]any{"mcpServers": servers})
+	if err != nil {
+		return "", fmt.Errorf("marshal antigravity mcp: %w", err)
+	}
+	return string(raw) + "\n", nil
+}
+
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	return buildMCPServers(mcps)
+}
+
+func buildMCPServers(mcps []spec.Entry) map[string]any {
+	servers := map[string]any{}
 	for _, e := range mcps {
 		if e.Name == "" {
 			continue
@@ -37,14 +53,7 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 		}
 		servers[e.Name] = entry
 	}
-	if len(servers) == 0 {
-		return "", nil
-	}
-	raw, err := emit.MarshalJSONIndent(map[string]any{"mcpServers": servers})
-	if err != nil {
-		return "", fmt.Errorf("marshal antigravity mcp: %w", err)
-	}
-	return string(raw) + "\n", nil
+	return servers
 }
 
 // buildMCPServer renders one `mcpServers` entry with the fields

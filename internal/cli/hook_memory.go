@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -15,10 +16,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// memoryContextLimit keeps the session-start context under every hook
-// target's cap: Codex keeps 2,500 tokens by default and Claude Code
-// 10,000 characters. At 6,000 bytes, text over the Codex cap needs
-// fewer than 2.4 bytes per token, which dense non-Latin text can reach.
+// memoryContextLimit is one budget for every hook target, so they all load
+// the same facts. Codex estimates tokens as bytes divided by 4
+// (APPROX_BYTES_PER_TOKEN in codex-rs/utils/string/src/truncate.rs), so
+// 6,000 bytes count as 1,500 tokens against its 2,500-token default.
+// Claude Code does not run this hook.
 const memoryContextLimit = 6000
 
 func newHookMemoryCmd() *cobra.Command {
@@ -28,7 +30,8 @@ func newHookMemoryCmd() *cobra.Command {
 		Short: "Print the shared memory index from inside a session-start hook",
 		Long: "Prints the project's shared memory index (.agnostic-ai/memory/MEMORY.md) in the reply " +
 			"format the target adds to the model's context. Names the personal repo store even before " +
-			"its first index exists. Prints nothing when checkout memory has no index.",
+			"its first index exists. Prints nothing when checkout memory has no index. " +
+			"For claude, a subagent-start hook, it prints the personal index alone, and nothing when CLAUDE.md imports it.",
 		Example: `  # Hook command that does nothing when the binary is missing
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook memory`,
 		Args: cobra.NoArgs,
@@ -40,7 +43,13 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
-			indexes, scopes, configErr := memoryHookIndexes(root)
+			if target == "claude" && claudeImportsPersonalMemory(root) {
+				return nil
+			}
+			indexes, scopes, configErr := memoryHookIndexesForTarget(root, target)
+			if target == "claude" {
+				indexes, scopes = personalIndexes(indexes), personalIndexes(scopes)
+			}
 			text := ""
 			if len(indexes) > 0 {
 				text = memoryContext(indexes, scopes)
@@ -68,7 +77,28 @@ func newHookMemoryCmd() *cobra.Command {
 // load is returned as the error, with only the project scope: the
 // personal folder is then unknown, and the checkout one may be wrong.
 func memoryHookIndexes(root string) (indexes, scopes []memoryIndex, err error) {
+	return memoryHookIndexesForTarget(root, "")
+}
+
+func memoryHookIndexesForTarget(root, target string) (indexes, scopes []memoryIndex, err error) {
 	personal, err := personalMemoryIndex(root)
+	if err == nil && target == "claude" {
+		cfg, configErr := config.Load(root)
+		if configErr == nil {
+			dir, nativeErr := adapters.NativePersonalMemoryDirFor("claude", cfg, root)
+			if nativeErr != nil {
+				err = nativeErr
+			} else if dir != "" {
+				path := filepath.Join(dir, "MEMORY.md")
+				relative, relErr := filepath.Rel(root, path)
+				if relErr == nil && filepath.ToSlash(relative) == adapters.PersonalMemoryIndexPath {
+					personal.path = adapters.PersonalMemoryIndexPath
+				} else {
+					personal.path = filepath.ToSlash(path)
+				}
+			}
+		}
+	}
 	scopes = []memoryIndex{
 		// Personal first: it is short, and a long project index must
 		// not push the user's own corrections out of the limit.
@@ -95,9 +125,37 @@ func memoryHookIndexes(root string) (indexes, scopes []memoryIndex, err error) {
 // relative to the project root, or absolute for the repo store.
 type memoryIndex struct{ name, path, text string }
 
+// personalIndexes leaves out the project index, which Claude Code
+// subagents load through CLAUDE.md. Claude Code's own memory never
+// reaches them, so the personal index comes from the hook.
+func personalIndexes(indexes []memoryIndex) []memoryIndex {
+	return slices.DeleteFunc(slices.Clone(indexes), func(index memoryIndex) bool {
+		return index.path == adapters.ProjectMemoryIndexPath
+	})
+}
+
+// claudeImportsPersonalMemory reports whether the Claude Code entry point
+// of the project at root imports a personal index, as sync keeps it when
+// auto memory does not load that index, so every subagent reads it there.
+func claudeImportsPersonalMemory(root string) bool {
+	cfg, _ := config.Load(root)
+	path := adapters.EntryPointPath(cfg, "claude")
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	data, err := os.ReadFile(path)
+	return err == nil && adapters.MemoryBlockImportsPersonal(string(data))
+}
+
 // header introduces the index in the context the hook prints.
 func (m memoryIndex) header() string {
 	return "\n" + m.name + ", `" + m.path + "`:\n\n"
+}
+
+// body is the index text the hook prints: no hidden characters, so the
+// size cut measures what the model gets, and no trailing newlines.
+func (m memoryIndex) body() string {
+	return strings.TrimRight(stripHidden(m.text), "\n")
 }
 
 // personalMemoryIndex returns the personal index of the project at root,
@@ -131,7 +189,7 @@ func memoryContext(indexes, scopes []memoryIndex) string {
 		if i == 0 {
 			head = len(text)
 		}
-		text += strings.TrimRight(index.text, "\n") + "\n"
+		text += index.body() + "\n"
 	}
 	if len(text) <= memoryContextLimit {
 		return text
@@ -150,14 +208,22 @@ func memoryContext(indexes, scopes []memoryIndex) string {
 
 // memoryHookReply wraps text in the reply each target reads as context.
 func memoryHookReply(target, text string) (string, error) {
+	hookSpecific := map[string]string{"hookEventName": "SessionStart", "additionalContext": text}
 	var reply any
 	switch target {
-	case "gemini":
-		reply = map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
+	case "cline":
+		reply = map[string]string{"contextModification": text}
+	case "gemini", "qoder", "augment", "windsurf", "trae":
+		reply = map[string]any{"hookSpecificOutput": hookSpecific}
+	case "claude":
+		// The built-in runs it for subagents only; the session itself loads
+		// personal memory through auto memory or CLAUDE.md.
+		reply = map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": text}}
 	case "cursor":
 		reply = map[string]string{"additional_context": text}
 	case "copilot":
-		reply = map[string]string{"additionalContext": text}
+		// Copilot CLI reads the top-level key and VS Code the nested one.
+		reply = map[string]any{"additionalContext": text, "hookSpecificOutput": hookSpecific}
 	default:
 		return text, nil
 	}
@@ -171,10 +237,12 @@ func memoryHookReply(target, text string) (string, error) {
 // hookProjectDirEnv names the variable a target sets to the workspace
 // when its hooks run elsewhere, such as Cursor's user hooks in ~/.cursor/.
 var hookProjectDirEnv = map[string]string{
-	"gemini":  "GEMINI_PROJECT_DIR",
-	"cursor":  "CURSOR_PROJECT_DIR",
-	"qoder":   "QODER_PROJECT_DIR",
-	"factory": "FACTORY_PROJECT_DIR",
+	"gemini":   "GEMINI_PROJECT_DIR",
+	"cursor":   "CURSOR_PROJECT_DIR",
+	"qoder":    "QODER_PROJECT_DIR",
+	"factory":  "FACTORY_PROJECT_DIR",
+	"windsurf": "DEVIN_PROJECT_DIR",
+	"trae":     "TRAE_PROJECT_DIR",
 }
 
 // memoryProjectRoot finds the project the shared-memory skill uses: the

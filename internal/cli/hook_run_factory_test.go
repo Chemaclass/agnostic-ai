@@ -55,7 +55,7 @@ func TestHookRun_FactoryRunsOnAnAssumedShellAndCountsOnlyWhenAsked(t *testing.T)
 		"factory: block (exit 0", "(assumed: shell, working directory)", "event: PreToolUse (Execute)",
 		"assumed shell: sh -c (Factory does not document the shell that runs a hook command)",
 		"assumed working directory: project root (Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\")",
-		"docs: https://docs.factory.com/cli/configuration/hooks-guide",
+		"docs: https://docs.factory.com/harness/hooks",
 		"1 checked, 1 assumed (not counted; --include-assumed to count)",
 	} {
 		if !strings.Contains(out, want) {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/amp"
@@ -21,6 +22,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/ellipsis"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/external"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
@@ -98,6 +100,14 @@ func ParsesMerged(path string) bool { return emit.ParsesMerged(path) }
 // the last sync recorded for a merged file.
 func SetPriorMergedKeys(prior func(path string) []MergedKey) { emit.PriorMergedKeys = prior }
 
+// SetPriorMergedCreated tells the merge writers whether the last sync
+// created a merged file, rather than merging into one that was there.
+func SetPriorMergedCreated(prior func(path string) bool) { emit.PriorMergedCreated = prior }
+
+// SetPriorMergedRecorded tells the merge writers whether the last sync
+// recorded a file as a merged write.
+func SetPriorMergedRecorded(prior func(path string) bool) { emit.PriorMergedRecorded = prior }
+
 // Session mirrors emit.Session so the cli and cmd layers — which cannot
 // import the internal emit tree — can construct one emission session per
 // sync run and drive its capture / recording / backup / transaction
@@ -137,6 +147,10 @@ func RewriteHookDirectories(command, target string) string {
 	return emit.RewriteHookDirectories(command, target)
 }
 
+func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
+	return emit.RewriteGlobalWindowsHookPath(command, scriptsDir)
+}
+
 func RewriteWindowsNeutralHookPath(command, scriptsDir string) string {
 	return emit.RewriteWindowsNeutralHookPath(command, scriptsDir)
 }
@@ -149,6 +163,10 @@ type HookScript = emit.HookScript
 
 func NeutralHookScripts(command, target, sourceDir, outputDir string, literal ...bool) ([]HookScript, error) {
 	return emit.NeutralHookScripts(command, target, sourceDir, outputDir, literal...)
+}
+
+func NeutralHookScriptsFor(hook spec.Entry, command, target, sourceDir, outputDir string, literal ...bool) ([]HookScript, error) {
+	return emit.NeutralHookScriptsFor(hook, command, target, sourceDir, outputDir, literal...)
 }
 
 func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {
@@ -247,6 +265,13 @@ func OmittedEntry(target string, kind spec.Kind, name string) bool {
 	return emit.OmittedEntry(target, kind, name)
 }
 
+// NoteEntryOmitted records that target's output leaves out the spec of
+// kind named name (re-exported from the emit layer). Call it next to
+// the coverage note that says why.
+func NoteEntryOmitted(target string, kind spec.Kind, name string) {
+	emit.NoteEntryOmitted(target, kind, name)
+}
+
 // FlushCoverageNotes prints any buffered coverage notes, grouped by
 // kind, then clears the buffer. Call once at the end of a sync pass.
 func FlushCoverageNotes() { emit.FlushCoverageNotes() }
@@ -340,6 +365,12 @@ const ProjectLocalEntryPointPath = emit.ProjectLocalEntryPointPath
 // without an entry-point convention.
 func EntryPointPath(cfg *config.Config, target string) string {
 	return emit.EntryPointPath(cfg, target)
+}
+
+// EntryPointReaders returns, sorted, target and every configured target
+// that reads the same entry-point file (re-exported from the emit layer).
+func EntryPointReaders(cfg *config.Config, target string) []string {
+	return emit.EntryPointReaders(cfg, target)
 }
 
 // ConventionalEntryPointPaths returns the distinct conventional root
@@ -848,6 +879,7 @@ var registry = map[string]Adapter{
 	"openhands":   openhands.New(),
 	"factory":     factory.New(),
 	"kilo":        kilo.New(),
+	"ellipsis":    ellipsis.New(),
 }
 
 // Get returns the adapter registered under name. Lookup is restricted to
@@ -901,10 +933,77 @@ func RenderMemoryBlock(entryPath, personalIndex string) string {
 	return emit.RenderMemoryBlock(entryPath, personalIndex)
 }
 
+// MemoryBlockImportsPersonal reports whether the memory block in body
+// imports a personal index (re-exported from the emit layer).
+func MemoryBlockImportsPersonal(body string) bool {
+	return emit.MemoryBlockImportsPersonal(body)
+}
+
 // PersonalMemoryDir returns the personal store of the project at root
 // (re-exported from the emit layer).
 func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return emit.PersonalMemoryDir(cfg, root)
+}
+
+// GrantedRoots names the directories sync grants write access to outside
+// the checkout: stores of personal memory and the shared handoff store.
+// Each is a path on one machine, so an import leaves it out of the specs.
+type GrantedRoots struct {
+	// Dirs are the stores of this project, as sync writes them.
+	Dirs []string
+	// Stores are the folders that hold every project's repo memory store.
+	Stores []string
+}
+
+// SyncGrantedRoots returns the roots of the project at root. It names the
+// repo memory store whatever memory.personal says now, since sync may have
+// written it before the mode changed.
+func SyncGrantedRoots(root string) GrantedRoots {
+	var granted GrantedRoots
+	add := func(list *[]string, dir string) {
+		*list = append(*list, filepath.ToSlash(dir))
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			*list = append(*list, filepath.ToSlash(resolved))
+		}
+	}
+	repo := &config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}
+	if dir, err := emit.PersonalMemoryDir(repo, root); err == nil {
+		add(&granted.Dirs, dir)
+	}
+	if stores, err := emit.RepoMemoryStores(); err == nil {
+		add(&granted.Stores, stores)
+	}
+	if dir := emit.HandoffStoreOf(root); dir != "" {
+		add(&granted.Dirs, dir)
+	}
+	return granted
+}
+
+// Has reports whether dir is a root sync grants: a store of this
+// project, the shared handoff store of this project, or any repo memory store.
+func (g GrantedRoots) Has(dir string) bool {
+	dir = filepath.ToSlash(filepath.Clean(dir))
+	if slices.Contains(g.Dirs, dir) {
+		return true
+	}
+	for _, stores := range g.Stores {
+		if strings.HasPrefix(dir, stores+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+type nativePersonalMemory interface {
+	NativePersonalMemoryDir(cfg *config.Config, root string) (string, error)
+}
+
+func NativePersonalMemoryDirFor(name string, cfg *config.Config, root string) (string, error) {
+	adapter, ok := registry[name].(nativePersonalMemory)
+	if !ok {
+		return "", nil
+	}
+	return adapter.NativePersonalMemoryDir(cfg, root)
 }
 
 // PersonalMemoryDirFor returns the personal store the project files of
@@ -934,6 +1033,48 @@ func RepoMemoryFiles(cfg *config.Config, target string) []string {
 	return filer.RepoMemoryFiles(cfg)
 }
 
+// NativeMemoryStorer is an adapter whose tool keeps its own memory store
+// on this machine, as a MEMORY.md index beside one file per fact.
+type NativeMemoryStorer interface {
+	// NativeMemoryDir returns the store the tool uses for the project at
+	// root when no setting moves it.
+	NativeMemoryDir(root string) (string, error)
+}
+
+// NativeMemoryDir returns the native memory store of target for the
+// project at root, and false when the target keeps none.
+func NativeMemoryDir(target, root string) (string, bool, error) {
+	adapter, err := Resolve(target)
+	if err != nil {
+		return "", false, nil
+	}
+	storer, ok := adapter.(NativeMemoryStorer)
+	if !ok {
+		return "", false, nil
+	}
+	dir, err := storer.NativeMemoryDir(root)
+	return dir, true, err
+}
+
+// MemorySeed is a copy of a tool's earlier facts into the empty personal
+// store, queued by an adapter (re-exported from the emit layer).
+type MemorySeed = emit.MemorySeed
+
+func RequestMemorySeed(seed MemorySeed) {
+	emit.RequestMemorySeed(seed)
+}
+
+// TakeMemorySeeds returns the seeds adapters queued and clears the queue.
+func TakeMemorySeeds() []MemorySeed { return emit.TakeMemorySeeds() }
+
+// MemoryFactFiles returns the fact files in a memory store, by name
+// (re-exported from the emit layer).
+func MemoryFactFiles(dir string) ([]string, error) { return emit.MemoryFactFiles(dir) }
+
+// ExcludeFromGit adds pattern to the repository's info/exclude
+// (re-exported from the emit layer).
+func ExcludeFromGit(pattern string) error { return emit.ExcludeFromGit(pattern) }
+
 // AppendMemoryBlock appends the memory block to body, replacing any
 // earlier one (re-exported from the emit layer).
 func AppendMemoryBlock(body, block string) string {
@@ -957,3 +1098,12 @@ const PersonalMemoryIndexPath = emit.PersonalMemoryIndexPath
 // SetPriorOutputSum tells the merge writers where to find the sum the
 // last sync recorded for a file it wrote whole.
 func SetPriorOutputSum(prior func(path string) string) { emit.PriorOutputSum = prior }
+
+type ImportSpan = emit.ImportSpan
+
+func ApplyImportModeWithSpans(body, mode string) (string, []ImportSpan, error) {
+	return emit.ApplyImportModeWithSpans(body, mode)
+}
+
+// VSCodeReadsRootAgents re-exports emit.VSCodeReadsRootAgents.
+func VSCodeReadsRootAgents(cfg *config.Config) bool { return emit.VSCodeReadsRootAgents(cfg) }

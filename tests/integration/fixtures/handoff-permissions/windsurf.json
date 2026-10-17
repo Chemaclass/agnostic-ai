@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(<main>/.agnostic-ai/local/handoffs/**)"
+    ]
+  }
+}

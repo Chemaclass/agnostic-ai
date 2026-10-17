@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "action": {
+        "type": "command",
+        "command": ".kiro/scripts/shared-guard.sh"
+      },
+      "matcher": "^(fs_write|fs_append|str_replace|delete_file)$",
+      "name": "portable-kiro-hook",
+      "trigger": "PreToolUse"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "action": {
+        "type": "command",
+        "command": "echo check"
+      },
+      "matcher": "@git/*",
+      "name": "portable-mcp",
+      "trigger": "PreToolUse"
+    }
+  ]
+}

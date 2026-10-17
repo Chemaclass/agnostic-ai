@@ -427,6 +427,7 @@ var targetLabels = map[string]string{
 	"copilot":     "GitHub Copilot",
 	"crush":       "Crush",
 	"cursor":      "Cursor",
+	"ellipsis":    "Ellipsis",
 	"factory":     "Factory Droid",
 	"gemini":      "Gemini CLI",
 	"goose":       "Goose",

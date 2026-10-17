@@ -22,8 +22,8 @@ import (
 
 // globalNameWinners records, per kind and target, which copy the tool
 // loads when a project spec and a user-level one share a name: true
-// when the user-level one wins. Only documented precedence is listed.
-// Codex shows both skills, and the other targets document none.
+// when the user-level one wins. This is the current warning scope.
+// Codex shows both skills, so it has no warning entry.
 var globalNameWinners = map[spec.Kind]map[string]bool{
 	// code.claude.com/docs/en/skills: personal over project.
 	// geminicli.com/docs/cli/skills: workspace over user.
@@ -59,6 +59,17 @@ const (
 )
 
 func (c globalNameClash) String() string {
+	return c.message() + c.projectSelectionLimit()
+}
+
+func (c globalNameClash) projectSelectionLimit() string {
+	if c.project.Kind != spec.KindSkill || len(c.globalWins) == 0 {
+		return ""
+	}
+	return "; project sync cannot select this skill instead on " + strings.Join(c.globalWins, ", ")
+}
+
+func (c globalNameClash) message() string {
 	global := homeRelative(c.global.Path)
 	if c.global.Layer == layerNameBuiltin {
 		global = entrySourceText(c.global)
@@ -102,7 +113,7 @@ func (c globalNameClash) silenced(by string) string {
 	if c.global.Layer == layerNameBuiltin {
 		global = entrySourceText(c.global)
 	}
-	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), global, c.winners(), by)
+	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), global, c.winners(), by) + c.projectSelectionLimit()
 }
 
 func (c globalNameClash) head() string {

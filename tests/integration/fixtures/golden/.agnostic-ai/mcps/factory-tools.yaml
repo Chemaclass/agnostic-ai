@@ -1,0 +1,6 @@
+name: factory-tools
+targets: [factory]
+command: example-server
+x-factory:
+  enabledTools: [safe, shared]
+  disabledTools: [shared]

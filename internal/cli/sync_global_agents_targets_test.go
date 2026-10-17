@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -271,9 +272,9 @@ func TestSyncGlobal_CheckAcceptsOlderStateVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	older := strings.Replace(string(data), `"version": 6`, `"version": 5`, 1)
+	older := strings.Replace(string(data), fmt.Sprintf(`"version": %d`, globalStateVersion), `"version": 5`, 1)
 	if older == string(data) {
-		t.Fatalf("state has no version 6 marker:\n%s", data)
+		t.Fatalf("state has no current version marker:\n%s", data)
 	}
 	mustWriteGlobalTest(t, statePath, older)
 	if _, _, err := runGlobalAgentTest("--check"); err != nil {

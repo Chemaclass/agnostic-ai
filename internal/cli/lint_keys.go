@@ -31,10 +31,10 @@ var specKeys = []string{
 	"default_tools_approval_mode", "disabled_tools", "enabled_tools", "env_http_headers",
 	"env_vars", "excludeTools", "includeTools", "http_headers_helper", "oauth_callback_port",
 	"oauth_client_id", "oauth_client_secret", "oauth_resource", "oauthClientId",
-	"oauthClientSecret", "oauthResource", "requestOptions", "required", "sandboxEnabled",
+	"oauthClientSecret", "oauthResource", "requestOptions", "required", "sandbox", "sandboxEnabled",
 	"scopes", "sessionless", "startup_timeout_ms", "startup_timeout_sec", "tool_timeout_sec",
 	"experimental_environment", "autoApprove", "disabledTools", "oauthScopes", "connectTimeout",
-	"headersHelper", "envFile", "dev",
+	"headersHelper", "envFile", "dev", "channel_enabled", "channel_reply",
 }
 
 // hookKeys and agentKeys are keys only hook or agent specs read. Short

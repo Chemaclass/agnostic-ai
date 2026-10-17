@@ -257,3 +257,17 @@ func portableFactoryCommand(pattern string) string {
 	}
 	return "Bash(" + pattern + ")"
 }
+
+func normalizeFactoryMCPEntry(server map[string]any) {
+	tools, present := server["enabledTools"]
+	if !present {
+		return
+	}
+	native, ok := server[factoryNativeMetaKey].(map[string]any)
+	if !ok {
+		native = map[string]any{}
+	}
+	native["enabledTools"] = tools
+	server[factoryNativeMetaKey] = native
+	delete(server, "enabledTools")
+}

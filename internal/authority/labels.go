@@ -32,6 +32,7 @@ var targetLabels = map[string]string{
 	"goose":       "Goose",
 	"jules":       "Jules",
 	"openhands":   "OpenHands",
+	"ellipsis":    "Ellipsis",
 }
 
 // TargetLabel returns the human name of a target, or the id itself when

@@ -93,6 +93,18 @@ func TestWithoutItems_DropsClaimedObjectEntries(t *testing.T) {
 	}
 }
 
+// A claimed item takes out one entry, so a copy the user added stays.
+func TestWithoutItems_TakesOneEntryPerItem(t *testing.T) {
+	raw := json.RawMessage(`["Exec(rm)","Exec(curl)","Exec(rm)"]`)
+
+	value, keep, changed := withoutItems(raw, []string{ContentSum("Exec(rm)")})
+
+	got, _ := json.Marshal(value)
+	if !changed || !keep || string(got) != `["Exec(rm)","Exec(curl)"]` {
+		t.Errorf("value %s keep %v changed %v", got, keep, changed)
+	}
+}
+
 // import turns a hand-written hook into a spec but leaves the entry on
 // disk; sync renders it with its own extras and must not run it twice.
 func TestMergeOwnedLists_AdoptsAnImportedEntryInItsOriginalShape(t *testing.T) {

@@ -375,7 +375,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	}
 	for _, required := range []string{
 		"Documentation.",
-		"Paste into your coding agent",
+		"Set up your project",
 		"/agent-setup.txt",
 		"/docs/agent-setup/",
 		"/docs/installation/",
@@ -387,24 +387,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 			t.Errorf("documentation index is missing %q", required)
 		}
 	}
-	for _, required := range []string{
-		`id="demo"`,
-		"Watch it run.",
-		`data-video-id="uEG6ITlqyHU"`,
-		`href="https://www.youtube.com/watch?v=uEG6ITlqyHU"`,
-		"assets/images/demo-poster.webp",
-		"assets/scripts/video.js",
-		`"@type": "VideoObject"`,
-	} {
-		if !strings.Contains(normalizedIndex, required) {
-			t.Errorf("documentation index is missing the demo %q", required)
-		}
-	}
-	if strings.Contains(index, "<iframe") {
-		t.Error("documentation index loads the demo player before the visitor asks for it")
-	}
-	if directoryIndex, demoIndex := strings.Index(index, `class="docs-directory"`), strings.Index(index, `id="demo"`); directoryIndex < 0 || demoIndex < 0 || demoIndex < directoryIndex {
-		t.Errorf("the demo does not close the documentation index: %d, %d", directoryIndex, demoIndex)
+	if strings.Contains(normalizedIndex, `id="demo"`) || strings.Contains(normalizedIndex, "uEG6ITlqyHU") {
+		t.Error("documentation index still carries the retired talk demo")
 	}
 	for _, required := range []string{
 		"Browse documentation",
@@ -473,14 +457,13 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		"Set up agnostic-ai with a coding agent",
-		"Install and start",
-		"Recommended installer",
+		"Set up your project",
+		"Install agnostic-ai",
 		`data-installer-os="macos"`,
 		`data-installer-os="windows"`,
 		`data-installer-os="linux"`,
 		"brew install --cask Chemaclass/tap/agnostic-ai",
-		"agnostic-ai init --from all",
+		"agnostic-ai init",
 		"agnostic-ai sync --plan",
 		"Keep the setup current.",
 		"Read the latest briefing",
@@ -518,8 +501,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Errorf("the explorer shows %d generated files at rest across %d entries, want one per entry", shown, entries)
 	}
 
-	// The hero plays the explainer video through the same click-to-load
-	// poster as the docs demo, so nothing loads from YouTube before a click.
+	// The explainer video loads through a click-to-load poster, so nothing
+	// loads from YouTube before a click.
 	for _, required := range []string{
 		`data-video-id="oHeKVk6bidA"`,
 		`href="https://www.youtube.com/watch?v=oHeKVk6bidA"`,
@@ -534,19 +517,11 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if strings.Contains(home, "<iframe") {
 		t.Error("home page loads the video player before the visitor asks for it")
 	}
-	// The talk demo lives at the foot of the documentation index.
-	for _, moved := range []string{`id="demo"`, "demo-poster.webp"} {
-		if strings.Contains(normalizedHome, moved) {
-			t.Errorf("home page still carries the demo %q", moved)
-		}
-	}
-	for _, poster := range []string{"demo-poster.webp", "hero-video-poster.webp"} {
-		if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", poster)); err != nil {
-			t.Errorf("video poster is not published: %v", err)
-		}
+	if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", "hero-video-poster.webp")); err != nil {
+		t.Errorf("video poster is not published: %v", err)
 	}
 	missionIndex := strings.Index(home, `id="mission"`)
-	explorerIndex := strings.Index(home, `id="explorer"`)
+	explorerIndex := strings.Index(home, `id="source-explorer"`)
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
 	if missionIndex < 0 || explorerIndex < 0 || quickstartIndex < 0 || updatesIndex < 0 || missionIndex >= explorerIndex || explorerIndex >= quickstartIndex || quickstartIndex >= updatesIndex {
@@ -565,10 +540,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Error("home page still references the legacy GitHub Pages project URL")
 	}
 	for _, required := range []string{
-		"TL;DR · Paste into your coding agent",
+		"Paste into your coding agent",
 		`data-copy aria-label="Copy agent setup prompt"`,
 		"Follow https://agnostic-ai.org/agent-setup.txt exactly.",
-		"You do not need to read the rest of this page",
 	} {
 		if !strings.Contains(normalizedAgentSetupGuide, required) {
 			t.Errorf("agent setup guide is missing quick handoff %q", required)
@@ -906,6 +880,40 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	}
 	if !strings.Contains(fullDocs, "# Set up agnostic-ai with a coding agent") {
 		t.Error("llms-full.txt does not include the agent setup guide")
+	}
+	_, setup, ok := strings.Cut(fullDocs, "# Set up your project {#getting-started}")
+	if !ok {
+		t.Fatal("llms-full.txt is missing the setup walkthrough")
+	}
+	setup, _, _ = strings.Cut(setup, "\n---\n")
+	for _, required := range []string{
+		"Setup prompt and checklist: https://agnostic-ai.org/agent-setup.txt",
+		"Install options and commands: https://agnostic-ai.org/docs/installation/",
+		"Run the project tests before finishing a change.",
+		"Summarize which tests you ran.",
+	} {
+		if !strings.Contains(setup, required) {
+			t.Errorf("exported setup walkthrough is missing %q", required)
+		}
+	}
+	if err := filepath.WalkDir(siteDocsContentDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".md" {
+			return nil
+		}
+		for line := range strings.SplitSeq(readBuiltFile(t, path), "\n") {
+			if strings.HasPrefix(line, "# ") {
+				if !strings.Contains(fullDocs, "\n"+line+"\n") {
+					t.Errorf("llms-full.txt is missing the guide %s (%s)", path, line)
+				}
+				break
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("read user documentation: %v", err)
 	}
 	for name, content := range map[string]string{"agent-setup.txt": agentSetup, "llms-full.txt": fullDocs} {
 		if strings.Contains(content, "@/docs/") || strings.Contains(content, "\n+++\n") || strings.Contains(content, "agent_setup_prompt") {

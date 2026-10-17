@@ -51,7 +51,7 @@ func TestCodexGlobContext_SyncKeepsRootContextSmall(t *testing.T) {
 		t.Errorf("missing named fallback: %s", out)
 	}
 	assertNoFileContains(t, filepath.Join(dir, "AGENTS.md"), "API and database conventions.")
-	assertContains(t, filepath.Join(dir, "AGENTS.md"), "Root guidance.", "Deployment conventions.")
+	assertContains(t, filepath.Join(dir, "AGENTS.md"), "Root guidance.", "Deployment conventions.", "Applies to: `.kamal/**`, `Dockerfile`, `scripts/*.sh`")
 	for _, path := range []string{"src/app/api/AGENTS.md", "prisma/AGENTS.md"} {
 		assertContains(t, filepath.Join(dir, path), "API and database conventions.")
 	}

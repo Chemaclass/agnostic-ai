@@ -124,6 +124,11 @@ func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (dri
 	}()
 	release := holdCaptureState(readStateFile("."))
 	defer release()
+	winners, err := detectCollisions(cfg, b, targets)
+	if err != nil {
+		return 0, nil, err
+	}
+	sess.SetCollisionWinners(winners)
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {

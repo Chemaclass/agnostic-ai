@@ -87,6 +87,12 @@ var portableHookTargets = map[string]nativeHookNames{
 		events: sharedHookEvents,
 		tools:  map[string]string{"shell": "^Execute$", "edit": "^(Create|Edit|ApplyPatch)$", "read": "^Read$", "web": "^(FetchUrl|WebSearch)$", "any": ""},
 	},
+	"kiro": {
+		events:     pickEvents("before-tool"),
+		tools:      map[string]string{"shell": "^(execute_bash|execute_pwsh)$", "edit": "^(fs_write|fs_append|str_replace|delete_file)$", "read": "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$", "web": "^(web_fetch|remote_web_search)$", "any": ""},
+		mcp:        "@%s/*",
+		noDecision: "kiro does not support the portable decision: stdout wrapper; use a command that exits 2 to block",
+	},
 	"qoder": {
 		events: pickEvents("session-start", "prompt-submit", "before-tool", "stop", "session-end"),
 		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write|NotebookEdit", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},

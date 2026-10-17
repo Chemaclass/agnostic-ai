@@ -172,7 +172,7 @@ func TestLintMemory_NoReadersNoSizeFinding(t *testing.T) {
 
 func TestProjectMemoryReaders_SplitsHookTargetsFromWholeReaders(t *testing.T) {
 	testutil.TempCwd(t)
-	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, opencode, cursor]\nbuiltins: [memory]\n")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, opencode, cursor, cline, trae]\nbuiltins: [memory]\n")
 	cfg, bundle, err := loadProject(".")
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestProjectMemoryReaders_SplitsHookTargetsFromWholeReaders(t *testing.T) {
 
 	got := projectMemoryReaders(cfg, bundle)
 
-	if strings.Join(got.hook, ",") != "codex,cursor" || strings.Join(got.whole, ",") != "claude,opencode" {
+	if strings.Join(got.hook, ",") != "codex,cursor,cline,trae" || strings.Join(got.whole, ",") != "claude,opencode" {
 		t.Errorf("got hook %v, whole %v", got.hook, got.whole)
 	}
 	cfg.Builtins = nil

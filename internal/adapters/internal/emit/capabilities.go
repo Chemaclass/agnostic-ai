@@ -73,6 +73,11 @@ const (
 // kind in a single line. Call FlushCapabilityWarnings at the end of a
 // sync run to render the buffered output and clear state.
 func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
+	for _, entry := range b.Settings {
+		if _, present := entry.Meta["session-retention-days"]; present && entry.EmitsTo(c.Target) {
+			NoteFieldNoOp(c.Target, spec.KindSettings, "session-retention-days", 1, "session retention is personal; only sync --global writes it")
+		}
+	}
 	if mode == "" {
 		mode = OnUnsupportedWarn
 	}

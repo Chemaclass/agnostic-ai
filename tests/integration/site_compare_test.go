@@ -41,6 +41,20 @@ var compareKindDirs = map[string]string{
 	"ignore":      "ignore",
 }
 
+// compareCompanions names the extra sample folders a target needs to write
+// anything for a kind, as `folder` or `folder>destination` when the sample
+// lives in a folder the sync does not read. Ellipsis renders a review only
+// with the settings spec that names its reviewer, and an environment or MCP
+// servers only with the settings spec that selects the environment. Its
+// settings sample stays reviewer-only, so Settings still writes nothing alone.
+var compareCompanions = map[string]map[string][]string{
+	"ellipsis": {
+		"reviews":      {"settings"},
+		"environments": {"settings-environment>settings"},
+		"mcps":         {"settings-environment>settings"},
+	},
+}
+
 type capabilityData struct {
 	Features []struct {
 		ID string `toml:"id"`
@@ -253,6 +267,13 @@ func syncCompareSample(t *testing.T, fixture, target, kindDir string) map[string
 	copyCompareFile(t, filepath.Join(fixture, "AGNOSTIC_AI.md"), filepath.Join(source, "AGNOSTIC_AI.md"))
 	if kindDir != "" {
 		copyLandingFixture(t, filepath.Join(fixture, kindDir), filepath.Join(source, kindDir))
+		for _, companion := range compareCompanions[target][kindDir] {
+			from, to, _ := strings.Cut(companion, ">")
+			if to == "" {
+				to = from
+			}
+			copyLandingFixture(t, filepath.Join(fixture, from), filepath.Join(source, to))
+		}
 	}
 	config := fmt.Sprintf("version: 1\ntargets:\n  - %s\n", target)
 	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(config), 0o644); err != nil {

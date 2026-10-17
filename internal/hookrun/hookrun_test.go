@@ -107,6 +107,30 @@ func TestBuild_BashAndPromptAndSessionSource(t *testing.T) {
 	}
 }
 
+func TestBuild_ClaudeSubagentStartNamesTheAgentTypeTheMatcherPicks(t *testing.T) {
+	root := t.TempDir()
+	for _, tc := range []struct {
+		matcher, agent string
+		fires          bool
+	}{
+		{"", "general-purpose", true},
+		{"Explore|Plan", "Explore", true},
+		{"reviewer", "general-purpose", false},
+	} {
+		p, err := Build("claude", "SubagentStart", tc.matcher, root, Input{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc := decode(t, p.Body)
+		if p.Fires != tc.fires || p.Trigger != tc.agent || doc["agent_type"] != tc.agent || doc["agent_id"] == nil || doc["hook_event_name"] != "SubagentStart" || doc["cwd"] != root {
+			t.Errorf("matcher %q: fires=%v trigger=%q payload=%s", tc.matcher, p.Fires, p.Trigger, p.Body)
+		}
+	}
+	if _, err := Build("codex", "SubagentStart", "", root, Input{}); err == nil || !strings.Contains(err.Error(), "--payload") {
+		t.Errorf("codex SubagentStart err = %v, want it to ask for --payload", err)
+	}
+}
+
 func TestBuild_RejectsAnEventWithoutABuilderAndAMismatchedInput(t *testing.T) {
 	for _, tc := range []struct {
 		event string
@@ -116,6 +140,7 @@ func TestBuild_RejectsAnEventWithoutABuilderAndAMismatchedInput(t *testing.T) {
 		{"Stop", Input{}, "--payload"},
 		{"PreToolUse", Input{}, "--edit"},
 		{"SessionStart", Input{Edit: "a.go"}, "--edit"},
+		{"SubagentStart", Input{Bash: "ls"}, "--bash"},
 		{"PreToolUse", Input{Prompt: "x"}, "--prompt"},
 	} {
 		if _, err := Build("claude", tc.event, "", t.TempDir(), tc.in); err == nil || !strings.Contains(err.Error(), tc.want) {

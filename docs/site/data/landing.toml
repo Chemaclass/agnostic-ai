@@ -1,12 +1,29 @@
 [hero]
-title = "One setup"
-accent_title = "Every AI CLI"
-body = "Keep agents, skills, rules, hooks, and MCP servers in **one portable source**. agnostic-ai writes each tool's native files and checks them for drift."
-primary_label = "Install and start"
-secondary_label = "Try in the browser"
-facts = "25 targets. 10 portable spec kinds. Byte-stable output."
-install_label = "Recommended installer"
-install_link_label = "All install options"
+title = "One source."
+accent_title = "Every AI coding tool."
+body = "Write your project instructions once, in your repository. `agnostic-ai sync` writes the file each tool reads, in its own format."
+primary_label = "Set up your project"
+secondary_label = "Explore the files"
+
+[hero.fanout]
+label = "One source file, synced into the file each coding tool reads"
+source = ".agnostic-ai/AGNOSTIC_AI.md"
+note = "Run the project tests before finishing a change."
+targets = ["claude", "codex", "cursor", "windsurf", "gemini", "copilot"]
+more_label = "more tools"
+
+[[hero.fanout.outputs]]
+path = "CLAUDE.md"
+tools = "Claude Code"
+[[hero.fanout.outputs]]
+path = "AGENTS.md"
+tools = "Codex, Cursor, Windsurf"
+[[hero.fanout.outputs]]
+path = "GEMINI.md"
+tools = "Gemini CLI"
+[[hero.fanout.outputs]]
+path = ".github/copilot-instructions.md"
+tools = "GitHub Copilot"
 
 [hero.video]
 video_id = "oHeKVk6bidA"
@@ -23,16 +40,16 @@ body = "Every AI coding tool ships its own config file. Adopt three and your ins
 
 [[mission.principles]]
 title = "You own the source"
-body = "Plain Markdown and YAML in your repo. No account, no service. `import` brings an existing setup in."
+body = "Markdown and YAML in your repo. No account, no service."
 [[mission.principles]]
 title = "Generated files are outputs"
-body = "Same input, same bytes, so they diff cleanly. `sync --check` fails CI when they drift."
+body = "Same input, same bytes. `sync --check` catches drift in CI."
 [[mission.principles]]
-title = "No tool is privileged"
-body = "Adding a target never changes what the others get. One rule routes to every native path and scope syntax."
+title = "Keep native tool files"
+body = "Each tool reads its own files. Sync flags what a tool cannot use."
 [[mission.principles]]
 title = "A sync layer, not a platform"
-body = "Easy to stop using. The generated files are yours, and they keep working."
+body = "Stop any time. The generated files keep working."
 
 [mission.symlinks]
 question = "Why not just symlink one file?"
@@ -40,28 +57,28 @@ answer = "Each tool reads a different format at a different path. A symlink shar
 link_label = "See how the formats diverge"
 
 [workflow]
-title = "Four commands."
-muted_title = "Install, import, preview, sync."
+title = "Start with one note."
+muted_title = "Then change it once."
 install_label = "All install options"
-guide_label = "Open the getting started guide"
-migration_label = "Migrate an existing setup"
+guide_label = "Follow the setup guide"
+migration_label = "Bring an existing setup"
 
 [[workflow.steps]]
-title = "Install"
-command = "npm install -g agnostic-ai"
-body = "Node 18 or newer, from your project root."
+title = "Choose your tools"
+command = "agnostic-ai init"
+body = "Run this in your project. Select Claude Code and Codex for this example, or the tools you use. Accept the import offer to keep existing instructions."
 [[workflow.steps]]
-title = "Start or import"
-command = "agnostic-ai init --from all"
-body = "Import existing AI tool files first."
+title = "Write one project note"
+file = ".agnostic-ai/AGNOSTIC_AI.md"
+body = "Add a short instruction, such as the test command for your project. This is the source you maintain."
 [[workflow.steps]]
-title = "Review the output"
-command = "agnostic-ai sync --plan"
-body = "Review the planned changes before writing them."
-[[workflow.steps]]
-title = "Write the files"
+title = "Generate and read the files"
 command = "agnostic-ai sync"
-body = "Write every native file for the targets you chose."
+body = "Preview with `agnostic-ai sync --plan`, then sync. In this example, find your note in `AGENTS.md` and the `@AGENTS.md` reference in `CLAUDE.md`. For other tools, follow their generated files and references."
+[[workflow.steps]]
+title = "Make your next edit"
+command = "agnostic-ai sync"
+body = "Change the note in `.agnostic-ai/AGNOSTIC_AI.md`, then sync again. In this example, check the updated note in `AGENTS.md`. Claude Code keeps reading it through the same reference."
 
 [[workflow.installers]]
 id = "brew"
@@ -99,8 +116,8 @@ command = "npm install -g agnostic-ai"
 note = "Node 18 or newer, on any OS."
 
 [explorer]
-title = "Write it once."
-muted_title = "Every tool reads it natively."
+title = "Share more when you need it."
+muted_title = "Explore the source files."
 body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your targets. Pick an entry to see a source file and the native files `sync` writes from it, each in its own tool's format."
 tree_label = "Entries in .agnostic-ai"
 root = ".agnostic-ai/"
@@ -110,9 +127,10 @@ more = "Also `commands/`, `reviews/`, `environments/`, and `ignore/`. See [every
 [[explorer.entries]]
 id = "instructions"
 name = "AGNOSTIC_AI.md"
-hint = "instructions"
+hint = "project guidance"
 file = "AGNOSTIC_AI.md"
-summary = "Project instructions. Each tool gets the same body in its own entry file."
+selected = true
+summary = "Project instructions. Each tool reads the same guidance from its own file or a reference to a shared file."
 outputs = [
   { tool = "Claude Code", path = "CLAUDE.md" },
   { tool = "Codex", path = "AGENTS.md" },
@@ -125,9 +143,8 @@ docs_label = "Entry-point files"
 [[explorer.entries]]
 id = "agents"
 name = "agents/"
-hint = "subagents"
+hint = "delegate work"
 file = "agents/test-writer.md"
-selected = true
 summary = "Subagents with a role, their tools, and a model per tool."
 outputs = [
   { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
@@ -213,7 +230,7 @@ docs_label = "Claude settings"
 [[explorer.entries]]
 id = "rules"
 name = "rules/"
-hint = "conventions"
+hint = "coding conventions"
 file = "rules/testing.md"
 summary = "Conventions, always on or tied to file patterns and folders."
 outputs = [
@@ -257,7 +274,7 @@ docs_label = "Settings"
 [[explorer.entries]]
 id = "skills"
 name = "skills/"
-hint = "workflows"
+hint = "repeat a workflow"
 file = "skills/release/SKILL.md"
 summary = "Reusable workflows. Files beside `SKILL.md`, such as `check.sh`, copy with it."
 outputs = [
@@ -279,8 +296,8 @@ archive_label = "Browse all updates"
 rss_label = "Subscribe by RSS"
 
 [closing]
-title = "Bring your existing setup."
-second_line = "Keep every target in sync."
-command = "agnostic-ai init --from all"
+title = "Keep your instructions together."
+second_line = "Make the next edit once."
+command = "agnostic-ai sync"
 primary_label = "Read getting started"
 secondary_label = "Set up with an agent"

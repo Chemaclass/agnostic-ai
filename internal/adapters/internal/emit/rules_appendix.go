@@ -35,7 +35,7 @@ func RenderRulesAppendix(b spec.Bundle) string {
 		if r.EffectiveScope() != "" {
 			continue
 		}
-		WriteSection(&sb, r.Name, r)
+		WriteInlineRule(&sb, r)
 	}
 	if sb.Len() == 0 {
 		return ""

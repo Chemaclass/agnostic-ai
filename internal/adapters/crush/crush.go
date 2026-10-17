@@ -35,6 +35,9 @@
 // the MCP property set appears closed. crush.json also holds
 // user-managed keys (models, providers, lsp, options); the merge only
 // touches the `mcp` key so those survive a sync.
+// MCP channel_enabled and channel_reply preserve incoming-message opt-in and
+// automatic reply routes (Crush v0.97.0). Only these channel fields also accept
+// x-crush overrides; their values are validated against the native schema.
 //
 // Hooks merge into that same crush.json under a `hooks` map keyed by
 // event name: `{"PreToolUse": [{"name": ..., "matcher": ..., "command":
@@ -79,6 +82,8 @@
 package crush
 
 import (
+	"fmt"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -141,7 +146,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // empty.
 func emitCrushJSON(sess *emit.Session, mcps, hooks []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
-	if servers := buildMCPMap(mcps); len(servers) > 0 {
+	servers, err := buildMCPMap(mcps)
+	if err != nil {
+		return err
+	}
+	if len(servers) > 0 {
 		keys["mcp"] = servers
 	}
 	if hooksBlock := buildHooksBlock(hooks); hooksBlock != nil {
@@ -157,7 +166,7 @@ func emitCrushJSON(sess *emit.Session, mcps, hooks []spec.Entry, path string, dr
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
-func buildMCPMap(mcps []spec.Entry) map[string]any {
+func buildMCPMap(mcps []spec.Entry) (map[string]any, error) {
 	out := map[string]any{}
 	for _, e := range mcps {
 		if e.Name == "" {
@@ -167,9 +176,20 @@ func buildMCPMap(mcps []spec.Entry) map[string]any {
 		if len(entry) == 0 {
 			continue
 		}
+		channels, err := channelFields(e)
+		if err != nil {
+			source := e.Path
+			if source == "" {
+				source = e.Name
+			}
+			return nil, fmt.Errorf("crush MCP %s: %w", source, err)
+		}
+		for key, value := range channels {
+			entry[key] = value
+		}
 		out[e.Name] = entry
 	}
-	return out
+	return out, nil
 }
 
 // buildMCPEntry renders one Crush mcp entry. Stdio specs produce a

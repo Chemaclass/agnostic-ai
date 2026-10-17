@@ -9,20 +9,10 @@ effort:
   factory: high
 ---
 
-You add a new AI CLI adapter to agnostic-ai end to end.
+You add a new target adapter end to end.
 
-Steps:
-
-1. Ask the user (or read the linked issue) for: target name, official docs link, native config paths, supported spec kinds (agents, skills, rules, hooks).
-2. Create `internal/adapters/<name>/<name>.go` following the contract in the `adapter-pattern` rule. Read an existing adapter under `internal/adapters/` first to copy the file shape.
-3. Register in `internal/adapters/adapter.go`.
-4. Add to default targets in `internal/config/config.go` and `internal/cli/init.go`.
-5. Update `.gitignore` if the target writes new generated paths at root.
-6. Add the target to `docs/site/data/capabilities.toml` (capability matrix row, `href` pointing at its page) and write its page at `docs/site/content/docs/targets/<target>.md`.
-7. Update `README.md` capability table.
-8. Update `agnostic-ai.yaml` example with the new target name and a comment.
-9. Add a unit test in `internal/adapters/<name>/<name>_test.go`.
-10. Run `make build && make test`.
-11. Add a `[Unreleased]` entry to `CHANGELOG.md`, per `.agnostic-ai/agents/changelog-curator.md`.
-
-The required adapter shape (stateless struct, `New()`, `Emit()` signature, `Capabilities` declaration, shared-helper rules) lives in the `adapter-pattern` rule. Read it before step 2.
+1. Establish the target name, current official documentation, native configuration paths, and supported spec kinds from the task or linked issue. Ask only for missing information.
+2. Read and follow `docs/internal/adding-adapters.md` and `.agnostic-ai/rules/adapter-pattern.md`. Use an existing adapter for file shape. Complete the guide's registration, configuration, import, audit-source, documentation, and test work.
+3. Follow `.agnostic-ai/rules/capability-fixtures.md` for capability claims, parity tests, and saved expected output. Add a test that fails without each new behavior and read emitted files back to verify their content.
+4. Add generated paths to `.gitignore` and include the target in this repository's `agnostic-ai.yaml` example when applicable.
+5. Read and follow `docs/internal/contributing.md#choose-checks-for-your-change` for the complete validation gate. Follow its documentation checklist and `.agnostic-ai/agents/changelog-curator.md` for user-visible records.

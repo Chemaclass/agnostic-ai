@@ -117,6 +117,42 @@ tool_load_package() {
   esac
 }
 
+# Exact overrides replay the selected release; latest remains the discovery default.
+tool_load_resolve_package() {
+  local tool="$1" requested package version
+  case "$tool" in
+    codex) requested="${TOOL_LOAD_CODEX_VERSION:-latest}" ;;
+    gemini) requested="${TOOL_LOAD_GEMINI_VERSION:-latest}" ;;
+    opencode) requested="${TOOL_LOAD_OPENCODE_VERSION:-latest}" ;;
+    *) printf 'unknown tool: %s\n' "$tool" >&2; return 2 ;;
+  esac
+  if [[ "$requested" != latest && ! "$requested" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+    printf 'tool-load: %s needs an exact version or latest\n' "$tool" >&2
+    return 2
+  fi
+  package="$(tool_load_package "$tool")"
+  package="${package%@latest}"
+  if [[ -n "${TOOL_LOAD_LOCK_DIR:-}" ]]; then
+    version="$(node -e 'const fs = require("node:fs"); const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.stdout.write(p.dependencies[process.argv[2]] || "")' "$TOOL_LOAD_LOCK_DIR/package.json" "$package")" || return 1
+  else
+    version="$(npm view "$package@$requested" version)" || return 1
+  fi
+  if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] ||
+     [[ "$requested" != latest && "$version" != "$requested" ]]; then
+    printf 'tool-load: %s dependency source did not resolve the requested exact version\n' "$tool" >&2
+    return 1
+  fi
+  printf '%s@%s\n' "$package" "$version"
+}
+
+tool_load_generate_lock() {
+  local prefix="$1"
+  shift
+  mkdir -p "$prefix"
+  printf '{"name":"agnostic-ai-tool-load-fixture","version":"1.0.0","private":true}\n' > "$prefix/package.json"
+  (cd "$prefix" && npm install --package-lock-only --ignore-scripts --save-exact --package-lock=true --no-audit --no-fund --silent "$@") >/dev/null
+}
+
 tool_load_main() {
   TOOL_LOAD_BIN=""
   if [ "${1:-}" = "--bin" ]; then
@@ -127,11 +163,28 @@ tool_load_main() {
     TOOL_LOAD_BIN="$(mktemp -d)/agnostic-ai"
     (cd "$TOOL_LOAD_ROOT" && go build -o "$TOOL_LOAD_BIN" ./cmd/agnostic-ai)
   fi
-  local tools="${*:-$TOOL_LOAD_TOOLS}" tool work pkgs=() v
-  for tool in $tools; do pkgs+=("$(tool_load_package "$tool")"); done
+  local tools="${*:-$TOOL_LOAD_TOOLS}" tool work pkgs=() v package report
+  for tool in $tools; do
+    package="$(tool_load_resolve_package "$tool")" || return 1
+    pkgs+=("$package")
+  done
   work=$(mktemp -d)
   TOOL_LOAD_PREFIX="$work/tools"
-  npm install --prefix "$TOOL_LOAD_PREFIX" --no-audit --no-fund --silent "${pkgs[@]}" >/dev/null
+  if [[ -n "${TOOL_LOAD_LOCK_DIR:-}" ]]; then
+    mkdir -p "$TOOL_LOAD_PREFIX"
+    cp "$TOOL_LOAD_LOCK_DIR/package.json" "$TOOL_LOAD_LOCK_DIR/package-lock.json" "$TOOL_LOAD_PREFIX/"
+  else
+    tool_load_generate_lock "$TOOL_LOAD_PREFIX" "${pkgs[@]}"
+  fi
+  report="${TOOL_LOAD_REPORT_DIR:-$work/report}"
+  mkdir -p "$report"
+  cp "$TOOL_LOAD_PREFIX/package.json" "$TOOL_LOAD_PREFIX/package-lock.json" "$report/"
+  printf '%s\n' "${pkgs[@]}" > "$report/selected-packages.txt"
+  printf 'node=%s\nnpm=%s\nos=%s\narch=%s\nsource=%s\n' \
+    "$(node --version)" "$(npm --version)" "$(uname -s)" "$(uname -m)" \
+    "$(git -C "$TOOL_LOAD_ROOT" rev-parse HEAD)" > "$report/environment.txt"
+  printf 'tool-load: exact versions and dependency integrity saved at %s\n' "$report" >&2
+  npm ci --prefix "$TOOL_LOAD_PREFIX" --no-audit --no-fund --silent >/dev/null
   # A version manager's node shim reads the real home; the tools run with
   # an empty one, so they get the node binary itself on PATH.
   PATH="$(dirname "$(node -e 'process.stdout.write(process.execPath)')"):$PATH"

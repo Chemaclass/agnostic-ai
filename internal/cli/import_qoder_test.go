@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -265,5 +266,140 @@ func TestSyncQoder_PortableScopeUnionsNativePaths(t *testing.T) {
 	want := map[string]any{"paths": []any{"**"}}
 	if !reflect.DeepEqual(got.Meta, want) {
 		t.Errorf("scoped activation = %#v, want %#v", got.Meta, want)
+	}
+}
+
+func TestImportQoder_NativeMCPJSONCRoundTripsInFreshProject(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureSummary(t)
+	cfg := "version: 1\ntargets: [qoder]\nsources:\n  mcps: portable/servers\n  settings: portable/settings\n"
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
+	native := `{
+ // Keep these native settings in place.
+ "model": {"name": "qoder-model"},
+ "permissions": {"allow": ["Read(**)"]},
+ "customSetting": {"enabled": true},
+ "mcpServers": {
+   "local": {"command": "echo", "args": ["probe"], "cwd": "src", "env": {"TOKEN": "${TOKEN}"}},
+   "remote": {"type": "http", "url": "https://example.com/mcp", "disabled": true, "timeout": 5000, "oauth": {"enabled": true, "clientId": "public-client", "authorizationUrl": "https://example.com/authorize", "scopes": ["read"]}, "headers": {"Authorization": "${AUTHORIZATION}"}},
+ },
+}`
+	nativePath := filepath.Join(dir, ".qoder/settings.json")
+	writeFile(t, nativePath, native)
+	execCLI(t, "import", "qoder")
+	if got := readFile(t, nativePath); got != native {
+		t.Errorf("import changed native settings: %s", got)
+	}
+	if !strings.Contains(log.String(), "2 mcps") {
+		t.Errorf("import summary lacks MCP count: %s", log.String())
+	}
+	fresh := t.TempDir()
+	writeFile(t, filepath.Join(fresh, "agnostic-ai.yaml"), cfg)
+	for _, name := range []string{"local", "remote"} {
+		path := filepath.Join("portable/servers", name+".yaml")
+		writeFile(t, filepath.Join(fresh, path), readFile(t, filepath.Join(dir, path)))
+	}
+	settingsPath := "portable/settings/qoder.yaml"
+	writeFile(t, filepath.Join(fresh, settingsPath), readFile(t, filepath.Join(dir, settingsPath)))
+	testutil.Chdir(t, fresh)
+	execCLI(t, "sync", "-t", "qoder")
+	var got map[string]any
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(fresh, ".qoder/settings.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{}
+	if err := json.Unmarshal([]byte(`{"local":{"command":"echo","args":["probe"],"cwd":"src","env":{"TOKEN":"${TOKEN}"}},"remote":{"type":"http","url":"https://example.com/mcp","disabled":true,"timeout":5000,"oauth":{"enabled":true,"clientId":"public-client","authorizationUrl":"https://example.com/authorize","scopes":["read"]},"headers":{"Authorization":"${AUTHORIZATION}"}}}`), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got["mcpServers"], want) {
+		t.Errorf("fresh MCP servers = %#v, want %#v", got["mcpServers"], want)
+	}
+	if !reflect.DeepEqual(got["model"], map[string]any{"name": "qoder-model"}) {
+		t.Errorf("portable model lost: %#v", got["model"])
+	}
+	if !reflect.DeepEqual(got["permissions"], map[string]any{"allow": []any{"Read(**)"}}) {
+		t.Errorf("portable permissions lost: %#v", got["permissions"])
+	}
+	execCLI(t, "sync", "--check")
+	execCLI(t, "lint")
+}
+
+func TestImportQoder_MCPCredentialsBecomeReferences(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qoder]\n")
+	writeFile(t, filepath.Join(dir, ".qoder/settings.json"), `{"mcpServers":{"local":{"command":"echo","env":{"API_TOKEN":"test-credential"}}}}`)
+	execCLI(t, "import", "qoder")
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai/mcps/local.yaml"))
+	if !strings.Contains(got, "${API_TOKEN}") || strings.Contains(got, "test-credential") {
+		t.Errorf("credential was not replaced with a reference: %s", got)
+	}
+}
+
+func TestImportQoder_MCPSettingsBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		native    string
+		wantError bool
+	}{
+		{name: "missing file"},
+		{name: "settings without servers", native: `{"customSetting":true}`},
+		{name: "non-object server", native: `{"mcpServers":{"invalid":false}}`},
+		{name: "invalid JSON", native: `{"mcpServers":`, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			nativePath := filepath.Join(dir, qoderSettingsFile)
+			if tc.native != "" {
+				writeFile(t, nativePath, tc.native)
+			}
+			count, err := importQoderMCP(dir, dir)
+			if tc.wantError {
+				if err == nil || !strings.Contains(err.Error(), nativePath) {
+					t.Fatalf("expected parse error naming settings file, got %v", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if count != 0 {
+				t.Errorf("imported %d MCPs, want 0", count)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "invalid.yaml")); !os.IsNotExist(err) {
+				t.Errorf("non-object server produced a spec: %v", err)
+			}
+		})
+	}
+}
+
+func TestImportQoder_OAuthCredentialsLeaveServerOut(t *testing.T) {
+	for _, tc := range []struct{ name, value string }{
+		{"literal", "test-credential"},
+		{"reference-default", "${CLIENT_SECRET:-test-credential}"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			log := captureSummary(t)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qoder]\n")
+			native, err := json.Marshal(map[string]any{"mcpServers": map[string]any{"api": map[string]any{"type": "http", "url": "https://example.test/mcp", "oauth": map[string]any{"enabled": true, "clientSecret": tc.value}}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(dir, ".qoder/settings.json"), string(native))
+			execCLI(t, "import", "qoder")
+			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/mcps/api.yaml")); !os.IsNotExist(err) {
+				t.Errorf("OAuth credential-bearing server produced a spec: %v", err)
+			}
+			if strings.Contains(log.String(), "test-credential") {
+				t.Error("import output exposed the OAuth credential")
+			}
+			if !strings.Contains(log.String(), "oauth.clientSecret") || !strings.Contains(log.String(), "left out") {
+				t.Error("import omitted the actionable OAuth field warning")
+			}
+		})
 	}
 }

@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
@@ -22,6 +24,11 @@ var newSpecKinds = []string{
 	string(spec.KindRule),
 	string(spec.KindHook),
 	string(spec.KindMCP),
+	string(spec.KindCommand),
+	string(spec.KindSettings),
+	string(spec.KindReview),
+	string(spec.KindEnvironment),
+	string(spec.KindIgnore),
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
@@ -31,11 +38,10 @@ func newNewCmd() *cobra.Command {
 	var scope string
 	cmd := &cobra.Command{
 		Use:   "new <kind> <name>",
-		Short: "Scaffold a single spec file with kind-appropriate frontmatter.",
+		Short: "Create a spec file for any supported kind.",
 		Long: "Creates one spec file under the directory configured for <kind> " +
-			"in agnostic-ai.yaml. Replaces 'copy from --demo and edit' as " +
-			"the starting point for a single new agent, skill, rule, hook, or MCP. " +
-			"Pass --dry-run to preview the path and rendered body without writing.",
+			"in agnostic-ai.yaml. Supported kinds: " + strings.Join(newSpecKinds, ", ") +
+			". Pass --dry-run to preview the path and content without writing.",
 		Example: `  # Add a new rule
   agnostic-ai new rule no-console-log
 
@@ -46,7 +52,10 @@ func newNewCmd() *cobra.Command {
   agnostic-ai new agent code-reviewer
 
   # Add a new MCP server config
-  agnostic-ai new mcp filesystem`,
+  agnostic-ai new mcp filesystem
+
+  # Preview a settings spec
+  agnostic-ai new settings project-defaults --dry-run`,
 		Args: cobra.ExactArgs(2),
 		ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
@@ -107,7 +116,7 @@ func newNewCmd() *cobra.Command {
 				return fmt.Errorf("write %s: %w", path, err)
 			}
 			summaryf("wrote %s\n", path)
-			summaryf("→ edit it, then run `agnostic-ai render %s --target <name>` to preview, or `agnostic-ai sync` to fan out.\n", path)
+			summaryf("→ edit it, then run `agnostic-ai render %s --target <name>` to preview, or `agnostic-ai sync` to fan out.\n", newRenderPathArg(path))
 			if kind == string(spec.KindMCP) {
 				summaryf("→ real servers to copy: https://agnostic-ai.org/docs/spec-format/mcp-recipes/\n")
 			}
@@ -131,14 +140,15 @@ func validKind(k string) bool {
 
 // newSpecPath resolves the destination file for a `new` invocation by
 // joining the source directory configured for that kind with the slug.
-// Hooks and MCPs are pure YAML; everything else is Markdown.
+// Hooks, MCPs, settings, and environments use YAML; other kinds use Markdown.
 func newSpecPath(cfg *config.Config, kind, name string) (string, error) {
 	dir, err := sourceDirForKind(cfg, kind)
 	if err != nil {
 		return "", err
 	}
 	ext := ".md"
-	if kind == string(spec.KindHook) || kind == string(spec.KindMCP) {
+	if kind == string(spec.KindHook) || kind == string(spec.KindMCP) ||
+		kind == string(spec.KindSettings) || kind == string(spec.KindEnvironment) {
 		ext = ".yaml"
 	}
 	return filepath.Join(dir, name+ext), nil
@@ -156,13 +166,20 @@ func sourceDirForKind(cfg *config.Config, kind string) (string, error) {
 		return cfg.Sources.Hooks, nil
 	case string(spec.KindMCP):
 		return cfg.Sources.MCPs, nil
+	case string(spec.KindCommand):
+		return cfg.Sources.Commands, nil
+	case string(spec.KindSettings):
+		return cfg.Sources.Settings, nil
+	case string(spec.KindReview):
+		return cfg.Sources.Reviews, nil
+	case string(spec.KindEnvironment):
+		return cfg.Sources.Environments, nil
+	case string(spec.KindIgnore):
+		return cfg.Sources.Ignore, nil
 	}
 	return "", fmt.Errorf("unknown kind %q", kind)
 }
 
-// newSpecTemplate returns kind-specific frontmatter pre-filled with the
-// canonical fields each adapter consumes. Bodies are intentionally tiny
-// so the user replaces them rather than editing around boilerplate.
 func newSpecTemplate(kind, name string) string {
 	switch kind {
 	case string(spec.KindAgent):
@@ -209,6 +226,50 @@ args:
   - -y
   - "@example/server"
 `, name)
+	case string(spec.KindCommand):
+		return fmt.Sprintf(`---
+name: %s
+description: TODO describe when to run this command.
+---
+
+TODO: Write the prompt this command should send.
+`, name)
+	case string(spec.KindSettings):
+		return fmt.Sprintf(`name: %s
+description: TODO describe this settings group.
+# TODO add the permission rules or model settings your project needs.
+`, name)
+	case string(spec.KindReview):
+		return fmt.Sprintf(`---
+name: %s
+description: TODO describe what the review should check.
+---
+
+TODO: Write the checks the reviewer should apply.
+`, name)
+	case string(spec.KindEnvironment):
+		return fmt.Sprintf(`name: %s
+description: TODO describe this environment.
+# TODO add reviewed setup, install, or dev server commands when needed.
+`, name)
+	case string(spec.KindIgnore):
+		return fmt.Sprintf("---\nname: %s\ndescription: TODO describe the paths to exclude.\n---\n\n```gitignore\n# TODO add paths to exclude, one per line.\n```\n", name)
 	}
 	return ""
+}
+
+func newRenderPathArg(path string) string {
+	if strings.HasPrefix(path, "-") {
+		path = "./" + path
+	}
+	if strings.IndexFunc(path, func(r rune) bool {
+		plain := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./:-", r) || runtime.GOOS == "windows" && r == '\\'
+		return !plain
+	}) < 0 {
+		return path
+	}
+	if runtime.GOOS == "windows" {
+		return "'" + strings.ReplaceAll(path, "'", "''") + "'"
+	}
+	return adapters.ShellQuote(path)
 }

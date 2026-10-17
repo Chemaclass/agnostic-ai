@@ -1,6 +1,6 @@
 # Documentation
 
-Start with the guide for your task. Reference pages are for lookup; you do not need to read them in order.
+Start with the guide for your task. Reference pages are for lookup; you do not need to read them in order. For a coding agent, use the agent setup guide and give it the tools you want configured.
 
 | Your goal | Start here |
 |---|---|

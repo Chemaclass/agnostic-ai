@@ -94,8 +94,8 @@ var lintCodes = map[string]lintCode{
 	"LINT013": {
 		Severity: lintError,
 		Title:    "Malformed rule globs",
-		Cause:    "A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings, so the rule loads in every session.",
-		Fix:      "Write `globs` as one string or a YAML list of strings.",
+		Cause:    "A rule's `globs`, `paths`, or `x-<target>.globs` is neither a string nor a list of strings, so the rule loads in every session, or `paths` and `globs` name different patterns.",
+		Fix:      "Write `globs` as one string or a YAML list of strings, and set only one of `paths` and `globs`.",
 	},
 	"LINT014": {
 		Severity: lintError,
@@ -234,7 +234,7 @@ var lintCodes = map[string]lintCode{
 	"LINT039": {
 		Severity: lintWarn,
 		Title:    "Memory index too long",
-		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines, or the two indexes pass 6,000 bytes. Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory load memory through a session-start hook that keeps the first 6,000 bytes, so they never see the facts past it; the finding names them. Every other target loads both indexes whole every session.",
+		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines, or the two indexes pass 6,000 bytes. Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, Auggie CLI, and Cline in VS Code load memory through a session-start hook that keeps the first 6,000 bytes, so they never see the facts past it; the finding names them. Every other target loads both indexes whole every session.",
 		Fix:      "Merge duplicate facts and drop stale ones. The `shared-memory` skill does this when asked to clean up memory.",
 	},
 	"LINT040": {
@@ -254,6 +254,36 @@ var lintCodes = map[string]lintCode{
 		Title:    "Secret in a memory file",
 		Cause:    "A line in a memory index or fact file looks like a credential, such as a token by its prefix, a URL password, or a `Bearer` token. Every tool reads memory as plain text, and project memory is committed. The finding names the line, never the value.",
 		Fix:      "Remove the secret from the file and from Git history if it was committed, and rotate it.",
+	},
+	"LINT043": {
+		Severity: lintWarn,
+		Title:    "Memory facts no longer load",
+		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. It counts facts by file name, and notes kept in that store's index as one more, and never prints what a fact says.",
+		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is.",
+	},
+	"LINT045": {
+		Severity: lintError,
+		Title:    "Invalid session retention",
+		Cause:    "session-retention-days is not an integer of 1 or more. Sync stops before changing any tool settings.",
+		Fix:      "Use a positive integer, or remove the field to leave native retention unchanged.",
+	},
+	"LINT044": {
+		Severity: lintError,
+		Title:    "Hidden character in a memory file",
+		Cause:    "A line in a memory index or fact file holds a character a reviewer cannot see: a zero-width character, a bidirectional control, a line or paragraph separator, an invisible operator, a soft hyphen, a byte order mark, or a Unicode tag. They can hide text from a pull request, and project memory is committed, so anyone who can push changes what every tool reads. The finding is an error in project memory and a warning in personal memory. It names the line and the code points, never the text. The session-start hook leaves these characters out of the context it prints; tools that load the file whole still read them.",
+		Fix:      "Delete the characters, or retype the line. A zero-width joiner or non-joiner between two non-ASCII characters, as in a family emoji or a Persian word, is not reported.",
+	},
+	"LINT046": {
+		Severity: lintWarn,
+		Title:    "Repeated frontmatter key",
+		Cause:    "A spec's frontmatter, or a YAML spec such as a hook or MCP server, writes one top-level key more than once. The loader keeps the last value and drops the others, so sync still works, but other YAML parsers and editors with a YAML schema reject the file. `import cursor` in 0.83.0 left a repeated `workspaces` key.",
+		Fix:      "Delete the extra lines and keep the one with the value you want. `lint --strict` fails until you do.",
+	},
+	"LINT047": {
+		Severity: lintWarn,
+		Title:    "Skill or command name Claude Code refuses",
+		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
+		Fix:      "Rename the folder or file, or edit the `name:` line, to remove the characters.",
 	},
 	"LINT036": {
 		Severity: lintError,

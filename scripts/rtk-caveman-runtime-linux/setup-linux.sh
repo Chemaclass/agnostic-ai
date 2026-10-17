@@ -12,6 +12,7 @@ if ! grep -q '^VERSION_CODENAME=trixie$' /etc/os-release; then
     exit 2
 fi
 for asset in rtk-caveman-runtime.py rtk-release.json caveman-release.json \
+    caveman-cli/package.json caveman-cli/package-lock.json \
     rtk-aarch64-unknown-linux-gnu.tar.gz checksums.txt \
     caveman-checksums.txt caveman-checksums.txt.keysig caveman-RELEASE; do
     if [ ! -s "/lab/$asset" ]; then
@@ -28,8 +29,10 @@ export CAVEMAN_HOME=/lab/caveman
 export CAVEMAN_TELEMETRY=0
 export DO_NOT_TRACK=1
 export CAVE_SETUP_TIMEOUT=60
-npm install --prefix /lab/cli --save-exact --ignore-scripts \
-    --fetch-timeout=60000 --fetch-retries=1 @caveman-ai/cli@2.1.0 > npm-install.log 2>&1
+mkdir -p /lab/cli
+cp /lab/caveman-cli/package.json /lab/caveman-cli/package-lock.json /lab/cli/
+npm ci --prefix /lab/cli --ignore-scripts \
+    --fetch-timeout=60000 --fetch-retries=1 > npm-install.log 2>&1
 python3 - <<'PY'
 import hashlib
 import json

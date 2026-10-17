@@ -7,6 +7,8 @@
       "rm -rf /": "deny"
     },
     "edit": {
+      "*": "allow",
+      ".env*": "ask",
       ".env": "deny"
     },
     "github_create_issue": {
@@ -17,11 +19,6 @@
     },
     "websearch": {
       "*": "deny"
-    },
-    "write": {
-      "*": "allow",
-      ".env*": "ask",
-      ".env": "deny"
     }
   }
 }

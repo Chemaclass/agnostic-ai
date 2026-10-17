@@ -11,21 +11,26 @@ group = "Reference"
 
 `reviews/` tells code-review bots what to check in this project: the layering rule, the error handling, the migrations that need a second look. Each review bot reads its guidance from its own files. A review spec feeds all of them from one source.
 
-- **Project rules in every review.** The bot flags what your team cares about, not only generic issues.
-- **Scoped guidance.** A review under `reviews/services/api/` applies only to changes in that directory.
-- **No copies.** An `@path` line pulls a folder's `README.md` into its review, so the docs and the review stay the same text.
-
 | Target | Reads |
 |--------|-------|
 | [Cursor](@/docs/targets/cursor.md) (Bugbot) | `.cursor/BUGBOT.md`, and `<scope>/.cursor/BUGBOT.md` for scoped specs |
 | [Codex](@/docs/targets/codex.md) (code review) | a `## Code Review Rules` section of the root or scoped `AGENTS.md` |
 | [Goose](@/docs/targets/goose.md) (`goose review`) | `.agents/REVIEW.md`, and `<scope>/.agents/REVIEW.md` for scoped specs |
+| [Ellipsis](@/docs/targets/ellipsis.md) (code review) | one reviewer's prompt in `.ellipsis/code-review.yaml`; scoped specs become sections that apply only to changes in their directory |
 
 Other tools report review specs as unsupported.
 
+Ellipsis also needs the reviewer, its model, and any review posting rules from a [settings spec](@/docs/spec-format/settings.md) under `x-ellipsis`. Without a reviewer, sync writes no file and says what is missing. See [Ellipsis](@/docs/targets/ellipsis.md).
+
 ## Write one
 
-Write Markdown with optional YAML settings between `---` lines at the top, one file per group of guidance.
+```bash
+agnostic-ai new review code-quality
+```
+
+Replace the description and body with the checks your review bot should apply.
+
+Save Markdown with optional YAML settings as `.agnostic-ai/reviews/code-quality.md`. Sync, check the output, then start a review in a supported tool. These specs supply guidance; they do not install or start a review bot.
 
 ```markdown
 ---

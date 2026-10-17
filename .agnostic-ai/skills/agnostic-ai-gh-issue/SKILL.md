@@ -7,95 +7,28 @@ x-claude:
 disable-model-invocation: false
 ---
 
-# GitHub Issue Workflow
+# GitHub issue workflow
 
-## Context
+Take one issue through implementation, review, and merge. This workflow authorizes merging its issue PR unless the user limits the task to a PR or review.
 
-Read both the issue body **and every comment** as requirements input. Maintainer follow-ups often add scope or edge cases, or override the original description; when a later comment conflicts with the body, prefer the comment.
+## Understand and isolate
 
-::target claude
-!`gh issue view ${ARGUMENTS#\#} --json number,url,title,body,labels,assignees,state,comments 2>/dev/null || echo "Provide an issue number"`
-::end
+1. Parse the issue number, stripping `#`. Read the body and every comment: `gh issue view <number> --json number,url,title,body,labels,assignees,state,comments`. Fetch remaining comment pages if the result is incomplete. Later maintainer comments resolve conflicts with the body. Verify that old findings still apply.
+2. Check the current user's login and assignment. Skip an issue assigned to another person; assign `@me` only when unassigned.
+3. Fetch `origin/main`. Stop if local `main` has unpublished commits; never reset, stash, or discard user work. A dirty starting checkout does not prevent isolated work.
+4. Look for an existing issue branch, PR, and linked checkout before creating anything. Reuse the task checkout only after checking its branch, remote head, and local changes. Preserve unpublished commits and stop work on an unsafe task checkout rather than overwriting it.
+5. Otherwise create a dedicated worktree and branch from fresh `origin/main`, without switching the starting checkout. Use `<fix|feat|docs>/<number>-<slug>` according to issue labels (`feat` by default), for example `git worktree add -b <branch> <absolute-task-path> origin/main`. Record the absolute task path with the issue number and run every task command there.
 
-Read the issue first: `gh issue view <number> --json number,url,title,body,labels,assignees,state,comments`.
+## Implement
 
-## Instructions
+State one acceptance scenario, affected files, and a short implementation plan. Follow the applicable project rules, including adapter independence, error context, and generated output.
 
-### Phase 1: Setup
+For behavior changes, write a test that fails before the fix, implement, then refactor. For prose or data changes, use existing focused checks for the affected inputs instead of inventing behavior tests. Keep the issue's scope; record independent follow-ups separately.
 
-1. **Parse the issue number** from the text passed after the skill name (strip `#` if present).
+For user-visible changes, including documentation corrections, follow the documentation checklist in `.agnostic-ai/rules/docs-sync.md`. Select generation and validation from the single policy in repository-root `docs/internal/contributing.md`, section "Choose checks for your change". Follow its serial execution, evidence, and reuse rules; complete the selected gate before pushing.
 
-2. **Assign yourself if unassigned**:
-   ```bash
-   gh issue edit <number> --add-assignee @me
-   ```
+Review the final diff and commit with a signed Conventional Commit and `Related to #<number>` in the body. Push without rewriting published history. Reuse an existing PR or open one assigned to Chemaclass with the matching label. Write its body to a file and use `gh pr create --body-file <path>`; include the outcome, relevant decisions, validation evidence, and `Closes #<number>`.
 
-3. **Create a branch** from fresh `origin/main` based on the issue type:
+## Review and finish
 
-   Check that the worktree is clean. Fetch `origin/main`, stop if local `main` has unpublished commits, then fast-forward it. Never discard local work.
-
-   Determine the branch prefix from labels:
-   - `bug` → `fix/`
-   - `enhancement` → `feat/`
-   - `documentation` → `docs/`
-   - No label → `feat/` (default)
-
-   Branch name format: `<prefix><issue-number>-<slug>`
-
-   ```bash
-   test -z "$(git status --porcelain)" || exit 1
-   git fetch origin main
-   git switch main
-   test "$(git rev-list --count origin/main..main)" -eq 0 || exit 1
-   git pull --ff-only
-   git switch -c <branch-name>
-   ```
-
-### Phase 2: Design
-
-4. **Design the implementation** before editing:
-   - Explore the codebase to understand affected areas.
-   - Identify files that need changes.
-   - Respect adapter independence: `.agnostic-ai/rules/no-cross-adapter-imports.md`.
-   - Honor the adapter skeleton: `.agnostic-ai/rules/adapter-pattern.md`.
-   - Plan the TDD approach (what tests to write first).
-
-5. **Keep a short implementation plan** with:
-   - Summary of what the issue requires.
-   - List of files to create/modify.
-   - Test strategy (unit per package, integration under `tests/integration`).
-   - Step-by-step implementation order.
-
-### Phase 3: Implement
-
-6. **Implement following TDD**:
-   - Write failing tests first (`*_test.go` next to the code under test).
-   - Implement minimum code to pass.
-   - Refactor while keeping tests green.
-   - Wrap returned errors per `.agnostic-ai/rules/error-wrapping.md`.
-   - Follow `.agnostic-ai/rules/test-conventions.md` (use `t.TempDir()`, `testutil.Chdir`, behavior-named tests).
-
-7. **Run the gate**: the pre-push checks in `.agnostic-ai/skills/pr-sweep/SKILL.md` step 5 (`make ci-local` and the rest), each checked by its own exit code, never through `| grep | head`. Fix every failure before continuing.
-
-8. **Regenerate generated files when touched**:
-   - Edited `internal/config/config.go` struct tags → `go run ./cmd/schemagen` (see `.agnostic-ai/skills/regen-schema/SKILL.md`).
-   - Edited specs under `.agnostic-ai/` or any adapter → `go run ./cmd/agnostic-ai sync` then `go run ./cmd/agnostic-ai sync --check` (see `.agnostic-ai/skills/run-sync-check/SKILL.md`).
-   - Changed what a target writes → `.agnostic-ai/rules/capability-fixtures.md`.
-   - Touched code reachable from `cmd/agnostic-ai-wasm` → rebuild the playground (see `.agnostic-ai/skills/playground-rebuild/SKILL.md`).
-
-### Phase 4: Ship
-
-9. **Docs and changelog** for user-visible changes, per `.agnostic-ai/rules/docs-sync.md` and `.agnostic-ai/agents/changelog-curator.md`.
-
-10. **Review the final diff** for duplication, dead code, debug output, and names that no longer match. **Commit** per `.agnostic-ai/rules/conventional-commits.md`, GPG-signed, with `Related to #<issue-number>` in the body.
-
-11. **Push and open the PR**. Write the body to a file (a short summary, decisions worth challenging, checks run, `Closes #<issue-number>`) and set `body_file` to its path.
-    ```bash
-    git push -u origin <branch-name>
-    gh pr create --assignee Chemaclass --label "<bug|enhancement|documentation>" \
-      --title "<type>(<scope>): <description>" --body-file "$body_file"
-    ```
-
-### Phase 5: Review and merge
-
-12. **Review, gate, and merge** the PR with `.agnostic-ai/skills/pr-sweep/SKILL.md` steps 2 to 6.
+Use `.agnostic-ai/skills/pr-sweep/SKILL.md` from "Review" onward for this PR only, passing the recorded task path and the user's merge scope. Its review, CI, merge verification, and cleanup rules apply. If merging is outside the user's scope, stop with the reviewable PR. Report the PR, acceptance evidence, and any concrete blocker.

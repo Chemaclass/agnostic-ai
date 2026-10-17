@@ -2,10 +2,10 @@
 
 [All docs](../README.md) · [Contributor setup](../../CONTRIBUTING.md)
 
-In-browser playground for agnostic-ai. Edit a spec and see what five
-well-known targets receive as you type. A target that does not support the
-spec kind shows as a disabled tab, and a link leads to the rest.
-Runs entirely in your browser using WebAssembly, which lets the browser run the compiled Go code. No server computes the output, so any static website host can serve the page.
+Edit a spec in your browser and see the configuration generated for five
+coding tools as you type. A target that does not support the
+spec kind shows as a disabled tab. Follow the link to see other supported tools.
+The playground runs entirely in your browser using WebAssembly, which lets the browser run the compiled Go code. No server computes the output, so any static website host can serve the page.
 
 ## Try it
 
@@ -17,7 +17,7 @@ Open the [published playground](https://agnostic-ai.org/playground/). The [Pages
 make playground-serve       # builds the site and opens /playground/ on port 8080
 ```
 
-`file://` protocol does **not** work. Browsers refuse to fetch the
+Open the served URL instead of the HTML file directly. Browsers refuse to fetch the
 `.wasm` from a `file://` page. The playground also shares navigation assets
 with the Zola site, so use the assembled page at
 http://127.0.0.1:8080/playground/.

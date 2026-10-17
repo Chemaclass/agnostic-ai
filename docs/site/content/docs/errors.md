@@ -1,6 +1,6 @@
 +++
 title = "Error codes"
-description = "Every AAI-NNN diagnostic, what causes it, and the fix."
+description = "Find an AAI error code, its cause, and the command or edit that fixes it."
 weight = 150
 
 [extra]
@@ -9,7 +9,7 @@ group = "Reference"
 
 # Error codes
 
-Every error starts with a code in square brackets, `[AAI-NNN]`. The fix follows on the next line:
+Find the `[AAI-NNN]` code from your terminal below, or run `agnostic-ai explain AAI-NNN`. If you have a symptom rather than a code, use [Troubleshooting](@/docs/troubleshooting.md). The suggested fix appears after each error:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
@@ -60,7 +60,7 @@ A spec kind (hook, mcp, command, ...) is in your project, but the tool does not 
 
 Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the project root.
 
-**Fix:** run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
+**Fix:** run `agnostic-ai init` to create a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-004: Config decode failed
 
@@ -91,7 +91,7 @@ Two or more enabled targets would write different content to the same path. Sync
 
 <a id="aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten"></a>
 
-### AAI-103: Hand-authored ignore file would lose patterns
+### AAI-103: Hand-written ignore file would lose patterns {#aai-103-hand-authored-ignore-file-would-lose-patterns}
 
 Replacing a tool's ignore file that has no agnostic-ai header would remove or reorder patterns, or add a negation. These changes can make excluded files readable, so sync refuses.
 
@@ -101,13 +101,17 @@ See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour
 
 ### AAI-202: Import source name unknown
 
-The argument to `agnostic-ai import` matches no registered source.
+The tool name passed to `agnostic-ai import` is not supported.
 
 **Fix:** run `agnostic-ai import --help` for the supported list, and check the spelling.
 
 ### AAI-203: Import would replace an existing spec
 
-`import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec. The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose. `import --dry-run` fails the same way.
+`import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote.
+
+It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec.
+
+The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose. `import --dry-run` fails the same way.
 
 **Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it. When the message names what the spec would lose, make the tool's edit in the spec instead to keep it.
 
@@ -119,7 +123,7 @@ A name passed with `--target` fails the run. A config target that does not resol
 
 A known target that is not in this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
 
-**Fix:** check the spelling. If the target exists but is not in this run, add it to `targets` or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
+**Fix:** check the spelling. If the target exists but is not in this run, add it to `targets` or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`, `ellipsis`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags
 

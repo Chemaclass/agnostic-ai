@@ -24,7 +24,7 @@
 // portable Settings model fills `model` unless outputs.codex.config.model
 // sets a target-specific value; an imported overlay still has final
 // precedence for backward compatibility. MCP servers use one
-// `[mcp_servers.<name>]` table each). A name is quoted (`tomlKeySegment`)
+// `[mcp_servers.<name>]` table each). A name is quoted (`emit.TOMLKey`)
 // when it carries a character a bare TOML key rejects; Codex CLI
 // 0.152.0 widened the accepted server-name charset to include `:`,
 // `@`, `/`, and `.` for package-style names such as
@@ -389,9 +389,34 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	}
 	noteIgnoredConfigFields(codexCfg)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
+	if preserved, err := sess.PreserveHandoffConfig(cfg, path, target); preserved || err != nil {
+		return err
+	}
 	roots, err := memoryWritableRoots(sess, cfg, path, dryRun)
 	if err != nil {
 		return err
+	}
+	handoff, err := sess.HandoffAccessRoot(cfg, path, target, "sandbox_workspace_write.writable_roots", dryRun)
+	if err != nil {
+		return err
+	}
+	grants := slices.Clone(roots)
+	if handoff != "" && !slices.Contains(grants, handoff) {
+		grants = append(grants, handoff)
+	}
+	if overlayKeys["sandbox_workspace_write"] {
+		// TOML allows one table, so the overlay's roots and sync's share it.
+		roots = nil
+		noteOverlayGrants(overlay, grants)
+		if merged, ok := addWritableRoots(overlay, grants); ok {
+			overlay = merged
+		} else {
+			for _, dir := range grants {
+				emit.NoteProject(fmt.Sprintf("codex: %s keeps its sandbox table; add %q to sandbox_workspace_write.writable_roots in that overlay to let Codex save there", configOverlayPath, filepath.ToSlash(dir)))
+			}
+		}
+	} else {
+		roots = grants
 	}
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, roots, overlay, overlayKeys)
 	if body == "" || sess.IsUnmanaged(path) {

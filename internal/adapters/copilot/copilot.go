@@ -6,8 +6,8 @@
 // format.
 //
 // The `.github/copilot-instructions.md` entry-point is written
-// centrally by `sync` as a slim pointer to the source specs (one body
-// shared with every other target's entry-point file). When
+// centrally by `sync` with the AGNOSTIC_AI.md body every other
+// target's entry-point file shares. When
 // `outputs.copilot.rules-file` is set, this adapter instead writes the
 // legacy concatenated always-on-rules layout at that path so users on
 // older workflows keep their behavior.
@@ -24,7 +24,7 @@
 //
 // MCP servers emit twice, because Copilot has two readers that
 // disagree on the file. `.vscode/mcp.json` is VS Code's, and VS Code
-// forwards its non-interactive servers to the Agent Host.
+// forwards its non-interactive servers to Copilot harness sessions.
 // `.github/mcp.json` is Copilot CLI's, listed on its project-level
 // discovery table as "Shared configuration that is committed to the
 // repository"; the same page says "The `.vscode/mcp.json` file for VS
@@ -71,12 +71,12 @@
 // the builder: codex has a `tools` key too, and it is a map of
 // per-tool sub-tables, a different shape entirely (#888).
 //
-// `.vscode/mcp.json` also carries five fields the plain mcpServers map
-// does not: `cwd`, `envFile`, and `sandboxEnabled` on a stdio server,
-// `dev.watch` on every server, `dev.debug` on stdio, and `oauth` on HTTP/SSE
-// (code.visualstudio.com/docs/agents/reference/mcp-configuration, #692).
-// `.github/mcp.json` and the root mirror stay on the plain schema, since
-// Copilot CLI's own docs never name any of the five.
+// `.vscode/mcp.json` also carries fields the plain mcpServers map
+// does not: `cwd`, `envFile`, `sandboxEnabled`, and `sandbox` on a stdio
+// server, `dev.watch` on every server, `dev.debug` on stdio, and `oauth`
+// on HTTP/SSE (code.visualstudio.com/docs/agents/reference/mcp-configuration,
+// #692, #2212). `.github/mcp.json` and the root mirror stay on the plain
+// schema, since Copilot CLI's own docs never name any of them.
 //
 // Hooks emit to `.github/hooks/agnostic-ai.json`, one of possibly
 // several `*.json` files Copilot loads from that directory and merges:
@@ -239,6 +239,13 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	if err := emitSettings(sess, b.Settings, b.MCPs, dryRun); err != nil {
 		return err
+	}
+	if emit.SyncSetsVSCodeAgentsMd(cfg) {
+		// copilot-instructions.md carries the AGENTS.md body, so VS Code
+		// chat would load it twice.
+		if err := sess.MergeJSONFile(emit.VSCodeSettingsFile, map[string]any{emit.VSCodeAgentsMdKey: false}, dryRun); err != nil {
+			return err
+		}
 	}
 	return emitMCP(sess, b, cfg, dryRun)
 }

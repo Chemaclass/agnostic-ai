@@ -10,9 +10,7 @@
 # breaks `npm install` on that platform until the next release. Ordering plus
 # the wait between the two halves is what prevents it.
 #
-# Publishing is idempotent: a version already on the registry is skipped, so a
-# re-run after a partial failure finishes the release instead of failing on a
-# conflict.
+# Publishing is idempotent only after the existing provenance verifies.
 #
 # Every publish carries an explicit --tag. An untagged `npm publish` writes the
 # `latest` dist-tag, which is what an unpinned `npm install agnostic-ai`
@@ -69,46 +67,40 @@ npm_dist_tag() {
   esac
 }
 
-# Provenance is signed through Sigstore, a service outside this release.
-# Shipping the package matters more than the attestation, so a provenance
-# failure downgrades to a plain publish. The warning is the signal to
-# investigate; `npm view --json <pkg>@<version>` shows whether a version
-# carries one.
+verify_npm_provenance() {
+  local name="$1" version="$2" commit npm_root
+  commit="${GITHUB_SHA:-}"
+  if [[ -z "$commit" ]]; then
+    commit="$(git -C "$ROOT" rev-parse "v${version}^{commit}")" || return 1
+  fi
+  npm_root="$(npm root -g)" || return 1
+  if ! node "$ROOT/scripts/npm-verify-provenance.js" "$name" "$version" "$commit" "$npm_root"; then
+    err "$name@$version has missing or invalid provenance. Retry after registry availability recovers. If published without provenance, this immutable version cannot be repaired; stop and cut a new version for all seven packages."
+    return 1
+  fi
+}
+
 publish_package() {
   local dir="$1" name version="$2" tag
   name="$(package_name "$dir")"
   tag="$(npm_dist_tag "$version")"
 
   if published "$name" "$version"; then
-    printf '::notice::%s@%s is already published\n' "$name" "$version"
+    verify_npm_provenance "$name" "$version" || return 1
+    printf '::notice::%s@%s is already published with verified provenance\n' "$name" "$version"
     return 0
   fi
 
-  if (cd "$dir" && npm publish --access public --provenance --tag "$tag"); then
-    return 0
+  if ! (cd "$dir" && npm publish --access public --provenance --tag "$tag"); then
+    err "provenance publish failed for $name@$version; no plain publish will be attempted"
+    if published "$name" "$version"; then
+      verify_npm_provenance "$name" "$version" || return 1
+      return 0
+    fi
+    return 1
   fi
-  printf '::warning::npm publish --provenance failed for %s; retrying without it, so this version ships unattested\n' "$name"
-  if (cd "$dir" && npm publish --access public --tag "$tag"); then
-    return 0
-  fi
-  # The first attempt can upload the tarball and still fail while attaching
-  # the attestation, which makes the retry a version conflict, not an error.
-  if published "$name" "$version"; then
-    printf '::warning::%s@%s is on the registry; the failed retry was a version conflict\n' "$name" "$version"
-    return 0
-  fi
-  printf '::error::npm publish failed for %s@%s both with and without provenance\n' "$name" "$version"
-  # A scoped name cannot be created until its org exists, and npm reports
-  # that as a plain 404 or 403 on the first publish, which reads the same as
-  # a bad token. Name the likely cause once rather than leaving six identical
-  # failures to interpret at release time.
-  case "$name" in
-    @*/*)
-      printf '::error::%s is scoped. If this is the first release to publish it, check the npm org %s exists and that NPM_TOKEN can create packages in it; a token scoped to the agnostic-ai package alone cannot.\n' \
-        "$name" "${name%%/*}"
-      ;;
-  esac
-  return 1
+  wait_for "$name" "$version" || return 1
+  verify_npm_provenance "$name" "$version"
 }
 
 wait_for() {
@@ -172,7 +164,7 @@ main() {
   require_every_pin "$parent" "$(printf '%s\n' "${names[@]}")"
 
   for dir in "${dirs[@]}"; do
-    publish_package "$dir" "$version"
+    publish_package "$dir" "$version" || return 1
   done
 
   # The parent is unusable without all six, so do not publish it until the
@@ -184,7 +176,7 @@ main() {
     fi
   done
 
-  publish_package "$parent" "$version"
+  publish_package "$parent" "$version" || return 1
   printf 'npm-publish: published %s packages at %s under dist-tag %s\n' \
     "$((${#dirs[@]} + 1))" "$version" "$(npm_dist_tag "$version")"
 }

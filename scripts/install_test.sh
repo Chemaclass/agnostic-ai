@@ -268,3 +268,30 @@ function test_ps1_names_rate_limiting_rather_than_printing_a_status() {
   assert_contains "rate limited" "$(ps1_code)"
   assert_contains "no published release" "$(ps1_code)"
 }
+
+function test_released_install_checks_the_exact_binary_version() {
+  local fixture check code report
+  fixture=$(mktemp -d)
+  # shellcheck disable=SC2016
+  printf '#!/bin/sh\nprintf "%%s\\n" "$BINARY_REPORT"\n' > "$fixture/agnostic-ai"
+  chmod +x "$fixture/agnostic-ai"
+  check=$(awk '
+    /- name: Binary reports the published version/ { found = 1; next }
+    found && /run: \|/ { body = 1; next }
+    body && /^          / { sub(/^          /, ""); print; next }
+    body { exit }
+  ' "$SCRIPT_DIR/../.github/workflows/install.yml")
+  assert_not_empty "$check"
+  for report in 'agnostic-ai version 1.2.30' 'agnostic-ai version 11.2.3' 'agnostic-ai version 1.2.3-extra' 'unexpected 1.2.3'; do
+    code=0
+    PATH="$fixture:$PATH" BINARY_REPORT="$report" NPM_RELEASE_VERSION=1.2.3 bash -c "$check" >/dev/null 2>&1 || code=$?
+    assert_not_equals 0 "$code"
+  done
+  code=0
+  PATH="$fixture:$PATH" BINARY_REPORT='agnostic-ai version 1.2.3' NPM_RELEASE_VERSION=1.2.3 bash -c "$check" >/dev/null 2>&1 || code=$?
+  assert_equals 0 "$code"
+  code=0
+  PATH="$fixture:$PATH" BINARY_REPORT='agnostic-ai version 1.2.3-rc.1' NPM_RELEASE_VERSION=1.2.3-rc.1 bash -c "$check" >/dev/null 2>&1 || code=$?
+  assert_equals 0 "$code"
+  rm -rf "$fixture"
+}

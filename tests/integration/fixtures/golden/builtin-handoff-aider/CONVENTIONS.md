@@ -15,21 +15,33 @@ _Write or resume a session handoff between AI tools._
 
 #### handoff
 
-Write or resume a portable session handoff when the user requests it. Choose the mode from the request: "write a handoff" writes; "resume" or "continue where Codex left off" reads. An explicit argument can select the mode, but is never required. Do not read a handoff at session start without a request.
+Write or resume a portable session handoff when the user requests it. Choose the mode from the request: "write a handoff" writes; "resume" or "continue where Codex left off" reads. An explicit argument can select the mode, but is never required. Do not read a handoff at session start without a request. The lead asks each delegate to "write a handoff for <branch>" before it returns.
 
-Use `.agnostic-ai/local/HANDOFF.md` in the current project root, including when this skill is installed globally. For root lookup, use canonical paths for the current directory, candidate ancestors, and the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`). Find the nearest ancestor containing `agnostic-ai.yaml` or the legacy `agnostic.config.yaml`, but exclude the effective global source root: its home config never identifies a project. The remaining nearest configured ancestor is the project root. If none exists, use `git rev-parse --show-toplevel` for the current checkout. Do not replace a configured subproject root with its Git worktree root. Keep one file per configured project in each checkout. Writing overwrites the previous handoff. Use portable Markdown.
+Resolve the current project root, including when this skill is installed globally. For root lookup, use canonical paths for the current directory, candidate ancestors, and the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`). Find the nearest ancestor containing `agnostic-ai.yaml` or the legacy `agnostic.config.yaml`, but exclude the effective global source root: its home config never identifies a project. If none exists, use `git rev-parse --show-toplevel` for the current checkout. Do not replace a configured subproject root with its Git worktree root. Use portable Markdown.
+
+##### Task store
+
+Run `git worktree list --porcelain` to find the main checkout (the first entry), live branches, and their absolute worktree paths. Preserve the project path relative to its Git checkout: a configured subproject uses the same relative path in the main checkout. The shared store is `<main checkout>/<project path>/.agnostic-ai/local/handoffs/`.
+
+Use one `<branch-slug>.md` per branch. The branch-slug replaces each character outside `[A-Za-z0-9._-]` with `-`; the real `branch:` header is the key. Read an existing file's header before overwriting it. If a different branch has the same slug, ask which task to keep and wait for the answer. For detached HEAD, use `detached-<full HEAD>` as the key and add `detached: true` to the worktree header. A named branch `detached` keeps its real branch key.
+
+Resolve existing parent directories before checking the destination. Use `git check-ignore -q -- <absolute file>` in the checkout that owns the store, and refuse tracked files or symlinks. If the main checkout is bare, the shared destination is not ignored, or its write fails, fall back to the current project's `.agnostic-ai/local/handoffs/`. Apply the same ignore and symlink checks to the fallback. If neither store is safe, report the failure and leave the handoff pending. Never change ignore rules or write a public handoff to get past this check.
+
+Legacy `.agnostic-ai/local/HANDOFF.md` and `.agnostic-ai/local/HANDOFF.auto.md` in the current project still work as fallback handoffs.
 
 ##### Write
 
-1. Gather the current branch with `git branch --show-current`, HEAD with `git rev-parse HEAD`, and working changes with `git status --short`. Record a detached HEAD as `detached`.
-2. Create `.agnostic-ai/local/` if needed. Fill the template below from the current session and git state. The header records the current tool, UTC date, branch, and HEAD. Replace the example values with the actual values.
+1. Select the current branch, or the branch the user names in "write a handoff for <branch>". Match that branch to its entry in `git worktree list --porcelain`. For a live branch, gather its HEAD with `git -C <worktree> rev-parse HEAD` and working changes with `git -C <worktree> status --short`. For the current branch use `git branch --show-current`, `git rev-parse HEAD`, and `git status --short`. If the named branch has no live worktree, report it as removed and ask which checkout state to record.
+2. Fill the template below from the current session and the selected worktree's Git state. Record the actual tool, UTC date, branch, HEAD, absolute worktree path, status (`active`, `blocked`, or `ready`), and PR (`#N` or `none`). Do not infer a PR from network calls.
 3. State the goal, acceptance criteria, completed work, unfinished work, and next steps. Separate unresolved decisions from settled ones. Include changed files and uncommitted work where they help the arriving tool continue. Under Verify, record checks already run and checks still needed.
 4. Keep a soft cap of 100 lines. Cut Gotchas before cutting Next steps. Never write secrets, tokens, or `.env` values. Never read or write any tool's own memory store.
-5. Write the file before proposing learnings. Follow Promote learnings below, then report the handoff path.
+5. Create the chosen store with private permissions (0700). Set a private umask (077), create a unique temporary file in that same folder, and write the full note to it. Set the temporary file to mode 0600 before an atomic rename to the final path. A new note overwrites only the same branch's previous handoff; preserve that note if writing or renaming fails. Remove only the temporary file you created. Never truncate the destination in place.
+6. Write the file before proposing learnings. Follow Promote learnings below, then report the handoff path and any fallback used.
 
 ```markdown
 # Handoff
 tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
+worktree: /path/to/checkout | status: active | pr: none
 
 ## Goal
 ## Acceptance
@@ -58,14 +70,16 @@ tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
 3. Read each resolved destination if it exists and show one append-only diff per file, naming the actual path before requesting confirmation. Preserve existing entries and frontmatter. For a new file, include YAML frontmatter with `name`, `description`, and `alwaysApply: true` in the diff. Use `name: learnings` for project and global files, and `name: learnings-local` for the personal file so it does not replace the project rule. Global rules are unconditional: omit `scope`, `globs`, and `paths`.
 4. Wait for confirmation of each item's content and scope. A handoff request alone does not approve learning writes. Append only approved items; never rewrite existing entries.
 5. After project or personal writes, run `agnostic-ai sync` from the project root. After approved global writes, run `agnostic-ai sync --global`. If the binary is not on PATH, print the relevant command for the user and mark it pending. Report failed syncs with their error and leave them as unfinished work.
-6. After approved writes and sync attempts, gather branch, HEAD, and `git status --short` again using the commands above. Refresh the handoff header, Done, and Verify with the current git state, learning files changed, and sync results. Record failed or pending syncs separately from completed verification.
+6. After approved writes and sync attempts, gather the selected task's branch, HEAD, and working changes again using the commands above in its recorded worktree. Refresh the handoff header, Done, and Verify with the current git state, learning files changed, and sync results. Record failed or pending syncs separately from completed verification.
 
 ##### Resume
 
-1. Read `.agnostic-ai/local/HANDOFF.md` when it exists. If `.agnostic-ai/local/HANDOFF.auto.md` exists and is newer, or the manual file is missing, read the snapshot as additional recent git evidence. Keep the manual Goal and Next steps when both files exist. If neither exists, tell the user there is no handoff to resume.
-2. Gather the current branch, HEAD, and `git status --short` using the commands above. Compare the manual header and recorded changes with the current git state even when the snapshot is newer, so the snapshot cannot hide drift from the manual task. Also compare the snapshot header when read. Report the goal, next steps, and any drift, including a changed branch or HEAD. The tool and date identify the earlier session; a tool change is expected when handing off.
-3. Ask for confirmation before acting on any branch, HEAD, or working-tree mismatch. Do not resume until the user confirms. A copied handoff can belong to a different worktree or task.
-4. Continue from the manual Next steps after the comparison and any required confirmation. If only a git snapshot exists without a task goal or Next steps, ask for the user's intended next step before work can continue. Never read or write any tool's own memory store.
+1. Gather the current branch, HEAD, and `git status --short`. Look for matching manual handoffs in the shared branch store, then the current checkout's branch store, then the old `HANDOFF.md`. Compare `branch:` headers, not filenames. Use the newest matching manual note when several exist. A request naming another branch selects that task rather than treating the selection as a branch mismatch.
+2. If no manual note matches but a shared, checkout, or legacy automatic snapshot matches the current branch, use the newest snapshot and continue at step 3. Otherwise, if no note matches, list the task headers from the shared and checkout stores and any legacy note, newest first. Join their branches and recorded `worktree:` paths with `git worktree list --porcelain`. Show branch, date, status, and PR; mark a missing worktree as removed without deleting its handoff. Ask which task to resume. If no handoff exists, tell the user there is no handoff to resume. Listing stays local and makes no network calls.
+3. Read the chosen manual note. Find matching snapshots in the shared store (`<branch-slug>.auto.md`), the checkout store, and the legacy `HANDOFF.auto.md`. If the newest snapshot is newer than the manual note, or no manual note exists, read it as additional recent git evidence only when its branch matches the selected task. Keep the manual Goal and Next steps when both files exist. Never let a snapshot from another task replace them.
+4. Compare the chosen manual header and recorded changes with the selected task's current Git state, even when a snapshot is newer. Also compare the snapshot header when read. Report the goal, next steps, and any drift, including a changed branch or HEAD. The tool and date identify the earlier session; a tool change is expected when handing off.
+5. Ask for confirmation before acting on any unexpected branch, HEAD, or working-tree mismatch. Do not resume until the user confirms. Selecting a matching branch handoff from its own worktree needs no branch mismatch prompt. If a task's worktree is removed, ask where to continue before changing checkouts.
+6. Continue from the manual Next steps after comparison and any required confirmation. If only a git snapshot exists without a task goal or Next steps, ask for the user's intended next step before work can continue. Never read or write any tool's own memory store.
 
 
 <!-- agnostic-ai:builtin-skills:end -->

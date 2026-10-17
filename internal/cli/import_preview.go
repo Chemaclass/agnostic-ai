@@ -133,6 +133,7 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 	if err := os.MkdirAll(shadow, 0o700); err != nil {
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
+	defer holdPreviewRoots(project)()
 	rec.specDirs = importSpecDirs(project)
 	tree := loadImportTree(project)
 	copied, err := copyImportPreviewTree(project, shadow, tree, importPreviewKeeps(project))
@@ -146,6 +147,14 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
 	defer func() { _ = os.Chdir(project) }()
+	// The copy has no .git, so repo memory resolves from the project's.
+	git, hasGit, err := config.ReadProjectGit(project)
+	if err != nil {
+		return rec, err
+	}
+	if hasGit {
+		defer config.UseProjectGit(shadow, git)()
+	}
 	if prepare != nil {
 		if err := prepare(); err != nil {
 			return rec, err
@@ -321,10 +330,9 @@ func importPreviewDiff(e importPreviewEntry) string {
 	}
 	afterLabel := e.path + " (after import)"
 	if !e.existed {
-		return labeledDiff("/dev/null", afterLabel, nil, splitLines(string(e.after)), diffBodyMax)
+		return previewDiff(e.path, "/dev/null", afterLabel, "", string(e.after), true, diffBodyMax)
 	}
-	return labeledDiff(e.path+" (current)", afterLabel,
-		splitLines(string(e.before)), splitLines(string(e.after)), diffBodyMax)
+	return previewDiff(e.path, e.path+" (current)", afterLabel, string(e.before), string(e.after), false, diffBodyMax)
 }
 
 // isBinary reports whether data is not printable as text.

@@ -13,6 +13,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
@@ -62,11 +64,16 @@ func codexOverlayRelPath() string {
 // settings `effort` in settingsDir instead, so every target syncs it;
 // promoted reports that.
 //
+// Sync writes the repo memory store and the shared handoff store into
+// `sandbox_workspace_write.writable_roots`; each names one machine, so the
+// overlay leaves them out and sync adds them again. Roots the user wrote
+// stay.
+//
 // Returns (false, nil) when config.toml is missing or contains only
 // `hooks` and/or `mcp_servers`, so a fresh project does not get a
 // surprise empty overlay file. Returns (true, nil) when the overlay
 // was actually written.
-func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, err error) {
+func importCodexConfigOverlay(root, settingsDir string, syncRoots adapters.GrantedRoots) (seeded, promoted bool, err error) {
 	src := filepath.Join(root, codexConfigTOML)
 	data, err := os.ReadFile(src)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -86,10 +93,17 @@ func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, 
 	}
 	delete(doc, "hooks")
 	delete(doc, "mcp_servers")
+	raw, dropped, err := dropSyncWritableRoots(raw, doc, syncRoots)
+	if err != nil {
+		return false, false, err
+	}
 	if raw, promoted, err = promoteCodexEffort(raw, doc, settingsDir); err != nil {
 		return false, false, err
 	}
 	if len(doc) == 0 {
+		if dropped {
+			return false, promoted, emptyCodexOverlay(root)
+		}
 		return false, promoted, nil
 	}
 
@@ -118,6 +132,57 @@ func importCodexConfigOverlay(root, settingsDir string) (seeded, promoted bool, 
 		return false, promoted, fmt.Errorf("write %s: %w", dst, err)
 	}
 	return true, promoted, nil
+}
+
+// emptyCodexOverlay empties an overlay a past import filled with roots sync
+// grants, which nothing else of config.toml remains to replace.
+func emptyCodexOverlay(root string) error {
+	dst := codexOverlayPath(root)
+	if _, err := os.Stat(dst); err != nil {
+		return nil
+	}
+	if err := importWriteFile(dst, nil, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", dst, err)
+	}
+	keptf("note: %s held only roots sync grants, so it is now empty; delete it\n", codexOverlayRelPath())
+	return nil
+}
+
+// dropSyncWritableRoots removes the roots sync grants from the sandbox
+// table of doc and from raw. It edits raw in place when it can, and
+// otherwise encodes doc, which loses comments but never a root.
+func dropSyncWritableRoots(raw string, doc map[string]any, granted adapters.GrantedRoots) (string, bool, error) {
+	table, _ := doc["sandbox_workspace_write"].(map[string]any)
+	held, _ := table["writable_roots"].([]any)
+	var kept []any
+	for _, root := range held {
+		if name, ok := root.(string); !ok || !granted.Has(name) {
+			kept = append(kept, root)
+		}
+	}
+	if len(kept) == len(held) {
+		return raw, false, nil
+	}
+	if len(kept) == 0 {
+		delete(table, "writable_roots")
+		if len(table) == 0 {
+			delete(doc, "sandbox_workspace_write")
+		}
+	} else {
+		table["writable_roots"] = kept
+	}
+	if edited, lost, ok := codex.RemoveWritableRoots(raw, granted.Has); ok {
+		if lost {
+			keptf("note: %s lists sandbox roots with comments on lines import shares, so the overlay lost those comments\n", codexConfigTOML)
+		}
+		return edited, true, nil
+	}
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(doc); err != nil {
+		return raw, false, fmt.Errorf("encode overlay: %w", err)
+	}
+	keptf("note: %s keeps its sandbox roots in a form import does not edit, so the overlay lost its comments and layout\n", codexConfigTOML)
+	return buf.String(), true, nil
 }
 
 // promoteCodexEffort moves a top-level model_reasoning_effort out of raw

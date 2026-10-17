@@ -9,6 +9,36 @@ import (
 	"testing"
 )
 
+func TestSyncGlobal_AugmentMemoryIncludesItsExecutableBuiltinScript(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\nbuiltins: [memory]\n")
+	if _, _, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".augment", "hooks", "memory-augment-session-start.sh")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(data), "#!/bin/sh\n") || !strings.Contains(string(data), "hook memory --target augment") {
+		t.Errorf("global Augment script does not load memory: %s", data)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("global Augment script is not executable: %o", info.Mode().Perm())
+	}
+	command := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".augment", "settings.json")), "SessionStart")["command"].(string)
+	if command != filepath.ToSlash(path) {
+		t.Errorf("global Augment script command = %q, want %q", command, filepath.ToSlash(path))
+	}
+	if _, _, err := runGlobalAgentTest("--only", "augment", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSyncGlobal_NeutralHookExecutesWithShellPunctuationInHome(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires a POSIX shell")

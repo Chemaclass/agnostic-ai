@@ -1,0 +1,11 @@
+x-ellipsis:
+  pull_requests:
+    draft: false
+  reviewer:
+    name: sample-review
+    claude_code:
+      model: claude-opus-5-5
+  output:
+    on_fail: request_changes
+  budget:
+    session: 3

@@ -28,8 +28,8 @@
 // (sdk/packages/shared/src/storage/paths.ts:476), and all three
 // shipping readers resolve the directory through it. Skills stay at
 // `.cline/skills/`, confirmed by `resolveSkillsConfigSearchPaths` in
-// the same file, which also scans `.clinerules/skills` and
-// `.agents/skills`.
+// the same file, which also scans `.clinerules/skills`,
+// `.claude/skills` and `.agents/skills`.
 //
 // Emission stays at `.cline/skills/` even though `.agents/skills` is
 // now scanned too. `.cline/skills` is the path the docs recommend, the
@@ -100,6 +100,8 @@
 // Hooks emit as one extensionless executable script per event under
 // `.clinerules/hooks/`, named after the event, the one layout both the
 // VS Code extension and the SDK runtime run (see defaultHooksDir).
+// Global sync writes `~/.cline/hooks/<Event>` for the SDK and CLI.
+// The VS Code extension reads global hooks from Documents instead.
 // Cline discovers a hook by file name and
 // nothing else: `HookConfigFileName` declares ten names
 // (sdk/packages/core/src/hooks/hook-file-config.ts:17), an extension

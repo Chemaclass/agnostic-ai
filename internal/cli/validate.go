@@ -3,8 +3,10 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -101,6 +103,7 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 		}
 		if e.Kind == spec.KindSettings {
 			out = append(out, permissionCapabilityIssues([]spec.Entry{e})...)
+			out = append(out, sessionRetentionIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind == spec.KindMCP {
@@ -112,8 +115,9 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 		if e.Kind != spec.KindRule {
 			continue
 		}
-		for _, key := range malformedGlobs(e) {
-			out = append(out, validationIssue{Path: e.Path, Field: key, Message: malformedGlobsMessage(key), entry: e})
+		issues := globsIssues(e)
+		for _, key := range slices.Sorted(maps.Keys(issues)) {
+			out = append(out, validationIssue{Path: e.Path, Field: key, Message: issues[key], entry: e})
 		}
 	}
 	return out

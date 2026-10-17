@@ -33,6 +33,15 @@ func MergeEntriesOf(keys map[string]any, key string) {
 // its ledger. The CLI sets it; nil means no record, as on a first sync.
 var PriorMergedKeys func(path string) []MergedKey
 
+// PriorMergedCreated reports whether sync created the merged file at
+// path. The CLI sets it from the ledger.
+var PriorMergedCreated func(path string) bool
+
+// PriorMergedRecorded reports whether the last sync recorded the file at
+// path as a merged write, even with no value of its own claimed in it.
+// The CLI sets it from the ledger.
+var PriorMergedRecorded func(path string) bool
+
 func priorMergedKeys(path string) []MergedKey {
 	if PriorMergedKeys == nil {
 		return nil

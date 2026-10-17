@@ -178,7 +178,8 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 	var rules []spec.Entry
 	if inliners := pathRuleInliners(cfg, consumers); len(inliners) > 0 {
 		target = inliners[0]
-		rules = adapters.EntryPointRules(b, target, cfg).Rules
+		inlined, _ := withoutPartialBuiltinRules(b, consumers)
+		rules = adapters.EntryPointRules(inlined, target, cfg).Rules
 	} else if importer := pathRulesImporter(cfg, consumers); importer != "" {
 		target = importer
 		rules = adapters.EntryPointRules(b, importer, cfg).Rules

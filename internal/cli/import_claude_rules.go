@@ -241,7 +241,7 @@ func projectSlug(root string) string {
 
 func writeRule(path, name, body string) error {
 	fm := fmt.Sprintf("---\nname: %s\n---\n\n", name)
-	if err := importWriteFile(path, []byte(fm+body+"\n"), 0o644); err != nil {
+	if err := importWriteMarkdown(path, []byte(fm+body+"\n"), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

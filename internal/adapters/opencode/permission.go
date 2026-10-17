@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -50,15 +51,10 @@ const permissionUnmappableReason = "rule(s) outside OpenCode's permission vocabu
 // carried at least one rule with no OpenCode form.
 //
 // OpenCode evaluates "by pattern match, with the last matching rule
-// winning", and its rules live in a JSON object. Go marshals a map
-// with its keys sorted, and `*` sorts ahead of every alphanumeric
-// pattern, so the catch-all lands first exactly as the vendor
-// recommends. Among the rest, a narrower pattern sharing a prefix
-// sorts after the broader one, because a space precedes letters, so
-// `git *` comes before `git push *` and the narrower rule wins. That
-// is the intended reading, but it falls out of the sort rather than
-// being enforced, so an author who needs a specific order should write
-// `x-opencode.permission` directly.
+// winning", while Claude Code lets a deny or ask win over any allow.
+// So each tool's patterns are written allow first, then ask, then deny,
+// each group in alphabetical order (`*` first, as the vendor
+// recommends). A deny or ask then wins over any allow it overlaps.
 func buildPermissions(settings []spec.Entry) (map[string]any, int) {
 	// tool -> pattern -> action, before collapsing single catch-alls
 	// back to the bare string form.
@@ -92,11 +88,7 @@ func buildPermissions(settings []spec.Entry) (map[string]any, int) {
 			out[tool] = action
 			continue
 		}
-		object := map[string]any{}
-		for pattern, action := range patterns {
-			object[pattern] = action
-		}
-		out[tool] = object
+		out[tool] = byAction(patterns)
 	}
 
 	// Native maps merge last, one tool key at a time, so an author
@@ -113,6 +105,25 @@ func buildPermissions(settings []spec.Entry) (map[string]any, int) {
 		return nil, len(dropped)
 	}
 	return out, len(dropped)
+}
+
+// byAction orders one tool's patterns allow, ask, then deny, each group
+// alphabetical, so the strictest action is the last match.
+func byAction(patterns map[string]string) *emit.OrderedJSON {
+	out := emit.NewOrderedJSON()
+	for _, action := range []string{"allow", "ask", "deny"} {
+		var group []string
+		for pattern, a := range patterns {
+			if a == action {
+				group = append(group, pattern)
+			}
+		}
+		slices.Sort(group)
+		for _, pattern := range group {
+			_ = out.Set(pattern, action)
+		}
+	}
+	return out
 }
 
 // nativePermission returns one settings spec's `x-opencode.permission`

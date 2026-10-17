@@ -1,0 +1,6 @@
+name: repo-tools
+targets: [ellipsis]
+command: node
+args: [/sandbox/api-repo/scripts/mcp-server.js]
+env:
+  API_TOKEN: ${REPO_TOOLS_TOKEN}

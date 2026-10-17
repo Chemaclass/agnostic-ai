@@ -132,7 +132,7 @@ func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overla
 // store of personal memory once memory.personal is repo.
 func (Adapter) RepoMemoryFiles(cfg *config.Config) []string {
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
-	if !emit.RepoMemoryFile(cfg, path, nil, target) {
+	if !emit.RepoMemoryFile(cfg, path, nil, target) && !emit.HandoffConfigFile(cfg, path, target) {
 		return nil
 	}
 	return []string{path}
@@ -181,7 +181,7 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 // fields that mirror the `.mcp.json` schema (the spec's `disabled` field
 // maps to Codex's own `enabled` key; see writeMCPSharedFields).
 //
-// The name routes through tomlKeySegment, the same helper already
+// The name routes through emit.TOMLKey, the same helper already
 // applied to a tool name below. Codex CLI 0.152.0 widened the MCP
 // server-name charset to allow `:`, `@`, `/`, and `.`
 // (openai/codex#41700, "Support package-style MCP server names"),
@@ -190,7 +190,7 @@ func writeMCPServers(sb *strings.Builder, mcps []spec.Entry) {
 // commonly aborts the whole config parse, taking every other MCP
 // server down with it (#706).
 func writeMCPServerTable(sb *strings.Builder, m spec.Entry) {
-	sb.WriteString("[mcp_servers." + tomlKeySegment(m.Name) + "]\n")
+	sb.WriteString("[mcp_servers." + emit.TOMLKey(m.Name) + "]\n")
 
 	transport, _ := m.Meta["type"].(string)
 	if transport == "" {
@@ -285,31 +285,11 @@ func writeMCPToolTables(sb *strings.Builder, server string, meta map[string]any)
 			keys = append(keys, k)
 		}
 		slices.Sort(keys)
-		sb.WriteString("\n[mcp_servers." + tomlKeySegment(server) + ".tools." + tomlKeySegment(name) + "]\n")
+		sb.WriteString("\n[mcp_servers." + emit.TOMLKey(server) + ".tools." + emit.TOMLKey(name) + "]\n")
 		for _, k := range keys {
-			emit.WriteTOMLValue(sb, tomlKeySegment(k), fields[k])
+			emit.WriteTOMLValue(sb, k, fields[k])
 		}
 	}
-}
-
-// tomlKeySegment returns s as a TOML key: bare when it holds only the
-// characters TOML allows unquoted, otherwise a quoted key. MCP tool
-// names come from a vendor's tool list, so they can carry characters a
-// bare key rejects.
-func tomlKeySegment(s string) string {
-	for _, r := range s {
-		bare := r == '-' || r == '_' ||
-			(r >= '0' && r <= '9') ||
-			(r >= 'a' && r <= 'z') ||
-			(r >= 'A' && r <= 'Z')
-		if !bare {
-			return `"` + emit.EscapeTOMLBasic(s) + `"`
-		}
-	}
-	if s == "" {
-		return `""`
-	}
-	return s
 }
 
 // writeMCPNumberField writes `key = v` only when v decoded as a Go
@@ -345,7 +325,7 @@ func writeMCPOAuthTable(sb *strings.Builder, server string, meta map[string]any)
 	if clientID == "" && callbackURL == "" && !hasPort {
 		return
 	}
-	sb.WriteString("\n[mcp_servers." + tomlKeySegment(server) + ".oauth]\n")
+	sb.WriteString("\n[mcp_servers." + emit.TOMLKey(server) + ".oauth]\n")
 	if clientID != "" {
 		emit.WriteTOMLString(sb, "client_id", clientID)
 	}

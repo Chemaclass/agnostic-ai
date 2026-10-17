@@ -35,7 +35,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
 
@@ -45,7 +45,17 @@ jobs:
       - name: Ask each tool what it loaded
         id: load
         continue-on-error: true
+        env:
+          TOOL_LOAD_REPORT_DIR: ${{ runner.temp }}/tool-load-dependencies
         run: scripts/tool-load.sh --bin "$RUNNER_TEMP/agnostic-ai" | tee "$RUNNER_TEMP/tool-load.tsv"
+
+      - name: Save exact vendor dependency inventory
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tool-load-dependencies
+          path: ${{ runner.temp }}/tool-load-dependencies
+          if-no-files-found: warn
 
       - name: Report on the tool-load issue
         env:

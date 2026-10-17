@@ -12,6 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -64,7 +65,10 @@ func portableDevinRule(rule string) (string, bool) {
 // documents that file as the shareable half of its permission model
 // ("Allow for project | `.devin/config.json` | Yes"), so a team that
 // adopted agnostic-ai after writing one keeps it (#872).
-func importWindsurfPermissions(root, dstDir string) (int, error) {
+//
+// Sync grants Write on the stores in syncRoots, each a path on one
+// machine, so those rules stay out of the spec.
+func importWindsurfPermissions(root, dstDir string, syncRoots adapters.GrantedRoots) (int, error) {
 	var doc struct {
 		Permissions map[string][]string `json:"permissions"`
 	}
@@ -82,12 +86,26 @@ func importWindsurfPermissions(root, dstDir string) (int, error) {
 	lists := map[string][]string{}
 	for _, list := range []string{"allow", "deny", "ask"} {
 		for _, rule := range doc.Permissions[list] {
+			if list == "allow" && syncGrantedWrite(rule, syncRoots) {
+				continue
+			}
 			if portable, ok := portableDevinRule(rule); ok {
 				lists[list] = appendUnique(lists[list], portable)
 			}
 		}
 	}
 	return writePermissionsSpec(dstDir, "permissions", lists)
+}
+
+// syncGrantedWrite reports whether rule is the Write grant sync writes for
+// one of roots.
+func syncGrantedWrite(rule string, roots adapters.GrantedRoots) bool {
+	scope, arg, ok := spec.SplitPermissionRule(rule)
+	if !ok || scope != "Write" {
+		return false
+	}
+	dir, found := strings.CutSuffix(filepath.ToSlash(arg), "/**")
+	return found && roots.Has(dir)
 }
 
 // augmentBareTool reverses the six tool names Augment publishes. A rule

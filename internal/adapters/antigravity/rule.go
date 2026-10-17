@@ -21,23 +21,19 @@ const ruleTooLongReason = "Antigravity truncates a rules file over 24,000 bytes;
 // ruleTooLongSurface names what the over-cap rule misses.
 const ruleTooLongSurface = "its rules loader in full"
 
-// noteOversizedRules buffers one note per rule whose emitted file runs
-// past the vendor's stated per-file byte cap. Measured on the bytes
-// rule actually writes, frontmatter, provenance header, and heading
-// included, not on the spec body, so a rule that only clears the cap
-// once agnostic-ai's own preamble is added still reports
-// (target-audit 2026-09-19, #896; cap corrected to bytes, #1114). The
-// separate 20,000-token aggregate budget across every always_on rule
-// degrades gracefully to a path-plus-description pointer, so it raises
-// no note here; see the package doc and the target page.
-func noteOversizedRules(rules []spec.Entry) {
+func noteOversizedRules(rules []spec.Entry, entryDir func(spec.Entry) string) error {
 	over := 0
 	for _, r := range rules {
-		if len(rule(r)) > ruleByteLimit {
+		size, err := nativeMemoryRuleBytes(r, entryDir(r))
+		if err != nil {
+			return err
+		}
+		if size > ruleByteLimit {
 			over++
 		}
 	}
 	emit.NoteSurfaceGap(target, spec.KindRule, over, ruleTooLongSurface, ruleTooLongReason)
+	return nil
 }
 
 // Antigravity's four documented rule triggers, all reachable from the

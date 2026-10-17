@@ -5,8 +5,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -28,6 +31,24 @@ func globalLayers(source string, names []string) ([]spec.Layer, error) {
 		{Name: "global", Root: source, Sources: sources},
 		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
 	}...), nil
+}
+
+// loadGlobalBundle loads the global specs. sync --global writes one
+// instructions block that every tool reads, so a built-in rule with a
+// scope or target condition stays out instead of stopping the sync.
+func loadGlobalBundle(source string, names []string) (spec.Bundle, error) {
+	layers, err := globalLayers(source, names)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	b, err := spec.LoadLayered(layers)
+	if err != nil {
+		return spec.Bundle{}, err
+	}
+	b.Rules = slices.DeleteFunc(slices.Clone(b.Rules), func(r spec.Entry) bool {
+		return r.Layer == layerNameBuiltin && (r.Scope != "" || hasGlobalRuleCondition(r.Meta))
+	})
+	return b, nil
 }
 
 // globalSourceRoot resolves the source root as sync --global does,
@@ -93,6 +114,9 @@ func loadCheckScope(global bool) (checkScope, error) {
 		targets = globalTargetNames()
 	}
 	scope.targets, scope.hookTargets = targets, globalHookTargets(targets)
+	scope.bundle.Hooks = slices.DeleteFunc(slices.Clone(scope.bundle.Hooks), func(hook spec.Entry) bool {
+		return hook.Layer == layerNameBuiltin && !slices.ContainsFunc(scope.hookTargets, hook.EmitsTo)
+	})
 	return scope, nil
 }
 
@@ -118,11 +142,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
-	layers, err := globalLayers(source, names)
-	if err != nil {
-		return checkScope{}, err
-	}
-	b, err := spec.LoadLayered(layers)
+	b, err := loadGlobalBundle(source, names)
 	if err != nil {
 		return checkScope{}, err
 	}
@@ -195,9 +215,22 @@ func globalInstructions(source string, rules []spec.Entry) ([]byte, error) {
 
 // instructionLayer is the text one source adds to always-loaded
 // instructions, named as lint reports it.
+type instructionRendering struct {
+	Text   string
+	Copied []header.CopiedRange
+}
+
 type instructionLayer struct {
-	Name string
-	Text string
+	Rendering *instructionRendering
+	Name      string
+	Text      string
+	Sources   []instructionSource
+}
+
+type instructionSource struct {
+	Imports []adapters.ImportSpan
+	Path    string
+	Text    string
 }
 
 // globalInstructionLayers returns the non-empty parts of the managed

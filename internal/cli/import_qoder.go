@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -8,8 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -35,12 +38,8 @@ const (
 	qoderSettingsFile = ".qoder/settings.json"
 )
 
-// importFromQoder reads an existing Qoder project (`.qoder/rules/*.md`,
-// `.qoder/agents/*.md`, `.qoder/skills/<name>/SKILL.md`, and
-// `.qoder/commands/*.md`) under root and writes specs into the
-// configured source directories.
 func importFromQoder(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings, src.MCPs); err != nil {
 		return err
 	}
 	c, err := importRulesDirectoryWith(root, qoderRulesDir, src, rulesDirImportOpts{
@@ -61,11 +60,15 @@ func importFromQoder(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	mcps, err := importQoderMCP(root, importSourcePath(root, src.MCPs))
+	if err != nil {
+		return err
+	}
 	settings, err := importPortableSettings(root, qoderSettingsFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "qoder", nestedModel: true, permissions: true})
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d settings (from qoder)\n", c.rules, agents, skills, commands, settings)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d settings (from qoder)\n", c.rules, agents, skills, commands, mcps, settings)
 	printImportNextSteps(root, "qoder")
 	return nil
 }
@@ -174,4 +177,55 @@ func splitAndTrimQoderTools(value string) []string {
 		}
 	}
 	return out
+}
+
+func importQoderMCP(root, dstDir string) (int, error) {
+	path := filepath.Join(root, qoderSettingsFile)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", path, err)
+	}
+	data, _ = adapters.StripJSONC(data)
+	var native map[string]any
+	if err := json.Unmarshal(data, &native); err != nil {
+		return 0, fmt.Errorf("parse %s: %w", path, err)
+	}
+	servers, _ := native["mcpServers"].(map[string]any)
+	if len(servers) == 0 {
+		return 0, nil
+	}
+	clean := make(map[string]any, len(servers))
+	var skipped []mcpLiteralRef
+	for name, raw := range servers {
+		if server, ok := raw.(map[string]any); ok {
+			if field := qoderOAuthCredential(server["oauth"]); field != "" {
+				skipped = append(skipped, mcpLiteralRef{server: name, field: field, leftOut: true})
+				continue
+			}
+			clean[name] = server
+		}
+	}
+	count, err := writeMCPYAMLs("qoder", clean, dstDir)
+	if err != nil {
+		return count, err
+	}
+	reportMCPLiteralRefs(skipped)
+	return count, nil
+}
+
+func qoderOAuthCredential(oauth any) string {
+	field := ""
+	walkMCPStrings("oauth", "oauth", oauth, func(path, key, value string) {
+		if field != "" {
+			return
+		}
+		named := mcpCredentialKey(key) && !spec.OnlyEscapedEnvRefs(value) && mcpLiteralCredential(mcpDetectorText(value))
+		if named || mcpCredentialDetected(value) {
+			field = path
+		}
+	})
+	return field
 }

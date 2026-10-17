@@ -26,5 +26,5 @@ func noteDroppedManualOnly(skills []spec.Entry) {
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindSkill, manualOnlyField, dropped,
-		"`.agents/skills/<name>/SKILL.md` is shared byte-for-byte with targets whose frontmatter has no such key; set x-"+target+"."+manualOnlyField+" to emit it for this target only")
+		"`.agents/skills/<name>/SKILL.md` is shared byte-for-byte with targets whose frontmatter has no such key; set x-"+target+"."+manualOnlyField+" to emit it, and set outputs.crush.skills-dir: .crush/skills when another target writes `.agents/skills`, or sync stops with AAI-102")
 }

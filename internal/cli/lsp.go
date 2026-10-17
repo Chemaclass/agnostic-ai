@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/lsp"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -19,18 +20,18 @@ func newLSPCmd() *cobra.Command {
 		Short: "Start the agnostic-ai Language Server (LSP) on stdio.",
 		Long: "Runs a Language Server Protocol server on stdin/stdout. " +
 			"Configure your editor to launch `agnostic-ai lsp` as the language " +
-			"server for agnostic-ai spec files (.agnostic-ai/**/*.md, *.mdc). " +
+			"server for agnostic-ai Markdown and YAML sources. " +
 			"The server pushes lint diagnostics whenever a file is opened or saved.",
 		Example: `  # Neovim (init.lua)
   vim.lsp.start({
     name = "agnostic-ai",
     cmd = { "agnostic-ai", "lsp" },
     root_dir = vim.fn.getcwd(),
-    filetypes = { "markdown" },
+    filetypes = { "markdown", "yaml" },
   })
 
-  # VS Code (settings.json, requires a generic LSP extension)
-  "languageServerExample.serverCommand": "agnostic-ai lsp"`,
+  # VS Code: install the agnostic-ai extension.
+  # Set agnostic-ai.binaryPath when the CLI is not on PATH.`,
 		SilenceUsage: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			srv := lsp.New(os.Stdin, os.Stdout, lspLinter)
@@ -39,21 +40,26 @@ func newLSPCmd() *cobra.Command {
 	}
 }
 
-// lspLinter runs the full lint suite rooted at root and returns a map of
-// absolute file path → LSP diagnostics. Files with no findings are omitted
-// so the server can push empty diagnostics to clear stale markers.
-func lspLinter(root string) map[string][]lsp.Diagnostic {
+// A load failure leaves the lint results incomplete, even with source diagnostics.
+func lspLinter(root string) (map[string][]lsp.Diagnostic, error) {
+	// The editor session outlives one run, so each lint reads the current Git layout.
+	gitquery.Reset()
+	var err error
+	root, err = filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolve diagnostics project root: %w", err)
+	}
 	cfg, err := config.Load(root)
 	if err != nil {
-		return nil
+		return lspLoadFailure(root, err)
 	}
 	layers, err := resolveLayers(root, cfg)
 	if err != nil {
-		return nil
+		return lspLoadFailure(root, err)
 	}
 	b, err := spec.LoadLayered(layers)
 	if err != nil {
-		return nil
+		return lspLoadFailure(root, err)
 	}
 	b.ApplyModelTiers(cfg.Models)
 	findings := collectLintFindings(cfg.Targets, projectKindSupport(cfg), b)
@@ -68,7 +74,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 		}
 		out[abs] = append(out[abs], lintFindingToDiagnostic(f))
 	}
-	return out
+	return out, nil
 }
 
 func lintFindingToDiagnostic(f lintFinding) lsp.Diagnostic {

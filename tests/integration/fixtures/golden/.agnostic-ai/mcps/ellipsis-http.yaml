@@ -1,0 +1,6 @@
+name: internal-tools
+targets: [ellipsis]
+type: http
+url: https://tools.example.com/mcp
+headers:
+  Authorization: Bearer ${TOOLS_TOKEN}

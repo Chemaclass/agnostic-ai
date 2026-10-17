@@ -1,7 +1,9 @@
 package cline
 
 import (
+	"encoding/json"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -10,16 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// defaultHooksDir is where hook scripts land. Cline has two hook
-// runtimes. The VS Code extension runs only `.clinerules/hooks/<Event>`,
-// an executable file with no extension, through `/bin/sh` and so its
-// shebang (apps/vscode/src/core/hooks/hook-factory.ts:1022-1033,
-// HookProcess.ts:70-77). The SDK runtime the Cline CLI runs scans
-// `.clinerules/hooks` and `.cline/hooks` for any `<Event>` file with an
-// allowed extension, "" included (hook-file-config.ts:49-117), and runs
-// all of them. One extensionless file in `.clinerules/hooks` is the only
-// layout both runtimes run, and run once. Override with
-// `outputs.cline.hooks-dir`.
+// VS Code discovers extensionless executable hooks on Unix and .ps1 hooks on Windows.
 const defaultHooksDir = ".clinerules/hooks"
 
 // hookShebang is the event script's first line. The extension execs the
@@ -93,6 +86,43 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		}
 	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
+	files := renderHookFiles(hooks, "")
+	if runtime.GOOS == "windows" {
+		files = append(files, renderWindowsHookFiles(hooks)...)
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file.Path, ".ps1") {
+			if err := sess.WriteFile(filepath.Join(dir, file.Path), string(file.Body), dryRun); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := sess.WriteExecutableFile(filepath.Join(dir, file.Path), string(file.Body), dryRun); err != nil {
+			return err
+		}
+	}
+	return materializeHookScripts(sess, hooks, dryRun)
+}
+
+func GlobalHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
+	return renderHookFiles(GlobalSDKHooks(hooks), scriptsDir)
+}
+
+func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
+	filtered := make([]spec.Entry, 0, len(hooks))
+	omitted := 0
+	for _, hook := range hooks {
+		if emit.ResolveMeta(hook.Meta, target)["runtime"] == "vscode" {
+			omitted++
+			continue
+		}
+		filtered = append(filtered, hook)
+	}
+	emit.NoteSurfaceGap(target, spec.KindHook, omitted, "global SDK hooks", "VS Code-only hooks require project sync; the SDK does not consume TaskStart context by default")
+	return filtered
+}
+
+func renderHookFiles(hooks []spec.Entry, globalScriptsDir string) []emit.HookScript {
 	commands := map[string][]hookCommand{}
 	var order []string
 	var unmapped, matchers, timeouts, inert int
@@ -124,7 +154,14 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 			order = append(order, canonical)
 		}
 		for _, cmd := range cmds {
-			commands[canonical] = append(commands[canonical], hookCommand{command: emit.WrapPortableHook(h, target, emit.ShellHookCommand(cmd, target, h.Meta)), tools: tools})
+			command := emit.WrapPortableHook(h, target, emit.ShellHookCommand(cmd, target, h.Meta))
+			if globalScriptsDir != "" {
+				rewrite := func(value string) string { return emit.RewriteGlobalHookPath(value, target, globalScriptsDir, h.Meta) }
+				command = emit.PortableHookCommand(h, target, emit.ExecFormCommand(rewrite(cmd), emit.HookArgs(target, h.Meta)), func(value string) string {
+					return emit.RewriteGlobalHookPath(value, target, globalScriptsDir)
+				})
+			}
+			commands[canonical] = append(commands[canonical], hookCommand{command: command, tools: tools})
 		}
 	}
 
@@ -137,14 +174,12 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	emit.NoteSurfaceGap(target, spec.KindHook, inert, "the Cline hook runtime",
 		"PreCompact is a file name Cline lists but maps to no runtime event today, so the script is discovered and never run")
 
+	var files []emit.HookScript
 	for _, event := range order {
-		path := filepath.Join(dir, event)
 		body := hookShebang + emit.WithHeader(hookScript(commands[event]), emit.FormatShell)
-		if err := sess.WriteExecutableFile(path, body, dryRun); err != nil {
-			return err
-		}
+		files = append(files, emit.HookScript{Path: event, Body: []byte(body), Mode: 0o755})
 	}
-	return materializeHookScripts(sess, hooks, dryRun)
+	return files
 }
 
 // hookScript renders the body of one event script. Cline never reads
@@ -220,9 +255,36 @@ func toolFilter(tools []string) string {
 	}
 	patterns := make([]string, len(tools))
 	for i, tool := range tools {
-		patterns[i] = `*'"toolName":"` + tool + `"'*`
+		var value strings.Builder
+		encoder := json.NewEncoder(&value)
+		encoder.SetEscapeHTML(false)
+		_ = encoder.Encode(tool)
+		patterns[i] = "*" + emit.ShellQuote(`"toolName":`+clineJSONSeparators(strings.TrimSuffix(value.String(), "\n"))) + "*"
 	}
 	return "case $aai_in in " + strings.Join(patterns, "|") + ") ;; *) exit 0 ;; esac\n"
+}
+
+// JSON.stringify leaves these separators literal; skip escaped backslashes.
+func clineJSONSeparators(value string) string {
+	var out strings.Builder
+	for i := 0; i < len(value); i++ {
+		if value[i] == '\\' && i+1 < len(value) {
+			if strings.HasPrefix(value[i:], `\u2028`) {
+				out.WriteRune('\u2028')
+				i += 5
+				continue
+			}
+			if strings.HasPrefix(value[i:], `\u2029`) {
+				out.WriteRune('\u2029')
+				i += 5
+				continue
+			}
+			out.WriteByte(value[i])
+			i++
+		}
+		out.WriteByte(value[i])
+	}
+	return out.String()
 }
 
 // clineBlockPrelude sets up the stderr file and the JSON string escape

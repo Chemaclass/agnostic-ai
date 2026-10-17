@@ -82,15 +82,30 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // promises).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example/model"}},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{
+			"model": "example/model",
+			"x-opencode": map[string]any{"permissions": []any{
+				map[string]any{"action": "read", "resource": "secrets/*", "effect": "deny"},
+			}},
+		}},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
-		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
+		{
+			Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body",
+			Meta: map[string]any{"tools": []any{"Read"}, "permission": map[string]any{
+				"read": map[string]any{"secrets/public/*": "allow", "secrets/*": "deny"},
+				"bash": "ask",
+			}},
+			NestedKeys: map[string][]string{
+				"permission":         {"read", "bash"},
+				"permission\x00read": {"secrets/public/*", "secrets/*"},
+			},
+		},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship the build"}, Body: "deploy command body"},
-		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
+		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Meta: map[string]any{"disable-model-invocation": true}, Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},
 		// Both plugin shapes: a tool hook keyed directly on the returned
@@ -102,6 +117,10 @@ func kitSinkBundle() spec.Bundle {
 		{
 			Kind: spec.KindHook, Name: "notify-idle", Path: "hooks/notify-idle.yaml",
 			Meta: map[string]any{"event": "session.idle", "command": "echo done"},
+		},
+		{
+			Kind: spec.KindHook, Name: "guard-shell-v2", Path: "hooks/guard-shell-v2.yaml",
+			Meta: map[string]any{"event": "PreToolUse", "matcher": "shell", "command": "echo guard", "x-opencode": map[string]any{"plugin-api": "v2"}},
 		},
 		{
 			Kind: spec.KindMCP, Name: "stdio-server",

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -62,15 +64,22 @@ func readText(t *testing.T, path string) string {
 	return string(data)
 }
 
+// localSettingsStore returns the repo store sync names in Claude Code's
+// personal settings.
+func localSettingsStore(t *testing.T, parent string) string {
+	t.Helper()
+	return repoStore(t, parent, readText(t, filepath.Join(".claude", "settings.local.json")))
+}
+
 func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 	parent := repoMemoryProject(t, true)
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
 
-	claude := readText(t, "CLAUDE.md")
-	store := repoStore(t, parent, claude)
-	if !strings.Contains(claude, "\n@"+store+"/MEMORY.md\n") || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
+	store := localSettingsStore(t, parent)
+	// Claude Code's auto memory loads the store's index itself.
+	if claude := readText(t, "CLAUDE.md"); strings.Contains(claude, store) || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("CLAUDE.md imports:\n%s", claude)
 	}
 	var local map[string]any
@@ -111,10 +120,28 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 	}
 }
 
+func TestSync_RepoPersonalMemoryReachesClaudeThroughCLAUDEmdWithAutoMemoryOff(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	store := localSettingsStore(t, parent)
+	if claude := readText(t, "CLAUDE.md"); !strings.Contains(claude, "\n@"+store+"/MEMORY.md\n") || !strings.Contains(claude, "\n@.agnostic-ai/memory/MEMORY.md\n") {
+		t.Errorf("CLAUDE.md imports:\n%s", claude)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check after sync: %v", err)
+	}
+}
+
 // With no managed .gitignore block the outputs may be committed, so they
-// keep the checkout store and never carry an absolute path.
+// keep the checkout store and never carry an absolute path. Auto memory
+// is off, so CLAUDE.md imports personal memory itself.
 func TestSync_RepoPersonalMemoryStaysOutOfCommittableFiles(t *testing.T) {
 	parent := repoMemoryProject(t, false)
+	t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +311,7 @@ func TestSync_CreatesThePrivateRepoStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	store := filepath.FromSlash(localSettingsStore(t, parent))
 	info, err := os.Stat(store)
 	if err != nil || !info.IsDir() {
 		t.Fatalf("store %s not created: %v", store, err)
@@ -299,7 +326,7 @@ func TestHookMemory_ReadsTheRepoStore(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	store := filepath.FromSlash(localSettingsStore(t, parent))
 	writeFile(t, filepath.Join(store, "MEMORY.md"), "- [Tabs](tabs.md): the user wants tabs\n")
 	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Stale](stale.md): checkout store\n")
 
@@ -314,7 +341,7 @@ func TestMemoryList_ReadsTheRepoStore(t *testing.T) {
 	if err := runSync(t); err != nil {
 		t.Fatal(err)
 	}
-	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	store := filepath.FromSlash(localSettingsStore(t, parent))
 	writeFile(t, filepath.Join(store, "tabs.md"), "---\nname: Tabs\ndescription: tabs\nmetadata:\n  type: user\n---\nTabs.\n")
 	writeFile(t, filepath.Join(store, "MEMORY.md"), "- [Tabs](tabs.md): the user wants tabs\n")
 
@@ -376,6 +403,8 @@ func TestSync_RepoPersonalMemoryHonorsAllowedOutputPaths(t *testing.T) {
 	for _, path := range []string{"CLAUDE.md", ".codex/config.toml", ".gemini/settings.json", "opencode.json", "kilo.jsonc"} {
 		t.Run(path, func(t *testing.T) {
 			parent := repoMemoryProject(t, true)
+			// With auto memory off, ignored CLAUDE.md names the store.
+			t.Setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
 			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, gemini, opencode, kilo]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n  allow: ["+path+"]\n")
 			if err := runSync(t); err != nil {
 				t.Fatal(err)
@@ -534,7 +563,6 @@ func TestMemoryPath_RepoModeSharesOneFolderAcrossWorktrees(t *testing.T) {
 	git(project, "commit", "-q", "-m", "init")
 	linked := filepath.Join(t.TempDir(), "linked")
 	git(project, "worktree", "add", "-q", linked)
-	writeFile(t, filepath.Join(linked, "agnostic-ai.local.yaml"), "memory:\n  personal: repo\n")
 	if err := os.MkdirAll(filepath.Join(linked, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -892,5 +920,206 @@ func TestSync_RepoMemoryFilesReturnToAnOlderBlock(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestMemoryWorktree_InheritsOnlyMainPersonalModeAndSharesEveryCommand(t *testing.T) {
+	isolateGit(t)
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\noutputs:\n  codex:\n    file: MAIN-ONLY.md\n")
+	main, _ := os.Getwd()
+	git(t, main, "config", "maintenance.auto", "false")
+	git(t, main, "add", "agnostic-ai.yaml")
+	git(t, main, "commit", "-qm", "memory fixture")
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(t, main, "worktree", "add", "-q", "--detach", linked)
+	want := memoryPaths(t)["personal"]
+	testutil.Chdir(t, linked)
+	cfg, err := config.Load(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.RepoPersonalMemory() || cfg.Outputs["codex"].File != "" {
+		t.Errorf("wrong inherited config: %+v", cfg)
+	}
+	if got := memoryPaths(t)["personal"]; got != want {
+		t.Errorf("personal = %s, want %s", got, want)
+	}
+	if out, err := runCLI(t, "sync", "--quiet"); err != nil {
+		t.Fatalf("sync: %v %s", err, out)
+	}
+	writeStore(t, filepath.Join(linked, ".agnostic-ai", "local", "memory"), map[string]string{"tabs.md": tabsFact})
+	if out, err := runRoot(t, "memory", "import", "--from", "checkout"); err != nil {
+		t.Fatalf("import: %v %s", err, out)
+	}
+	if got := readText(t, filepath.Join(want, "tabs.md")); got != tabsFact {
+		t.Errorf("import copied to wrong store: %s", got)
+	}
+	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, want+"/MEMORY.md") {
+		t.Errorf("hook reads wrong store: %s", got)
+	}
+	testutil.Chdir(t, main)
+	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, "user prefers tabs") {
+		t.Errorf("main checkout misses worktree fact: %s", got)
+	}
+	testutil.Chdir(t, linked)
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+	if cfg, err := config.Load("."); err != nil || cfg.RepoPersonalMemory() {
+		t.Errorf("worktree's own mode lost: %v %v", cfg, err)
+	}
+}
+
+func TestSync_MemoryModeSwitchSeedsEmptyStoreBothWays(t *testing.T) {
+	for _, toRepo := range []bool{true, false} {
+		t.Run(map[bool]string{true: "checkout to repo", false: "repo to checkout"}[toRepo], func(t *testing.T) {
+			repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			repo := memoryPaths(t)["personal"]
+			root, _ := os.Getwd()
+			checkout := filepath.Join(root, ".agnostic-ai", "local", "memory")
+			source, dest, mode := checkout, repo, "repo"
+			if !toRepo {
+				source, dest, mode = repo, checkout, "checkout"
+			}
+			writeStore(t, source, map[string]string{"tabs.md": tabsFact})
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: "+mode+"\n")
+			var notes strings.Builder
+			adapters.SetWarner(&notes)
+			t.Cleanup(func() { adapters.SetWarner(os.Stderr) })
+			if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+				t.Fatal(err)
+			}
+			out := notes.String()
+			data, err := os.ReadFile(filepath.Join(dest, "tabs.md"))
+			if err != nil || string(data) != tabsFact {
+				t.Errorf("destination fact = %s, %v", data, err)
+			}
+			if !strings.Contains(out, "copied 1 fact(s)") {
+				t.Errorf("copy count missing: %s", out)
+			}
+			if readText(t, filepath.Join(source, "tabs.md")) != tabsFact {
+				t.Error("source changed")
+			}
+		})
+	}
+}
+
+func TestSync_CheckoutModeWithLinkedWorktreesNamesRepoMode(t *testing.T) {
+	isolateGit(t)
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\n")
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+	main, _ := os.Getwd()
+	git(t, main, "config", "maintenance.auto", "false")
+	git(t, main, "add", "agnostic-ai.yaml")
+	git(t, main, "commit", "-qm", "memory fixture")
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(t, main, "worktree", "add", "-q", "--detach", linked)
+	for _, root := range []string{main, linked} {
+		testutil.Chdir(t, root)
+		var notes strings.Builder
+		adapters.SetWarner(&notes)
+		t.Cleanup(func() { adapters.SetWarner(os.Stderr) })
+		if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+			t.Fatal(err)
+		}
+		out := notes.String()
+		if !strings.Contains(out, "memory.personal: repo") || !strings.Contains(out, "agnostic-ai.local.yaml") {
+			t.Errorf("worktree note missing: %s", out)
+		}
+		notes.Reset()
+		if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(notes.String(), "memory.personal: repo") {
+			t.Errorf("unchanged worktree note repeated: %s", notes.String())
+		}
+	}
+}
+
+func TestSync_MemoryModeSwitchKeepsExistingFactsAndNonmutatingModes(t *testing.T) {
+	for _, mode := range []string{"existing fact", "index only", "dry-run", "check", "capture"} {
+		t.Run(mode, func(t *testing.T) {
+			repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			target := memoryPaths(t)["personal"]
+			writeStore(t, filepath.Join(".agnostic-ai", "local", "memory"), map[string]string{"tabs.md": tabsFact})
+			if mode == "existing fact" {
+				writeStore(t, target, map[string]string{"ci.md": ciFact})
+			}
+			if mode == "index only" {
+				writeStore(t, target, map[string]string{"MEMORY.md": "Keep this index.\n"})
+			}
+			switch mode {
+			case "dry-run":
+				if err := runSyncOnce(".", nil, true, false, "", 1); err != nil {
+					t.Fatal(err)
+				}
+			case "check":
+				_, _ = runCLI(t, "sync", "--check", "--quiet")
+			case "capture":
+				path := filepath.Join(".agnostic-ai", "rules", "probe.md")
+				writeFile(t, path, "---\nname: probe\n---\nScratch rule.\n")
+				if out, err := runRoot(t, "render", path, "--target", "codex"); err != nil {
+					t.Fatalf("capture: %v %s", err, out)
+				}
+			default:
+				if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(target, "tabs.md")); !os.IsNotExist(err) {
+				t.Errorf("sync seeded under %s: %v", mode, err)
+			}
+			if mode == "existing fact" {
+				out, _ := runRoot(t, "lint")
+				if !strings.Contains(out, "memory import --from checkout") {
+					t.Errorf("missing dark-store hint: %s", out)
+				}
+			}
+		})
+	}
+}
+
+func TestSync_MemoryModeSwitchLeavesDeletedHandledFactsGone(t *testing.T) {
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	target := memoryPaths(t)["personal"]
+	writeStore(t, filepath.Join(".agnostic-ai", "local", "memory"), map[string]string{"tabs.md": tabsFact, "MEMORY.md": "The scratch orchard has blue leaves.\n"})
+	if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+		t.Fatal(err)
+	}
+	if !importedFacts(target)["checkout/tabs.md"] {
+		t.Fatal("initial sync did not record copied fact")
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".md" {
+			if err := os.Remove(filepath.Join(target, entry.Name())); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := runSyncOnce(".", nil, false, false, "", 1); err != nil {
+		t.Fatal(err)
+	}
+	entries, err = os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".md" {
+			t.Errorf("unchanged sync restored deleted file %s", entry.Name())
+		}
+	}
+	if out, err := runRoot(t, "memory", "import", "--from", "checkout"); err != nil {
+		t.Fatalf("intentional reimport: %v %s", err, out)
+	}
+	if got := readText(t, filepath.Join(target, "tabs.md")); got != tabsFact {
+		t.Errorf("intentional import did not restore fact: %s", got)
 	}
 }

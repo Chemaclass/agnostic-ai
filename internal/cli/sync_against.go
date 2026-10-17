@@ -3,12 +3,14 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -285,6 +287,8 @@ var scopeSiblings = map[string]bool{"AGENTS.override.md": true, "WARP.md": true,
 // turn, so a linked output or source reads as
 // Git holds it.
 func (t *againstTree) exportLinkTargets() error {
+	tracked := append([]string(nil), t.tracked...)
+	sort.Strings(tracked)
 	done := map[string]bool{}
 	for {
 		var targets []string
@@ -301,10 +305,12 @@ func (t *againstTree) exportLinkTargets() error {
 		}
 		var files []string
 		for _, dest := range targets {
-			for _, p := range t.tracked {
-				if p == dest || strings.HasPrefix(p, dest+"/") {
-					files = append(files, p)
-				}
+			if i := sort.SearchStrings(tracked, dest); i < len(tracked) && tracked[i] == dest {
+				files = append(files, tracked[i])
+			}
+			prefix := dest + "/"
+			for i := sort.SearchStrings(tracked, prefix); i < len(tracked) && strings.HasPrefix(tracked[i], prefix); i++ {
+				files = append(files, tracked[i])
 			}
 		}
 		targets = files
@@ -315,6 +321,98 @@ func (t *againstTree) exportLinkTargets() error {
 			return err
 		}
 	}
+}
+
+type againstSkillLinkFailure struct {
+	path    string
+	message string
+}
+
+func (t *againstTree) diagnoseSkillLinks(cfg *config.Config, reports []driftReport) ([]againstSkillLinkFailure, error) {
+	if !cfg.Sync.SharedSkills {
+		return nil, nil
+	}
+	links := map[string]bool{}
+	for _, report := range reports {
+		for _, file := range report.Missing {
+			if filepath.Base(file.Path) != "SKILL.md" {
+				continue
+			}
+			link := filepath.ToSlash(filepath.Dir(file.Path))
+			recorded := t.prefix + link
+			if t.modes[recorded] != "120000" || !t.exported[recorded] {
+				continue
+			}
+			exported := filepath.Join(t.root, filepath.FromSlash(recorded))
+			info, err := os.Lstat(exported)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", link, err)
+			}
+			if !info.Mode().IsRegular() {
+				continue
+			}
+			destination, err := os.ReadFile(exported)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", link, err)
+			}
+			if filepath.IsAbs(string(destination)) {
+				continue
+			}
+			canonical := path.Clean(path.Join(path.Dir(recorded), filepath.ToSlash(string(destination))))
+			if !strings.HasPrefix(canonical, t.prefix) || !t.isTrackedPath(canonical+"/SKILL.md") {
+				continue
+			}
+			links[link] = true
+		}
+	}
+	if len(links) == 0 {
+		return nil, nil
+	}
+	policy, err := gitOutput(t.toplevel, isolatedGitEnv(), "config", "--bool", "--default", "true", "--get", "core.symlinks")
+	if err != nil {
+		return nil, fmt.Errorf("read original Git symlink checkout policy: %w", err)
+	}
+	if strings.TrimSpace(policy) != "false" {
+		return nil, nil
+	}
+	paths := make([]string, 0, len(links))
+	for link := range links {
+		paths = append(paths, link)
+	}
+	sort.Strings(paths)
+	failures := make([]againstSkillLinkFailure, 0, len(paths))
+	for _, link := range paths {
+		message := fmt.Sprintf("%s: Git exported this shared skill link as a plain file because core.symlinks=false; where link creation is supported, run git config --local core.symlinks true and rerun the check; otherwise set sync.shared-skills: false, run agnostic-ai sync, and stage the config and real skill copies", link)
+		if t.ref == againstHEAD {
+			message += "; commit the repair before checking HEAD"
+		}
+		failures = append(failures, againstSkillLinkFailure{path: link, message: message})
+	}
+	for i := range reports {
+		missing := reports[i].Missing[:0]
+		for _, file := range reports[i].Missing {
+			affected := false
+			for link := range links {
+				if strings.HasPrefix(filepath.ToSlash(file.Path), link+"/") {
+					affected = true
+					break
+				}
+			}
+			if !affected {
+				missing = append(missing, file)
+			}
+		}
+		reports[i].Missing = missing
+	}
+	return failures, nil
+}
+
+func againstSkillLinkError(failures []againstSkillLinkFailure) error {
+	var errs []error
+	for _, failure := range failures {
+		errs = append(errs, errors.New(failure.message))
+	}
+	return errors.Join(errs...)
 }
 
 // exportMissing checks out each output reports find missing that Git
@@ -529,11 +627,12 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 // at prefix there, and returns each path sync would write with its
 // content. Only the config, `.agnostic-ai/`, the configured source
 // directories, and the files reviews inline with `@path` are exported;
-// every other tracked directory is created empty, since scoped outputs
-// depend on which directories exist. A file sync merges into, such as a
-// settings file, is not exported, so its render can differ from the
-// committed bytes and never counts as proof. The working directory is
-// restored. A project directory ref does not hold renders nothing.
+// the directories a spec can scope to are created empty (renderDirs),
+// since scoped outputs depend on which directories exist. A file sync
+// merges into, such as a settings file, is not exported, so its render
+// can differ from the committed bytes and never counts as proof. The
+// working directory is restored. A project directory ref does not hold
+// renders nothing.
 func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]string, error) {
 	origin, err := os.Getwd()
 	if err != nil {
@@ -553,7 +652,7 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	if _, err := gitOutput(toplevel, env, "read-tree", ref); err != nil {
 		return nil, err
 	}
-	listed, err := gitOutput(toplevel, env, "ls-files", "-z")
+	listed, err := gitOutput(toplevel, env, "ls-files", "--stage", "-z")
 	if err != nil {
 		return nil, err
 	}
@@ -563,22 +662,24 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 			roots = append(roots, strings.TrimSuffix(filepath.ToSlash(filepath.Clean(s)), "/")+"/")
 		}
 	}
-	var specs []string
-	dirs := map[string]bool{}
-	for _, f := range strings.Split(listed, "\x00") {
-		rel, ok := strings.CutPrefix(f, prefix)
-		if f == "" || !ok {
+	var files, specs []string
+	linkedSpec := false
+	for _, rec := range strings.Split(listed, "\x00") {
+		meta, f, ok := strings.Cut(rec, "\t")
+		rel, inProject := strings.CutPrefix(f, prefix)
+		if !ok || !inProject {
 			continue
 		}
-		dirs[path.Dir(f)] = true
+		files = append(files, f)
 		for _, r := range roots {
 			if rel == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
 				specs = append(specs, f)
+				linkedSpec = linkedSpec || strings.HasPrefix(meta, gitSymlinkMode+" ")
 				break
 			}
 		}
 	}
-	for d := range dirs {
+	for _, d := range renderDirs(prefix, files, specs, linkedSpec) {
 		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(d)), 0o755); err != nil {
 			return nil, err
 		}
@@ -607,6 +708,51 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 		return nil, err
 	}
 	return plannedOutputs()
+}
+
+// gitSymlinkMode is the index mode of a symlink entry.
+const gitSymlinkMode = "120000"
+
+// renderDirs lists the directories renderRef creates empty under its
+// export: the project directory and the ones a spec can scope to. A rule
+// or skill folder such as `rules/backend/` scopes to `backend/` only when
+// that directory exists (spec.assignScopes), the one place a render reads
+// a project directory the export did not check out. Every other tracked
+// directory stays out, since a large repository spends seconds creating
+// and removing thousands of them for each commit rendered. A spec
+// symlink may point anywhere, so one brings back every tracked directory.
+// files and specs are paths from the repository root, and prefix is the
+// project directory within it.
+func renderDirs(prefix string, files, specs []string, linkedSpec bool) []string {
+	tracked := trackedDirs(files)
+	var out []string
+	seen := map[string]bool{}
+	add := func(d string) {
+		if d != "" && tracked[d] && !seen[d] {
+			seen[d] = true
+			out = append(out, d)
+		}
+	}
+	if linkedSpec {
+		for d := range tracked {
+			add(d)
+		}
+		return out
+	}
+	add(strings.TrimSuffix(prefix, "/"))
+	for _, f := range specs {
+		dir := path.Dir(strings.TrimPrefix(f, prefix))
+		if dir == "." {
+			continue
+		}
+		segs := strings.Split(dir, "/")
+		for i := range segs {
+			for j := i + 1; j <= len(segs); j++ {
+				add(prefix + strings.Join(segs[i:j], "/"))
+			}
+		}
+	}
+	return out
 }
 
 // underRoots reports whether rel is one of roots, a root directory

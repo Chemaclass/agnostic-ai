@@ -9,16 +9,16 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// portableHookDocNames are the hooks page's names for the targets the
+// portableHookDocNames are the hook reference's names for the targets the
 // portable form translates for, in the table's order.
 var portableHookDocNames = []struct{ target, name string }{
 	{"claude", "Claude Code"}, {"codex", "Codex"}, {"gemini", "Gemini"}, {"factory", "Factory"},
 	{"qoder", "Qoder"}, {"openhands", "OpenHands"}, {"goose", "Goose"},
 	{"augment", "Augment"}, {"crush", "Crush"}, {"windsurf", "Windsurf"},
-	{"cursor", "Cursor"}, {"copilot", "Copilot"}, {"cline", "Cline"},
+	{"kiro", "Kiro"}, {"cursor", "Cursor"}, {"copilot", "Copilot"}, {"cline", "Cline"},
 }
 
-// portableHookDocRow is the hooks page's table row for target.
+// portableHookDocRow is the hook reference's table row for target.
 func portableHookDocRow(target, name string) string {
 	var events, kinds []string
 	for _, on := range spec.PortableHookEvents {
@@ -42,7 +42,7 @@ func portableHookDocRow(target, name string) string {
 }
 
 func TestHooksDoc_PortableTableMatchesTheTranslation(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "site", "content", "docs", "spec-format", "hooks.md"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "site", "content", "docs", "spec-format", "hook-reference.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestHooksDoc_PortableTableMatchesTheTranslation(t *testing.T) {
 	}
 	for _, n := range portableHookDocNames {
 		if row := portableHookDocRow(n.target, n.name); !strings.Contains(string(data), row+"\n") {
-			t.Errorf("hooks.md misses the row:\n%s", row)
+			t.Errorf("hook-reference.md misses the row:\n%s", row)
 		}
 	}
 }

@@ -37,7 +37,25 @@ func (f HookTrustFinding) String() string {
 	if f.Status == "disabled" {
 		action = "review and enable"
 	}
-	return fmt.Sprintf("codex: %s: %s hook %q is %s; open /hooks in Codex to %s it", f.Path, f.Event, f.Hook, f.Status, action)
+	label := shortHookLabel(f.Hook)
+	full := ""
+	if label != f.Hook {
+		full = "; `agnostic-ai doctor --json` has the full command"
+	}
+	return fmt.Sprintf("codex: %s: %s hook %q (group %d, handler %d) is %s; open /hooks in Codex to %s it%s", f.Path, f.Event, label, f.Group, f.Handler, f.Status, action, full)
+}
+
+const hookLabelEdge = 40
+
+// shortHookLabel keeps the start and end of a long inline command, which
+// can run to several KB. The end names what the script runs.
+func shortHookLabel(label string) string {
+	label = strings.Join(strings.Fields(label), " ")
+	runes := []rune(label)
+	if len(runes) <= 2*hookLabelEdge+3 {
+		return label
+	}
+	return string(runes[:hookLabelEdge]) + "..." + string(runes[len(runes)-hookLabelEdge:])
 }
 
 // UserHooksPath uses the same user config directory as Codex's runtime.

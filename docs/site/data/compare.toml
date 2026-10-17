@@ -1075,3 +1075,46 @@
   [[targets.kinds]]
     id = "ignore"
     paths = [".augmentignore"]
+
+[[targets]]
+  id = "ellipsis"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = []
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = []
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".ellipsis/environments/sample-environment.yaml"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = [".ellipsis/code-review.yaml"]
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = [".ellipsis/environments/sample-environment.yaml"]
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []

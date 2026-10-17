@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -136,7 +137,8 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 		t.Errorf("skill asset dir = %q", skill.SkillAssetDir())
 	}
 	template := "# Handoff\n" +
-		"tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234\n\n" +
+		"tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234\n" +
+		"worktree: /path/to/checkout | status: active | pr: none\n\n" +
 		"## Goal\n## Acceptance\n## Done\n## In progress\n## Next steps\n" +
 		"## Open decisions\n## Gotchas\n## Verify\n"
 	if !strings.Contains(skill.Body, template) {
@@ -148,6 +150,8 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 		"git branch --show-current", "git rev-parse HEAD", "git status --short",
 		"secrets", "tokens", ".env", "memory store", "HANDOFF.auto.md", "newer",
 		"drift", "confirmation", "overwrites", "session start",
+		"git worktree list --porcelain", "handoffs/", "0600", "temporary file", "rename",
+		"branch-slug", "check-ignore", "removed",
 		"nearest ancestor", "agnostic-ai.yaml", "agnostic.config.yaml",
 	} {
 		if !strings.Contains(skill.Body, rule) {
@@ -222,8 +226,8 @@ func TestMaterialize_NewerAutoSnapshotKeepsManualTaskDetails(t *testing.T) {
 	for _, rule := range []string{
 		"Keep the manual Goal and Next steps",
 		"additional recent git evidence",
-		"Compare the manual header",
-		"cannot hide drift",
+		"Compare the chosen manual header",
+		"even when a snapshot is newer",
 	} {
 		if !strings.Contains(bundle.Skills[0].Body, rule) {
 			t.Errorf("resume instructions are missing %q", rule)
@@ -367,6 +371,50 @@ func TestMaterialize_ProcessHelper(t *testing.T) {
 	}
 	if err := cleanup(); err != nil {
 		t.Error(fmt.Errorf("cleanup %s: %w", root, err))
+	}
+}
+
+func TestMaterialize_MemoryIncludesBothIndexesForKiroAlone(t *testing.T) {
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("memory")
+	if err != nil {
+		t.Fatalf("materialize memory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Errorf("cleanup %s: %v", root, err)
+		}
+	})
+	bundle, err := spec.LoadLayered([]spec.Layer{{Name: "builtin", Root: root, Sources: config.Sources{Rules: "rules"}}})
+	if err != nil {
+		t.Fatalf("load memory layer: %v", err)
+	}
+	var include spec.Entry
+	var names []string
+	for _, rule := range bundle.Rules {
+		names = append(names, rule.Name)
+		if rule.Name == "kiro-memory-index" {
+			include = rule
+		}
+	}
+	if include.Name == "" {
+		t.Fatalf("memory rules = %v, want a kiro-memory-index rule", names)
+	}
+	if include.Meta["alwaysApply"] != true {
+		t.Errorf("alwaysApply = %v, want true", include.Meta["alwaysApply"])
+	}
+	for _, target := range adapters.Names() {
+		if got, want := include.EmitsTo(target), target == "kiro"; got != want {
+			t.Errorf("EmitsTo(%s) = %t, want %t", target, got, want)
+		}
+	}
+	for _, index := range []string{".agnostic-ai/memory/MEMORY.md", ".agnostic-ai/local/memory/MEMORY.md"} {
+		if got := strings.Count(include.Body, "#[[file:"+index+"]]"); got != 1 {
+			t.Errorf("body includes %s %d times, want once:\n%s", index, got, include.Body)
+		}
+	}
+	if got := strings.Count(include.Body, "#[["); got != 2 {
+		t.Errorf("body has %d includes, want the two indexes only:\n%s", got, include.Body)
 	}
 }
 

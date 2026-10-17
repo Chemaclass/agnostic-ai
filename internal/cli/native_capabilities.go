@@ -85,20 +85,24 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"SessionStart", "SessionEnd",
 	),
 	// The eight events docs.devin.ai/cli/extensibility/hooks/overview's
-	// own Hook Events table lists for Devin CLI's `.devin/hooks.v1.json`.
+	// own Hook Events table lists for Devin CLI's `.devin/hooks.v1.json`,
+	// plus PreCompact and PostCompact (manual|auto matchers), which only
+	// the v3000.11.92 changelog documents so far
+	// (docs.devin.ai/cli/changelog/stable.md, #2237).
 	"windsurf": setOf(
 		"PreToolUse", "PostToolUse",
 		"PermissionRequest", "UserPromptSubmit",
 		"Stop", "PostCompaction",
+		"PreCompact", "PostCompact",
 		"SessionStart", "SessionEnd",
 	),
-	// The five under Hook Event Names on
+	// The six under Hook Event Names on
 	// antigravity.google/docs/hooks?tab=ide. PreToolUse and PostToolUse
-	// take a matcher; the other three take a handler list directly and
-	// ignore it (#629).
+	// take a matcher; the other four take a handler list directly and
+	// ignore it (#629, #2124).
 	"antigravity": setOf(
 		"PreToolUse", "PostToolUse",
-		"PreInvocation", "PostInvocation",
+		"SessionStart", "PreInvocation", "PostInvocation",
 		"Stop",
 	),
 	// The 27 events in docs.qoder.com/cli/hooks-reference's own Event
@@ -230,7 +234,7 @@ var matcherAcceptingEvents = setOf(
 	// PreCompact (manual|auto) and SessionStart (startup|resume|clear).
 	"PermissionRequest", "PostToolUseFailure",
 	"SubagentStart", "SubagentStop",
-	"PreCompact", "SessionStart",
+	"PreCompact", "PostCompact", "SessionStart",
 	"BeforeTool", "AfterTool", // gemini
 	// cursor: tool/shell/MCP/file events filter on a regex matcher.
 	"beforeShellExecution", "afterShellExecution",
@@ -276,11 +280,11 @@ var targetsSupportingKind = kindSupport{
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
 	spec.KindHook:        setOf("claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode", "cline", "kilo"),
-	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
+	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment", "ellipsis"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kiro", "kilo", "qoder", "augment", "factory"),
-	spec.KindSettings:    setOf("claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor"),
-	spec.KindReview:      setOf("cursor", "goose", "codex"),
-	spec.KindEnvironment: setOf("cursor", "openhands", "amp", "claude", "codex"),
+	spec.KindSettings:    setOf("claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor", "ellipsis"),
+	spec.KindReview:      setOf("cursor", "goose", "codex", "ellipsis"),
+	spec.KindEnvironment: setOf("cursor", "openhands", "amp", "claude", "codex", "ellipsis"),
 	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),
 }
 

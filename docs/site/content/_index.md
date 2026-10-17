@@ -1,5 +1,5 @@
 +++
-title = "agnostic-ai: one spec, every AI CLI"
-description = "Write agents, skills, rules, and hooks once. agnostic-ai writes native configuration for 25 AI coding targets, with 20 enabled by default."
+title = "agnostic-ai: one place for your coding-agent instructions"
+description = "Keep Claude Code and Codex working from the same project guidance. Edit once, then generate the files each tool reads."
 template = "index.html"
 +++

@@ -12,6 +12,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -26,7 +27,11 @@ type globalSettingsFile struct {
 	// Empty native keys have no mapping.
 	model, effort  string
 	permissionMode string
-	effortLevel    func() []string
+	// permissionLists marks a file whose permissions.allow, ask, and
+	// deny lists sync merges rule by rule from the settings specs.
+	permissionLists bool
+	retention       string
+	effortLevel     func() []string
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
@@ -85,6 +90,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 	}
 	adapters.NoteSettingsFieldNoOp(target, "protected", protected, "protected paths are relative to a project, so sync --global does not write them")
 	permissions := globalPermissionSettings(target, f, settings)
+	retention := globalRetentionSetting(target, f, settings)
 	if f.path == "" {
 		const reason = "sync --global does not write this target's user settings yet"
 		adapters.NoteSettingsFieldNoOp(target, "model", models, reason)
@@ -92,7 +98,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
 		return nil
 	}
-	out := permissions
+	out := append(permissions, retention...)
 	if model := adapters.SettingsModel(settings, target); model != "" {
 		if f.model == "" {
 			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
@@ -141,6 +147,10 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 		}
 		for _, key := range slices.Sorted(maps.Keys(permissions)) {
 			field := "permissions." + key
+			if f.permissionLists && slices.Contains(spec.PermissionLists, key) {
+				// mergeGlobalPermissionRules writes the rule lists.
+				continue
+			}
 			if key != "default-mode" || f.permissionMode == "" {
 				adapters.NoteSettingsFieldNoOp(target, field, 1, "sync --global has no user-level mapping for this permission field")
 				continue
@@ -173,6 +183,10 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 		}
 		for _, key := range slices.Sorted(maps.Keys(flat)) {
 			value := flat[key]
+			if list, ok := strings.CutPrefix(key, "permissions."); ok && f.permissionLists && slices.Contains(spec.PermissionLists, list) {
+				// The rule lists merge rule by rule with the portable ones.
+				continue
+			}
 			if reason, ok := f.reserved[strings.SplitN(key, ".", 2)[0]]; ok {
 				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue
@@ -264,6 +278,10 @@ type globalSettingsMerge struct {
 // leaving every other key and line as it is. base is the content to
 // start from; nil reads path.
 func mergeGlobalSettings(path, format string, base []byte, want []globalSetting, previous map[string]any) (globalSettingsMerge, error) {
+	return mergeGlobalSettingsKeeping(path, format, base, want, previous, nil)
+}
+
+func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, keep map[string]string) (globalSettingsMerge, error) {
 	data := base
 	absent := false
 	if data == nil {
@@ -293,19 +311,19 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 		recorded, owned := previous[s.key]
 		switch {
 		case !present:
-			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.value)))
+			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.key, s.value)))
 			set[s.key] = s.value
 		case sameSetting(have, s.value):
 			if !owned || !sameSetting(recorded, s.value) {
 				m.adopted = append(m.adopted, s.key)
 			}
 		case owned && sameSetting(have, recorded):
-			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.value)))
+			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.key, s.value)))
 			set[s.key] = s.value
 		default:
-			m.changes = append(m.changes, fmt.Sprintf("overwrite %s = %s with %s", s.key, settingsValueText(have), settingsValueText(s.value)))
+			m.changes = append(m.changes, fmt.Sprintf("overwrite %s = %s with %s", s.key, settingsValueText(s.key, have), settingsValueText(s.key, s.value)))
 			m.conflicts = append(m.conflicts, fmt.Sprintf("%s is %s, set outside agnostic-ai, and sync writes %s; to keep it, %s in %s",
-				s.key, settingsValueText(have), settingsValueText(s.value), settingsKeepHint(s, have), s.source))
+				s.key, settingsValueText(s.key, have), settingsValueText(s.key, s.value), settingsKeepHint(s, have), s.source))
 			set[s.key] = s.value
 		}
 		m.owned[s.key] = s.value
@@ -340,7 +358,7 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 		}
 		return m, nil
 	}
-	m.data, err = editJSONRoot(path, data, order, set, remove)
+	m.data, err = editJSONRootKeeping(path, data, "", order, set, remove, keep)
 	return m, err
 }
 
@@ -373,13 +391,44 @@ func sameSetting(a, b any) bool {
 // settingsKeepHint is the spec edit that keeps have as the value.
 func settingsKeepHint(s globalSetting, have any) string {
 	if strings.HasPrefix(s.field, "x-") || s.field == "permissions.default-mode" {
-		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(have))
+		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(s.key, have))
 	}
-	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(have), s.field)
+	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(s.key, have), s.field)
 }
 
-func settingsValueText(v any) string {
-	return jsonValueText(v, "", "")
+func settingsValueText(key string, v any) string {
+	parts := strings.Split(key, ".")
+	value := v
+	for i := len(parts) - 1; i >= 0; i-- {
+		value = map[string]any{parts[i]: value}
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "[preview withheld]"
+	}
+	shown := preview.Display("settings.json", string(data))
+	if !shown.Hidden {
+		return jsonValueText(v, "", "")
+	}
+	if shown.Withheld {
+		return strings.TrimSpace(shown.Text)
+	}
+	decoder := json.NewDecoder(strings.NewReader(shown.Text))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return "[preview withheld]"
+	}
+	for _, part := range parts {
+		object, ok := value.(map[string]any)
+		if !ok {
+			return "[preview withheld]"
+		}
+		value, ok = object[part]
+		if !ok {
+			return "[preview withheld]"
+		}
+	}
+	return jsonValueText(value, "", "")
 }
 
 // settingsValues decodes the top-level keys of a user settings file.

@@ -35,7 +35,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindCommand, []string{".opencode/commands/deploy.md"}},
 		{spec.KindSkill, []string{".opencode/skills/uno/SKILL.md", ".opencode/skills/dos/SKILL.md", ".opencode/skills/tres/SKILL.md"}},
 		{spec.KindRule, []string{"AGENTS-rules.md"}},
-		{spec.KindHook, []string{".opencode/plugins/fmt-go.ts", ".opencode/plugins/notify-idle.ts"}},
+		{spec.KindHook, []string{".opencode/plugins/fmt-go.ts", ".opencode/plugins/notify-idle.ts", ".opencode/plugins/guard-shell-v2.ts"}},
 		{spec.KindMCP, []string{"opencode.json"}},
 		{spec.KindSettings, []string{"opencode.json"}},
 	}

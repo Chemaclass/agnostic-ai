@@ -39,7 +39,7 @@
 // `sync` reports a coverage note naming the truncation so the author
 // hears it before Antigravity cuts the file, not after. The count is
 // taken on the bytes that land, frontmatter, provenance header, and
-// heading included (target-audit 2026-09-24, #1114). A separate
+// heading included, plus the expanded built-in memory index bodies. A separate
 // 20,000-token budget covers every `always_on` rule together: past it,
 // Antigravity demotes its largest rules from inline text to a
 // `path: description` pointer, so this adapter raises no note for that
@@ -60,7 +60,7 @@
 //
 // `sync --global` writes skills to `~/.gemini/config/skills/`. The
 // vendor's IDE tab rows that path as the global scope and calls
-// `~/.gemini/antigravity/skills/` legacy, while its Antigravity 2.0 tab
+// `~/.gemini/antigravity/skills/` legacy, while its Antigravity app section
 // names the config path with no legacy alternative at all
 // (antigravity.google/docs/skills?tab=ide). See
 // internal/cli/global_targets.go.
@@ -131,9 +131,9 @@
 // rather than by event (antigravity.google/docs/hooks?tab=ide). Each spec
 // becomes its own named definition holding the one event it names, so
 // `enabled: false` (the definition's own field, the inverse of the
-// portable `disabled: true`) disables that spec alone. Five events run:
+// portable `disabled: true`) disables that spec alone. Six events run:
 // PreToolUse and PostToolUse hold `{matcher, hooks}` groups, while
-// PreInvocation, PostInvocation and Stop hold a handler list directly
+// SessionStart, PreInvocation, PostInvocation and Stop hold a handler list directly
 // and ignore the matcher, so this adapter writes each shape where the
 // vendor documents it. The hook payload's `transcriptPath` resolves
 // under `~/.gemini/antigravity-ide`, the IDE's own app-data directory,
@@ -143,6 +143,8 @@
 package antigravity
 
 import (
+	"path/filepath"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -219,6 +221,21 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
+	rulesOpts := emit.RulesDirOpts{
+		Dir:         rulesDir,
+		SkipAgents:  true,
+		SkipSkills:  true,
+		FormatRule:  rule,
+		ScopeAtRoot: true,
+	}
+	native := b
+	var err error
+	native.Rules, err = nativeMemoryRules(b.Rules, cfg, func(entry spec.Entry) string {
+		return emit.RulesDirectoryEntryDir(rulesOpts, entry)
+	})
+	if err != nil {
+		return err
+	}
 	// Agents and skills emit through their native layouts below, so
 	// suppress the rule-form `agent-<name>.md` / `skill-<name>.md`
 	// output from RulesDirectory. FormatRule writes the mandatory
@@ -226,16 +243,14 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	// places a scoped rule's copy of the rules directory inside the
 	// scope (`<scope>/.agents/rules/<name>.md`), matching the vendor's
 	// own directory-scoped discovery (#1114).
-	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:         rulesDir,
-		SkipAgents:  true,
-		SkipSkills:  true,
-		FormatRule:  rule,
-		ScopeAtRoot: true,
-	}, dryRun); err != nil {
+	if err := sess.RulesDirectory(native, rulesOpts, dryRun); err != nil {
 		return err
 	}
-	noteOversizedRules(b.Rules)
+	if err := noteOversizedRules(native.Rules, func(entry spec.Entry) string {
+		return emit.RulesDirectoryEntryDir(rulesOpts, entry)
+	}); err != nil {
+		return err
+	}
 	noteInvalidTriggerOverrides(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {
@@ -274,6 +289,14 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
+	if path := emit.OutputRulesFile(cfg, target, ""); path != "" {
+		b.Rules, err = nativeMemoryRules(b.Rules, cfg, func(spec.Entry) string {
+			return filepath.Dir(path)
+		})
+		if err != nil {
+			return err
+		}
+	}
 	return sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
 }
 

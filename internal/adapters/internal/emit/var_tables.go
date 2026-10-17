@@ -112,6 +112,8 @@ var TargetVarPaths = map[string]map[string]string{
 	"aider": {},
 	"jules": {},
 	"goose": {VarAgentsDir: ".agents/agents"},
+	// ellipsis writes one review file and no per-kind directory.
+	"ellipsis": {},
 }
 
 // dirRelativeVars maps each *_DIR variable to its sub-directory under

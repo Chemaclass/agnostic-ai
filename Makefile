@@ -1,4 +1,4 @@
-.PHONY: build test test-race ci-local test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -17,7 +17,7 @@ test:
 	go test ./...
 
 test-race:
-	go test -race ./...
+	go test -count=1 -race ./...
 
 # Same target and flags as the linux/amd64 build in .goreleaser.yml, so the
 # number matches the published binary.
@@ -29,8 +29,8 @@ size-check:
 # e2e_test.sh drives the built binary, so build first.
 test-shell: build
 	bashunit scripts/release-notes_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
-		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
-		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh \
+		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
+		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
 		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh \
 		scripts/bench-commands_test.sh
 
@@ -99,6 +99,7 @@ preflight: fmt-check lint test
 #
 # Each line is the local equivalent of one job, in the workflow's own order.
 ci-local: fmt-check test-race build lint
+	$(MAKE) opencode-hooks-test
 	GOOS=js GOARCH=wasm go build -o /tmp/agnostic-ai.wasm ./cmd/agnostic-ai-wasm
 	go run ./cmd/schemagen
 	git diff --exit-code docs/schemas/config.schema.json
@@ -226,3 +227,7 @@ playground-serve: site-build playground-build
 
 playground-clean:
 	rm -f $(PLAYGROUND_DIR)/agnostic-ai.wasm $(PLAYGROUND_DIR)/wasm_exec.js
+
+opencode-hooks-test:
+	cd tests/vendor/opencode && npm ci --ignore-scripts --no-audit --no-fund
+	node tests/vendor/opencode/prepare.mjs

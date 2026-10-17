@@ -156,7 +156,7 @@ func (g *importViewGuard) settle(root string) error {
 	v.before = withEntries(after, olds)
 	for _, path := range overlays {
 		if v.toolsUnedited(importingTools(g.files[path].sources)) {
-			if err := g.rewrite(path, g.files[path].before); err != nil {
+			if err := g.rewrite(path, withoutGrantedRoots(path, g.files[path].before, importSyncRoots(root), root)); err != nil {
 				return err
 			}
 			setImportDrops(path, nil)
@@ -695,10 +695,13 @@ func (v *importToolView) recorded(paths []string, all bool) bool {
 // hidesKey reports whether each tool renders e the same without key, and
 // whether every render needed to tell succeeded.
 func (v *importToolView) hidesKey(tools []adapters.Adapter, e spec.Entry, key string) (hides, known bool) {
+	keys := e.LoadedKeys(key)
 	without := e
 	without.Meta = maps.Clone(e.Meta)
-	delete(without.Meta, key)
-	without.MetaKeys = slices.DeleteFunc(slices.Clone(e.MetaKeys), func(k string) bool { return k == key })
+	for _, k := range keys {
+		delete(without.Meta, k)
+	}
+	without.MetaKeys = slices.DeleteFunc(slices.Clone(e.MetaKeys), func(k string) bool { return slices.Contains(keys, k) })
 	for _, a := range tools {
 		with, err := v.render(a, spec.NewBundle([]spec.Entry{e}))
 		if err != nil {
@@ -774,6 +777,7 @@ func entryWithBytes(e spec.Entry, data []byte, cfg *config.Config) (spec.Entry, 
 	if err != nil {
 		return spec.Entry{}, err
 	}
+	parsed = parsed.PathsAsGlobs()
 	old := e
 	old.Meta, old.MetaKeys, old.MetaStyles = parsed.Meta, parsed.MetaKeys, parsed.MetaStyles
 	old.NestedKeys, old.Literals, old.Body, old.BodyLine = parsed.NestedKeys, parsed.Literals, parsed.Body, 0

@@ -411,3 +411,27 @@ func readKiroHookEntries(t *testing.T, path string) []map[string]any {
 	}
 	return doc.Hooks
 }
+
+func TestEmit_PortableBeforeToolHookUsesKiroSelectors(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	bundle := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindHook, Name: "portable-shell", Meta: map[string]any{"on": "before-tool", "match": "shell", "command": "./guard.sh"}},
+		{Kind: spec.KindHook, Name: "portable-edit", Meta: map[string]any{"on": "before-tool", "match": "edit", "command": "./guard.sh"}},
+		{Kind: spec.KindHook, Name: "portable-mcp", Meta: map[string]any{"on": "before-tool", "match": "mcp:git", "command": "./guard.sh"}},
+		{Kind: spec.KindHook, Name: "reserved-mcp", Meta: map[string]any{"on": "before-tool", "match": "mcp:mcp", "command": "./guard.sh"}},
+		{Kind: spec.KindHook, Name: "reserved-builtin", Meta: map[string]any{"on": "before-tool", "match": "mcp:builtin", "command": "./guard.sh"}},
+		{Kind: spec.KindHook, Name: "reserved-powers", Meta: map[string]any{"on": "before-tool", "match": "mcp:powers", "command": "./guard.sh"}},
+	})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	for name, matcher := range map[string]string{"portable-shell": "^(execute_bash|execute_pwsh)$", "portable-edit": "^(fs_write|fs_append|str_replace|delete_file)$", "portable-mcp": "@git/*", "reserved-mcp": "@mcp/*", "reserved-builtin": "@builtin/*", "reserved-powers": "@powers/*"} {
+		entries := readKiroHookEntries(t, filepath.Join(dir, ".kiro", "hooks", name+".json"))
+		if len(entries) != 1 {
+			t.Fatalf("%s entries = %+v", name, entries)
+		}
+		if entries[0]["trigger"] != "PreToolUse" || entries[0]["matcher"] != matcher {
+			t.Errorf("%s = %+v, want PreToolUse %q", name, entries[0], matcher)
+		}
+	}
+}

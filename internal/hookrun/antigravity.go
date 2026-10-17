@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Source: antigravity.google/docs/hooks (rechecked 2026-10-03). Documented
+// Source: antigravity.google/docs/hooks (rechecked 2026-10-13). Documented
 // there:
 //   - Payload: "Hooks receive input through stdin as JSON and return
 //     output through stdout as JSON. Field names use camelCase." Every
@@ -39,7 +39,7 @@ const antigravityDocs = "https://antigravity.google/docs/hooks"
 const antigravityDefaultTimeout = 30 * time.Second
 
 // antigravityDecisions are PreToolUse's documented `decision` values.
-var antigravityDecisions = []string{"allow", "deny", "ask", "force_ask", "deny_unless_prior_grant"}
+var antigravityDecisions = []string{"allow", "auto_approve", "deny", "ask", "force_ask", "deny_unless_prior_grant"}
 
 // antigravityEditTools are the file tools whose arguments the page lists,
 // in the order --edit tries them.
@@ -133,18 +133,7 @@ type antigravityRead struct {
 	uncounted string
 }
 
-// readAntigravity follows the reply contract. PreToolUse needs a
-// `decision`: "allow" allows; "deny" "Hard blocks execution immediately";
-// "ask" "Prompts you for approval, but respects “Always Allow”
-// settings"; "force_ask" "Always prompts you for approval"; and
-// "deny_unless_prior_grant" "Denies execution unless the resource was
-// previously approved in a prior grant". Stop needs one too: "continue"
-// keeps the agent running and "Any other value allows the stop".
-// PostToolUse "Returns an empty JSON object {}", and PreInvocation and
-// PostInvocation return optional fields. Anything else, a non-zero exit
-// included, is a result the page does not describe. ask and
-// deny_unless_prior_grant depend on saved permissions hook run cannot
-// see, so they are not counted either.
+// readAntigravity excludes outcomes that depend on unseen permissions or policy.
 func readAntigravity(event string, r Result) antigravityRead {
 	switch {
 	case r.TimedOut:
@@ -177,6 +166,10 @@ func readAntigravity(event string, r Result) antigravityRead {
 		return antigravityRead{decision: Block, uncounted: "replied " + decision + ": the result depends on Antigravity's saved permissions"}
 	case decision == "force_ask":
 		return antigravityRead{decision: Block, note: "replied force_ask: Antigravity asks the user before the tool runs; read as block"}
+	case decision == "allow":
+		return antigravityRead{decision: Allow, uncounted: "replied allow: defers to the next hook or default policy; hook run cannot determine whether the tool runs"}
+	case decision == "auto_approve":
+		return antigravityRead{decision: Allow, note: "replied auto_approve: Antigravity approves a call the default policy would prompt for, and honors the user's own rules; read as allow"}
 	}
 	return antigravityRead{decision: Allow}
 }

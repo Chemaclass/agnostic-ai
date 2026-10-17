@@ -289,3 +289,98 @@ func TestUnchangedFrom_SeesAReorderOnlyWhenTheClaimRecordedOrder(t *testing.T) {
 		t.Error("a claim without an order sum now treats a reorder as an edit")
 	}
 }
+
+func TestMergeJSONFileNested_MergesANestedObjectEntryByEntry(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "settings.local.json"
+	if err := os.WriteFile(path, []byte(`{"sandbox":{"mode":"per-command","filesystem":{"denyWrite":["/locks"]}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.StartDetailedRecording()
+	err := sess.MergeJSONFileNested(path, map[string]any{
+		"sandbox": map[string]any{"filesystem": NestedJSONObject(map[string]any{
+			"denyRead":   ClaimedJSONItems([]any{"/secret"}, []string{ContentSum(`"/secret"`)}),
+			"allowWrite": ClaimedJSONItems([]any{"/store"}, []string{ContentSum(`"/store"`)}),
+		})},
+	}, []string{"sandbox"}, false)
+	writes := sess.StopDetailedRecording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths [][]string
+	for _, key := range writes[0].Keys {
+		paths = append(paths, key.Path)
+	}
+	if want := [][]string{{"sandbox", "filesystem", "allowWrite"}, {"sandbox", "filesystem", "denyRead"}}; !reflect.DeepEqual(paths, want) {
+		t.Errorf("claims = %v, want %v in sorted order", paths, want)
+	}
+	text := readFileString(t, path)
+	if !strings.Contains(text, `"mode": "per-command"`) || !strings.Contains(text, `"/locks"`) || !strings.Contains(text, `"/store"`) {
+		t.Errorf("file = %s", text)
+	}
+	if strings.Index(text, `"denyWrite"`) > strings.Index(text, `"allowWrite"`) || strings.Index(text, `"allowWrite"`) > strings.Index(text, `"denyRead"`) {
+		t.Errorf("entries are not in disk order then sorted: %s", text)
+	}
+}
+
+func TestMergeJSONFileNested_RemovingANestedEntryReleasesItAndEmptiedObjects(t *testing.T) {
+	for _, tc := range []struct {
+		name, onDisk, want string
+	}{
+		{"only the grant", `{"sandbox":{"filesystem":{"allowWrite":["/store"]}}}`, "{}\n"},
+		{"user sibling", `{"sandbox":{"filesystem":{"allowWrite":["/store"],"denyWrite":["/locks"]}}}`, "{\n  \"sandbox\": {\n    \"filesystem\": {\n      \"denyWrite\": [\n        \"/locks\"\n      ]\n    }\n  }\n}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			const path = "settings.local.json"
+			if err := os.WriteFile(path, []byte(tc.onDisk), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			PriorMergedKeys = func(string) []MergedKey {
+				return []MergedKey{{Path: []string{"sandbox", "filesystem", "allowWrite"}, Items: []string{ContentSum(`"/store"`)}}}
+			}
+			defer func() { PriorMergedKeys = nil }()
+			sess := NewSession()
+			sess.StartDetailedRecording()
+			err := sess.MergeJSONFileNested(path, map[string]any{
+				"sandbox": map[string]any{"filesystem": NestedJSONObject(map[string]any{"allowWrite": RemoveJSONKey})},
+			}, []string{"sandbox"}, false)
+			writes := sess.StopDetailedRecording()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.ContainsFunc(writes[0].Released, func(p []string) bool {
+				return slices.Equal(p, []string{"sandbox", "filesystem", "allowWrite"})
+			}) {
+				t.Errorf("released = %v", writes[0].Released)
+			}
+			if got := readFileString(t, path); got != tc.want {
+				t.Errorf("file = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMergeJSONFileNested_KeepsANonObjectValueOnTheNestedPath(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "settings.local.json"
+	if err := os.WriteFile(path, []byte(`{"sandbox":{"filesystem":"user value"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.StartDetailedRecording()
+	err := sess.MergeJSONFileNested(path, map[string]any{
+		"sandbox": map[string]any{"filesystem": NestedJSONObject(map[string]any{"allowWrite": ClaimedJSONItems([]any{"/store"}, []string{ContentSum(`"/store"`)})})},
+	}, []string{"sandbox"}, false)
+	writes := sess.StopDetailedRecording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(writes[0].Keys) != 0 {
+		t.Errorf("claims = %v", writes[0].Keys)
+	}
+	if text := readFileString(t, path); !strings.Contains(text, `"filesystem": "user value"`) || strings.Contains(text, "/store") {
+		t.Errorf("file = %s", text)
+	}
+}

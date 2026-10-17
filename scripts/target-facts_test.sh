@@ -53,10 +53,10 @@ function test_batches_covers_every_target_exactly_once() {
 }
 
 function test_batches_spreads_the_remainder_evenly() {
-  # 25 targets over 4 groups is 7/6/6/6, never 6/6/6/7 or a 4-wide gap.
+  # 26 targets over 4 groups is 7/7/6/6, never 6/6/7/7 or a 4-wide gap.
   local sizes
   sizes=$(batches 4 | sed 's/^[0-9]*: //' | awk '{ print NF }' | tr '\n' ' ')
-  assert_equals "7 6 6 6 " "$sizes"
+  assert_equals "7 7 6 6 " "$sizes"
 }
 
 function test_batches_clamps_a_count_above_the_target_total() {
@@ -116,6 +116,13 @@ function test_doc_section_extracts_only_the_requested_target() {
   assert_not_contains "### Warp" "$out"
 }
 
+function test_doc_section_includes_the_targets_native_reference() {
+  local out
+  out=$(doc_section codex)
+  assert_contains "approval_policy" "$out"
+  assert_not_contains "+++" "$out"
+}
+
 # ---- dump_target -------------------------------------------------------------
 
 function test_dump_target_rejects_an_unknown_target() {
@@ -130,6 +137,7 @@ function test_dump_target_emits_every_section_for_a_real_target() {
   assert_contains "declared capabilities" "$out"
   assert_contains "default output paths" "$out"
   assert_contains "docs/site/content/docs/target-behavior.md lines" "$out"
+  assert_contains "docs/site/content/docs/global-configuration.md lines" "$out"
   assert_contains "**kilo**" "$out"
   assert_contains "docs/site/content/docs/targets/kilo.md" "$out"
   assert_contains "# Kilo" "$out"
@@ -230,6 +238,21 @@ function test_changed_classes_marks_a_moved_page_deep() {
   out=$(changed_classes "$CHANGED_RUN")
   assert_contains "deep: claude" "$out"
   assert_contains "sweep: zed" "$out"
+}
+
+function test_requested_targets_survive_a_missing_fetch_row() {
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\nzed\n' >"$CHANGED_DIR/requested-targets.txt"
+  assert_equals "$(printf 'claude\nzed')" "$(run_targets "$CHANGED_RUN")"
+  assert_contains 'deep: claude' "$(changed_classes "$CHANGED_RUN")"
+}
+
+function test_changed_classes_rejects_an_unrequested_fetch_target() {
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\n' >"$CHANGED_DIR/requested-targets.txt"
+  local status=0
+  changed_classes "$CHANGED_RUN" >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
 }
 
 function test_changed_classes_marks_a_moved_changelog_deep() {
@@ -441,6 +464,22 @@ function test_builtin_regression_target_docs_limit_deep_to_requested_target() {
   assert_contains 'sweep: factory claude' "$out"
 }
 
+function test_builtin_regression_split_references_keep_their_review_scope() {
+  builtin_regression_fixture
+  local path out
+  for path in global-configuration.md spec-format/hook-reference.md spec-format/hook-recipes.md cli-reference/hook-diagnostics.md; do
+    mkdir -p "$(dirname "$ROOT/docs/site/content/docs/$path")"
+    printf 'reference docs\n' >"$ROOT/docs/site/content/docs/$path"
+    out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+    assert_builtin_regression_shared_deep "$out"
+    rm "$ROOT/docs/site/content/docs/$path"
+  done
+  printf 'native reference\n' >"$ROOT/docs/site/content/docs/targets/continue-reference.md"
+  out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  assert_contains 'builtin-deep: continue' "$out"
+  assert_contains 'sweep: factory claude' "$out"
+}
+
 function test_builtin_regression_unknown_adapter_mapping_is_conservative() {
   builtin_regression_fixture
   mkdir -p "$ROOT/internal/adapters/unmapped"
@@ -598,4 +637,144 @@ function test_builtin_regression_dirty_built_in_against_head_is_deep() {
   builtin_regression_fixture
   printf 'name: end\ntargets: [claude]\nevent: Stop\n' >"$BUILTINS_DIR/demo-hook/hooks/end.yaml"
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since HEAD)"
+}
+
+# ---- review reasons ----------------------------------------------------------
+
+function test_review_reasons_separates_vendor_builtin_and_recovery_work() {
+  builtin_regression_fixture
+  write_run "factory docs https://f/1 changed" "claude docs https://c/1 unchanged" "continue docs https://n/1 failed"
+  printf 'changed\n' >>"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'target\treason\tbaseline\tevidence\tstate\tchecklist' "$out"
+  assert_contains $'factory\tvendor-delta\t-\thttps://f/1\tchanged\tvendor-review' "$out"
+  assert_contains $'continue\tsource-recovery\t-\thttps://n/1\tfailed\trecover-source' "$out"
+  assert_contains $'claude\tbuilt-in\t'"$BUILTIN_BASE"$'\tinternal/builtins/data/demo/skills/demo/SKILL.md\tchanged\tbuilt-in-review' "$out"
+  assert_not_contains $'claude\tvendor-delta' "$out"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_target_ownership_comes_from_the_registry() {
+  builtin_regression_fixture
+  printf 'changed\n' >>"$ROOT/internal/adapters/continueai/continueai.go"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'continue\tshared-repository\t'"$BUILTIN_BASE"$'\tinternal/adapters/continueai/continueai.go\tchanged\ttarget-claims,built-in-review' "$out"
+  assert_not_contains $'factory\t' "$out"
+  assert_not_contains $'claude\t' "$out"
+}
+
+function test_review_reasons_keeps_all_shared_paths_after_a_builtin_change() {
+  builtin_regression_fixture
+  printf 'changed\n' >>"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  printf 'changed\n' >>"$ROOT/internal/spec/spec.go"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'factory\tbuilt-in\t' "$out"
+  assert_contains $'factory\tshared-repository\t'"$BUILTIN_BASE"$'\tinternal/spec/spec.go\tchanged\ttarget-claims,built-in-review' "$out"
+  assert_not_contains $'zed\t' "$out"
+}
+
+function test_review_reasons_removed_selector_keeps_the_previous_blob_work() {
+  builtin_regression_fixture
+  git -C "$ROOT" rm -q internal/builtins/data/demo-hook/hooks/end.yaml
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'factory\tbuilt-in\t'"$BUILTIN_BASE"$'\tinternal/builtins/data/demo-hook/hooks/end.yaml\tremoved\tbuilt-in-review,previous-blob' "$out"
+  assert_contains $'claude\tbuilt-in\t' "$out"
+  assert_contains $'continue\tbuilt-in\t' "$out"
+}
+
+function test_review_reasons_keeps_untracked_and_ignored_embedded_assets() {
+  builtin_regression_fixture
+  printf 'AGENT.md\n' >"$ROOT/.git/info/exclude"
+  mkdir -p "$BUILTINS_DIR/demo/agents"
+  printf 'ignored\n' >"$BUILTINS_DIR/demo/agents/AGENT.md"
+  printf 'untracked\n' >"$BUILTINS_DIR/demo/skills/demo/references/new notes.txt"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'\tinternal/builtins/data/demo/agents/AGENT.md\tadded\tbuilt-in-review' "$out"
+  assert_contains $'\tinternal/builtins/data/demo/skills/demo/references/new notes.txt\tadded\tbuilt-in-review' "$out"
+}
+
+function test_review_reasons_escapes_path_delimiters() {
+  builtin_regression_fixture
+  printf 'new\n' >"$BUILTINS_DIR/demo/skills/demo/references/notes"$'\t\n'".txt"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains 'references/notes\t\n.txt' "$out"
+  assert_equals 4 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+}
+
+function test_review_reasons_missing_and_invalid_baselines_remain_conservative() {
+  builtin_regression_fixture
+  local out rev
+  for rev in '' unknown-revision; do
+    if [ -n "$rev" ]; then
+      out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$rev" 2>/dev/null)
+    else
+      out=$(main --review-reasons "$CHANGED_RUN" 2>/dev/null)
+    fi
+    assert_contains $'factory\tbuilt-in\t' "$out"
+    assert_contains $'\tbaseline-unavailable\t' "$out"
+    assert_contains 'built-in-review,baseline-recovery' "$out"
+  done
+}
+
+function test_review_reasons_unknown_adapter_path_is_shared_work() {
+  builtin_regression_fixture
+  mkdir -p "$ROOT/internal/adapters/unmapped"
+  printf 'new\n' >"$ROOT/internal/adapters/unmapped/hooks.go"
+  local out
+  out=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_contains $'factory\tshared-repository\t' "$out"
+  assert_contains $'claude\tshared-repository\t' "$out"
+  assert_contains $'continue\tshared-repository\t' "$out"
+}
+
+function test_review_reasons_unchanged_inputs_have_no_work_rows() {
+  builtin_regression_fixture
+  assert_equals $'target\treason\tbaseline\tevidence\tstate\tchecklist' "$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_legacy_rows_use_the_same_lock_as_classification() {
+  builtin_regression_fixture
+  printf 'factory\tdocs\thttps://f/1\t200\thtml\tnew-sha\t2026-09-01\n' >"$CHANGED_RUN"
+  printf 'factory\tdocs\thttps://f/1\t200\thtml\told-sha\t2026-08-01\n' >"$LOCK"
+  assert_contains $'factory\tvendor-delta\told-sha\thttps://f/1\tchanged\tvendor-review' "$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_preserves_routing_with_frozen_requested_targets() {
+  builtin_regression_fixture
+  write_run "factory docs https://f/1 changed" "claude docs https://c/1 unchanged" "continue docs https://n/1 failed"
+  printf 'continue\nclaude\nfactory\n' >"$CHANGED_DIR/requested-targets.txt"
+  local before reasons
+  before=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  reasons=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_equals $'1: continue\n2: factory\nsweep: claude' "$before"
+  assert_contains $'factory\tvendor-delta\t-\thttps://f/1\tchanged\tvendor-review' "$reasons"
+  assert_contains $'continue\tsource-recovery\t-\thttps://n/1\tfailed\trecover-source' "$reasons"
+  assert_equals "$before" "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_review_reasons_rejects_unrequested_targets_in_frozen_scope() {
+  write_run "zed docs https://z/1 changed"
+  printf 'claude\n' >"$CHANGED_DIR/requested-targets.txt"
+  local status=0 out
+  out=$(review_reasons "$CHANGED_RUN" HEAD 2>/dev/null) || status=$?
+  assert_not_equals 0 "$status"
+  assert_not_contains $'zed\tvendor-delta' "$out"
+}
+
+function test_review_reasons_reports_missing_requested_source() {
+  builtin_regression_fixture
+  write_run "zed docs https://z/1 unchanged"
+  printf 'claude\nzed\n' >"$CHANGED_DIR/requested-targets.txt"
+  local before reasons
+  before=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
+  reasons=$(main --review-reasons "$CHANGED_RUN" --builtins-since "$BUILTIN_BASE")
+  assert_equals $'1: claude\nsweep: zed' "$before"
+  assert_equals $'target\treason\tbaseline\tevidence\tstate\tchecklist\nclaude\tsource-recovery\t-\trequested-targets.txt\tmissing-source\trecover-source' "$reasons"
+  assert_equals "$before" "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }

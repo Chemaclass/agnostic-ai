@@ -454,3 +454,88 @@ func TestSync_SharedSkills_EnablingAfterPlainSyncKeepsCanonical(t *testing.T) {
 		}
 	}
 }
+
+func TestSharedSkillsReconcile_PreservesNativeFileSymlinks(t *testing.T) {
+	for _, mode := range []string{"enabled", "disabled", "unmanaged"} {
+		for _, targetState := range []string{"regular file", "missing", "directory"} {
+			t.Run(mode+"/"+targetState, func(t *testing.T) {
+				testutil.TempCwd(t)
+				path := filepath.Join(".codex", "config.toml")
+				original := "[sandbox_workspace_write]\nwritable_roots = [\"private-handoffs\"]\n"
+				destination := filepath.Join(t.TempDir(), "native settings")
+				switch targetState {
+				case "regular file":
+					mustWriteFile(t, destination, original)
+				case "directory":
+					if err := os.Mkdir(destination, 0o755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(destination, path); err != nil {
+					if runtime.GOOS == "windows" {
+						t.Skipf("symlink unavailable: %v", err)
+					}
+					t.Fatal(err)
+				}
+				if err := writeStateFile(".", 0, "", "", syncLedger{outputs: []string{path}, sums: map[string]string{path: adapters.ContentSum(original)}}); err != nil {
+					t.Fatal(err)
+				}
+				state := &sharedSkillsState{enabled: mode != "disabled", coversAll: true}
+				if mode == "unmanaged" {
+					state.unmanaged = []string{path}
+				}
+				sess, err := state.reconcile([]string{path}, false)
+				if err != nil {
+					t.Fatalf("reconcile native settings: %v", err)
+				}
+				sess.Commit()
+				if got, err := os.Readlink(path); err != nil || got != destination {
+					t.Errorf("native file link changed: %q, %v", got, err)
+				}
+				if targetState == "regular file" && readFile(t, destination) != original {
+					t.Error("native settings changed")
+				}
+			})
+		}
+	}
+}
+
+func TestSharedSkillsReconcile_RemovesOwnedFolderLinks(t *testing.T) {
+	for _, targetState := range []string{"directory", "missing"} {
+		t.Run(targetState, func(t *testing.T) {
+			testutil.TempCwd(t)
+			path := filepath.Join(".cursor", "skills", "greet")
+			destination := filepath.Join(t.TempDir(), "shared skill")
+			if targetState == "directory" {
+				mustWriteFile(t, filepath.Join(destination, "SKILL.md"), "private skill\n")
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(destination, path); err != nil {
+				if runtime.GOOS == "windows" {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			if err := writeStateFile(".", 0, "", "", syncLedger{outputs: []string{path}}); err != nil {
+				t.Fatal(err)
+			}
+			state := &sharedSkillsState{coversAll: true}
+			sess, err := state.reconcile([]string{path}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sess.Commit()
+			if _, err := os.Lstat(path); !os.IsNotExist(err) {
+				t.Errorf("owned folder link remains: %v", err)
+			}
+			if targetState == "directory" && readFile(t, filepath.Join(destination, "SKILL.md")) != "private skill\n" {
+				t.Error("canonical skill changed")
+			}
+		})
+	}
+}

@@ -176,3 +176,41 @@ func TestEmit_Hooks_MultipleEventsPreserveVendorOrder(t *testing.T) {
 		t.Errorf("expected PreToolUse, then Stop, then SessionStart, got order in:\n%s", got)
 	}
 }
+
+// TestEmit_Hooks_CompactionEventsKeepTheirMatchersInOrder covers the
+// PreCompact and PostCompact hooks the Devin CLI v3000.11.92 changelog
+// adds, with the `manual` and `auto` trigger matchers. They render
+// between PostCompaction and SessionStart.
+func TestEmit_Hooks_CompactionEventsKeepTheirMatchersInOrder(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "on-start", Meta: map[string]any{"event": "SessionStart", "command": "echo start"}},
+		{Kind: spec.KindHook, Name: "after", Meta: map[string]any{"event": "PostCompact", "matcher": "manual", "command": "echo after"}},
+		{Kind: spec.KindHook, Name: "before", Meta: map[string]any{"event": "PreCompact", "matcher": "auto", "command": "echo before"}},
+		{Kind: spec.KindHook, Name: "done", Meta: map[string]any{"event": "PostCompaction", "command": "echo done"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".devin/hooks.v1.json"))
+	var doc map[string][]struct {
+		Matcher string `json:"matcher"`
+	}
+	if err := json.Unmarshal([]byte(got), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["PreCompact"][0].Matcher != "auto" || doc["PostCompact"][0].Matcher != "manual" {
+		t.Errorf("compaction matchers lost:\n%s", got)
+	}
+	order := []string{"PostCompaction", "PreCompact", "PostCompact", "SessionStart"}
+	last := -1
+	for _, event := range order {
+		idx := strings.Index(got, `"`+event+`"`)
+		if idx <= last {
+			t.Errorf("want events in order %v, got:\n%s", order, got)
+			break
+		}
+		last = idx
+	}
+}

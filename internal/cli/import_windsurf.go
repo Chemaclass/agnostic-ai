@@ -270,7 +270,7 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 	if err != nil {
 		return err
 	}
-	settings, err := importWindsurfPermissions(root, importSourcePath(root, src.Settings))
+	settings, err := importWindsurfPermissions(root, importSourcePath(root, src.Settings), importSyncRoots(root))
 	if err != nil {
 		return err
 	}

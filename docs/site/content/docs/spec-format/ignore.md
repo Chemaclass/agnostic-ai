@@ -9,15 +9,19 @@ group = "Reference"
 
 # Ignore
 
-`ignore/` lists what agents must not read or index: secrets, generated code, vendored dependencies, large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
+`ignore/` lists paths supported tools leave out of context or indexing, such as generated code, copied dependencies, and large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
 
-- **Secrets stay out of context.** An `.env` file or a key folder is not sent to the model.
-- **Smaller context.** Build output and vendored code stop crowding search and indexing.
-- **One list.** Add a pattern once instead of in every tool's file.
+Claude Code and Codex have no ignore-spec output. Other tools differ on whether an ignore file affects reads, indexing, or shell commands. Check the [target support table](@/docs/targets/_index.md#capability-matrix) and [permission support](@/docs/spec-format/settings.md#support-by-target) before using a pattern as an access restriction.
 
-Tools apply an ignore file to their own reads and indexing. Whether it also stops a shell command depends on the tool, so pair it with a [settings](@/docs/spec-format/settings.md) `deny` rule for anything that must never be read.
+Use exact paths or narrow patterns. An ignore file alone does not establish an access restriction.
 
 ## Write one
+
+```bash
+agnostic-ai new ignore generated-files
+```
+
+Replace the description and comment inside the gitignore fence with your path patterns. The template excludes no paths by default.
 
 Markdown with optional YAML settings between `---` lines at the top, one file per group. The body holds gitignore-syntax patterns.
 
@@ -50,4 +54,3 @@ Run `agnostic-ai import <target>` to copy the patterns into `ignore/<target>.md`
 Comment and blank lines exclude nothing. `#` starts a comment only at the start of a line.
 
 `outputs.<target>.provenance-header: false` removes the marker and turns this check off. A dry run skips the check. `sync --check` still reports unsafe overwrites.
-

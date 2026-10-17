@@ -5,6 +5,7 @@ package hookrun
 import (
 	"errors"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -41,17 +42,31 @@ func TestRunCrush_HookCannotSignalHookRunsProcessGroup(t *testing.T) {
 // Crush interrupts a timed-out hook before it kills it, so a hook that
 // traps INT and exits 2 still blocks.
 func TestRunCrush_InterruptsBeforeKillingOnTimeout(t *testing.T) {
+	// A script's background job inherits SIGINT ignored, so the hook's
+	// trap would not fire; a Go handler makes children start with the default.
+	interrupts := make(chan os.Signal, 1)
+	signal.Notify(interrupts, syscall.SIGINT)
+	t.Cleanup(func() { signal.Stop(interrupts) })
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "hooks"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	script := "#!/bin/sh\ntrap 'exit 2' INT\nwhile :; do sleep 0.05; done\n"
+	// The hook waits instead of spinning, so it does not compete for the
+	// CPU it needs to run the trap in time.
+	script := "#!/bin/sh\ntrap 'kill $! 2>/dev/null; printf \"interrupted\\n\"; exit 2' INT\nprintf 'ready\\n'\nsleep 30 >/dev/null 2>&1 &\nwait\n"
 	if err := os.WriteFile(filepath.Join(dir, "hooks", "slow.sh"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	r := RunCrush("hooks/slow.sh", dir, os.Environ(), nil, time.Second, runtime.GOOS)
-	if r.TimedOut || r.Exit != 2 || DecideHandler("crush", "PreToolUse", Handler{}, r) != Block {
-		t.Errorf("result = %+v", r)
+	if r.TimedOut || r.Exit != 2 || DecideHandler("crush", "PreToolUse", Handler{}, r) != Block || r.Stdout != "ready\ninterrupted\n" {
+		stage := "the runner did not return after the hook exited"
+		switch r.Stdout {
+		case "":
+			stage = "the hook did not start before the deadline"
+		case "ready\n":
+			stage = "the hook did not handle SIGINT within the grace period"
+		}
+		t.Errorf("%s: result = %+v", stage, r)
 	}
 }
 

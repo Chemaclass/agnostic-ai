@@ -56,7 +56,7 @@ func TestSync_StopsOnAnInvalidPortableHook(t *testing.T) {
 	}
 }
 
-func TestSync_PortableHookReachesClaudeAndCodexAndNotesTheRest(t *testing.T) {
+func TestSync_PortableBeforeToolHookReachesClaudeCodexAndKiro(t *testing.T) {
 	dir := newProject(t)
 	captureLogOut(t)
 	var notes bytes.Buffer
@@ -73,12 +73,14 @@ func TestSync_PortableHookReachesClaudeAndCodexAndNotesTheRest(t *testing.T) {
 			t.Errorf("%s = %s, %v; want a PreToolUse Bash hook", path, body, err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".kiro", "hooks", "guard.json")); !os.IsNotExist(err) {
-		t.Errorf("kiro got the portable hook before it translates: %v", err)
+	body, err := os.ReadFile(filepath.Join(dir, ".kiro", "hooks", "guard.json"))
+	if err != nil || !strings.Contains(string(body), `"trigger": "PreToolUse"`) || !strings.Contains(string(body), `"matcher": "^(execute_bash|execute_pwsh)$"`) {
+		t.Errorf("kiro hook = %s, %v; want PreToolUse shell", body, err)
 	}
-	if !strings.Contains(notes.String(), "1 hook reaches kiro only in the source dir (on: has no kiro mapping yet; write event: for kiro)") {
-		t.Errorf("notes = %q, want one kiro note", notes.String())
+	if strings.Contains(notes.String(), "on: has no kiro mapping") {
+		t.Errorf("before-tool must not report a missing Kiro mapping: %s", notes.String())
 	}
+
 }
 
 // Cursor and Copilot read a block from a JSON reply, so sync wraps a
@@ -183,7 +185,7 @@ func TestHookRun_PortableHookRunsOnClaudeAndCodex(t *testing.T) {
 	}
 	for _, want := range []string{
 		"claude: block (exit 2", "codex: block (exit 2", "event: PreToolUse (Bash)",
-		"kiro: not run (on: has no kiro mapping yet; write event: for kiro)",
+		"kiro: not run (Kiro documents no tool_input for its shell tool; pass --payload <file>)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
@@ -322,7 +324,7 @@ func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 		"cursor: block (exit 0", `"permission":"deny","user_message":"no force push"`,
 		"cline: block (exit 0", `"cancel": true, "errorMessage": "no force push"`,
 		`"permissionDecision":"deny","permissionDecisionReason":"no force push"`,
-		"kiro: not run (on: has no kiro mapping yet",
+		"kiro: not run (Kiro documents no tool_input for its shell tool",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
@@ -386,5 +388,61 @@ func TestHookRun_PortableHookWithoutMatchBlocksOnCline(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestHookRun_PortableKiroEditGuardBlocksOnlyFileWriteTools(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := newProject(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
+	mustWrite(t, script, "#!/bin/sh\ncat >/dev/null\necho protected >&2\nexit 2\n")
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: edit\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	mustSync(t)
+	payload := filepath.Join(t.TempDir(), "call.json")
+	mustWrite(t, payload, `{"tool_name":"str_replace","tool_input":{}}`)
+	out, err := runHookRun(t, "guard", "--payload", payload, "--expect", "block", "--include-assumed")
+	if err != nil || !strings.Contains(out, "kiro: block (exit 2") {
+		t.Errorf("portable edit guard must block str_replace: %v\n%s", err, out)
+	}
+	mustWrite(t, payload, `{"tool_name":"code","tool_input":{}}`)
+	out, err = runHookRun(t, "guard", "--payload", payload, "--include-assumed")
+	if err != nil || !strings.Contains(out, "not run: matcher") {
+		t.Errorf("portable edit guard must not include code: %v\n%s", err, out)
+	}
+}
+
+func TestHookRun_PortableKiroBuiltinKindsExcludeMCPNames(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, tc := range []struct{ kind, builtin, mcp string }{
+		{"shell", "execute_bash", "mcp_git_shell_status"},
+		{"read", "read_file", "mcp_git_read_status"},
+		{"web", "web_fetch", "mcp_git_web_status"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			dir := newProject(t)
+			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+			script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
+			mustWrite(t, script, "#!/bin/sh\ncat >/dev/null\necho protected >&2\nexit 2\n")
+			if err := os.Chmod(script, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: "+tc.kind+"\ncommand: .agnostic-ai/scripts/guard.sh\n")
+			mustSync(t)
+			payload := filepath.Join(t.TempDir(), "call.json")
+			mustWrite(t, payload, `{"tool_name":"`+tc.builtin+`","tool_input":{}}`)
+			out, err := runHookRun(t, "guard", "--payload", payload, "--expect", "block", "--include-assumed")
+			if err != nil || !strings.Contains(out, "kiro: block (exit 2") {
+				t.Errorf("builtin must match: %v\n%s", err, out)
+			}
+			mustWrite(t, payload, `{"tool_name":"`+tc.mcp+`","tool_input":{}}`)
+			out, err = runHookRun(t, "guard", "--payload", payload, "--include-assumed")
+			if err != nil || !strings.Contains(out, "not run: matcher") {
+				t.Errorf("MCP ID must not match builtin kind: %v\n%s", err, out)
+			}
+		})
 	}
 }

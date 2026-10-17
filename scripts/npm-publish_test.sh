@@ -10,13 +10,13 @@
 # what it was asked to do, so the ordering and the failure handling are checked
 # without publishing anything.
 
-SCRIPT_DIR="$(cd "$(dirname "$BASH_SOURCE")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/npm-publish.sh"
 
 # The retries are what the release needs and what a test cannot wait for.
-NPM_PUBLISH_RETRIES=2
-NPM_PUBLISH_FIRST_DELAY=0
+export NPM_PUBLISH_RETRIES=2
+export NPM_PUBLISH_FIRST_DELAY=0
 
 # ---- fixtures ----------------------------------------------------------------
 
@@ -48,9 +48,14 @@ function stub_npm() {
   STUB_LOG="$1"
   STUB_PRESENT="$1.present"
   STUB_PUBLISH_FAILS="${3:-}"
+  # shellcheck disable=SC2329
+  function verify_npm_provenance() {
+    printf 'verify %s@%s\n' "$1" "$2" >> "$STUB_LOG"
+    [[ "${STUB_UNATTESTED:-}" != "$1" ]]
+  }
   : > "$STUB_LOG"
   printf '%s\n' "${2:-}" > "$STUB_PRESENT"
-  # shellcheck disable=SC2317
+  # shellcheck disable=SC2317,SC2329
   function npm() {
     case "$1" in
       view)
@@ -79,7 +84,7 @@ function stub_npm() {
 }
 
 function unstub_npm() {
-  unset -f npm
+  unset -f npm verify_npm_provenance
   unset STUB_LOG STUB_PRESENT STUB_PUBLISH_FAILS
 }
 
@@ -121,7 +126,7 @@ function test_it_refuses_to_publish_the_parent_when_a_platform_package_never_lan
   fake_tree "$tmp"
   # linux-x64 publishes without error and never becomes visible.
   stub_npm "$tmp/log"
-  # shellcheck disable=SC2317
+  # shellcheck disable=SC2317,SC2329
   function npm() {
     case "$1" in
       view)
@@ -164,7 +169,7 @@ function test_it_skips_a_package_already_on_the_registry() {
 
 # ---- provenance --------------------------------------------------------------
 
-function test_a_provenance_failure_downgrades_to_a_plain_publish() {
+function test_a_provenance_failure_never_retries_plain() {
   local tmp log code
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
@@ -174,17 +179,16 @@ function test_a_provenance_failure_downgrades_to_a_plain_publish() {
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "0" "$code"
+  assert_not_same "0" "$code"
   assert_contains "publish @agnostic-ai/darwin-arm64 provenance latest" "$log"
-  assert_contains "publish @agnostic-ai/darwin-arm64 plain latest" "$log"
+  assert_not_contains " plain " "$log"
 }
 
-function test_a_publish_that_fails_both_ways_fails_the_release() {
+function test_a_platform_publish_failure_stops_the_release() {
   local tmp code
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
-  stub_npm "$tmp/log" "" "@agnostic-ai/linux-x64 provenance
-@agnostic-ai/linux-x64 plain"
+  stub_npm "$tmp/log" "" "@agnostic-ai/linux-x64 provenance"
   code="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1; echo $?)"
   unstub_npm
   rm -rf "$tmp"
@@ -192,14 +196,14 @@ function test_a_publish_that_fails_both_ways_fails_the_release() {
   assert_not_same "0" "$code"
 }
 
-# The first attempt can upload the tarball and still fail attaching the
-# attestation, which turns the retry into a version conflict, not an error.
-function test_a_version_conflict_after_a_failed_retry_counts_as_published() {
+# An uploaded tarball without its required attestation is still a failed release.
+function test_a_tarball_uploaded_without_attestation_fails() {
   local tmp code
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
   stub_npm "$tmp/log"
-  # shellcheck disable=SC2317
+  STUB_UNATTESTED="@agnostic-ai/linux-x64"
+  # shellcheck disable=SC2317,SC2329
   function npm() {
     case "$1" in
       view)
@@ -220,10 +224,11 @@ function test_a_version_conflict_after_a_failed_retry_counts_as_published() {
     esac
   }
   code="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1; echo $?)"
+  unset STUB_UNATTESTED
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "0" "$code"
+  assert_not_same "0" "$code"
 }
 
 # ---- dist-tag ----------------------------------------------------------------
@@ -268,19 +273,18 @@ publish @agnostic-ai/linux-x64 provenance beta
 publish agnostic-ai provenance beta" "$log"
 }
 
-# The plain retry is a second publish, and an untagged one there moves
-# `latest` just as surely as the first would have.
-function test_the_retry_without_provenance_keeps_the_tag() {
+# A failed prerelease must not trigger a second plain publish.
+function test_a_failed_prerelease_never_retries_plain() {
   local tmp log
   tmp="$(mktemp -d)"
   fake_tree "$tmp"
   stub_npm "$tmp/log" "" "@agnostic-ai/darwin-arm64 provenance"
-  main 1.2.3-rc.2 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1
+  main 1.2.3-rc.2 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1 || true
   log="$(cat "$tmp/log")"
   unstub_npm
   rm -rf "$tmp"
 
-  assert_contains "publish @agnostic-ai/darwin-arm64 plain rc" "$log"
+  assert_not_contains " plain " "$log"
 }
 
 # ---- arguments ---------------------------------------------------------------
@@ -313,4 +317,56 @@ function test_it_refuses_when_the_parent_pins_a_package_that_was_not_built() {
 
 function test_it_needs_a_version() {
   assert_same "2" "$(main > /dev/null 2>&1; echo $?)"
+}
+
+function test_an_existing_unattested_version_fails_without_publishing_more() {
+  local tmp code log
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log" "@agnostic-ai/darwin-arm64"
+  STUB_UNATTESTED="@agnostic-ai/darwin-arm64"
+  code="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" >/dev/null 2>&1; echo $?)"
+  log="$(cat "$tmp/log")"
+  unset STUB_UNATTESTED
+  unstub_npm
+  rm -rf "$tmp"
+  assert_not_same "0" "$code"
+  assert_not_contains "publish " "$log"
+}
+
+function test_every_parent_and_platform_package_is_verified() {
+  local tmp log name
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  for name in darwin-x64 linux-arm64 win32-arm64 win32-x64; do
+    mkdir -p "$tmp/npm/platforms/$name"
+    printf '{"name":"@agnostic-ai/%s","version":"1.2.3"}\n' "$name" > "$tmp/npm/platforms/$name/package.json"
+  done
+  stub_npm "$tmp/log"
+  main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" >/dev/null
+  log="$(cat "$tmp/log")"
+  unstub_npm
+  rm -rf "$tmp"
+  for name in agnostic-ai @agnostic-ai/darwin-arm64 @agnostic-ai/darwin-x64 @agnostic-ai/linux-arm64 @agnostic-ai/linux-x64 @agnostic-ai/win32-arm64 @agnostic-ai/win32-x64; do
+    assert_contains "verify $name@1.2.3" "$log"
+  done
+}
+
+function test_partial_publish_recovery_skips_verified_platforms() {
+  local tmp code log
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log" "" "@agnostic-ai/linux-x64 provenance"
+  code="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" >/dev/null 2>&1; echo $?)"
+  assert_not_same "0" "$code"
+  STUB_PUBLISH_FAILS=""
+  : > "$tmp/log"
+  main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" >/dev/null
+  log="$(cat "$tmp/log")"
+  unstub_npm
+  rm -rf "$tmp"
+  assert_not_contains "publish @agnostic-ai/darwin-arm64" "$log"
+  assert_contains "verify @agnostic-ai/darwin-arm64@1.2.3" "$log"
+  assert_contains "publish @agnostic-ai/linux-x64 provenance latest" "$log"
+  assert_contains "verify agnostic-ai@1.2.3" "$log"
 }

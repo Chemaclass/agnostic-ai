@@ -104,7 +104,7 @@
 // as `.factory/mcp.json` above: this is a plain WriteFile, so a hand
 // edit to the file is lost on the next sync (#745).
 //
-// Factory MCP options preserve disabledTools, timeout and connectTimeout
+// Factory MCP options preserve enabledTools, disabledTools, timeout and connectTimeout
 // (milliseconds, including zero). HTTP/SSE oauth accepts false or Factory
 // metadata fields. x-factory overrides corresponding top-level options.
 // Commands emit at `.factory/commands/<name>.md` with the documented
@@ -252,6 +252,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := emitSettings(sess, b.Settings, emit.OutputConfFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+		return err
+	}
+	if err := emitHandoffAccess(sess, cfg, dryRun); err != nil {
 		return err
 	}
 	// Factory's schema documents a working `disabled` key (unlike

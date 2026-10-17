@@ -30,7 +30,7 @@ func preserveClaudeReadonly(existing, imported *yaml.Node) {
 		if existing.Content[i].Value != "x-claude" {
 			continue
 		}
-		custom := detachClaudeOverride(existing.Content[i+1])
+		custom := detachImportOverride(existing.Content[i+1])
 		var kept []*yaml.Node
 		if custom.Kind == yaml.MappingNode {
 			for _, key := range []string{"readonly", "disallowedTools"} {
@@ -60,19 +60,6 @@ func preserveClaudeReadonly(existing, imported *yaml.Node) {
 			setMappingValue(custom, "disallowedTools", nil)
 		}
 	}
-}
-
-func detachClaudeOverride(node *yaml.Node) *yaml.Node {
-	if node.Kind == yaml.AliasNode {
-		return detachClaudeOverride(node.Alias)
-	}
-	detached := *node
-	detached.Anchor = ""
-	detached.Content = make([]*yaml.Node, len(node.Content))
-	for i, child := range node.Content {
-		detached.Content[i] = detachClaudeOverride(child)
-	}
-	return &detached
 }
 
 // importClaudeAgents copies .claude/agents/*.md to dstDir, keeping the

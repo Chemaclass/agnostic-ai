@@ -55,7 +55,7 @@ func TestSync_WarnsWhenAProjectSkillSharesAGlobalName(t *testing.T) {
 	want := "! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in " +
 		"~/source/skills/gh-issue/SKILL.md with different content" +
 		"; amp and claude load the global one, which exists only on this machine, gemini loads this one" +
-		"; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`\n"
+		"; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on amp, claude\n"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("sync should name the shared skill and who wins per target:\nwant %q\n%s", want, buf.String())
 	}
@@ -164,7 +164,7 @@ func TestDoctor_MarksAnAllowedGlobalNameClash(t *testing.T) {
 		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
 	}
 	want := "  ~ .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ~/source/skills/gh-issue/SKILL.md" +
-		"; claude loads the global one, which exists only on this machine; allowed by sync.allow-global-names\n"
+		"; claude loads the global one, which exists only on this machine; allowed by sync.allow-global-names; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("doctor should list the allowed clash, marked as allowed:\nwant %q\n%s", want, out)
 	}
@@ -215,7 +215,7 @@ func TestDoctor_MarksIgnoredGlobalNameClashes(t *testing.T) {
 		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
 	}
 	want := "  ~ .agnostic-ai/skills/gh-pr/SKILL.md: skill \"gh-pr\" also exists in ~/source/skills/gh-pr/SKILL.md" +
-		"; claude loads the global one, which exists only on this machine; ignored by sync.global-name-clash\n"
+		"; claude loads the global one, which exists only on this machine; ignored by sync.global-name-clash; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("doctor should list the ignored clash, marked as ignored:\nwant %q\n%s", want, out)
 	}
@@ -330,7 +330,7 @@ func TestSync_SaysAnIdenticalGlobalCopyChangesNothing(t *testing.T) {
 	}
 
 	want := "! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" is identical in ~/source/skills/gh-issue/SKILL.md" +
-		", so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one\n"
+		", so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("sync should say an identical copy changes nothing:\nwant %q\n%s", want, buf.String())
 	}
@@ -484,7 +484,7 @@ func TestGlobalNameClash_MessagePerWinner(t *testing.T) {
 		{
 			name: "global wins",
 			c:    globalNameClash{project: project, global: global, globalWins: []string{"claude"}, content: contentDiffers},
-			want: " with different content; claude loads the global one, which exists only on this machine" + rename,
+			want: " with different content; claude loads the global one, which exists only on this machine" + rename + "; project sync cannot select this skill instead on claude",
 		},
 		{
 			name: "project wins",
@@ -494,12 +494,12 @@ func TestGlobalNameClash_MessagePerWinner(t *testing.T) {
 		{
 			name: "each wins somewhere",
 			c:    globalNameClash{project: project, global: global, globalWins: []string{"claude"}, projectWins: []string{"gemini"}, content: contentDiffers},
-			want: " with different content; claude loads the global one, which exists only on this machine, gemini loads this one" + rename,
+			want: " with different content; claude loads the global one, which exists only on this machine, gemini loads this one" + rename + "; project sync cannot select this skill instead on claude",
 		},
 		{
 			name: "identical",
 			c:    globalNameClash{project: project, global: global, globalWins: []string{"claude"}, content: contentIdentical},
-			want: " is identical in /elsewhere/skills/gh-issue/SKILL.md, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one",
+			want: " is identical in /elsewhere/skills/gh-issue/SKILL.md, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one; project sync cannot select this skill instead on claude",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -507,5 +507,81 @@ func TestGlobalNameClash_MessagePerWinner(t *testing.T) {
 				t.Errorf("want suffix %q\ngot %q", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestGlobalNameClash_ReportsUnsupportedProjectSkillSelection(t *testing.T) {
+	clash := globalNameClash{
+		project:    spec.Entry{Kind: spec.KindSkill, Name: "gh-issue", Path: ".agnostic-ai/skills/gh-issue/SKILL.md"},
+		global:     spec.Entry{Kind: spec.KindSkill, Name: "gh-issue", Path: "/home/source/skills/gh-issue/SKILL.md"},
+		globalWins: []string{"claude"}, projectWins: []string{"gemini"}, content: contentDiffers,
+	}
+	for _, line := range []string{clash.String(), clash.silenced("allowed by sync.allow-global-names")} {
+		for _, text := range []string{"claude loads the global one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
+			if !strings.Contains(line, text) {
+				t.Errorf("skill selection limit missing %q: %s", text, line)
+			}
+		}
+		if strings.Contains(line, "instead on gemini") {
+			t.Errorf("project winner reported unsupported: %s", line)
+		}
+	}
+}
+
+func TestSyncAndDoctor_ExplainUnsupportedHomeWinningSkill(t *testing.T) {
+	globalNameClashProject(t, "claude,gemini",
+		map[string]string{"skills/gh-issue/SKILL.md": otherSkill("gh-issue")},
+		map[string]string{"skills/gh-issue/SKILL.md": skillSpec("gh-issue", "")})
+	log := captureLog(t)
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runDoctor(t)
+	if err != nil {
+		t.Fatalf("doctor: %v: %s", err, out)
+	}
+	for _, text := range []string{"claude loads the global one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
+		if !strings.Contains(log.String(), text) {
+			t.Errorf("sync lacks %q: %s", text, log.String())
+		}
+		if !strings.Contains(out, text) {
+			t.Errorf("doctor lacks %q: %s", text, out)
+		}
+	}
+}
+
+func TestDoctor_ExplainsUnsupportedSkillEvenWhenSyncIsSilenced(t *testing.T) {
+	for _, setting := range []string{"  allow-global-names: [gh-issue]\n", "  global-name-clash: ignore\n"} {
+		t.Run(strings.TrimSpace(setting), func(t *testing.T) {
+			globalNameClashProject(t, "claude,gemini",
+				map[string]string{"skills/gh-issue/SKILL.md": otherSkill("gh-issue")},
+				map[string]string{"skills/gh-issue/SKILL.md": skillSpec("gh-issue", "")})
+			mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n"+setting)
+			log := captureLog(t)
+			if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(log.String(), "also exists in") {
+				t.Errorf("silenced sync warned: %s", log.String())
+			}
+			out, err := runDoctor(t)
+			if err != nil {
+				t.Fatalf("doctor: %v: %s", err, out)
+			}
+			if !strings.Contains(out, "project sync cannot select this skill instead on claude") || !strings.Contains(out, "gemini loads this one") {
+				t.Errorf("doctor hides selection limit: %s", out)
+			}
+		})
+	}
+}
+
+func TestGlobalNameClash_ClaudeAgentStillSelectsProjectCopy(t *testing.T) {
+	clash := globalNameClash{project: spec.Entry{Kind: spec.KindAgent, Name: "reviewer"}, global: spec.Entry{Kind: spec.KindAgent, Name: "reviewer"}, projectWins: []string{"claude"}, content: contentDiffers}
+	line := clash.String()
+	if !strings.Contains(line, "claude loads this one, so the global one is unused here") {
+		t.Errorf("agent winner changed: %s", line)
+	}
+	if strings.Contains(line, "project sync cannot") {
+		t.Errorf("skill limit leaked to agents: %s", line)
 	}
 }

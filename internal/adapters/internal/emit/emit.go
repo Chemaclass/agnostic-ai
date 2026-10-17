@@ -25,6 +25,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -105,9 +106,13 @@ type Session struct {
 	capturing bool
 	// writesOnly skips tree sweeps during capture, for callers that
 	// read the captured writes and never the removals.
-	writesOnly  bool
-	captured    []CapturedFile
-	removals    []CapturedRemoval
+	writesOnly bool
+	captured   []CapturedFile
+	removals   []CapturedRemoval
+	// planned holds the content this session wrote, captured, or
+	// previewed for each path an adapter watches, so an adapter can read
+	// its own output back. Only watched paths are kept, which bounds it.
+	planned     map[string]*string
 	backup      bool
 	recording   bool
 	recorded    []string
@@ -124,7 +129,11 @@ type Session struct {
 	// on a session other goroutines already write through.
 	unmanaged atomic.Pointer[[]string]
 	skipped   []string // user-owned paths refused; may repeat a path
-	userTier  bool
+	// collisionWinners maps each path several targets render differently
+	// to the content sync.collision-policy chose, atomic for the same
+	// reason as unmanaged.
+	collisionWinners atomic.Pointer[map[string]string]
+	userTier         bool
 	// codexSkillsDir is a skills dir Codex was configured to emit into,
 	// atomic for the same reason as unmanaged.
 	codexSkillsDir atomic.Pointer[string]
@@ -169,6 +178,31 @@ func (s *Session) UserTier() bool { return s.userTier }
 // pass it to WriteFile and friends; each sync run constructs its own.
 func NewSession() *Session { return &Session{} }
 
+// WatchPlannedFile asks the session to keep what it next writes,
+// captures, or previews at path, for PlannedFile.
+func (s *Session) WatchPlannedFile(path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.planned == nil {
+		s.planned = map[string]*string{}
+	}
+	s.planned[path] = nil
+}
+
+// PlannedFile returns the content this session last wrote, captured, or
+// previewed at a watched path. It reports false when the session left
+// the file as it is on disk, such as a hand edit sync keeps or a path
+// sync.unmanaged covers.
+func (s *Session) PlannedFile(path string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	content := s.planned[path]
+	if content == nil {
+		return "", false
+	}
+	return *content, true
+}
+
 // SetUnmanaged installs the sync.unmanaged patterns. A matching path is
 // never written, merged, copied, renamed, or removed by this session;
 // each refusal is recorded for UnmanagedSkips so sync can report it.
@@ -180,6 +214,28 @@ func (s *Session) SetUnmanaged(patterns []string) {
 		return
 	}
 	s.unmanaged.Store(&patterns)
+}
+
+// SetCollisionWinners makes every write to one of these paths use the
+// content the collision policy chose, so concurrent targets write the
+// same bytes and a capture matches what sync wrote.
+func (s *Session) SetCollisionWinners(winners map[string]string) {
+	if len(winners) == 0 {
+		s.collisionWinners.Store(nil)
+		return
+	}
+	s.collisionWinners.Store(&winners)
+}
+
+func (s *Session) collisionWinner(path, content string) string {
+	winners := s.collisionWinners.Load()
+	if winners == nil {
+		return content
+	}
+	if won, ok := (*winners)[filepath.Clean(path)]; ok {
+		return won
+	}
+	return content
 }
 
 // SetCodexSkillsDir records the skills dir the codex target writes, so
@@ -804,6 +860,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if s.skipUnmanaged(path) {
 		return nil
 	}
+	content = s.collisionWinner(path, content)
 	s.mu.Lock()
 	capturing := s.capturing
 	backup := s.backup
@@ -819,15 +876,25 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if s.counting && !capturing && !dryRun {
 		s.counted++
 	}
+	if _, watched := s.planned[path]; watched {
+		s.planned[path] = &content
+	}
 	s.mu.Unlock()
 
 	if capturing {
 		return nil
 	}
-	// No lock needed: targets sharing a path write identical bytes, so
-	// once one rewrites an unedited file the others see it current.
+	// Serialize the read-classify-write below against any other session
+	// targeting the same path: a target reading a shared file while another
+	// rewrites it sees partial bytes and would keep them as a hand edit.
+	// Ordering is always pathLock (outer) then s.mu (inner); the early s.mu
+	// section above has already been released, so the two never deadlock.
+	defer lockPath(path)()
 	if sum, keep := s.keepsEdit(path, content); keep {
 		s.mu.Lock()
+		if _, watched := s.planned[path]; watched {
+			s.planned[path] = nil
+		}
 		s.kept = append(s.kept, path)
 		if detailing {
 			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: sum})
@@ -836,19 +903,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return nil
 	}
 	if dryRun {
-		fmt.Printf("--- %s ---\n%s\n", path, content)
+		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
 		return nil
 	}
 	if escapesProjectRoot(path) {
 		return fmt.Errorf("refusing to write outside the project root: %s", path)
 	}
-	// Serialize the read-classify-write below against any other session
-	// targeting the same path so concurrent emitters cannot both see it
-	// missing. Held until the write and its rollback/detail bookkeeping
-	// complete. Ordering is always pathLock (outer) then s.mu (inner); the
-	// early s.mu section above has already been released, so no goroutine
-	// holds s.mu while acquiring a path lock and the two never deadlock.
-	defer lockPath(path)()
 	cur := &onDisk{path: path}
 	// A file already found there proves its folder exists, so an
 	// unchanged output costs no extra call.

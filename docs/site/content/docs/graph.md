@@ -9,15 +9,38 @@ group = "Workflows"
 
 # graph
 
-Show which specs reach which tools, and which files they produce.
+Use `graph` to check whether a rule, skill, or other spec reaches the tools you selected. Start with `agnostic-ai graph --spec <name>` when one spec appears to be missing.
 
-`graph` checks which files each spec writes for each configured tool, and prints the result. It is read-only and writes no files. Output is sorted by spec name, then target.
+Read the row for your spec. A `-` means that tool receives no file; check its supported kinds and your spec's target filters. Output is sorted by spec name, then target.
 
 ## Synopsis
 
 ```bash
 agnostic-ai graph [flags]
 ```
+
+## Examples
+
+```bash
+# Default table view
+agnostic-ai graph
+
+# Only the claude column
+agnostic-ai graph --target claude
+
+# One spec across every target
+agnostic-ai graph --spec no-console-log
+
+# Only rules, as JSON
+agnostic-ai graph --kind rule --format json
+
+# Render an SVG of the whole graph
+agnostic-ai graph --format dot | dot -Tsvg > graph.svg
+```
+
+
+<details>
+<summary>Look up graph filters and output formats</summary>
 
 ## Flags
 
@@ -43,7 +66,7 @@ other          | rule   rule   rule
 
 ### mermaid
 
-`graph LR`, for Markdown docs.
+A Mermaid diagram starting with `graph LR`, for Markdown viewers that support Mermaid.
 
 ```mermaid
 graph LR
@@ -69,7 +92,7 @@ digraph agnostic_ai {
 
 ### json
 
-One record per spec-to-file link, for editor extensions and scripts.
+One record for each file a spec produces, for editor extensions and scripts.
 
 ```json
 [
@@ -82,24 +105,7 @@ One record per spec-to-file link, for editor extensions and scripts.
 ]
 ```
 
-## Examples
-
-```bash
-# Default table view
-agnostic-ai graph
-
-# Only the claude column
-agnostic-ai graph --target claude
-
-# One spec across every target
-agnostic-ai graph --spec no-console-log
-
-# Only rules, as JSON
-agnostic-ai graph --kind rule --format json
-
-# Render an SVG of the whole graph
-agnostic-ai graph --format dot | dot -Tsvg > graph.svg
-```
+</details>
 
 ## See also
 

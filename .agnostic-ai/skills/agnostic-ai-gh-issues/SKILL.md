@@ -7,95 +7,26 @@ x-claude:
   allowed-tools: "Read, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *), Skill(agnostic-ai-gh-issue)"
 ---
 
-# GitHub Issues Watcher
+# GitHub issues watcher
 
-## Purpose
+Work open issues that are unassigned or assigned only to the current user through `.agnostic-ai/skills/agnostic-ai-gh-issue/SKILL.md`, one at a time. That skill owns implementation, validation, review, and authorized merging.
 
-Process every open GitHub issue that is **unassigned** or **assigned to the current user (`@me`)** through the `agnostic-ai-gh-issue` skill. Record blockers and continue independent issues when the worktree is safe.
+## Discover
 
-## Args
+- `--limit N`: process at most N issues (default: all).
+- `--label foo`: require this label.
+- `--dry-run`: list the queue only, with no assignment or repository changes.
 
-- `--limit N`: process at most N issues this run (default: all).
-- `--label foo`: only issues carrying label `foo`.
-- `--dry-run`: list issues that would be processed; do not invoke `agnostic-ai-gh-issue`.
+Query both unassigned issues (`gh issue list --state open --search "no:assignee"`) and issues assigned to `@me` (`gh issue list --state open --assignee @me`), requesting `number,title,labels,assignees,createdAt` as JSON. Start with `--limit 200`; if a query fills its limit, increase it or paginate until complete.
 
-## Phase 1: Discover
+Deduplicate by number. Resolve the current login with `gh api user -q .login`; exclude any issue assigned to another person, including issues also assigned to the current user. Apply the label filter, sort oldest first by `createdAt`, then apply the requested limit. Print `#<number> <title> [unassigned|@me]`. An empty queue ends cleanly.
 
-Fetch open issues that are unassigned **or** assigned to `@me`, oldest first. GitHub search does not OR these cleanly, so run two queries and merge:
+## Process
 
-```bash
-# Unassigned
-gh issue list \
-  --state open \
-  --search "no:assignee" \
-  --json number,title,labels,assignees,createdAt \
-  --limit 200
+Before implementation, fetch `origin/main` and stop if local `main` has unpublished commits. Preserve changes in the starting checkout; do not require it to be clean or switch it to `main`.
 
-# Assigned to me
-gh issue list \
-  --state open \
-  --assignee "@me" \
-  --json number,title,labels,assignees,createdAt \
-  --limit 200
-```
+For each issue, recheck its open state and assignment, skipping closed issues and issues now assigned to others. Invoke the issue skill and record the issue's absolute task worktree path, branch, PR, outcome, and blocker. Reuse an existing task worktree or PR only after its safety checks.
 
-Merge:
-- If either query returns 200 rows, repeat it with a larger `--limit` until the result count falls below that limit.
-- Deduplicate by `number`.
-- Keep only issues whose `assignees` array is empty **or** contains the current user (`gh api user -q .login`).
-- Drop issues assigned to anyone else (a safety check).
-- Apply `--label` filter if given.
-- Apply `--limit` if given.
-- Sort ascending by `createdAt` (oldest first).
+Continue independent issues when a PR awaits approval, CI fails, an external dependency blocks progress, or a task worktree contains unfinished work. Keep that worktree intact and record its next step; never switch or clean it to start another issue. Stop only if unpublished local `main` commits or unsafe repository/worktree state prevent safe isolation. Do not retry a blocker blindly.
 
-Print the queue: `#<num> <title> [assignee]` per line, where `[assignee]` is `unassigned` or `@me`. If empty, exit cleanly.
-
-## Phase 2: Worktree Sanity
-
-Before touching any issue:
-
-```bash
-test -z "$(git status --porcelain)" || exit 1
-git fetch origin main
-git switch main
-test "$(git rev-list --count origin/main..main)" -eq 0 || exit 1
-git pull --ff-only
-```
-
-Abort if the worktree is dirty or local `main` is ahead of `origin/main`. Never auto-stash or discard local commits.
-
-## Phase 3: Process Loop
-
-For each issue in the queue:
-
-1. Re-check assignment state (someone else may have grabbed it):
-   ```bash
-   gh issue view <num> --json assignees -q '.assignees[].login'
-   me=$(gh api user -q .login)
-   ```
-   - Empty output → unassigned, proceed.
-   - Only `$me` listed → already mine, proceed (skip self-assign step).
-   - Any other login present → skip this issue.
-
-2. Invoke the `agnostic-ai-gh-issue` skill with the issue number. It owns assignment, implementation, checks, docs, PR creation, CI, merge, and local main sync.
-
-3. Record the outcome. Continue with the next independent issue when local `main` is clean. If a PR awaits approval, a check fails, or an external dependency blocks it, record the blocker and continue other actionable issues.
-
-## Stop Conditions
-
-Stop when the worktree is dirty, local `main` cannot safely advance, or an issue leaves uncommitted changes that prevent switching. Report each blocked issue and its concrete next step. Do not retry blindly.
-
-## Dry Run
-
-With `--dry-run`, only execute Phase 1 and print the queue. No assignment, no branching, no commits.
-
-## Preconditions
-
-- `gh` authenticated, can read issues, open and merge PRs.
-- Worktree clean.
-- `main` exists and tracks `origin/main`.
-- `agnostic-ai-gh-issue` skill available in this session.
-
-## Notes
-
-- `agnostic-ai-gh-issue` owns validation and PR scope. Keep this skill focused on discovery, ordering, and progress across issues.
+Report completed PRs and each blocked issue with its retained worktree path and concrete next step.

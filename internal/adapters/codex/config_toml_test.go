@@ -439,7 +439,7 @@ func TestEmit_MCP_PerToolTables(t *testing.T) {
 // unquoted `[mcp_servers.<name>]` header for that name is invalid TOML
 // ("Invalid group name ... Try quoting it"), which commonly aborts the
 // whole config parse and takes every other MCP server down with it.
-// The header must quote the server name exactly like tomlKeySegment
+// The header must quote the server name exactly like emit.TOMLKey
 // already quotes a tool name. This covers all three call sites: the
 // server table itself, its per-tool sub-table, and its oauth
 // sub-table. See #706.
@@ -1182,5 +1182,25 @@ func TestEmit_CodexConfig_OverlayTableKeepsPortableKeysTopLevel(t *testing.T) {
 	}
 	if doc.History.Persistence != "none" {
 		t.Errorf("history.persistence = %q, want none:\n%s", doc.History.Persistence, got)
+	}
+}
+
+// A whole-valued float in an MCP spec keeps the bytes sync wrote before
+// agent TOML learned to keep `.0`: `30000.0` stays `30000`.
+func TestEmit_MCP_WholeFloatTimeoutsKeepLegacyBytes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{
+		Kind: spec.KindMCP,
+		Name: "fs",
+		Meta: map[string]any{"command": "npx", "startup_timeout_ms": 30000.0, "tool_timeout_sec": 7.0, "startup_timeout_sec": 2.5},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	for _, want := range []string{"startup_timeout_ms = 30000\n", "tool_timeout_sec = 7\n", "startup_timeout_sec = 2.5\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
 	}
 }

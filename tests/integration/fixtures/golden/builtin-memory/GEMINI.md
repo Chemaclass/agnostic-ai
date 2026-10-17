@@ -10,6 +10,14 @@ CLAUDE.md, AGENTS.md, and the other AI tool files are generated from `.agnostic-
 
 ## Rules
 
+### gemini-memory-tiers
+
+<!-- source: builtin:gemini-memory-tiers -->
+_Keep Gemini CLI's memory tiers, and save team facts outside the generated GEMINI.md._
+
+This project shares memory with other AI coding tools. Keep your own memory tiers, with one change: `agnostic-ai sync` generates this project's `GEMINI.md` and overwrites it, so never save a fact there. Save a team convention, architecture rule, or repo workflow in `.agnostic-ai/memory/` instead, with a line in its `MEMORY.md`, once the user confirms it. Private project facts and cross-project preferences still go to your private project memory and `~/.gemini/GEMINI.md` (outside any `agnostic-ai` block); also save each one in the personal memory folder the shared-memory-policy rule names, so other tools read it. That copy is the shared layer, not one of your tiers.
+
+
 ### shared-memory-policy
 
 <!-- source: builtin:shared-memory-policy -->
@@ -17,7 +25,7 @@ _Read and save the project memory that every AI coding tool shares._
 
 This project keeps two memories that every AI coding tool shares: project memory in `.agnostic-ai/memory/`, committed for the team, and personal memory in `.agnostic-ai/local/memory/`, kept out of Git. If `agnostic-ai.local.yaml` sets `memory.personal: repo`, personal memory is the folder your session context names, or that `agnostic-ai memory path` prints. Each folder has a `MEMORY.md` index: one line per fact, linking a topic file beside it. If an index is not in your context, read it before a task. Open a topic file only when its line is relevant.
 
-Save a fact when a later session needs it and cannot get it from the code, the git history, or these rules. Save the user's preferences and corrections to personal memory without asking. Inside the checkout, first check that `git check-ignore -q .agnostic-ai/local/memory/x` passes; if it fails, add that folder's path to the file `git rev-parse --git-path info/exclude` prints. Propose team facts (conventions, decisions and their reasons, gotchas, outside pointers) and write them to project memory only after the user confirms. Save here even when your tool has its own memory.
+Save a fact when a later session needs it and cannot get it from the code, the git history, or these rules. Save the user's preferences and corrections to personal memory without asking. Inside the checkout, first check that `git check-ignore -q .agnostic-ai/local/memory/x` passes; if it fails, add that folder's path to the file `git rev-parse --git-path info/exclude` prints. Propose team facts (conventions, decisions and their reasons, gotchas, outside pointers) and write them to project memory only after the user confirms. Your tool's own memory can stay on. Save shared facts here as well, so other tools see them.
 
 To save, write `<slug>.md` in the chosen folder with frontmatter `name`, `description`, and `metadata.type` (`user`, `feedback`, `project`, or `reference`), then the fact, a `**Why:**` line, and a `**How to apply:**` line. Add `- [Title](<slug>.md): <hook>` to that folder's index. Update an existing fact instead of adding a duplicate, and delete one that turns out wrong. Never save secrets.
 

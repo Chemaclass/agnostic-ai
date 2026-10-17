@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -338,5 +339,48 @@ func TestImportCopilotHooks_RoundTripsBashAndPowershell(t *testing.T) {
 	}
 	if h := got.Hooks["sessionStart"][0]; h["bash"] != "./start.sh" || h["powershell"] != "./start.ps1" {
 		t.Errorf("handler = %#v", h)
+	}
+}
+
+// The vendor's per-server sandbox example survives import then sync,
+// beside the top-level sandbox the file already kept (#2212).
+func TestImportCopilotMCP_RoundTripsPerServerSandbox(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	writeFile(t, copilotMCPFile, `{
+  "sandbox": {"filesystem": {"denyRead": ["~/.ssh"]}},
+  "servers": {
+    "box": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["server.js"],
+      "sandboxEnabled": true,
+      "sandbox": {
+        "filesystem": {"allowWrite": ["${workspaceFolder}"]},
+        "network": {"allowedDomains": ["api.example.com"]}
+      }
+    }
+  }
+}`)
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync", "-t", "copilot")
+
+	var got struct {
+		Sandbox map[string]any            `json:"sandbox"`
+		Servers map[string]map[string]any `json:"servers"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, copilotMCPFile)), &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"filesystem": map[string]any{"allowWrite": []any{"${workspaceFolder}"}},
+		"network":    map[string]any{"allowedDomains": []any{"api.example.com"}},
+	}
+	if box := got.Servers["box"]["sandbox"]; !reflect.DeepEqual(box, want) {
+		t.Errorf("box sandbox = %#v, want %#v", box, want)
+	}
+	if got.Sandbox["filesystem"] == nil {
+		t.Errorf("top-level sandbox lost: %#v", got.Sandbox)
 	}
 }

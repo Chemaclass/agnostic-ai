@@ -60,6 +60,22 @@ func NeutralHookScripts(command, target, sourceDir, outputDir string, literal ..
 	return scripts, nil
 }
 
+func NeutralHookScriptsFor(hook spec.Entry, command, target, sourceDir, outputDir string, literal ...bool) ([]HookScript, error) {
+	if hook.HookAssetDir(command, target) == "" {
+		return NeutralHookScripts(command, target, sourceDir, outputDir, literal...)
+	}
+	sourceDir = hook.HookAssetDir(command, target)
+	scripts, err := NeutralHookScripts(command, target, sourceDir, outputDir, literal...)
+	if err != nil {
+		return nil, err
+	}
+	// Builtin assets are read-only in the cache; hooks must execute the copy.
+	for i := range scripts {
+		scripts[i].Mode = executablePerm
+	}
+	return scripts, nil
+}
+
 func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outputDir string, dryRun bool) error {
 	if wrapper, ok := PortableHookWrapperScript(hooks, target, outputDir); ok {
 		if err := s.writeFileWithMode(wrapper.Path, string(wrapper.Body), wrapper.Mode, true, dryRun); err != nil {
@@ -92,7 +108,7 @@ func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outp
 			}
 		}
 		for _, command := range references {
-			scripts, err := NeutralHookScripts(command.value, target, agnosticScriptsDir, outputDir, command.literal)
+			scripts, err := NeutralHookScriptsFor(hook, command.value, target, agnosticScriptsDir, outputDir, command.literal)
 			if err != nil {
 				path := hook.Path
 				if path == "" {

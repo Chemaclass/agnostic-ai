@@ -25,11 +25,6 @@ func captureNotes(t *testing.T) *bytes.Buffer {
 	return buf
 }
 
-// Devin reads `.agents/agents/` as well as its own `.devin/agents/`,
-// and the targets owning that tree write an agent at a different path
-// inside it, so the content collision check never sees the overlap. One
-// spec becomes two profiles claiming the same name, and only the
-// `.devin/` copy carries allowed-tools (#863).
 func TestWarnSharedAgentsTreeReaders(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -54,6 +49,14 @@ func TestWarnSharedAgentsTreeReaders(t *testing.T) {
 			},
 			targets: []string{"goose", "openhands", "windsurf"},
 			want:    "written by goose, openhands",
+		},
+		{
+			name: "shared-only profile with windsurf selected",
+			owners: map[string][]string{
+				".agents/agents/reviewer.md": {"goose"},
+			},
+			targets: []string{"goose", "windsurf"},
+			want:    "also read by Devin; shared profiles may lack allowed-tools restrictions",
 		},
 		{
 			name: "no windsurf, no overlap to report",
@@ -91,6 +94,9 @@ func TestWarnSharedAgentsTreeReaders(t *testing.T) {
 			if !strings.Contains(out, c.want) {
 				t.Errorf("note missing %q:\n%s", c.want, out)
 			}
+			if strings.Contains(out, "beside its own") || strings.Contains(out, "scope the spec") {
+				t.Errorf("note assumes a duplicate or promises target scoping prevents discovery:\n%s", out)
+			}
 			if !strings.Contains(out, "allowed-tools") {
 				t.Errorf("note does not say what is actually lost:\n%s", out)
 			}
@@ -119,6 +125,33 @@ func TestWarnSharedAgentsTreeReaders_OneLineForManyAgents(t *testing.T) {
 	}
 	if !strings.Contains(out, "4 agent files in .agents/agents/ written by antigravity, goose, openhands") {
 		t.Errorf("note does not aggregate files and writers:\n%s", out)
+	}
+}
+
+func TestRunSyncOnce_SharedOnlyAgentReportsDiscovery(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets: [goose, windsurf]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
+		"---\nname: reviewer\ndescription: Reviews code.\ntarget: goose\n---\n\nBody.\n")
+	silence(t)
+	notes := captureNotes(t)
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents", "agents", "reviewer.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".devin", "agents", "reviewer.md")); !os.IsNotExist(err) {
+		t.Errorf("target-scoped agent should have no Devin copy, got %v", err)
+	}
+	out := notes.String()
+	if !strings.Contains(out, "also read by Devin; shared profiles may lack allowed-tools restrictions") {
+		t.Errorf("note does not explain discovery and possible missing restrictions:\n%s", out)
+	}
+	if strings.Contains(out, "beside its own") || strings.Contains(out, "scope the spec") {
+		t.Errorf("note assumes a duplicate or promises target scoping prevents discovery:\n%s", out)
 	}
 }
 

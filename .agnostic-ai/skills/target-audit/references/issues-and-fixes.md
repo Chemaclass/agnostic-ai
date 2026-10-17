@@ -6,6 +6,10 @@ Read this when filing audit findings or running `--fix`. All paths are repositor
 
 Refresh matching issue state and relevant comments before filing. Open findings are `still-open #N`; resolved gaps that return are regressions. Never file an unconfirmed finding.
 
+Before issue creation, save the stable finding identity and intended issue title in the run artifact. Use an existing stable signal ID when available; otherwise choose a durable identity from the target, native surface and vendor change. Include `Audit finding: <identity>` in the issue body and retain it across resumed research.
+
+An interrupted or timed-out issue creation has an ambiguous outcome. Do not replay the write. Refresh matching remote issues and comments using that stable identity and inspect the complete matching body. A unique matching issue confirms publication; save its URL in the run artifact. No match, several matches, an incomplete response or unavailable remote state leaves publication uncertain. Stop that write and report the identity and uncertainty for reconciliation. Research resume never retries external writes or promises exactly-once issue creation.
+
 Create the `target-audit` label only if absent:
 
 ```bash
@@ -15,6 +19,8 @@ gh label create target-audit --description "Drift found by the target-audit skil
 File most severe first, assigned to Chemaclass, labeled `target-audit` and `bug` for breaking findings or `enhancement` otherwise. Use a structured body argument or an exact Markdown file with `--body-file`.
 
 Each issue must explain what changed, why it matters, current support, and the smallest next action. Include the vendor URL and exact quote, repository evidence linked to the audited commit, user impact, and reproduction. Keep evidence detailed enough to act without the ignored report.
+
+For behavior claims, copy the applicable confirmation record from `.agnostic-ai/skills/target-audit/references/behavior-evidence.md` into the issue. Check the outcome, proof limits, and independent verdict before filing or assigning a fixer. Use the same template for the run record; do not replace its details with a link to an ignored file.
 
 For multi-target findings, include one checkbox per target with its native path and implementation location. Identify the cheapest independent fix and why. A partial PR must not close the whole issue.
 
@@ -52,7 +58,7 @@ Tell workers their ownership, that peers are working concurrently, and not to re
 
 Acceptance is the smallest user-visible scenario that closes the issue. State it and non-goals before implementation. Preserve adapter independence and existing user files.
 
-Follow `.agnostic-ai/agents/adapter-fixer.md`. Coordinate expensive checks across workers: targeted reproductions during diagnosis, then one `make preflight` per completed code change set and one WASM build where capabilities changed. Fix failures before pushing. Rebuild after rebasing over adapter changes; a stale binary gives false sync drift.
+Follow `.agnostic-ai/agents/adapter-fixer.md` and the policy in repository-root `docs/internal/contributing.md`, section "Choose checks for your change", for check selection, serial execution across workers, evidence recording, and reuse. Pass the selected checks before pushing. Recheck the resulting inputs after rebasing; a stale binary gives false sync drift.
 
 Fixers may reject a finding. Recheck their evidence; if wrong, explain what was missed on the issue and label it `invalid`. Do not reopen a disproved claim or force the proposed implementation.
 

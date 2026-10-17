@@ -312,7 +312,7 @@ func TestExplainFile_InputModeErrors(t *testing.T) {
 		{"file without target", []string{"--file", "a.go"}, "--target"},
 		{"target without file", []string{"rules/root-style.md", "--target", "cursor"}, "--file"},
 		{"no input", nil, "spec"},
-		{"unsupported target", []string{"--file", "a.go", "--target", "claude"}, "unsupported"},
+		{"unsupported target", []string{"--file", "a.go", "--target", "goose"}, "unsupported"},
 		{"outside project", []string{"--file", "../a.go", "--target", "cursor"}, "outside the project"},
 	}
 	for _, c := range cases {

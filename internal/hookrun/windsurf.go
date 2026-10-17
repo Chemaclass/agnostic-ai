@@ -50,6 +50,12 @@ const windsurfAssumedTimeout = cursorAssumedTimeout
 // matcher.
 var windsurfToolEvents = []string{"PreToolUse", "PostToolUse", "PermissionRequest"}
 
+// windsurfCompactionEvents run before and after context compaction, with
+// "`manual` and `auto` trigger matchers" and no tool_name
+// (docs.devin.ai/cli/changelog/stable.md, v3000.11.92). The hooks pages
+// document neither their payload nor the field the trigger arrives in.
+var windsurfCompactionEvents = []string{"PreCompact", "PostCompact"}
+
 // windsurfDecisionEvents are the events a block stops: PreToolUse ("Use
 // this to block"), PermissionRequest ("custom approval logic"), Stop
 // ("prevent premature stopping"), and UserPromptSubmit, the user's
@@ -72,10 +78,16 @@ func windsurfMatches(matcher, value string) (bool, error) {
 
 // windsurfEventMatcher refuses a matcher on an event with no tool_name:
 // the docs say only that "" or no matcher runs the hook "for every
-// event of that type".
+// event of that type". The compaction events take manual and auto.
 func windsurfEventMatcher(event, matcher string) error {
 	if matcher == "" || slices.Contains(windsurfToolEvents, event) {
 		return nil
+	}
+	if slices.Contains(windsurfCompactionEvents, event) {
+		if matcher == "manual" || matcher == "auto" {
+			return nil
+		}
+		return Unbuilt{fmt.Sprintf("Devin CLI documents only the matchers manual and auto on %s, not %q", event, matcher)}
 	}
 	return Unbuilt{fmt.Sprintf("Devin CLI does not document what matcher %q does on %s, which has no tool_name; drop it from the spec", matcher, event)}
 }
@@ -127,6 +139,8 @@ func buildWindsurf(event, matcher, _ string, in Input) (Payload, error) {
 	case "PostCompaction":
 		p.Trigger = "compaction"
 		doc["summary"] = nil
+	case "PreCompact", "PostCompact":
+		return Payload{}, Unbuilt{fmt.Sprintf("Devin CLI documents no payload for %s; pass --payload <file>", event)}
 	case "SessionStart":
 		return Payload{}, Unbuilt{"Devin CLI documents no values for SessionStart's source; pass --payload <file>"}
 	case "SessionEnd":

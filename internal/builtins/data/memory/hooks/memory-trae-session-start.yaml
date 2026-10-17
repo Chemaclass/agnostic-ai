@@ -1,0 +1,5 @@
+name: memory-trae-session-start
+description: Load the shared memory index when a Trae session starts.
+event: SessionStart
+targets: [trae]
+command: "agnostic-ai project -- hook memory --target trae"

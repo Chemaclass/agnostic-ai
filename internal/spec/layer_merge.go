@@ -26,9 +26,13 @@ func extendEntry(base, over Entry) Entry {
 	out.NestedKeys = mergeNestedKeys(base.NestedKeys, over.NestedKeys, out.Meta)
 	out.MetaStyles = mergeMetaStyles(base.MetaStyles, over.MetaStyles, out.Meta)
 	out.Literals = mergeLiterals(base, over, out.Meta)
+	if over.Kind == KindHook {
+		out.HookAssetDirs = mergeHookAssetDirs(base, over, out.Meta)
+	}
 	switch {
 	case strings.TrimSpace(over.Body) == "":
 		out.Body = base.Body
+		out.bodyLayer = base.BodySourceLayer()
 	default:
 		out.Body = expandParent(over.Body, base.Body)
 	}

@@ -2,7 +2,9 @@
 
 [Contributor docs](README.md)
 
-Add a new AI CLI target (`foo`).
+Add support for a coding tool by writing an adapter, the code that turns portable specs into that tool's configuration. This guide uses `foo` as the target name.
+
+Before writing code, identify the files and fields the tool reads in its current official documentation. A working adapter must generate those files, pass its tests, and document the supported spec kinds.
 
 ## 1. Create the package
 
@@ -48,7 +50,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 }
 ```
 
-To write one file per rule instead of one combined document, replace `sess.MergedDocument` with `sess.RulesDirectory` (see Cursor / Cline / Windsurf). Both honor `spec.Entry.Scope`.
+To write one file per rule instead of one combined document, replace `sess.MergedDocument` with `sess.RulesDirectory` (see Cursor / Cline / Windsurf). Both use `spec.Entry.Scope` to place folder-specific rules.
 
 ## 2. Register
 
@@ -89,14 +91,14 @@ Use the shared helpers to resolve output paths:
 | `emit.OutputInstructionsDir(cfg, target, fallback)` | Copilot-style scoped rules |
 | `emit.EmitSkillsAsCommands(cfg, target)` | opt-in flag for skills-as-commands |
 
-New field on `config.Output`? Add once, reuse.
+Add a field to `config.Output` only when existing fields cannot express the output path. Reuse it across adapters that need the same setting.
 
 ## 5. Shared helpers
 
 Use the `sess` passed to `Emit` for file writes, migrations, and capture checks.
 
 - `emit.GroupRulesByScope(rules)` + `emit.RouteScope(r)`: write rules to the correct `<scope>/AGENTS.md` / `<scope>/GEMINI.md` files for each folder.
-- `emit.WriteSection(sb, heading, e)`: inlined `### heading`. `emit.WriteReference(sb, e, sourcePath)` points when the definition lives elsewhere.
+- `emit.WriteSection(sb, heading, e)`: include the body under `### heading`. `emit.WriteReference(sb, e, sourcePath)` links to a definition stored elsewhere.
 - `emit.WriteTOMLString` / `WriteTOMLMultiline` / `WriteTOMLStringArray` / `EscapeTOMLBasic`: write TOML values.
 - `emit.Frontmatter(meta)`: write the YAML fields at the start of a Markdown file (frontmatter).
 - `emit.ResolveMeta(meta, target)`: apply `x-<target>` overrides as top-level keys.
@@ -150,7 +152,7 @@ Built-in schemas:
 - `MCPSchemaServersMap`: `{"mcpServers": {...}}` (Claude, Cursor, Warp)
 - `MCPSchemaVSCodeServers`: `{"servers": {...}}` with `type` per server (Copilot / VS Code)
 
-For formats that differ from these schemas, write target-specific output: Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp`, Continue one-YAML-per-server. See each adapter. Use `sess.MergeJSONFile` to preserve unrelated user keys. Use `emit.OutputMCPDir` for one-file-per-server.
+For formats that differ from these schemas, write the format the target reads: Codex TOML, Gemini `httpUrl`, Amp `amp.mcpServers` dotted key, Zed `context_servers`, OpenCode `mcp`, Continue one-YAML-per-server. See each adapter. Use `sess.MergeJSONFile` to preserve unrelated user keys. Use `emit.OutputMCPDir` for one-file-per-server.
 
 ## 9. Hooks (optional)
 
@@ -164,7 +166,7 @@ An adapter follows the vendor's configuration format at the time it is written. 
   `.agnostic-ai/skills/target-audit/references/sources.md`, with a
   `watch:` line naming the parts most likely to change. This is not
   optional: `tests/integration/target_audit_sources_test.go` fails until
-  the new target has a section, so an adapter cannot merge un-audited.
+  the new target has a section, so a new adapter must have documented audit sources before it can merge.
   Follow that file's required URL line format, because `scripts/docfetch.sh`
   parses those two lines and `scripts/docfetch_test.sh` fails when a
   target resolves no docs URL or no changelog URL. Run
@@ -177,6 +179,8 @@ An adapter follows the vendor's configuration format at the time it is written. 
 The `target-audit` skill runs that comparison across every registered
 target in parallel and files an issue for each confirmed difference. Run it after
 adding an adapter to confirm the new rows read correctly.
+
+To fetch a subset again, run `scripts/docfetch.sh --out DIR <target>...`. Its reports and delta counts cover only those targets, even when `DIR` already holds other targets' files. Add `--mirrors` to refresh the mirror report too. A successful fetch that skips mirrors removes the previous mirror report. Other targets' saved files stay in place. If a worker fails or returns too few rows, the command fails and keeps the last complete reports.
 
 ## Conventions
 

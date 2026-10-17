@@ -30,7 +30,7 @@ const notRun hookrun.Decision = "not run"
 func newHookRunCmd() *cobra.Command {
 	var only []string
 	var in hookrun.Input
-	var payloadFile, expect, format string
+	var payloadFile, expect, format, hookRuntime string
 	var includeAssumed bool
 	cmd := &cobra.Command{
 		Use:   "run <hook>",
@@ -58,6 +58,12 @@ func newHookRunCmd() *cobra.Command {
   agnostic-ai hook run protect-files --edit .env --format json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if hookRuntime != "" && hookRuntime != "vscode" {
+				return fmt.Errorf("--runtime: expected vscode, got %q", hookRuntime)
+			}
+			if hookRuntime == "vscode" && (len(only) != 1 || only[0] != "cline") {
+				return fmt.Errorf("runtime vscode requires --target cline")
+			}
 			if expect != "" && expect != string(hookrun.Allow) && expect != string(hookrun.Block) {
 				return fmt.Errorf("--expect: expected allow or block, got %q", expect)
 			}
@@ -99,7 +105,12 @@ func newHookRunCmd() *cobra.Command {
 			if format == "json" {
 				show = func(hookTargetRun) {}
 			}
-			runs, err := runHookTargets(cfg, hook, b.Hooks, targets, root, in, show)
+			var runs []hookTargetRun
+			if hookRuntime == "vscode" {
+				runs, err = runClineVSCodeTaskStart(cfg, hook, b.Hooks, root, in, show)
+			} else {
+				runs, err = runHookTargets(cfg, hook, b.Hooks, targets, root, in, show)
+			}
 			if err != nil {
 				return err
 			}
@@ -117,6 +128,7 @@ func newHookRunCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&only, "target", "t", nil, "Run only for these targets (default: every target the hook reaches)")
+	cmd.Flags().StringVar(&hookRuntime, "runtime", "", "Model the VS Code TaskStart runtime (requires --target cline; default: SDK)")
 	cmd.Flags().StringVar(&in.Edit, "edit", "", "Build a tool event that edits this path")
 	cmd.Flags().StringVar(&in.Bash, "bash", "", "Build a tool event that runs this shell command")
 	cmd.Flags().StringVar(&in.Prompt, "prompt", "", "Prompt text for a UserPromptSubmit event")

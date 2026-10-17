@@ -1,0 +1,8 @@
+name: opencode-v2-guard
+description: Guard an OpenCode V2 shell operation.
+targets: [opencode]
+event: PreToolUse
+matcher: shell
+command: echo guard
+x-opencode:
+  plugin-api: v2

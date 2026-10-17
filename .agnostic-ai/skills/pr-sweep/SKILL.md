@@ -7,73 +7,47 @@ disable-model-invocation: false
 
 # PR sweep
 
-Take every open PR from review to merge without asking between steps. With PR numbers, sweep only those. With `--no-merge`, stop at green PRs.
+Review and finish the requested PRs, or all eligible open PRs when none are specified. Invoking this merge workflow authorizes merging within that scope. With `--no-merge`, or when called from a review-only task, stop at reviewable green PRs.
 
-## 1. List
+## List and isolate
 
-```bash
-gh pr list --state open --json number,title,headRefName,additions,deletions,author
-```
+List open PRs with number, title, author, draft state, head branch and SHA, and base branch. Paginate until complete. Skip drafts and PRs by other authors and report them.
 
-Skip PRs by other authors and drafts; report them. Empty list: stop.
+Fetch the base and PR heads. Stop if local `main` has unpublished commits. Preserve a dirty starting checkout and perform each PR's work in a dedicated worktree. Record its absolute path and branch; reuse an existing task worktree only after checking its head and local changes. Do not discard unpublished work or force a branch held by another worktree. Stop the affected PR if its task worktree is unsafe and continue independent PRs. Run Git commands in the task worktree; a tool wrapper problem does not justify switching the starting checkout.
 
-## 2. Review
+## Review
 
-Run two reviews on the PR branch, in parallel:
+Run two independent passes on the current PR diff:
 
-- The `code-reviewer` agent for Go diffs (other diffs against the project rules). Keep its Opus model; never pass a cheaper override.
-- An adversarial review that challenges the design, not only the lines: `/codex:adversarial-review --base origin/main` where the Codex plugin is installed (Claude Code). Without it, run a second reviewer pass told to question the approach, its assumptions, and how it fails in real use.
+- Use the available `code-reviewer` role for Go changes, or a reviewer against project rules for other changes. Respect the role's configured model; concrete model choices belong in agent metadata.
+- Use the available adversarial review role or command to challenge the design, assumptions, and real usage failures.
 
-Read every result before editing. After each round of fixes, run the adversarial review again until it approves or every remaining finding is rejected in step 4.
+If either role is unavailable, use an available reviewer with the corresponding brief. If delegation is unavailable, perform two separate passes with those briefs. Read both results before editing. Repeat the adversarial pass after fixes until remaining findings are resolved or explicitly rejected with evidence.
 
-## 3. Verify each finding
+## Verify and apply
 
-A finding is a claim, not a task. Before acting on one:
+A finding is a claim. Reopen its cited file on the current PR head, reproduce behavior claims with a failing test or current binary, and verify vendor claims against current vendor documentation. Record unsupported claims and why they were rejected; report unresolved claims as blockers.
 
-- Reopen the file and line it cites on the PR head.
-- Reproduce behavior claims with a built binary or a failing test.
-- Check vendor claims against the vendor page, not memory.
+Fix confirmed findings within scope. Use a test that fails before the fix for behavior changes; use existing focused checks for prose or data. Findings needing another design or changes to unrelated targets get a follow-up issue assigned to Chemaclass with the appropriate label. Answer rejected findings with their evidence.
 
-Keep what holds. Record what does not, with the reason.
+After fixes, post one PR comment with applied commit IDs, follow-up issues, and rejection reasons. Follow the project's comment attribution rule.
 
-## 4. Apply
+## Gate
 
-Check out the PR branch in the main checkout (worktree agents cannot run git while the RTK hook rewrites it) and pull. For each confirmed finding:
+Before pushing, select and pass checks from repository-root `docs/internal/contributing.md`, section "Choose checks for your change". That policy owns generation, validation selection, serial execution, evidence, and reuse after fixes or merges. Check each command's own exit code. Commit with signed Conventional Commits and push without rewriting published history.
 
-- Fix it on the branch. Test first for behavior changes: the new test must fail on the old code.
-- A finding that needs a different design or touches other targets gets its own issue (`gh issue create --assignee Chemaclass` with a label). Do not widen the PR.
-- A finding you reject after verification is answered, not ignored.
+Before merging, confirm required CI and applicable remote OS checks passed on the actual current head SHA. Missing, pending, stale, or skipped required checks are not green.
 
-Then post one PR comment listing the commit that applied the findings, the issues filed, and each rejection with its reason.
+## Merge and clean up
 
-## 5. Gate
+Process oldest first, prioritizing shared-file changes when that reduces conflicts.
 
-Before every push, all green. Check each command by its own exit code; a pipe such as `make ci-local | grep FAIL | head` exits 0 when the gate fails.
+1. Refresh the PR head, checks, review requirements, and merge state. Confirm the reviewed and tested SHA is still current.
+2. Update from fresh `origin/main` only when the branch is actually behind a required current base or has merge conflicts. Merge the base into the task branch without rewriting published history, preserve both sides of shared docs, inspect the resulting diff, rerun affected validation, push, and review the new head as needed. A non-clean status alone does not require a base merge: `BLOCKED` can mean pending checks or reviews, and unknown/calculating states need a refresh.
+3. Within merge authority, use `gh pr merge <N> --squash --admin --delete-branch --match-head-commit <SHA>`. If administrative merging is rejected, use the same SHA guard with `--auto --squash --delete-branch` and report that merging is queued. A queued request is not a verified merge.
+4. Confirm the PR is merged and its merge commit is on fetched `origin/main`. Verify the `CI` workflow for the resulting main head passed. Resolve a red main before continuing merges.
+5. Fast-forward local `main` only if its checkout is clean and it has no unpublished commits. Otherwise preserve it and report why it was not advanced. Remove the task worktree and local branch only after verifying the merge and confirming they contain no uncommitted or unpublished work and have no open PR. Delete the remote branch if merge cleanup did not. Run `git fetch --prune` and `git worktree prune`; after removing worktrees, run `~/.agnostic-ai/scripts/reap-stale-agents.sh` if it exists.
 
-- `make ci-local`; use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable, report the skip, and check JetBrains CI when its inputs changed
-- `make site-test` when site content changes, counting skips, not the exit code
-- `./agnostic-ai sync --check`. Drift only in gitignored generated files after a fresh checkout means sync's ledger is stale: run `sync`, confirm 0 tracked files change.
-- CHANGELOG bullets pass the length check in `.agnostic-ai/agents/changelog-curator.md`.
+## Report blockers and outcomes
 
-Commit with conventional commits, GPG-signed, no AI attribution or session links. Push.
-
-PR checks run Go tests on Linux only. When the PR touches paths, renames, permissions, file watching, or import, run the full OS matrix on the branch (`gh workflow run ci.yml --ref <branch>`) and wait for it on the head SHA before merging.
-
-## 6. Merge
-
-For each PR, oldest first, or the one that changes shared files (`sources.lock`, `signals.tsv`, `CHANGELOG.md`) first:
-
-1. Wait for checks on the current head SHA: `gh pr checks <N>`. Missing or pending checks are not green.
-2. If `mergeStateStatus` is not `CLEAN`, merge `origin/main` into the branch (never rewrite pushed history), keep both sides of shared docs, rerun the gate, push, and wait again.
-3. `gh pr merge <N> --squash --admin --delete-branch`. If `--admin` is rejected, use `--auto --squash --delete-branch` and report that the PR awaits approval.
-4. Fast-forward local `main` from `origin/main` and delete the local branch. Stop if `main` has unpublished commits; never reset them away.
-
-PR Go tests run on Linux only. After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed, Windows included. A red main is the first thing to fix.
-
-## 7. Report
-
-One table: PR, merge commit, findings applied, findings moved to issues, findings rejected. Then the open follow-up issues.
-
-## Stop
-
-Stop and report when a finding cannot be verified either way, CI stays red after one fix, or a merge is blocked even for `--auto`.
+Report one table with PR, merge commit or current state, applied findings, follow-up issues, and rejected findings. Include retained task paths and next steps for blocked PRs. Stop work on a PR when a finding remains unverifiable, CI stays red after one fix, or merging remains blocked even with auto-merge. Continue independent PRs when safe.

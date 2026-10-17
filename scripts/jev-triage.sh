@@ -17,16 +17,24 @@
 # still writes the pages' lexical leads: claims that share a path, key, or
 # term with the page's moved words.
 #
+# When Jev does not run, or leaves a page part unjudged, trim-1
+# (scripts/trim-leads, its own Go module) adds a second offline source: for
+# each claim, it ranks the part's moved lines against the target's other
+# claims, and a moved line in the top JEV_TRIM_TOP, or the top fifth for a
+# target with few claims, makes a lead. If Go or the helper fails, the run
+# keeps the lexical leads and says so once.
+#
 # Output: <run dir>/triage.tsv, one row per lead, likeliest drift first:
 #   target, url, delta path, claim, verdict, probability, p_contradicts, via
 # verdict is contradicts, supports, says_nothing, noul, or paired (a lexical
-# lead with no judgment); via is jev or lexical. A Choice answer is kept only
-# when it is contradicts or its p_contradicts reaches JEV_KEEP_CONTRADICTS.
+# or trim-1 lead with no judgment); via is jev, lexical, or trim. A trim row's
+# probability is trim-1's keep probability for its best moved line. A Choice
+# answer is kept only when it is contradicts or its p_contradicts reaches
+# JEV_KEEP_CONTRADICTS.
 # On the replay cases, with every claim of a target in one request, real
 # drift scored p_contradicts 0.63 or more and everything else 0.16 or less.
 #
-# The triage only orders reading. It never clears a row, and it always
-# exits 0, so an audit with no key or no network runs as it would without it.
+# Metrics are best effort and never gate the lexical fallback.
 #
 # Usage:
 #   scripts/jev-triage.sh [--lexical] <run dir> [target...]
@@ -49,8 +57,11 @@
 #   JEV_TRIES               attempts per request on 429, 5xx, or no answer, default 3
 #   JEV_BACKOFF             seconds times attempt between retries, default 2
 #   JEV_TARGET_FACTS        claim source, default scripts/target-facts.sh
+#   JEV_TRIM_TOP            rank a moved line needs for a trim-1 lead, default 5
+#   JEV_TRIM_HELPER         prebuilt scripts/trim-leads binary; default go run
 #
-# Portable: bash 3.2 + awk + curl + jq. No GNU-only flags.
+# Portable: bash 3.2 + awk + curl + jq; Go for the trim-1 leads. No GNU-only
+# flags.
 
 set -euo pipefail
 
@@ -69,6 +80,7 @@ JEV_SURFACE_MIN="${JEV_SURFACE_MIN:-0.5}"
 JEV_CLEAR_SURFACE="${JEV_CLEAR_SURFACE:-0.1}"
 JEV_TRIES="${JEV_TRIES:-3}"
 JEV_BACKOFF="${JEV_BACKOFF:-2}"
+JEV_TRIM_TOP="${JEV_TRIM_TOP:-5}"
 JEV_LEXICAL=0
 JEV_SURFACE_CLAIM="changes a project-scoped config surface (file path, frontmatter field, MCP key, hook event, spec directory)"
 TAB=$(printf '\t')
@@ -82,10 +94,11 @@ Usage: scripts/jev-triage.sh [--lexical] <run dir> [<target>...]
   <run dir>      a scripts/docfetch.sh run directory holding deltas.tsv;
                  writes <run dir>/triage.tsv
   <target>...    only triage the named targets
-  --lexical      no API calls: write lexical leads only
+  --lexical      no API calls: write lexical and trim-1 leads only
   --replay       run labeled cases and print recall on contradicts cases,
                  the false-positive rate on says_nothing cases, and how
-                 many contradicts cases the lexical pairing alone finds
+                 many contradicts cases the lexical pairing, trim-1, and
+                 either of them find
   --replay-surface
                  run labeled surface cases and print recall on yes cases
                  and the false-positive rate on no cases for the Noul
@@ -249,6 +262,32 @@ jev_pair() {
       }
     }
   ' "$2" | sort -t "$TAB" -k2,2nr -k1,1n
+}
+
+# jev_trim <jobs> <out> runs the trim-1 helper over jobs of "id\tclaims
+# file\ttext file" and writes "id\tclaim line\trank\tprobability" for each
+# claim whose best moved line ranks within JEV_TRIM_TOP, or the top fifth
+# for a target with few claims. On failure it prints why and returns 1.
+jev_trim() {
+  local jobs="$1" out="$2" code=0 why
+  if [ -n "${JEV_TRIM_HELPER:-}" ]; then
+    if [ ! -x "$JEV_TRIM_HELPER" ]; then
+      printf '%s is not executable' "$JEV_TRIM_HELPER"
+      return 1
+    fi
+    "$JEV_TRIM_HELPER" -top "$JEV_TRIM_TOP" <"$jobs" >"$out" 2>"$out.err" || code=$?
+  elif ! command -v go >/dev/null 2>&1; then
+    printf 'go not found'
+    return 1
+  else
+    (cd "$JEV_ROOT/scripts/trim-leads" && GOWORK=off go run . -top "$JEV_TRIM_TOP") <"$jobs" >"$out" 2>"$out.err" || code=$?
+  fi
+  if [ "$code" -ne 0 ]; then
+    # go run reports progress and the exit status on stderr; the cause sits between.
+    why=$(grep -v -e '^go: downloading' -e '^exit status' "$out.err" | grep . | head -n 1 || true)
+    printf '%s' "${why:-helper exited $code}"
+    return 1
+  fi
 }
 
 # jev_request <text file> <selected claims tsv> <target> <source> <noul>
@@ -443,7 +482,7 @@ jev_answers() {
 # jev_finish <rows> <out> keeps Choice answers that are contradicts or reach
 # JEV_KEEP_CONTRADICTS and Noul answers that reach JEV_SURFACE_MIN, keeps the
 # strongest row per page and claim, and orders Jev leads by p_contradicts,
-# then surface rows, then lexical leads.
+# then surface rows, then lexical leads, then trim-1 leads by probability.
 jev_finish() {
   awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" -v surface="$JEV_SURFACE_MIN" '
     ($5 == "supports" || $5 == "says_nothing") && $7 + 0 < keep + 0 { next }
@@ -451,9 +490,10 @@ jev_finish() {
     {
       r = 1
       if ($5 == "noul") r = 2
+      else if ($8 == "trim") r = 4
       else if ($5 == "paired") r = 3
       k = $3 "\t" $4
-      w = ($5 == "noul") ? $6 : $7
+      w = ($5 == "noul" || $8 == "trim") ? $6 : $7
       if (k in rank && (rank[k] < r || (rank[k] == r && weight[k] + 0 >= w + 0))) next
       rank[k] = r; weight[k] = w; row[k] = $0
     }
@@ -506,15 +546,70 @@ jev_pages() {
   ' "$work/units.tsv"
 }
 
+jev_metrics() {
+  local dir="$1" work="$2" start="$3" status="$4" reason="$5" planned="$6" answered="$7" capped="$8" trim="$9"
+  local end=null mode=jev tmp identity
+  if ! command -v jq >/dev/null 2>&1; then
+    jev_note "metrics unavailable (jq not found)"
+    return 0
+  fi
+  [ "$status" = running ] || end=$(date +%s)
+  if [ "$planned" -eq 0 ]; then
+    mode=lexical
+    [ "$trim" = 0 ] || mode="lexical-trim"
+  elif [ "$answered" -lt "$planned" ] || [ "$capped" -gt 0 ]; then
+    mode=fallback
+  fi
+  [ "$status" != running ] || mode=pending
+  identity=$(jq -n --arg id "$(basename "$dir")" '{id: $id, provenance: {}}')
+  if [ -r "$dir/audit-metrics.json" ]; then
+    identity=$(jq -c '.run' "$dir/audit-metrics.json") || return 1
+  fi
+  tmp=$(mktemp "$dir/triage-metrics.json.XXXXXX") || return 1
+  if { cat "$work"/resp/*.json 2>/dev/null || true; } | jq -s \
+    --argjson identity "$identity" --argjson start "$start" --argjson end "$end" --arg status "$status" \
+    --arg mode "$mode" --arg model "$JEV_MODEL" --arg reason "$reason" \
+    --argjson planned "$planned" --argjson answered "$answered" --argjson capped "$capped" \
+    --arg trim_reason "${10:-}" --argjson cap "$JEV_MAX_REQUESTS" --argjson jobs "$JEV_JOBS" '
+      def valid_count: type == "number" and . >= 0;
+      def counts($key): [.[].usage[$key] | select(valid_count)];
+      (counts("input_tokens")) as $input | (counts("output_tokens")) as $output
+      | {schema_version: 1, run: $identity, model: $model, mode: $mode,
+         stage: {name: "triage", phase: "audit", start: $start, end: $end, status: $status},
+         requests: {planned: $planned,
+           answered: (if $status == "running" then null else $answered end),
+           unanswered: (if $status == "running" then null else $planned - $answered end), capped: $capped},
+         configuration: {request_cap: $cap, concurrent_requests: $jobs},
+         usage: {
+           scope: "returned responses; failed attempts may have unreported usage",
+           input_tokens: (if $status == "running" or ($input | length) != $planned then null else ($input | add // 0) end),
+           output_tokens: (if $status == "running" or ($output | length) != $planned then null else ($output | add // 0) end),
+           known_input_tokens: ($input | add // 0), known_output_tokens: ($output | add // 0),
+           missing_input_requests: ($answered - ($input | length)), missing_output_requests: ($answered - ($output | length))},
+         research_limits: ([$reason, $trim_reason,
+           (if $capped > 0 then "requests over cap remain unjudged" else "" end),
+           (if $planned > $answered then "unanswered requests have unknown usage" else "" end),
+           (if ($input | length) < $answered or ($output | length) < $answered then "response usage missing" else "" end)] | map(select(length > 0)))}
+    ' >"$tmp"; then
+    mv "$tmp" "$dir/triage-metrics.json"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 jev_triage() {
   local dir="$1" reason="" work out prio unit target kind url delta file
   local sel noul n=0 pages=0 capped=0 total i chunk lines label pages_out jev_ran=0
+  local started answered=0 failed=0 trim_ran=0 trim_why=""
   shift
+  started=$(date +%s)
   out="$dir/triage.tsv"
   pages_out="$dir/triage-pages.tsv"
-  rm -f "$out" "$out.tmp" "$pages_out"
+  rm -f "$out" "$out.tmp" "$pages_out" "$dir/triage-metrics.json"
   if [ ! -r "$dir/deltas.tsv" ]; then
     jev_note "skipped (no deltas.tsv in $dir)"
+    jev_metrics "$dir" /nonexistent "$started" completed "no deltas.tsv" 0 0 0 0 || jev_note "metrics unavailable (cannot write artifact)"
     return 0
   fi
   reason=$(jev_ready) || true
@@ -524,6 +619,7 @@ jev_triage() {
   trap "rm -rf '$work'" EXIT
   mkdir -p "$work/claims" "$work/lex" "$work/req" "$work/meta" "$work/sel"
   : >"$work/rows"
+  jev_metrics "$dir" "$work" "$started" running "$reason" 0 0 0 0 || jev_note "metrics unavailable (cannot write artifact)"
 
   while IFS="$TAB" read -r prio unit target kind url delta file label; do
     pages=$((pages + 1))
@@ -531,6 +627,7 @@ jev_triage() {
     [ -f "$work/claims/$target" ] || jev_claims "$target" >"$work/claims/$target"
     jev_pair "$work/claims/$target" "$file" "$target" >"$work/lex/$unit"
     printf '%s\t%s\t%s\n' "$target" "$url" "$delta" >"$work/lex/$unit.meta"
+    printf '%s\t%s\t%s\n' "$unit" "$work/claims/$target" "$file" >>"$work/trim.jobs"
     [ -z "$reason" ] || continue
 
     noul=true
@@ -566,11 +663,13 @@ jev_triage() {
     : >"$out"
     : >"$pages_out"
     jev_note "no changed page with a delta in $dir, wrote an empty $out"
+    jev_metrics "$dir" "$work" "$started" completed "$reason" 0 0 0 0 || jev_note "metrics unavailable (cannot write artifact)"
     return 0
   fi
 
-  local answered=0 failed=0 m r
+  local m r
   if [ -z "$reason" ]; then
+    jev_metrics "$dir" "$work" "$started" running "$reason" "$n" 0 "$capped" 0 || jev_note "metrics unavailable (cannot write artifact)"
     jev_run "$work"
     for m in "$work"/meta/*.tsv; do
       [ -e "$m" ] || continue
@@ -606,40 +705,81 @@ jev_triage() {
     done < <(head -n "$JEV_LEXICAL_LEADS" "$work/lex/$unit")
   done
 
+  # trim-1 ranks the parts Jev did not judge: every part when Jev never ran.
+  if [ "$jev_ran" = 1 ]; then
+    local job
+    while IFS= read -r job; do
+      [ ! -e "$work/unjudged.${job%%"$TAB"*}" ] || printf '%s\n' "$job"
+    done <"$work/trim.jobs" >"$work/trim.todo"
+  else
+    cp "$work/trim.jobs" "$work/trim.todo"
+  fi
+  if [ -s "$work/trim.todo" ]; then
+    if trim_why=$(jev_trim "$work/trim.todo" "$work/trim.out"); then
+      trim_ran=1
+      awk -F '\t' -v work="$work" '
+        NF == 4 {
+          answers = work "/answered." $1
+          if (!(answers in asked)) {
+            asked[answers] = 1
+            while ((getline a < answers) > 0) { split(a, f, "\t"); answered[$1, f[1]] = 1 }
+            close(answers)
+          }
+          if (($1, $2) in answered) next
+          meta = work "/lex/" $1 ".meta"
+          if (!(meta in info)) { getline info[meta] < meta; close(meta) }
+          split(info[meta], m, "\t")
+          file = work "/claims/" m[1]
+          if (!(file in loaded)) {
+            loaded[file] = 1; n = 0
+            while ((getline c < file) > 0) claim[file, ++n] = c
+            close(file)
+          }
+          printf "%s\t%s\t%s\t%s\tpaired\t%s\t\ttrim\n", m[1], m[2], m[3], claim[file, $2], $4
+        }
+      ' "$work/trim.out" >>"$work/rows"
+    else
+      jev_note "trim-1 skipped ($trim_why)"
+    fi
+  fi
+
   jev_finish "$work/rows" "$out"
   jev_pages "$work" "$out" "$jev_ran" >"$pages_out"
+  jev_metrics "$dir" "$work" "$started" completed "$reason" "$n" "$answered" "$capped" "$trim_ran" "$trim_why" || jev_note "metrics unavailable (cannot write artifact)"
   local tokens=0
   if [ "$answered" -gt 0 ]; then
-    tokens=$(cat "$work"/resp/*.json | jq -s 'map(.usage.input_tokens // 0) | add // 0' 2>/dev/null || echo 0)
+    tokens=$(cat "$work"/resp/*.json | jq -rs 'if any(.[]; (.usage.input_tokens | type) != "number") then "unknown" else map(.usage.input_tokens) | add end' 2>/dev/null || echo unknown)
   fi
   local clear
   clear=$(awk -F '\t' '$5 == "clear"' "$pages_out" | grep -c . || true)
-  awk -F '\t' -v n="$n" -v ok="$answered" -v pages="$pages" -v capped="$capped" -v out="$out" -v why="$reason" -v tokens="$tokens" -v clear="$clear" '
-    { rows++; if ($5 == "contradicts") c++; if ($5 == "noul") s++; if ($8 == "lexical") l++ }
+  awk -F '\t' -v n="$n" -v ok="$answered" -v pages="$pages" -v capped="$capped" -v out="$out" -v why="$reason" -v tokens="$tokens" -v clear="$clear" -v trim="$trim_ran" '
+    { rows++; if ($5 == "contradicts") c++; if ($5 == "noul") s++; if ($8 == "lexical") l++; if ($8 == "trim") t++ }
     END {
-      if (n == 0) head = "lexical leads only (" (why != "" ? why : "no claims to ask about") ")"
-      else head = sprintf("%d of %d Jev requests answered, %d input tokens", ok, n, tokens) (why != "" ? " (" why ")" : "")
-      printf "jev-triage: %s over %d page parts%s, %d rows (%d contradicts, %d surface, %d lexical) in %s, %d pages clear\n",
-        head, pages, (capped ? ", " capped " requests over the cap" : ""), rows, c, s, l, out, clear
+      if (n == 0) head = (trim ? "lexical and trim-1" : "lexical") " leads only (" (why != "" ? why : "no claims to ask about") ")"
+      else head = sprintf("%d of %d Jev requests answered, %s input tokens", ok, n, tokens) (why != "" ? " (" why ")" : "")
+      printf "jev-triage: %s over %d page parts%s, %d rows (%d contradicts, %d surface, %d lexical, %d trim) in %s, %d pages clear\n",
+        head, pages, (capped ? ", " capped " requests over the cap" : ""), rows, c, s, l, t, out, clear
     }
   ' "$out" >&2
 }
 
 # jev_replay <cases.tsv> asks each labeled case with its excerpt framed as
 # added text and the target's current claims beside it as distractors, and
-# reports recall, false positives, and what the lexical pairing alone finds.
+# reports recall, false positives, and what the lexical pairing, trim-1, and
+# either of them find. trim-1 ranks the excerpt against the case claim with
+# the target's claims as the other lines, as a run ranks a page part.
 jev_replay() {
-  local cases="$1" reason work id target claim excerpt expected source paired seq=0
+  local cases="$1" reason work id target claim excerpt expected source paired seq=0 trim_ran=0 trim_why
   if [ ! -r "$cases" ]; then
     echo "cannot read $cases" >&2
     return 1
   fi
   reason=$(jev_ready) || true
-  [ -z "$reason" ] || jev_note "lexical only ($reason)"
   work=$(mktemp -d)
   # shellcheck disable=SC2064 # expand now: $work is local
   trap "rm -rf '$work'" EXIT
   mkdir -p "$work/req" "$work/cases" "$work/claims"
+  : >"$work/trim.jobs"
   while IFS="$TAB" read -r id target claim excerpt expected source; do
     case "$id" in '' | '#'*) continue ;; esac
     seq=$((seq + 1))
@@ -651,8 +791,10 @@ jev_replay() {
       paired=no
     fi
     printf '%s\t%s\t%s\t%s\n' "$id" "$expected" "$source" "$paired" >"$work/cases/$seq.meta"
-    [ -z "$reason" ] || continue
     [ -f "$work/claims/$target" ] || jev_claims "$target" >"$work/claims/$target"
+    cat "$work/cases/$seq.claim" "$work/claims/$target" >"$work/cases/$seq.trim"
+    printf '%s\t%s\t%s\n' "$seq" "$work/cases/$seq.trim" "$work/cases/$seq.region" >>"$work/trim.jobs"
+    [ -z "$reason" ] || continue
     {
       printf '0\t%s\n' "$claim"
       awk -v k=$((JEV_CLAIMS_PER_REQUEST - 1)) 'NR <= k { print NR "\t" $0 }' "$work/claims/$target"
@@ -661,33 +803,63 @@ jev_replay() {
   done <"$cases"
 
   [ -n "$reason" ] || jev_run "$work"
-  if [ -z "$reason" ] && [ -e "$work/fatal" ]; then
-    jev_note "lexical only ($(cat "$work/fatal"))"
+  : >"$work/trim.hits"
+  if [ -s "$work/trim.jobs" ]; then
+    if trim_why=$(jev_trim "$work/trim.jobs" "$work/trim.out"); then
+      trim_ran=1
+      awk -F '\t' '$2 == 1 { print $1 }' "$work/trim.out" >"$work/trim.hits"
+    else
+      jev_note "trim-1 skipped ($trim_why)"
+    fi
+  fi
+  [ -n "$reason" ] || [ ! -e "$work/fatal" ] || reason=$(cat "$work/fatal")
+  if [ -n "$reason" ]; then
+    if [ "$trim_ran" = 1 ]; then
+      jev_note "lexical and trim-1 only ($reason)"
+    else
+      jev_note "lexical only ($reason)"
+    fi
   fi
 
-  local i r
+  local i r trim
   for i in $(seq 1 "$seq"); do
     IFS="$TAB" read -r id expected source paired <"$work/cases/$i.meta"
+    trim=-
+    if [ "$trim_ran" = 1 ]; then
+      trim=no
+      grep -qx "$i" "$work/trim.hits" && trim=yes
+    fi
     r="$work/resp/$(printf '%05d' "$i").json"
     if [ -s "$r" ]; then
       jq -r --arg id "$id" --arg expected "$expected" --arg source "$source" --arg paired "$paired" \
-        --arg keep "$JEV_KEEP_CONTRADICTS" '
+        --arg keep "$JEV_KEEP_CONTRADICTS" --arg trim "$trim" '
         .answers.c0 as $a
         | ($a.probabilities.contradicts // 0) as $pc
         | [$id, $expected, $a.choice, ($pc * 100 | round / 100 | tostring),
            $paired, (if $a.choice == $expected then "ok" else "MISS" end), $source,
-           (if $a.choice == "contradicts" or $pc >= ($keep | tonumber) then "lead" else "-" end)]
+           (if $a.choice == "contradicts" or $pc >= ($keep | tonumber) then "lead" else "-" end), $trim]
         | @tsv' "$r"
     else
-      printf '%s\t%s\t-\t-\t%s\t-\t%s\t-\n' "$id" "$expected" "$paired" "$source"
+      printf '%s\t%s\t-\t-\t%s\t-\t%s\t-\t%s\n' "$id" "$expected" "$paired" "$source" "$trim"
     fi
-  done | awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" '
-    BEGIN { printf "%-34s %-13s %-13s %5s  %-6s %-4s %-4s %s\n", "case", "expected", "got", "p_c", "paired", "", "lead", "source" }
+  done | awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" -v trim="$trim_ran" -v top="$JEV_TRIM_TOP" '
+    function rate(label, n, d, fp) {
+      printf "%s on contradicts: %d/%d", label, n, d
+      if (d) printf " (%.2f)", n / d
+      printf ", on says_nothing: %d/%d\n", fp, neg
+    }
+    BEGIN { printf "%-34s %-13s %-13s %5s  %-6s %-5s %-4s %-4s %s\n", "case", "expected", "got", "p_c", "paired", "trim", "", "lead", "source" }
     {
-      printf "%-34s %-13s %-13s %5s  %-6s %-4s %-4s %s\n", $1, $2, $3, $4, $5, $6, $8, $7
-      if ($2 == "contradicts") { pos++; if ($5 == "yes") lex++; if ($3 == "contradicts") hit++; if ($8 == "lead") led++ }
+      printf "%-34s %-13s %-13s %5s  %-6s %-5s %-4s %-4s %s\n", $1, $2, $3, $4, $5, $9, $6, $8, $7
+      if ($2 == "contradicts") {
+        pos++; if ($3 == "contradicts") hit++; if ($8 == "lead") led++
+        if ($5 == "yes") lex++; if ($9 == "yes") tri++; if ($5 == "yes" || $9 == "yes") both++
+      }
       else if ($8 == "lead") { stray++ }
-      if ($2 == "says_nothing") { neg++; if ($3 == "contradicts") fp++ }
+      if ($2 == "says_nothing") {
+        neg++; if ($3 == "contradicts") fp++
+        if ($5 == "yes") lexfp++; if ($9 == "yes") trifp++; if ($5 == "yes" || $9 == "yes") bothfp++
+      }
       if ($3 != "-") { judged++; if ($6 == "ok") ok++ }
     }
     END {
@@ -699,9 +871,11 @@ jev_replay() {
         printf "\nexact verdicts: %d/%d\n", ok, judged
         printf "leads (contradicts or p_contradicts >= %s): %d/%d drifts, %d/%d other cases\n", keep, led, pos, stray, judged - pos
       }
-      printf "lexical pairing on contradicts: %d/%d", lex, pos
-      if (pos) printf " (%.2f)", lex / pos
-      printf "\n"
+      rate("lexical pairing", lex, pos, lexfp)
+      if (trim) {
+        rate("trim-1 top " top, tri, pos, trifp)
+        rate("lexical or trim-1", both, pos, bothfp)
+      }
     }
   '
 }

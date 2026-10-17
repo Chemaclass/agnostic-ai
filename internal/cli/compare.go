@@ -20,11 +20,11 @@ import (
 
 // compareCoverage states what `compare` inspects, so a clean report is
 // never read as "the whole project ports".
-const compareCoverage = "agent and skill fields and rule scope/activation only; " +
-	"hooks, MCP servers, commands, settings, reviews, environments, and ignore files are not compared"
+const compareCoverage = "agent and skill fields, rule scope/activation, hook configuration, MCP connection fields, and portable permissions; " +
+	"commands, other settings, reviews, environments, and ignore files are not compared"
 
 // compareCaveat keeps "preserved" from reading as a behavior guarantee.
-const compareCaveat = "preserved means the field is written under the same key; it does not prove the tools behave the same"
+const compareCaveat = "preserved means the field is written under the same key; it does not prove the tools behave the same or that a hook ran or an MCP server connects"
 
 type compareStatus string
 
@@ -54,11 +54,13 @@ var compareSkippedFields = map[string]bool{
 }
 
 type compareResult struct {
-	Target string        `json:"target"`
-	Status compareStatus `json:"status"`
-	Paths  []string      `json:"paths,omitempty"`
-	Reason string        `json:"reason,omitempty"`
-	Next   string        `json:"next,omitempty"`
+	Target             string        `json:"target"`
+	Status             compareStatus `json:"status"`
+	Paths              []string      `json:"paths,omitempty"`
+	Reason             string        `json:"reason,omitempty"`
+	Next               string        `json:"next,omitempty"`
+	permissionMeaning  string
+	permissionComplete bool
 }
 
 type compareField struct {
@@ -96,15 +98,16 @@ func newCompareCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "compare <target> <target>",
-		Short: "Compare how two targets represent agent and skill fields and rule activation.",
-		Long: "Emits every agent, skill, and rule with scope or activation fields " +
+		Short: "Compare fields, rule activation, hooks, MCP connections, and permissions.",
+		Long: "Emits agents, skills, rules with scope or activation fields, hooks, MCP servers, and portable permissions " +
 			"to both targets in memory, then reports per field whether each " +
 			"target preserves, translates, drops, or never receives it. " +
 			"Uses the project's specs, output options, and x-<target> " +
 			"overrides. Writes nothing.\n\n" +
-			"Coverage is limited to agent and skill fields and rule scope/activation. " +
+			"Coverage includes agent and skill fields, rule scope/activation, hook configuration, MCP connection fields, and portable permissions. " +
 			"A preserved field is written under the same key; that does not " +
-			"prove both tools behave the same.",
+			"prove both tools behave the same, that a hook ran, or that an MCP server connects. " +
+			"MCP values are not printed.",
 		Example: `  # Before switching from Claude Code to Cursor
   agnostic-ai compare claude cursor
 
@@ -174,15 +177,23 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 		Version: "1", Command: "compare", Targets: targets,
 		Coverage: compareCoverage, Caveat: compareCaveat, Specs: []compareSpec{},
 	}
+	permissionBaselines := map[string]permissionCapture{}
 	for _, e := range compareEntries(b) {
-		fields := comparedFields(e)
+		fields := comparedFields(e, targets)
 		if len(fields) == 0 {
 			continue
 		}
 		s := compareSpec{Kind: string(e.Kind), Name: e.Name, Path: filepath.ToSlash(e.Path)}
 		perTarget := make([]map[string]compareResult, len(targets))
 		for i, t := range targets {
-			results, notes, err := classifyEntry(&view, e, fields, t)
+			var results map[string]compareResult
+			var notes []compareNote
+			var err error
+			if e.Kind == spec.KindSettings {
+				results, err = classifyPermissions(&view, b.Settings, e, fields, t, permissionBaselines)
+			} else {
+				results, notes, err = classifyEntry(&view, e, fields, t)
+			}
 			if err != nil {
 				return compareOutput{}, fmt.Errorf("%s: %w", t, err)
 			}
@@ -195,6 +206,10 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 				cf.Results = append(cf.Results, perTarget[i][f])
 			}
 			cf.Differs = cf.Results[0].Status != cf.Results[1].Status
+			if e.Kind == spec.KindSettings {
+				cf.Differs = cf.Differs || cf.Results[0].permissionMeaning != cf.Results[1].permissionMeaning ||
+					cf.Results[0].permissionComplete != cf.Results[1].permissionComplete
+			}
 			if cf.Differs {
 				out.Differences++
 			}
@@ -206,7 +221,7 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 	return out, nil
 }
 
-// compareEntries returns agents, skills, then rules sorted by source path.
+// compareEntries keeps kind order and sorts each kind by source path.
 func compareEntries(b spec.Bundle) []spec.Entry {
 	byPath := func(es []spec.Entry) []spec.Entry {
 		out := append([]spec.Entry(nil), es...)
@@ -214,12 +229,18 @@ func compareEntries(b spec.Bundle) []spec.Entry {
 		return out
 	}
 	out := append(byPath(b.Agents), byPath(b.Skills)...)
-	return append(out, byPath(b.Rules)...)
+	out = append(out, byPath(b.Rules)...)
+	out = append(out, byPath(b.Hooks)...)
+	out = append(out, byPath(b.MCPs)...)
+	return append(out, byPath(b.Settings)...)
 }
 
 // comparedFields lists the fields to report for e in source order. A
 // rule's directory-derived scope counts as its `scope` field.
-func comparedFields(e spec.Entry) []string {
+func comparedFields(e spec.Entry, targets []string) []string {
+	if e.Kind == spec.KindSettings {
+		return comparedPermissionFields(e)
+	}
 	keys := append([]string(nil), e.MetaKeys...)
 	var extra []string
 	for k := range e.Meta {
@@ -230,6 +251,9 @@ func comparedFields(e spec.Entry) []string {
 	sort.Strings(extra)
 	keys = append(keys, extra...)
 
+	if e.Kind == spec.KindMCP {
+		return comparedMCPFields(e, keys, targets)
+	}
 	var out []string
 	if e.Kind == spec.KindRule && e.Scope != "" {
 		out = append(out, "scope")
@@ -245,6 +269,10 @@ func comparedFields(e spec.Entry) []string {
 			}
 		case spec.KindRule:
 			if ruleActivationFields[k] {
+				out = append(out, k)
+			}
+		case spec.KindHook:
+			if hookCompareFields[k] {
 				out = append(out, k)
 			}
 		}
@@ -274,9 +302,24 @@ func classifyEntry(cfg *config.Config, e spec.Entry, fields []string, target str
 		return results, nil, nil
 	}
 	adapter, _ := adapters.Get(target)
+	if e.Kind == spec.KindMCP {
+		adapters.ResetCoverageNotes()
+	}
 	base, notes, err := captureEntry(adapter, cfg, target, e)
 	if err != nil {
+		if e.Kind == spec.KindMCP {
+			return nil, nil, compareMCPError{path: src, err: err}
+		}
 		return nil, nil, err
+	}
+	if e.Kind == spec.KindMCP {
+		return classifyMCPEntry(cfg, e, fields, target, adapter, base, notes)
+	}
+	if e.Kind == spec.KindHook {
+		if _, reason := e.NativeHook(target); reason != "" {
+			fill(compareResult{Status: statusUnsupported, Reason: reason})
+			return results, nil, nil
+		}
 	}
 	if len(base) == 0 {
 		fill(noOutputResult(notes, e.Kind, target))
@@ -293,7 +336,17 @@ func classifyEntry(cfg *config.Config, e spec.Entry, fields []string, target str
 	}
 	for _, f := range fields {
 		r := compareResult{Target: target}
-		variant, _, err := captureEntry(adapter, cfg, target, withoutField(e, f, target))
+		if e.Kind == spec.KindHook {
+			if direct, ok := compareHookField(e, f, target, base, notes); ok {
+				results[f] = direct
+				continue
+			}
+		}
+		projection := withoutField(e, f, target)
+		if e.Kind == spec.KindHook && f == "command" {
+			projection = compareHookCommandVariant(e, target)
+		}
+		variant, _, err := captureEntry(adapter, cfg, target, projection)
 		if err != nil {
 			r.Status = statusUnknown
 			r.Reason = "cannot emit the spec without this field: " + err.Error()
@@ -303,6 +356,9 @@ func classifyEntry(cfg *config.Config, e spec.Entry, fields []string, target str
 		changed, landed := fieldEffect(base, variant)
 		note, noted := fieldNote(notes, f)
 		keyed, verbatim := pathsWithKey(base, f, resolvedValue(e, f, target))
+		if e.Kind == spec.KindHook {
+			keyed, verbatim = hookChangedKeyPaths(base, variant, f, resolvedValue(e, f, target))
+		}
 		switch {
 		case noted && !changed:
 			r.Status, r.Reason = statusUnsupported, note
@@ -506,7 +562,7 @@ func writeCompareReport(w io.Writer, out compareOutput) {
 	_, _ = fmt.Fprintf(w, "coverage: %s\n", compareCoverage)
 	_, _ = fmt.Fprintf(w, "note: %s\n", compareCaveat)
 	if len(out.Specs) == 0 {
-		_, _ = fmt.Fprintln(w, "\nno agents, skills, or scoped rules to compare")
+		_, _ = fmt.Fprintln(w, "\nno agents, skills, scoped rules, hooks, MCP servers, or portable permissions to compare")
 		return
 	}
 	width := max(len(a), len(b))

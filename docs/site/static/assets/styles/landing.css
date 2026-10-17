@@ -28,8 +28,8 @@ main > section[id] {
 }
 
 .hero h1 {
-  max-width: 14ch;
-  font-family: var(--mono);
+  max-width: 23ch;
+  font-family: var(--sans);
   font-size: clamp(2.6rem, 6.2vw, 5rem);
   font-weight: 760;
   letter-spacing: -0.035em;
@@ -62,14 +62,6 @@ main > section[id] {
   margin-top: 2rem;
 }
 
-.hero-facts {
-  margin: 1rem 0 0;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-}
-
 
 .hero-install {
   width: min(100%, 32.5rem);
@@ -91,9 +83,6 @@ main > section[id] {
   color: var(--accent);
 }
 
-/* The poster follows the buttons in the source, which is where a single
-   column shows it. The frame text sits in the middle, so the play button
-   moves to a corner instead of covering it. */
 .hero-video {
   margin-top: 2rem;
 }
@@ -113,30 +102,6 @@ main > section[id] {
   height: 1.35rem;
 }
 
-/* Beside the copy, the poster takes the wider column and spans every row of
-   the copy. Below 1200px the install command no longer fits the copy column. */
-@media (min-width: 1200px) {
-  .hero-copy {
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    column-gap: clamp(2rem, 3.5vw, 3rem);
-  }
-
-  .hero-copy > * {
-    grid-column: 1;
-  }
-
-  .hero h1 {
-    font-size: clamp(2.4rem, 4vw, 3.8rem);
-  }
-
-  .hero-video {
-    grid-column: 2;
-    grid-row: 1 / span 6;
-    align-self: center;
-    margin-top: 0;
-  }
-}
 
 .agent-shortcut {
   display: grid;
@@ -576,23 +541,37 @@ main > section[id] {
   }
 }
 
-/* One line across the rail rather than a narrow box with half a row of empty
-   paper beside it: the question leads, the answer and the link follow it. */
-.mission-question {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.6rem;
-  margin-top: 1.5rem;
-  padding: 1rem 1.35rem;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--ink-soft);
+/* Video and the symlink answer share one row on wide screens, so the
+   answer fills the paper beside the video instead of trailing under it. */
+.mission-media {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 2.4rem;
 }
 
-.mission-question strong {
-  color: var(--ink);
+.mission-media .hero-video {
+  margin-top: 0;
+}
+
+.mission-question {
+  display: grid;
+  align-content: center;
+  gap: 0.75rem;
+}
+
+.mission-question h3 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.mission-question p {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+  line-height: 1.55;
 }
 
 .mission-question a {
@@ -600,15 +579,19 @@ main > section[id] {
   font-weight: 700;
 }
 
+@media (min-width: 1000px) {
+  .mission-media {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(2rem, 4vw, 3.5rem);
+  }
+}
+
 .workflow-steps,
 .feature-list {
   display: grid;
   gap: 1rem;
   margin-top: 2.4rem;
-}
-
-.feature-list {
-  counter-reset: principle;
 }
 
 .workflow-steps article,
@@ -620,20 +603,6 @@ main > section[id] {
   border: 1px solid var(--line-soft);
   border-radius: 14px;
   background: var(--surface);
-}
-
-/* The principles are a sequence, not a set: numbering them says read in
-   order, and costs no markup. */
-.feature-list article {
-  counter-increment: principle;
-}
-
-.feature-list article::before {
-  content: counter(principle, decimal-leading-zero);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.69rem;
-  letter-spacing: 0.08em;
 }
 
 .workflow-steps h3,
@@ -926,5 +895,206 @@ main > section[id] {
 @media (min-width: 1040px) {
   .feature-list {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* The hero shows the product: one source note fanning out into the file
+   each tool reads. The tree draws in once on load; with reduced motion it
+   renders finished. */
+.fanout {
+  min-width: 0;
+  margin: 0;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 24px 60px -32px rgb(0 0 0 / 0.35);
+}
+
+.fanout-source pre {
+  margin: 0;
+  padding: 1rem;
+  color: var(--slab-ink);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fanout-source pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.fanout-source pre code::after {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 0.15em;
+  vertical-align: text-bottom;
+  background: var(--slab-accent);
+}
+
+.fanout-sync {
+  position: relative;
+  margin: 0;
+  padding-block: 0.9rem;
+}
+
+.fanout-sync::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 1.25rem;
+  border-left: 1.5px solid var(--accent);
+}
+
+.fanout-sync code {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.fanout-outputs {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 0 0 2.75rem;
+  list-style: none;
+}
+
+.fanout-outputs li {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  min-width: 0;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.fanout-outputs li::before {
+  content: "";
+  position: absolute;
+  top: -0.5rem;
+  bottom: 0;
+  left: -1.5rem;
+  border-left: 1.5px solid var(--accent);
+}
+
+.fanout-outputs li:first-child::before {
+  top: 0;
+}
+
+.fanout-outputs li:last-child::before {
+  bottom: 50%;
+}
+
+.fanout-outputs li::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -1.5rem;
+  width: 1.5rem;
+  border-top: 1.5px solid var(--accent);
+  transform-origin: left;
+}
+
+.fanout-path {
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.fanout-tools {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.fanout-check {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--good);
+}
+
+.fanout-outputs .fanout-more {
+  border: 0;
+  background: none;
+}
+
+.fanout-more a {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.fanout-source pre code::after {
+  animation: fanout-caret 1s steps(1) infinite;
+}
+
+.fanout-sync code {
+  animation: fanout-pulse 900ms ease-out 400ms both;
+}
+
+.fanout-outputs li {
+  animation: fanout-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(700ms + var(--i) * 140ms);
+}
+
+.fanout-outputs li::after {
+  animation: fanout-stub 300ms ease-out both;
+  animation-delay: calc(650ms + var(--i) * 140ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fanout-source pre code::after,
+  .fanout-sync code,
+  .fanout-outputs li,
+  .fanout-outputs li::after {
+    animation: none;
+  }
+}
+
+@keyframes fanout-caret {
+  50% { opacity: 0; }
+}
+
+@keyframes fanout-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+
+@keyframes fanout-in {
+  from { opacity: 0; transform: translateX(-0.4rem); }
+}
+
+@keyframes fanout-stub {
+  from { transform: scaleX(0); }
+}
+
+@media (min-width: 1000px) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+
+  .hero h1 {
+    font-size: clamp(2.6rem, 4.1vw, 3.9rem);
   }
 }

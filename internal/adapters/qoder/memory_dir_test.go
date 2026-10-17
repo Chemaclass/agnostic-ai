@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -191,7 +190,7 @@ func TestEmit_LeavingRepoMemoryLeavesNoStoreEntry(t *testing.T) {
 	t.Cleanup(func() { emit.PriorMergedKeys = prior })
 	var claims []emit.MergedKey
 	emit.PriorMergedKeys = func(string) []emit.MergedKey { return claims }
-	sync := func(cfg *config.Config) {
+	sync := func(cfg *config.Config) bool {
 		t.Helper()
 		sess := emit.NewSession()
 		sess.StartDetailedRecording()
@@ -201,8 +200,10 @@ func TestEmit_LeavingRepoMemoryLeavesNoStoreEntry(t *testing.T) {
 		for _, w := range sess.StopDetailedRecording() {
 			if w.Path == defaultMCPFile {
 				claims = w.Keys
+				return true
 			}
 		}
+		return false
 	}
 	cfg := repoMemoryConfig(true)
 	sync(cfg)
@@ -210,11 +211,9 @@ func TestEmit_LeavingRepoMemoryLeavesNoStoreEntry(t *testing.T) {
 		t.Fatalf("repo mode: %v", additionalDirectories(t))
 	}
 	cfg.Memory.Personal = config.PersonalMemoryCheckout
-	sync(cfg)
-	if got := additionalDirectories(t); len(got) != 0 {
-		t.Errorf("store entry stayed: %v", got)
-	}
-	if raw, _ := os.ReadFile(defaultMCPFile); strings.Contains(string(raw), "additionalDirectories") {
-		t.Errorf("key stayed: %s", raw)
+	// With the store entry all it held, the file is left to the release of
+	// the earlier output, which takes out only what sync added.
+	if sync(cfg) {
+		t.Error("sync wrote a file that would only lose the store entry")
 	}
 }

@@ -13,15 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
-// rulesDirImporters maps a source name to the rules directory the
-// importer walks. Claude, Codex, and Cursor have richer importers and
-// route directly; cline, windsurf, junie, trae, and qoder also have
-// dedicated importers (import_cline.go, import_windsurf.go,
-// import_junie.go, import_trae.go, import_qoder.go) because each
-// additionally reconstructs something beyond flat rule files: skills
-// from a native `SKILL.md` folder tree, and commands from a native
-// commands directory (trae, qoder); qoder also reconstructs native
-// agents from `.qoder/agents/`.
+// rulesDirImporters holds sources handled by the flat rules importer.
 var rulesDirImporters = map[string]string{}
 
 // importSourceNames lists every source runImport dispatches. Both the
@@ -30,7 +22,7 @@ var rulesDirImporters = map[string]string{}
 // failed with an error that named antigravity as supported (#905).
 var importSourceNames = []string{
 	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
-	"copilot", "crush", "cursor", "factory", "gemini", "goose", "junie", "kilo", "kiro",
+	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "goose", "junie", "kilo", "kiro",
 	"opencode", "openhands", "qoder", "trae", "warp", "windsurf", "zed",
 }
 
@@ -59,7 +51,8 @@ func newImportCmd() *cobra.Command {
 			"each proposed change, which sources wrote it, and where sources disagree. " +
 			"A spec the tool shows unchanged stays as it is. An import that would replace an " +
 			"existing spec with different content, or lose `::target` blocks the tool " +
-			"does not show, stops before writing anything and lists each one; `--overwrite` replaces them.",
+			"does not show, stops before writing anything and lists each one; `--overwrite` replaces them. " +
+			"A tool's own memory store is not imported here: `agnostic-ai memory import` copies its facts into personal memory.",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
   agnostic-ai import claude
@@ -118,9 +111,10 @@ func newImportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
-	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings and MCP files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
+	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings, MCP files, and Kiro hook files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change. Keys the tool never shows and comments on kept keys stay; ::target blocks for other tools are lost. Without it, an import that would replace a spec with different content stops before writing anything.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
+	cmd.AddCommand(newImportReconcileCmd())
 	return cmd
 }
 
@@ -183,6 +177,7 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromCodexWithOpts(root, src, importCodexOpts{
 			Shred:     cfg.Import.Codex.Shred,
 			RulesFile: codexRulesFileFromCfg(cfg),
+			SyncRoots: importSyncRoots(root),
 		})
 	case "cursor":
 		return importFromCursor(root, src)
@@ -228,6 +223,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromOpenhands(root, src)
 	case "factory":
 		return importFromFactory(root, src)
+	case "ellipsis":
+		return importFromEllipsis(root, src, cfg)
 	}
 	if srcDir, ok := rulesDirImporters[source]; ok {
 		return importFromRulesDir(root, source, srcDir, src)

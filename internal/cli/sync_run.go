@@ -21,6 +21,8 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -75,6 +77,8 @@ type syncStateFile struct {
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
+	// SpecTargets lists the targets that emitted each spec in SpecSums.
+	SpecTargets map[string][]string `json:"spec_targets,omitempty"`
 	// SpecFileSums maps each spec file, slash-form and relative to the
 	// project, to the sha256 of its raw bytes when sync rendered it or
 	// import wrote it, so import can tell a spec a tool already reads
@@ -113,6 +117,7 @@ type syncLedger struct {
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
 	specSums     map[string]string
+	specTargets  map[string][]string
 	specFileSums map[string]specFileSum
 	modelAliases map[string]map[string]string
 	backups      map[string]string
@@ -252,6 +257,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Unledgered:     ledger.unledgered,
 		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
+		SpecTargets:    ledger.specTargets,
 		SpecFileSums:   ledger.specFileSums,
 		ModelAliases:   ledger.modelAliases,
 		Backups:        ledger.backups,
@@ -407,7 +413,7 @@ func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {
 // it, every target runs to completion and all errors ride along in the
 // results — the JSON path, which reports per-target errors rather than
 // aborting the whole sync. edits sets how each session treats a hand edit.
-func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, edits editGuard) ([]targetEmit, []*adapters.Session, error) {
+func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, edits editGuard, winners map[string]string) ([]targetEmit, []*adapters.Session, error) {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	results := make([]targetEmit, len(targets))
 	sessions := make([]*adapters.Session, len(targets))
@@ -438,6 +444,7 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 					sess.SetBackup(true)
 				}
 				edits.apply(sess)
+				sess.SetCollisionWinners(winners)
 				if !dryRun {
 					sess.StartTransaction()
 				}
@@ -553,6 +560,7 @@ func normalizeSharedWriteAttribution(emits []targetEmit) {
 }
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+	gitquery.Reset()
 	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
 }
 
@@ -565,11 +573,15 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	adapters.TakeResolvedAliases()
+	adapters.TakeMemorySeeds()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
+	if !dryRun {
+		preparePersonalMemorySync(root, cfg)
+	}
 	effectiveTargets := targets
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
@@ -584,7 +596,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
 		return err
 	}
-	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
+	winners, err := detectCollisions(cfg, b, effectiveTargets)
+	if err != nil {
 		return err
 	}
 	// A mistyped key parses and emits, so without this line nothing in a
@@ -670,7 +683,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
 	// cancels the group and trips the rollback above.
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, edits)
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, edits, winners)
 	for _, s := range targetSessions {
 		if s != nil {
 			sessions = append(sessions, s)
@@ -695,6 +708,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	var gitignoreEntries []string
 	complete := true
 	var emitted []string
+	var emitRows []emitRow
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
@@ -711,7 +725,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		report.addWrites(e.target, e.writes)
 		if verbose {
 			created, updated, skipped := classifyDetailedWrites(e.writes)
-			verbosef("→ %s: %d created, %d updated, %d unchanged in %dms\n", e.target, created, updated, skipped, e.dur.Milliseconds())
+			emitRows = append(emitRows, emitRow{target: e.target, created: created, updated: updated, skipped: skipped, dur: e.dur})
 		}
 	}
 
@@ -722,7 +736,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		mainSess.StartRecording()
 	}
 	mainSess.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(mainSess, cfg, b, effectiveTargets, dryRun); err != nil {
+	entryFiles, err := writeEntryPointFiles(mainSess, cfg, b, effectiveTargets, dryRun)
+	if err != nil {
 		mainSess.StopDetailedRecording()
 		if gitignoreOn {
 			mainSess.StopRecording()
@@ -736,6 +751,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
+		creditEntryPointReaders(&report, emitRows, effectiveTargets, entryWrites, entryFiles)
+		for _, row := range emitRows {
+			verbosef("→ %s: %d created, %d updated, %d unchanged in %dms\n", row.target, row.created, row.updated, row.skipped, row.dur.Milliseconds())
+		}
 		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
 		if err != nil {
 			return err
@@ -784,6 +803,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		} else if changed {
 			report.updated = append(report.updated, worktreeIncludeFile)
 		}
+	}
+
+	if !dryRun {
+		runMemorySeeds()
 	}
 
 	// Concurrent emission appends capability warnings / coverage notes in
@@ -852,7 +875,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		keptf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
-		keptf("%s overwrote a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+		keptf("%s overwrote a hand edit to %s (saved as %s.bak); %s\n", bang(), p, p, overwrittenEditAdvice(cfg, effectiveTargets, p))
 	}
 	for _, p := range sessionPaths(sessions, (*adapters.Session).BackupBlockedEdits) {
 		keptf("%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
@@ -869,13 +892,13 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// reports as a failed run but never undoes them (see writesCompleted
 	// above).
 	writesCompleted = true
-	sums := specSums(cfg, b)
-	report.specs = diffSpecSums(prev.SpecSums, sums)
+	base := specSums(cfg, b, cfg.Targets)
+	report.specs = diffSpecSums(specBaseline{prev.SpecSums, prev.SpecTargets}, base, bundleSpecKeys(b))
 	// A partial run leaves other targets on older specs; keep the old
 	// baseline so the run that updates them still names the change.
-	ledger.specSums = prev.SpecSums
+	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.specSums = sums
+		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
 	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
@@ -1048,6 +1071,22 @@ func fileSum(path string) string {
 	return adapters.ContentSum(string(data))
 }
 
+// overwrittenEditAdvice says where a hand edit that sync saved as a
+// backup belongs. A tool's own memory can save a fact to an entry point,
+// so with shared memory on, that advice names the memory folder too.
+func overwrittenEditAdvice(cfg *config.Config, targets []string, path string) string {
+	advice := "move the edit into .agnostic-ai/"
+	if !slices.Contains(cfg.Builtins, memoryBuiltin) {
+		return advice
+	}
+	for _, p := range entryPointPaths(cfg, targets) {
+		if filepath.ToSlash(p) == path {
+			return advice + ", or save a fact in .agnostic-ai/memory/"
+		}
+	}
+	return advice
+}
+
 // sessionPaths collects the paths paths returns for each session,
 // deduplicated and sorted, since targets sharing a path each report it.
 func sessionPaths(sessions []*adapters.Session, paths func(*adapters.Session) []string) []string {
@@ -1061,6 +1100,33 @@ func sessionPaths(sessions []*adapters.Session, paths func(*adapters.Session) []
 		}
 	}
 	return sortedKeys(seen)
+}
+
+// emitRow is one target's verbose summary line, held until the entry-point
+// files are written so it can count the ones that target reads.
+type emitRow struct {
+	target                    string
+	created, updated, skipped int
+	dur                       time.Duration
+}
+
+// creditEntryPointReaders counts each entry-point file for every synced
+// target that reads it: in the report's target total, and in that target's
+// verbose row.
+func creditEntryPointReaders(report *syncReport, rows []emitRow, targets []string, writes []adapters.WrittenFile, files []entryPointFile) {
+	for _, target := range targets {
+		created, updated, skipped := classifyDetailedWrites(entryWritesRead(target, writes, files))
+		if created+updated > 0 {
+			report.markTarget(target)
+		}
+		for i := range rows {
+			if rows[i].target == target {
+				rows[i].created += created
+				rows[i].updated += updated
+				rows[i].skipped += skipped
+			}
+		}
+	}
 }
 
 func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, skipped int) {
@@ -1133,7 +1199,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
 		return err
 	}
-	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
+	winners, err := detectCollisions(cfg, b, effectiveTargets)
+	if err != nil {
 		return err
 	}
 	shared, err := planSharedSkills(cfg, b, effectiveTargets)
@@ -1172,7 +1239,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits, winners)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	_, notesErr := applyCoverageAccept(cfg, effectiveTargets)
@@ -1239,7 +1306,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	mainSess.StartTransaction()
 	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, false)
 	for _, l := range applied {
-		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
+		if l.changed {
+			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
+		} else {
+			out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "skip"})
+		}
 	}
 	if gitignoreOn {
 		for _, l := range applied {
@@ -1309,10 +1380,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	// Warnings and notes go into the JSON, not to the terminal, so keep
 	// the previous digests: the next plain sync still prints them.
-	ledger.specSums = prev.SpecSums
+	ledger.specSums, ledger.specTargets = prev.SpecSums, prev.SpecTargets
 	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-		ledger.specSums = specSums(cfg, b)
+		base := specSums(cfg, b, cfg.Targets)
+		ledger.specSums, ledger.specTargets = base.sums, base.targets
 	}
 	ledger.specFileSums = prev.SpecFileSums
 	if len(out.Errors) == 0 {
@@ -1567,8 +1639,12 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		}
 		for _, f := range r.Edited {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync%s\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), githubData(r.sharedNote(f.Path)))
+			effect := "move the edit into .agnostic-ai/, then run agnostic-ai sync"
+			if f.Merged {
+				effect = "sync keeps the keys it did not write and resets the ones it writes; move those edits into .agnostic-ai/, then run agnostic-ai sync"
+			}
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; %s%s\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), effect, githubData(r.sharedNote(f.Path)))
 		}
 		orphanHint := "is no longer generated and its ownership could not be proven; run agnostic-ai doctor --fix to choose removal, or list it under sync.unmanaged"
 		if r.Unledgered {
@@ -1625,8 +1701,19 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 // slices, not a general diff engine.
 func unifiedDiff(path, have, want string, maxLines int) string {
 	slash := filepath.ToSlash(path)
-	return labeledDiff(slash+" (on disk)", slash+" (agnostic-ai sync)",
-		splitLines(have), splitLines(want), maxLines)
+	return previewDiff(path, slash+" (on disk)", slash+" (agnostic-ai sync)", have, want, false, maxLines)
+}
+
+func previewDiff(path, haveLabel, wantLabel, have, want string, create bool, maxLines int) string {
+	before, after := preview.Display(path, have), preview.Display(path, want)
+	if have != want && before.Text == after.Text && (before.Hidden || after.Hidden) {
+		return fmt.Sprintf("--- %s\n+++ %s\nsensitive value changed; contents hidden\n", haveLabel, wantLabel)
+	}
+	var haveLines []string
+	if !create {
+		haveLines = splitLines(before.Text)
+	}
+	return labeledDiff(haveLabel, wantLabel, haveLines, splitLines(after.Text), maxLines)
 }
 
 // labeledDiff is unifiedDiff over line slices with caller-chosen `---` and

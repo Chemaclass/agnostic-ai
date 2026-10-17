@@ -19,7 +19,7 @@ func TestGuidedUpgrade_AcceptUsesVerifiedBinaryBeforeProjectChanges(t *testing.T
 	var calls []string
 	deps := guidedUpgradeDeps{
 		check: func(string) (upgradeOffer, error) {
-			return upgradeOffer{Latest: "0.82.0", Guidance: "## v0.82.0\nBreaking: migrate old specs"}, nil
+			return upgradeOffer{Latest: "0.82.0"}, nil
 		},
 		project: func() (string, error) { return "/project", nil },
 		install: func(io.Writer, string, string) (string, error) {
@@ -49,12 +49,17 @@ func TestGuidedUpgrade_AcceptUsesVerifiedBinaryBeforeProjectChanges(t *testing.T
 	if !reflect.DeepEqual(calls, want) {
 		t.Errorf("calls = %v, want %v", calls, want)
 	}
-	for _, want := range []string{"[Y/n]", "0.82.0", "requires", "schema", "Breaking", "Rerun"} {
-		if !strings.Contains(output.String(), want) {
-			t.Errorf("missing %s in %s", want, output.String())
-		}
+	if !strings.HasPrefix(output.String(), shortUpdateNotice) {
+		t.Errorf("output does not start with the short notice %q:\n%s", shortUpdateNotice, output.String())
+	}
+	if !strings.Contains(output.String(), "Rerun your original command") {
+		t.Errorf("missing rerun line in %s", output.String())
 	}
 }
+
+const shortUpdateNotice = "Update available: 0.81.0 -> 0.82.0\n" +
+	"Release guidance: https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.82.0\n" +
+	"Update now? [Y/n] "
 
 func TestGuidedUpgrade_DeclineAndOfflineContinueOriginalCommand(t *testing.T) {
 	for _, tc := range []struct {
@@ -134,7 +139,7 @@ func TestGuidedUpgrade_OutsideProjectUpdatesToolOnly(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	deps := guidedUpgradeDeps{check: func(string) (upgradeOffer, error) {
-		return upgradeOffer{Latest: "0.82.0", GuidanceError: "offline docs"}, nil
+		return upgradeOffer{Latest: "0.82.0"}, nil
 	}, project: func() (string, error) { return "", nil }, install: func(io.Writer, string, string) (string, error) { return "/tool", nil }, run: func(_, _ string, args []string, _ io.Writer) (string, error) {
 		if len(args) != 1 || args[0] != "--version" {
 			t.Errorf("unexpected %v", args)
@@ -145,7 +150,7 @@ func TestGuidedUpgrade_OutsideProjectUpdatesToolOnly(t *testing.T) {
 	if !handled || err != nil {
 		t.Errorf("handled %v, err %v", handled, err)
 	}
-	if !strings.Contains(out.String(), "offline docs") || strings.Contains(out.String(), "sets this project's requires") {
+	if !strings.HasPrefix(out.String(), shortUpdateNotice) {
 		t.Errorf("output %s", out.String())
 	}
 }

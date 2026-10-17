@@ -1,6 +1,6 @@
 +++
 title = "AI tooling updates"
-description = "Release briefings: what shipped in agnostic-ai, and what changed in the AI coding tools it supports."
+description = "Release updates: what shipped in agnostic-ai, and what changed in the AI coding tools it supports."
 sort_by = "date"
 template = "updates/section.html"
 page_template = "updates/page.html"

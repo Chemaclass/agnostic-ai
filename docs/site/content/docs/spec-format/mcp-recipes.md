@@ -15,6 +15,8 @@ Checked on 2026-10-03. Upstream names and URLs change often, so compare with the
 
 No recipe contains a secret. Each reads one from your shell with a [`${NAME}` reference](@/docs/spec-format/mcps.md#environment-references). Export the variable before you start the tool.
 
+Before copying a recipe, check its linked source, replace example paths, and set any required environment variables. Run `agnostic-ai lint`, sync, then confirm the server connects in your coding tool.
+
 ## GitHub (remote)
 
 Source: [github/github-mcp-server, remote server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md) and its [README](https://github.com/github/github-mcp-server#readme).
@@ -32,9 +34,9 @@ Create a personal access token on GitHub and export it as `GITHUB_PAT`.
 
 ### Keep it personal
 
-A GitHub token is yours, not the team's. Save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so only you get the server. Teammates who want it add their own file.
+A shared spec can use each person's own `${GITHUB_PAT}` without storing the token. If only you want this server, save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so only you get the server. Teammates who want it add their own file.
 
-`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. Local files always load, so they cannot turn a server off. To keep a server off, leave it out of every spec that loads, or turn it off in the tool itself. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. A personal file is still a loaded spec; placing a server there does not disable it. To keep a server off, leave it out of every spec that loads, or turn it off in the tool itself. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 ## Context7 (remote)
 

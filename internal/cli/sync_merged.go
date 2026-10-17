@@ -31,6 +31,16 @@ func init() {
 	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
 		return slices.Clone(priorStateFile().Merged[path].Keys)
 	})
+	adapters.SetPriorMergedCreated(func(path string) bool {
+		prev := priorStateFile()
+		last, recorded := prev.Merged[path]
+		// An older ledger lists a file it created without a record, as ledgerMerged reads it.
+		return last.Created || !recorded && slices.Contains(prev.Outputs, path)
+	})
+	adapters.SetPriorMergedRecorded(func(path string) bool {
+		_, recorded := priorStateFile().Merged[path]
+		return recorded
+	})
 	adapters.SetPriorOutputSum(func(path string) string {
 		return priorStateFile().OutputSums[path]
 	})

@@ -3,14 +3,17 @@ package emit
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 // ProjectMemoryIndexPath is the project-relative index of the shared
@@ -47,15 +50,84 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if !cfg.RepoPersonalMemory() {
 		return filepath.Join(root, filepath.Dir(filepath.FromSlash(PersonalMemoryIndexPath))), nil
 	}
-	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
-	if err != nil {
-		return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
+	common := ""
+	if git, ok := config.ProjectGitFor(root); ok {
+		common = git.CommonDir
+	} else {
+		layout, err := gitquery.LayoutAt(root)
+		if err != nil {
+			return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
+		}
+		common = strings.TrimSpace(layout.CommonDir)
 	}
 	stores, err := repoMemoryStores()
 	if err != nil {
 		return "", fmt.Errorf("memory.personal: repo: %w", err)
 	}
-	return filepath.Join(stores, RepoSlug(strings.TrimSpace(string(out)))), nil
+	return filepath.Join(stores, RepoSlug(common)), nil
+}
+
+// MainCheckout returns the root of the repository's main checkout and
+// the working directory's folder in it, the folder a linked worktree has
+// at the same place under its own root. ok is false outside Git and in a
+// repository with no main checkout, such as a bare one.
+func MainCheckout() (root, project string, ok bool) {
+	return MainCheckoutAt(".")
+}
+
+func MainCheckoutAt(projectRoot string) (root, project string, ok bool) {
+	layout, err := gitquery.LayoutAt(projectRoot)
+	if err != nil || filepath.Base(layout.CommonDir) != ".git" {
+		return "", "", false
+	}
+	root = filepath.Dir(layout.CommonDir)
+	return root, filepath.Join(root, filepath.FromSlash(layout.Prefix)), true
+}
+
+// MemorySeed asks sync to copy the facts in From into the personal store
+// To once every target has emitted, when To holds no Markdown file yet.
+// Target names the tool that keeps From.
+type MemorySeed struct{ Target, From, To string }
+
+var memorySeeds struct {
+	mu    sync.Mutex
+	queue []MemorySeed
+}
+
+// RequestMemorySeed queues a seed. Adapters only ask: the copy belongs to
+// the CLI, which owns the fact checks and runs it after a real sync only.
+func RequestMemorySeed(seed MemorySeed) {
+	memorySeeds.mu.Lock()
+	defer memorySeeds.mu.Unlock()
+	memorySeeds.queue = append(memorySeeds.queue, seed)
+}
+
+// TakeMemorySeeds returns the queued seeds and clears the queue.
+func TakeMemorySeeds() []MemorySeed {
+	memorySeeds.mu.Lock()
+	defer memorySeeds.mu.Unlock()
+	out := memorySeeds.queue
+	memorySeeds.queue = nil
+	return out
+}
+
+// MemoryFactFiles returns the fact files in dir, by name: every regular
+// Markdown file but the MEMORY.md index. A missing dir has none.
+func MemoryFactFiles(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", dir, err)
+	}
+	var out []string
+	for _, e := range entries {
+		if e.Type().IsRegular() && filepath.Ext(e.Name()) == ".md" && e.Name() != "MEMORY.md" {
+			out = append(out, e.Name())
+		}
+	}
+	return out, nil
 }
 
 // CreateRepoMemoryStore creates the repo store dir, private to the user,
@@ -74,6 +146,10 @@ func (s *Session) CreateRepoMemoryStore(cfg *config.Config, dir string, dryRun b
 // repoMemoryStores returns the folder that holds every repo store, with
 // symlinks resolved: Codex refuses a writable root whose path holds one,
 // as when ~/.agnostic-ai links to a clone elsewhere.
+func RepoMemoryStores() (string, error) {
+	return repoMemoryStores()
+}
+
 func repoMemoryStores() (string, error) {
 	home, err := repoMemoryHome()
 	if err != nil {
@@ -243,13 +319,17 @@ const (
 
 // RenderMemoryBlock returns the sentinel-marked block that imports the
 // project memory index into the entry-point file at
-// entryPath, relative or absolute, with personalIndex. Sync runs from
-// the project root. A project-relative import is relative to that file,
-// as `@path` lines resolve, or absolute when no relative path exists
-// (another Windows volume). An absolute personalIndex stays absolute.
+// entryPath, relative or absolute, then personalIndex unless it is
+// empty. Sync runs from the project root. A project-relative import is
+// relative to that file, as `@path` lines resolve, or absolute when no
+// relative path exists (another Windows volume). An absolute
+// personalIndex stays absolute.
 func RenderMemoryBlock(entryPath, personalIndex string) string {
 	var lines []string
 	for _, index := range []string{ProjectMemoryIndexPath, personalIndex} {
+		if index == "" {
+			continue
+		}
 		ref := index
 		if !filepath.IsAbs(index) {
 			ref = memoryIndexRef(entryPath, index)
@@ -258,6 +338,15 @@ func RenderMemoryBlock(entryPath, personalIndex string) string {
 		lines = append(lines, "@"+strings.ReplaceAll(filepath.ToSlash(ref), " ", `\ `))
 	}
 	return MemoryStartMarker + "\n\n## Shared memory\n\n" + strings.Join(lines, "\n") + "\n\n" + MemoryEndMarker + "\n"
+}
+
+// MemoryBlockImportsPersonal reports whether the memory block in body
+// imports a personal index: RenderMemoryBlock writes the project index
+// first and a personal one after it.
+func MemoryBlockImportsPersonal(body string) bool {
+	_, block, _ := strings.Cut(body, MemoryStartMarker)
+	block, _, _ = strings.Cut(block, MemoryEndMarker)
+	return strings.Count(block, "\n@") > 1
 }
 
 func memoryIndexRef(entryPath, indexPath string) string {
@@ -273,6 +362,12 @@ func memoryIndexRef(entryPath, indexPath string) string {
 		return ref
 	}
 	return index
+}
+
+// SamePath reports whether the absolute paths a and b name one file once
+// symlinks in their existing parts resolve.
+func SamePath(a, b string) bool {
+	return realPath(filepath.Clean(a)) == realPath(filepath.Clean(b))
 }
 
 // realPath resolves symlinks in the longest existing prefix of the
@@ -311,4 +406,32 @@ func AppendMemoryBlock(body, block string) string {
 // included) from body. Returns body unchanged when no block is present.
 func StripMemoryBlock(body string) string {
 	return stripMarkedBlock(body, MemoryStartMarker, MemoryEndMarker)
+}
+
+// PersonalMemoryGrantable reports whether dir can go into a pattern in
+// target's config, such as a write grant or an OpenCode instructions
+// entry. A path with a pattern character would match more or less than
+// the folder, so it is left out and a note names consequence.
+func PersonalMemoryGrantable(target, dir, consequence string) bool {
+	unsafe := patternCharacters(target)
+	if unsafe == "" || !strings.ContainsAny(dir, unsafe) {
+		return true
+	}
+	NoteProject(fmt.Sprintf("%s: personal memory folder %s contains pattern characters (%s), so sync writes no write grant for it; %s. Move AGNOSTIC_AI_HOME or set memory.personal: checkout", target, filepath.ToSlash(dir), unsafe, consequence))
+	return false
+}
+
+// patternCharacters lists the characters that would turn a path into a
+// broader pattern in a target whose grant is a glob. OpenCode escapes
+// every regex character in a pattern and reads only `*` and `?` as
+// wildcards (util/wildcard.ts). Devin and Cursor also read `)` as the end
+// of their `Write(` rule.
+func patternCharacters(target string) string {
+	switch target {
+	case "opencode":
+		return "*?"
+	case "windsurf", "cursor":
+		return "*?[]{}()"
+	}
+	return ""
 }

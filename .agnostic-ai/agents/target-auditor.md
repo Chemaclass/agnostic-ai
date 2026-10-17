@@ -18,7 +18,9 @@ code or site content. The orchestrator triages your report and files issues.
 
 ## Inputs
 
-The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, published signals and built-in evidence described in `.agnostic-ai/skills/target-audit/references/builtins.md`. Reuse those inputs; do not fetch the full issue index again. Read matching issue bodies and comments only when a candidate overlaps.
+Read `.agnostic-ai/skills/target-audit/references/evidence-and-output.md` for evidence thresholds, severity, finding and signal schemas, and Clean markers. Read only references routed by your assigned work.
+
+The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, published signals and built-in evidence described in `.agnostic-ai/skills/target-audit/references/builtins.md`. Reuse those inputs; do not fetch the full issue index again. Read your targets' review-reason rows using `.agnostic-ai/skills/target-audit/references/review-reasons.md`. Read matching issue bodies and comments only when a candidate overlaps.
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, the adapter package doc, the lines of
@@ -26,64 +28,18 @@ The prompt supplies your targets, audited commit, date window, run directory, sh
   grepping.
 - Their side: the run directory's `docfetch.tsv` holds one row per vendor URL, already fetched this run, with its mode, content hash, status against the committed lock, and the saved body under `pages/<target>/`. Read your targets' rows. Run `scripts/target-facts.sh --sources <target>...` for the per-target notes that go with them, and do not load unrelated vendor sections.
 
-Retain URLs, fetch dates, exact excerpts, and reproduction commands. A previous audit is a research lead, not current evidence. Report research limits explicitly; an inaccessible source is not a clean check.
+Retain URLs, fetch dates, exact excerpts, and reproduction commands. Prior runs' pages, reports, and lock rows are research leads, not current evidence. The lock controls reading depth, never freshness. Report research limits explicitly; an inaccessible source is not a clean check.
 
 Read-only means no repository or GitHub changes. Temporary reproduction projects are allowed. Reuse a current binary supplied by the orchestrator; request one build if needed. Do not run broad tests or builds during research.
 
 ## Method, per target
 
 1. Run `scripts/target-facts.sh <target>`. This is the claim under test.
-2. Read the run's `deltas.tsv` rows for your targets. Each `new` or
-   `changed` row has a label and, when a snapshot of the last audited text
-   exists, a `.delta` file beside its page: one line per changed region,
-   `[-removed-]` and `{+added+}` words with context. Read `mentions:`
-   rows first (a path or key we write moved), then `prose`. A
-   `chrome-only` or `whitespace-only` row still gets its delta read: the
-   label ranks the reading order and never clears a row by itself. A
-   `whitespace-only` delta shows the moved lines under a `# whitespace`
-   header, since indentation in a YAML or shell example changes meaning;
-   `whitespace-only:truncated` means the line diff was capped, so read the
-   full page.
+2. Read your targets' `deltas.tsv`. Word `.delta` files beside saved pages show `[-removed-]` and `{+added+}` regions with context. Prioritize `triage.tsv` leads by `p_contradicts`, then `mentions:` deltas before `prose`; unpaired rows still need review. Jev (`via: jev`) and lexical (`paired`, `via: lexical`) leads are questions about our claims, never facts. Confirm the entire supplied claim.
+3. Read each changed `schema` delta (added/removed key paths, types, enum values, required keys, excluding description-only edits), then `code` deltas (vendor config definitions that may precede docs). Read changelog deltas, or saved bodies without deltas, newest first. GitHub release deltas include a `# new releases` section: read the notes, not only tags.
+4. Read every changed page's delta and quote this run's saved `.txt`. Labels only rank reading: `chrome-only` and `whitespace-only` still need review. Whitespace deltas show moved lines under `# whitespace`; indentation can change YAML or shell meaning. `whitespace-only:truncated` requires the full page. Read full text for `no-snapshot` or unclear scope/precedence. Comparison hashes omit navigation, footers, head content, modified stamps, and router sidebars. `unchanged` means fetched fresh with identical visible text; open its saved copy when a changelog or candidate points there.
 
-   When the prompt carries `triage.tsv` leads, read their deltas first,
-   highest `p_contradicts` first. Each lead names one of our claims and
-   one changed page, with Jev's verdict (via `jev`) or only a shared path
-   or term (verdict `paired`, via `lexical`): a question to settle from
-   the page (step 8), never a finding by itself. A row with no lead still
-   gets read.
-3. Read a changed `schema` row's delta first: one line per key path,
-   type, enum value, or required key, so each `{+...+}` is a setting the
-   vendor added and each `[-...-]` one it dropped. A reworded description
-   never moves it. A changed `code` row is a vendor source file that
-   defines a config feature, such as the hook event enum: a new enum value, path,
-   or field in its delta is a lead the docs may not show yet. Then read
-   the saved changelog delta, or the body when
-   there is no delta, newest entry first. It names what moved since the
-   last audit faster than the docs do. A GitHub releases row's delta ends
-   with a `# new releases` section holding the notes of each release
-   since the last audit: read those notes, not only the tag lines.
-4. Read the delta of each changed page, then quote this run's `.txt` copy.
-   Open the full page when the delta leaves scope or precedence unclear,
-   or when the row is `no-snapshot`. The hash ignores navigation,
-   footers, the `<head>`, a "last modified" stamp, and a router payload's
-   sidebar, so a `changed` row usually carries a content edit. A page marked
-   `unchanged` was fetched fresh this run and its visible text hashes
-   identical to the committed lock, so open the saved copy only when a
-   changelog entry or a candidate finding points at it. A status of
-   `failed`, or a mode of `app-shell`, `soft-404`, or `redirected`, means
-   no usable text: read
-   `.agnostic-ai/skills/target-audit/references/fetch-playbook.md` and
-   recover the page by hand. A row you cannot recover is a research
-   limit, never a clean check.
-
-   A URL that 404s is a finding (`docs-moved`). Search for the
-   replacement and report the new URL. A URL that resolves to content
-   about a different topic is also `docs-moved`, not an absent feature.
-
-   When a corpus of real config files is the only evidence available,
-   separate files the vendor's own tool produced from files another tool
-   wrote into the same folder. Averaging a contaminated corpus produces a
-   schema no vendor actually accepts.
+   For `failed`, `app-shell`, `soft-404`, or `redirected` rows, read `.agnostic-ai/skills/target-audit/references/fetch-playbook.md` and recover manually. Unrecovered pages are research limits, never clean checks. A 404 or unrelated replacement topic is `docs-moved`; search for and report a verified replacement URL. When real config files are the only evidence, distinguish vendor-generated files from other tools' files in the same folder; a mixed corpus cannot establish a native schema.
 5. Compare, in this order (highest value first):
    - **Path drift**: does the tool still read the exact path we write? A
      moved skills, rules, or agents dir silently breaks every user. Check
@@ -105,8 +61,12 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
      capability signal, not a drift finding, unless it also meets the
      finding rules below.
 6. Verify before reporting. Re-read the exact sentence in the vendor doc
-   and the exact line in our source. If either is ambiguous, downgrade
-   the finding to `unconfirmed` and say what would settle it.
+   and the exact line in our source. For permission, order or precedence,
+   path discovery, and import fidelity claims, follow
+   `.agnostic-ai/skills/target-audit/references/behavior-evidence.md`.
+   Record the confirmation outcome and request an independent check before
+   the orchestrator accepts a high-risk claim. If evidence is ambiguous or
+   incomplete, downgrade it to `unconfirmed` and say what would settle it.
 7. Never generalize one target's answer to another, even an adjacent
    one. Field names and tool vocabularies split between tools (Qoder uses
    Claude-style tool names, Augment its own). Check each target
@@ -125,81 +85,3 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 11. Compare another target only after opening that target's own vendor
    evidence and checking its semantics independently. Similar names are
    not equivalent behavior. Omit unverified targets from the comparison.
-
-## Evidence rules
-
-A finding without all three of these is not reportable:
-
-- a vendor URL **and** the quoted sentence that proves the claim,
-- the `file:line` in this repo that contradicts it,
-- what a user loses today (not "we could also support X").
-
-Do not report features behind a waitlist or an unreleased beta, unrelated
-user preferences, cosmetic doc wording, or anything you could not open
-with your own tools. Existing global built-in output is covered by the
-built-ins reference.
-
-A capability signal is not a finding and does not need a contradicting
-`file:line`. It does require a vendor URL with a quoted sentence, a
-released project scope, concrete user value, and the repository locations
-checked for an existing representation. Do not turn model agreement,
-marketing language, product rankings, or an undocumented analogy into a
-signal.
-
-## Output
-
-Report to the orchestrator as markdown, nothing else. First report one
-block per finding, most severe first. Keep the existing finding schema
-unchanged:
-
-```
-### <target>: <one-line claim>
-- kind: path-drift | new-surface | schema-drift | deprecation | docs-moved | unconfirmed
-- severity: breaking | degraded | missing-feature | cosmetic
-- evidence: <url> : "<quoted sentence>"
-- ours: <file:line> : <what we currently do>
-- impact: <what a user of this target loses today>
-- fix: <the smallest change that closes it>
-```
-
-Then report capability signals in a separate section:
-
-```
-## Capability signals
-
-### <stable semantic name>
-- signal-id: cap-<stable-lowercase-slug>
-- targets: <independently verified targets only>
-- evidence: <target> <url> : "<quoted sentence>"
-- observed: <release date or date the source was checked>
-- availability: stable | preview | experimental, plus any access gate
-- project-scope: <native project path or project behavior>
-- user-value: <what a team can now configure or automate>
-- ours: <repository paths inspected and what they model today>
-- representation-test: <reproduction and result, or why no executable test applies>
-- semantics: <per-target similarities and differences, without inference>
-- suggested-disposition: adapter-gap | spec-candidate | target-extension | watch
-- confidence: confirmed | conflicting
-```
-
-Use `None` when the batch produced no capability signals. The
-orchestrator owns the final cross-target disposition. Read
-`.agnostic-ai/skills/target-audit/references/capability-intelligence.md`
-for the detailed signal contract.
-
-End with:
-
-```
-### Clean
-- <target>: verified against <url> (<date on the changelog entry you read>)
-- <target>: fast path, docs and changelog unchanged since <lock changed date>, changelog <url> read
-```
-
-Use the first row for a target you audited deeply and the second for one
-whose rows were all `unchanged`. The orchestrator copies the marker into
-the report so a human can see which targets got a hash-only sweep.
-
-Severity: `breaking` means we emit to a path the tool no longer reads.
-`degraded` means it still works, but a documented better native feature exists.
-`missing-feature` means a native feature exists that we skip with a warning. `cosmetic`
-means docs only.

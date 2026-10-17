@@ -32,8 +32,9 @@ const (
 	globalEnd         = "<!-- agnostic-ai:global:end -->"
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
-	// Version 6 records the hooks file containers sync created.
-	globalStateVersion = 6
+	// Version 6 records the hooks file containers sync created; version
+	// 8 records the permission rules sync wrote.
+	globalStateVersion = 8
 )
 
 type globalSyncOptions struct {
@@ -51,6 +52,8 @@ type globalState struct {
 	// directory. Several targets share ~/.agents/skills/, so a sync of
 	// one must keep what the others placed there.
 	Skills map[string][]string `json:"skills,omitempty"`
+	// HookFiles tracks standalone definitions and scripts across configuration root moves.
+	HookFiles map[string][]string `json:"hookFiles,omitempty"`
 	// Sums maps each owned file to the sum of what sync last wrote there,
 	// covering only the managed block of an instructions file.
 	Sums map[string]string `json:"sums,omitempty"`
@@ -61,6 +64,11 @@ type globalState struct {
 	// its user settings file, so a later sync changes or removes only
 	// keys it placed.
 	Settings map[string]map[string]any `json:"settings,omitempty"`
+	// PermissionRules records, per target and permission list, the rules
+	// sync wrote into its user settings file, so a later sync removes
+	// only its own and import leaves them out.
+	PermissionRules  map[string]map[string][]string     `json:"permissionRules,omitempty"`
+	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
 	MCP map[string]map[string]any `json:"mcp,omitempty"`
@@ -225,17 +233,19 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	layers, err := globalLayers(source, names)
-	if err != nil {
-		return err
-	}
-	bundle, err := spec.LoadLayered(layers)
+	bundle, err := loadGlobalBundle(source, names)
 	if err != nil {
 		return err
 	}
 	own := ownSpecs(bundle)
 	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
+	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
+	// A permission rule the target cannot read would be written as it
+	// stands, so a deny rule could stop guarding anything.
+	if slices.ContainsFunc(targets, func(t string) bool { return globalTargets[t].settings.permissionLists }) {
+		issues = append(issues, permissionCapabilityIssues(bundle.Settings)...)
+	}
 	if err := stopOnIssues(issues); err != nil {
 		return err
 	}
@@ -717,7 +727,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -728,6 +738,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			next.Skills[target] = append([]string(nil), paths...)
 		}
 	}
+	for target, paths := range old.HookFiles {
+		if !slices.Contains(targets, target) {
+			next.HookFiles[target] = slices.Clone(paths)
+		}
+	}
 	for target, efforts := range old.AgentEfforts {
 		if !slices.Contains(targets, target) {
 			next.AgentEfforts[target] = efforts
@@ -736,6 +751,16 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, rules := range old.PermissionRules {
+		if !slices.Contains(targets, target) {
+			next.PermissionRules[target] = rules
+		}
+	}
+	for target, original := range old.SessionRetention {
+		if !slices.Contains(targets, target) {
+			next.SessionRetention[target] = original
 		}
 	}
 	for target, servers := range old.MCP {
@@ -768,6 +793,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		g := globalTargets[target]
 		next.Files = removePaths(next.Files, old.Agents[target])
 		next.Files = removePaths(next.Files, old.Skills[target])
+		next.Files = removePaths(next.Files, old.HookFiles[target])
 		for _, tree := range g.trees(home) {
 			// A state without per-target skill records predates them,
 			// so its skills tree is swept whole, as before.
@@ -913,6 +939,20 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				}
 			}
 		}
+		if g.hooksDir != "" {
+			hooks := adapters.TargetHooks(target, b.HooksFor(target))
+			adapters.NotePortableHookGaps(target, b.Hooks)
+			addHookFile := func(path string, data []byte, mode fs.FileMode) error {
+				if err := add(path, data, mode); err != nil {
+					return err
+				}
+				next.HookFiles[target] = append(next.HookFiles[target], path)
+				return nil
+			}
+			if err := addGlobalHookFiles(home, source, target, g, hooks, onUnsupported, addHookFile); err != nil {
+				return nil, next, err
+			}
+		}
 		if g.hooks == "" {
 			continue
 		}
@@ -931,6 +971,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		for _, hook := range hooks {
+			if target == "copilot" {
+				hook.Meta = adapters.ResolveMeta(hook.Meta, target)
+			}
 			if event, _ := hook.Meta["event"].(string); event == "" {
 				continue
 			}
@@ -943,13 +986,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			for _, command := range globalHookCommands(hook.Meta["command"]) {
 				commands = append(commands, sourceCommand{command, literal})
 			}
-			if target == "codex" {
+			if target == "codex" || target == "copilot" {
 				if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
 					commands = append(commands, sourceCommand{windows, false})
 				}
 			}
 			for _, command := range commands {
-				scripts, err := adapters.NeutralHookScripts(command.value, target, filepath.Join(source, "scripts"), scriptsDir, command.literal)
+				scripts, err := adapters.NeutralHookScriptsFor(hook, command.value, target, filepath.Join(source, "scripts"), scriptsDir, command.literal)
 				if err != nil {
 					return nil, next, err
 				}
@@ -1080,24 +1123,55 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		current = target
 		g := globalTargets[target]
 		want := globalSettingsFor(target, g, b.Settings)
+		var wantRules map[string][]string
+		if g.settings.permissionLists {
+			var err error
+			wantRules, err = globalPermissionRules(target, b.Settings, onUnsupported)
+			if err != nil {
+				return nil, next, err
+			}
+		}
 		if g.settings.path != "" {
 			path := g.path(home, g.settings.path)
 			previous := old.Settings[target]
+			previousRules := old.PermissionRules[target]
+			var original *globalRetentionOriginal
+			if saved, present := old.SessionRetention[target]; present {
+				original = &saved
+			}
 			// Keys recorded in a file the root no longer resolves to go
 			// from that file, and the new one starts unowned.
 			if moved := old.SettingsPaths[target]; moved != "" && moved != path {
-				m, err := mergeGlobalSettings(moved, g.settings.format, baseFor(moved), nil, previous)
+				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, g.settings.retention, target, false, warn)
 				if err != nil {
+					return nil, next, err
+				}
+				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules); err != nil {
 					return nil, next, err
 				}
 				if err := placeEdit(moved, m, 0o644); err != nil {
 					return nil, next, err
 				}
 				previous = nil
+				previousRules = nil
+				original = nil
 			}
-			m, err := mergeGlobalSettings(path, g.settings.format, baseFor(path), want, previous)
+			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
 			if err != nil {
 				return nil, next, err
+			}
+			if retention != nil {
+				next.SessionRetention[target] = *retention
+			}
+			var rules map[string][]string
+			if g.settings.permissionLists {
+				if m, rules, err = withGlobalPermissionRules(path, m, baseFor(path), wantRules, previousRules); err != nil {
+					return nil, next, err
+				}
+			}
+			if len(rules) > 0 {
+				next.PermissionRules[target] = rules
+				next.SettingsPaths[target] = path
 			}
 			if len(m.owned) > 0 {
 				next.Settings[target] = m.owned
@@ -1437,6 +1511,9 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	} else if !absent {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
+	if format == "copilot" && !absent && doc["version"] != float64(1) {
+		return nil, fmt.Errorf("%s: Copilot user hooks require integer version 1", path)
+	}
 	// Nothing managed, nothing previously managed, no file: leave the
 	// user's home directory untouched rather than seeding an empty one.
 	if absent && len(entries) == 0 && len(previous) == 0 {
@@ -1454,14 +1531,40 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		spec        bool
 	}
 	var planned []plannedHook
+	var claudeHooks []spec.Entry
 	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
 		if event == "" {
 			continue
 		}
+		if format == "copilot" {
+			native, err := globalCopilotHookEntries(entry, target.scriptsDir)
+			if err != nil {
+				return nil, fmt.Errorf("render %s hooks: %w", path, err)
+			}
+			for _, item := range native[event] {
+				plain := jsonRoundTrip(item)
+				dropHookTargetEnv(plain.(map[string]any), "copilot")
+				adopted, err := adoptGlobalCopilotHook(path, event, item, plain, entry.Meta)
+				if err != nil {
+					return nil, err
+				}
+				if !adopted {
+					planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
+				}
+			}
+			continue
+		}
 		args := stringSliceFromAny(entry.Meta["args"])
 		wraps := entry.WrapsCommand(target.name)
-		for _, command := range globalHookCommands(entry.Meta["command"]) {
+		commands := globalHookCommands(entry.Meta["command"])
+		if target.name == "claude" && len(commands) > 0 {
+			hook := entry
+			hook.Meta = maps.Clone(entry.Meta)
+			hook.Meta["type"] = "command"
+			claudeHooks = append(claudeHooks, hook)
+		}
+		for _, command := range commands {
 			rewrite := func(command string, meta ...map[string]any) string {
 				if target.scriptsDir != "" {
 					return adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), meta...)
@@ -1535,6 +1638,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 			planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
 		}
 	}
+	claude.NoteFailClosedNoOps(claudeHooks)
 	// writesNow reports that an edited copy of a recorded entry is what
 	// sync writes now. The form without the target signal counts only
 	// for a record that lacked it too, as versions before it wrote:
@@ -1609,7 +1713,9 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 				return nil
 			}
 		}
-		if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) }) {
+		if slices.ContainsFunc(unrecorded[event], func(existing any) bool {
+			return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) || (format == "copilot" && sameGlobalCopilotHandler(existing, item))
+		}) {
 			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
 		}
 		if value, ok := hooks[event]; !ok {
@@ -1645,7 +1751,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 	}
 	// Cursor's schema version goes with the last managed hook when sync
 	// added it.
-	if format == "cursor" {
+	if format == "cursor" || format == "copilot" {
 		_, hasVersion := doc["version"]
 		switch {
 		case len(next) > 0:
@@ -1653,7 +1759,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 				mark("version")
 			}
 			doc["version"] = float64(1)
-		case hasVersion && owns("version"):
+		case hasVersion && owns("version") && (format != "copilot" || len(hooks) == 0):
 			delete(doc, "version")
 		}
 	}

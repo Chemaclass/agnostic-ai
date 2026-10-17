@@ -7,7 +7,7 @@ Measure sync performance before and after changing code that runs frequently. Th
 Most benchmarks live in `internal/cli/bench_test.go`, in the same package so they can
 call the unexported sync internals directly. `BenchmarkCompareToDisk` lives
 in `internal/adapters/internal/emit` beside the compare helper it measures.
-Fixtures use `testing` only, no external dependencies.
+Test projects (fixtures) use Go's `testing` package only, with no external dependencies.
 
 ## Run
 
@@ -76,7 +76,7 @@ BenchmarkSyncEmit/specs=100-14   26   45589017 ns/op   80354676 B/op   317246 al
   `b.ReportAllocs()`.
 - `specs=N`: the spec-count parameter. Each fixture holds N rules, N
   agents, and N skills plus a fixed handful of hooks, MCPs, and commands.
-  The suite sweeps 10, 100, and 500. The end-to-end `BenchmarkSyncFull`
+  The suite tests sizes of 10, 100, and 500. The end-to-end `BenchmarkSyncFull`
   stops at 100 to limit disk writes.
 
 Every benchmark builds its fixture, then calls `b.ResetTimer()` so setup
@@ -98,7 +98,7 @@ closes: future runtime or compiler changes can re-measure it cheaply.
 
 ## Profiling a slow sync
 
-The benchmark suite measures frequently run code in this repository. To diagnose a slow `sync` in another project, such as a large repository or a particular adapter, use these two optional tools without setting up benchmarks.
+Use the benchmark suite to measure frequently run code in this repository. To diagnose a slow `sync` in another project, such as a large repository or a particular adapter, use these two optional tools without setting up benchmarks.
 
 `--profile <file>` (or `AGNOSTIC_AI_PROFILE=<file>`) writes a
 `runtime/pprof` CPU profile of the whole run. It uses the Go standard-library profiler
@@ -126,3 +126,50 @@ The flag lives on the root command (`internal/cli/root.go`): profiling
 starts in the persistent pre-run hook and stops in the persistent post-run
 hook, so the profile covers a completed run. The per-target stopwatch wraps
 the emit call in `emitTargetsConcurrent` (`internal/cli/sync_run.go`).
+
+## Staged checks in a large repository
+
+`BenchmarkSyncCheckAgainstIndex` measures the production `sync --check --against index` command in process, including the Git commands it starts and work in temporary checkouts. Setup is excluded. Each fixture has exactly 23,000 tracked baseline files, three targets (Claude Code, Codex and Cursor), scoped rules, shared skills and one asset per skill. The 100- and 500-spec cases count rules plus skills, split equally, rather than N copies of each spec kind. Source files span roughly 1,100 package directories so previous-state directory discovery has representative work.
+
+Fixture setup sets repository-local `core.autocrlf=false` and `core.symlinks=true` on every operating system. This lets Git export the shared-skill links as links, including on Windows. Before timing, setup records the Git setting and checks one linked skill's staged mode and target, then uses `checkout-index` outside the fixture to verify Git restores the link and its body/assets. If sync cannot create symlinks, its real-copy fallback remains valid and all controls still run. No global Git setting changes.
+
+Merge the benchmark setup before changing the implementation. Measure the merged current-main revision first, record its commit and Go version, and use the same machine and fixture method for the later change. Keep raw samples and rerun anomalous results. No latency threshold decides whether a run passes.
+
+```sh
+go test ./internal/cli -run '^TestStagedCheckBenchmarkControls$' -count=1
+go test ./internal/cli -run '^$' -bench '^BenchmarkSyncCheckAgainstIndex$' -benchtime=1x -count=6 -benchmem -timeout 30m
+```
+
+Six controls run at both sizes:
+
+| Case | Staged change | Expected check |
+| --- | --- | --- |
+| clean | None | Pass |
+| yaml-comment | Comment added to configuration | Pass, rendered content unchanged |
+| semantic-config | Claude rule output directory changed without staging new output | Fail |
+| spec-change | One rule changed; correct output exists only in the working tree | Fail |
+| deleted-output | One generated rule removed from the index but left on disk | Fail |
+| deleted-spec | One source rule removed while its generated output remains tracked | Fail, history-based leftover detection retained |
+
+The small regular test runs these controls without building the large fixture, verifies the expected result, and checks unchanged index and working-tree status. Every expected failure must report output that differs from the specs, including each large-fixture benchmark iteration. Git or filesystem errors fail the benchmark rather than becoming timing samples. Fixture setup verifies that the generated rule used by the deleted-output control is tracked. No agent tools, servers or package installation run.
+
+For built-binary measurements or CPU profiles, export one fixture into a new empty absolute directory. The export test is skipped unless explicitly requested:
+
+```sh
+fixture=$(mktemp -d)
+AGNOSTIC_AI_STAGED_BENCH_FIXTURE="$fixture" \
+AGNOSTIC_AI_STAGED_BENCH_SPECS=100 \
+AGNOSTIC_AI_STAGED_BENCH_CASE=yaml-comment \
+go test ./internal/cli -run '^TestWriteStagedCheckBenchFixture$' -count=1 -v
+```
+
+The exported fixture is retained. Choose `100` or `500` and any case from the table. Its Git history and staging are part of the scenario. The fixture config has no release requirement so comparison binaries use the same inputs. Use isolated temporary HOME, CODEX_HOME and AGNOSTIC_AI_HOME directories for each built-binary comparison to exclude user configuration. Disable update checks with `AGNOSTIC_AI_NO_UPDATE_CHECK=1`. Record binary hashes, producing commits, build flags, compiler versions, exact commands, exit status and stdout/stderr. Alternate the baseline and candidate on this same retained fixture with one warm-up and six measured calls per binary. Time only the calls, not fixture construction.
+
+Profile a separate call on that fixture with the matching built binary:
+
+```sh
+(cd "$fixture" && /absolute/path/agnostic-ai sync --check --against index --profile /absolute/path/staged-comment.prof)
+go tool pprof -top /absolute/path/agnostic-ai /absolute/path/staged-comment.prof
+```
+
+The profile command returns nonzero for expected failure cases. Keep its actual exit status and use profiles outside the fixture; profiling overhead does not belong in latency samples. Compare the unchanged and comment controls before attributing cost to historical rendering. If CPU samples leave most elapsed time unexplained, capture bounded Git subprocess and filesystem stage timings before choosing an optimization. The safe boundaries are `enterAgainstTree`, `sameInputs`, `renderRef`, `checkoutPaths`, recollection and cleanup in `internal/cli/sync_against.go`. Full local and operating-system checks remain required for a later implementation touching these paths.

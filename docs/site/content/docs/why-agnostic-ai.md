@@ -1,20 +1,84 @@
 +++
-title = "Why agnostic-ai"
-description = "Every AI coding tool wants its own config files. Why symlinks, copies, one AGENTS.md, or a script fall short, and what agnostic-ai does instead."
-weight = 170
+title = "Start here: understand the setup"
+description = "What coding agents read, which instructions to add first, and how agnostic-ai shares them across tools."
+weight = 5
 aliases = ["/docs/alternatives-why-not-symlinks/"]
 
 [extra]
-group = "Reference"
+group = "Start"
+next = "@/docs/getting-started.md"
+next_label = "Set up your project"
 +++
 
-# Why agnostic-ai
+# Understand the setup {#why-agnostic-ai}
 
-Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each has its own path, format, and keys. Use two tools and you keep two copies, which grow different over time.
+Claude Code and Codex are coding agents: tools you ask to inspect a project, change files, and run commands. A short project note tells them how to work here:
+
+```markdown
+Application code is in src/. Tests are in tests/.
+Before changing code, read CONTRIBUTING.md for the test command.
+Run the relevant tests before finishing a change.
+```
+
+If you use both tools, you would otherwise maintain that note in `CLAUDE.md` and `AGENTS.md`. agnostic-ai generates both from `.agnostic-ai/AGNOSTIC_AI.md`. Edit the source once and sync to keep both current.
+
+[Set up your project](@/docs/getting-started.md) with your coding agent or in your terminal. You can start with one note and add the features below when you need them.
+
+## A small useful setup
+
+Begin with where code lives and how to check a change, as in the note above. These are instructions to the model; they do not enforce themselves like tests or permission settings.
+
+## What to add, and when
+
+| You need | Use | Example |
+|---|---|---|
+| Basic orientation every session | **Project instructions** | Where code lives and how to test it |
+| A standing convention | A [rule](@/docs/spec-format/rules.md) | Use the project's commit format |
+| A repeatable task with several steps | A [skill](@/docs/spec-format/skills.md) | Prepare a release using a checklist |
+| A separate specialist role | An [agent](@/docs/spec-format/agents.md) | Review changes for defects |
+| A command at a tool event | A [hook](@/docs/spec-format/hooks.md) | Run a check when a supported event occurs |
+| Operating choices for the tool | [Settings](@/docs/spec-format/settings.md) | Set a default model or permissions |
+| Access to an outside tool or data | An [MCP connection](@/docs/spec-format/mcps.md) | Let the agent read an issue tracker |
+
+A skill supplies a procedure; an agent supplies a specialist role. A hook runs a command at an event; a rule asks the model to follow an instruction. MCP means Model Context Protocol, a way to connect an agent to other tools and data. Each coding tool supports a different subset of these features.
+
+## What agnostic-ai does
+
+Claude Code reads `CLAUDE.md` and `.claude/` files. Codex reads `AGENTS.md` and `.codex/` files. Other tools use other paths, formats, and setting names. Maintaining these separately makes the same project convention easy to change in one place and forget in another.
+
+agnostic-ai keeps editable Markdown and YAML in `.agnostic-ai/`. Each source file is called a **spec**. You select your coding tools, called **targets**, in `agnostic-ai.yaml`.
+
+```text
+.agnostic-ai/ source files
+          |
+   agnostic-ai sync
+          |
+   +------+------+
+   |             |
+CLAUDE.md     AGENTS.md
+.claude/      .codex/
+   |             |
+Claude Code    Codex
+```
+
+Edit the sources, then sync. The generated files are ordinary files the installed coding tools read. agnostic-ai does not run the agents or give them an account. When a tool cannot use a spec or field, sync reports the gap. See [tool support](@/docs/targets/_index.md).
+
+`sync --check` checks that generated files match the sources. It does not prove a model followed an instruction or that an external connection works.
+
+## When you do not need it
+
+With one tool, its own files can be enough. agnostic-ai helps when you want to share a setup across tools or keep several formats current. The generated files keep working if you stop using agnostic-ai.
+
+<details>
+<summary>Why copies, symlinks, and one AGENTS.md have limits</summary>
+
+## Why the usual fixes fall short
+
+Copying instructions creates several places to maintain. A symlink shares bytes but cannot translate formats or keys. One `AGENTS.md` works well for tools that read plain project instructions there; it cannot configure their native skills, hooks, or MCP connections. A custom script can translate the formats you maintain yourself.
 
 ## The same server, four formats
 
-One MCP server, written once in `.agnostic-ai/mcps/github.yaml`:
+One MCP connection in `.agnostic-ai/mcps/github.yaml`:
 
 ```yaml
 name: github
@@ -22,7 +86,7 @@ type: http
 url: https://api.githubcopilot.com/mcp/
 ```
 
-`agnostic-ai sync` writes it where each tool reads it:
+Sync translates it into each selected tool's own configuration:
 
 | Tool | File | Shape |
 |---|---|---|
@@ -31,36 +95,10 @@ url: https://api.githubcopilot.com/mcp/
 | Gemini CLI | `.gemini/settings.json` | `mcpServers.github.httpUrl` |
 | Zed | `.zed/settings.json` | `context_servers.github.url` |
 
-Hooks differ the same way. The event before a tool call is `PreToolUse` in Claude Code and `BeforeTool` in Gemini CLI.
+This writes the connection settings. You still authenticate with the service as required.
 
-## Why the usual fixes fall short
-
-- **A symlink** shares bytes. It cannot turn YAML into TOML or rename a key. On Windows it needs admin rights or Developer Mode, and Git for Windows checks it out as a text file by default.
-- **Copy and paste** works until someone edits one copy.
-- **One `AGENTS.md`** is read by many tools and carries plain instructions well. It cannot carry skills, hooks, MCP servers, agents, rules scoped to some files, or tool-specific YAML settings such as a model name.
-- **Your own script** works for the formats you know today. Tools change their formats often, and you fix the script each time.
-
-## What agnostic-ai does
-
-- **One source.** Plain Markdown and YAML in `.agnostic-ai/`, committed with your code.
-- **Each tool's own format.** `sync` writes each tool's own files for [25 targets](@/docs/targets/_index.md), `AGENTS.md` included.
-- **An automated check.** [`sync --check`](@/docs/ci.md) fails the build when a generated file differs from its spec.
-- **Easy to adopt.** [`init --from all`](@/docs/migration.md) imports the config you already have and keeps its behavior.
-- **Safe on shared files.** Sync keeps your hand-written keys in files such as `.claude/settings.json`, and [`revert`](@/docs/cli-reference/maintain.md#revert) undoes a `sync --backup`.
-- **Easy to leave.** The generated files are yours and keep working without agnostic-ai.
-
-## When you do not need it
-
-With one tool, use its own files. With two tools that read the same Markdown at the same path, a symlink is enough. agnostic-ai helps once a second tool wants a different format.
+</details>
 
 ## Start
 
-[Install agnostic-ai](@/docs/installation.md), then at your project root:
-
-```bash
-agnostic-ai init --from all
-agnostic-ai sync --plan
-agnostic-ai sync
-```
-
-New project with no config yet? Follow [Getting started](@/docs/getting-started.md).
+[Set up your project](@/docs/getting-started.md) to share one useful note between your tools. The walkthrough includes importing existing tool files.

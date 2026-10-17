@@ -17,11 +17,11 @@ const defaultHooksFile = ".agents/hooks.json"
 // handler for.
 var hookEvents = map[string]bool{
 	"PreToolUse": true, "PostToolUse": true,
-	"PreInvocation": true, "PostInvocation": true, "Stop": true,
+	"SessionStart": true, "PreInvocation": true, "PostInvocation": true, "Stop": true,
 }
 
 // matcherEvents are the two events whose array holds `{matcher, hooks}`
-// groups. For the other three "the structure is simpler (a list of
+// groups. For the other four "the structure is simpler (a list of
 // handlers directly under the event key) and the matcher is ignored"
 // (same page), so this adapter writes each shape where the vendor
 // documents it rather than one shape everywhere.
@@ -76,7 +76,7 @@ type hookDefinition struct {
 	disabled bool
 	event    string
 	// payload is the event's array: `[]hookGroup` for the two events
-	// that read a matcher, `[]hookHandler` for the three that do not.
+	// that read a matcher, `[]hookHandler` for the four that do not.
 	payload any
 }
 
@@ -212,11 +212,11 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 	}
 
 	emit.NoteFieldNoOp(target, spec.KindHook, "event", otherEvents,
-		"Antigravity documents five events (PreToolUse, PostToolUse, PreInvocation, PostInvocation, Stop); any other name has no handler in hooks.json")
+		"Antigravity documents six events (PreToolUse, PostToolUse, SessionStart, PreInvocation, PostInvocation, Stop); any other name has no handler in hooks.json")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
 		"Antigravity's own tool names are its own (view_file, replace_file_content, grep_search, run_command), not Claude's; a Claude-style matcher parses but matches nothing")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", ignoredMatchers,
-		"PreInvocation, PostInvocation and Stop take a handler list directly and Antigravity ignores the matcher there")
+		"SessionStart, PreInvocation, PostInvocation and Stop take a handler list directly and Antigravity ignores the matcher there")
 
 	if len(doc.order) == 0 {
 		return nil

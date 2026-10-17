@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -58,14 +59,17 @@ type Entry struct {
 	Scope string
 	// Keep the loader's folder for placement after local metadata merges.
 	ruleFolder string
+	// globsFromPaths marks `globs` read from a rule's `paths` alias.
+	globsFromPaths bool
 	// Folder is a rule's subfolder under `rules/` when that folder names a
 	// project directory, whether or not Scope took it.
 	Folder string
 	// Layer names the source layer this entry came from
 	// ("pack:<name>", "project", "project-user"). Empty when loaded
 	// outside the layered loader (legacy path).
-	Layer string
-	Meta  map[string]any
+	Layer     string
+	bodyLayer string
+	Meta      map[string]any
 	// MetaKeys preserves the order in which keys appeared in the source
 	// frontmatter (or pure YAML for hooks/MCPs). Adapters pass this to
 	// emit.DocumentOrdered / emit.FrontmatterOrdered so a round-trip
@@ -74,6 +78,11 @@ type Entry struct {
 	// preserved key order); emit falls back to alphabetical order in
 	// that case.
 	MetaKeys []string
+	// DuplicateKeys lists the top-level keys the source writes more than
+	// once, which Meta holds once with the last value. Other YAML parsers
+	// reject such a file, so lint reports it. A local layer that extends
+	// the entry replaces the list with its own.
+	DuplicateKeys []string
 	// NestedKeys records the key order of each object below the top
 	// level of a pure YAML spec, by key path. Read it through KeyOrder.
 	NestedKeys map[string][]string
@@ -106,7 +115,8 @@ type Entry struct {
 	ModelTier string
 	// PortableOn is the `on:` a hook was translated from by NativeHook,
 	// or "" for a hook written in the native form.
-	PortableOn string
+	HookAssetDirs map[string]string
+	PortableOn    string
 	// PortableMatch is the `match:` it was translated from, and
 	// PortableDecision whether it set `decision: stdout`.
 	PortableMatch    string
@@ -118,6 +128,13 @@ type Entry struct {
 type AssetFile struct {
 	Rel  string
 	Mode fs.FileMode
+}
+
+func (e Entry) BodySourceLayer() string {
+	if e.bodyLayer != "" {
+		return e.bodyLayer
+	}
+	return e.Layer
 }
 
 // SkillAssetDir returns the folder whose sibling files ship with a skill,
@@ -804,6 +821,11 @@ func loadLayer(layer Layer) (Bundle, error) {
 			}
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
+		if l.kind == KindRule {
+			for i := range entries {
+				entries[i] = entries[i].PathsAsGlobs()
+			}
+		}
 		assignScopes(entries, dir, l.kind, ruleRoot)
 		if l.kind == KindReview && layer.IncludeRoot != "" {
 			if err := resolveEntryIncludes(entries, layer.IncludeRoot); err != nil {
@@ -812,6 +834,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 		}
 		for i := range entries {
 			entries[i].Layer = layer.Name
+			entries[i].bodyLayer = layer.Name
 		}
 		*l.into = entries
 	}
@@ -1096,18 +1119,20 @@ func listSkillAssets(entries []Entry, root string, files []string, modes map[str
 //
 // The data must be UTF-8 with optional `---` frontmatter on top.
 func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
-	meta, keys, styles, body, err := splitFrontmatter(normalizeLineEndings(data))
+	front, body, err := splitFrontmatter(normalizeLineEndings(data))
 	if err != nil {
 		return Entry{}, err
 	}
-	name, _ := meta["name"].(string)
+	name, _ := front.meta["name"].(string)
 	return Entry{
-		Kind:       kind,
-		Name:       name,
-		Meta:       meta,
-		MetaKeys:   keys,
-		MetaStyles: styles,
-		Body:       body,
+		Kind:          kind,
+		Name:          name,
+		Meta:          front.meta,
+		MetaKeys:      front.keys,
+		NestedKeys:    front.nestedKeys,
+		MetaStyles:    front.styles,
+		DuplicateKeys: front.duplicates,
+		Body:          body,
 	}, nil
 }
 
@@ -1128,20 +1153,22 @@ func parseMarkdown(path string) (Entry, error) {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
 	normalized := normalizeLineEndings(data)
-	meta, keys, styles, body, err := splitFrontmatter(normalized)
+	front, body, err := splitFrontmatter(normalized)
 	if err != nil {
 		// Frontmatter starts at line 2 (line 1 is the opening `---`).
 		return Entry{}, formatYAMLError(path, err, 1)
 	}
-	name, _ := meta["name"].(string)
+	name, _ := front.meta["name"].(string)
 	return Entry{
-		Path:       path,
-		Name:       name,
-		Meta:       meta,
-		MetaKeys:   keys,
-		MetaStyles: styles,
-		Body:       body,
-		BodyLine:   bytes.Count(normalized[:len(normalized)-len(body)], []byte("\n")) + 1,
+		Path:          path,
+		Name:          name,
+		Meta:          front.meta,
+		MetaKeys:      front.keys,
+		NestedKeys:    front.nestedKeys,
+		MetaStyles:    front.styles,
+		DuplicateKeys: front.duplicates,
+		Body:          body,
+		BodyLine:      bytes.Count(normalized[:len(normalized)-len(body)], []byte("\n")) + 1,
 	}, nil
 }
 
@@ -1165,19 +1192,33 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 	if err := yaml.Unmarshal(data, &node); err != nil {
 		return Entry{}, err
 	}
-	meta, keys, styles := nodeToOrderedMap(&node)
-	if meta == nil {
-		meta = map[string]any{}
+	front := nodeToOrderedMap(&node)
+	if front.meta == nil {
+		front.meta = map[string]any{}
 	}
-	name, _ := meta["name"].(string)
+	name, _ := front.meta["name"].(string)
 	return Entry{
-		Name:       name,
-		Meta:       meta,
-		MetaKeys:   keys,
-		NestedKeys: nestedKeyOrders(&node, meta),
-		MetaStyles: styles,
-		Literals:   literalTags(&node),
+		Name:          name,
+		Meta:          front.meta,
+		MetaKeys:      front.keys,
+		NestedKeys:    nestedKeyOrders(&node, front.meta),
+		MetaStyles:    front.styles,
+		DuplicateKeys: front.duplicates,
+		Literals:      literalTags(&node),
 	}, nil
+}
+
+// decodedMapping is a YAML mapping read for a spec: its values, the
+// order of its keys, how the author quoted scalar values, and the keys
+// written more than once.
+type decodedMapping struct {
+	meta       map[string]any
+	keys       []string
+	nestedKeys map[string][]string
+	styles     map[string]yaml.Style
+	// duplicates lists each key a second occurrence repeats, in the order
+	// the repeat first appears. The last value wins in meta.
+	duplicates []string
 }
 
 // decodeYAMLOrdered parses a YAML document into a map, an ordered key
@@ -1185,45 +1226,52 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 // frontmatter in source order with the author's original scalar style
 // (plain vs. double-quoted, etc.). Empty input returns empty map and
 // nil keys/styles.
-func decodeYAMLOrdered(data []byte) (map[string]any, []string, map[string]yaml.Style, error) {
+func decodeYAMLOrdered(data []byte) (decodedMapping, error) {
 	var node yaml.Node
 	if err := yaml.Unmarshal(data, &node); err != nil {
-		return nil, nil, nil, err
+		return decodedMapping{}, err
 	}
-	meta, keys, styles := nodeToOrderedMap(&node)
-	if meta == nil {
-		meta = map[string]any{}
+	front := nodeToOrderedMap(&node)
+	if front.meta == nil {
+		front.meta = map[string]any{}
 	}
-	return meta, keys, styles, nil
+	front.nestedKeys = nestedKeyOrders(&node, front.meta)
+	return front, nil
 }
 
-// nodeToOrderedMap converts a YAML mapping node to (map, ordered keys,
-// per-key value styles). Non-mapping inputs return (nil, nil, nil); the
-// DocumentNode wrapper is peeled when present. Errors decoding
-// individual values cause the affected key to be dropped silently —
-// yaml.Unmarshal would have already surfaced the syntactic failure at
-// parse time. The styles map only carries entries for scalar values
-// whose Style was non-default; missing keys mean "let the encoder
-// choose" at re-emit time.
-func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.Style) {
+// nodeToOrderedMap converts a YAML mapping node to its values, ordered
+// keys, per-key value styles, and repeated keys. Non-mapping inputs
+// return the zero value; the DocumentNode wrapper is peeled when
+// present. Errors decoding individual values cause the affected key to
+// be dropped silently -- yaml.Unmarshal would have already surfaced the
+// syntactic failure at parse time. The styles map only carries entries
+// for scalar values whose Style was non-default; missing keys mean "let
+// the encoder choose" at re-emit time.
+func nodeToOrderedMap(n *yaml.Node) decodedMapping {
 	if n == nil {
-		return nil, nil, nil
+		return decodedMapping{}
 	}
 	if n.Kind == yaml.DocumentNode {
 		if len(n.Content) == 0 {
-			return nil, nil, nil
+			return decodedMapping{}
 		}
 		return nodeToOrderedMap(n.Content[0])
 	}
 	if n.Kind != yaml.MappingNode {
-		return nil, nil, nil
+		return decodedMapping{}
 	}
-	meta := make(map[string]any, len(n.Content)/2)
-	keys := make([]string, 0, len(n.Content)/2)
-	var styles map[string]yaml.Style
+	out := decodedMapping{
+		meta: make(map[string]any, len(n.Content)/2),
+		keys: make([]string, 0, len(n.Content)/2),
+	}
+	seen := make(map[string]bool, len(n.Content)/2)
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		keyNode := n.Content[i]
 		valNode := n.Content[i+1]
+		if seen[keyNode.Value] && !slices.Contains(out.duplicates, keyNode.Value) {
+			out.duplicates = append(out.duplicates, keyNode.Value)
+		}
+		seen[keyNode.Value] = true
 		var v any
 		if err := valNode.Decode(&v); err != nil {
 			// Keep malformed restrictions for capability validation.
@@ -1232,18 +1280,18 @@ func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.S
 			}
 			v = valNode
 		}
-		if _, dup := meta[keyNode.Value]; !dup {
-			keys = append(keys, keyNode.Value)
+		if _, dup := out.meta[keyNode.Value]; !dup {
+			out.keys = append(out.keys, keyNode.Value)
 		}
-		meta[keyNode.Value] = v
+		out.meta[keyNode.Value] = v
 		if valNode.Kind == yaml.ScalarNode && valNode.Style != 0 {
-			if styles == nil {
-				styles = make(map[string]yaml.Style)
+			if out.styles == nil {
+				out.styles = make(map[string]yaml.Style)
 			}
-			styles[keyNode.Value] = valNode.Style
+			out.styles[keyNode.Value] = valNode.Style
 		}
 	}
-	return meta, keys, styles
+	return out
 }
 
 // normalizeLineEndings converts CRLF to LF so the frontmatter splitter
@@ -1256,29 +1304,29 @@ func normalizeLineEndings(b []byte) []byte {
 }
 
 // splitFrontmatter parses a leading `---` block as YAML and returns the
-// remaining body along with the ordered map of frontmatter keys. A file
+// ordered map of frontmatter keys along with the remaining body. A file
 // that does not start with `---`, or whose closing `---` is missing,
 // is treated as body-only with empty meta. Malformed YAML inside a
 // fully delimited block is surfaced as an error rather than silently
 // swallowed.
-func splitFrontmatter(data []byte) (map[string]any, []string, map[string]yaml.Style, string, error) {
+func splitFrontmatter(data []byte) (decodedMapping, string, error) {
 	const delim = "---"
-	empty := map[string]any{}
+	empty := decodedMapping{meta: map[string]any{}}
 
 	if !bytes.HasPrefix(data, []byte(delim)) {
-		return empty, nil, nil, string(data), nil
+		return empty, string(data), nil
 	}
 	rest := data[len(delim):]
 	idx := bytes.Index(rest, []byte("\n"+delim))
 	if idx < 0 {
-		return empty, nil, nil, string(data), nil
+		return empty, string(data), nil
 	}
 	yamlPart := rest[:idx]
 	body := bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n")
 
-	meta, keys, styles, err := decodeYAMLOrdered(yamlPart)
+	front, err := decodeYAMLOrdered(yamlPart)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return decodedMapping{}, "", err
 	}
-	return meta, keys, styles, string(body), nil
+	return front, string(body), nil
 }

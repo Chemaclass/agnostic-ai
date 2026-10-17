@@ -112,3 +112,7 @@ label = "Factory"
 [[targets]]
 id = "kilo"
 label = "Kilo Code"
+
+[[targets]]
+id = "ellipsis"
+label = "Ellipsis"

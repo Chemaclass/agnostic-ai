@@ -55,7 +55,7 @@ func newLintCmd() *cobra.Command {
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
 		Long: "Checks for empty specs, duplicate names, dead specs (kinds not " +
 			"supported by any enabled target), hooks whose event ignores their " +
-			"matcher, unterminated frontmatter, and frontmatter keys that near-miss " +
+			"matcher, unterminated frontmatter, top-level keys written twice, and frontmatter keys that near-miss " +
 			"a key agnostic-ai owns (allowed_tools vs tools), and allowed Bash rules " +
 			"with a wildcard before the end of the command, spec bodies that name " +
 			"another spec by one target's native path, skill and command lines with " +
@@ -313,6 +313,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 		findings = append(findings, lintFinding{Code: "LINT036", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
+	findings = append(findings, lintDuplicateKeys(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
@@ -321,9 +322,13 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintDevCommands(b.Environments)...)
 	findings = append(findings, lintSkillScopeKey(b.Skills)...)
 	findings = append(findings, lintClaudeBodySyntax(b, targets, support)...)
+	findings = append(findings, lintClaudeRefusedNames(b, targets)...)
 	findings = append(findings, lintRuleFolderScope(b.Rules)...)
 	findings = append(findings, lintMidWildcard(b.Settings)...)
 	findings = append(findings, lintBareCapabilities(b.Settings, targets)...)
+	for _, issue := range sessionRetentionIssues(b.Settings) {
+		findings = append(findings, lintFinding{Code: "LINT045", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	findings = append(findings, lintNativeSpecPaths(b)...)
 	findings = append(findings, lintSpecRefs(targets, support, b)...)

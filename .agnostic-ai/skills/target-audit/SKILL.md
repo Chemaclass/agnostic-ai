@@ -21,13 +21,21 @@ The report and issues are the only published output. Never create or edit site a
 
 All paths below are relative to the repository root, including when this skill is emitted into a nested directory.
 
+The coordinator owns shared inputs, routing, manifest coverage, synthesis, publication, finalization, and metrics. Auditors own per-target investigation, comparisons, reproductions, and evidence reports. Read `.agnostic-ai/skills/target-audit/references/evidence-and-output.md` before delegating or researching inline; it defines the shared evidence and output contract.
+
 ## 1. Prepare shared inputs once
 
 Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
 
-Run `scripts/docfetch.sh` once. It fetches every source URL fresh, runs the recovery ladder on pages that do not serve usable text, saves the bodies under `local/target-audit/<date>-run/pages/`, and writes `docfetch.tsv` with one row per URL carrying its mode, content hash, and status against `scripts/target-audit/sources.lock`. Read its summary line and the `failed` rows before delegating.
+Select the built-in baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`, then start a unique audit run using `scripts/target-audit/manifest.md`. Freeze the requested target-kind-URL set before fetching and use that run path below wherever `<date>-run` appears.
 
-Prepare the shared built-in inventory and audit baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`. Then run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. When it prints no numbered batch, write the report with every requested target as a fast-path Clean row and stop. Skip the issue index, signals, auditors and filing. The lock does not move on such a day, so there is nothing to commit.
+Initialize the run metrics before fetching, using `.agnostic-ai/skills/target-audit/references/metrics.md`. Record observed stages, routing decisions, usage, and outcomes there, including a no-change early return.
+
+Fetch once and capture the fetched evidence using `scripts/target-audit/manifest.md`. The fetch saves fresh bodies, comparison hashes and statuses against `scripts/target-audit/sources.lock`. Read its summary and failed rows before delegating. Fetch-only watcher runs do not need a manifest.
+
+For an explicit research continuation, independently start, initialize metrics, fetch and capture a new run, then run `resume <new-run> <prior-run-directory>` as the manifest reference defines. Reuse only its validated completed targets; assign the pending targets below. Read `reused` in the new manifest and preserve the findings and coverage in their copied artifacts. Remove those targets from deep batches and sweeps before dispatch or recording. Reused research is completed coverage, not an automatic Clean verdict. A same-day report alone does not authorize evidence reuse.
+
+Start saves `builtins.txt`. Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. Keep its `builtin-deep:` set for the fast-path checks below. Save the separate review-reason TSV and pass each batch its rows as described in `.agnostic-ai/skills/target-audit/references/review-reasons.md`. When it prints no numbered batch, preserve reused coverage and write each pending target as a fast-path Clean row, record only the pending assignments and page dispositions, and finalize the manifest. Skip the issue index, signals, auditors and filing.
 
 Fetch the `target-audit` issue index into the run directory with three scoped calls rather than paginating the whole collection: `--state open`, `--state all --search 'created:>=<window start>'`, and `--state closed --search 'closed:>=<window start>'`. Before treating a candidate as new, run one title-scoped search for it (`--state all --search '<target> in:title <keyword>'`). Fetch bodies and comments only for relevant matches. Refresh matching issue state before filing.
 
@@ -45,9 +53,23 @@ Dedupe rules:
 
 ## 2. Audit in bounded batches
 
-In the `--changed` output from step 1, numbered lines are deep batches, at most five and sized to available worker slots. The `sweep` line lists targets eligible for unchanged-vendor coverage under the built-in baseline check; record them as fast path without an agent. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`. Queue batches when needed; every requested target must be assigned exactly once.
+In the `--changed` output from step 1, numbered lines are deep batches, at most five and sized to available worker slots. The `sweep` line lists targets eligible for unchanged-vendor coverage under the built-in baseline check; record them as fast path without an agent. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`. Queue batches when needed; every requested target must be assigned exactly once, including assignments copied by explicit resume.
 
-Then run `scripts/jev-triage.sh local/target-audit/<date>-run`. It always exits 0 and writes `triage.tsv`, likeliest drift first: target, url, delta, claim, verdict, probability, p_contradicts, via. With `TYPESAFE_API_KEY`, Jev judges every claim of each changed page's target (`contradicts`, `supports`) and gives each changed page a surface score (`noul`: whether the page changes a project-scoped config setting, which leads to a capability signal no claim covers). Without a key, or once the API fails, rows are lexical leads (verdict `paired`, via `lexical`): claims that share a path, key, or term with the moved words. Its stderr line says which ran and how many input tokens it spent. A Jev row is kept only when its verdict is `contradicts` or its `p_contradicts` reaches 0.4, the cutoff that separated confirmed drift from everything else on the replay cases, so an empty file after a Jev run means no lead, not a clean page. Move targets with a Jev row, or a `noul` of 0.5 or more, into the earliest batches, and pass each batch its targets' rows as leads. A lead is a question, never a fact. `triage-pages.tsv` gives each changed page a status: `clear` (Jev answered every question for it, kept no row, its surface score stayed under 0.1, and no path we write moved on it), `lead`, `judged` (no lead, but a `mentions:` page or a surface score of 0.1 or more), `unjudged` (a request was capped or failed), or `lexical` (Jev did not run). A target whose every `new` or `changed` row is `clear` there, and which is absent from the `builtin-deep:` set, is a Jev fast path. Jev never reads the built-in evidence, so first read that target's changed deltas against the hook and skill checklist in `.agnostic-ai/skills/target-audit/references/builtins.md` (event, launcher, output, project and global paths, root discovery); any hit keeps the deep read. Otherwise take it out of its batch and give it a Clean row marked `fast path by Jev`. Any other status, and any row missing from the file (no delta, a failed fetch), keeps the deep read, so without Jev every changed row is read as before. When a run has a Jev fast path, audit one of those targets anyway, chosen at random, and record in the report whether it was clean. A finding there turns the fast path off until a replay case for it passes. `scripts/jev-triage.sh --replay scripts/target-audit/triage-cases.tsv` measures Jev's recall and the lexical pairing's on past confirmed drift, and `--replay-surface scripts/target-audit/surface-cases.tsv` measures the `noul`. After filing, add a row to the matching cases file for each confirmed finding or signal, with a short exact vendor quote. Setup, cost, and the measurements behind these cutoffs: `docs/internal/jev-triage.md`.
+The coordinator preserves copied assignments and records each pending assignment and each source's separate reviewed, justified fast-path or research-limit disposition using `scripts/target-audit/manifest.md`. Finish evidence artifacts before recording their hashes. A research limit accounts for coverage but keeps the previous source hash.
+
+Run `scripts/jev-triage.sh local/target-audit/<date>-run` before dispatch. It always exits 0. Its `triage.tsv` columns are target, url, delta, claim, verdict, probability, p_contradicts, via. With `TYPESAFE_API_KEY`, Jev checks every target claim against each changed page and scores project-config additions (`noul`). Without a key or after API failure, lexical `paired` leads match paths, keys, or terms; unjudged page parts also get trim-1 top-five changed-line matches against the target's other claims. Trim needs Go; stderr records skipped reasons, method, and input tokens. Leads are questions, never findings. Empty leads never clear a page.
+
+Prioritize targets with Jev leads or `noul >= 0.5`. Pass only each batch's leads. Jev keeps `contradicts` or `p_contradicts >= 0.4`. `triage-pages.tsv` statuses control eligibility:
+
+- `clear`: all questions answered, no retained lead, `noul < 0.1`, and no emitted path moved.
+- `lead`: retained lead.
+- `judged`: no lead, but a `mentions:` page or `noul >= 0.1`.
+- `unjudged`: capped or failed request.
+- `lexical`: Jev did not run.
+
+Deep review is the default. A Jev fast path requires every `new`/`changed` row to be `clear` and the target absent from `builtin-deep:`. First read its changed deltas against the built-ins reference's hook and skill checklist (event, launcher, output, project/global paths, root discovery), which Jev never sees. Any hit keeps deep review. Only then remove it from its batch and mark `fast path by Jev`. Any other status or missing row, including no delta or failed fetch, requires deep review. Without Jev, every changed row is read.
+
+Randomly select one Jev-fast-path target for deep review and record whether it was clean. A finding disables that fast path until a replay case passes. After filing each confirmed finding or signal, add its exact vendor quote to the matching `triage-cases.tsv` or `surface-cases.tsv`. Recall checks are `scripts/jev-triage.sh --replay scripts/target-audit/triage-cases.tsv` (Jev, lexical, trim-1) and `--replay-surface scripts/target-audit/surface-cases.tsv` (`noul`). Setup and cutoff measurements: `docs/internal/jev-triage.md`.
 
 Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order. Use returned agent IDs for all messages. Start each agent with minimal context when supported. Pass:
 
@@ -60,21 +82,13 @@ Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch
 
 Do not paste this skill, the full issue history, or unrelated source sections into each prompt. Auditors already have their role instructions. No broad tests during research. Build one current binary for compatible read-only reproductions when needed.
 
-Read only each assigned target's source section. `scripts/target-facts.sh --sources <target>...` extracts those sections without loading the other targets. Run `scripts/target-facts.sh <target>...` once per batch for our claims; read exact implementation lines when checking a candidate.
-
-Every source URL was fetched fresh this run, so the lock decides what a model must read, never whether the evidence is current. Auditors read `deltas.tsv` first: each `new` or `changed` row carries a label (`mentions:<paths>`, `prose`, `chrome-only`, `whitespace-only`, `no-snapshot`) and, when a snapshot exists, a word `.delta` beside its page. Labels rank the reading order and never clear a row. Then each `schema` row's delta, which lists added and removed key paths only, and each `code` row's delta, a vendor source file that moves before the docs, then the changelog delta, then each changed page's delta and saved text, retaining each page's URL, fetch date, and exact relevant excerpt. Read the full relevant section when an excerpt leaves scope or precedence unclear. Never treat a prior run's saved page, report, or lock row as current evidence. Use the coverage checks above and the built-in reference for fast-path eligibility; mark each such row as fast path. Recover every `failed`, `app-shell`, `soft-404`, and `redirected` row by hand through `.agnostic-ai/skills/target-audit/references/fetch-playbook.md`, and report what stays unreadable as a research limit.
-
-Keep raw pages and reproductions in the local run directory when useful. Return concise evidence blocks, capability signals separately, and one coverage row per target. Report inaccessible sources as research limits, never as clean targets.
+Auditors follow `.agnostic-ai/agents/target-auditor.md`, including per-target source extraction, delta reading, recovery, comparisons, and reproduction rules. Keep pages and reproductions in the run directory. Require evidence artifacts and one coverage row per target under the shared contract before recording completed coverage.
 
 ## 3. Synthesize and verify
 
-Every drift finding requires:
+Accept findings only under the shared evidence contract. Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
 
-- vendor URL and a short exact quote proving the behavior;
-- contradictory repository `file:line`;
-- concrete user loss and the smallest fix.
-
-Drop unsupported claims. Reopen every breaking finding's source and repository line yourself. Recheck negative claims through an independent fetch route before accepting absence or removal. A 200 response may be an app shell, soft 404, or unrelated redirect.
+For permission boundaries, overlapping order or precedence, path discovery, and import fidelity, apply `.agnostic-ai/skills/target-audit/references/behavior-evidence.md` before accepting or filing a claim. Verify its recorded confirmation outcome and complete the independent check, even without `--compare-models`. Keep unresolved claims in `Needs a human` with the missing evidence; never send them to a fixer. Source-only URL corrections and capability opportunities keep their existing evidence paths.
 
 Keep built-in drift (a target the built-in emits to stopped behaving as it needs) apart from a coverage opportunity (a target it does not list gained compatible support). Drift is a finding; an opportunity goes under Cross-target opportunities. Apply the fix rule in the built-ins reference: hook capability alone never enables a target.
 
@@ -87,6 +101,8 @@ When requested, run that reference's bounded challenger pass after synthesis. Re
 ## 4. Write the report
 
 Write `local/target-audit/<YYYY-MM-DD>.md`. Preserve an existing same-day report or deliberately update it as a continuation. Include audited commit, window, target coverage, counts, source dates, issue/PR links, and research limits. Add a `Built-ins` line naming each target whose built-in behavior this run checked, but only when `scripts/target-facts.sh --changed <run>/docfetch.tsv --builtins-since HEAD` prints no `builtin-deep:` line, so the files audited match the recorded commit. The next run takes its baseline only from a report with that line.
+
+Include the metrics summary and artifact links per `.agnostic-ai/skills/target-audit/references/metrics.md`. End the audit interval before later implementation or merge work; state unavailable measurements as unknown.
 
 The report is the decision view. For each finding write the heading, kind, severity, one paragraph of impact and smallest fix, the issue or PR link, and a relative link to its run-directory file, for example `local/target-audit/<date>-run/claude-mcp.md`. Vendor quotes, repository lines, and reproduction commands live once, in that file. Do not paste a run-directory file into the report.
 
@@ -104,9 +120,9 @@ Use these sections, even when empty:
 
 Select critical changes using the capability reference's priority rules. Each synthesized signal retains its stable ID, independently verified semantics, representation result, disposition, confidence, and next action. Attach challenger metadata to challenged items.
 
-List moved or broken source URLs with verified replacements. Apply corrections to the canonical `.agnostic-ai/skills/target-audit/references/sources.md` during this run, even in report-only mode. Edit source specs, never generated native copies.
+List moved or broken source URLs with verified replacements. Apply corrections to the canonical `.agnostic-ai/skills/target-audit/references/sources.md` after finalizing coverage, even in report-only mode. Edit source specs, never generated native copies. A correction made before finalization requires a fresh manifest and fetch because the source inventory changed.
 
-After the report is written, run `scripts/docfetch.sh --update local/target-audit/<date>-run/docfetch.tsv <targets that produced a coverage row>`. The lock moves only after a run finishes, so a crash never marks a page as seen that no auditor read. Text snapshots under `local/target-audit/snapshots/` are stored by hash on every fetch, so the next run's deltas diff against exactly the text this lock names; `--update` also drops lock rows for URLs no source lists and snapshots the lock stopped naming 30 days ago. With `--no-file-issues`, leave the lock change in the working tree beside the source corrections. In every other mode, commit it even when the audit is clean or every finding was already tracked, unless `git diff --quiet scripts/target-audit/sources.lock` shows it did not move: in the cosmetic/source docs PR when one exists, otherwise in a `chore(target-audit)` PR of its own, so an audit never leaves `main` dirty and the vendor watcher compares against what was read.
+After the report and complete coverage are recorded, run `scripts/docfetch.sh --update local/target-audit/<date>-run/docfetch.tsv`. It validates the manifest before changing the lock. Missing coverage rejects the update; accounted research limits retain their old hashes while reviewed pages can advance. Shared URLs require eligible coverage for every registered owner, as the manifest reference defines. Keep tracked corrections and signal edits until after finalization. Text snapshots remain stored by comparison hash and old snapshots are pruned after 30 days. `--update-unvalidated` is an explicit manual compatibility path and does not establish validated audit completion. With `--no-file-issues`, leave the lock change in the working tree beside the source corrections. In every other mode, commit it even when the audit is clean or every finding was already tracked, unless `git diff --quiet scripts/target-audit/sources.lock` shows it did not move: in the cosmetic/source docs PR when one exists, otherwise in a `chore(target-audit)` PR of its own.
 
 ## 5. File and fix
 

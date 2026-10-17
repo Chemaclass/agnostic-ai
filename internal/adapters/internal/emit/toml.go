@@ -2,6 +2,8 @@ package emit
 
 import (
 	"fmt"
+	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -10,7 +12,7 @@ import (
 // WriteTOMLString writes `key = "value"` with backslashes and double
 // quotes escaped per the TOML basic-string rules.
 func WriteTOMLString(sb *strings.Builder, key, value string) {
-	fmt.Fprintf(sb, "%s = \"%s\"\n", key, EscapeTOMLBasic(value))
+	fmt.Fprintf(sb, "%s = \"%s\"\n", key, EscapeTOMLSingleLine(value))
 }
 
 // WriteTOMLMultiline writes `key = """\n<value>\n"""`. Backslashes and
@@ -34,7 +36,7 @@ func WriteTOMLStringArray(sb *strings.Builder, key string, values []string) {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString("\"" + EscapeTOMLBasic(v) + "\"")
+		sb.WriteString("\"" + EscapeTOMLSingleLine(v) + "\"")
 	}
 	sb.WriteString("]\n")
 }
@@ -60,9 +62,145 @@ func WriteTOMLInlineStringTable(sb *strings.Builder, key string, m map[string]st
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(k + " = \"" + EscapeTOMLBasic(m[k]) + "\"")
+		sb.WriteString(TOMLKey(k) + " = \"" + EscapeTOMLSingleLine(m[k]) + "\"")
 	}
 	sb.WriteString(" }\n")
+}
+
+// WriteTOMLInlineTable writes `key = { k1 = v1, ... }` with each value
+// encoded by TOMLLiteral, so booleans, numbers, dates, arrays, and
+// nested tables keep their TOML type. Keys are sorted and quoted when
+// they are not bare-safe. A value TOMLLiteral cannot encode is left out
+// and its key is returned in skipped; nil values (YAML null) are left
+// out silently. A map with nothing left to write writes nothing.
+func WriteTOMLInlineTable(sb *strings.Builder, key string, m map[string]any) (skipped []string) {
+	lit, skipped := inlineTable(m)
+	if lit != "{}" {
+		sb.WriteString(key + " = " + lit + "\n")
+	}
+	return skipped
+}
+
+func inlineTable(m map[string]any) (string, []string) {
+	if len(m) == 0 {
+		return "{}", nil
+	}
+	var skipped []string
+	parts := make([]string, 0, len(m))
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		if m[k] == nil {
+			continue
+		}
+		lit, inner, ok := literal(m[k])
+		if !ok {
+			skipped = append(skipped, k)
+			continue
+		}
+		for _, p := range inner {
+			skipped = append(skipped, k+"."+p)
+		}
+		if lit == "{}" && len(inner) > 0 {
+			continue // every leaf of this nested table was dropped
+		}
+		parts = append(parts, TOMLKey(k)+" = "+lit)
+	}
+	if len(parts) == 0 {
+		return "{}", skipped
+	}
+	return "{ " + strings.Join(parts, ", ") + " }", skipped
+}
+
+// TOMLLiteral renders v as a single-line TOML value: strings, bools,
+// integers, finite floats (a whole float keeps its `.0`), string and
+// mixed arrays, and nested maps as inline tables. It returns false for
+// anything else, including NaN, infinities, and dates (whose offset
+// would depend on the machine's timezone), and for a map or array that
+// holds such a value.
+func TOMLLiteral(v any) (string, bool) {
+	lit, skipped, ok := literal(v)
+	return lit, ok && len(skipped) == 0
+}
+
+// literal is TOMLLiteral that keeps going inside maps: a map drops only
+// its unencodable leaves and lists their dotted paths in skipped. An
+// array cannot drop an element without shifting the rest, so an array
+// with an unencodable element is unencodable as a whole (ok false).
+func literal(v any) (lit string, skipped []string, ok bool) {
+	switch t := v.(type) {
+	case string:
+		return `"` + EscapeTOMLSingleLine(t) + `"`, nil, true
+	case bool:
+		return strconv.FormatBool(t), nil, true
+	case int:
+		return strconv.Itoa(t), nil, true
+	case int64:
+		return strconv.FormatInt(t, 10), nil, true
+	case uint64:
+		if t > math.MaxInt64 {
+			return "", nil, false
+		}
+		return strconv.FormatUint(t, 10), nil, true
+	case float64:
+		lit, ok := tomlFloat(t)
+		return lit, nil, ok
+	case []string:
+		items := make([]string, len(t))
+		for i, s := range t {
+			items[i] = `"` + EscapeTOMLSingleLine(s) + `"`
+		}
+		return "[" + strings.Join(items, ", ") + "]", nil, true
+	case []any:
+		items := make([]string, len(t))
+		for i, x := range t {
+			lit, inner, ok := literal(x)
+			if !ok || len(inner) > 0 {
+				return "", nil, false
+			}
+			items[i] = lit
+		}
+		return "[" + strings.Join(items, ", ") + "]", nil, true
+	case map[string]string:
+		m := make(map[string]any, len(t))
+		for k, s := range t {
+			m[k] = s
+		}
+		lit, _ := inlineTable(m)
+		return lit, nil, true
+	case map[string]any:
+		lit, skipped := inlineTable(t)
+		return lit, skipped, true
+	}
+	return "", nil, false
+}
+
+func tomlFloat(f float64) (string, bool) {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return "", false
+	}
+	s := strconv.FormatFloat(f, 'f', -1, 64)
+	if !strings.Contains(s, ".") {
+		s += ".0"
+	}
+	return s, true
+}
+
+// TOMLKey returns s as a TOML key: bare when it only has letters,
+// digits, `_`, and `-`, otherwise a quoted key so a space or dot cannot
+// break the line or split the key into a path.
+func TOMLKey(s string) string {
+	if s == "" {
+		return `""`
+	}
+	for _, r := range s {
+		bare := r == '-' || r == '_' ||
+			(r >= '0' && r <= '9') ||
+			(r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z')
+		if !bare {
+			return `"` + EscapeTOMLSingleLine(s) + `"`
+		}
+	}
+	return s
 }
 
 // WriteTOMLValue writes `key = <value>`, picking the TOML form from v's
@@ -73,37 +211,69 @@ func WriteTOMLInlineStringTable(sb *strings.Builder, key string, m map[string]st
 // emits malformed TOML.
 func WriteTOMLValue(sb *strings.Builder, key string, v any) bool {
 	switch t := v.(type) {
-	case string:
-		WriteTOMLString(sb, key, t)
-	case bool:
-		fmt.Fprintf(sb, "%s = %t\n", key, t)
-	case int:
-		fmt.Fprintf(sb, "%s = %d\n", key, t)
-	case int64:
-		fmt.Fprintf(sb, "%s = %d\n", key, t)
+	case string, bool, int, int64, []string:
 	case float64:
-		fmt.Fprintf(sb, "%s = %s\n", key, strconv.FormatFloat(t, 'f', -1, 64))
-	case []string:
-		WriteTOMLStringArray(sb, key, t)
+		if math.IsNaN(t) || math.IsInf(t, 0) {
+			return false
+		}
+		// Whole floats keep the bare-integer bytes config.toml has always had.
+		sb.WriteString(TOMLKey(key) + " = " + strconv.FormatFloat(t, 'f', -1, 64) + "\n")
+		return true
 	case []any:
-		ss := StringSlice(t)
-		if len(ss) != len(t) {
+		if len(StringSlice(t)) != len(t) {
 			return false // a non-string element: skip the whole array
 		}
-		WriteTOMLStringArray(sb, key, ss)
 	default:
 		return false
 	}
+	lit, ok := TOMLLiteral(v)
+	if !ok {
+		return false
+	}
+	sb.WriteString(TOMLKey(key) + " = " + lit + "\n")
 	return true
 }
 
-// EscapeTOMLBasic escapes the two characters that can break out of a
-// basic (or basic-multiline) TOML string: backslash and double quote.
-// Newlines pass through unchanged so multiline literals stay readable.
+// EscapeTOMLBasic escapes what can break out of a basic or
+// basic-multiline TOML string: backslash, double quote, and control
+// characters. Newlines, tabs, and CRLF pass through unchanged so
+// multiline literals stay readable.
 func EscapeTOMLBasic(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `"`, `\"`)
-	return s
+	return escapeTOML(s, false)
+}
+
+// EscapeTOMLSingleLine escapes s for a one-line basic string: everything
+// EscapeTOMLBasic escapes, plus newlines and tabs.
+func EscapeTOMLSingleLine(s string) string {
+	return escapeTOML(s, true)
+}
+
+func escapeTOML(s string, singleLine bool) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\\':
+			b.WriteString(`\\`)
+		case c == '"':
+			b.WriteString(`\"`)
+		case c == '\n' && !singleLine, c == '\t' && !singleLine:
+			b.WriteByte(c)
+		case c == '\r' && !singleLine && i+1 < len(s) && s[i+1] == '\n':
+			b.WriteByte(c)
+		case c == '\n':
+			b.WriteString(`\n`)
+		case c == '\t':
+			b.WriteString(`\t`)
+		case c == '\r':
+			b.WriteString(`\r`)
+		case c < 0x20 || c == 0x7f:
+			fmt.Fprintf(&b, `\u%04X`, c)
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
 }
 
 // WriteTOMLMCPStdioFields writes the `command`, `args`, and `env`

@@ -1,6 +1,6 @@
 # agnostic-ai
 
-agnostic-ai is for developers and teams using more than one AI coding tool, or preparing to change tools. Write agents, skills, rules, hooks, and MCP configuration once; `agnostic-ai sync` turns those shared specifications (specs) into the files each tool reads. Skills provide task instructions, hooks run actions at chosen events, and MCP connects tools to external services. See [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/).
+agnostic-ai keeps your coding tools working from the same project instructions. Edit one source, then run `agnostic-ai sync` to write the files Claude Code, Codex, and your other tools read.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agnostic-ai?logo=npm&label=npm)](https://www.npmjs.com/package/agnostic-ai)
@@ -9,7 +9,7 @@ agnostic-ai is for developers and teams using more than one AI coding tool, or p
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Chemaclass/agnostic-ai/badge)](https://scorecard.dev/viewer/?uri=github.com/Chemaclass/agnostic-ai)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15088/badge)](https://www.bestpractices.dev/projects/15088)
 
-Each AI tool reads its instructions from different files. Kept by hand, those files fall out of step. agnostic-ai keeps one editable source in plain Markdown and YAML inside your repository. No account, no service.
+Each AI tool reads its instructions from different files. Kept by hand, those files fall out of step. agnostic-ai keeps one source in plain Markdown and YAML inside your repository. It needs no account and no service. See [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/).
 
 ## Set up with a coding agent
 
@@ -19,9 +19,10 @@ Paste this into Claude Code, Codex, Cursor, or another coding agent:
 Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior. Before any sync, check for existing CLAUDE.md, AGENTS.md, and similar files, and ask me what to do with their content. Finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
 ```
 
-It takes about two minutes. The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) is the checklist the agent follows.
+The [setup guide](https://agnostic-ai.org/docs/getting-started/) walks through agent-assisted or terminal setup, including keeping existing instructions.
 
 <a id="set-up-manually"></a>
+<a id="install"></a>
 
 ## Quickstart
 
@@ -29,52 +30,64 @@ From your project root, with Node 18 or newer:
 
 ```bash
 npm install -g agnostic-ai
-agnostic-ai init --from all
-agnostic-ai sync --plan
-agnostic-ai sync
+agnostic-ai init
+mkdir -p .agnostic-ai
 ```
 
-`init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the files each tool reads.
+Select the tools you use. In a terminal, `init` offers to import existing tool files; keep their instructions before syncing. Create or edit `.agnostic-ai/AGNOSTIC_AI.md` with one useful project note, keeping imported content. See the [one-note walkthrough](https://agnostic-ai.org/docs/getting-started/#scaffold).
 
-From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
+Preview the planned files, then generate and check them:
 
-After installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets the project to require that exact release and syncs again.
+```bash
+agnostic-ai sync --plan
+agnostic-ai sync
+agnostic-ai sync --check
+```
 
-Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [Installation](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
+Open the generated files and follow any instruction-file references to find your note. With Claude Code and Codex selected in a fresh setup, `CLAUDE.md` points to the shared `AGENTS.md`. Change the source note and sync again to update the instructions both tools read. Keep editing `.agnostic-ai/`, since sync replaces generated output.
+
+Next steps:
+
+- [Set up your project](https://agnostic-ai.org/docs/getting-started/): share one note and update your tools together.
+- [Installation](https://agnostic-ai.org/docs/installation/): other ways to install.
+- [Migration](https://agnostic-ai.org/docs/migration/): review an existing setup before you sync.
+- [Global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration): personal specs in `~/.agnostic-ai/`, written with `agnostic-ai sync --global`.
 
 ## Daily commands
 
-Interactive runs offer new releases with upgrade guidance and a default Yes prompt. Accept to update, migrate this project, and check its generated files. The prompt includes any project version and schema changes. Local package installations show their package manager's update command. Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable the daily check. See [guided upgrades](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
-
+Run from the directory containing `agnostic-ai.yaml`:
 
 ```bash
-agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
-agnostic-ai import claude --overwrite           # replace conflicting specs
-agnostic-ai compare claude cursor                # compare agent and skill fields and when rules apply
-agnostic-ai why AGENTS.md                        # trace an output to its source
-agnostic-ai sync --check                         # find generated files that differ from the sources
-agnostic-ai doctor --fix                         # repair generated files, choose which leftover files to remove
-agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
-agnostic-ai memory lint                          # check the shared memory index and facts
-agnostic-ai memory path                          # print the memory folders, including the repo store
-agnostic-ai view authority --agent reviewer      # what one agent may do on each tool, with the rule behind each decision
-agnostic-ai serve --ui ui/dist                   # host the views and the web client for this project
+agnostic-ai status       # see selected tools and out-of-date files
+agnostic-ai sync --plan  # preview what will change
+agnostic-ai sync         # write the tool files
+agnostic-ai sync --check # confirm they match the sources
 ```
 
-Without a sync record, checks skip recreating older output for a handwritten Claude launch file or root `.gitignore` when the committed sources prove agnostic-ai did not generate them. See [Leftover files](https://agnostic-ai.org/docs/cli-reference/sync/) for how ownership is checked.
+When something looks wrong:
+
+```bash
+agnostic-ai why AGENTS.md  # trace an output to its source
+agnostic-ai doctor --fix   # repair generated files
+```
+
+The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers import, compare, explain, upgrade, view, serve, and the other commands.
 
 ## What you can share
 
-Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
+Each tool supports a different set of spec kinds. The [capability matrix](https://agnostic-ai.org/docs/targets/#capability-matrix) shows which tools get what, and the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths. Supported tools include Claude Code, Codex, Cursor, Gemini CLI, Copilot, and Kiro.
 
-- **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3. `import trae` also reads shared `.agents/skills/` folders, keeping `.trae/skills/` first for duplicate names.
-- **Trae agents** preserve an explicitly empty list of allowed tools, including after import, so text-only agents keep tools disabled.
-- **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
-- **Model roles** name a choice once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
-- **MCP servers** keep secrets as references, never literal values. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
-- **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
-- **Shared memory** keeps one project memory that every tool reads and writes. `builtins: [memory]` adds it. Personal memory can share one store across worktrees with `memory.personal: repo` in the local config. See [Shared memory](https://agnostic-ai.org/docs/memory/).
-- **RTK and Caveman** are separate opt-ins: `builtins: [rtk]` adds a Claude hook that rewrites commands using an installed RTK; `builtins: [caveman]` adds the response skill from a fixed Caveman revision, invoked with `/caveman`, with no executable needed. Both stay off in existing projects and `init`. Remove a name and sync to remove its owned output. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/) for supported coding tools and how to avoid duplicate installations.
+- **Rules, agents, skills, and commands**: instructions in one [spec format](https://agnostic-ai.org/docs/spec-format/).
+- **Hooks**: checks that run before or after a tool acts. See [hooks](https://agnostic-ai.org/docs/spec-format/hooks/).
+- **MCP servers**: connections to outside services, with credentials read from environment variables. See [MCP servers](https://agnostic-ai.org/docs/spec-format/mcps/).
+- **Capabilities**: what an agent may read, run, or call, mapped to each tool's own names. See [capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities). [OpenCode agents](https://agnostic-ai.org/docs/targets/opencode/) keep native permission rule order through import and sync.
+- **Model roles**: name a model choice once for every tool. See [models](https://agnostic-ai.org/docs/configuration/#models).
+- **Code review guidance**: instructions for review bots. See [reviews](https://agnostic-ai.org/docs/spec-format/reviews/).
+- **Shared memory**: one project memory that every tool reads and writes. See [shared memory](https://agnostic-ai.org/docs/memory/).
+- **Session handoffs**: one private note per branch, so you can pick up work in another tool. See [session handoffs](https://agnostic-ai.org/docs/handoff/).
+- **RTK and Caveman**: optional add-ons that shorten command output and responses. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/).
+
+OpenCode agents with a `can` or `tools` list keep project permission limits from `opencode.json`, including native V2 rules. See [OpenCode permissions](https://agnostic-ai.org/docs/targets/opencode/).
 
 ## Develop agnostic-ai
 
@@ -84,6 +97,8 @@ make build
 make preflight  # format, lint, and Go tests
 ```
 
-This repository keeps its own agent setup in `.agnostic-ai/`. Edit those source specs, then run `./agnostic-ai sync`. Most native output is ignored by Git; `.openhands/setup.sh` is tracked to set up new checkouts. See [CONTRIBUTING.md](CONTRIBUTING.md) for checks by change type and the [architecture guide](docs/internal/architecture.md) for the Go packages.
+This repository keeps its own agent setup in `.agnostic-ai/`. Edit those source specs, then run `./agnostic-ai sync`. See [CONTRIBUTING.md](CONTRIBUTING.md) for checks by change type and the [architecture guide](docs/internal/architecture.md) for the Go packages.
+
+[Target audits](scripts/target-audit/manifest.md) record coverage before updating the vendor source lock and can resume completed research after fresh source verification. Manual updates that skip coverage use `scripts/docfetch.sh --update-unvalidated`.
 
 [Getting started](https://agnostic-ai.org/docs/getting-started/) · [Playground](https://agnostic-ai.org/playground/) · [Editor extensions](editors/) · [Claude Code plugin](plugins/agnostic-ai/) · [CLI reference](https://agnostic-ai.org/docs/cli-reference/) · [Changelog](CHANGELOG.md)

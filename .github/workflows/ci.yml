@@ -10,13 +10,22 @@ on:
     # cron jobs that every project schedules on the hour.
     - cron: "17 4 * * *"
   workflow_dispatch:
+    inputs:
+      full_windows:
+        description: Run the full Windows Go race suite (ten-minute job limit)
+        type: boolean
+        default: false
+      repeat_windows_startup:
+        description: Repeat the Windows fresh-install launcher test ten times
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 # The pull request number is set only for pull_request, so every push to a
 # PR shares one group and cancels the previous run instead of paying for a
-# second full 11-check matrix that nobody reads. Pushes to main fall back
+# second full matrix that nobody reads. Pushes to main fall back
 # to `run_id`, which is unique per run, so a main run never queues behind
 # or cancels another and every commit on the default branch keeps its own
 # full run.
@@ -32,11 +41,11 @@ concurrency:
 jobs:
   # Pull requests and pushes to main test on Linux: a merge reruns code its PR
   # already tested, and a full matrix on every merge tripled the runner time.
-  # The nightly and manual runs test all three operating systems. Run the full
-  # matrix on the release commit before tagging, and dispatch it on a branch
-  # that touches paths, file watching, or renames.
+  # Nightly and manual runs add macOS and a focused Windows smoke check.
+  # The full Windows Go suite is manual only, with full_windows=true.
   test:
     name: Test
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,13 +61,47 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Vet
-        if: matrix.os != 'ubuntu-latest'
-        run: go vet ./...
+      - name: Test with coverage
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Test
+        if: matrix.os == 'windows-latest' && inputs.full_windows == true
         shell: bash
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -vet=all -timeout=10m -count=1 -race ./...
+
+      - name: macOS unit tests
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          module=$(go list -m)
+          all_packages=$(go list ./...)
+          packages=()
+          while IFS= read -r package; do
+            case "$package" in
+              "$module/tests/integration"|"$module/tests/integration/"*|"$module/internal/cli") ;;
+              *) packages+=("$package") ;;
+            esac
+          done <<< "$all_packages"
+          go test -vet=all -timeout=10m -count=1 -race "${packages[@]}"
+
+      - name: Windows smoke
+        if: matrix.os == 'windows-latest' && inputs.full_windows != true
+        shell: bash
+        run: |
+          go test -timeout=5m -count=1 ./internal/config ./internal/adapters/internal/emit
+          go test -timeout=5m -count=1 ./internal/adapters/cline -run 'VSCode|GlobalHooks_|ActualBuiltin'
+          go test -timeout=5m -count=1 ./internal/cli -run '^(TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Trae|TestHookMemory_Devin|TestSync_DevinMemory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestHookMemory_Cline|TestHookRun_ClineVSCode|TestHookRun_VSCodeRuntime|TestSync_ClineUnixRemoves|TestGitRepo_DoesNotStartAutomaticMaintenance$)'
+          go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*)$'
+
+      - name: Repeat Windows fresh-install startup
+        if: github.event_name == 'workflow_dispatch' && matrix.os == 'windows-latest' && inputs.full_windows != true && inputs.repeat_windows_startup == true
+        timeout-minutes: 3
+        shell: bash
+        env:
+          AGNOSTIC_AI_WINDOWS_STARTUP_TESTS: "1"
+        run: go test -v -failfast -timeout=3m -count=10 ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$'
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
@@ -66,6 +109,122 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
+
+  # internal/cli alone runs close to ten minutes under -race on macOS, so it
+  # gets its own job, split in two by test name; -skip keeps the halves
+  # complementary, so a new test lands in one of them.
+  macos-cli:
+    name: Test cli (macos-latest, ${{ matrix.shard }})
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: a-l
+            run: '^Test[A-L]'
+            skip: ''
+          - shard: m-z
+            run: ''
+            skip: '^Test[A-L]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        run: go test -vet=all -timeout=10m -count=1 -race ./internal/cli -run '${{ matrix.run }}' -skip '${{ matrix.skip }}'
+
+  windows-handoffs:
+    name: Test handoffs (windows-latest, ${{ matrix.suite }})
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && inputs.full_windows != true
+    runs-on: windows-latest
+    timeout-minutes: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: hooks-worktrees
+            tests: '^TestBuiltinHandoffHooks$/^(automatic-snapshots-preserve-repository-boundaries|metadata-and-replacement-failures-preserve-files|claude-native-input-validation|shared-auto-snapshots-survive-worktrees|global-source-at-home-keeps-checkout-root|task-handoffs-across-worktrees)$'
+            skip: ''
+          - suite: hooks-rest
+            tests: '^TestBuiltinHandoffHooks$'
+            skip: '^TestBuiltinHandoffHooks$/^(automatic-snapshots-preserve-repository-boundaries|metadata-and-replacement-failures-preserve-files|claude-native-input-validation|shared-auto-snapshots-survive-worktrees|global-source-at-home-keeps-checkout-root|task-handoffs-across-worktrees)$'
+          - suite: permissions-shared-store
+            tests: '^TestHandoffAccess_(SharedStoreJoinsNativeWriteRoots|EveryGrantAddedByHandSurvives)$'
+            skip: ''
+          - suite: permissions-rest
+            tests: '^TestHandoffAccess_'
+            skip: '^TestHandoffAccess_(SharedStoreJoinsNativeWriteRoots|EveryGrantAddedByHandSurvives)$'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        run: go test -timeout=5m -count=1 ./tests/integration -run '${{ matrix.tests }}' -skip '${{ matrix.skip }}'
+
+  macos-integration:
+    name: Test integration (macos-latest)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        shell: bash
+        run: go test -vet=all -timeout=10m -count=1 -race ./tests/integration/...
+
+
+  opencode-hooks:
+    name: OpenCode hooks
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 7 || 10 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tests/vendor/opencode/package-lock.json
+
+      - name: Validate released plugin types and native behavior
+        shell: bash
+        run: make opencode-hooks-test
 
   lint:
     name: Lint
@@ -275,19 +434,24 @@ jobs:
           done
 
   vscode:
-    name: VS Code extension
+    name: VS Code extension (${{ matrix.os }})
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 7 || 10 }}
     needs: editor_changes
     if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.vscode == 'true') }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     defaults:
       run:
         working-directory: editors/vscode
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
 
@@ -301,7 +465,7 @@ jobs:
         run: npm test
 
       - name: Package
-        run: npx vsce package --skip-license --no-dependencies
+        run: npx vsce package --skip-license
 
   jetbrains:
     name: JetBrains plugin

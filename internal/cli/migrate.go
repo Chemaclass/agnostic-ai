@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -638,7 +639,7 @@ func migrationLineValue(text string) (tag, value string) {
 // migrationRefOnly reports a ${NAME} reference, alone or after `Bearer `,
 // with no default that could hold a value.
 func migrationRefOnly(value string) bool {
-	return envRefOnly(strings.TrimPrefix(value, "Bearer ")) && !strings.Contains(value, ":-")
+	return preview.PureReference(value)
 }
 
 // redactedValueLine is a line under env:, headers:, or args: with its

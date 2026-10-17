@@ -353,6 +353,52 @@ func TestEmit_MCPFile_VSCodeExtras(t *testing.T) {
 	}
 }
 
+// x-copilot carries the same VS Code fields as the top level, and they
+// stay out of the Copilot CLI file and its root mirror (#2224).
+func TestEmit_MCPFile_VSCodeExtrasFromXCopilot(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindMCP,
+			Name: "box",
+			Meta: map[string]any{
+				"type":    "stdio",
+				"command": "node",
+				"x-copilot": map[string]any{
+					"cwd":            "${workspaceFolder}/app",
+					"sandboxEnabled": true,
+					"sandbox":        map[string]any{"filesystem": map[string]any{"allowWrite": []any{"${workspaceFolder}/out"}}},
+				},
+			},
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	vscode := readFile(t, filepath.Join(dir, ".vscode/mcp.json"))
+	for _, want := range []string{`"cwd": "${workspaceFolder}/app"`, `"sandboxEnabled": true`, `"allowWrite"`} {
+		if !strings.Contains(vscode, want) {
+			t.Errorf("missing %q in %s", want, vscode)
+		}
+	}
+	for _, path := range []string{".github/mcp.json", ".mcp.json"} {
+		if _, err := os.Stat(filepath.Join(dir, path)); err != nil {
+			continue
+		}
+		cli := readFile(t, filepath.Join(dir, path))
+		for _, absent := range []string{"cwd", "sandbox", "allowWrite", "x-copilot"} {
+			if strings.Contains(cli, absent) {
+				t.Errorf("%s must not carry %q: %s", path, absent, cli)
+			}
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".github/mcp.json")); err != nil {
+		t.Errorf(".github/mcp.json not written: %v", err)
+	}
+}
+
 // `.vscode/mcp.json` alone reaches no Copilot CLI user: "The
 // `.vscode/mcp.json` file for VS Code is not read by Copilot CLI. It
 // uses the unsupported top-level key `servers`." The CLI's own
@@ -488,7 +534,7 @@ func TestEmit_NoChatmodesDirSkipsEmission(t *testing.T) {
 	}
 }
 
-// Agent Host does not read .vscode/mcp.json; it reads a workspace-root
+// Copilot harness sessions do not read .vscode/mcp.json; they read a workspace-root
 // .mcp.json natively (code.visualstudio.com/docs/agent-customization/mcp-servers).
 // The root copy is opt-in so a project that does not need it gets no
 // surprise file at its root.

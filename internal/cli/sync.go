@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"slices"
@@ -61,6 +62,11 @@ func newSyncCmd() *cobra.Command {
   # After moving generated files into the managed .gitignore block, stop tracking them
   agnostic-ai sync --untrack`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jsonOut {
+				previousOut := logOut
+				logOut = io.Discard
+				defer func() { logOut = previousOut }()
+			}
 			if keepEdits && (check || plan || watch || global) {
 				return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --global")
 			}
@@ -134,7 +140,11 @@ func newSyncCmd() *cobra.Command {
 			}
 			if !check && !plan && !dryRun && !allTargets && len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				if shouldPromptTargetSelection(".", cfg) {
-					picked, err := firstSyncTargetSelection(".", cmd.InOrStdin(), cmd.OutOrStdout())
+					pickerOut := cmd.OutOrStdout()
+					if jsonOut {
+						pickerOut = cmd.ErrOrStderr()
+					}
+					picked, err := firstSyncTargetSelection(".", cmd.InOrStdin(), pickerOut)
 					if err != nil {
 						return err
 					}
@@ -198,6 +208,7 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
+				var linkFailures []againstSkillLinkFailure
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0
 					dropped, note, err := tree.droppedOutputs(filtered, reports)
@@ -207,6 +218,11 @@ func newSyncCmd() *cobra.Command {
 					if note != "" && verbosity >= levelDefault {
 						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", note)
 					}
+					linkFailures, err = tree.diagnoseSkillLinks(cfg, reports)
+					if err != nil {
+						return err
+					}
+					notesErr = errors.Join(notesErr, againstSkillLinkError(linkFailures))
 					if reports, err = tree.trackedDrift(reports, dropped); err != nil {
 						return err
 					}
@@ -221,6 +237,13 @@ func newSyncCmd() *cobra.Command {
 				}
 				if jsonOut {
 					return printSyncCheckJSON(cmd, reports, drops, notesErr)
+				}
+				for _, failure := range linkFailures {
+					if format == checkFormatGitHub {
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "::error file=%s::%s\n", githubProp(failure.path), githubData(failure.message))
+					} else {
+						_, _ = fmt.Fprintln(cmd.ErrOrStderr(), failure.message)
+					}
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
 				if err != nil && tree != nil && regeneratedDrift(reports) {

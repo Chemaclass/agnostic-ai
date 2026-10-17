@@ -9,6 +9,10 @@ group = "Reference"
 
 # Start a project
 
+Use `use <tool>` to add a tool and generate its files in one step. Use `init` and `import` separately when you want to review existing instructions before generating output. Use `new` to create a source spec and `list` to see what loads.
+
+Run these commands from the project root. For coding agents and setup scripts, pass tool names explicitly rather than relying on an interactive choice.
+
 ## use
 
 Start using an AI tool with what the project already has, in one step:
@@ -35,31 +39,35 @@ It then syncs and shows what each added tool now reads:
 
 A tool already in `targets` changes nothing. A run that stopped partway finishes on the next try. A mistyped name fails and suggests the closest one. `use` only adds tools. Remove one from `targets` by hand.
 
-{% <details summary="When use refuses or stops"> %}
+<details>
+<summary>When use refuses or stops</summary>
+
 - A tool whose instructions file is in `sync.unmanaged` stops `use`, because importing it would copy that file to every tool. Import it by hand instead.
 - If `use` is interrupted before its imports finish, `sync` stops until `use` runs again.
 - `use` refuses to start a project inside a directory that an existing project already holds.
 - `use` refuses to add a tool when `agnostic-ai.local.yaml` sets `targets`, because that list wins. Add the tool there instead.
-{% </details> %}
+
+</details>
 
 ## init
 
-Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. It errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` fill; `new` and `import` create the rest on first use.
+Create the project setup files: `agnostic-ai.yaml` and the managed `.gitignore` block. It errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` fill; `new` and `import` create the rest on first use.
 
 ```bash
-agnostic-ai init specs --demo     # base dir specs/, example specs to start from
 echo "claude,codex" | agnostic-ai init
+agnostic-ai sync
 ```
 
 | Flag | Description |
 |------|-------------|
 | `[dir]` | Base directory for the source folders (`.` for the old root layout). Writes matching `sources:` paths; the default `.agnostic-ai/` writes none. |
-| `--demo` | Add example specs, one per source folder plus the `memory-curator` skill, so the first `sync` writes output. The [`no-force-push` hook](@/docs/spec-format/hooks.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. The two [spec guard hooks](@/docs/spec-format/hooks.md#spec-guard) report spec lint errors and unsynced specs to the agent. Never overwrites files. |
+| `--memory` | Enable shared memory. In Git with managed ignores, write `memory.personal: repo` to a new `agnostic-ai.local.yaml`. Existing local config keeps its content. See [repo memory](@/docs/memory.md#one-store-per-repository) for the Kilo Code setup. |
+| `--demo` | Add example specs, one per source folder plus the `memory-curator` skill, so the first `sync` writes output. The [`no-force-push` hook](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. The two [spec guard hooks](@/docs/spec-format/hook-reference.md#spec-guard) report spec lint errors and unsynced specs to the agent. Never overwrites files. |
 | `--preset <name>` | Add starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
 | `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore=off` commits them instead. `true` and `false` work too, here and on `sync`. Write the value after `=`. `--gitignore off` stops with a hint, because `off` would read as the folder argument. |
-| `--from <cli>` | After scaffolding, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
-| `--dry-run` | List what the scaffold would create without writing. With `--from`, also list every file the import would write. |
+| `--from <cli>` | After creating the project setup files, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
+| `--dry-run` | List which setup files it would create without writing. With `--from`, also list every file the import would write. |
 
 Without `--all`, `init` takes targets from a terminal prompt or from a comma-separated list on piped stdin. Unknown names error and write nothing.
 
@@ -79,6 +87,8 @@ The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) t
 
 Translate an existing AI CLI configuration into agnostic-ai specs. It writes them into the `sources:` directories from `agnostic-ai.yaml`. An absolute source path keeps its own destination. `--dry-run` and `--dry-run --diff` preview the files in a temporary copy.
 
+Preview diffs hide known credential values on both sides. See [credential previews](@/docs/cli-reference/sync.md#credential-previews).
+
 ```bash
 agnostic-ai import claude
 agnostic-ai import claude codex   # in order; AGNOSTIC_AI.md comes from the last
@@ -86,7 +96,9 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
-`import all` imports every tool detected from its marker.
+### Import behavior
+
+`import all` detects tools from their configuration files and directories. It imports each detected tool that has an importer.
 
 - A detected tool with no importer is skipped with a `skipping <tool>` line.
 - An entry file that links outside the project is skipped with a `skipped <file>` note. Naming the tool (`import claude`) follows the link.
@@ -96,11 +108,12 @@ A root `AGENTS.md` is not a marker, so `import all` (and `init --from all`) read
 
 When no tool is detected, a hand-written root `AGENTS.md` becomes `.agnostic-ai/AGNOSTIC_AI.md`, and a `seeded from AGENTS.md` line says so. A generated one is left alone, and `no importable AI CLI configs detected` is printed.
 
-See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
+See [Claude import](@/docs/targets/claude-reference.md#import) for what `import claude` leaves in place.
 
-`import --global` reads your user config (default model and effort, MCP servers) from the tools that `sync --global` writes. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`. Name targets to narrow it.
+`import --global` reads your user config (default model and effort, Claude Code permission rules, MCP servers, and Kiro hook files) from the tools that `sync --global` writes. It writes `settings/imported.yaml`, `settings/permissions-claude.yaml`, one `mcps/<name>.yaml` per server, and one `hooks/<name>.yaml` per supported Kiro hook file into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. See [Kiro import limits](@/docs/targets/kiro.md).
 
-- Anything a home spec already provides, `local/` included, is left out. An existing spec file is never replaced.
+- Anything a home spec already provides, `local/` included, is left out. An existing spec file is never replaced, except `settings/permissions-claude.yaml`.
+- Permission rules come from `permissions.allow`, `ask`, and `deny` in `~/.claude/settings.json` only, never from managed or project settings. A rule sync recorded in that user file is left out. Run the import again to add new rules to `settings/permissions-claude.yaml`; it appends them and removes nothing. Rules with credentials or shell syntax import cannot inspect stay out, with a warning.
 - Two tools that define one server differently keep the first tool's server, with a warning.
 - Servers that cannot be converted back to a spec are skipped with a warning.
 - A server with a literal [credential](@/docs/spec-format/mcps.md#what-import-writes) is left out with a warning that names the server and field, so no secret reaches the home. A plain setting such as `NODE_ENV: production` still imports.
@@ -112,20 +125,29 @@ See [Claude import](@/docs/targets/claude.md#import) for what `import claude` le
 | `--overwrite` | Replace existing specs the import would change, with what the tool's files hold. Keys the tool never shows and comments on kept keys stay; `::target` blocks for other tools are lost. Without it, see below. |
 
 - Writes only spec files under `sources:`. Run it after `init`.
+
+### Keep existing specs
+
 - An import that would replace an existing spec with content the tool never read stops with [AAI-203](@/docs/errors.md) and writes no spec. It lists each spec and the source that wanted it. Rename one to keep both, or pass `--overwrite`. `--dry-run` and `init --from` stop the same way.
 - A spec the tool already reads may be replaced. That is how a native edit comes back. It covers a spec the last sync wrote for that tool, or one an earlier import of that tool wrote, while it has not changed since. A spec another tool's import wrote stops the import, and the message names both tools. `.agnostic-ai/AGNOSTIC_AI.md` never stops it, since import adds sections to it. In `import claude codex` a later source still replaces what an earlier one wrote.
 - An identical spec keeps its content and modification time. After several sources import one file, only sources whose final content matches the file may re-import it without `--overwrite`.
-- A spec stays byte for byte as it is when the last sync wrote the tool's files from it and they still hold what that sync recorded. So a re-import with no edits keeps `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote. This holds for every source.
-- When the tool's file was edited, the edit comes back. Frontmatter keys the tool never shows (such as `workspaces` for Claude) and comments on the keys that stay go back into the spec, with `--overwrite` too. A spec with `::target` blocks stops with AAI-203 instead, since the tool's file holds one tool's view of the body. Make the edit in the spec, or pass `--overwrite` to take the tool's view and lose the blocks.
 - A sync that keeps edited or unmanaged outputs preserves earlier records for unchanged specs. It does not make changed specs safe to replace from that tool. An output that is not enabled, a skill asset left out, or settings with no translated fields do not count as read by that tool.
+
+### Bring tool edits back
+
+- Re-importing unchanged tool files keeps the original spec exactly as written. This applies when the last sync wrote those files from the spec and they still match that sync's record. A re-import with no edits keeps `::target` blocks for other tools, `workspaces`, comments, and overlays an older release wrote. This holds for every source.
+- Import brings edits from a tool's file back into the spec. Frontmatter keys the tool never shows (such as `workspaces` for Claude) and comments on the keys that stay go back into the spec, with `--overwrite` too. A spec with `::target` blocks stops with AAI-203 instead, since the tool's file holds one tool's view of the body. Make the edit in the spec, or pass `--overwrite` to take the tool's view and lose the blocks.
+- An existing skill or agent spec keeps frontmatter keys that the source tool has no place for, such as Cursor's `argument-hint`. Deleting a key the tool does write counts as deliberate and reaches the spec. Removing `model` from a Qoder agent removes it from the spec. Rules are rebuilt from the native file.
+
+### Files and source order
+
 - Links at the destination are kept. A dangling link fails with its path. A conflict or interrupt restores import writes through symlinks and hard links. Dry-run keeps those links in its preview.
 - The search for nested config skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
 - A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
-- An existing skill or agent spec keeps frontmatter keys that the source tool has no place for, such as Cursor's `argument-hint`. Deleting a key the tool does write counts as deliberate and reaches the spec. Removing `model` from a Qoder agent removes it from the spec. Rules are rebuilt from the native file.
 - Each source copies its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches what sync would write from it. Otherwise import overwrites it and warns.
 - If another entry point holds different hand-written content (a separate `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` first. `import all` merges a root `AGENTS.md` itself instead of warning.
 - `all` cannot combine with other sources.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, plus `all`. `jules` supports sync but not import.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, `ellipsis`, plus `all`. `jules` supports sync but not import.
 
 Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads under its Import section.
 
@@ -148,7 +170,27 @@ Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads 
 | `<name>.md` | `<rules>/<name>.md` |
 | `<scope>/<file>.md` | nested under the same `<scope>` in the destination |
 
-Import strips the leading `# <heading>` block that the adapter adds when it writes. It adds a minimal `name:` frontmatter.
+Import strips the leading `# <heading>` block that the adapter adds when it writes. It adds a `name:` field between `---` lines.
+
+### import reconcile
+
+Plan how to bring later edits from a tool's skill folder into the source specs after an import:
+
+```bash
+agnostic-ai import reconcile \
+  --base before-migration \
+  --migrated migration-commit \
+  --upstream other-branch \
+  --map .cursor/skills=.agnostic-ai/skills
+```
+
+`--base` identifies the commit containing the original tool skill folder. `--migrated` identifies the commit containing the first complete source specs, so changes made by import are part of the baseline. `--upstream` identifies the branch's later edits to the tool skill folder. The current source specs come from `HEAD`. The base must be an ancestor of both branches, and the migration must be an ancestor of `HEAD`.
+
+Each row reports `add`, `remove`, `update`, or `conflict`, followed by the tool and source spec file paths. Asset files and executable modes are included. Concurrent source edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including source files outside a skill. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
+
+The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a source counterpart at the migration revision. Content is compared using the file contents stored in Git, without merging text or normalizing later edits.
+
+Commit changes in mapped trees first. The command reads Git revisions and reports a plan; it does not copy files, restore deleted skills, or change the index. Applying a plan is a separate manual step. Other uncommitted project changes are allowed.
 
 ## list
 
@@ -163,16 +205,24 @@ Built-in entries add their name and the running version after the layer. JSON en
 
 ## new
 
-Create one agent, skill, rule, hook, or mcp spec, with starter frontmatter for its kind, in that kind's `sources:` directory.
+Create one spec in its configured `sources:` directory. Kinds: `agent`, `skill`, `rule`, `hook`, `mcp`, `command`, `settings`, `review`, `environment`, and `ignore`. Hooks, MCP, settings, and environments use YAML. Other kinds use Markdown.
 
 ```bash
 agnostic-ai new rule no-console-log     # → <rules>/no-console-log.md
 agnostic-ai new hook fmt-on-save        # → <hooks>/fmt-on-save.yaml
 agnostic-ai new rule payments-context --scope services/payments
+agnostic-ai new settings project-defaults --dry-run
+agnostic-ai new command review-changes
+agnostic-ai new review code-quality
+agnostic-ai new environment development
+agnostic-ai new ignore generated-files
 ```
 
 | Flag | Description |
 |------|-------------|
+| `--dry-run` | Preview the destination and exact content. |
 | `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
 
-It errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`).
+It errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`). Replace the `TODO` description and body with your own content; `lint` reports the placeholder description as LINT031.
+
+Settings and environment templates contain commented hints. Add the settings or reviewed commands you need before rendering; these templates set no policy or executable behavior by default. Ignore starts with a comment inside a gitignore fence, so it excludes no paths until you add patterns.

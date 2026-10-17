@@ -223,6 +223,11 @@ func canonicalMCPServer(target string, v any) any {
 		return v
 	}
 	out := maps.Clone(server)
+	if target == "antigravity" {
+		if disabled, ok := out["disabled"].(bool); ok && !disabled {
+			delete(out, "disabled")
+		}
+	}
 	// An empty list or map, such as args: [], says nothing.
 	for key, value := range out {
 		switch v := value.(type) {

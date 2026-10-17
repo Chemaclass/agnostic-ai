@@ -1,0 +1,14 @@
+# Dogfood fixture for the ellipsis target. The generated files are ignored.
+x-ellipsis:
+  pull_requests:
+    draft: false
+  reviewer:
+    name: project-review
+    claude_code:
+      model: claude-opus-5-5
+  budget:
+    session: 3
+  environment:
+    name: agnostic-ai-dev
+    repository:
+      name: agnostic-ai

@@ -509,7 +509,7 @@ func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[
 				add(adapters.EntryPointPath(cfg, t))
 				add(adapters.SharedInstructionsMirror(t))
 			}
-			files, err := captureAdapterFiles(sess, adapter, bundleOfKind(b, kind), cfg)
+			files, err := captureAdapterFiles(sess, adapter, bundleOfKind(b, kind, t), cfg)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %s: %w", kind, t, err)
 			}
@@ -523,8 +523,14 @@ func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[
 	return committed, nil
 }
 
-// bundleOfKind returns b with only the specs of one gitignore.commit kind.
-func bundleOfKind(b spec.Bundle, kind string) spec.Bundle {
+// settingsDrivenTargets take the reviewer for their review file, and the
+// selected environment for their environment file, from the settings specs'
+// x-<target> block, so neither file renders without them.
+var settingsDrivenTargets = map[string]bool{"ellipsis": true}
+
+// bundleOfKind returns b with only the specs of one gitignore.commit kind,
+// plus the settings a target needs to render that kind.
+func bundleOfKind(b spec.Bundle, kind, target string) spec.Bundle {
 	var only spec.Bundle
 	switch kind {
 	case config.GitignoreInstructions:
@@ -539,12 +545,21 @@ func bundleOfKind(b spec.Bundle, kind string) spec.Bundle {
 		only.Hooks = b.Hooks
 	case "mcps":
 		only.MCPs = b.MCPs
+		if settingsDrivenTargets[target] {
+			only.Settings = b.Settings
+		}
 	case "settings":
 		only.Settings = b.Settings
 	case "reviews":
 		only.Reviews = b.Reviews
+		if settingsDrivenTargets[target] {
+			only.Settings = b.Settings
+		}
 	case "environments":
 		only.Environments = b.Environments
+		if settingsDrivenTargets[target] {
+			only.Settings = b.Settings
+		}
 	case "ignores":
 		only.Ignores = b.Ignores
 	}

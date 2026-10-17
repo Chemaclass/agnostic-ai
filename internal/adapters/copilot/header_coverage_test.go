@@ -81,8 +81,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // kitSinkBundle returns a Bundle exercising every kind the copilot
 // adapter declares in caps.Supports (Agent, Skill, Rule, MCP, Hook)
 // with three specimens per kind. MCPs cover stdio + http + disabled-
-// with-command, plus VS Code's cwd/envFile/dev/sandboxEnabled (stdio)
-// and oauth (http) extras (#692). The one hook specimen sets `event:
+// with-command, plus VS Code's cwd/envFile/dev/sandboxEnabled/sandbox
+// (stdio) and oauth (http) extras (#692). The one hook specimen sets `event:
 // PreToolUse` and `matcher: Bash`, this repo's dominant PascalCase
 // vocabulary: Copilot's own "VS Code compatible" payload format
 // applies Claude's matcher semantics to that spelling, so the matcher
@@ -107,6 +107,7 @@ func kitSinkBundle() spec.Bundle {
 				"cwd":            "${workspaceFolder}",
 				"envFile":        "${workspaceFolder}/.env",
 				"sandboxEnabled": true,
+				"sandbox":        map[string]any{"network": map[string]any{"allowedDomains": []any{"registry.npmjs.org"}}},
 				"dev":            map[string]any{"watch": "src/**/*.ts", "debug": map[string]any{"type": "node"}},
 			},
 		},

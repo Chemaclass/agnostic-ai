@@ -1,0 +1,4 @@
+name: antigravity-session-start
+target: antigravity
+event: SessionStart
+command: .agnostic-ai/scripts/shared-guard.sh

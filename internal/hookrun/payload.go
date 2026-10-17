@@ -47,6 +47,7 @@ const SessionID = "agnostic-ai-hook-run"
 const (
 	toolUseID = "hook-run-tool-use"
 	turnID    = "hook-run-turn"
+	agentID   = "hook-run-agent"
 )
 
 // vocabulary is what one target calls the events Build writes, and the
@@ -56,9 +57,18 @@ type vocabulary struct {
 	sources           []string
 }
 
+// subagentEvents are the subagent-start events Build writes, by target.
+// Claude Code's SubagentStart matcher filters on agent_type
+// (code.claude.com/docs/en/hooks#subagentstart).
+var subagentEvents = map[string]string{"claude": "SubagentStart"}
+
+// subagentTypes are the built-in agents a subagent-start matcher is tried
+// against, in order.
+var subagentTypes = []string{"general-purpose", "Explore", "Plan"}
+
 var vocabularies = map[string]vocabulary{
 	"claude": {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
-	"codex":  {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
+	"codex":  {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact", "fork"}},
 	// gemini-cli c6bccb7 packages/core/src/hooks/types.ts SessionStartSource.
 	"gemini": {"BeforeTool", "AfterTool", "BeforeAgent", []string{"startup", "resume", "clear"}},
 }
@@ -116,6 +126,10 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	case v.prompt:
 		p.Trigger = "prompt"
 		doc["prompt"] = in.Prompt
+	case subagentEvents[target]:
+		p.Trigger, p.Fires, err = firstMatch(matches, matcher, subagentTypes)
+		doc["agent_id"] = agentID
+		doc["agent_type"] = p.Trigger
 	default:
 		err = toolCall(doc, &p, target, event == v.post, matcher, root, in)
 	}
@@ -202,7 +216,7 @@ func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
 func checkInput(target, event, pre, post, prompt string, in Input) error {
 	isTool := event == pre || event == post
 	switch {
-	case !isTool && event != "SessionStart" && (prompt == "" || event != prompt):
+	case !isTool && event != "SessionStart" && event != subagentEvents[target] && (prompt == "" || event != prompt):
 		return fmt.Errorf("hook run builds no %s %s payload; pass --payload <file>", target, event)
 	case !isTool && (in.Edit != "" || in.Bash != ""):
 		return fmt.Errorf("--edit and --bash build tool events, not %s", event)

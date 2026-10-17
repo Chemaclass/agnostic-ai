@@ -318,3 +318,58 @@ func TestEmit_NotesAgentSandboxModeHasNoEffect(t *testing.T) {
 		t.Errorf("readonly agent lost sandbox_mode: %s", data)
 	}
 }
+
+func TestEmit_NotesAgentSessionSettingsHaveNoEffect(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "reviewer", Body: "b", Meta: map[string]any{"x-codex": map[string]any{
+			"approval_policy": "never", "model_provider": "custom", "mcp_servers": map[string]any{"fs": map[string]any{"command": "npx"}}, "service_tier": "fast",
+		}}},
+		{Kind: spec.KindAgent, Name: "builder", Body: "b", Meta: map[string]any{"x-codex": map[string]any{
+			"approval_policy": "on-request", "model_provider": "openai", "mcp_servers": map[string]any{"docs": map[string]any{"url": "https://example.invalid/mcp"}}, "service_tier": "flex",
+		}}},
+		{Kind: spec.KindAgent, Name: "omitted", Body: "b", Meta: map[string]any{"x-codex": map[string]any{
+			"approval_policy": nil, "model_provider": nil, "mcp_servers": nil, "service_tier": nil,
+		}}},
+		{Kind: spec.KindAgent, Name: "supported", Body: "b", Meta: map[string]any{"x-codex": map[string]any{
+			"model": "gpt-6.1-sol", "features": map[string]any{"shell_tool": false}, "skills": map[string]any{"config": []any{map[string]any{"path": "skills/review", "enabled": false}}},
+		}}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	for _, key := range []string{"approval_policy", "model_provider", "mcp_servers", "service_tier"} {
+		want := "note: `" + key + "` on 2 agents has no effect on codex ("
+		if got := buf.String(); strings.Count(got, want) != 1 {
+			t.Errorf("want one note %q, got: %s", want, got)
+		}
+	}
+	if strings.Contains(buf.String(), "`features`") || strings.Contains(buf.String(), "`skills`") || strings.Contains(buf.String(), "`model`") {
+		t.Errorf("supported agent keys got a note: %s", buf)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`approval_policy = "never"`, `model_provider = "custom"`, "[mcp_servers.fs]", `command = "npx"`, `service_tier = "fast"`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("pass-through lost %q: %s", want, data)
+		}
+	}
+	omitted, err := os.ReadFile(filepath.Join(dir, ".codex", "agents", "omitted.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"approval_policy", "model_provider", "mcp_servers", "service_tier"} {
+		if strings.Contains(string(omitted), key) {
+			t.Errorf("null key %s was written: %s", key, omitted)
+		}
+	}
+}

@@ -72,9 +72,11 @@ The user asks to release, tag, ship, or cut a new version.
 7. Confirm the version file, site version, project config pins, dated
    changelog section, briefing, and any `signals.tsv` change are all staged
    for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
-8. Push `main` and wait for the CI run on that exact commit. Confirm Linux,
-   macOS, Windows, and every other job that ran passed. If no run starts,
-   dispatch `gh workflow run ci.yml --ref main` and wait for that run.
+8. Push `main`, then dispatch `gh workflow run ci.yml --ref main`
+   and wait for that run on the exact release commit. Confirm Linux,
+   macOS, the Windows smoke check, and every other job that ran passed.
+   The full Windows Go race suite is optional and manual only: add
+   `-f full_windows=true` when needed. Its job stops after ten minutes.
 9. Tag the green commit with `git tag -s vX.Y.Z -m "vX.Y.Z"`, then push the
    tag with `git push origin vX.Y.Z`.
 10. Watch the `Release` workflow for the tag and the `Pages` workflow for the

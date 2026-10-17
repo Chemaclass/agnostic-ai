@@ -9,16 +9,21 @@ group = "Workflows"
 
 # Spec packs
 
-A pack is a directory of specs (agents, skills, rules, hooks, MCPs), shared as a Git repo or a local folder. Use a pack to reuse conventions across projects instead of copying spec files.
+A pack is a collection of source specs, such as agents, skills, rules, hooks, and MCP server connections, shared as a Git repository or local folder. Use a pack to reuse conventions across projects instead of copying spec files.
 
 ## Install
+
+Review the pack's instructions and scripts before using them.
 
 ```bash
 agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 agnostic-ai packs add ./shared/security-rules
 ```
 
-`packs add` copies the pack into `.agnostic-ai/packs/<name>/` and records its version in `agnostic.packs.lock`. `sync` then includes the pack specs. If your project has a spec with the same name, yours wins.
+`packs add` copies the pack into `.agnostic-ai/packs/<name>/` and records its version in `agnostic.packs.lock`. Run `agnostic-ai sync` after adding the pack to generate its files for your tools. If your project has a spec with the same name, yours wins.
+
+<details>
+<summary>Find example packs</summary>
 
 ## Packs you can install
 
@@ -27,6 +32,8 @@ Checked on 2026-10-03. Each repo keeps its skills in a root `skills/` directory.
 - `github.com/anthropics/skills`: Anthropic's example skills. Installs as `skills`.
 - `github.com/obra/superpowers@v6.4.2`: a development workflow skill set. Installs as `superpowers`.
 - `github.com/vercel-labs/agent-skills`: Vercel's web and deployment skills. Installs as `agent-skills`.
+
+</details>
 
 ## List, update, remove
 
@@ -39,12 +46,15 @@ agnostic-ai packs remove superpowers
 
 `update` fetches each pack again at the version in the lockfile.
 
+<details>
+<summary>Share a pack, choose its source, and inspect its lockfile</summary>
+
 ## Sources
 
 | Source           | Example                              |
 |------------------|--------------------------------------|
 | Git URL          | `github.com/foo/bar`, `gitlab.com/x` |
-| Git URL with ref | `github.com/foo/bar@v1.2.0`          |
+| Git URL with a tag or branch | `github.com/foo/bar@v1.2.0`          |
 | Local directory  | `./local/pack`, `file:///abs/path`   |
 
 ## Pack layout
@@ -60,7 +70,7 @@ A pack has the standard source layout at its root:
 └── mcps/
 ```
 
-Leave out any directory you do not need. Frontmatter follows the [spec format](@/docs/spec-format/_index.md).
+Leave out any directory you do not need. The YAML fields at the top of Markdown specs follow the [spec format](@/docs/spec-format/_index.md).
 
 ## Lockfile
 
@@ -75,7 +85,9 @@ packs:
     sha: 8ca22dba9a94f28898bbce59f2537ff4d87c747d
 ```
 
-Commit it so teammates and CI install the same versions.
+Commit it so teammates and CI install the same versions. Review pack instructions and scripts before using them in a coding session.
+
+</details>
 
 ## Which spec wins
 

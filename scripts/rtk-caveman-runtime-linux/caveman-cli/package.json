@@ -1,0 +1,8 @@
+{
+  "name": "agnostic-ai-caveman-runtime-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@caveman-ai/cli": "2.1.0"
+  }
+}

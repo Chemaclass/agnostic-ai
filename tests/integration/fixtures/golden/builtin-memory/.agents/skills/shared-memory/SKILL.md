@@ -24,4 +24,4 @@ Each folder holds `MEMORY.md`, an index with one `- [Title](<slug>.md): <hook>` 
 1. Read each index and every topic file. Curate each folder on its own, and move a fact between them only when the user asks.
 2. Find duplicates to merge, facts the code or rules now state, facts that name something that no longer exists, topic files missing from the index, and index lines whose file is missing. Keep the index under 100 lines.
 3. Show one diff per changed file and wait for the user to confirm. Apply only what they approve.
-4. Never write secrets, and never read or write any tool's own memory store.
+4. Never write secrets, and never write any tool's own memory store. To bring facts over from one, run `agnostic-ai memory import`.

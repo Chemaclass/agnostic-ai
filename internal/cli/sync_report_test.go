@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,6 +70,28 @@ func TestSyncReport_SpecLineNamesSourcesAndFanOut(t *testing.T) {
 	}
 }
 
+func TestCreditEntryPointReaders_CountsReadersOfChangedFilesOnly(t *testing.T) {
+	files := []entryPointFile{
+		{Path: "AGENTS.md", Readers: []string{"codex", "amp", "warp"}},
+		{Path: "CLAUDE.md", Readers: []string{"claude"}},
+	}
+	writes := []adapters.WrittenFile{{Path: "AGENTS.md", Action: "update"}, {Path: "CLAUDE.md", Action: "skip"}}
+	rows := []emitRow{{target: "codex"}, {target: "claude"}}
+	var r syncReport
+
+	creditEntryPointReaders(&r, rows, []string{"claude", "codex", "amp"}, writes, files)
+
+	if !r.targets["codex"] || !r.targets["amp"] {
+		t.Errorf("every synced reader of the updated AGENTS.md should count, got %v", r.targets)
+	}
+	if r.targets["claude"] || r.targets["warp"] {
+		t.Errorf("an unchanged file or a target outside this run should not count, got %v", r.targets)
+	}
+	if rows[0].updated != 1 || rows[1].skipped != 1 || rows[1].updated != 0 {
+		t.Errorf("verbose rows = %+v", rows)
+	}
+}
+
 func TestSyncReport_FanOutOmitsTargetsWhenFilesWereRemoved(t *testing.T) {
 	r := syncReport{specs: []specChange{{mark: "-", label: "rule old"}}, removed: []string{"x"}}
 	r.addWrites("claude", []adapters.WrittenFile{{Path: "CLAUDE.md", Action: "update"}})
@@ -87,13 +110,14 @@ func TestSyncReport_PendingLineListsFilesToCommit(t *testing.T) {
 }
 
 func TestDiffSpecSums(t *testing.T) {
-	if got := diffSpecSums(nil, map[string]string{"rule a": "1"}); got != nil {
+	if got := diffSpecSums(specBaseline{}, specBaseline{sums: map[string]string{"rule a": "1"}}, nil); got != nil {
 		t.Errorf("no baseline should report nothing, got %v", got)
 	}
 
 	got := diffSpecSums(
-		map[string]string{"rule a": "1", "rule b": "1", "rule c": "1"},
-		map[string]string{"rule a": "1", "rule b": "2", "rule d": "1"},
+		specBaseline{sums: map[string]string{"rule a": "1", "rule b": "1", "rule c": "1"}},
+		specBaseline{sums: map[string]string{"rule a": "1", "rule b": "2", "rule d": "1"}},
+		nil,
 	)
 
 	want := []specChange{{"~", "rule b"}, {"-", "rule c"}, {"+", "rule d"}}
@@ -135,7 +159,33 @@ func gitRepo(t *testing.T) (string, func(args ...string)) {
 		}
 	}
 	git("init", "-q")
+	git("config", "maintenance.auto", "false")
 	return dir, git
+}
+
+func TestGitRepo_DoesNotStartAutomaticMaintenance(t *testing.T) {
+	dir, git := gitRepo(t)
+	trace := filepath.Join(t.TempDir(), "git-trace.jsonl")
+	t.Setenv("GIT_TRACE2_EVENT", trace)
+	mustWriteFile(t, filepath.Join(dir, "tracked.md"), "fixture\n")
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	data, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatalf("read Git trace: %v", err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		var event struct {
+			Event string   `json:"event"`
+			Argv  []string `json:"argv"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("parse Git trace: %v", err)
+		}
+		if event.Event == "child_start" && strings.Contains(strings.Join(event.Argv, " "), "maintenance run --auto") {
+			t.Errorf("fixture started automatic maintenance: %v", event.Argv)
+		}
+	}
 }
 
 func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
@@ -289,6 +339,37 @@ func TestRunSyncOnce_ReportNamesTheEditedSpec(t *testing.T) {
 	}
 	if !strings.Contains(out, "✓ synced 2 targets · ") || !strings.Contains(out, " updated · ") {
 		t.Errorf("missing summary counts in:\n%s", out)
+	}
+}
+
+func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# demo\n")
+	rule := filepath.Join(dir, ".agnostic-ai", "rules", "style.md")
+	mustWriteFile(t, rule, "---\nname: style\nalwaysApply: true\n---\n\nUse tabs.\n")
+	silence(t)
+	buf := captureLog(t)
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, rule, "---\nname: style\nalwaysApply: true\n---\n\nUse tabs.\nUse spaces.\n")
+	buf.Reset()
+	verbosity = levelVerbose
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "  ~ rule style → 3 files in 3 targets\n") {
+		t.Errorf("AGENTS.md should count for codex, which reads it:\n%s", out)
+	}
+	if !strings.Contains(out, "→ codex: 0 created, 1 updated, 0 unchanged in ") {
+		t.Errorf("codex line should count AGENTS.md:\n%s", out)
+	}
+	if !strings.Contains(out, "→ claude: 0 created, 1 updated, 1 unchanged in ") {
+		t.Errorf("claude line should count its unchanged CLAUDE.md:\n%s", out)
 	}
 }
 

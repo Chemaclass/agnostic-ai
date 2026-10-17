@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "factory-tools": {
+      "command": "example-server",
+      "disabledTools": [
+        "shared"
+      ],
+      "enabledTools": [
+        "safe",
+        "shared"
+      ]
+    }
+  }
+}

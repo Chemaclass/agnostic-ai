@@ -220,10 +220,14 @@ func TestCompare_ReportsScopedUnionTranslation(t *testing.T) {
 	if len(r.Paths) != 1 || r.Paths[0] != "backend/AGENTS.md" {
 		t.Errorf("codex scope: paths %v, want backend/AGENTS.md", r.Paths)
 	}
-	// An unscoped rule's globs reach codex nowhere: the rule body lands in
-	// AGENTS.md and the filter is not written.
-	if r := findCompareResult(t, out, ".agnostic-ai/rules/go-style.md", "globs", "codex"); r.Status != statusUnsupported {
-		t.Errorf("codex globs: status %q, want unsupported", r.Status)
+	// An unscoped rule's globs reach codex as an "Applies to:" line in the
+	// inlined AGENTS.md section, not as a filter.
+	r = findCompareResult(t, out, ".agnostic-ai/rules/go-style.md", "globs", "codex")
+	if r.Status != statusTranslated {
+		t.Errorf("codex globs: status %q, want translated", r.Status)
+	}
+	if len(r.Paths) != 1 || r.Paths[0] != "AGENTS.md" {
+		t.Errorf("codex globs: paths %v, want AGENTS.md", r.Paths)
 	}
 }
 
@@ -242,7 +246,7 @@ func TestCompare_OrdersSpecsAndFieldsStablyAndStatesCoverage(t *testing.T) {
 		t.Fatalf("output is not deterministic:\n%s\n---\n%s", first, second)
 	}
 	for _, want := range []string{
-		"coverage: agent and skill fields and rule scope/activation only",
+		"coverage: agent and skill fields, rule scope/activation, hook configuration, MCP connection fields, and portable permissions",
 		"agent claude-only  .agnostic-ai/agents/claude-only.md",
 		"tools (differs)",
 	} {

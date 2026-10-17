@@ -39,7 +39,7 @@
       "image": "{{ config.extra.image_url }}",
       "description": {{ config.description | json_encode | safe }},
       "featureList": [
-        "One spec emitted to 25 AI coding targets",
+        "One spec emitted to 26 AI coding targets",
         "20 safe targets enabled by default",
         "Byte-stable, reviewable generated output",
         "Round-trip safe import then sync",
@@ -75,21 +75,24 @@
         <h1>{{ landing.hero.title }}<br><span>{{ landing.hero.accent_title }}</span></h1>
         <div class="lead">{{ landing.hero.body | markdown | safe }}</div>
         <div class="button-row">
-          <a class="button button-primary" href="#quickstart">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a class="button button-secondary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.secondary_label }}</a>
+          <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="button button-secondary" href="#source-explorer">{{ landing.hero.secondary_label }}</a>
         </div>
-        {% set video = landing.hero.video %}
-        <div class="hero-video">
-          {{ <video.poster video_id={video.video_id} video_title={video.video_title} play_label={video.play_label} poster={get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false)} loading="eager" /> }}
-        </div>
-        <div class="hero-install" data-hero-installer>
-          <p><span data-hero-installer-label>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
-          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
-          {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
-        </div>
-        <p class="hero-facts">{{ landing.hero.facts }}</p>
-        <p class="agent-shortcut"><a href="{{ agent_setup.permalink | safe }}">{{ agent_setup.title }}</a></p>
       </div>
+      {% set fanout = landing.hero.fanout %}{% set matrix = load_data(path="data/capabilities.toml") %}
+      <figure class="fanout" id="first-sync" aria-label="{{ fanout.label }}">
+        <div class="spec-card fanout-source">
+          <div class="file-name">{{ fanout.source }}</div>
+          <pre><code>{{ fanout.note }}</code></pre>
+        </div>
+        <p class="fanout-sync"><code>agnostic-ai sync</code></p>
+        <ul class="fanout-outputs">
+          {% for output in fanout.outputs %}
+          <li style="--i: {{ loop.index0 }}"><code class="fanout-path">{{ output.path }}</code><span class="fanout-tools">{{ output.tools }}</span><svg class="fanout-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></li>
+          {% endfor %}
+          <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ matrix.targets | length - fanout.targets | length }} {{ fanout.more_label }}</a></li>
+        </ul>
+      </figure>
     </div>
   </section>
 
@@ -102,11 +105,22 @@
         <article><h3>{{ principle.title }}</h3><div>{{ principle.body | markdown | safe }}</div></article>
         {% endfor %}
       </div>
-      <p class="mission-question"><strong>{{ landing.mission.symlinks.question }}</strong> {{ landing.mission.symlinks.answer }} <a href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">{{ landing.mission.symlinks.link_label }}</a></p>
+      <div class="mission-media">
+        {% set video = landing.hero.video %}
+        <div class="hero-video">
+          {{ <video.poster video_id={video.video_id} video_title={video.video_title} play_label={video.play_label} poster={get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false)} loading="lazy" /> }}
+        </div>
+        <div class="mission-question">
+          <h3>{{ landing.mission.symlinks.question }}</h3>
+          <p>{{ landing.mission.symlinks.answer }}</p>
+          <a href="{{ get_url(path='@/docs/why-agnostic-ai.md') }}">{{ landing.mission.symlinks.link_label }} <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="section-head-split" id="explorer">
+  <section class="section-head-split" id="source-explorer">
+    <span id="explorer" aria-hidden="true"></span>
     <div class="wrap">
       <h2 class="section-title">{{ landing.explorer.title }} <span>{{ landing.explorer.muted_title }}</span></h2>
       <div class="section-lead">{{ landing.explorer.body | markdown | safe }}</div>
@@ -164,11 +178,16 @@
   <section class="section-band section-head-split" id="quickstart">
     <div class="wrap">
       <h2 class="section-title">{{ landing.workflow.title }} <span>{{ landing.workflow.muted_title }}</span></h2>
+      <div class="hero-install" data-hero-installer>
+        <p><span data-hero-installer-label>Install agnostic-ai</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.workflow.install_label }}</a></p>
+        <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
+        {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
+      </div>
       <div class="workflow-steps reveal-group">
         {% for step in landing.workflow.steps %}
         <article>
           <h3>{{ step.title }}</h3>
-          <div class="command workflow-command"><span aria-hidden="true">$</span><code>{{ step.command }}</code><button type="button" data-copy aria-label="Copy {{ step.title | lower }} command">Copy</button></div>
+          {% if step.command %}<div class="command workflow-command"><span aria-hidden="true">$</span><code>{{ step.command }}</code><button type="button" data-copy aria-label="Copy {{ step.title | lower }} command">Copy</button></div>{% else %}<p class="workflow-command"><code>{{ step.file }}</code></p>{% endif %}
           <div>{{ step.body | markdown | safe }}</div>
         </article>
         {% endfor %}
@@ -212,7 +231,7 @@
   <section class="closing">
     <div class="wrap closing-inner">
       <h2>{{ landing.closing.title }}<br>{{ landing.closing.second_line }}</h2>
-      <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy import command">Copy</button></div>
+      <div class="command closing-command"><span aria-hidden="true">$</span><code>{{ landing.closing.command }}</code><button type="button" data-copy aria-label="Copy sync command">Copy</button></div>
       <div class="button-row">
         <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">{{ landing.closing.primary_label }}</a>
         <a class="button button-secondary" href="{{ agent_setup.permalink | safe }}">{{ landing.closing.secondary_label }}</a>

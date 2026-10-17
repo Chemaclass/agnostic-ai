@@ -1,0 +1,5 @@
+name: portable-kiro-hook
+targets: [kiro]
+on: before-tool
+match: edit
+command: .agnostic-ai/scripts/shared-guard.sh

@@ -2,14 +2,16 @@
 
 [Contributor docs](README.md)
 
+To publish a version, follow [Cut a release](#cut-a-release). For changes to an installation channel, use [Distribution](#distribution) to find its scripts and required setup.
+
 ## Versioning
 
 Use Semantic Versioning (`major.minor.patch`). Before 1.0, minor releases may break the spec format; patch releases contain bug fixes only. Breaking changes go in `CHANGELOG.md`.
 
 ## Cut a release
 
-Use the `cut-release` skill for the complete publication steps. It prepares the final
-dated changelog, updates the version, then creates exactly one
+Use the `cut-release` skill for the complete publication steps in [its release guide](../../.agnostic-ai/skills/cut-release/SKILL.md). It prepares the final
+dated changelog, updates the version, then creates one
 `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release announcement immediately
 before the signed release commit and tag. It is a concise reader-facing summary,
 not a duplicate changelog. Link readers to the GitHub release for the complete
@@ -48,7 +50,7 @@ safe retry, then watch the manual run to completion.
 
 ### One-time setup per channel
 
-Each publishing channel requires its own credential: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup. That is also why the `distribution` job exists. A skipped push and a successful one look the same in the GoReleaser log, so only that job proves the channel serves the new version (#920).
+Each publishing channel requires its own credential: with the secret absent, GoReleaser builds the manifest and skips the push, so a release never fails over missing setup. That is also why the `distribution` job exists. A skipped push and a successful push look the same in the GoReleaser log, so only that job proves the channel serves the new version (#920).
 
 - **Homebrew**: the cask is not pushed from this repository, and needs no secret here. `Chemaclass/homebrew-tap` runs its own `Update agnostic-ai cask` workflow every half hour: it resolves the latest release, rewrites `Casks/agnostic-ai.rb` from `checksums.txt`, checks all four archives return 200, and commits with the `GITHUB_TOKEN` that workflow already has. Writing to another repository is what needs a credential, and GitHub has no API to mint one, since creating a GitHub App and creating a personal access token (PAT) are both browser flows. That is why ten releases went out with a stale cask (#943, #920). A release can therefore lag brew by up to half an hour; dispatch that workflow to pull it forward. The release job still supports `HOMEBREW_TAP_APP_ID`/`HOMEBREW_TAP_APP_PRIVATE_KEY` or `HOMEBREW_TAP_TOKEN` if you ever want the push to happen at tag time, and the generated file is byte-identical either way, so the two produce the same result. Scoop and winget still have no route and stay skipped.
 - **Scoop**: create the public repo `Chemaclass/scoop-bucket` with a `main` branch, then add a `SCOOP_BUCKET_TOKEN` repo secret (PAT with `contents: write` on that repo). Users: `scoop bucket add chemaclass https://github.com/Chemaclass/scoop-bucket`.
@@ -61,15 +63,25 @@ The parent requires exact versions of six platform packages, so the release publ
 
 1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt`, and unpacks one program per platform.
 2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
-3. `scripts/npm-publish.sh <x.y.z>` publishes the six, waits until the registry serves every one, then publishes the parent.
+3. `scripts/npm-publish.sh <x.y.z>` publishes each platform package with required provenance, waits for it and verifies it, then publishes and verifies the parent.
 
 The `distribution` job checks all seven afterwards. A parent on the registry whose platform package is missing breaks `npm install` on that platform until the next release, so nothing in this sequence is safe to reorder. npm scans each publish before serving it, which commonly takes about five minutes and can exceed 15, so the publish and verification waits cover about 20 minutes using increasing delays between attempts, up to a fixed maximum.
+
+### Required npm provenance and recovery
+
+Every new publish uses `--provenance`, which attaches signed records of the build and publication. If publication fails with those records enabled, it never retries without them. An existing version counts as complete only when its signed records pass verification. The publisher and distribution job check all seven packages without installing or executing them.
+
+`scripts/npm-verify-provenance.js` uses the pinned npm CLI's bundled verification libraries and Sigstore trust root. It verifies the registry signature, build and registry publish attestations, and downloaded tarball integrity. It requires the build certificate to name this repository's `.github/workflows/release.yml` at the version tag, issued by GitHub Actions, and the signed source commit to match the release commit. A registry signature alone does not prove where a package was built.
+
+Re-run the same release after a temporary registry or signing-service failure when the published packages have valid attestations. Verified platform packages are skipped and missing packages publish before the parent. If a tarball reached npm without its required attestation, stop: npm versions are immutable and re-running cannot attach a replacement. Prepare a new version of all seven packages through the normal release process. Do not plain-publish, unpublish, or move the old tag to bypass verification.
+
+See [npm provenance verification](https://docs.npmjs.com/viewing-package-provenance/) and the [npm verifier implementation](https://github.com/npm/cli/blob/v11.5.1/lib/utils/verify-signatures.js).
 
 ### npm dist-tags
 
 `npm publish` with no `--tag` writes `latest`, and `latest` is what `npm install agnostic-ai` selects when no version is specified. The release workflow fires on every `v*` tag, including prereleases, so an untagged prerelease publish would replace the stable release for everyone.
 
-`npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and both the publish with build-origin verification (provenance) and the ordinary retry use it:
+`npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and every publish with required build-origin verification (provenance) uses it:
 
 | Version | dist-tag |
 |---|---|

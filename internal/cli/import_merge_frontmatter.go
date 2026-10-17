@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"reflect"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,7 +16,8 @@ import (
 // declares. Most targets emit a subset of a spec's frontmatter, so a
 // byte-for-byte write back would delete every key that target cannot
 // express (`argument-hint` and `allowed-tools` on a cursor skill, for
-// one). A missing destination is a plain write.
+// one). A missing destination is a plain write. A destination whose
+// frontmatter and body parse the same as the result is left as written.
 //
 // fields names what the target's native file can hold: a key it can
 // hold but the import does not carry was deleted on purpose and is not
@@ -23,9 +25,6 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
-	if fields.all && len(fields.omitted) == 0 && fields.preserve == nil {
-		return importWriteFile(path, data, mode)
-	}
 	existing, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -33,11 +32,48 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	merged, err := mergeSpecFrontmatter(existing, data, fields)
-	if err != nil {
-		return fmt.Errorf("merge %s: %w", path, err)
+	if !fields.all || len(fields.omitted) > 0 || fields.preserve != nil {
+		data, err = mergeSpecFrontmatter(existing, data, fields)
+		if err != nil {
+			return fmt.Errorf("merge %s: %w", path, err)
+		}
 	}
-	return importWriteFile(path, merged, mode)
+	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
+}
+
+// importWriteMarkdown writes an imported markdown spec whose frontmatter
+// the translator already settled, so the file is replaced whole. A
+// destination that parses the same as data is left as it is.
+func importWriteMarkdown(path string, data []byte, mode fs.FileMode) error {
+	if existing, err := os.ReadFile(path); err == nil {
+		data = keepEqualMarkdown(existing, data)
+	}
+	return importWriteFile(path, data, mode)
+}
+
+// keepEqualMarkdown returns existing when it parses the same as data, so
+// the user's formatting survives and the run sees no change (#2182).
+func keepEqualMarkdown(existing, data []byte) []byte {
+	if sameSpecMarkdown(existing, data) {
+		return existing
+	}
+	return data
+}
+
+// sameSpecMarkdown reports whether a and b are markdown with frontmatter
+// whose parsed frontmatter and body are equal, so they differ only in how
+// the YAML is written: scalar style, quoting, key order, comments.
+func sameSpecMarkdown(a, b []byte) bool {
+	aYAML, aBody, aHad := splitFrontmatter(a)
+	bYAML, bBody, bHad := splitFrontmatter(b)
+	if !aHad || !bHad || aBody != bBody {
+		return false
+	}
+	var aMeta, bMeta map[string]any
+	if yaml.Unmarshal(aYAML, &aMeta) != nil || yaml.Unmarshal(bYAML, &bMeta) != nil {
+		return false
+	}
+	return reflect.DeepEqual(aMeta, bMeta)
 }
 
 // mergeSpecFrontmatter returns imported with the top-level frontmatter
@@ -141,4 +177,17 @@ func mappingHasKey(mapping *yaml.Node, key string) bool {
 		}
 	}
 	return false
+}
+
+func detachImportOverride(node *yaml.Node) *yaml.Node {
+	if node.Kind == yaml.AliasNode {
+		return detachImportOverride(node.Alias)
+	}
+	detached := *node
+	detached.Anchor = ""
+	detached.Content = make([]*yaml.Node, len(node.Content))
+	for i, child := range node.Content {
+		detached.Content[i] = detachImportOverride(child)
+	}
+	return &detached
 }

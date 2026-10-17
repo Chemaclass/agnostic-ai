@@ -9,16 +9,17 @@ group = "Reference"
 
 # Environments
 
-`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree, a cloud sandbox, or a preview. That means install dependencies, copy local config, start the dev server, and stop it afterwards. Each tool has its own file for this, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
-
-- **Ready worktrees.** Every new worktree runs the same setup, so an agent does not start on a tree with no dependencies.
-- **Preview buttons.** `dev-commands` become the dev servers a tool can start and preview.
-- **Clean exits.** `cleanup` stops what setup started when the worktree goes away.
-- **One spec for every tool.** A field one tool ignores raises no note when another enabled tool uses it.
+`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree (a separate checkout of the same repository), a cloud sandbox, or a preview. That means install dependencies, copy local config, start the dev server, and stop it afterwards. Each tool has its own file for this, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
 
 ## Write one
 
-Plain YAML, one file per environment group.
+```bash
+agnostic-ai new environment development
+```
+
+Replace the description and add the reviewed commands you need. The template has no executable setup, install, or cleanup command.
+
+Save plain YAML as `.agnostic-ai/environments/development.yaml`. Create the referenced setup and cleanup scripts before syncing:
 
 ```yaml
 name: dev
@@ -56,11 +57,14 @@ Specs merge by top-level key, and the last value wins. A field that no enabled t
 
 ## Support by target
 
-- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a note that they have no effect. `import cursor` reads both files back.
+- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the spec metadata and tool-selection fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a note that they have no effect. `import cursor` reads both files back.
 - [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a note that they have no effect. `import codex` reads the file back.
 - [Claude Code](@/docs/targets/claude.md): `setup` runs from generated hooks (see [Claude Code worktree setup](#claude-code-worktree-setup)). `dev-commands` goes to `.claude/launch.json`. Claude Code reads a relative `cwd` there from the project root, so the spec needs no `${workspaceFolder}`. Every other field, `setup-windows` and `cleanup` included, gets a note that it has no effect.
 - [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note that `setup`, `cleanup`, and `dev-commands` have no effect.
+- [Ellipsis](@/docs/targets/ellipsis.md): `install` runs as `hooks.build_base` and `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, in `.ellipsis/environments/<name>.yaml`. Sync writes the file only for the environment that `x-ellipsis.environment` selects. `setup-windows`, `cleanup`, `dev-commands`, and `terminals` get a note that they have no effect. `import ellipsis` reads the file back.
 - Other tools report the spec as unsupported.
+
+Before starting a cached environment, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync. A successful install alone does not check the current generated files.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 
@@ -85,6 +89,18 @@ How the script runs:
 - Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context.
 - The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads the hooks in `.claude/settings.json`, such as Cursor, then does not run setup a second time.
 
+### Refresh an existing worktree
+
+After changing setup or dependencies, sync the selected worktree and explicitly rerun its Claude setup:
+
+```bash
+agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
+```
+
+The helper checks repository ownership and the current generated setup script, including `outputs.claude.dir`. It resets only that linked worktree's completion marker and runs setup again. A failure leaves no marker so a later attempt can recover. It refuses the main checkout and unregistered paths. It does not install dependencies unless your setup command does. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for the command requirements.
+
+### Include setup in new worktrees
+
 A new worktree needs `.claude/settings.json` and the script.
 
 - With `gitignore.enabled`, both are ignored. `.worktreeinclude`, which sync keeps when `claude` is a target, copies them into each worktree Claude Code creates (see [gitignore](@/docs/configuration.md#gitignore)).
@@ -97,6 +113,8 @@ setup: composer install
 x-claude:
   setup: false
 ```
+
+### Claude cleanup limits
 
 `cleanup` has no Claude Code equivalent. Claude Code documents `WorktreeRemove` as the removal step for a worktree a `WorktreeCreate` hook made. `SessionEnd` runs at the end of every session with a 1.5-second budget.
 

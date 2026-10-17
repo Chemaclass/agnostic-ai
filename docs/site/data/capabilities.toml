@@ -118,6 +118,7 @@ statuses = ["source", "source", "native", "no", "no", "no", "no", "no", "no", "n
 id = "cline"
 name = "Cline"
 href = "@/docs/targets/cline.md"
+# Global hooks use ~/.cline/hooks in the SDK/CLI; VS Code reads Documents.
 statuses = ["native", "native", "native", "native", "no", "no", "no", "no", "no", "no"]
 
 [[targets]]
@@ -228,6 +229,12 @@ name = "Augment"
 href = "@/docs/targets/augment.md"
 statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
 
+[[targets]]
+id = "ellipsis"
+name = "Ellipsis"
+href = "@/docs/targets/ellipsis.md"
+statuses = ["no", "no", "no", "no", "native", "no", "opt-in", "native", "native", "no"]
+
 # Native tool names from the adapter capability tables.
 
 [tool_translations.augment]
@@ -256,7 +263,7 @@ web = ["web_fetch", "google_web_search"]
 
 [tool_translations.kilo]
 read = ["read"]
-write = ["write"]
+write = ["edit"]
 edit = ["edit"]
 delete = []
 shell = ["bash"]

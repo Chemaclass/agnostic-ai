@@ -18,9 +18,11 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 	}
-	if err := os.Unsetenv("CODEX_HOME"); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
+		if err := os.Unsetenv(key); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 	code := m.Run()
 	if err := os.RemoveAll(home); err != nil {
