@@ -299,10 +299,13 @@ const (
 	// no roots: the scope is not declared and credential reach is not
 	// inspected.
 	ResourceUndeclaredScope = "undeclared-scope"
-	// ResourceDeclaredRoot is one MCP root: a boundary the server is
-	// told to operate within, such as a named repository or service. A
-	// root is a declaration by this project; it proves neither that the
-	// credential reaches it nor that the provider enforces it.
+	// ResourceDeclaredRoot is one MCP root with a file URI. The MCP
+	// specification defines roots as informational filesystem guidance
+	// for a server, not access control, so a root is shown as a named
+	// boundary with that caveat. A root whose URI is not a file URI
+	// establishes nothing: it is reported through the
+	// UncertaintyRootNotFilesystem code and the server keeps an
+	// undeclared scope.
 	ResourceDeclaredRoot   = "declared-root"
 	ResourceFilePattern    = "file-pattern" // files matching a rule pattern
 	ResourceCommandPattern = "command-pattern"
@@ -364,13 +367,24 @@ const (
 )
 
 // Resolution says how the effective effect was reached on the harness.
+//
+// "translated" is claimed only when the adapter writes the winning rule
+// natively AND the tool's matching semantics for that rule form are
+// documented in this repository (whole-tool rules and exact MCP tool
+// names on every tool that writes them; prefix, glob, and domain forms
+// only on tools whose documentation states how they match). A rule the
+// adapter writes but whose matching is not documented resolves to
+// "translated-unverified", and the effect stays unresolved: output is
+// evidence that a rule was written, not that the tool decides as the
+// declaration intends.
 const (
-	ResolutionTranslated   = "translated"    // the adapter writes the winning rule natively
-	ResolutionHook         = "hook"          // a generated hook enforces it
-	ResolutionNotExpressed = "not-expressed" // declared, but the adapter writes nothing for it
-	ResolutionAgentScope   = "agent-scope"   // the subject's own spec decides
-	ResolutionNoRule       = "no-rule"       // nothing declared; the tool's default applies
-	ResolutionDisabled     = "disabled"      // the provider is switched off in its spec
+	ResolutionTranslated           = "translated"            // native rule written and its matching documented
+	ResolutionTranslatedUnverified = "translated-unverified" // native rule written, matching not documented: effect unresolved
+	ResolutionHook                 = "hook"                  // a generated hook enforces it
+	ResolutionNotExpressed         = "not-expressed"         // declared, but the adapter writes nothing for it
+	ResolutionAgentScope           = "agent-scope"           // the subject's own spec decides, on a tool that reads agent tool lists
+	ResolutionNoRule               = "no-rule"               // nothing declared; the tool's default applies
+	ResolutionDisabled             = "disabled"              // the provider is switched off, on a tool that honors disabled
 )
 
 // Operation is one action on one resource, resolved for the subject on
@@ -396,6 +410,11 @@ type Operation struct {
 	// decision on the harness: in-sync, stale, not-generated, not-checked,
 	// or not-applicable.
 	Installed string `json:"installed"`
+	// Hypothetical is true when Effect describes what the harness would
+	// do once the generated file is in sync, because Installed is stale,
+	// not-generated, or not-checked. A client words the effect
+	// conditionally while this is true.
+	Hypothetical bool `json:"hypothetical"`
 	// Runtime is always "not-observed".
 	Runtime string `json:"runtime"`
 	// Decided is the grant that won, when a rule decided the effect.
@@ -506,6 +525,8 @@ const (
 	UncertaintySecretReadUnknown   = "secret-read-unknown"
 	UncertaintyAlternateRoute      = "alternate-route-not-modeled"
 	UncertaintyInstalledNotChecked = "installed-not-checked"
+	UncertaintyRootNotFilesystem   = "root-not-filesystem"
+	UncertaintyMatchingUnverified  = "target-matching-unverified"
 )
 
 // SupportedAction is one query or mutation a client may offer.
@@ -589,18 +610,25 @@ type EffectChange struct {
 	DeclaredAfter   Effect `json:"declaredAfter"`
 	EffectiveBefore Effect `json:"effectiveBefore"`
 	EffectiveAfter  Effect `json:"effectiveAfter"`
-	// Direction is "widened", "narrowed", or "moved" (same strength,
-	// different decision such as default → ask), judged on the
-	// effective effect.
+	// Direction is judged on the effective effect and only between
+	// decisions whose order is known: allowed over ask over denied, with
+	// unavailable counted as denied. "widened" and "narrowed" are used
+	// only when both sides are among those; "moved" when both sides are
+	// known and equal in strength but different; "indeterminate" when
+	// either side is default or unresolved, because the tool's default
+	// and an unexpressed rule have no established order.
 	Direction string `json:"direction"`
+	// Reason explains an indeterminate direction.
+	Reason string `json:"reason,omitempty"`
 }
 
 // ImpactSummary counts the changes.
 type ImpactSummary struct {
-	Changed  int `json:"changed"`
-	Widened  int `json:"widened"`
-	Narrowed int `json:"narrowed"`
-	Moved    int `json:"moved"`
+	Changed       int `json:"changed"`
+	Widened       int `json:"widened"`
+	Narrowed      int `json:"narrowed"`
+	Moved         int `json:"moved"`
+	Indeterminate int `json:"indeterminate"`
 }
 
 // FileDiff is the exact before and after of one spec file.
