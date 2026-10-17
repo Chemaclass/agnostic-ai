@@ -424,12 +424,39 @@ type Operation struct {
 	Conditions []string `json:"conditions"`
 	// AlternateRoutes names other routes that could reach the same
 	// system and that this operation does not govern, such as shell
-	// access to a provider's command-line client.
+	// access to a provider's command-line client. It is never a claim
+	// of absence: RouteCoverage says which routes were checked.
 	AlternateRoutes []string `json:"alternateRoutes"`
+	// RouteCoverage qualifies AlternateRoutes: the routes the view
+	// checked, each with the subject's effective decision on it, and
+	// the routes it does not model at all.
+	RouteCoverage RouteCoverage `json:"routeCoverage"`
 	// Enforcement states how every configured target carries the
 	// declared decision, the selected harness included.
 	Enforcement []Enforcement `json:"enforcement"`
 	Explanation string        `json:"explanation"`
+}
+
+// RouteCoverage states which alternate routes were checked and which
+// were not. An empty AlternateRoutes list means only that no checked
+// route is open, never that no route exists.
+type RouteCoverage struct {
+	// Checked lists the routes the view evaluated for this subject on
+	// this harness: shell access as a whole, each scoped shell prefix,
+	// and file access where it applies.
+	Checked []RouteStatus `json:"checked"`
+	// NotModeled lists routes the view does not evaluate: delegation to
+	// other agents, other providers reaching the same system, the web,
+	// and anything a running tool could do that configuration does not
+	// describe.
+	NotModeled []string `json:"notModeled"`
+}
+
+// RouteStatus is one checked route and the subject's decision on it.
+type RouteStatus struct {
+	Route  string `json:"route"`
+	Effect Effect `json:"effect"`
+	Note   string `json:"note,omitempty"`
 }
 
 // Grant is one declaration that applies to an operation.
