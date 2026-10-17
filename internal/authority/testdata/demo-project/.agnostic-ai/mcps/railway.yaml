@@ -1,0 +1,13 @@
+name: railway
+description: Railway projects, services, and deployments.
+type: http
+url: https://mcp.railway.app/mcp
+headers:
+  Authorization: Bearer ${RAILWAY_TOKEN}
+roots:
+  - uri: railway://kombo-platform/environments/staging/services/api
+    name: api (staging)
+  - uri: railway://kombo-platform/environments/staging/services/worker
+    name: worker (staging)
+  - uri: railway://kombo-platform/environments/production/services/api
+    name: api (production)

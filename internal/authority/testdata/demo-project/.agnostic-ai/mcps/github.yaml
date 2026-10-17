@@ -1,0 +1,9 @@
+name: github
+description: GitHub repositories, pull requests, and issues.
+type: http
+url: https://api.githubcopilot.com/mcp/
+headers:
+  Authorization: Bearer ${GITHUB_TOKEN}
+roots:
+  - uri: https://github.com/Chemaclass/agnostic-ai
+    name: Chemaclass/agnostic-ai
