@@ -257,6 +257,9 @@ export interface Enforcement {
 export interface RouteStatus {
   route: string
   effect: Effect
+  /** The route's own flag, from the operation it stands for; never borrow the inspected operation's. */
+  hypothetical: boolean
+  installed?: InstalledStateValue
   note?: string
 }
 
