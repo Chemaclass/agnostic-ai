@@ -2,8 +2,8 @@ package overview
 
 import (
 	"cmp"
-	"crypto/sha256"
 	"encoding/hex"
+	"hash/fnv"
 	"net/url"
 	"path/filepath"
 	"slices"
@@ -100,12 +100,16 @@ func finishCards(drafts []draft, revision string) []Card {
 	return cards
 }
 
-// fingerprint is the first 12 hex digits of a SHA-256 over the parts
-// that identify a finding. The revision is not one of them, so the same
-// finding keeps its fingerprint while unrelated specs change.
+// fingerprint is the first 12 hex digits of a 64-bit FNV-1a hash over
+// the parts that identify a finding. The revision is not one of them, so
+// the same finding keeps its fingerprint while unrelated specs change.
+// The fingerprint only identifies a card, so a repeat is dropped and a
+// dismissal outlives a rebuild; it protects nothing, which is why it is
+// not a cryptographic digest.
 func fingerprint(source, code, path, message, target string) string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{source, code, path, message, target}, "|")))
-	return hex.EncodeToString(sum[:])[:12]
+	h := fnv.New64a()
+	h.Write([]byte(strings.Join([]string{source, code, path, message, target}, "|")))
+	return hex.EncodeToString(h.Sum(nil))[:12]
 }
 
 func lintCard(f Finding, where placer) draft {
