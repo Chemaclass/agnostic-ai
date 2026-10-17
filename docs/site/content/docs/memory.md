@@ -61,14 +61,7 @@ See [Gemini CLI](@/docs/targets/gemini.md#shared-memory) for how it keeps its ow
 
 `agnostic-ai lint` and `doctor` flag a `MEMORY.md` over 100 lines, two `MEMORY.md` files over 6,000 bytes together, a broken link, a fact the list leaves out, text that looks like a secret, and hidden characters a reviewer cannot see. They skip personal memory when its folder is missing, so CI never checks it.
 
-```bash
-agnostic-ai memory lint     # run only the memory checks
-agnostic-ai memory index    # rebuild each MEMORY.md, for example after a merge conflict
-agnostic-ai memory list     # list each fact
-agnostic-ai memory path     # print both memory folders
-```
-
-See [memory](@/docs/cli-reference/maintain.md#memory) in the CLI reference.
+Run `agnostic-ai memory lint` for only these checks, and `agnostic-ai memory index` to rebuild each `MEMORY.md` after a merge conflict. See [memory commands](@/docs/cli-reference/memory.md#memory) for every subcommand.
 
 <details>
 <summary>Write or review a memory fact by hand</summary>
@@ -131,12 +124,11 @@ Devin CLI uses the native `memory-windsurf-session-start` hook with an explicit 
 
 Cursor's hosted cloud agents do not run `sessionStart` hooks. They use the shared memory policy and skill to read the project index before a task. Local sessions and self-hosted workers run the hook; user-level hooks are unavailable in cloud agents. See [Cursor's cloud hook support](https://cursor.com/docs/hooks#cloud-agent-support).
 
-- It runs the `agnostic-ai` on your PATH. Keep that one at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/maintain.md#upgrade); an older one loads no memory, and with none on PATH nothing loads.
+- It runs the `agnostic-ai` on your PATH. Keep that one at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade); an older one loads no memory, and with none on PATH nothing loads.
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. The Claude Code subagent hook needs it too.
 - Hooks you wrote yourself stay.
-- It keeps the first 6,000 bytes, personal memory first, then project memory. Facts past that never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, so `memory lint` also warns there once they pass 6,000 bytes.
-- It leaves out hidden characters, such as zero-width and bidirectional controls and Unicode tags, before it counts the bytes. Every other tool still reads them, so remove what `memory lint` reports.
+- It keeps the first 6,000 bytes and drops hidden characters first; see [`hook memory`](@/docs/cli-reference/maintain.md#hook-memory). Facts past the cut never load on these tools, and `memory lint` names them (the first 10). Every other tool loads both lists whole, hidden characters included, so `memory lint` also warns there once they pass 6,000 bytes. Remove the hidden characters it reports.
 
 ### Claude Code's own memory {#claude-code-s-own-memory}
 

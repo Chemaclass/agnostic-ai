@@ -12,9 +12,7 @@ group = "Start"
 
 {{ <agent_setup_prompt /> }}
 
-The agent installs or verifies agnostic-ai, imports existing instructions with your approval, and generates files for the tools you choose. You need a project folder and an installed coding agent. agnostic-ai does not install Claude Code or Codex for you.
-
-Expect two choices: which coding tools this project uses, and whether Git should track their generated files. Review what the agent changed. Setup finishes with `agnostic-ai sync --check` passing; then try the [first-session check](@/docs/getting-started.md#sync). To update your setup later, [change one note and sync again](@/docs/getting-started.md#daily-use).
+You need a coding agent, opened in your project folder. It asks which tools the project uses and whether Git should track the generated files. Setup is done when `agnostic-ai sync --check` passes. Then [try a first session](@/docs/getting-started.md#sync) and learn [the daily loop](@/docs/getting-started.md#daily-use).
 
 <details>
 <summary>Read the full checklist your coding agent follows</summary>

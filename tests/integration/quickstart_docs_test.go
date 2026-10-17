@@ -57,7 +57,7 @@ func TestSiteDocs_LandingQuickstartMatchesREADME(t *testing.T) {
 
 func TestSiteDocs_FreshSetupRoutesExistingConfigurationToImport(t *testing.T) {
 	guide := readRepoFile(t, "docs/site/content/docs/getting-started.md")
-	_, manual, ok := strings.Cut(guide, "## In your terminal\n")
+	_, manual, ok := strings.Cut(guide, "## Install agnostic-ai\n")
 	if !ok {
 		t.Fatal("setup guide has no terminal walkthrough")
 	}

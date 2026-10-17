@@ -31,7 +31,7 @@ Import writes source specs. It does not sync. The separate `import` command does
 
 ## Review what was imported {#review-what-was-imported}
 
-Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, review differences before syncing: the last imported tool wins for conflicting shared content. A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
+Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, review differences before syncing (see [below](#2-review)). A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
 
 Check scripts called by hooks and settings, and inspect MCP connection variables before committing. Skill folders and some tool scripts are imported; other referenced scripts must remain available in your project. [MCP import details](@/docs/spec-format/mcp-import.md) explain credential references and connection differences.
 
@@ -55,14 +55,12 @@ From now on, edit `.agnostic-ai/` sources and sync. Use [Daily use](@/docs/getti
 
 ## Review imports from several tools {#2-review}
 
-To preview another import, run `agnostic-ai import claude codex --dry-run --diff`. The last tool listed wins for a shared spec. Reorder the tools or merge the sources by hand before generating files.
+Preview several tools at once with `agnostic-ai import claude codex --dry-run --diff`. The last tool listed wins for a shared spec, so reorder the tools or merge the sources by hand before generating files.
 
 <details>
 <summary>Re-import after editing a native tool file</summary>
 
-Re-running it with no edits leaves every spec as it is. Re-running it after you edit a tool's own file overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool and holds nothing the tool's file cannot carry, such as `::target` blocks for other tools. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges the YAML fields at the top of a Markdown spec and imports from several tools.
-
-After you import from several tools, replacing a spec that a later tool overwrote needs `--overwrite`. A sync that skips edited or unmanaged files does not count as approval.
+Re-running import with no edits leaves every spec as it is. After you edit a tool's own file, import brings the edit back into the spec, or stops when that would lose content. See [keep existing specs](@/docs/cli-reference/start.md#keep-existing-specs) and [bring tool edits back](@/docs/cli-reference/start.md#bring-tool-edits-back). [Local specs](@/docs/local-overrides.md#import) stay out of the shared source.
 
 </details>
 
@@ -95,7 +93,7 @@ Keep the saved copy until you have checked the output. `--backup` does not bypas
 agnostic-ai revert
 ```
 
-It restores backups and leaves other files. `revert --force` also deletes generated files with no backup. It never undoes spec edits, and an existing backup is kept rather than replaced. Use Git for a lasting copy. When done, `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
+It restores the backups. It never undoes spec edits; use Git for a lasting copy. When done, `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
 
 </details>
 
@@ -104,7 +102,7 @@ It restores backups and leaves other files. `revert --force` also deletes genera
 
 ## Upgrading from older versions
 
-After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec forms it can rewrite for you, then `agnostic-ai migrate` to apply them. See [migrate](@/docs/cli-reference/maintain.md#migrate). The changes below need more than `migrate`.
+After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec forms it can rewrite for you, then `agnostic-ai migrate` to apply them. See [migrate](@/docs/cli-reference/upgrades.md#migrate). The changes below need more than `migrate`.
 
 ### Unmarked MCP literals
 

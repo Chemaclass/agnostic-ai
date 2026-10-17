@@ -177,8 +177,6 @@ This command runs your configured setup, which can install dependencies or perfo
 
 Test a hook spec without starting a session. Run `sync` first so the hook's scripts are in place. For each tool the hook applies to, `hook run` sends a sample event to the synced command and prints the result: allow or block, exit code, time, stdout, and stderr.
 
-See [test a hook](@/docs/cli-reference/hook-diagnostics.md#hook-run) for the sample events and results.
-
 ```bash
 agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
 agnostic-ai hook run guard --target codex --bash "git push --force"
@@ -187,13 +185,7 @@ agnostic-ai hook run on-stop --payload stop.json
 agnostic-ai hook run protect-files --edit .env --format json
 ```
 
-It exits 1 when:
-
-- a command times out or fails, for example a missing script
-- two tools give different results
-- a result does not match `--expect`
-
-If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, it warns and tells you to run `sync`.
+See [test a hook](@/docs/cli-reference/hook-diagnostics.md#hook-run) for the sample events, results, exit codes, and stale tool file warnings.
 
 | Flag | Description |
 |------|-------------|
@@ -204,7 +196,7 @@ If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, 
 | `--runtime vscode` | Model Cline VS Code TaskStart on Unix. Requires `--target cline`; default Cline diagnostics model the SDK. Windows launcher selection is not modeled. |
 | `--payload <file>` | Send this JSON file to every tool, for events the flags above do not cover. |
 | `--expect allow\|block` | Fail unless every tool gives this result. |
-| `--include-assumed` | Count tools whose shell, timeout, or working directory is a guess (Cursor, Copilot, Factory, Antigravity, Cline, Kiro, Windsurf) toward `--expect` and the comparison between tools. See [assumed results](@/docs/cli-reference/hook-diagnostics.md#assumed-results). |
+| `--include-assumed` | Count tools whose shell, timeout, or working directory is a guess toward `--expect` and the comparison between tools. See [assumed results](@/docs/cli-reference/hook-diagnostics.md#assumed-results). |
 | `--format text\|json` | `json` prints one object per tool with its result, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
 
 ## install-hook

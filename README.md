@@ -80,14 +80,12 @@ Each tool supports a different set of spec kinds. The [capability matrix](https:
 - **Rules, agents, skills, and commands**: instructions in one [spec format](https://agnostic-ai.org/docs/spec-format/).
 - **Hooks**: checks that run before or after a tool acts. See [hooks](https://agnostic-ai.org/docs/spec-format/hooks/).
 - **MCP servers**: connections to outside services, with credentials read from environment variables. See [MCP servers](https://agnostic-ai.org/docs/spec-format/mcps/).
-- **Capabilities**: what an agent may read, run, or call, mapped to each tool's own names. See [capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities). [OpenCode agents](https://agnostic-ai.org/docs/targets/opencode/) keep native permission rule order through import and sync.
+- **Capabilities**: what an agent may read, run, or call, mapped to each tool's own names. See [capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities). [OpenCode agents](https://agnostic-ai.org/docs/targets/opencode/) with a `can` or `tools` list keep project permission limits from `opencode.json`, including native V2 rules, and keep their rule order through import and sync.
 - **Model roles**: name a model choice once for every tool. See [models](https://agnostic-ai.org/docs/configuration/#models).
 - **Code review guidance**: instructions for review bots. See [reviews](https://agnostic-ai.org/docs/spec-format/reviews/).
 - **Shared memory**: one project memory that every tool reads and writes. See [shared memory](https://agnostic-ai.org/docs/memory/).
 - **Session handoffs**: one private note per branch, so you can pick up work in another tool. See [session handoffs](https://agnostic-ai.org/docs/handoff/).
 - **RTK and Caveman**: optional add-ons that shorten command output and responses. See [RTK and Caveman](https://agnostic-ai.org/docs/rtk-and-caveman/).
-
-OpenCode agents with a `can` or `tools` list keep project permission limits from `opencode.json`, including native V2 rules. See [OpenCode permissions](https://agnostic-ai.org/docs/targets/opencode/).
 
 ## Develop agnostic-ai
 

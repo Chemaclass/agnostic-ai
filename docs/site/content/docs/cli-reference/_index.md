@@ -71,4 +71,4 @@ The lock file is `.agnostic-ai/.command-lock`, which the managed `.gitignore` bl
 
 ## Which config wins {#config-precedence}
 
-Configuration loads built-in defaults, `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, then CLI flags. See [which value wins](@/docs/configuration.md#precedence) for merge rules.
+See [which value wins](@/docs/configuration.md#precedence) in the configuration reference.

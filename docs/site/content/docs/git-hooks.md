@@ -11,8 +11,6 @@ group = "Workflows"
 
 Check generated files before committing, and restore ignored files when switching branches. Choose a recipe that matches whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs).
 
-A plain `sync --check` reads the working tree. The installed commit hook uses `--against index` to check staged files instead.
-
 If your team commits generated files, use [the staged-file check](#check-staged-files) to catch output you forgot to stage. If outputs are ignored, run `sync` once in each checkout before enabling a hook, and use [checkout and pull hooks](#regenerate-on-checkout) to keep them available to coding agents. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
 
 ## Why a pre-commit hook
@@ -127,10 +125,8 @@ A staged spec change without its regenerated output fails. The error names the f
 
 - `--against` needs agnostic-ai 0.74.0 or later. A `--shared` hook blocks commits for a teammate on an older release until they upgrade.
 - The check copies the tracked files to a temporary folder on each commit. In a large repository, use the lint-staged recipe above so it runs only when specs are staged.
-- `--against HEAD` checks the last commit instead. Use it in a CI job that runs after `postinstall` has rewritten the working tree.
-- Only outputs Git tracks are compared, so an ignored output never fails.
-- A tracked output whose spec is gone fails until you delete it.
-- An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+- `--against HEAD` checks the last commit instead. See the [CI recipe](@/docs/ci.md#committed-outputs).
+- For what the check compares and skips, see [`--against` details](@/docs/cli-reference/sync.md#against-details).
 
 </details>
 
@@ -197,10 +193,11 @@ In a pnpm workspace with ignored outputs, `pnpm install` creates every tool file
 Add the npm package to the workspace root as an exact dev dependency:
 
 ```bash
-pnpm add -D -E -w agnostic-ai
+pnpm add -D -E -w agnostic-ai   # pnpm workspace
+npm install -D -E agnostic-ai   # npm; or yarn add -D -E, bun add -D -E
 ```
 
-Also set `requires: "X.Y.Z"` in `agnostic-ai.yaml`. An incompatible installed version then stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) before rewriting files. [Requires](@/docs/configuration.md#requires) also accepts ranges.
+The lockfile covers every OS and CPU, so one pin works on macOS, Linux, and Windows. Also set `requires: "X.Y.Z"` in `agnostic-ai.yaml`. An incompatible installed version then stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) before rewriting files. [Requires](@/docs/configuration.md#requires) also accepts ranges.
 
 ### Sync on install
 
@@ -241,22 +238,9 @@ post-rewrite:
 
 ### First pull
 
-When a branch changes the pinned version, check mode reports the installed and required versions without installing anything. Use the supported helper instead of comparing manifest text in shell:
+When a branch changes the pinned version, `agnostic-ai project --check` reports the installed and required versions without installing anything. `agnostic-ai project --bootstrap` installs from the lockfile once, then syncs with `--keep-edits --quiet`. Use these helpers instead of comparing manifest text in shell. See [`project`](@/docs/cli-reference/project.md#project) for version checks, supported package managers, and the releases that lack the command.
 
-```bash
-agnostic-ai project --check
-agnostic-ai project --bootstrap
-```
-
-Bootstrap installs from the npm, pnpm, or bun lockfile once only when the local binary is missing or does not satisfy an exact stable `package.json` pin or `requires`. Conflicting exact declarations stop before installation and must be updated explicitly. Normal package scripts run; the helper prevents a recursive postinstall call from starting a second install. It then syncs with `--keep-edits --quiet`. Repeating bootstrap with the correct binary does not install again.
-
-Bootstrap reads the package manager from `packageManager` or `devEngines.packageManager` in `package.json`, or from the only committed lockfile. It runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile` (`bun.lock` or the older `bun.lockb`). For any other package manager, or a missing lockfile, it exits with an error that names the install to run yourself. When no `agnostic-ai` is on `PATH`, the generated hooks name that install too, for example `bun install --frozen-lockfile`.
-
-Only stable exact npm versions are checked against the installed version. Ranges, tags, aliases, prereleases, and file dependencies are not interpreted as npm version contracts; set `requires` to enforce the accepted releases. `--against index` and `--against HEAD` read both the config and package declarations from that Git view while using the installed binary in the working checkout.
-
-Generated hooks first check that the selected binary supports `project`. Released v0.82.0 does not support it. An unsupported selected package produces an upgrade instruction; update its declared version and `requires` explicitly before using these setup hooks. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
-
-A hook manager can call `agnostic-ai project --check --against index` for a read-only pre-commit gate. Use `agnostic-ai project` after checkout or merge to regenerate without installing. The helper prefers the local package even when an older global binary is on `PATH`; call the local helper or use a global version supporting this command. A missing helper must first be installed through your package manager. The command does not rewrite hook-manager configuration or widen an exact requirement.
+A hook manager can call `agnostic-ai project --check --against index` for a read-only pre-commit gate. Generated hooks first check that the selected binary supports `project`. When no `agnostic-ai` is on `PATH`, they name the install to run, for example `bun install --frozen-lockfile`. Built-in memory hooks look for the nearest ancestor config before selecting a binary, including projects nested inside another Git checkout.
 
 ### New worktrees
 

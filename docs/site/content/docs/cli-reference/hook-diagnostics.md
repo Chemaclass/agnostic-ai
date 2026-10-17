@@ -48,7 +48,7 @@ An `async: true` hook, or an `asyncRewake: true` one on Claude Code and Qoder, r
 On macOS and Linux, a command the hook leaves running is killed once the hook exits.
 ### Stale tool file replies
 
-Commands come from the spec, so the run works before a sync. The tool prints a `warning` naming the file when the synced file is missing, when no handler under the event runs the command the spec produces, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. On Claude Code and Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`. An `env` warning names the keys, never their values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
+Commands come from the spec. A command that calls a hook script needs a `sync` first, because sync copies the scripts into each tool's hook folder. The tool prints a `warning` naming the file when the synced file is missing, when no handler under the event runs the command the spec produces, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. On Claude Code and Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`. An `env` warning names the keys, never their values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
 
 <details>
 <summary>Environment variables per tool</summary>
@@ -177,7 +177,7 @@ The run exits 1 when a counted command times out or errors, when two counted too
 
 ### Assumed results {#assumed-results}
 
-Cursor, Copilot, Factory, Qoder, Antigravity, Kiro, and Windsurf (Devin CLI) leave out part of how a command runs. `hook run` runs them on these assumptions instead of skipping them:
+Cursor, Copilot, Factory, Qoder, Antigravity, Kiro, Windsurf (Devin CLI), Cline, and Crush leave out part of how a command runs. Cline and Crush are covered after the list. `hook run` runs them on these assumptions instead of skipping them:
 
 - Shell (Cursor, Factory, Antigravity, Kiro, Windsurf, Copilot's `command` form, and Qoder without `shell`): `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments. A command with shell syntax, such as a pipe, is listed as not run with a note to use a script path. Windows is not run. Copilot's and Qoder's exec form, which sync writes when the spec sets `args`, runs with no shell and assumes none.
 - Timeout (Cursor, Windsurf): 30 seconds when the spec sets none. Set `timeout` in the spec to remove this assumption. Copilot and Antigravity document their 30 second default, and Factory and Kiro 60 seconds.
