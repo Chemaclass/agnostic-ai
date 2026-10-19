@@ -222,10 +222,13 @@ func noteFieldNoOp(target string, kind spec.Kind, field string, count int, reaso
 	if count <= 0 || notesSkipped.Load() {
 		return
 	}
+	// Built before locking: the first call renders every adapter, and a
+	// renderer that records a note would otherwise deadlock.
+	suggestion := fieldNoteSuggestion(kind, field, reason, shared)
 	coverageNoteState.mu.Lock()
 	coverageNoteState.pendingField = append(coverageNoteState.pendingField, pendingFieldNote{
 		target: target, kind: kind, field: field, count: count, reason: reason,
-		suggestion: fieldNoteSuggestion(kind, field, reason, shared),
+		suggestion: suggestion,
 	})
 	coverageNoteState.mu.Unlock()
 }
