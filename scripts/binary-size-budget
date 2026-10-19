@@ -297,9 +297,4 @@
 # (20005024): global Claude permissions import, managed rule merging,
 # shape validation and credential safeguards. Same Linux amd64 release
 # flags; retain the current 32 KB headroom. No new dependencies.
-# #1998 measured 21160096 on Go 1.27.2: `view` and `serve` add the
-# Authority and overview packages (249 KB of symbols) and reach the
-# server half of net/http for the first time (221 KB), plus the JSON
-# type metadata of the view contracts. Same release flags, no new module
-# dependencies; keep the 32 KB headroom.
-21192864
+20082848

@@ -1,5 +1,0 @@
-# Illustrative project for the Authority view. Every name here is an
-# example: the Railway, GitHub, and database details stand in for a
-# real team's setup so the view has concrete resources to show.
-version: 1
-targets: [claude, codex, cursor]

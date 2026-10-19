@@ -1,6 +1,0 @@
-name: railway
-description: Railway projects, services, and deployments.
-type: http
-url: https://mcp.railway.app/mcp
-headers:
-  Authorization: Bearer ${RAILWAY_TOKEN}

@@ -129,7 +129,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 		if err != nil {
 			return checkScope{}, err
 		}
-		return loadedProjectCheckScope(cfg, b), nil
+		return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: projectKindSupport(cfg), bundle: b, project: loadedMigrationScope(".", cfg, b).project}, nil
 	}
 	source, err := globalSourceRoot()
 	if err != nil {
@@ -158,12 +158,6 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 		return checkScope{}, err
 	}
 	return checkScope{global: true, source: source, models: tiers, support: globalKindSupport(), bundle: b}, nil
-}
-
-// loadedProjectCheckScope is the check scope of the project in the
-// working directory, already loaded as cfg and b.
-func loadedProjectCheckScope(cfg *config.Config, b spec.Bundle) checkScope {
-	return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: projectKindSupport(cfg), bundle: b, project: loadedMigrationScope(".", cfg, b).project}
 }
 
 func (s checkScope) emptyHint() string {

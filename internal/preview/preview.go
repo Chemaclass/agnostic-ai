@@ -20,8 +20,7 @@ type Result struct {
 	Withheld bool
 }
 
-// Redacted stands in for a value that may be a credential.
-const Redacted = "<redacted>"
+const redacted = "<redacted>"
 
 const referenceForms = `\$\{\{\s*secrets\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}|\$\{(?:env:)?[A-Za-z_][A-Za-z0-9_]*\}|\{env:[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]*%`
 
@@ -178,7 +177,7 @@ func sanitize(value any, sensitive bool) (any, bool) {
 				}
 				if normal == "url" || executionField(normal) {
 					if hidden {
-						v[key] = Redacted
+						v[key] = redacted
 						changed = true
 					}
 					continue
@@ -217,7 +216,7 @@ func sanitize(value any, sensitive bool) (any, bool) {
 			next, c := sanitize(item, sensitive)
 			fields, ok := next.(map[string]any)
 			if !ok {
-				return Redacted, true
+				return redacted, true
 			}
 			v[i] = fields
 			changed = changed || c
@@ -225,11 +224,11 @@ func sanitize(value any, sensitive bool) (any, bool) {
 		return v, changed
 	case string:
 		if v != "" && sensitive && !PureReference(v) || sensitiveURL(v) || sensitiveCommand(v) {
-			return Redacted, true
+			return redacted, true
 		}
 	default:
 		if sensitive && value != nil {
-			return Redacted, true
+			return redacted, true
 		}
 	}
 	return value, false
@@ -264,7 +263,7 @@ func sanitizeArgs(args []any) ([]any, bool) {
 		flag := strings.HasPrefix(text, "--") && CredentialName(flagName)
 		headerValue, headerFlag := attachedHeader(text)
 		if nextSensitive && !PureReference(text) && (!header || !pureArgument(text)) || headerFlag && !pureArgument(headerValue) || flag && hasValue && !PureReference(strings.SplitN(text, "=", 2)[1]) || sensitiveURL(text) || (!headerFlag || !pureArgument(headerValue)) && sensitiveCommand(text) {
-			args[i] = Redacted
+			args[i] = redacted
 			changed = true
 		}
 		header = text == "-H" || text == "--header"

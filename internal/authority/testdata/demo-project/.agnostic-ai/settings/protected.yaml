@@ -1,6 +1,0 @@
-protected:
-  paths:
-    - .github/**
-    - migrations/**
-  decision: ask
-  reason: CI workflows and migrations change only after a human review.
