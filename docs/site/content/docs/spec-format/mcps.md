@@ -63,6 +63,34 @@ A server needs `command` (stdio) or `url` (remote). Only `agnostic-ai lint` repo
 | `oauth` | no | empty | OAuth settings. The format differs by tool. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for tools with MCP roots. |
+| `agent-only` | no | `false` | Keep the server out of every MCP file. Only the agents that name it can reach it. See [Agent-only servers](#agent-only). |
+
+## Agent-only servers {#agent-only}
+
+Set `agent-only: true` to give a server to some agents and keep it away from the main session. Its tools then add nothing to the main session's context.
+
+```yaml
+# mcps/github.yaml
+name: github
+agent-only: true
+command: npx
+args: ["-y", "@modelcontextprotocol/server-github"]
+env:
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+```
+
+```yaml
+# agents/triager.md frontmatter
+mcpServers: [github]
+```
+
+Sync leaves the server out of every project and user MCP file. It writes the server's full definition into the agent file of each agent that names it, on the tools whose agent file can hold one: [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Kiro](@/docs/targets/kiro.md), and [OpenHands](@/docs/targets/openhands.md). Every other tool gets no copy of the server, and sync prints a note. See [`mcpServers` support by target](@/docs/spec-format/agents.md#mcpservers-support-by-target).
+
+- The agent file is committed, so `env` and `headers` must hold `${NAME}` references or `!literal` plain settings, as in any MCP spec. Sync refuses a literal value, also in a [pack](@/docs/packs.md).
+- A server no agent names reaches no tool. Sync prints a note.
+- A `disabled: true` server is left out of the agent file.
+- `sync --global` writes no agent-only server.
+- Import does not create agent-only servers yet. `import claude` keeps an inline server in the agent's `mcpServers` list, and sync writes it back as it was.
 
 ## Secrets and plain settings {#plain-settings}
 

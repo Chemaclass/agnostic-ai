@@ -78,7 +78,8 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 // MCP literal (LINT035), before it
 // is written into every tool's files. Pack specs are not the user's to
 // edit, so validate reports them, except a permission rule: a target
-// drops one it cannot read, so a lost deny rule would widen access.
+// drops one it cannot read, so a lost deny rule would widen access. A
+// pack MCP literal an agent file would carry is refused too.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
@@ -86,6 +87,7 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
+	issues = append(issues, mcpLiteralIssues(packAgentMCPs(b))...)
 	if slices.Contains(targets, "ellipsis") {
 		issues = append(issues, ellipsisVariableIssues(b.Settings)...)
 	}
@@ -148,6 +150,24 @@ func stopOnIssues(issues []validationIssue) error {
 		lines[i] = is.Path + ": " + is.Message
 	}
 	return fmt.Errorf("%s", strings.Join(lines, "\n"))
+}
+
+// packAgentMCPs returns the pack MCP specs sync may write into an agent
+// file: the agent-only ones and the ones an agent names.
+func packAgentMCPs(b spec.Bundle) []spec.Entry {
+	named := map[string]bool{}
+	for _, a := range b.Agents {
+		for _, name := range spec.AgentMCPNames(a.Meta) {
+			named[name] = true
+		}
+	}
+	var out []spec.Entry
+	for _, e := range b.MCPs {
+		if strings.HasPrefix(e.Layer, "pack:") && (e.AgentOnly() || named[e.Name]) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // ownSpecs keeps the hooks, agents, and MCP servers outside packs, with every skill an
