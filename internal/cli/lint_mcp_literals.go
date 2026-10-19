@@ -3,13 +3,10 @@ package cli
 import (
 	"fmt"
 	"maps"
-	"regexp"
 	"slices"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -127,93 +124,17 @@ func markMCPLiterals(server map[string]any) map[string]any {
 	return out
 }
 
-// mcpReferenceDefault matches the default of a `${NAME:-default}`
-// reference.
-var mcpReferenceDefault = regexp.MustCompile(`\$\{[A-Za-z_][A-Za-z0-9_]*:-([^}]*)\}`)
-
-// agentFileCredentialIssues reports credentials an agent file would
-// carry beyond what mcpLiteralIssues checks: in `url` and `args`, in an
-// `x-<target>` block's `env` and `headers`, and in a reference's
-// default. An agent file is committed with every copy of the agent.
-// The message names the server and field, never the value.
+// agentFileCredentialIssues reports mcpCredentialFields as errors for
+// the servers sync writes into an agent file, which is committed with
+// every copy of the agent. The message names the server and field,
+// never the value.
 func agentFileCredentialIssues(mcps []spec.Entry) []validationIssue {
 	var out []validationIssue
 	for _, e := range mcps {
-		blocks := []map[string]any{e.Meta}
-		for _, key := range slices.Sorted(maps.Keys(e.Meta)) {
-			if x, ok := e.Meta[key].(map[string]any); ok && strings.HasPrefix(key, "x-") {
-				blocks = append(blocks, x)
-			}
-		}
-		var fields []string
-		for i, meta := range blocks {
-			for _, field := range agentFileCredentialFields(meta, i > 0) {
-				if !slices.Contains(fields, field) {
-					fields = append(fields, field)
-				}
-			}
-		}
+		fields := mcpCredentialFields(e)
 		for _, field := range fields {
 			out = append(out, validationIssue{Path: e.Path, Field: field,
 				Message: fmt.Sprintf("MCP server %q: %s holds a credential, and sync would write it into an agent file; use a ${NAME} reference with no default", e.Name, field)})
-		}
-	}
-	return out
-}
-
-// agentFileCredentialFields lists the fields of one MCP block that hold
-// a credential. inBlock marks an `x-<target>` block, where a value
-// cannot be marked `!literal`.
-func agentFileCredentialFields(meta map[string]any, inBlock bool) []string {
-	var out []string
-	if u, _ := meta["url"].(string); u != "" && mcpCredentialDetected(u) {
-		out = append(out, "url")
-	}
-	if args := emitStrings(meta["args"]); len(args) > 0 && mcpCredentialDetected(strings.Join(args, " ")) {
-		out = append(out, "args")
-	}
-	for _, field := range mcpSecretFields {
-		values, _ := meta[field].(map[string]any)
-		for _, key := range slices.Sorted(maps.Keys(values)) {
-			value, _ := values[key].(string)
-			if value == "" {
-				continue
-			}
-			literal := inBlock && !mcpReferenceValue(field, value) && agentFileCredentialValue(key, value)
-			if literal || referenceDefaultCredential(key, value) {
-				out = append(out, field+" "+key)
-			}
-		}
-	}
-	return out
-}
-
-// agentFileCredentialValue reports whether value under key reads as a
-// credential: by its shape, or under a credential name unless it is a
-// short placeholder such as `none` under a name that ends in `key`.
-func agentFileCredentialValue(key, value string) bool {
-	if mcpCredentialDetected(value) {
-		return true
-	}
-	strength := mcpNameStrength(key, true)
-	return strength != preview.NoCredential && mcpSecretValue(mcpDetectorText(value), true, strength)
-}
-
-func referenceDefaultCredential(key, value string) bool {
-	for _, m := range mcpReferenceDefault.FindAllStringSubmatch(value, -1) {
-		if m[1] != "" && agentFileCredentialValue(key, m[1]) {
-			return true
-		}
-	}
-	return false
-}
-
-func emitStrings(v any) []string {
-	list, _ := v.([]any)
-	out := make([]string, 0, len(list))
-	for _, item := range list {
-		if s, ok := item.(string); ok {
-			out = append(out, s)
 		}
 	}
 	return out

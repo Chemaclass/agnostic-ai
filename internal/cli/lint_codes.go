@@ -291,6 +291,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An agent spec with a body has no `description`. Tools read it to decide when to hand the agent a task. Claude Code skips an agent file without one, so sync writes the agent's name there instead and prints a note.",
 		Fix:      "Add a `description:` that says when to use the agent.",
 	},
+	"LINT049": {
+		Severity: lintWarn,
+		Title:    "MCP credential outside env and headers",
+		Cause:    "An MCP spec holds what the import detector reads as a credential in a place LINT035 does not check: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. Sync writes it into each tool's MCP file. The finding names the server and the field, never the value.",
+		Fix:      "Write the credential as a `${NAME}` reference with no default and set the variable. `lint --strict` fails until you do.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",
