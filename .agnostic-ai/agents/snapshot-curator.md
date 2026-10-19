@@ -1,7 +1,7 @@
 ---
 name: snapshot-curator
 description: Triage sync --check drift between source specs and emitted per-CLI configs. Use when sync --check fails.
-tools: [Read, Bash, Grep]
+can: [read, shell, Grep]
 model:
   claude: sonnet
 ---

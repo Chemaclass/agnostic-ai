@@ -1,7 +1,7 @@
 ---
 name: adapter-fixer
 description: Close a confirmed target-audit finding end to end and open a PR. Never merges.
-tools: [Read, Write, Edit, Bash, Grep]
+can: [read, write, edit, shell, Grep]
 model:
   claude: sonnet
 effort:
