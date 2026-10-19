@@ -162,3 +162,25 @@ func TestServe_RejectsARequestAddressedToAnotherHost(t *testing.T) {
 		}
 	}
 }
+
+func TestServe_AProxiedClientThatKeepsItsHostIsSameOrigin(t *testing.T) {
+	silence(t)
+	testutil.Chdir(t, demoProject(t))
+	src, err := openAuthoritySource(".", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listen := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 4310}
+	h := requireLocalHost(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}, nil), listen)
+	for host, want := range map[string]int{"127.0.0.1:5173": http.StatusOK, "127.0.0.1:4310": http.StatusForbidden} {
+		req := httptest.NewRequest(http.MethodPost, "/api/views/authority/impact", strings.NewReader(`{"changes":[]}`))
+		req.Host = host
+		req.Header.Set("Origin", "http://127.0.0.1:5173")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Errorf("Host %s with the dev client's Origin = %d, want %d: %s", host, rec.Code, want, rec.Body)
+		}
+	}
+}
