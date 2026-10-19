@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -374,5 +375,40 @@ func TestLintBudget_IgnoresAGENTSMdOutsideARealImport(t *testing.T) {
 	out, _ := runCLI(t, "lint")
 	if strings.Contains(out, "AGENTS.md import") {
 		t.Errorf("no tool here imports AGENTS.md:\n%s", out)
+	}
+}
+
+func writeAgentsWithDescriptions(t *testing.T, dir string, count, chars int) {
+	t.Helper()
+	desc := strings.Repeat("x", chars)
+	for i := range count {
+		name := fmt.Sprintf("helper-%02d", i)
+		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"), "---\nname: "+name+"\ndescription: "+desc+"\n---\nBody.\n")
+	}
+}
+
+func TestLintBudget_EstimatesClaudeAgentDescriptionTokens(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, cursor]\nlint:\n  instructions-words: 100000\n  description-chars: 2000\n")
+	writeAgentsWithDescriptions(t, dir, 62, 1000)
+
+	out, _ := runCLI(t, "lint")
+	lines := findingLines(out, "LINT011")
+	if len(lines) != 1 {
+		t.Fatalf("expected one LINT011 for claude alone, got:\n%s", out)
+	}
+	for _, want := range []string{"claude lists about 15500 tokens", "estimate", "past 15000 tokens"} {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("LINT011 line lacks %q:\n%s", want, lines[0])
+		}
+	}
+}
+
+func TestLintBudget_KeepsClaudeAgentDescriptionsUnderTheStartupLimitQuiet(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 100000\n  description-chars: 2000\n")
+	writeAgentsWithDescriptions(t, dir, 59, 1000)
+
+	out, _ := runCLI(t, "lint")
+	if lines := findingLines(out, "LINT011"); len(lines) != 0 {
+		t.Errorf("expected no LINT011 under 15000 estimated tokens, got:\n%s", out)
 	}
 }

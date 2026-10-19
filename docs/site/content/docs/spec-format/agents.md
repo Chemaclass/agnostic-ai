@@ -12,7 +12,12 @@ group = "Reference"
 
 `agents/` defines subagents: specialists the main agent hands a task to. Each has its own instructions, tools, and model. Examples: a reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
 
-Give the agent one responsibility, the files or decisions it owns, and a clear return format. Include how it should check its result. Use `description` to help the main agent decide when to delegate, and keep the body focused on the delegated task.
+Give the agent one responsibility, the files or decisions it owns, and a clear return format. Include how it should check its result. Write `description` as the trigger: say when to hand a task to the agent. Claude Code delegates on its own more often when it says "use proactively". Keep detail in the body, which loads only when the agent runs, because tools list every description in every session.
+
+## When not to write one
+
+- Keep work in the main conversation when it needs frequent back-and-forth, or when planning, implementation, and testing share one context. An agent starts fresh and returns a summary.
+- Keep a quick change, or a task where speed matters, in the main conversation. An agent may need time to gather context first.
 
 ## Write one
 
@@ -261,8 +266,8 @@ A top-level `mcpServers` list limits which MCP servers one agent may reach. With
 
 | Target | Behavior |
 |--------|----------|
-| [Claude Code](@/docs/targets/claude.md), [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names, written to the agent file |
-| [Qoder](@/docs/targets/qoder.md) | Server names or inline objects, written to the agent file |
+| [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names, written to the agent file |
+| [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) | Server names or inline objects, written to the agent file |
 | [OpenHands](@/docs/targets/openhands.md) | Inline definitions only. Set `x-openhands.mcp_servers` |
 | [Antigravity](@/docs/targets/antigravity.md) | Inline objects only. Set `x-antigravity.mcpServers` |
 | [Kiro](@/docs/targets/kiro.md) | Inline definitions only. Set `x-kiro.mcpServers` |
@@ -274,6 +279,8 @@ Every other tool drops the list with a sync note. On the three inline tools, the
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
 `permissionMode` sets how much one agent may do without approval. `hooks` sets commands to run at events for that agent only. Without either, the agent uses the main session's setting.
+
+On Claude Code the session can override `permissionMode`. When the session is in `bypassPermissions`, `acceptEdits`, or `auto` mode, the agent runs in that mode and the value is ignored. An agent's own `bypassPermissions` never applies.
 
 | Target | `permissionMode` | Agent `hooks` |
 |--------|------------------|---------------|
@@ -291,7 +298,7 @@ On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disable
 |--------|--------|
 | [Augment](@/docs/targets/augment.md) | Free text, an ANSI color name |
 | [Kilo Code](@/docs/targets/kilo.md) | Hex or a theme token |
-| [Qoder](@/docs/targets/qoder.md) | One of eight names |
+| [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) | One of eight names: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` |
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
-`color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), which has no `color`, so a portable `color` prints a sync note there.
+`color: blue` is valid on Augment, Claude Code, and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), which has no `color`, so a portable `color` prints a sync note there.

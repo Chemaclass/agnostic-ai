@@ -34,6 +34,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- `lint` estimates the combined agent description size at 4 characters per token and warns past the 15,000 tokens where Claude Code warns at startup (#2326).
 - `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
 
 #### Ellipsis
@@ -42,6 +43,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- Claude Code docs say how to check what it loaded, that Explore and Plan skip `CLAUDE.md`, and how to run Explore on a cheaper model. The agents page says to write the trigger in `description` and when not to write an agent, and lists Claude's inline MCP servers, `permissionMode` limits, `color` values, and the auto memory needed for agent `memory` (#2326).
 - The memory page gives Kiro IDE's memory default and its user-only setting (#2321).
 - Global configuration docs distinguish shared-name checks from Kiro, Qoder, and Warp skill-name behavior (#2292).
 - Onboarding starts with one project note, shows both tool outputs, and keeps agent-assisted and terminal setup in one guide.

@@ -77,6 +77,8 @@ LINT011 [warn] AGENTS.md: cline, windsurf, trae load 2396 words every session: A
 
 It also warns past a tool's byte cap. Codex stops reading `AGENTS.md` at 32 KiB (`project_doc_max_bytes`). Antigravity truncates rule files past 24,000 bytes.
 
+Claude Code warns at startup when the combined agent descriptions pass 15,000 tokens. LINT011 estimates that total at 4 characters per token and warns past the same figure.
+
 <details>
 <summary>LINT011 for the Codex AGENTS.md chain</summary>
 
