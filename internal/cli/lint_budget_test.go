@@ -412,3 +412,17 @@ func TestLintBudget_KeepsClaudeAgentDescriptionsUnderTheStartupLimitQuiet(t *tes
 		t.Errorf("expected no LINT011 under 15000 estimated tokens, got:\n%s", out)
 	}
 }
+
+func TestLintBudget_CountsOnlyAgentsTheTargetReceives(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, cursor]\nlint:\n  instructions-words: 100000\n  description-chars: 2000\n")
+	desc := strings.Repeat("x", 1000)
+	for i := range 62 {
+		name := fmt.Sprintf("cursor-only-%02d", i)
+		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", name+".md"), "---\nname: "+name+"\ndescription: "+desc+"\ntargets: [cursor]\n---\nBody.\n")
+	}
+
+	out, _ := runCLI(t, "lint")
+	if lines := findingLines(out, "LINT011"); len(lines) != 0 {
+		t.Errorf("agents excluded from claude must not count toward its budget, got:\n%s", out)
+	}
+}
