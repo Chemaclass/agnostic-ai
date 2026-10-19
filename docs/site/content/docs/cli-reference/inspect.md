@@ -247,3 +247,55 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 |------|-------------|
 | `--format` | `text` (default) or `json`. |
 | `--json` | Alias for JSON output. |
+
+## view
+
+Show a read-only view of the configuration as versioned JSON or readable text. Nothing is written. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
+
+`view authority` answers, for one subject on one coding tool, which exact action on which exact target is permitted, with the rule and file behind each decision. Four states stay separate: what the specs declare, what the selected tool does with it, whether the generated file is installed, and runtime enforcement, which is never observed.
+
+```bash
+agnostic-ai view authority --agent reviewer --target claude
+agnostic-ai view authority --json
+agnostic-ai view overview --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--agent` | The subject: an agent name, or `session` (default) for the tool itself before any agent narrows it. |
+| `--target` | The coding tool to resolve effects for. Default: the first in `agnostic-ai.yaml`. |
+| `--json` | The full view as JSON, schema `authority/v1` or `overview/v1`. |
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
+| `--no-installed` | Skip comparing the generated files with disk. |
+
+`view overview` prints the six harness sections with their configured items and per-tool support, and a feed of findings from `lint`, `doctor`, and drift, each with its evidence.
+
+## serve
+
+Host the views as a local JSON API, and the built web client when `--ui` names its directory. The project loads on every request, so an edited spec shows on the next refresh. The API proposes changes and reports their impact, but never writes.
+
+```bash
+agnostic-ai serve --ui ui/dist --open
+agnostic-ai serve --global
+```
+
+| Flag | Description |
+|------|-------------|
+| `--addr` | Loopback address to listen on. Default `127.0.0.1:4310`. Any other address is refused. |
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--ui` | Directory of the built client to serve, such as `ui/dist`. |
+| `--open` | Open the served URL in a browser. |
+| `--global` | Serve the user-level configuration; the overview and feed are not available there. |
+| `--no-installed` | Skip comparing the generated files with disk. |
+| `--allow-origin` | An origin, such as `http://localhost:5173`, whose pages may call the API from another port. Repeat for more. The Vite dev server needs none, since it forwards `/api`. |
+
+The API is for this machine only and has no login, so `serve` guards it:
+
+- It answers only requests addressed to `localhost`, `127.0.0.1`, or `::1`, and answers 421 to any other `Host`. This stops a page that points its own name at your machine.
+- It refuses browser requests from any other origin with 403, unless `--allow-origin` names that origin. A request without an `Origin` header passes, as from `curl`, unless the browser marks an `/api` request as coming from another site (`Sec-Fetch-Site`), as an image or script tag does.
+- `POST /api/views/authority/impact` needs `Content-Type: application/json`; any other body type gets 415.
+- Credentials written in permission rules, URLs, and settings values show as `<redacted>`. A rule shown redacted cannot be named in a proposal; edit the settings file.
+- The installed check uses built-in adapters only. An external `agnostic-ai-<name>` adapter is never run.
+
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `GET /api/views/feed`, and `GET /api/health`.

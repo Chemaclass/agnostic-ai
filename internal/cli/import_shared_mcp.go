@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -209,12 +208,7 @@ type mcpCredentialSpan struct {
 	start, end int
 }
 
-var (
-	mcpSchemePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
-	mcpQueryParamPattern = regexp.MustCompile(`[?&;#]([^=&;?#\s'"]+)=([^&;?#\s]*)`)
-	mcpRefDefaultPattern = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*:-([^{}]*)\}`)
-	mcpPlainRefPattern   = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}`)
-)
+var mcpSchemePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
 
 // mcpSingleURL reports whether value is one URL import can rewrite: no
 // whitespace, quotes, or escaped `$${`, and a scheme or a reference at
@@ -227,237 +221,17 @@ func mcpSingleURL(value string) bool {
 	return mcpSchemePattern.MatchString(value) || strings.HasPrefix(value, "${")
 }
 
-// mcpRefSentinel stands in for a plain `${NAME}` or `$${NAME}` while the
-// detector reads a value.
-const mcpRefSentinel = "\x00"
+func mcpLiteralCredential(value string) bool  { return preview.LiteralCredential(value) }
+func mcpDetectorText(value string) string     { return preview.DetectorText(value) }
+func mcpCredentialDetected(value string) bool { return preview.CredentialDetected(value) }
+func mcpToken(value string) bool              { return preview.Token(value) }
+func mcpTokenIn(text string) bool             { return preview.TokenIn(text) }
+func mcpURLCredentialIn(text string) bool     { return preview.URLCredentialIn(text) }
+func mcpRefOnly(value string) bool            { return preview.RefOnly(value) }
+func mcpCredentialHeader(value string) bool   { return preview.CredentialHeader(value) }
 
-func mcpLiteralCredential(value string) bool {
-	return strings.Trim(strings.ReplaceAll(value, mcpRefSentinel, ""), `'"`) != ""
-}
-
-// mcpDetectorText writes each `${NAME:-default}` as its default, so the
-// default is read in URL context, and each plain reference as
-// mcpRefSentinel.
-func mcpDetectorText(value string) string {
-	for {
-		expanded := mcpRefDefaultPattern.ReplaceAllString(value, "$1")
-		if expanded == value {
-			break
-		}
-		value = expanded
-	}
-	return mcpPlainRefPattern.ReplaceAllString(value, mcpRefSentinel)
-}
-
-// mcpCredentialDetected reports whether value holds a literal credential
-// anywhere, reference defaults and escaped references included: a URL
-// password or credential query or fragment parameter, a token by its
-// prefix, a scheme-less `user:password@host`, a `NAME=value` or a
-// `--name value` whose name ends in a credential word, or a literal
-// `Bearer` token. It errs toward finding one, since a
-// false find only leaves a server out with a warning. A password is a
-// literal after a `:` and before an `@` in the text from `://` to the
-// next `/`, `?`, or `#`. An `@` after that counts too, unless the text
-// before it is a host with a port, as in `https://host:8443/@scope`. It
-// reads value as written and again with shell quotes and backslashes
-// removed, so `?'token=x'` counts too, and each of those again with
-// percent-encoded separators decoded once.
-func mcpCredentialDetected(value string) bool {
-	for _, text := range []string{mcpDetectorText(value), mcpDetectorText(mcpShellUnquote.Replace(value))} {
-		for _, t := range []string{text, mcpEncodedSeparators.Replace(text)} {
-			if mcpURLCredentialIn(t) || mcpTokenIn(t) || mcpUserPasswordIn(t) || mcpAssignmentIn(t) || mcpBearerIn(t) || mcpFlagIn(t) || mcpKeyValueIn(t) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-var (
-	mcpShellUnquote      = strings.NewReplacer(`'`, "", `"`, "", `\`, "")
-	mcpEncodedSeparators = strings.NewReplacer("%26", "&", "%3D", "=", "%3d", "=", "%3F", "?", "%3f", "?", "%23", "#")
-)
-
-// mcpTokenPrefixes are token formats that name their issuer: GitHub,
-// GitLab, Slack, npm, Google API keys, Stripe, OpenAI and Anthropic
-// `sk-`, AWS access key ids, and JWTs.
-const mcpTokenPrefixes = `gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_\-]{8,}|xox[bpa]-[A-Za-z0-9\-]{8,}|xapp-[A-Za-z0-9\-]{8,}|npm_[A-Za-z0-9]{30,}|AIza[A-Za-z0-9_\-]{35}|(?:sk|rk)_live_[A-Za-z0-9]{8,}|sk_test_[A-Za-z0-9]{8,}|sk-(?:proj|ant)-[A-Za-z0-9_\-]{8,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+`
-
-var (
-	mcpTokenPattern      = regexp.MustCompile(`^(?:` + mcpTokenPrefixes + `)$`)
-	mcpEmbeddedToken     = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])(` + mcpTokenPrefixes + `)(?:[^A-Za-z0-9]|$)`)
-	mcpUserPasswordAt    = regexp.MustCompile(`(?:^|[\s'"=,])([A-Za-z0-9._%+\-\x00]+):([^\s@/:'"]+)@(\S*)`)
-	mcpAssignment        = regexp.MustCompile(`(?:^|[^A-Za-z0-9_\x00])([A-Za-z_][A-Za-z0-9_\-]*)=([^\s;&|#]+)`)
-	mcpShellVariable     = regexp.MustCompile(`^\$[A-Za-z_][A-Za-z0-9_]*$`)
-	mcpBearer            = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])bearer\s+([^\s'",}\\]+)`)
-	mcpPlainValue        = regexp.MustCompile(`^(?:[/~@]|\.\.?/|[A-Za-z]:[\\/]|(?i:true|false|yes|no|on|off)$|[0-9]+$|[a-z]+(?:-[a-z]+)+$)|(?i)\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
-	mcpHeaderLine        = regexp.MustCompile(`(?m)^\s*([A-Za-z0-9_\-]+)\s*:[ \t]*(\S.*?)\s*$`)
-	mcpJSONPair          = regexp.MustCompile(`"([^"]+)"\s*:\s*"([^"]*)"`)
-	mcpSchemeWord        = regexp.MustCompile(`^[A-Za-z]+\s+`)
-	mcpImageDigestSuffix = regexp.MustCompile(`^sha[0-9]+:`)
-)
-
-// mcpToken reports whether value is a whole token by its prefix. An
-// `sk-` token other than `sk-proj-` or `sk-ant-` needs a digit, so a
-// package name such as `sk-learn-mcp-server-tools` is not one.
-func mcpToken(value string) bool {
-	if !mcpTokenPattern.MatchString(value) {
-		return false
-	}
-	if strings.HasPrefix(value, "sk-proj-") || strings.HasPrefix(value, "sk-ant-") || !strings.HasPrefix(value, "sk-") {
-		return true
-	}
-	return strings.ContainsAny(value, "0123456789")
-}
-
-// mcpSecretValue reports whether text, a value in detector text, is a
-// literal that may be a secret: not a reference (after an optional
-// scheme word, as in `Bearer ${TOKEN}`), a `$NAME` expansion, a file
-// path or name, an `@` value, a boolean, a number, or lower-case words
-// joined by dashes such as `streamable-http`. A value in its own
-// argument after a flag must not start with `-`, and after a weak name
-// it needs at least 8 characters, so `--require-api-key run` passes.
 func mcpSecretValue(text string, separate bool, strength mcpCredentialStrength) bool {
-	v := strings.Trim(text, `'"`)
-	if !mcpLiteralCredential(mcpSchemeWord.ReplaceAllString(v, "")) || strings.HasPrefix(v, "$") || mcpPlainValue.MatchString(v) {
-		return false
-	}
-	return !separate || !strings.HasPrefix(v, "-") && (strength == mcpStrongCredential || len(v) >= 8)
-}
-
-// mcpRefOnly reports whether value is only references, after an
-// optional scheme word such as `Bearer ${TOKEN}`.
-func mcpRefOnly(value string) bool {
-	value = mcpSchemeWord.ReplaceAllString(strings.TrimSpace(value), "")
-	return spec.OnlyEnvRefs(value) || mcpShellVariable.MatchString(value)
-}
-
-// mcpBearerIn finds a literal `Bearer` token, as in `-H
-// 'Authorization: Bearer ...'` or a JSON headers value. The token needs
-// a digit, one of `-._~+/=`, or at least 20 characters, so prose such as
-// "uses bearer authentication" does not count.
-func mcpBearerIn(text string) bool {
-	for _, m := range mcpBearer.FindAllStringSubmatch(text, -1) {
-		token := m[1]
-		if strings.Contains(token, mcpRefSentinel) || strings.HasPrefix(token, "$") {
-			continue
-		}
-		if len(token) >= 20 || strings.ContainsAny(token, "0123456789-._~+/=") {
-			return true
-		}
-	}
-	return false
-}
-
-// mcpKeyValueIn finds a line `Name: value` or a JSON pair `"name":
-// "value"` whose name is a credential key and whose value is a literal,
-// as in an `X-Api-Key: ...` headers value or `{"apiKey": "..."}`.
-func mcpKeyValueIn(text string) bool {
-	for _, pattern := range []*regexp.Regexp{mcpHeaderLine, mcpJSONPair} {
-		for _, m := range pattern.FindAllStringSubmatch(text, -1) {
-			if mcpCredentialKey(m[1]) && mcpSecretValue(m[2], false, mcpWeakCredential) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// mcpFlagIn finds a `--name value` or `--name=value` among the shell
-// words of text whose name is a credential and whose value is a secret.
-func mcpFlagIn(text string) bool {
-	words := strings.Fields(text)
-	for i, word := range words {
-		name, value, hasValue := mcpCredentialFlag(word)
-		switch {
-		case name == "":
-		case hasValue && mcpSecretValue(value, false, mcpWeakCredential):
-			return true
-		case !hasValue && i+1 < len(words) && mcpSecretValue(words[i+1], true, mcpNameStrength(name, false)):
-			return true
-		}
-	}
-	return false
-}
-
-// mcpCredentialHeader reports whether value, a `--header` or `-H`
-// argument, is `Name: value` with a credential name and a literal value.
-func mcpCredentialHeader(value string) bool {
-	name, v, ok := strings.Cut(value, ":")
-	v = strings.TrimSpace(v)
-	return ok && mcpCredentialKey(strings.TrimSpace(name)) && !mcpRefOnly(v) && mcpSecretValue(mcpDetectorText(v), false, mcpWeakCredential)
-}
-
-func mcpTokenIn(text string) bool {
-	for _, m := range mcpEmbeddedToken.FindAllStringSubmatch(text, -1) {
-		if mcpToken(m[1]) {
-			return true
-		}
-	}
-	return false
-}
-
-// mcpUserPasswordIn finds a scheme-less `user:password@host`, as in
-// `root:pw@db:3306` or an scp-style `user:pw@host:path`. An image digest
-// such as `node:20@sha256:...` is not one, and neither is a Windows path
-// such as `C:\Users\me@corp\a.db`.
-func mcpUserPasswordIn(text string) bool {
-	for _, m := range mcpUserPasswordAt.FindAllStringSubmatch(text, -1) {
-		drive := len(m[1]) == 1 && unicode.IsLetter(rune(m[1][0]))
-		if !drive && mcpLiteralCredential(m[2]) && !mcpImageDigestSuffix.MatchString(m[3]) {
-			return true
-		}
-	}
-	return false
-}
-
-// mcpAssignmentIn finds a `NAME=value` whose name ends in a credential
-// word, as in `TOKEN=x` inside a `sh -c` command. A shell expansion such
-// as `$TOKEN` or `$(cat f)` is not a literal.
-func mcpAssignmentIn(text string) bool {
-	for _, m := range mcpAssignment.FindAllStringSubmatch(text, -1) {
-		if mcpCredentialKey(m[1]) && mcpSecretValue(m[2], false, mcpWeakCredential) {
-			return true
-		}
-	}
-	return false
-}
-
-func mcpURLCredentialIn(text string) bool {
-	for _, m := range mcpQueryParamPattern.FindAllStringSubmatch(text, -1) {
-		if mcpCredentialParam(m[1]) && mcpLiteralCredential(m[2]) {
-			return true
-		}
-	}
-	for rest := text; ; {
-		sep := strings.Index(rest, "://")
-		if sep < 0 {
-			return false
-		}
-		rest = rest[sep+3:]
-		authority := rest[:indexAnyOrLen(rest, "/?#")]
-		at := strings.LastIndex(authority, "@")
-		if at < 0 {
-			hostPort := authority
-			if strings.HasPrefix(hostPort, "[") {
-				hostPort = hostPort[indexAnyOrLen(hostPort, "]"):]
-			}
-			host, port, ok := strings.Cut(hostPort, ":")
-			// `redis://:1234#5@host` hides an all-digit password before
-			// `#`, or before `/` when no host precedes it.
-			next := len(authority)
-			hidden := ok && next < len(rest) && (rest[next] == '#' || host == "")
-			if !hidden && (!ok || port != "" && strings.Trim(port, "0123456789"+mcpRefSentinel) == "") {
-				continue
-			}
-			if at = strings.Index(rest, "@"); at < 0 {
-				continue
-			}
-		}
-		if colon := strings.Index(rest[:at], ":"); colon >= 0 && mcpLiteralCredential(rest[colon+1:at]) {
-			return true
-		}
-	}
+	return preview.SecretValue(text, separate, strength)
 }
 
 // splitMCPURLCredentials finds the `user:password@` password and each
@@ -821,23 +595,9 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 	return literals, refs, unreadable
 }
 
-// mcpCredentialFlag returns the name of a `--name` or `--name=value`
-// argument whose name ends in a credential word, and the value after
-// `=`, so `--api-key` counts and `--key-id`, `--token-file`, or
-// `--no-token` does not.
 func mcpCredentialFlag(arg string) (name, value string, hasValue bool) {
-	rest, ok := strings.CutPrefix(arg, "--")
-	if !ok {
-		return "", "", false
-	}
-	name, value, hasValue = strings.Cut(rest, "=")
-	if !mcpFlagName.MatchString(name) || strings.HasPrefix(name, "no-") || !mcpCredentialName(name) {
-		return "", "", false
-	}
-	return name, value, hasValue
+	return preview.CredentialFlag(arg)
 }
-
-var mcpFlagName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.\-]*$`)
 
 // walkMCPStrings calls visit with each string in value, its path such
 // as `x-claude.env.TOKEN` or `requestOptions.proxy`, and the map key it
