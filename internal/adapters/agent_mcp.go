@@ -74,12 +74,16 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 		if _, set := agent.Meta["mcpServers"]; !set {
 			continue
 		}
+		list, _ := agent.Meta["mcpServers"].([]any)
+		for _, name := range spec.AgentMCPNames(agent.Meta) {
+			named[name] = true
+		}
 		custom, _ := agent.Meta[emit.XPrefix+target].(map[string]any)
 		if _, explicit := custom[form.Key]; explicit {
 			continue
 		}
 		var inline []spec.Entry
-		list, _ := agent.Meta["mcpServers"].([]any)
+		ownOnly := map[string]bool{}
 		for _, item := range list {
 			name, _ := item.(string)
 			e, found := byName[name]
@@ -89,13 +93,13 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 				}
 				continue
 			}
-			named[name] = true
 			if form.Names && !e.AgentOnly() {
 				continue
 			}
+			ownOnly[name] = e.AgentOnly()
 			inline = append(inline, e)
 		}
-		agents[i] = withAgentServers(agent, target, form, inliner.AgentMCPServers(inline))
+		agents[i] = withAgentServers(agent, target, form, inliner.AgentMCPServers(inline), ownOnly)
 	}
 	b.Agents = agents
 	unused := 0
@@ -109,9 +113,11 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 	return b
 }
 
-// withAgentServers returns agent with servers in its agent file key.
-func withAgentServers(agent spec.Entry, target string, form emit.AgentMCPForm, servers map[string]any) spec.Entry {
-	if len(servers) == 0 {
+// withAgentServers returns agent with servers in its agent file key. A
+// name in agentOnly that servers left out, such as a disabled server,
+// is dropped from a list of names, since no MCP file defines it.
+func withAgentServers(agent spec.Entry, target string, form emit.AgentMCPForm, servers map[string]any, agentOnly map[string]bool) spec.Entry {
+	if len(servers) == 0 && (!form.Names || len(agentOnly) == 0) {
 		return agent
 	}
 	agent.Meta = maps.Clone(agent.Meta)
@@ -122,6 +128,9 @@ func withAgentServers(agent spec.Entry, target string, form emit.AgentMCPForm, s
 			name, _ := item.(string)
 			if server, inline := servers[name]; inline {
 				out = append(out, map[string]any{name: server})
+				continue
+			}
+			if agentOnly[name] {
 				continue
 			}
 			out = append(out, item)

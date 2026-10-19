@@ -87,7 +87,8 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
-	issues = append(issues, mcpLiteralIssues(packAgentMCPs(b))...)
+	issues = append(issues, mcpLiteralIssues(packAgentMCPs(b, targets))...)
+	issues = append(issues, agentOnlyIssues(b.MCPs)...)
 	if slices.Contains(targets, "ellipsis") {
 		issues = append(issues, ellipsisVariableIssues(b.Settings)...)
 	}
@@ -153,18 +154,35 @@ func stopOnIssues(issues []validationIssue) error {
 }
 
 // packAgentMCPs returns the pack MCP specs sync may write into an agent
-// file: the agent-only ones and the ones an agent names.
-func packAgentMCPs(b spec.Bundle) []spec.Entry {
+// file: the agent-only ones, and the ones an agent names when a target
+// in targets writes every named server in full.
+func packAgentMCPs(b spec.Bundle, targets []string) []spec.Entry {
+	inlinesNames := slices.ContainsFunc(targets, func(t string) bool { return t == "kiro" || t == "openhands" })
 	named := map[string]bool{}
 	for _, a := range b.Agents {
 		for _, name := range spec.AgentMCPNames(a.Meta) {
-			named[name] = true
+			named[name] = inlinesNames
 		}
 	}
 	var out []spec.Entry
 	for _, e := range b.MCPs {
 		if strings.HasPrefix(e.Layer, "pack:") && (e.AgentOnly() || named[e.Name]) {
 			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// agentOnlyIssues reports an `agent-only` value that is not a boolean,
+// which would otherwise write the server into every MCP file.
+func agentOnlyIssues(mcps []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range mcps {
+		if v, set := e.Meta[spec.AgentOnlyKey]; set {
+			if _, ok := v.(bool); !ok {
+				out = append(out, validationIssue{Path: e.Path, Field: spec.AgentOnlyKey,
+					Message: fmt.Sprintf("MCP server %q: agent-only must be true or false", e.Name)})
+			}
 		}
 	}
 	return out

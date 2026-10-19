@@ -180,3 +180,24 @@ func TestAgentMCP_UserMCPServersLeaveAgentOnlyOut(t *testing.T) {
 		t.Errorf("shared server missing: %v", servers)
 	}
 }
+
+func TestAgentMCP_DisabledAgentOnlyServerLeavesNoDanglingName(t *testing.T) {
+	b := agentMCPBundle(nil)
+	b.MCPs[0].Meta["disabled"] = true
+	files, _ := emitAgentMCP(t, "claude", b)
+	agent := fileContaining(files, ".claude/agents/reviewer.md")
+	if strings.Contains(agent, "github") {
+		t.Errorf("a disabled agent-only server must leave no name behind:\n%s", agent)
+	}
+	if !strings.Contains(agent, "- docs") {
+		t.Errorf("the shared name was lost:\n%s", agent)
+	}
+}
+
+func TestAgentMCP_OverrideStillCountsAsNamingTheServer(t *testing.T) {
+	b := agentMCPBundle(map[string]any{"x-claude": map[string]any{"mcpServers": []any{"docs"}}})
+	_, notes := emitAgentMCP(t, "claude", b)
+	if strings.Contains(notes, "no agent names it") {
+		t.Errorf("the agent names the server; only its override replaces the list:\n%s", notes)
+	}
+}

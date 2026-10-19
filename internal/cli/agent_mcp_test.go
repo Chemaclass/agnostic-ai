@@ -66,7 +66,8 @@ func TestStopOnSpecTypos_RefusesAPackLiteralWrittenIntoAnAgent(t *testing.T) {
 	unnamed := mcpEntry(t, "name: other\ncommand: srv\nenv:\n  API_KEY: sk-live-abc\n")
 	unnamed.Layer = "pack:tools"
 	agent := spec.Entry{Kind: spec.KindAgent, Name: "triager", Path: "agents/triager.md", Meta: map[string]any{"mcpServers": []any{"docs"}}}
-	err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{literal, named, unnamed}, Agents: []spec.Entry{agent}}, []string{"kiro"})
+	b := spec.Bundle{MCPs: []spec.Entry{literal, named, unnamed}, Agents: []spec.Entry{agent}}
+	err := stopOnSpecTypos(b, []string{"kiro"})
 	if err == nil {
 		t.Fatal("sync must refuse a pack literal that lands in an agent file")
 	}
@@ -77,5 +78,24 @@ func TestStopOnSpecTypos_RefusesAPackLiteralWrittenIntoAnAgent(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), `"other"`) {
 		t.Errorf("a pack server no agent writes keeps today's behavior: %v", err)
+	}
+}
+
+// Claude keeps a shared server a name, so a pack literal there stays as
+// before; only the agent-only server reaches the agent file.
+func TestStopOnSpecTypos_PackLiteralOfANamedServerStaysAllowedWhereItStaysAName(t *testing.T) {
+	named := mcpEntry(t, "name: docs\ncommand: srv\nenv:\n  API_KEY: sk-live-abc\n")
+	named.Layer = "pack:tools"
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "triager", Path: "agents/triager.md", Meta: map[string]any{"mcpServers": []any{"docs"}}}
+	if err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{named}, Agents: []spec.Entry{agent}}, []string{"claude", "cursor"}); err != nil {
+		t.Errorf("no target writes the server into an agent file: %v", err)
+	}
+}
+
+func TestStopOnSpecTypos_RefusesANonBooleanAgentOnly(t *testing.T) {
+	e := mcpEntry(t, "name: github\nagent-only: yes\ncommand: srv\n")
+	err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{e}}, []string{"claude"})
+	if err == nil || !strings.Contains(err.Error(), "agent-only must be true or false") {
+		t.Errorf("a string agent-only would write the server to every MCP file: %v", err)
 	}
 }

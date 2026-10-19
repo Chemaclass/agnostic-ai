@@ -110,6 +110,7 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 			if field, value, ok := spec.NonJSONValue(e.Meta); ok {
 				out = append(out, validationIssue{Path: e.Path, Field: field, Message: nonJSONValueMessage(e.Name, field, value), entry: e})
 			}
+			out = append(out, agentOnlyIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind != spec.KindRule {
