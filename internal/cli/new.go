@@ -185,11 +185,11 @@ func newSpecTemplate(kind, name string) string {
 	case string(spec.KindAgent):
 		return fmt.Sprintf(`---
 name: %s
-description: TODO short description shown in agent pickers.
+description: TODO when to hand a task to this agent (say "use proactively" to encourage delegation).
 can: [read, Grep, shell]
 ---
 
-TODO: agent system prompt body.
+TODO: agent system prompt body. Put detail here; it loads only when the agent runs.
 `, name)
 	case string(spec.KindSkill):
 		return fmt.Sprintf(`---
