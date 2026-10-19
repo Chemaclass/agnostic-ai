@@ -42,7 +42,11 @@ func importFromCursor(root string, src config.Sources) error {
 		return err
 	}
 	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".cursor", "agents"), importSourcePath(root, src.Agents), cursorAgentFields, func(data []byte, dst string) ([]byte, error) {
-		return importPortableAgentKey(data, dst, "cursor", "is_background", "background", true)
+		data, err := importPortableAgentKey(data, dst, "cursor", "is_background", "background", true)
+		if err != nil {
+			return nil, err
+		}
+		return importScopedTargetKeys(data, dst, "cursor", "tools")
 	})
 	if err != nil {
 		return err

@@ -50,6 +50,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `x-ellipsis.environment.hooks.validate` is written after `before_start` and imported back, so an environment that sets it is no longer dropped (#2320).
 
+#### Cursor
+
+- `import cursor` keeps a key the spec sets under `x-cursor` there, with its comment, instead of moving it to the shared spec where every other tool got it on the next sync. `import` for Claude Code, Qoder, Junie, Gemini CLI, and OpenCode agents does the same for their own `x-<target>` block (#2340).
+
 ### Site
 
 - Claude Code docs say how to check what it loaded, that Explore and Plan skip `CLAUDE.md`, and how to run Explore on a cheaper model. The agents page says to write the trigger in `description` and when not to write an agent, and lists Claude's inline MCP servers, `permissionMode` limits, `color` values, and the auto memory needed for agent `memory` (#2326).

@@ -129,7 +129,11 @@ func importOpencodeAgents(root, dstDir string) (int, error) {
 		return 0, nil
 	}
 	return importFlatMarkdownFilesAt(src, dstDir, allSpecFields, func(data []byte, dst string) ([]byte, error) {
-		return importPortableAgentKey(data, dst, "opencode", "steps", "maxTurns", false)
+		data, err := importPortableAgentKey(data, dst, "opencode", "steps", "maxTurns", false)
+		if err != nil {
+			return nil, err
+		}
+		return importScopedTargetKeys(data, dst, "opencode")
 	})
 }
 

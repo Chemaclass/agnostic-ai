@@ -99,6 +99,11 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 			out = addTargetFrontmatter(out, "claude")
 		}
 		dstPath := filepath.Join(dstDir, e.Name())
+		scoped, err := importScopedTargetKeys([]byte(out), dstPath, "claude", "model", "tools", "disallowedTools", "readonly")
+		if err != nil {
+			return count, err
+		}
+		out = string(scoped)
 		if spec, err := os.ReadFile(dstPath); err == nil {
 			_, _, meta := claudeFrontmatter(string(spec))
 			if meta != nil {
