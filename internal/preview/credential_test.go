@@ -71,9 +71,9 @@ func TestRedactRulesIn_HidesOnlyTheRulesThatHoldACredential(t *testing.T) {
 	const token = "ghp_0123456789abcdefghijklmnop"
 	for text, want := range map[string]string{
 		"permissions.allow: use shell(echo " + token + ") instead of Bash(echo " + token + ")": "permissions.allow: use shell(<redacted>) instead of Bash(<redacted>)",
-		"deny Bash(curl -H 'X-Api-Key: $(cat k)' " + token + ") blocks nothing":                 "deny Bash(<redacted>) blocks nothing",
-		"use shell(go test:*) instead of Bash(go test:*)":                                       "use shell(go test:*) instead of Bash(go test:*)",
-		"no rule here (just prose)":                                                             "no rule here (just prose)",
+		"deny Bash(curl -H 'X-Api-Key: $(cat k)' " + token + ") blocks nothing":                "deny Bash(<redacted>) blocks nothing",
+		"use shell(go test:*) instead of Bash(go test:*)":                                      "use shell(go test:*) instead of Bash(go test:*)",
+		"no rule here (just prose)":                                                            "no rule here (just prose)",
 	} {
 		if got := RedactRulesIn(text); got != want {
 			t.Errorf("RedactRulesIn(%q) = %q, want %q", text, got, want)
