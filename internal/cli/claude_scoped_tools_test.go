@@ -137,3 +137,21 @@ func TestImportFromClaude_KeepsTheScopedCapabilityOfAnUneditedAgent(t *testing.T
 		t.Errorf("removing Bash natively must reach the spec:\n%s", got)
 	}
 }
+
+// Sync names the target once when on-unsupported: error stops on a
+// widening, for every adapter that reports one.
+func TestSync_WideningErrorNamesTheTargetOnce(t *testing.T) {
+	for target, can := range map[string]string{"claude": "can: [read, shell(git diff *)]", "kiro": "can: [edit]"} {
+		t.Run(target, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\non-unsupported: error\n")
+			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\n"+can+"\n---\n\nReview.\n")
+			_, err := runCLI(t, "sync", "--gitignore=off")
+			want := target + ": " + filepath.Join(".agnostic-ai", "agents", "reviewer.md") + ": "
+			if err == nil || !strings.HasPrefix(err.Error(), want) {
+				t.Fatalf("error = %v, want it to start %q", err, want)
+			}
+		})
+	}
+}

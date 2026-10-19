@@ -308,8 +308,8 @@
 # Linux amd64 release flags; retain the 8 KB allowance. No new dependencies.
 # With validate and lint reporting agent-file credentials, #2334 measured
 # 20144288, up 45056 from main 165b90b5. Retain the 8 KB allowance.
-# #2333 measured 20111520 on Go 1.27.2, up 12288 from main 165b90b5
-# (20099232): Claude agents write the plain tool for a scoped capability,
+# #2333 measured 20156576 on Go 1.27.2, up 12288 from main 30716b5e
+# (20144288): Claude agents write the plain tool for a scoped capability,
 # report the widening, and import keeps the spec's pattern. Same Linux
 # amd64 release flags; retain the 8 KB allowance. No new dependencies.
-20152480
+20164768
