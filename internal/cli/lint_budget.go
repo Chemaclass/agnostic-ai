@@ -36,6 +36,25 @@ var instructionByteCaps = map[string]instructionByteCap{
 	"antigravity": {bytes: 24000, format: "Antigravity truncates a rule file past %d bytes; this is %d bytes."},
 }
 
+// agentDescriptionCap is a vendor's published limit on the combined
+// agent descriptions it lists in a session. Vendors count tokens, and
+// lint counts characters, so the finding says it is an estimate.
+type agentDescriptionCap struct {
+	tokens int
+	format string
+}
+
+// charsPerToken is the usual English rule of thumb for turning
+// characters into tokens.
+const charsPerToken = 4
+
+var agentDescriptionCaps = map[string]agentDescriptionCap{
+	// code.claude.com/docs/en/sub-agents: "When the combined descriptions
+	// of your subagents, except the built-in ones, exceed 15,000 tokens,
+	// Claude Code shows a warning at startup".
+	"claude": {tokens: 15000, format: "claude lists about %d tokens of agent descriptions (estimate at %d characters per token); Claude Code warns at startup past %d tokens. Shorten descriptions and move detail into the agent body."},
+}
+
 // wordCount is one named source of always-loaded words.
 type wordCount struct {
 	name  string
@@ -52,12 +71,15 @@ type sessionLoad struct {
 	path string
 	// file labels the instructions file in the message; empty when the
 	// target loads none.
-	file       string
-	fileWords  int
-	fileBytes  int
-	fileLayers []wordCount
-	parts      []wordCount
-	context    []contextContribution
+	file string
+	// agentDescriptionChars counts the characters of the agent
+	// descriptions this target lists.
+	agentDescriptionChars int
+	fileWords             int
+	fileBytes             int
+	fileLayers            []wordCount
+	parts                 []wordCount
+	context               []contextContribution
 }
 
 func (l sessionLoad) total() int {
@@ -95,14 +117,17 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 		err     error
 	)
 	source := adapters.AgnosticEntryPointPath
+	var agentsPath string
 	if scope.global {
 		if budgets, err = loadGlobalLint(scope.source); err != nil {
 			return nil, err
 		}
 		source = filepath.Join(scope.source, "AGNOSTIC_AI.md")
+		agentsPath = filepath.Join(scope.source, "agents")
 		loads, err = globalSessionLoads(scope.source, scope.targets, scope.bundle)
 	} else {
 		budgets = scope.cfg.Lint
+		agentsPath = scope.cfg.Sources.Agents
 		loads, err = projectSessionLoads(scope.cfg, scope.support, scope.bundle)
 	}
 	var findings []lintFinding
@@ -116,6 +141,7 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 		})
 	} else {
 		findings = lintInstructionBudget(loads, budgets.InstructionsWordBudget())
+		findings = append(findings, lintAgentDescriptionBudget(loads, agentsPath)...)
 		if !scope.global {
 			chain, chainErr := lintCodexChain(scope.cfg, scope.bundle, loads, budgets.CodexChainByteBudget())
 			if chainErr != nil {
@@ -241,6 +267,7 @@ func addDescriptions(load *sessionLoad, support kindSupport, b spec.Bundle) {
 	}
 	if _, ok := support[spec.KindAgent][load.target]; ok {
 		load.add("agent descriptions", descriptionWords(b.Agents, load.target))
+		load.agentDescriptionChars = descriptionChars(b.Agents, load.target)
 		load.addEntryContext(b.Agents, "agent")
 	}
 }
@@ -250,6 +277,15 @@ func descriptionWords(entries []spec.Entry, target string) int {
 	for _, e := range entries {
 		desc, _ := adapters.ResolveMeta(e.Meta, target)["description"].(string)
 		n += wordsIn(desc)
+	}
+	return n
+}
+
+func descriptionChars(entries []spec.Entry, target string) int {
+	n := 0
+	for _, e := range entries {
+		desc, _ := adapters.ResolveMeta(e.Meta, target)["description"].(string)
+		n += utf8.RuneCountInString(strings.TrimSpace(desc))
 	}
 	return n
 }
@@ -350,6 +386,26 @@ func describeLoad(l sessionLoad, budget int) string {
 		parts = append(parts, fmt.Sprintf("%s %d", p.name, p.words))
 	}
 	return fmt.Sprintf("%s; budget %d (lint.instructions-words).", strings.Join(parts, ", "), budget)
+}
+
+// lintAgentDescriptionBudget reports the targets whose agent
+// descriptions pass the vendor's combined limit (LINT011, warn).
+// agentsPath is the source the user edits to shorten them.
+func lintAgentDescriptionBudget(loads []sessionLoad, agentsPath string) []lintFinding {
+	var out []lintFinding
+	for _, l := range loads {
+		limit, capped := agentDescriptionCaps[l.target]
+		if !capped || l.agentDescriptionChars <= limit.tokens*charsPerToken {
+			continue
+		}
+		out = append(out, lintFinding{
+			Code:     "LINT011",
+			Severity: lintWarn,
+			Path:     agentsPath,
+			Message:  fmt.Sprintf(limit.format, l.agentDescriptionChars/charsPerToken, charsPerToken, limit.tokens),
+		})
+	}
+	return out
 }
 
 // lintDescriptionBudget flags a skill or agent description longer than

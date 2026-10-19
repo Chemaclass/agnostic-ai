@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync` adds a `fix:` line under notes for dropped skill and agent fields and unsupported global agents, naming what to write instead. `sync --json` carries it in an optional `suggestion` field, and `sync --global --json` now includes its warnings and notes (#2329).
 - The homepage sync figure has a "With agnostic-ai" and "Without" toggle: with it, one note flows into every tool file; without it, each file holds a different rule you keep in step by hand.
 - The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.
 - Documentation links to shared permission and ownership guidance, sorts lint codes in one lookup, and explains how to diagnose plugin hook timeouts.
@@ -37,6 +38,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Agents always get `name` and `description` (the name when missing), so Claude Code no longer skips them; `lint` warns (LINT048).
 - An agent with an empty tool list (such as `can: []` or `can: [delete]`) is left out with a note, not written as `tools: []`, which Claude Code refuses.
 - `lint` names the Claude Code field for agent keys like `maxturns` or `omit_claude_md`, and no longer points Claude projects to `x-junie`.
+- `lint` estimates the combined agent description size at 4 characters per token and warns past the 15,000 tokens where Claude Code warns at startup (#2326).
 - `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
 
 #### Ellipsis
@@ -45,6 +47,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- Claude Code docs say how to check what it loaded, that Explore and Plan skip `CLAUDE.md`, and how to run Explore on a cheaper model. The agents page says to write the trigger in `description` and when not to write an agent, and lists Claude's inline MCP servers, `permissionMode` limits, `color` values, and the auto memory needed for agent `memory` (#2326).
 - The memory page gives Kiro IDE's memory default and its user-only setting (#2321).
 - Global configuration docs distinguish shared-name checks from Kiro, Qoder, and Warp skill-name behavior (#2292).
 - Onboarding starts with one project note, shows both tool outputs, and keeps agent-assisted and terminal setup in one guide.

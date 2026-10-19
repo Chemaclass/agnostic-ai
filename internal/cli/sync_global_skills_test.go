@@ -106,9 +106,15 @@ func TestSyncGlobal_ReportsDroppedSkillFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"model", "effort", "argument-hint", "allowed-tools"} {
+	for _, field := range []string{"model", "effort", "allowed-tools"} {
 		if !strings.Contains(warnings, "`"+field+"` on 2 skills has no effect on codex, cursor") {
 			t.Errorf("missing %s coverage: %s", field, warnings)
+		}
+	}
+	// Codex reads a shared skills folder with no target overrides, so its fix differs from Cursor's.
+	for _, target := range []string{"codex", "cursor"} {
+		if !strings.Contains(warnings, "`argument-hint` on 2 skills has no effect on "+target+" (") {
+			t.Errorf("missing argument-hint coverage for %s: %s", target, warnings)
 		}
 	}
 }
