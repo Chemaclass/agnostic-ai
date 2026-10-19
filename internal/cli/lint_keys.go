@@ -42,7 +42,7 @@ var specKeys = []string{
 // count them.
 var (
 	hookKeys  = []string{"on", "match", "decision"}
-	agentKeys = []string{"can"}
+	agentKeys = []string{"can", "maxTurns", "background"}
 )
 
 // kindKeys lists the keys a spec of kind reads.

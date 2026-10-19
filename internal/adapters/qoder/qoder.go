@@ -161,7 +161,7 @@ const (
 var caps = emit.Capabilities{
 	Target:      target,
 	Supports:    []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindSkill, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindSettings},
-	AgentFields: []string{"effort", "mcpServers"},
+	AgentFields: []string{"effort", "mcpServers", "maxTurns", "background"},
 }
 
 // Adapter emits Qoder configs.
@@ -272,14 +272,14 @@ func agentMarkdown(a spec.Entry) string {
 		meta["tools"] = tools
 		keys = append(keys, "tools")
 	}
-	for _, k := range []string{"color", "skills", "mcpServers", "effort", "permissionMode", "memory", "hooks"} {
+	for _, k := range []string{"color", "skills", "mcpServers", "effort", "permissionMode", "memory", "hooks", "maxTurns", "background"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
 			keys = append(keys, k)
 		}
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target,
-		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort", "permissionMode", "memory", "hooks")
+		"name", "description", "model", "tools", "color", "skills", "mcpServers", "effort", "permissionMode", "memory", "hooks", "maxTurns", "background")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {

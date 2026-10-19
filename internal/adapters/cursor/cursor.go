@@ -115,6 +115,7 @@ var caps = emit.Capabilities{
 	SkillFields: emit.SkillFieldCoverage{Markdown: skillMarkdown},
 	Target:      target,
 	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindReview, spec.KindEnvironment, spec.KindIgnore, spec.KindSettings},
+	AgentFields: []string{"background"},
 	AgentFieldReasons: map[string]string{
 		"effort": `Cursor has no effort key; put it in the model id, e.g. model: {cursor: "claude-opus-5[effort=high]"}`,
 	},

@@ -18,7 +18,7 @@ import (
 // frontmatter through the merge when set there (see xGeminiSetsTools).
 // `mcpServers` is listed so the name Gemini's docs show never reaches
 // the file: agentMCPServers writes it as `mcp_servers` instead.
-var resolvedAgentKeys = []string{"name", "description", "kind", "model", "temperature", "max_turns", "timeout_mins", "mcp_servers", "mcpServers"}
+var resolvedAgentKeys = []string{"name", "description", "kind", "model", "temperature", "max_turns", "maxTurns", "timeout_mins", "mcp_servers", "mcpServers"}
 
 // EmitAgents writes one native subagent per agent at
 // `<dir>/<name>.md`: "Custom agents are defined as Markdown files
@@ -57,7 +57,8 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // `description` are the two required frontmatter fields, so both always
 // emit (`description` falls back to the spec name). `kind`, `model`,
 // `temperature`, `max_turns`, and `timeout_mins` pass through verbatim
-// when declared, and `tools` translates onto Gemini's own vocabulary
+// when declared, the portable `maxTurns` written as `max_turns` when
+// the spec sets no `max_turns`, and `tools` translates onto Gemini's own vocabulary
 // (see toolCapabilities). `mcp_servers` (inline per-agent MCP servers)
 // passes through too; see agentMCPServers. Arbitrary `x-gemini` keys
 // merge on top.
@@ -96,6 +97,11 @@ func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools, renamedMCP bool
 	if v, ok := resolved["temperature"]; ok && isNumber(v) {
 		meta["temperature"] = v
 		keys = append(keys, "temperature")
+	}
+	if _, native := resolved["max_turns"]; !native {
+		if turns, ok := spec.AgentMaxTurns(resolved["maxTurns"]); ok {
+			resolved["max_turns"] = turns
+		}
 	}
 	for _, k := range []string{"max_turns", "timeout_mins"} {
 		if v, ok := emit.IntField(resolved, k); ok {

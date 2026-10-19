@@ -178,7 +178,7 @@ const EntryFile = defaultEntryFile
 var caps = emit.Capabilities{
 	Target:      target,
 	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
-	AgentFields: []string{"effort", "mcpServers"},
+	AgentFields: []string{"effort", "mcpServers", "maxTurns"},
 }
 
 // agentNameRule is the regex the subagent frontmatter table states for

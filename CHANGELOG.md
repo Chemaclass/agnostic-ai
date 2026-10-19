@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Agents take two portable fields: `maxTurns`, the most turns an agent takes, and `background: true`, which runs it without making the session wait. Sync writes each under the tool's own key (Claude Code, Junie, Qoder, Gemini CLI `max_turns`, Kilo Code and OpenCode `steps`, Cursor `is_background`) and prints a note on tools that have none. A value under `x-<target>` still wins. Specs that already set these at the top level now also reach Gemini CLI, Kilo Code, OpenCode, Qoder, and Cursor. `import` reads the native keys back, and `validate`, `lint` (LINT049), and `sync` stop on a value of the wrong type. `lint` now suggests `maxTurns` for `max_turns` and `steps` instead of `x-junie.maxTurns` (#2327).
 - `sync` adds a `fix:` line under notes for dropped skill and agent fields and unsupported global agents, naming what to write instead. `sync --json` carries it in an optional `suggestion` field, and `sync --global --json` now includes its warnings and notes (#2329).
 - The homepage sync figure has a "With agnostic-ai" and "Without" toggle: with it, one note flows into every tool file; without it, each file holds a different rule you keep in step by hand.
 - The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.

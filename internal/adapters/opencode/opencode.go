@@ -76,8 +76,9 @@ const (
 var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"}
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindHook},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindHook},
+	AgentFields: []string{"maxTurns"},
 	// OpenCode names a model as provider/model, so a bare Claude name never loads.
 	ForeignClaudeModels: emit.ClaudeModelNames,
 }

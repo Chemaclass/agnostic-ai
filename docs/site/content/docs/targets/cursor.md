@@ -65,7 +65,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 
 ### Agents
 
-[Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The body is the system prompt.
+[Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The portable `background` is written as `is_background`, and an `is_background` the spec sets wins. The body is the system prompt.
 
 - Cursor has no `tools` field, so sync drops a `tools` list with a sync note. Use `readonly: true` instead.
 - Cursor has no effort field, so a portable `effort` raises a sync note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).

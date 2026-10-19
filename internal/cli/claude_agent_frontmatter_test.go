@@ -122,13 +122,62 @@ func TestLintNearMissKeys_ClaudeAgentFieldsSpelledRightStaySilent(t *testing.T) 
 	}
 }
 
-func TestLintNearMissKeys_JunieAdviceStaysWithoutClaude(t *testing.T) {
+// maxTurns is portable, so the advice names it, never an x-<target> key.
+func TestLintNearMissKeys_TurnLimitAdviceNamesThePortableField(t *testing.T) {
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"max_turns": "x"}, Body: "b"}}
 	got := lintNearMissKeys(entries, []string{"junie"})
-	if len(got) != 1 || !strings.Contains(got[0].Message, "`x-junie.maxTurns:`") {
+	if len(got) != 1 || !strings.Contains(got[0].Message, "`maxTurns:`") || strings.Contains(got[0].Message, "x-junie") {
 		t.Errorf("got %v", got)
+	}
+	steps := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"steps": 5}, Body: "b"}}
+	if got := lintNearMissKeys(steps, []string{"kilo"}); len(got) != 1 || !strings.Contains(got[0].Message, "`maxTurns:`") {
+		t.Errorf("a top-level steps reaches no tool, got %v", got)
+	}
+	portable := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"maxTurns": 5, "background": true}, Body: "b"}}
+	if got := lintNearMissKeys(portable, []string{"junie", "cursor"}); len(got) != 0 {
+		t.Errorf("portable fields must not be flagged, got %v", got)
 	}
 	if got := lintNearMissKeys(entries, []string{"cursor"}); len(got) != 1 {
 		t.Errorf("a near miss still warns with neither target, got %v", got)
+	}
+}
+
+func TestLintAgentLimits_RejectsWrongTypes(t *testing.T) {
+	for _, tc := range []struct {
+		meta  map[string]any
+		valid bool
+	}{
+		{map[string]any{"maxTurns": 20, "background": true}, true},
+		{map[string]any{"background": false}, true},
+		{map[string]any{"x-gemini": map[string]any{"max_turns": "lots"}}, true},
+		{map[string]any{"maxTurns": 0}, false},
+		{map[string]any{"maxTurns": -3}, false},
+		{map[string]any{"maxTurns": 2.5}, false},
+		{map[string]any{"maxTurns": "20"}, false},
+		{map[string]any{"background": "yes"}, false},
+	} {
+		got := lintAgentLimits([]spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: tc.meta, Body: "b"}})
+		if (len(got) == 0) != tc.valid {
+			t.Errorf("%v: valid=%t, got %v", tc.meta, tc.valid, got)
+		}
+		for _, f := range got {
+			if f.Code != "LINT049" || f.Severity != lintError {
+				t.Errorf("%v: got %+v", tc.meta, f)
+			}
+		}
+	}
+}
+
+func TestSync_StopsOnAnInvalidAgentTurnLimit(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "loop.md"), "---\ndescription: Loops.\nmaxTurns: \"many\"\n---\n\nLoop.\n")
+	out, err := runRoot(t, "sync")
+	if err == nil || !strings.Contains(out+err.Error(), "maxTurns is many; write a whole number of 1 or more") {
+		t.Fatalf("sync must stop on the bad value: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gemini", "agents", "loop.md")); !os.IsNotExist(err) {
+		t.Errorf("sync wrote the agent: %v", err)
 	}
 }

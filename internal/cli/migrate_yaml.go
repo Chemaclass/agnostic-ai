@@ -130,7 +130,8 @@ func quoteLike(style yaml.Style, value string) string {
 }
 
 // sameApartFrom checks that after decodes to before with only the
-// rewrites applied.
+// rewrites applied. A rewrite that keeps a number or boolean value as
+// written decodes to that value, not to its text.
 func sameApartFrom(before, after string, rewrites []yamlKeyRewrite) error {
 	var old, next map[string]any
 	if err := yaml.Unmarshal([]byte(before), &old); err != nil {
@@ -140,7 +141,8 @@ func sameApartFrom(before, after string, rewrites []yamlKeyRewrite) error {
 		return fmt.Errorf("the rewrite does not parse: %w", err)
 	}
 	for _, rw := range rewrites {
-		if next[rw.NewKey] != rw.Value {
+		renamed := reflect.DeepEqual(next[rw.NewKey], old[rw.Key]) && fmt.Sprint(old[rw.Key]) == rw.Value
+		if next[rw.NewKey] != rw.Value && !renamed {
 			return fmt.Errorf("the rewrite reads %s: as %v, not %s", rw.NewKey, next[rw.NewKey], rw.Value)
 		}
 		delete(old, rw.Key)

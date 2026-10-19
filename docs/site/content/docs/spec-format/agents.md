@@ -56,6 +56,8 @@ Run `agnostic-ai explain agents/code-reviewer.md` to inspect the translations, t
 | `readonly` | no | unset | `true` limits the agent to reading; `false` does nothing. See [`readonly` by target](#readonly-by-target). |
 | `memory` | no | unset | Persistent memory scope: `user`, `project`, or `local`. |
 | `mcpServers` | no | unset | MCP servers this agent may reach. See [`mcpServers` support by target](#mcpservers-support-by-target). |
+| `maxTurns` | no | unset | The most turns the agent takes before it stops, a whole number of 1 or more. See [`maxTurns` and `background` by target](#maxturns-and-background-by-target). |
+| `background` | no | unset | `true` runs the agent in the background. See [`maxTurns` and `background` by target](#maxturns-and-background-by-target). |
 | `permissionMode` | no | unset | How much this agent may do without approval. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
 | `hooks` | no | unset | Lifecycle hooks for this agent only. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
 
@@ -276,6 +278,22 @@ A top-level `mcpServers` list limits which MCP servers one agent may reach. With
 Every other tool drops the list with a sync note. On the three inline tools, the note names the `x-<target>` key to set.
 
 **An empty list does not mean the same everywhere.** Junie treats `mcpServers: []` as keeping every configured server. Factory treats it as excluding every server. List the servers you want instead.
+
+## `maxTurns` and `background` by target {#maxturns-and-background-by-target}
+
+`maxTurns` limits how many turns the agent takes before it stops and returns. `background: true` runs the agent without making the main session wait for it. Without either, the tool's own default applies. A value under `x-<target>` wins over the shared one. `validate`, `lint` (LINT049), and `sync` stop on a `maxTurns` that is not a whole number of 1 or more, or a `background` that is not `true` or `false`.
+
+| Target | `maxTurns` | `background` |
+|--------|------------|--------------|
+| [Claude Code](@/docs/targets/claude.md) | `maxTurns` | `background` |
+| [Qoder](@/docs/targets/qoder.md) | `maxTurns` | `background`, when background subagent sessions are on |
+| [Junie](@/docs/targets/junie.md) | `maxTurns` | Sync note |
+| [Gemini CLI](@/docs/targets/gemini.md) | `max_turns`; `x-gemini.max_turns` wins | Sync note |
+| [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md) | `steps`; `x-<target>.steps` wins | Sync note |
+| [Cursor](@/docs/targets/cursor.md) | Sync note | `is_background`; `x-cursor.is_background` wins |
+| Every other target | Sync note | Sync note |
+
+`import` reads each native key back into `maxTurns` or `background`.
 
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 

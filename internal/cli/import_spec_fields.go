@@ -52,11 +52,11 @@ var (
 var (
 	claudeAgentFields      = specFields{all: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
 	clineAgentFields       = fieldsOf("name", "description")
-	cursorAgentFields      = fieldsOf("name", "description", "model")
+	cursorAgentFields      = fieldsOf("name", "description", "model", "background")
 	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")
 	antigravityAgentFields = fieldsOf("name", "description")
 	kiroAgentFields        = fieldsOf("name", "description", "model", "tools")
-	qoderAgentFields       = fieldsOf("name", "description", "model", "tools", "color", "effort", "memory")
+	qoderAgentFields       = fieldsOf("name", "description", "model", "tools", "color", "effort", "memory", "maxTurns", "background")
 	gooseAgentFields       = fieldsOf("name", "description", "model")
 	traeAgentFields        = fieldsOf("name", "description", "tools")
 	windsurfAgentFields    = fieldsOf("name", "description", "model", "allowed-tools")

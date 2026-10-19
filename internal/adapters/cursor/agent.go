@@ -12,7 +12,8 @@ import (
 // `.cursor/agents/<name>.md` (Cursor 2.4+). The frontmatter carries the
 // documented fields (`name`, `description`, `model`, `readonly`,
 // `is_background`) when the spec declares them; arbitrary `x-cursor`
-// keys pass through. The body is the agent's system prompt.
+// keys pass through. The portable `background` becomes `is_background`
+// unless the spec sets that key itself. The body is the agent's system prompt.
 //
 // Returns whether the spec declared a `tools` list, which Cursor has no
 // frontmatter field for. The caller folds that into one coverage note per
@@ -41,6 +42,11 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 		"description": desc,
 	}
 	keys := []string{"name", "description"}
+	if _, native := resolved["is_background"]; !native {
+		if background, ok := resolved["background"].(bool); ok {
+			resolved["is_background"] = background
+		}
+	}
 	for _, k := range []string{"model", "readonly", "is_background"} {
 		if v, ok := resolved[k]; ok {
 			meta[k] = v
@@ -49,7 +55,7 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 	}
 	// `tools` joins the exclude list so an x-cursor escape-hatch attempt
 	// cannot reintroduce a key Cursor does not read.
-	exclude := append(append([]string(nil), keys...), "tools")
+	exclude := append(append([]string(nil), keys...), "tools", "background")
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, exclude...)
 	front := emit.FrontmatterOrdered(meta, keys)
 	body := strings.TrimSpace(a.Body)

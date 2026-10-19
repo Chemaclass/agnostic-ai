@@ -239,6 +239,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	own := ownSpecs(bundle)
 	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
+	issues = append(issues, agentLimitIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
 	issues = append(issues, sessionRetentionIssues(bundle.Settings)...)
 	// A permission rule the target cannot read would be written as it

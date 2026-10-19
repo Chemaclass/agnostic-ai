@@ -84,7 +84,7 @@ var caps = emit.Capabilities{
 	SkillFields:    emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
 	Target:         target,
 	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindEnvironment},
-	AgentFields:    []string{"effort", "mcpServers"},
+	AgentFields:    []string{"effort", "mcpServers", "maxTurns", "background"},
 	SettingsFields: []string{"effort"},
 }
 

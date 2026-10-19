@@ -35,11 +35,13 @@
 // `mode` shares OpenCode's `primary`/`subagent`/`all` vocabulary under
 // the identical name. Kilo Code's full agent Configuration Options table
 // also documents `disable`, `hidden`, `steps`, `temperature`, and `top_p`
-// (target-audit 2026-08-08, #562); none has a confirmed counterpart on
-// another registered target, and `temperature`/`top_p` are
-// provider-scaled tuning knobs besides, so all five stay reachable only
-// through `x-kilo` (e.g. `x-kilo: {temperature: 0.1, steps: 15}`) rather
-// than a generic top-level key. Every other arbitrary `x-kilo`
+// (target-audit 2026-08-08, #562). `steps` is the portable `maxTurns`
+// ("Maximum agentic iterations before forcing a text-only response"),
+// and `x-kilo.steps` wins over it. The other four have no confirmed
+// counterpart on another registered target, and `temperature`/`top_p`
+// are provider-scaled tuning knobs besides, so they stay reachable only
+// through `x-kilo` (e.g. `x-kilo: {temperature: 0.1}`) rather than a
+// generic top-level key. Every other arbitrary `x-kilo`
 // key passes through the same way. `tools` is never written under that
 // spelling, or under `x-kilo`: Kilo Code's full agent option table has
 // no `tools` field, so the key itself would be a silent no-op.
@@ -234,8 +236,9 @@ var scannedSkillTrees = map[string]bool{
 }
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings, spec.KindHook},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings, spec.KindHook},
+	AgentFields: []string{"maxTurns"},
 	// Kilo names a model as provider/model, so a bare Claude name never loads.
 	ForeignClaudeModels: emit.ClaudeModelNames,
 }
@@ -438,13 +441,28 @@ func agentMarkdown(e spec.Entry, project []flatRule, servers []string) (body str
 			keys = append(keys, permissionKey)
 		}
 	}
-	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "color", "mode", "model", "name", "tools")
+	if steps, ok := portableSteps(e, resolved); ok {
+		meta["steps"] = steps
+		keys = append(keys, "steps")
+	}
+	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "color", "mode", "model", "name", "tools", "maxTurns")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(e.Body)
 	if trimmed == "" {
 		return front + "\n", unmapped
 	}
 	return front + "\n" + trimmed + "\n", unmapped
+}
+
+// portableSteps returns the portable `maxTurns` as Kilo Code's `steps`,
+// unless `x-kilo.steps` sets it, in which case the passthrough writes it.
+func portableSteps(e spec.Entry, resolved map[string]any) (int, bool) {
+	if custom, _ := emit.CustomTargetMeta(e.Meta, target); custom != nil {
+		if _, native := custom["steps"]; native {
+			return 0, false
+		}
+	}
+	return spec.AgentMaxTurns(resolved["maxTurns"])
 }
 
 // hasNativePermission reports whether the spec already carries an
