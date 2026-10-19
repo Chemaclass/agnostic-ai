@@ -98,10 +98,9 @@ func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools, renamedMCP bool
 		meta["temperature"] = v
 		keys = append(keys, "temperature")
 	}
-	if _, native := resolved["max_turns"]; !native {
-		if turns, ok := spec.AgentMaxTurns(resolved["maxTurns"]); ok {
-			resolved["max_turns"] = turns
-		}
+	delete(resolved, "max_turns")
+	if turns, ok := (emit.AgentLimit{Portable: emit.AgentMaxTurns, Native: "max_turns", TopLevelNative: true}).Value(a, target); ok {
+		resolved["max_turns"] = turns
 	}
 	for _, k := range []string{"max_turns", "timeout_mins"} {
 		if v, ok := emit.IntField(resolved, k); ok {

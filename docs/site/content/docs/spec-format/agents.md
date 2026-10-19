@@ -284,7 +284,7 @@ On Kiro and OpenHands, a name with no MCP spec cannot be written, so sync drops 
 
 ## `maxTurns` and `background` by target {#maxturns-and-background-by-target}
 
-`maxTurns` limits how many turns the agent takes before it stops and returns. `background: true` runs the agent without making the main session wait for it. Without either, the tool's own default applies. A value under `x-<target>` wins over the shared one. `validate`, `lint` (LINT050), and `sync` stop on a `maxTurns` that is not a whole number of 1 or more, or a `background` that is not `true` or `false`.
+`maxTurns` limits how many turns the agent takes before it stops and returns. `background: true` runs the agent without making the main session wait for it. Without either, the tool's own default applies. A value under `x-<target>` wins over the shared one, and sync prints a note and uses the shared value when that override has the wrong type. `validate`, `lint` (LINT050), and `sync` stop on a `maxTurns` that is not a whole number of 1 or more, or a `background` that is not `true` or `false`.
 
 | Target | `maxTurns` | `background` |
 |--------|------------|--------------|
@@ -296,7 +296,7 @@ On Kiro and OpenHands, a name with no MCP spec cannot be written, so sync drops 
 | [Cursor](@/docs/targets/cursor.md) | Sync note | `is_background`; `x-cursor.is_background` wins |
 | Every other target | Sync note | Sync note |
 
-`import` reads each native key back into `maxTurns` or `background`.
+`import` reads each native key back into `maxTurns` or `background`. When the spec already sets the value under `x-<target>`, import writes it back there and keeps the shared value.
 
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 

@@ -133,6 +133,12 @@ func TestLintNearMissKeys_TurnLimitAdviceNamesThePortableField(t *testing.T) {
 	if got := lintNearMissKeys(steps, []string{"kilo"}); len(got) != 1 || !strings.Contains(got[0].Message, "`maxTurns:`") {
 		t.Errorf("a top-level steps reaches no tool, got %v", got)
 	}
+	for _, kind := range []spec.Kind{spec.KindSkill, spec.KindCommand, spec.KindRule} {
+		other := []spec.Entry{{Kind: kind, Name: "a", Path: "x/a.md", Meta: map[string]any{"steps": 3}, Body: "b"}}
+		if got := lintNearMissKeys(other, []string{"kilo"}); len(got) != 0 {
+			t.Errorf("%s: steps is not an agent field there, got %v", kind, got)
+		}
+	}
 	portable := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"maxTurns": 5, "background": true}, Body: "b"}}
 	if got := lintNearMissKeys(portable, []string{"junie", "cursor"}); len(got) != 0 {
 		t.Errorf("portable fields must not be flagged, got %v", got)
@@ -174,7 +180,7 @@ func TestSync_StopsOnAnInvalidAgentTurnLimit(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "loop.md"), "---\ndescription: Loops.\nmaxTurns: \"many\"\n---\n\nLoop.\n")
 	out, err := runRoot(t, "sync")
-	if err == nil || !strings.Contains(out+err.Error(), "maxTurns is many; write a whole number of 1 or more") {
+	if err == nil || !strings.Contains(out+err.Error(), `maxTurns is the text "many"; write a whole number of 1 or more`) {
 		t.Fatalf("sync must stop on the bad value: %v\n%s", err, out)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".gemini", "agents", "loop.md")); !os.IsNotExist(err) {

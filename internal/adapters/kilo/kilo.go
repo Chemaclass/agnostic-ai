@@ -441,28 +441,17 @@ func agentMarkdown(e spec.Entry, project []flatRule, servers []string) (body str
 			keys = append(keys, permissionKey)
 		}
 	}
-	if steps, ok := portableSteps(e, resolved); ok {
+	if steps, ok := (emit.AgentLimit{Portable: emit.AgentMaxTurns, Native: "steps"}).Value(e, target); ok {
 		meta["steps"] = steps
 		keys = append(keys, "steps")
 	}
-	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "color", "mode", "model", "name", "tools", "maxTurns")
+	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, "description", "color", "mode", "model", "name", "tools", "steps", "maxTurns")
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(e.Body)
 	if trimmed == "" {
 		return front + "\n", unmapped
 	}
 	return front + "\n" + trimmed + "\n", unmapped
-}
-
-// portableSteps returns the portable `maxTurns` as Kilo Code's `steps`,
-// unless `x-kilo.steps` sets it, in which case the passthrough writes it.
-func portableSteps(e spec.Entry, resolved map[string]any) (int, bool) {
-	if custom, _ := emit.CustomTargetMeta(e.Meta, target); custom != nil {
-		if _, native := custom["steps"]; native {
-			return 0, false
-		}
-	}
-	return spec.AgentMaxTurns(resolved["maxTurns"])
 }
 
 // hasNativePermission reports whether the spec already carries an

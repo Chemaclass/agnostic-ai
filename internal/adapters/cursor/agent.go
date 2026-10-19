@@ -42,10 +42,9 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 		"description": desc,
 	}
 	keys := []string{"name", "description"}
-	if _, native := resolved["is_background"]; !native {
-		if background, ok := resolved["background"].(bool); ok {
-			resolved["is_background"] = background
-		}
+	delete(resolved, "is_background")
+	if background, ok := (emit.AgentLimit{Portable: emit.AgentBackground, Native: "is_background", TopLevelNative: true}).Value(a, target); ok {
+		resolved["is_background"] = background
 	}
 	for _, k := range []string{"model", "readonly", "is_background"} {
 		if v, ok := resolved[k]; ok {

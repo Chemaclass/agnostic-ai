@@ -128,8 +128,8 @@ func importOpencodeAgents(root, dstDir string) (int, error) {
 	if !dirExists(src) {
 		return 0, nil
 	}
-	return importFlatMarkdownFilesWith(src, dstDir, allSpecFields, func(data []byte) ([]byte, error) {
-		return importPortableAgentKey(data, "steps", "maxTurns"), nil
+	return importFlatMarkdownFilesAt(src, dstDir, allSpecFields, func(data []byte, dst string) ([]byte, error) {
+		return importPortableAgentKey(data, dst, "opencode", "steps", "maxTurns")
 	})
 }
 

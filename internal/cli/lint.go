@@ -640,17 +640,22 @@ type nearMiss struct {
 //
 // `disallowedTools` has no agnostic-ai key. Without Claude Code it
 // reaches a tool only under `x-junie`; with it, the Claude near-miss
-// check names the top-level key Claude Code reads. `steps` is Kilo Code's
-// and OpenCode's name for the portable `maxTurns`, read there only under
-// `x-<target>`. `max_turns` is not listed: Gemini CLI reads it at the
-// top level, and keyTypo suggests `maxTurns` without Gemini.
+// check names the top-level key Claude Code reads. `max_turns` is not
+// listed: Gemini CLI reads it at the top level, and keyTypo suggests
+// `maxTurns` without Gemini.
 var nearMissKeys = map[string]nearMiss{
 	"allowed_tools":    {Use: "tools", Owned: true},
 	"allowedTools":     {Use: "tools", Owned: true},
 	"allowed-tools":    {Use: "tools", Owned: true},
 	"model_name":       {Use: "model", Owned: true},
-	"steps":            {Use: "maxTurns", Owned: true},
 	"disallowed_tools": {Use: "x-junie.disallowedTools"},
+}
+
+// agentNearMissKeys are near misses on agents only. `steps` is Kilo
+// Code's and OpenCode's name for the portable `maxTurns`, read there only
+// under `x-<target>`; on a skill or command it means something else.
+var agentNearMissKeys = map[string]nearMiss{
+	"steps": {Use: "maxTurns", Owned: true},
 }
 
 // keyTypo reports a key one edit from a documented spec field (two for
@@ -699,6 +704,9 @@ func lintNearMissKeys(entries []spec.Entry, targets []string) []lintFinding {
 			miss, ok := nearMiss{Use: field}, claude
 			if !ok {
 				miss, ok = nearMissKeys[k]
+			}
+			if !ok && e.Kind == spec.KindAgent {
+				miss, ok = agentNearMissKeys[k]
 			}
 			if !ok {
 				miss, ok = keyTypo(e.Kind, k, targets)
