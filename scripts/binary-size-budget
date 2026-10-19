@@ -302,4 +302,8 @@
 # with an empty tool list are left out with notes in sync, doctor and
 # compare, and lint reads Claude Code's agent fields. Same Linux amd64
 # release flags; retain the 8 KB allowance. No new dependencies.
-20107424
+# #2327 measured 20111520 on Go 1.27.2, 4096 over the previous budget:
+# portable agent maxTurns and background map to each tool's
+# key, with validation, LINT049, and import back. Same Linux amd64
+# release flags; retain the 8 KB allowance. No new dependencies.
+20119712
