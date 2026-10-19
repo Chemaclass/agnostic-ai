@@ -174,6 +174,12 @@ func importGeminiAgents(root, dstDir string) (int, error) {
 		if err != nil {
 			return nil, err
 		}
+		if data, err = importScopedTargetKeys(data, dst, "gemini"); err != nil {
+			return nil, err
+		}
+		if specScopesKey(dst, "gemini", "tools") {
+			return data, nil
+		}
 		return importNativeAgentTools(data, "gemini", "tools")
 	})
 }
