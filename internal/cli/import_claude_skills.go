@@ -7,11 +7,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func preserveClaudeReadonly(existing, imported *yaml.Node) {
@@ -104,6 +107,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 			if meta != nil || !strings.HasPrefix(string(spec), "---\n") {
 				out = dropClaudeIdentityFallback(out, meta)
 			}
+			out = keepScopedClaudeTools(out, header.Strip(string(data)), meta)
 		}
 		if err := importMkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dstPath), err)
@@ -114,6 +118,53 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// keepScopedClaudeTools puts back the spec's own `can` or `tools` when
+// the native file holds exactly the plain tools sync widened them to, so
+// importing an edited agent keeps a pattern other tools may honor.
+func keepScopedClaudeTools(doc, native string, existing map[string]any) string {
+	key := "can"
+	if _, set := existing[key]; !set {
+		key = "tools"
+	}
+	value, set := existing[key]
+	if !set {
+		return doc
+	}
+	written, widened := claude.WidenedAgentTools(spec.Entry{Kind: spec.KindAgent, Meta: existing})
+	_, _, nativeMeta := claudeFrontmatter(native)
+	if !widened || nativeMeta == nil || !slices.Equal(written, claudeToolNames(nativeMeta["tools"])) {
+		return doc
+	}
+	rest, end, imported := claudeFrontmatter(doc)
+	if imported == nil {
+		return doc
+	}
+	var node yaml.Node
+	if err := yaml.Unmarshal([]byte(rest[:end]), &node); err != nil || len(node.Content) == 0 {
+		return doc
+	}
+	mapping := node.Content[0]
+	removeMappingKey(mapping, "can")
+	removeMappingKey(mapping, "tools")
+	setMappingValue(mapping, key, value)
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if enc.Encode(mapping) != nil || enc.Close() != nil {
+		return doc
+	}
+	return "---\n" + buf.String() + rest[end+1:]
+}
+
+// claudeToolNames reads a Claude Code `tools` value, a list or a
+// comma-separated string, as names.
+func claudeToolNames(raw any) []string {
+	if s, ok := raw.(string); ok {
+		return spec.SplitToolList(s)
+	}
+	return toStringSlice(raw)
 }
 
 // dropClaudeIdentityFallback removes from an imported agent the

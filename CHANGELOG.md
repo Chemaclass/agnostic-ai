@@ -35,6 +35,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Claude Code
 
+- **Breaking:** scoped agent capabilities such as `shell(git diff *)` become the plain tool, such as `Bash`, with a note; `on-unsupported: error` fails.
 - Agents always get `name` and `description` (the name when missing), so Claude Code no longer skips them; `lint` warns (LINT048).
 - An agent with an empty tool list (such as `can: []` or `can: [delete]`) is left out with a note, not written as `tools: []`, which Claude Code refuses.
 - `lint` names the Claude Code field for agent keys like `maxturns` or `omit_claude_md`, and no longer points Claude projects to `x-junie`.

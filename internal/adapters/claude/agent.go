@@ -50,6 +50,11 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	var all []resolved
 	var named []spec.Entry
 	var undescribed []string
+	if sess.UserTier() {
+		if err := reportWidenedTools(agents, ""); err != nil {
+			return err
+		}
+	}
 	for _, agent := range agents {
 		meta, keys := agentMeta(agent)
 		if emptyToolList(meta) {
@@ -153,6 +158,9 @@ func emptyToolList(meta map[string]any) bool {
 
 func agentMeta(a spec.Entry) (map[string]any, []string) {
 	meta, keys := emit.ResolveMetaOrdered(a.Meta, a.MetaKeys, target)
+	if tools, widened := widenedAgentTools(a); widened != nil {
+		meta["tools"] = tools
+	}
 	i := slices.Index(keys, "readonly")
 	if i < 0 {
 		return meta, keys
