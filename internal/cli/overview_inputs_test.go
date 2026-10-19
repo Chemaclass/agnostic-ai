@@ -253,3 +253,27 @@ func TestCompareInstalled_PresentBesideMissingIsNotInSync(t *testing.T) {
 		t.Errorf("files = %+v, want %+v", state.Files, want)
 	}
 }
+
+func TestCollectFindings_ServesNoCredentialAQuotedRuleHolds(t *testing.T) {
+	const token = "ghp_0123456789abcdefghijklmnop"
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [\"Bash(echo "+token+")\"]\n  deny: [\"Bash(curl * "+token+")\"]\n")
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings := collectFindings(".", cfg, b)
+	quoted := 0
+	for _, f := range findings {
+		if strings.Contains(f.Message, token) {
+			t.Errorf("finding %s carries the token: %s", f.Code, f.Message)
+		}
+		if f.Code == "LINT037" || f.Code == "LINT009" {
+			quoted++
+		}
+	}
+	if quoted == 0 {
+		t.Errorf("no finding quotes a rule; findings = %+v", findings)
+	}
+}

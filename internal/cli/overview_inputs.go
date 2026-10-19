@@ -20,6 +20,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -67,7 +68,22 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 	out.findings = append(out.findings, drift...)
 	out.compared, out.skipped = compared, skipped
 	out.findings = append(out.findings, overviewDoctorFindings(root, cfg, b)...)
+	for i := range out.findings {
+		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
+	}
 	return out
+}
+
+// servedFindingMessage keeps credentials out of a finding the API
+// serves: a quoted rule that holds one reads as shell(<redacted>), and a
+// message that still holds one is replaced. The CLI commands print the
+// message as written, to the owner of the file it quotes.
+func servedFindingMessage(message string) string {
+	shown := preview.RedactRulesIn(message)
+	if preview.CredentialDetected(shown) {
+		return "This finding quotes a credential, so its text is not shown here; run agnostic-ai lint or doctor to read it."
+	}
+	return shown
 }
 
 // overviewLintFindings is what `lint` reports for the project, each with

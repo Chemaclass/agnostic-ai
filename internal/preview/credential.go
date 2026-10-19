@@ -304,6 +304,37 @@ func CredentialInRule(rule string) bool {
 	return commandCredentialDetected(strings.TrimSuffix(command, ")"), 0)
 }
 
+// RedactRulesIn returns text, such as a lint message, with each
+// `name(...)` rule in it that holds a credential written as RedactRule
+// shows it.
+func RedactRulesIn(text string) string {
+	var out strings.Builder
+	for {
+		m := ruleStart.FindStringIndex(text)
+		if m == nil {
+			return out.String() + text
+		}
+		end, depth := -1, 0
+		for i := m[1] - 1; i < len(text) && end < 0; i++ {
+			switch text[i] {
+			case '(':
+				depth++
+			case ')':
+				if depth--; depth == 0 {
+					end = i + 1
+				}
+			}
+		}
+		if end < 0 {
+			return out.String() + text
+		}
+		out.WriteString(text[:m[0]] + RedactRule(text[m[0]:end]))
+		text = text[end:]
+	}
+}
+
+var ruleStart = regexp.MustCompile(`[A-Za-z][A-Za-z0-9_-]*\(`)
+
 // RedactRule returns rule as written, or, when it holds a credential,
 // its tool name around Redacted, as in `shell(<redacted>)`.
 func RedactRule(rule string) string {
