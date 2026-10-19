@@ -99,3 +99,27 @@ func TestOriginGuard_AllowedOriginGetsCORSAndThePreflight(t *testing.T) {
 		t.Errorf("preflight: status %d, ran %v, headers %v", pre.Code, ran, pre.Header())
 	}
 }
+
+func TestOriginGuard_ACrossSiteRequestWithoutOriginIsRefused(t *testing.T) {
+	for site, want := range map[string]int{
+		"":            http.StatusOK,
+		"none":        http.StatusOK,
+		"same-origin": http.StatusOK,
+		"same-site":   http.StatusForbidden,
+		"cross-site":  http.StatusForbidden,
+	} {
+		req := originRequest(http.MethodGet, "127.0.0.1:4310", "")
+		if site != "" {
+			req.Header.Set("Sec-Fetch-Site", site)
+		}
+		rec, ran := guarded(req, "http://localhost:5173")
+		if rec.Code != want || ran != (want == http.StatusOK) {
+			t.Errorf("Sec-Fetch-Site %q: status %d, ran %v; want %d", site, rec.Code, ran, want)
+		}
+	}
+	page := httptest.NewRequest(http.MethodGet, "/authority", nil)
+	page.Header.Set("Sec-Fetch-Site", "cross-site")
+	if rec, ran := guarded(page); !ran || rec.Code != http.StatusOK {
+		t.Errorf("a link from another site to a client page: status %d, ran %v", rec.Code, ran)
+	}
+}

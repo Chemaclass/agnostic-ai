@@ -293,7 +293,7 @@ agnostic-ai serve --global
 The API is for this machine only and has no login, so `serve` guards it:
 
 - It answers only requests addressed to `localhost`, `127.0.0.1`, or `::1`, and answers 421 to any other `Host`. This stops a page that points its own name at your machine.
-- It refuses browser requests from any other origin with 403, unless `--allow-origin` names that origin. Requests without an `Origin` header, such as from `curl`, pass.
+- It refuses browser requests from any other origin with 403, unless `--allow-origin` names that origin. A request without an `Origin` header passes, as from `curl`, unless the browser marks an `/api` request as coming from another site (`Sec-Fetch-Site`), as an image or script tag does.
 - `POST /api/views/authority/impact` needs `Content-Type: application/json`; any other body type gets 415.
 - Credentials written in permission rules, URLs, and settings values show as `<redacted>`. A rule shown redacted cannot be named in a proposal; edit the settings file.
 - The installed check uses built-in adapters only. An external `agnostic-ai-<name>` adapter is never run.

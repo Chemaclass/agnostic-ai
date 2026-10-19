@@ -1,6 +1,7 @@
 package authority
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,7 +33,10 @@ func ParseOrigin(raw string) (string, error) {
 // request's own or one of allowed, with a 403 and no CORS headers, even
 // for a simple request a browser sends without asking first. An allowed
 // origin gets CORS headers and its preflight answered. A request without
-// an Origin header, such as one from curl, passes untouched.
+// an Origin header passes untouched, unless it asks for /api/ and the
+// browser marks it as coming from another site, as an <img> or <script>
+// tag does; a client such as curl sends neither header. A link from
+// another site to the client's pages still opens them.
 func OriginGuard(next http.Handler, allowed []string) http.Handler {
 	set := map[string]bool{}
 	for _, o := range allowed {
@@ -41,7 +45,12 @@ func OriginGuard(next http.Handler, allowed []string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin == "" {
-			next.ServeHTTP(w, r)
+			switch site := r.Header.Get("Sec-Fetch-Site"); {
+			case site == "", site == "none", site == "same-origin", !strings.HasPrefix(r.URL.Path, "/api/"):
+				next.ServeHTTP(w, r)
+			default:
+				writeError(w, http.StatusForbidden, errors.New("a page from another site may not call this API"))
+			}
 			return
 		}
 		w.Header().Add("Vary", "Origin")
