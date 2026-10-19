@@ -61,6 +61,7 @@ func newValidateCmd() *cobra.Command {
 			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
 			if !global {
 				issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
+				issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
 			}
 			issues = append(issues, scopeIssues...)
 			if !fix {

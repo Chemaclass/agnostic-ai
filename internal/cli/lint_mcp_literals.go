@@ -9,6 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -73,6 +74,17 @@ func mcpLiteralIssues(mcps []spec.Entry) []validationIssue {
 func lintMCPLiterals(mcps []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, issue := range mcpLiteralIssues(mcps) {
+		out = append(out, lintFinding{Code: "LINT035", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
+	return out
+}
+
+// lintAgentFileCredentials reports, as LINT035 errors, the credentials
+// sync refuses to write into an agent file for a target in targets.
+func lintAgentFileCredentials(b spec.Bundle, targets []string) []lintFinding {
+	inlined := agentFileMCPs(b, targets)
+	var out []lintFinding
+	for _, issue := range append(mcpLiteralIssues(packSpecs(inlined)), agentFileCredentialIssues(inlined)...) {
 		out = append(out, lintFinding{Code: "LINT035", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
@@ -167,7 +179,7 @@ func agentFileCredentialFields(meta map[string]any, inBlock bool) []string {
 			if value == "" {
 				continue
 			}
-			literal := inBlock && !mcpReferenceValue(field, value) && mcpCredentialSetting(key, value)
+			literal := inBlock && !mcpReferenceValue(field, value) && agentFileCredentialValue(key, value)
 			if literal || referenceDefaultCredential(key, value) {
 				out = append(out, field+" "+key)
 			}
@@ -176,9 +188,20 @@ func agentFileCredentialFields(meta map[string]any, inBlock bool) []string {
 	return out
 }
 
+// agentFileCredentialValue reports whether value under key reads as a
+// credential: by its shape, or under a credential name unless it is a
+// short placeholder such as `none` under a name that ends in `key`.
+func agentFileCredentialValue(key, value string) bool {
+	if mcpCredentialDetected(value) {
+		return true
+	}
+	strength := mcpNameStrength(key, true)
+	return strength != preview.NoCredential && mcpSecretValue(mcpDetectorText(value), true, strength)
+}
+
 func referenceDefaultCredential(key, value string) bool {
 	for _, m := range mcpReferenceDefault.FindAllStringSubmatch(value, -1) {
-		if m[1] != "" && (mcpCredentialKey(key) || mcpCredentialDetected(m[1])) {
+		if m[1] != "" && agentFileCredentialValue(key, m[1]) {
 			return true
 		}
 	}

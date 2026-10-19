@@ -151,3 +151,37 @@ func TestStopOnSpecTypos_SharedServerKeepsTheProjectCheck(t *testing.T) {
 		t.Errorf("kiro writes the named server into the agent file, so the credential must be refused")
 	}
 }
+
+func TestValidateAndLint_ReportAnAgentFileCredential(t *testing.T) {
+	dir := newProject(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "github.yaml"),
+		"name: github\nagent-only: true\ntype: http\nurl: https://mcp.example.com/mcp?api_key=sk-live-abcdef1234567890\n")
+	out, err := runCLI(t, "validate")
+	if err == nil || !strings.Contains(out+err.Error(), `MCP server "github": url holds a credential`) {
+		t.Errorf("validate must report it: %v\n%s", err, out)
+	}
+	out, err = runCLI(t, "lint")
+	if err == nil || !strings.Contains(out, `LINT035 [error]`) || !strings.Contains(out, `"github": url holds a credential`) {
+		t.Errorf("lint must report it under LINT035: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "sk-live-abcdef1234567890") {
+		t.Errorf("lint quotes the value:\n%s", out)
+	}
+}
+
+// A placeholder default is no credential, the same as in an x-<target>
+// block.
+func TestStopOnSpecTypos_PlaceholderDefaultPasses(t *testing.T) {
+	e := mcpEntry(t, "name: github\nagent-only: true\ncommand: srv\nenv:\n  API_KEY: ${API_KEY:-none}\nx-claude:\n  env:\n    API_KEY: none\n")
+	if err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{e}}, []string{"claude"}); err != nil {
+		t.Errorf("a placeholder default must pass: %v", err)
+	}
+}
+
+func TestStopOnSpecTypos_PlaceholderUnderATokenNameIsRefused(t *testing.T) {
+	e := mcpEntry(t, "name: github\nagent-only: true\ncommand: srv\nenv:\n  GITHUB_TOKEN: ${GITHUB_TOKEN:-abc}\n")
+	if err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{e}}, []string{"claude"}); err == nil {
+		t.Errorf("a default under a token name is a credential")
+	}
+}

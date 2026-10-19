@@ -295,3 +295,14 @@ func TestAgentMCP_ClaudeAgentLeftOutDoesNotNameTheServer(t *testing.T) {
 		t.Errorf("Claude leaves the agent out, so no agent carries the server:\n%s", notes)
 	}
 }
+
+func TestAgentMCP_GeminiAndCopilotFieldNoteNamesTheKey(t *testing.T) {
+	for target, key := range map[string]string{"gemini": "x-gemini.mcp_servers", "copilot": "x-copilot.mcp-servers"} {
+		t.Run(target, func(t *testing.T) {
+			_, notes := emitAgentMCP(t, target, agentMCPBundle(nil))
+			if strings.Contains(notes, "the agent file has no MCP server list") || !strings.Contains(notes, "`mcpServers` on 1 agent has no effect on "+target+" (") {
+				t.Errorf("the field note should name %s, not deny a list exists:\n%s", key, notes)
+			}
+		})
+	}
+}
