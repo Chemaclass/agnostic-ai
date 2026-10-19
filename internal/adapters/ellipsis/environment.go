@@ -23,7 +23,7 @@ var (
 	// environment and MCP specs fill the scripts and servers; everything
 	// else Ellipsis keeps in an environment lives here.
 	environmentKeys = []string{"name", "repository", "description", "metadata", "variables", "compute", "hooks", "mcp_servers"}
-	hookNames       = []string{"build_base", "after_checkout", "before_start"}
+	hookNames       = []string{"build_base", "after_checkout", "before_start", "validate"}
 	// integrations are the connected services an environment lists by name.
 	integrations = []string{"slack", "linear"}
 	// reservedVariablePrefixes and reservedVariables are names Ellipsis
@@ -60,6 +60,7 @@ type nativeHooks struct {
 	hasInputs     bool
 	afterCheckout string
 	beforeStart   string
+	validate      string
 }
 
 // readEnvironment validates the `x-ellipsis.environment` block merged
@@ -279,6 +280,8 @@ func (e *environmentConfig) readHooks(block map[string]any) []string {
 			e.hooks.afterCheckout = script
 		case "before_start":
 			e.hooks.beforeStart = script
+		case "validate":
+			e.hooks.validate = script
 		}
 	}
 	return problems

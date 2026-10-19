@@ -61,13 +61,14 @@ An invalid selection keeps an already-generated environment in place and the rev
 
 ### Setup scripts
 
-Ellipsis runs setup in three stages. Each script starts in `/sandbox`, the parent of the checkout, under `bash -eo pipefail`.
+Ellipsis runs setup in four stages. Each script starts in `/sandbox`, the parent of the checkout, under `bash -eo pipefail`.
 
 | Source | Stage | Runs |
 |--------|-------|------|
 | `install` | `hooks.build_base` | The first time, and when a file in its `inputs` changes. With no `inputs`, on every commit |
 | `setup` | `hooks.after_checkout` | Once for each commit a session needs that is not prepared yet |
 | `x-ellipsis.environment.hooks.before_start` | `hooks.before_start` | Every time a session starts or resumes |
+| `x-ellipsis.environment.hooks.validate` | `hooks.validate` | Every time a session starts or resumes, last and never cached. A failure stops the session, and the pull request environment check runs it too |
 
 Sync writes `install` and `setup` after `cd /sandbox/<repository>`, so they run in the repository checkout and not in its parent. Commands that read a script in the repository, such as `bash scripts/setup.bash`, work as they do locally. A script you write under `x-ellipsis.environment.hooks` goes in as written, with no `cd`. Setting both `install` and `hooks.build_base.run`, or both `setup` and `hooks.after_checkout`, stops the file; keep one source for each stage.
 
@@ -102,6 +103,7 @@ x-ellipsis:
       before_start: |
         cd /sandbox/api-repo
         test -d node_modules
+      validate: command -v jq   # fails the session if jq is missing
     mcp_servers: [slack]    # connected integrations, listed by name
 ```
 
@@ -166,7 +168,7 @@ A hand-written `.ellipsis/environments/*.yaml` with `ellipsis.kind: environment`
 | Source | Becomes |
 |--------|---------|
 | A `build_base` or `after_checkout` script that starts with the line `cd /sandbox/<repository>` | `install` or `setup` in `<environments>/ellipsis.yaml`, without that line |
-| Any other script, `inputs`, `before_start` | `x-ellipsis.environment.hooks`, as written |
+| Any other script, `inputs`, `before_start`, `validate` | `x-ellipsis.environment.hooks`, as written |
 | The name, repository, description, metadata, variables, compute, and `slack` or `linear` entries | `x-ellipsis.environment` in `<settings>/ellipsis-environment.yaml` |
 | Each server with `url` or `command` | `<mcps>/<name>.yaml` |
 

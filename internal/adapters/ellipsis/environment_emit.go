@@ -322,6 +322,9 @@ func hooksNode(env *environmentConfig, portable portableEnvironment) *yaml.Node 
 	if env.hooks.beforeStart != "" {
 		add(hooks, "before_start", textNode(env.hooks.beforeStart))
 	}
+	if env.hooks.validate != "" {
+		add(hooks, "validate", textNode(env.hooks.validate))
+	}
 	return hooks
 }
 

@@ -22,6 +22,8 @@ hooks:
   before_start: |
     cd /sandbox/api-repo
     test -d node_modules
+  validate: |
+    command -v jq
 compute:
   cpu: 2
   memory: 8GB
