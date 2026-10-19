@@ -9,7 +9,7 @@ secondary_label = "Explore the files"
 label = "One source file, synced into the file each coding tool reads"
 source = ".agnostic-ai/AGNOSTIC_AI.md"
 note = "Run the project tests before finishing a change."
-targets = ["claude", "codex", "cursor", "windsurf", "gemini", "copilot"]
+targets = ["claude", "codex", "cursor", "windsurf", "gemini"]
 more_label = "more tools"
 with_label = "With agnostic-ai"
 without_label = "Without"
@@ -28,10 +28,6 @@ drift = "Run tests before committing."
 [[hero.fanout.outputs]]
 path = "GEMINI.md"
 tools = "Gemini CLI"
-drift = "Run npm test."
-[[hero.fanout.outputs]]
-path = ".github/copilot-instructions.md"
-tools = "GitHub Copilot"
 drift = "No rule yet."
 
 [hero.video]
