@@ -451,9 +451,14 @@ func withoutField(e spec.Entry, field, target string) spec.Entry {
 // fieldNote returns the reason of the first field no-op note for field.
 func fieldNote(notes []adapters.Note, field string) (string, bool) {
 	for _, n := range notes {
-		// A note on one entry of a list field, such as `can: delete`,
-		// is a note on the field.
-		if n.Shape == adapters.NoteField && (n.Field == field || strings.HasPrefix(n.Field, field+": ")) {
+		if n.Shape == adapters.NoteField && n.Field == field {
+			return n.Reason, true
+		}
+	}
+	// A note on one entry of a list field, such as `can: delete`, is a
+	// note on the field when none covers the whole field.
+	for _, n := range notes {
+		if n.Shape == adapters.NoteField && strings.HasPrefix(n.Field, field+": ") {
 			return n.Reason, true
 		}
 	}

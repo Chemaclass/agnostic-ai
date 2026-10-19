@@ -127,7 +127,7 @@ func dropClaudeIdentityFallback(doc string, existing map[string]any) string {
 		return doc
 	}
 	name, _ := imported["name"].(string)
-	if _, declared := existing["description"]; declared || name == "" || imported["description"] != name {
+	if declared, _ := existing["description"].(string); strings.TrimSpace(declared) != "" || name == "" || imported["description"] != name {
 		return doc
 	}
 	var node yaml.Node

@@ -146,7 +146,7 @@ func emptyToolList(meta map[string]any) bool {
 	case []string:
 		return len(v) == 0
 	case string:
-		return len(spec.SplitToolList(v)) == 0
+		return !slices.ContainsFunc(spec.SplitToolList(v), func(t string) bool { return strings.TrimSpace(t) != "" })
 	}
 	return false
 }

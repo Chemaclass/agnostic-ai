@@ -45,7 +45,7 @@ func TestSync_ClaudeAgentAlwaysGetsANameAndADescription(t *testing.T) {
 // tool, so an empty list is never written; the agent is left out with a
 // note instead.
 func TestSync_ClaudeLeavesOutAnAgentWithNoUsableTool(t *testing.T) {
-	for _, can := range []string{"can: []", "can: [delete]", "tools: []"} {
+	for _, can := range []string{"can: []", "can: [delete]", "tools: []", "tools: Delete", `tools: ""`, "x-claude:\n  tools: \"\""} {
 		t.Run(can, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)

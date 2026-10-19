@@ -14,8 +14,10 @@ import (
 // edited native file must not copy it into the spec.
 func TestImportFromClaude_KeepsTheIdentityFallbackOutOfTheSpec(t *testing.T) {
 	for name, source := range map[string]string{
-		"model only":     "---\nmodel: sonnet\n---\nReview.\n",
-		"no frontmatter": "Review.\n",
+		"model only":        "---\nmodel: sonnet\n---\nReview.\n",
+		"no frontmatter":    "Review.\n",
+		"null description":  "---\ndescription:\nmodel: sonnet\n---\nReview.\n",
+		"blank description": "---\ndescription: \"\"\nmodel: sonnet\n---\nReview.\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := setupFixture(t)
@@ -29,7 +31,7 @@ func TestImportFromClaude_KeepsTheIdentityFallbackOutOfTheSpec(t *testing.T) {
 			execCLI(t, "import", "claude")
 
 			got := readFile(t, ".agnostic-ai/agents/m.md")
-			if strings.Contains(got, "description:") {
+			if strings.Contains(got, "description: m") {
 				t.Errorf("sync's fallback description reached the spec:\n%s", got)
 			}
 			if !strings.Contains(got, "Review twice.") {
@@ -147,6 +149,9 @@ func TestCompare_GivesTheReasonForDeleteAndALeftOutAgent(t *testing.T) {
 
 	if r := findCompareResult(t, out, ".agnostic-ai/agents/cleaner.md", "can", "claude"); !strings.Contains(r.Reason, "delete") {
 		t.Errorf("claude can: reason %q must name delete", r.Reason)
+	}
+	if r := findCompareResult(t, out, ".agnostic-ai/agents/cleaner.md", "can", "cursor"); !strings.Contains(r.Reason, "Cursor subagents have no tools field") {
+		t.Errorf("cursor can: reason %q must be the note on the whole field", r.Reason)
 	}
 	for _, s := range out.Specs {
 		if s.Path != ".agnostic-ai/agents/idle.md" {
