@@ -2,6 +2,7 @@ package authority
 
 import (
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -191,9 +192,10 @@ func transport(e spec.Entry) *Transport {
 	return t
 }
 
-// redactURL keeps a URL's scheme, host, and path, and replaces any user
-// information or query and fragment value that is not only `${NAME}`
-// references, since such text may be a credential.
+// redactURL keeps a URL's scheme, host, and plain path words, and
+// replaces any user information, other path segment, or query and
+// fragment value that is not only `${NAME}` references, since such text
+// may be a credential.
 func redactURL(raw string) string {
 	const redacted = "[redacted]"
 	rest, fragment, hasFragment := strings.Cut(raw, "#")
@@ -206,7 +208,7 @@ func redactURL(raw string) string {
 		if at := strings.LastIndex(authority, "@"); at >= 0 && !onlyRefs(authority[:at]) {
 			authority = redacted + authority[at:]
 		}
-		rest = scheme + "://" + authority + path
+		rest = scheme + "://" + authority + redactPath(path)
 	}
 	out := rest
 	if hasQuery {
@@ -216,6 +218,21 @@ func redactURL(raw string) string {
 		out += "#" + redactPairs(fragment, "&")
 	}
 	return out
+}
+
+// plainPathSegment matches a path word such as mcp, sse, or v1. Webhook
+// and bot URLs carry their token as a path segment, which mixes letters
+// and digits or runs long, so any other segment is redacted.
+var plainPathSegment = regexp.MustCompile(`^(?:[A-Za-z][A-Za-z._-]{0,31}|v[0-9]{1,3})$`)
+
+func redactPath(path string) string {
+	segments := strings.Split(path, "/")
+	for i, s := range segments {
+		if s != "" && !onlyRefs(s) && !plainPathSegment.MatchString(s) {
+			segments[i] = "[redacted]"
+		}
+	}
+	return strings.Join(segments, "/")
 }
 
 func redactPairs(text, sep string) string {

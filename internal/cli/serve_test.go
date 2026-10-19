@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,5 +55,26 @@ func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 	_ = pre.Body.Close()
 	if pre.Header.Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
 		t.Error("the mux does not answer a local preflight for routes mounted beside the authority view")
+	}
+}
+
+func TestServe_RejectsARequestAddressedToAnotherHost(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	listen := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 4310}
+	h := requireLocalHost(ok, listen)
+	for host, want := range map[string]int{
+		"127.0.0.1:4310":    http.StatusOK,
+		"localhost:4310":    http.StatusOK,
+		"[::1]:4310":        http.StatusOK,
+		"evil.example:4310": http.StatusMisdirectedRequest,
+		"127.0.0.1.nip.io":  http.StatusMisdirectedRequest,
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/api/views/authority", nil)
+		req.Host = host
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Errorf("Host %s = %d, want %d", host, rec.Code, want)
+		}
 	}
 }

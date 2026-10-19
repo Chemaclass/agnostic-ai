@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -251,12 +252,19 @@ func applyProposal(cfg *config.Config, b spec.Bundle, opts Options, p paths, cha
 	for _, t := range order {
 		before := ""
 		if t.before != nil {
-			before = renderSpecYAML(*t.before)
+			before = shownSpecYAML(*t.before)
 		}
 		e := after.Settings[t.index]
-		diff = append(diff, FileDiff{Path: p.display(e), Before: before, After: renderSpecYAML(e)})
+		diff = append(diff, FileDiff{Path: p.display(e), Before: before, After: shownSpecYAML(e)})
 	}
 	return after, diff, nil
+}
+
+// shownSpecYAML renders a settings spec for the impact diff with
+// credential values redacted, since the API returns the diff to any
+// local client.
+func shownSpecYAML(e spec.Entry) string {
+	return preview.Display("settings.yaml", renderSpecYAML(e)).Text
 }
 
 // changeProblem returns why a change cannot apply, or "".

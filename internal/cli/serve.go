@@ -90,7 +90,7 @@ func newServeCmd() *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMux(src.load, opts))
+			return serveUntilInterrupted(cmd.Context(), ln, requireLocalHost(newServeMux(src.load, opts), ln.Addr()))
 		},
 	}
 	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Address to listen on.")
@@ -125,6 +125,28 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 	return authority.CORS(serializeAPI(mux))
 }
 
+// requireLocalHost answers 421 to a request whose Host is not a loopback
+// name or the listen address. A browser page whose own name resolves to
+// 127.0.0.1 (DNS rebinding) is same-origin to itself, so CORS never
+// applies and only the Host header gives it away.
+func requireLocalHost(next http.Handler, listen net.Addr) http.Handler {
+	allowed := map[string]bool{"localhost": true, "127.0.0.1": true, "::1": true}
+	if tcp, ok := listen.(*net.TCPAddr); ok && tcp.IP != nil && !tcp.IP.IsUnspecified() {
+		allowed[tcp.IP.String()] = true
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !allowed[strings.ToLower(strings.Trim(host, "[]"))] {
+			http.Error(w, "this server answers only requests addressed to localhost", http.StatusMisdirectedRequest)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // serializeAPI runs one API request at a time. Rendering adapters in
 // capture mode swaps package-level warning state, so two views rendering
 // at once would interleave it.
@@ -147,7 +169,7 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second}
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 	select {
