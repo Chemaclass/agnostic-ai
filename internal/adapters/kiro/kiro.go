@@ -200,9 +200,9 @@ const (
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore},
-	AgentFieldReasons: map[string]string{
-		"mcpServers": "Kiro takes inline server definitions only; set x-kiro.mcpServers",
-	},
+	// Each name in an agent's mcpServers is written as the MCP spec's
+	// inline definition, the only form Kiro takes.
+	AgentFields: []string{"mcpServers"},
 	// Kiro reads claude-* model ids, not Claude's aliases.
 	ForeignClaudeModels: emit.ClaudeModelAliases,
 }

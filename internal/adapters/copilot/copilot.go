@@ -172,6 +172,9 @@ var caps = emit.Capabilities{
 	// effort: agent.go notes the drop with the user-tier alternative.
 	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
+	AgentFieldReasons: map[string]string{
+		"mcpServers": "sync writes no inline agent server here; set x-copilot.mcp-servers",
+	},
 }
 
 // Adapter emits GitHub Copilot configs.

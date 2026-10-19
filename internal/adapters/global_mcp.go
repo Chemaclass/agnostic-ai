@@ -46,8 +46,15 @@ func UserMCPServerTables(target string, mcps []spec.Entry) (map[string]string, b
 	return r.UserMCPServerTables(userMCPs(a, mcps)), true
 }
 
+// userMCPs leaves agent-only servers out: a user MCP file is live in
+// every session, and sync --global writes no server into an agent file.
 func userMCPs(a Adapter, mcps []spec.Entry) []spec.Entry {
-	return rewriteMCPRefs(a, (spec.Bundle{MCPs: mcps}).For(a.Name()).MCPs)
+	shared, only := spec.SplitAgentOnly((spec.Bundle{MCPs: mcps}).For(a.Name()).MCPs)
+	for _, e := range only {
+		emit.NoteEntryOmitted(a.Name(), spec.KindMCP, e.Name)
+	}
+	noteAgentOnlyGap(a.Name(), len(only), "sync --global writes no server into an agent file")
+	return rewriteMCPRefs(a, shared)
 }
 
 // EscapeMCPLiterals writes each `${NAME}` in a native server field

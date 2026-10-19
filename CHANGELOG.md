@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- An MCP spec marked `agent-only: true` stays out of every MCP file; Claude Code, Qoder, Kiro, and OpenHands get it in the agents that name it (#2328).
+- Kiro and OpenHands agents get the MCP servers their `mcpServers` list names, written in full, so `x-kiro.mcpServers` copies are no longer needed (#2328).
 - `sync` adds a `fix:` line under notes for dropped skill and agent fields and unsupported global agents, naming what to write instead. `sync --json` carries it in an optional `suggestion` field, and `sync --global --json` now includes its warnings and notes (#2329).
 - The homepage sync figure has a "With agnostic-ai" and "Without" toggle: with it, one note flows into every tool file; without it, each file holds a different rule you keep in step by hand.
 - The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.
