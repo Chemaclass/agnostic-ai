@@ -227,3 +227,29 @@ func TestExplainCapabilities_ClaudeAgentShowsThePlainTool(t *testing.T) {
 		t.Errorf("explain shows a pattern sync no longer writes:\n%s", out.String())
 	}
 }
+
+// The note is for a hand edit import cannot tell from sync's widening;
+// a file sync wrote and nobody touched needs none.
+func TestImportFromClaude_NotesAKeptScopedSpecOnlyAfterAHandEdit(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview the diff.\n")
+	execCLI(t, "sync")
+	const note = "keeps its scoped can:"
+
+	logs := captureLogOut(t)
+	execCLI(t, "import", "claude")
+	if strings.Contains(logs.String(), note) {
+		t.Errorf("unedited agent got the note:\n%s", logs)
+	}
+
+	native := readFile(t, ".claude/agents/reviewer.md")
+	writeFile(t, ".claude/agents/reviewer.md", native+"\nEdited by hand.\n")
+	logs.Reset()
+	execCLI(t, "import", "claude")
+	if !strings.Contains(logs.String(), note) {
+		t.Errorf("hand-edited agent kept the scoped spec without a note:\n%s", logs)
+	}
+}

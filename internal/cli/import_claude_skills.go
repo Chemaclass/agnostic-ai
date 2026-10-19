@@ -107,8 +107,12 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 			if meta != nil || !strings.HasPrefix(string(spec), "---\n") {
 				out = dropClaudeIdentityFallback(out, meta)
 			}
-			if kept := keepScopedClaudeTools(out, header.Strip(string(data)), meta); kept != out {
-				out = kept
+			// An agent file sync wrote and nobody touched holds sync's own
+			// widening, so only a hand-edited one gets the note.
+			kept := keepScopedClaudeTools(out, header.Strip(string(data)), meta)
+			restored := kept != out
+			out = kept
+			if restored && !unchangedSinceSync(srcPath, string(data)) {
 				shown := dstPath
 				if rel, err := filepath.Rel(root, dstPath); err == nil && !strings.HasPrefix(rel, "..") {
 					shown = rel
