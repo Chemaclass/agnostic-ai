@@ -2,7 +2,9 @@ package adapters
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -143,3 +145,41 @@ func renderedManualOnly(rendered string) bool {
 	manual, _ := entry.Meta["disable-model-invocation"].(bool)
 	return manual
 }
+
+var skillFieldKeepers = struct {
+	once    sync.Once
+	byField map[string][]string
+}{}
+
+// SkillFieldKeepers lists the built-in targets whose own skill file keeps
+// field, found by rendering a probe skill, so a fix that names target
+// overrides cannot drift from what each adapter writes.
+func SkillFieldKeepers(field string) []string {
+	skillFieldKeepers.once.Do(func() {
+		probe := spec.Entry{Kind: spec.KindSkill, Name: "probe", Meta: map[string]any{
+			"name": "probe", "description": "Probe.", "argument-hint": "[value]", "metadata": map[string]any{"owner": "team"},
+		}}
+		skillFieldKeepers.byField = map[string][]string{}
+		for _, name := range Names() {
+			if !slices.Contains(registry[name].Capabilities(), spec.KindSkill) {
+				continue
+			}
+			rendered, err := RenderSkillMarkdown(name, probe, false)
+			if err != nil {
+				continue
+			}
+			entry, err := spec.ParseMarkdownBytes(spec.KindSkill, []byte(rendered))
+			if err != nil {
+				continue
+			}
+			for _, f := range []string{"argument-hint", "metadata"} {
+				if _, kept := entry.Meta[f]; kept {
+					skillFieldKeepers.byField[f] = append(skillFieldKeepers.byField[f], name)
+				}
+			}
+		}
+	})
+	return skillFieldKeepers.byField[field]
+}
+
+func init() { emit.SkillFieldKeepers = SkillFieldKeepers }

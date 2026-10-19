@@ -54,7 +54,8 @@ func TestSyncJSON_ListsDroppedSpecsAndPlainSyncStillPrintsThem(t *testing.T) {
 
 	out := runSyncJSONDrops(t)
 
-	wantWarning := dropJSON{Target: "aider", Kind: "mcp", Count: 1, Message: "1 mcp unsupported by aider"}
+	wantWarning := dropJSON{Target: "aider", Kind: "mcp", Count: 1, Message: "1 mcp unsupported by aider",
+		Suggestion: "remove targets you do not use from `targets:` in agnostic-ai.yaml, or set `on-unsupported: silent` to hide these"}
 	if len(out.Warnings) != 1 || out.Warnings[0] != wantWarning {
 		t.Errorf("warnings = %+v, want [%+v]", out.Warnings, wantWarning)
 	}
@@ -81,7 +82,7 @@ func TestSyncJSON_ListsDroppedSpecsAndPlainSyncStillPrintsThem(t *testing.T) {
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(warner.String(), "1 mcp unsupported by aider") || !strings.Contains(warner.String(), codexToolsNote) {
+	if !strings.Contains(warner.String(), "1 mcp unsupported by aider") || !strings.Contains(warner.String(), codexToolsNote) || !strings.Contains(warner.String(), "fix: "+wantWarning.Suggestion) {
 		t.Errorf("plain sync after sync --json must still print the drops:\n%s", warner.String())
 	}
 }
@@ -144,7 +145,8 @@ func TestSyncJSONPreviewModes_ListTheDropsSyncJSONLists(t *testing.T) {
 			got := runSyncJSONDropsMode(t, mode)
 			want := runSyncJSONDrops(t)
 
-			wantWarning := dropJSON{Target: "aider", Kind: "mcp", Count: 1, Message: "1 mcp unsupported by aider"}
+			wantWarning := dropJSON{Target: "aider", Kind: "mcp", Count: 1, Message: "1 mcp unsupported by aider",
+				Suggestion: "remove targets you do not use from `targets:` in agnostic-ai.yaml, or set `on-unsupported: silent` to hide these"}
 			wantNote := dropJSON{Target: "aider", Kind: "agent", Count: 1, Message: "1 agent reaches aider only via outputs.aider.rules-file"}
 			if len(want.Warnings) != 1 || want.Warnings[0] != wantWarning || len(want.Notes) != 1 || want.Notes[0] != wantNote {
 				t.Fatalf("sync --json drops = %+v, want one warning %+v and one note %+v", want, wantWarning, wantNote)

@@ -35,7 +35,7 @@ func PendingCapabilityWarnings() []DropRecord {
 		}
 		seen[key] = true
 		message := fmt.Sprintf("%d %s unsupported by %s", p.count, pluralizeKind(p.kind, p.count), p.target)
-		out = append(out, DropRecord{Target: p.target, Kind: p.kind, Count: p.count, Message: message})
+		out = append(out, DropRecord{Target: p.target, Kind: p.kind, Count: p.count, Message: message, Suggestion: capabilityWarningFix})
 	}
 	return out
 }

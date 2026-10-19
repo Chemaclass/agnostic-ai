@@ -256,15 +256,25 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err := applyGlobalTiers(&bundle, tiers, unloaded, warn); err != nil {
 		return err
 	}
-	agentWarn := warn
+	// With --json, warnings and notes wait here and reach warn only when
+	// the run fails before it prints the JSON that carries them.
+	diagnostics := warn
+	jsonWritten := false
 	if o.jsonOut {
-		agentWarn = io.Discard
+		var held bytes.Buffer
+		diagnostics = &held
+		defer func() {
+			if !jsonWritten {
+				_, _ = warn.Write(held.Bytes())
+			}
+		}()
 	}
-	globalAgentWarnings, err := warnUnsupportedGlobalAgents(agentWarn, source, targets, bundle.Agents)
+	globalAgentWarnings, err := warnUnsupportedGlobalAgents(diagnostics, source, targets, bundle.Agents)
 	if err != nil {
 		return err
 	}
-	if err := warnUnsupportedGlobalMCP(warn, targets, bundle.MCPs); err != nil {
+	globalMCPWarnings, err := warnUnsupportedGlobalMCP(diagnostics, targets, bundle.MCPs)
+	if err != nil {
 		return err
 	}
 	for _, rule := range bundle.Rules {
@@ -286,10 +296,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return fmt.Errorf("%s: recorded under another home, since %s is outside %s; sync under the HOME that recorded it, or remove the state file and the files it lists", statePath, foreign, home)
 	}
 	adapters.ResetCoverageNotes()
-	adapters.SetWarner(warn)
-	if o.jsonOut {
-		adapters.SetWarner(io.Discard)
-	}
+	adapters.SetWarner(diagnostics)
 	defer adapters.SetWarner(os.Stderr)
 	defer adapters.ResetCoverageNotes()
 	if slices.Contains(targets, "claude") && slices.Contains(configured, "cursor") {
@@ -304,7 +311,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	drops := syncDrops{Warnings: globalAgentWarnings, Notes: dropRecords(adapters.PendingCoverageNotes())}
+	drops := syncDrops{Warnings: append(globalAgentWarnings, globalMCPWarnings...), Notes: dropRecords(adapters.PendingCoverageNotes())}
 	adapters.FlushCoverageNotes()
 	if err := checkUnselectedGlobalAgents(writes, old, targets); err != nil {
 		return err
@@ -325,6 +332,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	removals := removedGlobalFiles(old.Files, next.Files)
 	if o.check && o.jsonOut {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
+		jsonWritten = true
 		if err := emitGlobalJSON(cmd, "sync --global --check", records, drops); err != nil {
 			return err
 		}
@@ -357,6 +365,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			if o.dryRun {
 				command = "sync --global --dry-run"
 			}
+			jsonWritten = true
 			return emitGlobalJSON(cmd, command, records, drops)
 		}
 		return printGlobalPlan(cmd, records)
@@ -429,6 +438,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	pruneEmptyGlobalDirs(removals, trees)
 	if o.jsonOut {
+		jsonWritten = true
 		return emitGlobalJSON(cmd, "sync --global", applied, drops)
 	}
 	for _, link := range linked {

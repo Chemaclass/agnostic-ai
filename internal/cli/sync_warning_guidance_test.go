@@ -200,3 +200,96 @@ func TestSyncGlobal_UnsupportedAgentFixNamesLocalTargetOverride(t *testing.T) {
 		t.Errorf("unsupported global agent fix must name overriding target config: %s", warnings)
 	}
 }
+
+func TestSyncJSON_MetadataFixNamesEveryTargetThatKeepsIt(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, opencode, gemini]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	captureNotes(t)
+
+	out := runSyncJSONDrops(t)
+	found := false
+	for _, note := range out.Notes {
+		if !strings.HasPrefix(note.Message, "`metadata`") {
+			continue
+		}
+		found = true
+		for _, override := range []string{"`x-claude`", "`x-cursor`", "`x-opencode`"} {
+			if !strings.Contains(note.Suggestion, override) {
+				t.Errorf("metadata fix lacks %s: %+v", override, note)
+			}
+		}
+		if strings.Contains(note.Suggestion, "`x-gemini`") {
+			t.Errorf("metadata fix names a target that drops it: %+v", note)
+		}
+	}
+	if !found {
+		t.Fatalf("no metadata note: %+v", out.Notes)
+	}
+}
+
+func TestSyncGlobal_SharedAndOwnSkillFoldersGetSeparateFixes(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
+	_, warnings, err := runGlobalAgentTest("--only", "codex,gemini", "--plan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(warnings, "\n")
+	notes := 0
+	for i, line := range lines {
+		if !strings.Contains(line, "note: `metadata`") {
+			continue
+		}
+		notes++
+		if i+1 >= len(lines) || !strings.Contains(lines[i+1], "fix:") || (i+2 < len(lines) && strings.Contains(lines[i+2], "fix:")) {
+			t.Errorf("want exactly one fix under each metadata note:\n%s", warnings)
+		}
+	}
+	if notes != 2 {
+		t.Errorf("want separate metadata notes for shared and own skill folders:\n%s", warnings)
+	}
+}
+
+func TestSyncGlobalJSON_FailureStillPrintsWarningsAndNotes(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "rules", "tone.md"), "---\nname: tone\n---\nBe brief.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, filepath.Join(home, ".claude", "CLAUDE.md"), "hand edit\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\n---\nReview.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy.md"), "---\nname: deploy\nmetadata:\n  owner: team\n---\nDeploy.\n")
+	out, warnings, err := runGlobalAgentTest("--only", "claude,amp", "--json")
+	if err == nil || !strings.Contains(err.Error(), "edited since the last global sync") {
+		t.Fatalf("want hand-edit failure, got %v\n%s", err, out)
+	}
+	for _, want := range []string{"amp: global agents are unsupported", "note: `metadata`", "fix:"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("failed global JSON run lost %q:\n%s", want, warnings)
+		}
+	}
+}
+
+func TestSyncGlobalJSON_UnsupportedMCPLandsInWarnings(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+	out, warnings, err := runGlobalAgentTest("--only", "claude,amp", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warnings != "" {
+		t.Errorf("global JSON leaked diagnostics: %s", warnings)
+	}
+	var got syncJSONDrops
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	want := dropJSON{Target: "amp", Kind: "mcp", Count: 1, Message: "global MCP servers are unsupported; skipping srv"}
+	if !slices.Contains(got.Warnings, want) {
+		t.Errorf("warnings = %+v, want %+v", got.Warnings, want)
+	}
+}

@@ -1,8 +1,32 @@
 package emit
 
 import (
+	"strings"
+
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
+
+// SkillFieldKeepers lists the targets whose own skill file keeps a field.
+// The adapters package sets it, since only it can render every target.
+var SkillFieldKeepers = func(string) []string { return nil }
+
+// overridesFor names the x-<target> blocks of the targets that keep field,
+// as "`x-a`, `x-b`, and `x-c`", or "" when none does.
+func overridesFor(field string) string {
+	var blocks []string
+	for _, target := range SkillFieldKeepers(field) {
+		blocks = append(blocks, "`"+XPrefix+target+"`")
+	}
+	switch len(blocks) {
+	case 0:
+		return ""
+	case 1:
+		return blocks[0]
+	case 2:
+		return blocks[0] + " and " + blocks[1]
+	}
+	return strings.Join(blocks[:len(blocks)-1], ", ") + ", and " + blocks[len(blocks)-1]
+}
 
 func fieldNoteSuggestion(kind spec.Kind, field, reason string, shared bool) string {
 	if kind == spec.KindSkill {
@@ -14,7 +38,10 @@ func fieldNoteSuggestion(kind spec.Kind, field, reason string, shared bool) stri
 			if shared {
 				return "put the argument hint in the skill description or body; shared global skill files omit target overrides"
 			}
-			return "move `argument-hint` under `x-claude` for Claude Code, and put argument guidance in the description or body for other tools"
+			if overrides := overridesFor(field); overrides != "" {
+				return "move `argument-hint` under " + overrides + " for the tools that read it, and put argument guidance in the description or body for other tools"
+			}
+			return "put the argument hint in the skill description or body"
 		case "metadata":
 			if reason != "the skill file has no metadata field" {
 				return ""
@@ -22,7 +49,10 @@ func fieldNoteSuggestion(kind spec.Kind, field, reason string, shared bool) stri
 			if shared {
 				return "keep descriptive metadata in the skill body; shared global skill files omit target overrides"
 			}
-			return "move `metadata` under `x-claude` and `x-cursor` for those tools; keep information other tools need in the skill body"
+			if overrides := overridesFor(field); overrides != "" {
+				return "move `metadata` under " + overrides + " for the tools that read it; keep information other tools need in the skill body"
+			}
+			return "keep descriptive metadata in the skill body"
 		case "disable-model-invocation":
 			if reason == "the skill file has no disable-model-invocation field" || reason == "its global copy stays model-invocable" {
 				if shared {

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -337,15 +336,17 @@ func flushFieldNotesLocked() {
 		coverageNoteState.environmentFields = nil
 		return
 	}
+	// suggestion is part of the key: one note can need different fixes,
+	// such as a shared global skill folder that has no target overrides.
 	type key struct {
-		kind   spec.Kind
-		field  string
-		count  int
-		reason string
+		kind       spec.Kind
+		field      string
+		count      int
+		reason     string
+		suggestion string
 	}
 	order := []key{}
 	groups := map[key][]string{}
-	suggestions := map[key][]string{}
 	seen := map[string]bool{} // target+kind+field+reason dedup within one flush
 	for _, p := range coverageNoteState.pendingField {
 		dedupKey := p.target + "\x00" + string(p.kind) + "\x00" + p.field + "\x00" + p.reason
@@ -353,20 +354,17 @@ func flushFieldNotesLocked() {
 			continue
 		}
 		seen[dedupKey] = true
-		k := key{p.kind, p.field, p.count, p.reason}
+		k := key{p.kind, p.field, p.count, p.reason, p.suggestion}
 		if _, ok := groups[k]; !ok {
 			order = append(order, k)
 		}
 		groups[k] = append(groups[k], p.target)
-		if p.suggestion != "" && !slices.Contains(suggestions[k], p.suggestion) {
-			suggestions[k] = append(suggestions[k], p.suggestion)
-		}
 	}
 	for _, k := range order {
 		targets := groups[k]
 		_, _ = fmt.Fprintf(Warner, "  note: %s (%s)\n", fieldNoteText(k.kind, k.field, k.count, targets), k.reason)
-		for _, suggestion := range suggestions[k] {
-			_, _ = fmt.Fprintf(Warner, "    fix: %s\n", suggestion)
+		if k.suggestion != "" {
+			_, _ = fmt.Fprintf(Warner, "    fix: %s\n", k.suggestion)
 		}
 	}
 	coverageNoteState.pendingField = nil
