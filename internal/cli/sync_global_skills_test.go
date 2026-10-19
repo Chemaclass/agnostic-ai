@@ -372,10 +372,10 @@ func TestSyncGlobal_UnsupportedSkillDeleteHonorsMode(t *testing.T) {
 			if err != nil {
 				t.Fatalf("sync = %v, %s", err, warnings)
 			}
-			if mode == "warn" && !strings.Contains(warnings, "delete has no native") {
+			if mode == "warn" && !strings.Contains(warnings, "`allowed-tools: delete` on 1 skill has no effect on claude") {
 				t.Errorf("warning = %s", warnings)
 			}
-			if mode == "silent" && strings.Contains(warnings, "delete has no native") {
+			if mode == "silent" && strings.Contains(warnings, "allowed-tools: delete") {
 				t.Errorf("silent = %s", warnings)
 			}
 			data, err := os.ReadFile(filepath.Join(home, ".claude", "skills", "review", "SKILL.md"))

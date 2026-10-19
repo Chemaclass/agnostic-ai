@@ -285,6 +285,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
 		Fix:      "Rename the folder or file, or edit the `name:` line, to remove the characters.",
 	},
+	"LINT048": {
+		Severity: lintWarn,
+		Title:    "Agent without a description",
+		Cause:    "An agent spec with a body has no `description`. Tools read it to decide when to hand the agent a task. Claude Code skips an agent file without one, so sync writes the agent's name there instead and prints a note.",
+		Fix:      "Add a `description:` that says when to use the agent.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",
