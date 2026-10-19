@@ -86,7 +86,8 @@ mcpServers: [github]
 
 Sync leaves the server out of every project and user MCP file. It writes the server's full definition into the agent file of each agent that names it, on the tools whose agent file can hold one: [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Kiro](@/docs/targets/kiro.md), and [OpenHands](@/docs/targets/openhands.md). Every other tool gets no copy of the server, and sync prints a note. See [`mcpServers` support by target](@/docs/spec-format/agents.md#mcpservers-support-by-target).
 
-- The agent file is committed, so `env` and `headers` must hold `${NAME}` references or `!literal` plain settings, as in any MCP spec. Sync refuses a literal value, also in a [pack](@/docs/packs.md).
+- The agent file is committed with every copy of the agent, so sync checks a server it writes there more strictly. Besides a literal `env` or `headers` value, it refuses a credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, and in a `${NAME:-default}` default. The check also covers servers from a [pack](@/docs/packs.md).
+- `agent-only` must be `true` or `false`. Sync and `validate` refuse any other value, such as `yes`.
 - A server no agent names reaches no tool. Sync prints a note.
 - A `disabled: true` server is left out of the agent file.
 - `sync --global` writes no agent-only server.

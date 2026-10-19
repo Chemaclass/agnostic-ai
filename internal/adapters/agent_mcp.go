@@ -22,9 +22,15 @@ type agentMCPInliner interface {
 // servers, why an agent-only server reaches no agent there.
 var agentOnlyGapReasons = map[string]string{
 	"antigravity": "Antigravity documents no shape for an inline agent server; set x-antigravity.mcpServers",
+	"copilot":     "sync writes no inline agent server here; set x-copilot.mcp-servers",
 	"factory":     "a Factory agent names servers from the project MCP file only",
+	"gemini":      "sync writes no inline agent server here; set x-gemini.mcp_servers",
 	"junie":       "a Junie agent names servers from the project MCP file only",
 }
+
+// namesOnlyTargets write an agent's mcpServers as names from the project
+// MCP file, so a name of an agent-only server would match nothing.
+var namesOnlyTargets = map[string]bool{"factory": true, "junie": true}
 
 const (
 	agentOnlyGapReason  = "the agent file cannot define a server"
@@ -39,6 +45,9 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 	target := a.Name()
 	shared, only := spec.SplitAgentOnly(b.MCPs)
 	b.MCPs = shared
+	if caps := a.Capabilities(); caps != nil && !slices.Contains(caps, spec.KindMCP) {
+		return b
+	}
 	for _, e := range only {
 		emit.NoteEntryOmitted(target, spec.KindMCP, e.Name)
 	}
@@ -60,6 +69,9 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 			reason = agentOnlyGapReason
 		}
 		noteAgentOnlyGap(target, len(only), reason)
+		if namesOnlyTargets[target] {
+			b.Agents = withoutAgentOnlyNames(b.Agents, target, only)
+		}
 		return b
 	}
 	form := inliner.AgentMCPForm()
@@ -84,13 +96,12 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 		}
 		var inline []spec.Entry
 		ownOnly := map[string]bool{}
+		missing := false
 		for _, item := range list {
 			name, _ := item.(string)
 			e, found := byName[name]
 			if !found {
-				if !form.Names {
-					unknown++
-				}
+				missing = missing || !form.Names
 				continue
 			}
 			if form.Names && !e.AgentOnly() {
@@ -98,6 +109,9 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 			}
 			ownOnly[name] = e.AgentOnly()
 			inline = append(inline, e)
+		}
+		if missing {
+			unknown++
 		}
 		agents[i] = withAgentServers(agent, target, form, inliner.AgentMCPServers(inline), ownOnly)
 	}
@@ -111,6 +125,35 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 	noteAgentOnlyGap(target, unused, agentOnlyUnusedNote)
 	emit.NoteFieldNoOp(target, spec.KindAgent, "mcpServers", unknown, "only a name with an MCP spec can be written as an inline server")
 	return b
+}
+
+// withoutAgentOnlyNames drops the names of agent-only servers from each
+// agent's mcpServers list. Junie reads an empty list as every server,
+// so a Junie list that would end up empty stays as written: its names
+// match no server.
+func withoutAgentOnlyNames(agents []spec.Entry, target string, only []spec.Entry) []spec.Entry {
+	agentOnly := map[string]bool{}
+	for _, e := range only {
+		agentOnly[e.Name] = true
+	}
+	out := slices.Clone(agents)
+	for i, agent := range out {
+		custom, _ := agent.Meta[emit.XPrefix+target].(map[string]any)
+		if _, explicit := custom["mcpServers"]; explicit {
+			continue
+		}
+		list, _ := agent.Meta["mcpServers"].([]any)
+		kept := slices.DeleteFunc(slices.Clone(list), func(item any) bool {
+			name, _ := item.(string)
+			return agentOnly[name]
+		})
+		if len(kept) == len(list) || len(kept) == 0 && target == "junie" {
+			continue
+		}
+		out[i].Meta = maps.Clone(agent.Meta)
+		out[i].Meta["mcpServers"] = kept
+	}
+	return out
 }
 
 // withAgentServers returns agent with servers in its agent file key. A
@@ -166,4 +209,19 @@ func sharesGooseAgents(target string, cfg *config.Config) bool {
 	}
 	const shared = ".agents/agents"
 	return emit.OutputAgentsDir(cfg, "openhands", shared) == emit.OutputAgentsDir(cfg, "goose", shared)
+}
+
+// AgentMCPInlining reports which MCP servers target writes in full into
+// an agent file: agent-only ones the agent names, and, when named is
+// true, every server the agent names.
+func AgentMCPInlining(target string) (agentOnly, named bool) {
+	a, err := Resolve(target)
+	if err != nil {
+		return false, false
+	}
+	inliner, ok := a.(agentMCPInliner)
+	if !ok {
+		return false, false
+	}
+	return true, !inliner.AgentMCPForm().Names
 }

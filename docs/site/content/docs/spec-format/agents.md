@@ -269,8 +269,9 @@ A top-level `mcpServers` list limits which MCP servers one agent may reach. Each
 | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) | Server names in the agent file. An agent-only server is written in full instead |
 | [Kiro](@/docs/targets/kiro.md) | Every named server written in full, under `mcpServers` |
 | [OpenHands](@/docs/targets/openhands.md) | Every named server written in full, under `mcp_servers`. Not when Goose shares `.agents/agents/`: set `outputs.openhands.agents-dir` |
-| [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names in the agent file. An agent-only server is left out |
+| [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names in the agent file. An agent-only server's name is left out, except on Junie when it is the only name, since an empty list there means every server |
 | [Antigravity](@/docs/targets/antigravity.md) | Dropped. Its docs give no shape for an inline server. Set `x-antigravity.mcpServers` |
+| [Gemini](@/docs/targets/gemini.md), [Copilot](@/docs/targets/copilot.md) | Dropped. Set `x-gemini.mcp_servers` or `x-copilot.mcp-servers` |
 
 Every other tool drops the list and leaves out agent-only servers, with a sync note. An `x-<target>` key for the list, such as `x-kiro.mcpServers`, replaces what sync would write.
 

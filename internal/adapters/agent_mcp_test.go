@@ -201,3 +201,90 @@ func TestAgentMCP_OverrideStillCountsAsNamingTheServer(t *testing.T) {
 		t.Errorf("the agent names the server; only its override replaces the list:\n%s", notes)
 	}
 }
+
+type pluginStub struct{ got spec.Bundle }
+
+func (p *pluginStub) Name() string              { return "myplugin" }
+func (p *pluginStub) Capabilities() []spec.Kind { return nil }
+func (p *pluginStub) Emit(_ *emit.Session, b spec.Bundle, _ *config.Config, _ bool) error {
+	p.got = b
+	return nil
+}
+
+func TestAgentMCP_PluginTargetGetsNoAgentOnlyServer(t *testing.T) {
+	testutil.TempCwd(t)
+	plugin := &pluginStub{}
+	sess := NewSession()
+	sess.StartCapture()
+	defer sess.StopCapture()
+	if err := EmitWithProvenance(sess, plugin, agentMCPBundle(nil), &config.Config{Targets: []string{"myplugin"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range plugin.got.MCPs {
+		if e.Name == "github" {
+			t.Errorf("a plugin target must not receive the agent-only server: %v", e.Meta)
+		}
+	}
+	if len(plugin.got.MCPs) != 1 {
+		t.Errorf("the shared server is missing: %v", plugin.got.MCPs)
+	}
+}
+
+func TestAgentMCP_NamesOnlyTargetsDropTheAgentOnlyName(t *testing.T) {
+	for target, path := range map[string]string{"factory": ".factory/droids/reviewer.md", "junie": ".junie/agents/reviewer.md"} {
+		t.Run(target, func(t *testing.T) {
+			files, _ := emitAgentMCP(t, target, agentMCPBundle(nil))
+			agent := fileContaining(files, path)
+			if strings.Contains(agent, "github") || !strings.Contains(agent, "docs") {
+				t.Errorf("want only the shared name left:\n%s", agent)
+			}
+		})
+	}
+}
+
+// On Junie an empty list keeps every server, so a list that names only
+// agent-only servers stays as written: its names match no server.
+func TestAgentMCP_JunieNeverEmptiesTheList(t *testing.T) {
+	files, _ := emitAgentMCP(t, "junie", agentMCPBundle(map[string]any{"mcpServers": []any{"github"}}))
+	if agent := fileContaining(files, ".junie/agents/reviewer.md"); !strings.Contains(agent, "github") {
+		t.Errorf("an emptied Junie list would grant every server:\n%s", agent)
+	}
+}
+
+func TestAgentMCP_KiroAndQoderLeaveADisabledServerOut(t *testing.T) {
+	for target, path := range map[string]string{"kiro": ".kiro/agents/reviewer.md", "qoder": ".qoder/agents/reviewer.md"} {
+		t.Run(target, func(t *testing.T) {
+			b := agentMCPBundle(nil)
+			b.MCPs[0].Meta["disabled"] = true
+			files, _ := emitAgentMCP(t, target, b)
+			if agent := fileContaining(files, path); strings.Contains(agent, "github") {
+				t.Errorf("a disabled server reached the agent file:\n%s", agent)
+			}
+		})
+	}
+}
+
+func TestAgentMCP_GeminiAndCopilotNotesNameTheAgentKey(t *testing.T) {
+	for target, key := range map[string]string{"gemini": "x-gemini.mcp_servers", "copilot": "x-copilot.mcp-servers"} {
+		t.Run(target, func(t *testing.T) {
+			_, notes := emitAgentMCP(t, target, agentMCPBundle(nil))
+			if !strings.Contains(notes, key) {
+				t.Errorf("note should name %s:\n%s", key, notes)
+			}
+		})
+	}
+}
+
+func TestAgentMCP_UnknownNamesCountEachAgentOnce(t *testing.T) {
+	_, notes := emitAgentMCP(t, "kiro", agentMCPBundle(map[string]any{"mcpServers": []any{"nope", "nada"}}))
+	if !strings.Contains(notes, "`mcpServers` on 1 agent") {
+		t.Errorf("one agent with two unknown names is one agent:\n%s", notes)
+	}
+}
+
+func TestAgentMCP_AntigravityGivesOneReason(t *testing.T) {
+	_, notes := emitAgentMCP(t, "antigravity", agentMCPBundle(nil))
+	if strings.Contains(notes, "inline server objects only") {
+		t.Errorf("the older reason contradicts the agent-only note:\n%s", notes)
+	}
+}

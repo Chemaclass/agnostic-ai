@@ -14,5 +14,6 @@ func (Adapter) AgentMCPForm() emit.AgentMCPForm {
 // AgentMCPServers renders mcps in the .kiro/settings/mcp.json server
 // shape, which the agent field shares.
 func (Adapter) AgentMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of the agent file")
 	return emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithKiroMCPExtras())
 }

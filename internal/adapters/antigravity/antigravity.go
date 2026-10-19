@@ -186,7 +186,7 @@ var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 	AgentFieldReasons: map[string]string{
-		"mcpServers": "Antigravity takes inline server objects only; set x-antigravity.mcpServers",
+		"mcpServers": "Antigravity documents no shape for an inline agent server; set x-antigravity.mcpServers",
 	},
 }
 

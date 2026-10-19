@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -87,7 +88,9 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
-	issues = append(issues, mcpLiteralIssues(packAgentMCPs(b, targets))...)
+	inlined := agentFileMCPs(b, targets)
+	issues = append(issues, mcpLiteralIssues(packSpecs(inlined))...)
+	issues = append(issues, agentFileCredentialIssues(inlined)...)
 	issues = append(issues, agentOnlyIssues(b.MCPs)...)
 	if slices.Contains(targets, "ellipsis") {
 		issues = append(issues, ellipsisVariableIssues(b.Settings)...)
@@ -153,20 +156,34 @@ func stopOnIssues(issues []validationIssue) error {
 	return fmt.Errorf("%s", strings.Join(lines, "\n"))
 }
 
-// packAgentMCPs returns the pack MCP specs sync may write into an agent
-// file: the agent-only ones, and the ones an agent names when a target
-// in targets writes every named server in full.
-func packAgentMCPs(b spec.Bundle, targets []string) []spec.Entry {
-	inlinesNames := slices.ContainsFunc(targets, func(t string) bool { return t == "kiro" || t == "openhands" })
-	named := map[string]bool{}
+// agentFileMCPs returns the MCP specs sync may write in full into an
+// agent file for a target in targets: the agent-only ones, and every
+// server an agent names where a target writes each named server.
+func agentFileMCPs(b spec.Bundle, targets []string) []spec.Entry {
+	agentOnly, named := false, false
+	for _, t := range targets {
+		o, n := adapters.AgentMCPInlining(t)
+		agentOnly, named = agentOnly || o, named || n
+	}
+	names := map[string]bool{}
 	for _, a := range b.Agents {
 		for _, name := range spec.AgentMCPNames(a.Meta) {
-			named[name] = inlinesNames
+			names[name] = true
 		}
 	}
 	var out []spec.Entry
 	for _, e := range b.MCPs {
-		if strings.HasPrefix(e.Layer, "pack:") && (e.AgentOnly() || named[e.Name]) {
+		if e.AgentOnly() && agentOnly || named && names[e.Name] {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func packSpecs(entries []spec.Entry) []spec.Entry {
+	var out []spec.Entry
+	for _, e := range entries {
+		if strings.HasPrefix(e.Layer, "pack:") {
 			out = append(out, e)
 		}
 	}

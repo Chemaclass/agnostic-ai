@@ -99,3 +99,55 @@ func TestStopOnSpecTypos_RefusesANonBooleanAgentOnly(t *testing.T) {
 		t.Errorf("a string agent-only would write the server to every MCP file: %v", err)
 	}
 }
+
+func TestSyncGlobal_RefusesANonBooleanAgentOnly(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "github.yaml"), "name: github\nagent-only: \"yes\"\ncommand: github-mcp\n")
+	_, _, err := runGlobalAgentTest("--only", "claude")
+	if err == nil || !strings.Contains(err.Error(), "agent-only must be true or false") {
+		t.Fatalf("sync --global must refuse it: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(home, ".claude.json")); err == nil && strings.Contains(string(data), "github") {
+		t.Errorf("~/.claude.json lists the server:\n%s", data)
+	}
+}
+
+// An agent file is committed with every copy of the agent, so a server
+// sync writes into one gets the stricter check: credentials in url,
+// args, x-<target> blocks, and reference defaults are refused too.
+func TestStopOnSpecTypos_InlinedServerRefusesCredentialsOutsideEnvAndHeaders(t *testing.T) {
+	cases := map[string]string{
+		"url userinfo":      "type: http\nurl: https://user:hunter2secretpw@mcp.example.com/mcp\n",
+		"url query":         "type: http\nurl: https://mcp.example.com/mcp?api_key=sk-live-abcdef123456\n",
+		"args":              "command: srv\nargs: [--token, ghp_abcdefghijklmnopqrstuvwxyz0123456789]\n",
+		"x-target env":      "command: srv\nx-kiro:\n  env:\n    GITHUB_TOKEN: ghp_abcdefghijklmnopqrstuvwxyz0123456789\n",
+		"reference default": "command: srv\nenv:\n  GITHUB_TOKEN: ${GITHUB_TOKEN:-ghp_abcdefghijklmnopqrstuvwxyz0123456789}\n",
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			e := mcpEntry(t, "name: github\nagent-only: true\n"+body)
+			err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{e}}, []string{"claude"})
+			if err == nil || !strings.Contains(err.Error(), `MCP server "github"`) {
+				t.Fatalf("an agent file would carry the credential: %v", err)
+			}
+			for _, secret := range []string{"hunter2secretpw", "sk-live-abcdef123456", "ghp_abcdefghijklmnopqrstuvwxyz0123456789"} {
+				if strings.Contains(err.Error(), secret) {
+					t.Errorf("the error quotes the value: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// The stricter check covers only servers an agent file carries. A shared
+// server Claude keeps as a name stays under the project-level check.
+func TestStopOnSpecTypos_SharedServerKeepsTheProjectCheck(t *testing.T) {
+	e := mcpEntry(t, "name: docs\ncommand: srv\nargs: [--token, ghp_abcdefghijklmnopqrstuvwxyz0123456789]\n")
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "triager", Path: "agents/triager.md", Meta: map[string]any{"mcpServers": []any{"docs"}}}
+	if err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{e}, Agents: []spec.Entry{agent}}, []string{"claude"}); err != nil {
+		t.Errorf("claude writes no shared server into an agent file: %v", err)
+	}
+	if err := stopOnSpecTypos(spec.Bundle{MCPs: []spec.Entry{e}, Agents: []spec.Entry{agent}}, []string{"kiro"}); err == nil {
+		t.Errorf("kiro writes the named server into the agent file, so the credential must be refused")
+	}
+}

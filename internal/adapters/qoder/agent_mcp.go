@@ -15,5 +15,6 @@ func (Adapter) AgentMCPForm() emit.AgentMCPForm {
 // AgentMCPServers renders mcps in the settings.json server shape, whose
 // fields the subagent page lists for inline servers.
 func (Adapter) AgentMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of the agent file")
 	return buildMCPMap(emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason))
 }

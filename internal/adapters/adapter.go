@@ -805,8 +805,8 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		if _, inTree := registry[a.Name()]; inTree {
 			prepared.MCPs = rewriteMCPRefs(a, prepared.MCPs)
 		}
-		prepared = withAgentMCPServers(a, prepared, cfg)
 	}
+	prepared = withAgentMCPServers(a, prepared, cfg)
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err
 	}
