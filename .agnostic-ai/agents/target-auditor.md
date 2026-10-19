@@ -1,7 +1,7 @@
 ---
 name: target-auditor
 description: Audit one batch of agnostic-ai targets against current vendor docs, reporting evidence-backed drift and meaningful project capability changes.
-tools: [Read, Grep, Bash, WebFetch, WebSearch]
+can: [read, Grep, shell, web]
 model:
   claude: sonnet
 effort:
