@@ -15,7 +15,7 @@ with_label = "With agnostic-ai"
 without_label = "Without"
 hand_label = "Edit each file by hand"
 with_summary = ["1 file you edit", "Every tool reads the same rule"]
-without_summary = ["{n} files you keep in step", "Each tool reads a different rule"]
+without_summary = ["{n} files you edit by hand", "Rules drift apart"]
 
 [[hero.fanout.outputs]]
 path = "CLAUDE.md"

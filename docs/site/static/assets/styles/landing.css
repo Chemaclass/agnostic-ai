@@ -1141,10 +1141,44 @@ main > section[id] {
   outline-offset: 2px;
 }
 
+/* Each pair of alternates shares one grid cell and swaps visibility, so
+   the figure keeps the height of the taller state when the toggle flips. */
+/* The chip sits above the trunk, so the travelling pulse passes behind it. */
+.fanout-step {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  margin-left: 0.35rem;
+}
+
+.fanout-step > *,
+.fanout-summary > ul {
+  grid-area: 1 / 1;
+}
+
+.fanout-step code {
+  margin-left: 0;
+}
+
+.fanout-outputs > li:not(.fanout-more) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "path mark" "detail detail";
+}
+
+.fanout-path { grid-area: path; }
+.fanout-check { grid-area: mark; }
+
+.fanout-tools,
+.fanout-drift {
+  grid-area: detail;
+  margin-left: 0;
+}
+
 .fanout-hand,
 .fanout-drift,
-.fanout-summary .fanout-bad {
-  display: none;
+.fanout-bad {
+  visibility: hidden;
 }
 
 /* A pulse travels down the trunk and out along each stub while sync runs. */
@@ -1176,10 +1210,16 @@ main > section[id] {
 }
 
 .fanout-summary {
+  display: grid;
+  margin-top: 1rem;
+}
+
+.fanout-summary ul {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 0.5rem;
-  margin: 1rem 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -1204,7 +1244,7 @@ main > section[id] {
   background: var(--good);
 }
 
-.fanout-summary .fanout-bad::before {
+.fanout-summary .fanout-bad li::before {
   background: var(--danger);
 }
 
@@ -1219,13 +1259,16 @@ main > section[id] {
 #fanout-without:checked ~ .fanout-summary .fanout-good,
 #fanout-without:checked ~ .fanout-outputs .fanout-tools,
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-check {
-  display: none;
+  visibility: hidden;
 }
 
-#fanout-without:checked ~ .fanout-sync .fanout-hand {
-  display: inline-block;
-  position: relative;
-  margin-left: 0.35rem;
+#fanout-without:checked ~ .fanout-sync .fanout-hand,
+#fanout-without:checked ~ .fanout-outputs .fanout-drift,
+#fanout-without:checked ~ .fanout-summary .fanout-bad {
+  visibility: visible;
+}
+
+.fanout-hand {
   padding: 0.3rem 0.7rem;
   border: 1px dashed var(--muted);
   border-radius: 999px;
@@ -1233,15 +1276,10 @@ main > section[id] {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-#fanout-without:checked ~ .fanout-outputs .fanout-drift,
-#fanout-without:checked ~ .fanout-summary .fanout-bad {
-  display: inline-flex;
-}
-
-#fanout-without:checked ~ .fanout-outputs .fanout-drift {
-  flex-basis: 100%;
+.fanout-drift {
   color: var(--muted);
   font-size: 0.8rem;
 }
