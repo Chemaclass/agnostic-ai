@@ -177,8 +177,8 @@ func mcpProvider(m *mcpInfo, subject *subjectInfo, src *Source) (Provider, bool)
 }
 
 // transport describes how the server is reached: its URL, with any
-// credential written into it redacted, or its command. A `${NAME}`
-// reference stays as written.
+// credential written into it redacted, or its command, redacted whole
+// when it holds a credential. A `${NAME}` reference stays as written.
 func transport(e spec.Entry) *Transport {
 	kind, _ := e.Meta["type"].(string)
 	if kind == "" {
@@ -189,6 +189,9 @@ func transport(e spec.Entry) *Transport {
 		t.Endpoint = redactURL(u)
 	} else if c, ok := e.Meta["command"].(string); ok {
 		t.Endpoint = c
+		if preview.CredentialInRule(capShell + "(" + c + ")") {
+			t.Endpoint = preview.Redacted
+		}
 	}
 	return t
 }

@@ -152,3 +152,25 @@ func TestBuild_CredentialUseFollowsTheSubjectsToolPermissions(t *testing.T) {
 		t.Errorf("session on codex: use = %s, want unknown: the rule is not expressed there", got)
 	}
 }
+
+func TestBuild_AServerCommandThatHoldsACredentialIsRedacted(t *testing.T) {
+	const token = "ghp_0123456789abcdefghijklmnop"
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":              "version: 1\ntargets: [claude]\n",
+		".agnostic-ai/mcps/github.yaml": "name: github\ncommand: \"env GITHUB_TOKEN=" + token + " npx -y server\"\n",
+		".agnostic-ai/mcps/plain.yaml":  "name: plain\ncommand: npx\nargs: [-y, server]\n",
+	})
+	v := buildView(t, root, Options{})
+	if data := mustJSON(t, v); strings.Contains(data, token) {
+		t.Fatal("the view carries the token written in a server command")
+	}
+	endpoints := map[string]string{}
+	for _, p := range v.Providers {
+		if p.Transport != nil {
+			endpoints[p.ID] = p.Transport.Endpoint
+		}
+	}
+	if endpoints["mcp-github"] != "<redacted>" || endpoints["mcp-plain"] != "npx" {
+		t.Errorf("endpoints = %v", endpoints)
+	}
+}
