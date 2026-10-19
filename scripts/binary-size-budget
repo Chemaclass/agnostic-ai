@@ -308,8 +308,14 @@
 # Linux amd64 release flags; retain the 8 KB allowance. No new dependencies.
 # With validate and lint reporting agent-file credentials, #2334 measured
 # 20144288, up 45056 from main 165b90b5. Retain the 8 KB allowance.
-# #2327 measured 20156576 on Go 1.27.2 after merging main dcaf4a81, 4096
-# over the budget: portable agent maxTurns and background map to each
-# tool's key, with validation, LINT050, and import back. Same Linux amd64
-# release flags; retain the 8 KB allowance. No new dependencies.
-20164768
+# #2333 measured 20164768 on Go 1.27.2, up 20480 from main dcaf4a81
+# (20144288): Claude agents write the plain tool for a scoped capability,
+# report the widening in project and global sync, and import keeps the
+# spec's pattern. Same Linux amd64 release flags; retain the 8 KB
+# allowance. No new dependencies.
+# #2327 measured 20185248 on Go 1.27.2 after merging main 7fcdf7d2,
+# 12288 over the budget: portable agent maxTurns and background map to
+# each tool's key, with validation, LINT050, import back, and notes for
+# an override of the wrong type. Same Linux amd64 release flags; retain
+# the 8 KB allowance. No new dependencies.
+20193440

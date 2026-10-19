@@ -25,7 +25,7 @@ Give the agent one responsibility, the files or decisions it owns, and a clear r
 agnostic-ai new agent code-reviewer
 ```
 
-Edit `.agnostic-ai/agents/code-reviewer.md` (or its configured source path). Claude Code can restrict this agent's tools; Codex drops `can` with a note. `readonly` also does not give a Codex child agent a separate sandbox. See [tool support](#tools-support-by-target).
+Edit `.agnostic-ai/agents/code-reviewer.md` (or its configured source path). Claude Code limits this agent to the tools it lists; Codex drops `can` with a note. `readonly` also does not give a Codex child agent a separate sandbox. See [tool support](#tools-support-by-target).
 
 YAML settings between `---` lines configure the agent. The body is its prompt.
 
@@ -39,6 +39,8 @@ model: {claude: sonnet, codex: sol}
 
 You are a code reviewer. Report concise findings with `file:line` references.
 ```
+
+Claude Code gets `tools: [Read, Bash]`: it ignores the pattern, so this agent can run any command there. To keep it to `git diff`, see [capabilities](#capabilities).
 
 Run `agnostic-ai explain agents/code-reviewer.md` to inspect the translations, then `agnostic-ai sync` and `agnostic-ai sync --check`.
 
@@ -87,12 +89,12 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 
 | `can` value | Grants | Claude Code name |
 |-------------|--------|------------------|
-| `read`, `read(<path>)` | Read files, or matching files | `Read`, `Read(<path>)` |
+| `read`, `read(<path>)` | Read files, or matching files | `Read`; the path is dropped |
 | `write` | Create or overwrite files | `Write` |
-| `edit`, `edit(<path>)` | Edit files, or matching files | `Edit`, `Edit(<path>)` |
+| `edit`, `edit(<path>)` | Edit files, or matching files | `Edit`; the path is dropped |
 | `delete` | Delete files | No native tool |
 | `shell` | Run any command | `Bash` |
-| `shell(<pattern>)` | Run the commands that match the pattern | `Bash(<pattern>)` |
+| `shell(<pattern>)` | Run the commands that match the pattern | `Bash`; the pattern is dropped |
 | `web` | Fetch pages and search the web | `WebFetch`, `WebSearch` |
 | `mcp:<server>` | Use every tool of one MCP server | `mcp__<server>` |
 | `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
@@ -100,6 +102,9 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 - Each capability becomes the tool's own name for it. `delete` raises a sync note on tools with no delete tool.
 - Claude Code refuses to launch an agent with an empty tool list, such as `can: []` or `can: [delete]`. Sync leaves such an agent out of `.claude/agents/` and prints a note.
 - Claude Code names still work as aliases. A list can mix both: `can: [read, Grep]`.
+- Claude Code reads an agent's `tools` by tool name and ignores a pattern there. Sync writes `shell(git diff *)` as `Bash` and `read(src/**)` as `Read`, and prints a note such as `claude: .agnostic-ai/agents/code-reviewer.md: shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern`. `on-unsupported: error` fails on it. `Agent(<type>)` and `x-claude.tools` are written as given.
+- To limit an agent's commands on Claude Code, add a `PreToolUse` hook to its `hooks` that blocks the rest, or deny commands in a [settings spec's permissions](@/docs/spec-format/settings.md#permission-rules), which Claude Code applies to the main conversation and to every agent.
+- A skill's `allowed-tools` keeps the pattern: there `shell(git diff *)` pre-approves those commands.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hook-reference.md#portable-events).
 - A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this.
 - `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`.

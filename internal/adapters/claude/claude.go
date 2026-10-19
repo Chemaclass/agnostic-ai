@@ -122,6 +122,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
+	if err := reportWidenedTools(b.Agents, cfg.OnUnsupported); err != nil {
+		return err
+	}
 	agentsDir := emit.OutputAgentsDir(cfg, target, emit.OutputSubDir(cfg, target, "agents", defaultAgentsDir))
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err

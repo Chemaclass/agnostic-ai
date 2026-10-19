@@ -880,6 +880,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		g := globalTargets[target]
 		if g.agents != "" {
 			dir := g.agentsPath(home)
+			if err := adapters.ReportAgentWidening(target, b.Agents, onUnsupported); err != nil {
+				return nil, next, err
+			}
 			files, renderErr := adapters.RenderAgents(target, b.Agents, dir)
 			if renderErr != nil {
 				if err := agentErr(target, renderErr); err != nil {

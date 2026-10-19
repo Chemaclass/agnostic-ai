@@ -187,3 +187,26 @@ func TestSync_StopsOnAnInvalidAgentTurnLimit(t *testing.T) {
 		t.Errorf("sync wrote the agent: %v", err)
 	}
 }
+
+// The turn limit and background flag ride along with the translated tool
+// list, and an agent Claude Code would refuse is still left out.
+func TestSync_ClaudeAgentLimitsComposeWithTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "git.md"), "---\ndescription: Runs git.\ncan: [read, \"shell(git *)\"]\nmaxTurns: 8\nbackground: true\n---\n\nRun git.\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\ndescription: Thinks.\ncan: []\nmaxTurns: 8\n---\n\nThink.\n")
+	mustSync(t)
+	got, err := os.ReadFile(filepath.Join(dir, ".claude", "agents", "git.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"tools:", "Bash", "maxTurns: 8", "background: true"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "agents", "idle.md")); !os.IsNotExist(err) {
+		t.Errorf("an agent with an empty tool list reached Claude Code: %v", err)
+	}
+}

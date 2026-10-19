@@ -153,6 +153,9 @@ func emptyToolList(meta map[string]any) bool {
 
 func agentMeta(a spec.Entry) (map[string]any, []string) {
 	meta, keys := emit.ResolveMetaOrdered(a.Meta, a.MetaKeys, target)
+	if tools, widened := widenedAgentTools(a); widened != nil {
+		meta["tools"] = tools
+	}
 	i := slices.Index(keys, "readonly")
 	if i < 0 {
 		return meta, keys
