@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -275,5 +276,17 @@ func TestCollectFindings_ServesNoCredentialAQuotedRuleHolds(t *testing.T) {
 	}
 	if quoted == 0 {
 		t.Errorf("no finding quotes a rule; findings = %+v", findings)
+	}
+}
+
+func TestServedFindingMessage_RedactsAGoQuotedRule(t *testing.T) {
+	const key = "3f9a1c7e5b2d4086"
+	message := fmt.Sprintf("deny rule %q has a `*` before the end of the command", `shell(curl -H "X-Api-Key: `+key+`" * https://x)`)
+	if got := servedFindingMessage(message); strings.Contains(got, key) {
+		t.Errorf("served message carries the key: %s", got)
+	}
+	safe := fmt.Sprintf("deny rule %q has a `*` before the end", "shell(git * push)")
+	if got := servedFindingMessage(safe); got != safe {
+		t.Errorf("safe message changed: %s", got)
 	}
 }

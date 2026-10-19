@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -75,16 +76,27 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 }
 
 // servedFindingMessage keeps credentials out of a finding the API
-// serves: a quoted rule that holds one reads as shell(<redacted>), and a
+// serves: a rule that holds one, quoted with %q or written plain, reads
+// as shell(<redacted>), and a
 // message that still holds one is replaced. The CLI commands print the
 // message as written, to the owner of the file it quotes.
 func servedFindingMessage(message string) string {
-	shown := preview.RedactRulesIn(message)
+	shown := goQuoted.ReplaceAllStringFunc(message, func(quoted string) string {
+		text, err := strconv.Unquote(quoted)
+		if err != nil || !preview.CredentialInRule(text) {
+			return quoted
+		}
+		return strconv.Quote(preview.RedactRule(text))
+	})
+	shown = preview.RedactRulesIn(shown)
 	if preview.CredentialDetected(shown) {
 		return "This finding quotes a credential, so its text is not shown here; run agnostic-ai lint or doctor to read it."
 	}
 	return shown
 }
+
+// goQuoted matches a Go double-quoted string, as %q writes one.
+var goQuoted = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 
 // overviewLintFindings is what `lint` reports for the project, each with
 // the cause `explain` gives for its code. A lint run that stops early
