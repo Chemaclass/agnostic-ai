@@ -50,11 +50,6 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	var all []resolved
 	var named []spec.Entry
 	var undescribed []string
-	if sess.UserTier() {
-		if err := reportWidenedTools(agents, ""); err != nil {
-			return err
-		}
-	}
 	for _, agent := range agents {
 		meta, keys := agentMeta(agent)
 		if emptyToolList(meta) {

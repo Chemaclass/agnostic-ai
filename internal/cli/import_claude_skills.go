@@ -107,7 +107,14 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 			if meta != nil || !strings.HasPrefix(string(spec), "---\n") {
 				out = dropClaudeIdentityFallback(out, meta)
 			}
-			out = keepScopedClaudeTools(out, header.Strip(string(data)), meta)
+			if kept := keepScopedClaudeTools(out, header.Strip(string(data)), meta); kept != out {
+				out = kept
+				shown := dstPath
+				if rel, err := filepath.Rel(root, dstPath); err == nil && !strings.HasPrefix(rel, "..") {
+					shown = rel
+				}
+				keptf("note: %s keeps its scoped %s; Claude Code gets the plain tools. To widen it for every tool, edit the spec\n", shown, scopedToolsKey(meta))
+			}
 		}
 		if err := importMkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dstPath), err)
@@ -156,6 +163,13 @@ func keepScopedClaudeTools(doc, native string, existing map[string]any) string {
 		return doc
 	}
 	return "---\n" + buf.String() + rest[end+1:]
+}
+
+func scopedToolsKey(existing map[string]any) string {
+	if _, set := existing["can"]; set {
+		return "can:"
+	}
+	return "tools:"
 }
 
 // claudeToolNames reads a Claude Code `tools` value, a list or a

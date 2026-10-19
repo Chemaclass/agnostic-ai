@@ -94,7 +94,11 @@ func (Adapter) CapabilityWidening(names []string) []string {
 	var out []string
 	for _, name := range names {
 		if tool, ok := scopedTool(name); ok {
-			out = append(out, fmt.Sprintf("%s becomes %s; Claude Code does not limit an agent's tools to a pattern", name, tool))
+			label := name
+			if c, neutral := spec.NeutralCapability(name); neutral {
+				label = c
+			}
+			out = append(out, fmt.Sprintf("%s becomes %s; Claude Code does not limit an agent's tools to a pattern", label, tool))
 		}
 	}
 	return out
@@ -126,8 +130,26 @@ func WidenedAgentTools(a spec.Entry) ([]string, bool) {
 	if lines == nil {
 		return nil, false
 	}
+	names := emit.StringSlice(tools)
 	if s, ok := tools.(string); ok {
-		return spec.SplitToolList(s), true
+		names = spec.SplitToolList(s)
 	}
-	return emit.StringSlice(tools), true
+	// Sync drops Delete, which has no Claude Code tool, before writing.
+	return slices.DeleteFunc(names, func(name string) bool { return name == "Delete" }), true
+}
+
+// ReportAgentWidening reports each scoped agent capability for user-level
+// sync, under the home's on-unsupported mode.
+func (Adapter) ReportAgentWidening(agents []spec.Entry, mode string) error {
+	return reportWidenedTools(agents, mode)
+}
+
+// TranslateAgentCapability names the tool Claude Code grants an agent for
+// one Claude-style name: a scoped entry is the bare tool. Delete has no
+// Claude Code tool.
+func (Adapter) TranslateAgentCapability(name string) ([]string, bool) {
+	if tool, ok := scopedTool(name); ok {
+		return []string{tool}, true
+	}
+	return []string{name}, name != "Delete"
 }

@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -153,5 +156,74 @@ func TestSync_WideningErrorNamesTheTargetOnce(t *testing.T) {
 				t.Fatalf("error = %v, want it to start %q", err, want)
 			}
 		})
+	}
+}
+
+// sync --global honors on-unsupported for the widening, as project sync
+// does.
+func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
+	for _, mode := range []string{"warn", "silent", "error"} {
+		t.Run(mode, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			notes := captureNotes(t)
+			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
+			mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, shell(git diff *)]\n---\nReview.\n")
+			_, warnings, err := runGlobalAgentTest("--only", "claude")
+			const line = "shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern"
+			if mode == "error" {
+				if err == nil || !strings.Contains(err.Error(), "claude: ") || !strings.Contains(err.Error(), line) {
+					t.Fatalf("error = %v", err)
+				}
+				if _, statErr := os.Stat(filepath.Join(home, ".claude", "agents", "reviewer.md")); !os.IsNotExist(statErr) {
+					t.Errorf("agent written despite the error: %v", statErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("sync --global: %v\n%s", err, warnings)
+			}
+			if got := strings.Contains(notes.String()+warnings, line); got != (mode == "warn") {
+				t.Errorf("%s: note shown = %v\n%s%s", mode, got, notes, warnings)
+			}
+		})
+	}
+}
+
+// Sync drops delete for Claude Code, so import must compare against the
+// same list.
+func TestImportFromClaude_KeepsTheScopedCapabilityBesideDelete(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	logs := captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Reviews a diff.\ncan: [read, delete, shell(git diff *)]\n---\nReview the diff.\n")
+	execCLI(t, "sync")
+	native := readFile(t, ".claude/agents/reviewer.md")
+	writeFile(t, ".claude/agents/reviewer.md", strings.Replace(native, "Review the diff.", "Review the diff twice.", 1))
+	execCLI(t, "import", "claude")
+
+	got := readFile(t, ".agnostic-ai/agents/reviewer.md")
+	if !strings.Contains(got, "shell(git diff *)") || !strings.Contains(got, "delete") {
+		t.Errorf("import lost the spec's capabilities:\n%s", got)
+	}
+	want := "note: " + filepath.Join(".agnostic-ai", "agents", "reviewer.md") + " keeps its scoped can:; Claude Code gets the plain tools. To widen it for every tool, edit the spec"
+	if !strings.Contains(logs.String(), want) {
+		t.Errorf("import must say it kept the scoped spec:\n%s\nwant %q", logs, want)
+	}
+}
+
+func TestExplainCapabilities_ClaudeAgentShowsThePlainTool(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindAgent, Meta: map[string]any{"can": []any{"read", "shell(git diff *)"}}}
+	got := explainCapabilities(entry, &config.Config{Targets: []string{"claude"}})
+	var out bytes.Buffer
+	printExplainCapabilities(&out, got)
+	for _, want := range []string{"[claude] can: shell(git diff *) → Bash", "shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("missing %q:\n%s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "→ Bash(git diff *)") {
+		t.Errorf("explain shows a pattern sync no longer writes:\n%s", out.String())
 	}
 }

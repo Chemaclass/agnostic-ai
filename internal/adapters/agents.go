@@ -44,6 +44,28 @@ func RenderAgents(target string, agents []spec.Entry, dir string) ([]CapturedFil
 	return sess.StopCapture(), nil
 }
 
+type agentWideningReporter interface {
+	ReportAgentWidening(agents []spec.Entry, mode string) error
+}
+
+// ReportAgentWidening prints, or fails on under mode error, each agent
+// capability target grants more widely than written, for user-level
+// sync. Project sync reports from the adapter's own Emit.
+func ReportAgentWidening(target string, agents []spec.Entry, mode string) error {
+	a, err := Resolve(target)
+	if err != nil {
+		return nil
+	}
+	reporter, ok := a.(agentWideningReporter)
+	if !ok {
+		return nil
+	}
+	if err := reporter.ReportAgentWidening((spec.Bundle{Agents: agents}).For(target).Agents, mode); err != nil {
+		return fmt.Errorf("%s: %w", target, err)
+	}
+	return nil
+}
+
 // AgentEffortSettings is implemented by a target that keeps per-agent
 // effort in its user settings file rather than in the agent file.
 type AgentEffortSettings interface {
