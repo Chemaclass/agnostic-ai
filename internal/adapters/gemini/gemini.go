@@ -124,6 +124,9 @@ var caps = emit.Capabilities{
 	Supports:            []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
 	AgentFields:         []string{"maxTurns"},
 	ForeignClaudeModels: emit.ClaudeModelNames,
+	AgentFieldReasons: map[string]string{
+		"mcpServers": "sync writes no inline agent server here; set x-gemini.mcp_servers",
+	},
 }
 
 func capabilities(cfg *config.Config) emit.Capabilities {

@@ -117,6 +117,10 @@
       "type": "object",
       "additionalProperties": { "type": "string" },
       "description": "HTTP headers for MCP http/sse transports."
+    },
+    "agent-only": {
+      "type": "boolean",
+      "description": "MCP server only the agents naming it in mcpServers may reach. Sync leaves it out of every project and user MCP file. See https://agnostic-ai.org/docs/spec-format/mcps/#agent-only"
     }
   }
 }

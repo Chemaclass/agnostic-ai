@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -78,7 +79,8 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 // MCP literal (LINT035), before it
 // is written into every tool's files. Pack specs are not the user's to
 // edit, so validate reports them, except a permission rule: a target
-// drops one it cannot read, so a lost deny rule would widen access.
+// drops one it cannot read, so a lost deny rule would widen access. A
+// pack MCP literal an agent file would carry is refused too.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
@@ -87,6 +89,10 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
+	inlined := agentFileMCPs(b, targets)
+	issues = append(issues, mcpLiteralIssues(packSpecs(inlined))...)
+	issues = append(issues, agentFileCredentialIssues(inlined)...)
+	issues = append(issues, agentOnlyIssues(b.MCPs)...)
 	if slices.Contains(targets, "ellipsis") {
 		issues = append(issues, ellipsisVariableIssues(b.Settings)...)
 	}
@@ -131,11 +137,11 @@ func agentLimitIssues(agents []spec.Entry) []validationIssue {
 }
 
 // lintAgentLimits reports the agentLimitIssues validate reports
-// (LINT049, error).
+// (LINT050, error).
 func lintAgentLimits(agents []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, issue := range agentLimitIssues(agents) {
-		out = append(out, lintFinding{Code: "LINT049", Severity: lintError, Path: issue.Path, Message: issue.Message})
+		out = append(out, lintFinding{Code: "LINT050", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
 }
@@ -173,6 +179,55 @@ func stopOnIssues(issues []validationIssue) error {
 		lines[i] = is.Path + ": " + is.Message
 	}
 	return fmt.Errorf("%s", strings.Join(lines, "\n"))
+}
+
+// agentFileMCPs returns the MCP specs sync may write in full into an
+// agent file for a target in targets: the agent-only ones, and every
+// server an agent names where a target writes each named server.
+func agentFileMCPs(b spec.Bundle, targets []string) []spec.Entry {
+	agentOnly, named := false, false
+	for _, t := range targets {
+		o, n := adapters.AgentMCPInlining(t)
+		agentOnly, named = agentOnly || o, named || n
+	}
+	names := map[string]bool{}
+	for _, a := range b.Agents {
+		for _, name := range spec.AgentMCPNames(a.Meta) {
+			names[name] = true
+		}
+	}
+	var out []spec.Entry
+	for _, e := range b.MCPs {
+		if e.AgentOnly() && agentOnly || named && names[e.Name] {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func packSpecs(entries []spec.Entry) []spec.Entry {
+	var out []spec.Entry
+	for _, e := range entries {
+		if strings.HasPrefix(e.Layer, "pack:") {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// agentOnlyIssues reports an `agent-only` value that is not a boolean,
+// which would otherwise write the server into every MCP file.
+func agentOnlyIssues(mcps []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range mcps {
+		if v, set := e.Meta[spec.AgentOnlyKey]; set {
+			if _, ok := v.(bool); !ok {
+				out = append(out, validationIssue{Path: e.Path, Field: spec.AgentOnlyKey,
+					Message: fmt.Sprintf("MCP server %q: agent-only must be true or false", e.Name)})
+			}
+		}
+	}
+	return out
 }
 
 // ownSpecs keeps the hooks, agents, and MCP servers outside packs, with every skill an

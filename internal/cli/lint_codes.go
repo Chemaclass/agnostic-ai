@@ -285,7 +285,7 @@ var lintCodes = map[string]lintCode{
 		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
 		Fix:      "Rename the folder or file, or edit the `name:` line, to remove the characters.",
 	},
-	"LINT049": {
+	"LINT050": {
 		Severity: lintError,
 		Title:    "Invalid agent turn limit or background flag",
 		Cause:    "An agent's `maxTurns` is not a whole number of 1 or more, or its `background` is not `true` or `false`. Sync stops before writing any agent. Values under `x-<target>` are the tool's own and are not checked.",
@@ -296,6 +296,12 @@ var lintCodes = map[string]lintCode{
 		Title:    "Agent without a description",
 		Cause:    "An agent spec with a body has no `description`. Tools read it to decide when to hand the agent a task. Claude Code skips an agent file without one, so sync writes the agent's name there instead and prints a note.",
 		Fix:      "Add a `description:` that says when to use the agent.",
+	},
+	"LINT049": {
+		Severity: lintWarn,
+		Title:    "MCP credential outside env and headers",
+		Cause:    "An MCP spec holds what the import detector reads as a credential in a place LINT035 does not check: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. Sync writes it into each tool's MCP file. The finding names the server and the field, never the value.",
+		Fix:      "Write the credential as a `${NAME}` reference with no default and set the variable. `lint --strict` fails until you do.",
 	},
 	"LINT036": {
 		Severity: lintError,

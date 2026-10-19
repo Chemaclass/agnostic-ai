@@ -321,6 +321,8 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
 	findings = append(findings, lintMCPToolRefs(targets, support, b.MCPs)...)
 	findings = append(findings, lintMCPLiterals(b.MCPs)...)
+	findings = append(findings, lintAgentFileCredentials(b, targets)...)
+	findings = append(findings, lintMCPCredentials(withoutEntries(b.MCPs, agentFileMCPs(b, targets)))...)
 	findings = append(findings, lintDevCommands(b.Environments)...)
 	findings = append(findings, lintSkillScopeKey(b.Skills)...)
 	findings = append(findings, lintClaudeBodySyntax(b, targets, support)...)

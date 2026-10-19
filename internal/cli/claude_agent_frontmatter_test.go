@@ -161,7 +161,7 @@ func TestLintAgentLimits_RejectsWrongTypes(t *testing.T) {
 			t.Errorf("%v: valid=%t, got %v", tc.meta, tc.valid, got)
 		}
 		for _, f := range got {
-			if f.Code != "LINT049" || f.Severity != lintError {
+			if f.Code != "LINT050" || f.Severity != lintError {
 				t.Errorf("%v: got %+v", tc.meta, f)
 			}
 		}

@@ -61,6 +61,7 @@ func newValidateCmd() *cobra.Command {
 			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
 			if !global {
 				issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
+				issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
 			}
 			issues = append(issues, scopeIssues...)
 			if !fix {
@@ -111,6 +112,7 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 			if field, value, ok := spec.NonJSONValue(e.Meta); ok {
 				out = append(out, validationIssue{Path: e.Path, Field: field, Message: nonJSONValueMessage(e.Name, field, value), entry: e})
 			}
+			out = append(out, agentOnlyIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind != spec.KindRule {

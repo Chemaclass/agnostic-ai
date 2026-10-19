@@ -57,7 +57,7 @@ Qoder reads `.qoder/rules/` and the root `AGENTS.md`. Per-rule files win a confl
 
 ### Agents
 
-[Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`. `name` and `description` are required. `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, `hooks`, `maxTurns`, and `background` are optional. `effort` takes a single value or a per-tool map, and an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
+[Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`. `name` and `description` are required. `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, `hooks`, `maxTurns`, and `background` are optional. In `mcpServers`, an [agent-only server](@/docs/spec-format/mcps.md#agent-only) is written in full and stays out of `.qoder/settings.json`. `effort` takes a single value or a per-tool map, and an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
 
 - `color` is one of `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` ([CLI field reference](https://docs.qoder.com/cli/subagent)).
 - `tools` renders as a comma-separated string (`tools: Read, Grep, Bash`), which `import qoder` splits back. Qoder uses Claude-style names (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), so the portable list is copied unchanged.
