@@ -1084,10 +1084,13 @@ func TestImportFromClaude_RemovingAgentFrontmatterKeepsOnlyTranslationIntent(t *
 	}
 	execCLI(t, "sync")
 	got := readFile(t, ".claude/agents/reviewer.md")
-	for _, key := range []string{"name:", "model:", "tools:", "disallowedTools:", "readonly:"} {
+	for _, key := range []string{"model:", "tools:", "disallowedTools:", "readonly:"} {
 		if strings.Contains(got, key) {
 			t.Errorf("removed native %q resurrected:\n%s", key, got)
 		}
+	}
+	if !strings.HasPrefix(got, "---\nname: reviewer\ndescription: reviewer\n---\n") {
+		t.Errorf("Claude Code skips an agent without name and description:\n%s", got)
 	}
 }
 

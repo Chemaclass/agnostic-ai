@@ -118,6 +118,7 @@ type SkillFieldCoverage struct {
 	Markdown         func(spec.Entry) string
 	AdditionalFields func(spec.Entry) map[string]any
 	Handled          []string
+	Shared           bool
 }
 
 func NoteDroppedSkillFields(target string, skills []spec.Entry, coverage ...SkillFieldCoverage) {
@@ -173,6 +174,6 @@ func NoteDroppedSkillFields(target string, skills []spec.Entry, coverage ...Skil
 	}
 	sort.Strings(keys)
 	for _, field := range keys {
-		NoteFieldNoOp(target, spec.KindSkill, field, dropped[field], "the skill file has no "+field+" field")
+		noteFieldNoOp(target, spec.KindSkill, field, dropped[field], "the skill file has no "+field+" field", fields.Shared)
 	}
 }

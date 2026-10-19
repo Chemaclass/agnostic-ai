@@ -455,6 +455,13 @@ func fieldNote(notes []adapters.Note, field string) (string, bool) {
 			return n.Reason, true
 		}
 	}
+	// A note on one entry of a list field, such as `can: delete`, is a
+	// note on the field when none covers the whole field.
+	for _, n := range notes {
+		if n.Shape == adapters.NoteField && strings.HasPrefix(n.Field, field+": ") {
+			return n.Reason, true
+		}
+	}
 	return "", false
 }
 

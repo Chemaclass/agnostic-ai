@@ -288,3 +288,10 @@ func TestAgentMCP_AntigravityGivesOneReason(t *testing.T) {
 		t.Errorf("the older reason contradicts the agent-only note:\n%s", notes)
 	}
 }
+
+func TestAgentMCP_ClaudeAgentLeftOutDoesNotNameTheServer(t *testing.T) {
+	_, notes := emitAgentMCP(t, "claude", agentMCPBundle(map[string]any{"tools": []any{}}))
+	if !strings.Contains(notes, "no agent names it") {
+		t.Errorf("Claude leaves the agent out, so no agent carries the server:\n%s", notes)
+	}
+}

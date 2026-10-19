@@ -124,6 +124,20 @@ A plain full `sync` removes none of these files. It records them under target `u
 
 </details>
 
+### Warning guidance {#warning-guidance}
+
+Unsupported global agents get one `fix:` for the run: choose tools under `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (default `~/.agnostic-ai/agnostic-ai.yaml`) or its overriding `local/agnostic-ai.yaml`, or exclude unsupported tools with `targets-exclude:` on each affected agent.
+
+Field notes keep their target groups and add a next step for these fields:
+
+- Skill `argument-hint`: move it under the override block of each tool that keeps it (today only `x-claude`); put argument guidance other tools need in the description or body.
+- Skill `metadata`: move it under the override block of each tool that keeps it (today `x-claude`, `x-cursor`, and `x-opencode`); put information other tools need in the body. Shared global skill files omit target overrides, so use their description or body for descriptive content.
+- Skill `disable-model-invocation`: if manual-only invocation is required, use a supported native invocation policy, or exclude tools that cannot enforce manual invocation. Excluding a tool does not hide a copy another tool installs in a shared global skills directory it reads.
+- Agent `readonly`: if read-only access is required, configure and verify native permissions or session settings, or exclude tools that cannot enforce read-only access.
+- Codex agent `sandbox_mode`: enforce the required sandbox in the parent session's `config.toml`. For a read-only agent, set `sandbox_mode = "read-only"` there and verify the session policy. Then set `x-codex: {sandbox_mode: null}` to omit the inactive agent key. Exclude the agent from Codex if the session cannot enforce it.
+
+Guidance does not edit or delete specs. Repeated project notes remain hidden until they change or you run with `-v`.
+
 ### First-sync target picker
 
 On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lists every supported target, `sync` asks which to keep. It saves the choice to `agnostic-ai.yaml`.
@@ -208,7 +222,9 @@ Shared skill folders newly linked or retargeted appear in `writes` with action `
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
-`sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints. `--plan`, `--dry-run`, and `--check` carry the same entries. There is one entry per target, and the lists are empty when there are none. Each entry has `target`, `kind`, `count`, and `message`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, even for notes a plain `sync` would hide as unchanged. A later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out.
+`sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints. `--plan`, `--dry-run`, and `--check` carry the same entries. There is one entry per target, and the lists are empty when there are none. Each entry has `target`, `kind`, `count`, and `message`, plus an optional `suggestion` matching the plain output's `fix:`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, even for notes a plain `sync` would hide as unchanged. A later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out.
+
+`sync --global --json` also carries unsupported agent and MCP `warnings` and coverage `notes`, including `suggestion` where available. Its `--plan`, `--dry-run`, and `--check` JSON previews carry the same entries. When a run fails before it prints JSON, they go to stderr instead.
 
 `--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`. Kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` to get the per-target numbers `--plan` prints.
 

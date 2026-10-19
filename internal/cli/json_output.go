@@ -28,10 +28,11 @@ type errorRecord struct {
 
 // dropRecord is a capability warning or coverage note in `sync --json`.
 type dropRecord struct {
-	Target  string `json:"target"`
-	Kind    string `json:"kind"`
-	Count   int    `json:"count"`
-	Message string `json:"message"`
+	Target     string `json:"target"`
+	Kind       string `json:"kind"`
+	Count      int    `json:"count"`
+	Message    string `json:"message"`
+	Suggestion string `json:"suggestion,omitempty"`
 }
 
 // jsonOutput is the stable schema emitted by --json on sync, revert, and

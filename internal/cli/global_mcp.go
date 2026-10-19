@@ -54,7 +54,8 @@ func (g globalTarget) mcpPath(home string) string {
 
 // warnUnsupportedGlobalMCP names the MCP specs a target in the run
 // cannot take at user level.
-func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entry) error {
+func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entry) ([]dropRecord, error) {
+	warnings := []dropRecord{}
 	for _, target := range targets {
 		if globalTargets[target].mcp.path != "" {
 			continue
@@ -68,12 +69,13 @@ func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entr
 		if len(names) == 0 {
 			continue
 		}
-		msg := fmt.Sprintf("warning: %s: global MCP servers are unsupported; skipping %s\n", target, strings.Join(names, ", "))
-		if _, err := fmt.Fprint(warn, msg); err != nil {
-			return fmt.Errorf("write global MCP warning: %w", err)
+		message := "global MCP servers are unsupported; skipping " + strings.Join(names, ", ")
+		if _, err := fmt.Fprintf(warn, "warning: %s: %s\n", target, message); err != nil {
+			return nil, fmt.Errorf("write global MCP warning: %w", err)
 		}
+		warnings = append(warnings, dropRecord{Target: target, Kind: string(spec.KindMCP), Count: len(names), Message: message})
 	}
-	return nil
+	return warnings, nil
 }
 
 // mergeGlobalMCP plans the MCP servers for one target's user file, one

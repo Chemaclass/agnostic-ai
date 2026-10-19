@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -84,6 +85,10 @@ func withAgentMCPServers(a Adapter, b spec.Bundle, cfg *config.Config) spec.Bund
 	agents := slices.Clone(b.Agents)
 	for i, agent := range agents {
 		if _, set := agent.Meta["mcpServers"]; !set {
+			continue
+		}
+		// Claude Code gets no file for an agent with an empty tool list.
+		if target == "claude" && claude.LeavesOutAgent(agent) {
 			continue
 		}
 		list, _ := agent.Meta["mcpServers"].([]any)
