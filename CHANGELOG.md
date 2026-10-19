@@ -6,7 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- `view authority` shows what each agent may do on each coding tool, with the rule, file, and tool state behind every decision; `view overview` summarises the harness and lists evidence-backed findings; `serve` hosts both as versioned JSON for the web client under `ui/` (#1323).
+- `view authority` shows what each agent may do on each coding tool, with the rule, file, and tool state behind every decision; `view overview` summarises the harness and lists evidence-backed findings; `serve` hosts both as versioned JSON for the web client under `ui/`; the API answers only localhost, refuses other origins unless `--allow-origin` names them, and redacts credentials written in permission rules, URLs, and settings values (#1323).
 - The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.
 - Documentation links to shared permission and ownership guidance, sorts lint codes in one lookup, and explains how to diagnose plugin hook timeouts.
 - The homepage opens with one source note syncing into the file each tool reads, places the symlink answer beside the video, and the documentation index drops the retired talk demo.

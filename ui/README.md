@@ -29,7 +29,12 @@ npm run dev
 
 Open the address Vite prints (http://127.0.0.1:5173 by default). The dev
 server and `npm run preview` both forward `/api` to the Go server on
-`http://127.0.0.1:4310`.
+`http://127.0.0.1:4310`. That forwarding is what lets the client call the
+API: the server refuses browser requests from another origin, and through
+the proxy each request keeps the client's own host, so it counts as the
+same origin. Keep `changeOrigin` off in `vite.config.ts`. Only a client
+that calls the server directly, bypassing the proxy, needs
+`serve --allow-origin http://127.0.0.1:5173`.
 
 The server can also host the built client itself, on the same port as
 the API:

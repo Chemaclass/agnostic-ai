@@ -52,7 +52,7 @@ Tool lists are not queried. An MCP tool appears as an operation when a rule or t
 
 ## Secrets
 
-A secret is a credential the configuration references by name through `${NAME}`. Four rights are reported separately: `discover` (the name is in the configuration), `readValue` (reported `unknown` with the reason, since a shell or file rule may reach it another way), `use` (allowed when the provider is available to the subject), and `manage` (unknown; rotation happens in the provider). No value appears in any payload, log, or diff.
+A secret is a credential the configuration references by name through `${NAME}`. Four rights are reported separately: `discover` (the name is in the configuration), `readValue` (reported `unknown` with the reason, since a shell or file rule may reach it another way), `use` (allowed when the provider is available to the subject), and `manage` (unknown; rotation happens in the provider). No value appears in any payload, log, diff, or rule text: a permission rule or tool-list entry that holds a credential shows as `shell(<redacted>)`, its grant carries `redacted: true`, and a proposal cannot name it.
 
 ## Snapshot and revision
 
@@ -79,7 +79,7 @@ Applying is listed under `supportedActions` as unsupported. Editing the spec and
 | GET | `/api/views/feed` | `overview.FeedView` |
 | GET | `/api/health` | `{ok, revision}` |
 
-`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration; the overview and feed are not available there, because its source directory is not a project.
+`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, refuses browser requests from other origins unless `--allow-origin` names them (the Vite dev server forwards `/api`, so it needs none), and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration; the overview and feed are not available there, because its source directory is not a project.
 
 ## Uncertainty codes
 

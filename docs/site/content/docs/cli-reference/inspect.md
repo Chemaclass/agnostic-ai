@@ -282,11 +282,20 @@ agnostic-ai serve --global
 
 | Flag | Description |
 |------|-------------|
-| `--addr` | Address to listen on. Default `127.0.0.1:4310`. |
+| `--addr` | Loopback address to listen on. Default `127.0.0.1:4310`. Any other address is refused. |
 | `--dir` | Project directory to read. Default: the current directory. |
 | `--ui` | Directory of the built client to serve, such as `ui/dist`. |
 | `--open` | Open the served URL in a browser. |
 | `--global` | Serve the user-level configuration; the overview and feed are not available there. |
 | `--no-installed` | Skip comparing the generated files with disk. |
+| `--allow-origin` | An origin, such as `http://localhost:5173`, whose pages may call the API from another port. Repeat for more. The Vite dev server needs none, since it forwards `/api`. |
+
+The API is for this machine only and has no login, so `serve` guards it:
+
+- It answers only requests addressed to `localhost`, `127.0.0.1`, or `::1`, and answers 421 to any other `Host`. This stops a page that points its own name at your machine.
+- It refuses browser requests from any other origin with 403, unless `--allow-origin` names that origin. Requests without an `Origin` header, such as from `curl`, pass.
+- `POST /api/views/authority/impact` needs `Content-Type: application/json`; any other body type gets 415.
+- Credentials written in permission rules, URLs, and settings values show as `<redacted>`. A rule shown redacted cannot be named in a proposal; edit the settings file.
+- The installed check uses built-in adapters only. An external `agnostic-ai-<name>` adapter is never run.
 
 Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `GET /api/views/feed`, and `GET /api/health`.
