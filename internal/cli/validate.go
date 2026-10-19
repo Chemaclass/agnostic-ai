@@ -100,6 +100,7 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 		}
 		if e.Kind == spec.KindAgent {
 			out = append(out, agentCapabilityIssues([]spec.Entry{e})...)
+			out = append(out, agentLimitIssues([]spec.Entry{e})...)
 			continue
 		}
 		if e.Kind == spec.KindSettings {

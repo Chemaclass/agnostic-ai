@@ -47,6 +47,8 @@ type Capabilities struct {
 var trackedAgentFields = []struct{ field, reason string }{
 	{"effort", "the agent file has no reasoning effort key"},
 	{"mcpServers", "the agent file has no MCP server list"},
+	{"maxTurns", "the agent file has no turn limit key"},
+	{"background", "the agent file has no background run key"},
 }
 
 // supports reports whether the adapter declares native support for k.
@@ -142,7 +144,7 @@ func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
 			if _, explicit := custom[t.field]; explicit {
 				continue
 			}
-			if v := ResolveMeta(a.Meta, c.Target)[t.field]; v != nil && v != "" {
+			if v := ResolveMeta(a.Meta, c.Target)[t.field]; v != nil && v != "" && v != false {
 				dropped++
 			}
 		}

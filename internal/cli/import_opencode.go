@@ -61,7 +61,7 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importOpencodeMarkdownDir(root, opencodeAgentsDir, importSourcePath(root, src.Agents))
+	agents, err := importOpencodeAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -118,6 +118,19 @@ func importOpencodeMarkdownDir(root, dir, dstDir string) (int, error) {
 		return 0, nil
 	}
 	return copyMarkdownDir(src, dstDir)
+}
+
+// importOpencodeAgents copies `.opencode/agents/*.md` like
+// importOpencodeMarkdownDir, with `steps` imported as the portable
+// `maxTurns`.
+func importOpencodeAgents(root, dstDir string) (int, error) {
+	src := filepath.Join(root, opencodeAgentsDir)
+	if !dirExists(src) {
+		return 0, nil
+	}
+	return importFlatMarkdownFilesAt(src, dstDir, allSpecFields, func(data []byte, dst string) ([]byte, error) {
+		return importPortableAgentKey(data, dst, "opencode", "steps", "maxTurns", false)
+	})
 }
 
 // importOpencodeMCP reads `opencode.json` and writes one yaml per

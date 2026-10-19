@@ -285,6 +285,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "With Claude Code enabled, a skill or command name, from its folder, file, or frontmatter `name`, holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words, such as a no-break space, two spaces in a row, or a space at the start or end. Claude Code does not load that skill or command. The finding names the code points.",
 		Fix:      "Rename the folder or file, or edit the `name:` line, to remove the characters.",
 	},
+	"LINT050": {
+		Severity: lintError,
+		Title:    "Invalid agent turn limit or background flag",
+		Cause:    "An agent's `maxTurns` is not a whole number of 1 or more, or its `background` is not `true` or `false`. Sync stops before writing any agent. Values under `x-<target>` are the tool's own and are not checked.",
+		Fix:      "Write `maxTurns: 20` or `background: true`, or remove the field.",
+	},
 	"LINT048": {
 		Severity: lintWarn,
 		Title:    "Agent without a description",

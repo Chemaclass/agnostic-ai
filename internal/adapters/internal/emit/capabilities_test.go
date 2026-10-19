@@ -189,6 +189,21 @@ func TestReportUnsupported_NotesDroppedAgentFields(t *testing.T) {
 	}
 }
 
+func TestReportUnsupported_NotesDroppedTurnLimitAndBackground(t *testing.T) {
+	got := droppedAgentFieldNotes(t, Capabilities{Target: "codex"},
+		spec.Entry{Name: "a", Meta: map[string]any{"maxTurns": 10, "background": true}},
+		spec.Entry{Name: "b", Meta: map[string]any{"background": false}},
+	)
+	for _, want := range []string{
+		"`maxTurns` on 1 agent has no effect on codex (the agent file has no turn limit key)",
+		"`background` on 1 agent has no effect on codex (the agent file has no background run key)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
 func TestReportUnsupported_AgentFieldsCarriedOrPassedThroughStaySilent(t *testing.T) {
 	agents := []spec.Entry{
 		{Name: "a", Meta: map[string]any{"effort": map[string]any{"claude": "xhigh"}}},

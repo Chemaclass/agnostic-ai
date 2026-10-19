@@ -61,6 +61,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT047 | Warning. With Claude Code enabled, a skill or command name holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words. Claude Code does not load it. The finding names the code points. Rename the folder or file, or edit `name:`. `lint --strict` fails. |
 | LINT048 | Warning. An agent with a body has no `description`. Tools read it to decide when to hand the agent a task, and Claude Code skips an agent file without one, so sync writes the name there instead. Add a `description:` that says when to use the agent. |
 | LINT049 | Warning. An MCP spec holds what looks like a credential where LINT035 does not look: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. The finding names the server and the field, never the value. Write a `${NAME}` reference with no default. `${NAME}` references and `!literal` plain settings pass. `lint --strict` fails. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings). |
+| LINT050 | Error. An agent's `maxTurns` is not a whole number of 1 or more, or its `background` is not `true` or `false`. Sync stops before writing any agent. Values under `x-<target>` are not checked. Write `maxTurns: 20` or `background: true`, or remove the field. |
 
 ## Context budgets
 

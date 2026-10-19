@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Agents take two portable fields: `maxTurns`, the most turns an agent takes, and `background: true`, which runs it without making the session wait. Sync writes each under the tool's own key (Claude Code, Junie, Qoder, Gemini CLI `max_turns`, Kilo Code and OpenCode `steps`, Cursor `is_background`) and prints a note on tools that have none. A value under `x-<target>` still wins. Specs that already set these at the top level now also reach Gemini CLI, Kilo Code, OpenCode, Qoder, and Cursor. `import` reads the native keys back, and `validate`, `lint` (LINT050), and `sync` stop on a value of the wrong type. `lint` now suggests `maxTurns` for `max_turns` and `steps` instead of `x-junie.maxTurns` (#2327).
 - `lint` warns (LINT049) on a credential in an MCP `url` or `args`, an `x-<target>` `env` or `headers` value, or a reference default (#2335).
 - An MCP spec marked `agent-only: true` stays out of every MCP file; Claude Code, Qoder, Kiro, and OpenHands get it in the agents that name it (#2328).
 - Kiro and OpenHands agents get the MCP servers their `mcpServers` list names, written in full, so `x-kiro.mcpServers` copies are no longer needed (#2328).

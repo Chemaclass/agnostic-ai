@@ -178,7 +178,7 @@ const EntryFile = defaultEntryFile
 var caps = emit.Capabilities{
 	Target:      target,
 	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
-	AgentFields: []string{"effort", "mcpServers"},
+	AgentFields: []string{"effort", "mcpServers", "maxTurns"},
 }
 
 // agentNameRule is the regex the subagent frontmatter table states for
@@ -357,6 +357,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		return err
 	}
 	for _, a := range agents {
+		a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns)
 		path := filepath.Join(dir, a.Name+".md")
 		body := emit.WithHeader(emit.DocumentStyled(a.Meta, a.MetaKeys, a.MetaStyles, a.Body, target), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {

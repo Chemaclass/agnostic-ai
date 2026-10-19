@@ -124,7 +124,11 @@ func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped b
 		front[permissionKey] = agentPermissionYAML{value: front[permissionKey], entry: e, path: path, generated: generated}
 	}
 	keys := append([]string{}, agentFrontmatterKeys...)
-	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, agentFrontmatterKeys...)
+	if steps, ok := (emit.AgentLimit{Portable: emit.AgentMaxTurns, Native: "steps"}).Value(e, target); ok {
+		front["steps"] = steps
+		keys = append(keys, "steps")
+	}
+	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, append(slices.Clone(agentFrontmatterKeys), "steps", "maxTurns")...)
 	var sb strings.Builder
 	sb.WriteString(emit.FrontmatterOrdered(front, keys))
 	sb.WriteString("\n")

@@ -169,7 +169,13 @@ func importGeminiAgents(root, dstDir string) (int, error) {
 	if !dirExists(src) {
 		return 0, nil
 	}
-	return importFlatMarkdownFilesWith(src, dstDir, allSpecFields, func(data []byte) ([]byte, error) { return importNativeAgentTools(data, "gemini", "tools") })
+	return importFlatMarkdownFilesAt(src, dstDir, allSpecFields, func(data []byte, dst string) ([]byte, error) {
+		data, err := importPortableAgentKey(data, dst, "gemini", "max_turns", "maxTurns", false)
+		if err != nil {
+			return nil, err
+		}
+		return importNativeAgentTools(data, "gemini", "tools")
+	})
 }
 
 // importGeminiCommands reads `.gemini/commands/*.toml` and writes one

@@ -313,4 +313,11 @@
 # report the widening in project and global sync, and import keeps the
 # spec's pattern. Same Linux amd64 release flags; retain the 8 KB
 # allowance. No new dependencies.
-20172960
+# #2327 measured 20185248 on Go 1.27.2 after merging main 7fcdf7d2,
+# 12288 over the budget: portable agent maxTurns and background map to
+# each tool's key, with validation, LINT050, import back, and notes for
+# an override of the wrong type. Same Linux amd64 release flags; retain
+# the 8 KB allowance. No new dependencies.
+# The scoped import write-back that keeps key order and comments measured
+# 20197536, 4096 more. Retain the 8 KB allowance.
+20205728

@@ -41,7 +41,9 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "agents"), importSourcePath(root, src.Agents), cursorAgentFields)
+	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".cursor", "agents"), importSourcePath(root, src.Agents), cursorAgentFields, func(data []byte, dst string) ([]byte, error) {
+		return importPortableAgentKey(data, dst, "cursor", "is_background", "background", true)
+	})
 	if err != nil {
 		return err
 	}
@@ -93,6 +95,17 @@ func importFlatMarkdownFiles(src, dstDir string, fields specFields) (int, error)
 }
 
 func importFlatMarkdownFilesWith(src, dstDir string, fields specFields, transform func([]byte) ([]byte, error)) (int, error) {
+	var at func([]byte, string) ([]byte, error)
+	if transform != nil {
+		at = func(data []byte, _ string) ([]byte, error) { return transform(data) }
+	}
+	return importFlatMarkdownFilesAt(src, dstDir, fields, at)
+}
+
+// importFlatMarkdownFilesAt is importFlatMarkdownFilesWith with a
+// transform that also gets the spec path it writes, to read the spec
+// already there.
+func importFlatMarkdownFilesAt(src, dstDir string, fields specFields, transform func([]byte, string) ([]byte, error)) (int, error) {
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -111,14 +124,14 @@ func importFlatMarkdownFilesWith(src, dstDir string, fields specFields, transfor
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
 		out := header.Strip(string(data))
+		dstPath := filepath.Join(dstDir, e.Name())
 		if transform != nil {
-			transformed, err := transform([]byte(out))
+			transformed, err := transform([]byte(out), dstPath)
 			if err != nil {
 				return count, fmt.Errorf("transform %s: %w", srcPath, err)
 			}
 			out = string(transformed)
 		}
-		dstPath := filepath.Join(dstDir, e.Name())
 		if err := importWriteSpecMarkdown(dstPath, []byte(out), 0o644, fields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dstPath, err)
 		}

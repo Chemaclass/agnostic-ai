@@ -85,6 +85,7 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
 	issues = append(issues, agentCapabilityIssues(own.Agents)...)
+	issues = append(issues, agentLimitIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	issues = append(issues, sessionRetentionIssues(b.Settings)...)
 	issues = append(issues, mcpLiteralIssues(own.MCPs)...)
@@ -117,6 +118,30 @@ func agentCapabilityIssues(agents []spec.Entry) []validationIssue {
 		if problem := spec.AgentCapabilityProblem(e.Meta); problem != "" {
 			out = append(out, validationIssue{Path: e.Path, Field: "can", Message: problem})
 		}
+	}
+	return out
+}
+
+// agentLimitIssues reports each agent whose portable `maxTurns` or
+// `background` has the wrong type. Sync stops on one rather than write a
+// value the tool rejects or reads as something else.
+func agentLimitIssues(agents []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range agents {
+		problems := spec.AgentLimitProblems(e.Meta)
+		for _, field := range slices.Sorted(maps.Keys(problems)) {
+			out = append(out, validationIssue{Path: e.Path, Field: field, Message: problems[field]})
+		}
+	}
+	return out
+}
+
+// lintAgentLimits reports the agentLimitIssues validate reports
+// (LINT050, error).
+func lintAgentLimits(agents []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, issue := range agentLimitIssues(agents) {
+		out = append(out, lintFinding{Code: "LINT050", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
 }

@@ -122,13 +122,91 @@ func TestLintNearMissKeys_ClaudeAgentFieldsSpelledRightStaySilent(t *testing.T) 
 	}
 }
 
-func TestLintNearMissKeys_JunieAdviceStaysWithoutClaude(t *testing.T) {
+// maxTurns is portable, so the advice names it, never an x-<target> key.
+func TestLintNearMissKeys_TurnLimitAdviceNamesThePortableField(t *testing.T) {
 	entries := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"max_turns": "x"}, Body: "b"}}
 	got := lintNearMissKeys(entries, []string{"junie"})
-	if len(got) != 1 || !strings.Contains(got[0].Message, "`x-junie.maxTurns:`") {
+	if len(got) != 1 || !strings.Contains(got[0].Message, "`maxTurns:`") || strings.Contains(got[0].Message, "x-junie") {
 		t.Errorf("got %v", got)
+	}
+	steps := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"steps": 5}, Body: "b"}}
+	if got := lintNearMissKeys(steps, []string{"kilo"}); len(got) != 1 || !strings.Contains(got[0].Message, "`maxTurns:`") {
+		t.Errorf("a top-level steps reaches no tool, got %v", got)
+	}
+	for _, kind := range []spec.Kind{spec.KindSkill, spec.KindCommand, spec.KindRule} {
+		other := []spec.Entry{{Kind: kind, Name: "a", Path: "x/a.md", Meta: map[string]any{"steps": 3}, Body: "b"}}
+		if got := lintNearMissKeys(other, []string{"kilo"}); len(got) != 0 {
+			t.Errorf("%s: steps is not an agent field there, got %v", kind, got)
+		}
+	}
+	portable := []spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: map[string]any{"maxTurns": 5, "background": true}, Body: "b"}}
+	if got := lintNearMissKeys(portable, []string{"junie", "cursor"}); len(got) != 0 {
+		t.Errorf("portable fields must not be flagged, got %v", got)
 	}
 	if got := lintNearMissKeys(entries, []string{"cursor"}); len(got) != 1 {
 		t.Errorf("a near miss still warns with neither target, got %v", got)
+	}
+}
+
+func TestLintAgentLimits_RejectsWrongTypes(t *testing.T) {
+	for _, tc := range []struct {
+		meta  map[string]any
+		valid bool
+	}{
+		{map[string]any{"maxTurns": 20, "background": true}, true},
+		{map[string]any{"background": false}, true},
+		{map[string]any{"x-gemini": map[string]any{"max_turns": "lots"}}, true},
+		{map[string]any{"maxTurns": 0}, false},
+		{map[string]any{"maxTurns": -3}, false},
+		{map[string]any{"maxTurns": 2.5}, false},
+		{map[string]any{"maxTurns": "20"}, false},
+		{map[string]any{"background": "yes"}, false},
+	} {
+		got := lintAgentLimits([]spec.Entry{{Kind: spec.KindAgent, Name: "a", Path: "agents/a.md", Meta: tc.meta, Body: "b"}})
+		if (len(got) == 0) != tc.valid {
+			t.Errorf("%v: valid=%t, got %v", tc.meta, tc.valid, got)
+		}
+		for _, f := range got {
+			if f.Code != "LINT050" || f.Severity != lintError {
+				t.Errorf("%v: got %+v", tc.meta, f)
+			}
+		}
+	}
+}
+
+func TestSync_StopsOnAnInvalidAgentTurnLimit(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "loop.md"), "---\ndescription: Loops.\nmaxTurns: \"many\"\n---\n\nLoop.\n")
+	out, err := runRoot(t, "sync")
+	if err == nil || !strings.Contains(out+err.Error(), `maxTurns is the text "many"; write a whole number of 1 or more`) {
+		t.Fatalf("sync must stop on the bad value: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gemini", "agents", "loop.md")); !os.IsNotExist(err) {
+		t.Errorf("sync wrote the agent: %v", err)
+	}
+}
+
+// The turn limit and background flag ride along with the translated tool
+// list, and an agent Claude Code would refuse is still left out.
+func TestSync_ClaudeAgentLimitsComposeWithTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "git.md"), "---\ndescription: Runs git.\ncan: [read, \"shell(git *)\"]\nmaxTurns: 8\nbackground: true\n---\n\nRun git.\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "idle.md"), "---\ndescription: Thinks.\ncan: []\nmaxTurns: 8\n---\n\nThink.\n")
+	mustSync(t)
+	got, err := os.ReadFile(filepath.Join(dir, ".claude", "agents", "git.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"tools:", "Bash", "maxTurns: 8", "background: true"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "agents", "idle.md")); !os.IsNotExist(err) {
+		t.Errorf("an agent with an empty tool list reached Claude Code: %v", err)
 	}
 }

@@ -51,6 +51,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	var named []spec.Entry
 	var undescribed []string
 	for _, agent := range agents {
+		agent = emit.WithValidAgentLimits(agent, target, emit.AgentMaxTurns, emit.AgentBackground)
 		meta, keys := agentMeta(agent)
 		if emptyToolList(meta) {
 			emit.NoteCoverageGap(target, spec.KindAgent, 1, fmt.Sprintf("agent %s has an empty tool list, such as `can: []` or `can: [delete]`, and Claude Code refuses to launch it; list a tool it may use, or set `target:` to keep it off Claude Code", agent.Name))
