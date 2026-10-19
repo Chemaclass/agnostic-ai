@@ -39,6 +39,9 @@ func TestEmitAgents_PortableTurnLimitAndBackground(t *testing.T) {
 		{"opencode", map[string]any{"maxTurns": 12, "x-opencode": map[string]any{"maxTurns": 0}}, []string{"steps: 12"}, []string{"steps: 0"}},
 		{"cursor", map[string]any{"background": true, "x-cursor": map[string]any{"background": "no"}}, []string{"is_background: true"}, []string{": no"}},
 		{"cursor", map[string]any{"is_background": false, "x-cursor": map[string]any{"background": true}}, []string{"is_background: true"}, []string{"is_background: false"}},
+		{"claude", map[string]any{"maxTurns": 12, "x-claude": map[string]any{"maxTurns": "lots"}}, []string{"maxTurns: 12"}, []string{"lots"}},
+		{"qoder", map[string]any{"background": true, "x-qoder": map[string]any{"background": "yes"}}, []string{"background: true"}, []string{"yes"}},
+		{"junie", map[string]any{"maxTurns": 12, "x-junie": map[string]any{"maxTurns": 0}}, []string{"maxTurns: 12"}, []string{"maxTurns: 0"}},
 	}
 	for _, c := range cases {
 		t.Run(c.target, func(t *testing.T) {
@@ -91,5 +94,18 @@ func TestEmitAgents_InvalidTurnLimitOverrideNotes(t *testing.T) {
 	emit.FlushCoverageNotes()
 	if want := "gemini: x-gemini.maxTurns on agent reviewer is not a whole number of 1 or more, so sync wrote the shared maxTurns"; !strings.Contains(buf.String(), want) {
 		t.Errorf("notes:\n%s\nwant:\n%s", buf.String(), want)
+	}
+	for _, target := range []string{"kilo", "claude"} {
+		buf.Reset()
+		emit.ResetCoverageNotes()
+		a, _ := Get(target)
+		only := []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"description": "d", "x-" + target: map[string]any{"maxTurns": 0}}, Body: "b"}}
+		if err := a.(AgentEmitter).EmitAgents(NewSession(), only, t.TempDir(), false); err != nil {
+			t.Fatal(err)
+		}
+		emit.FlushCoverageNotes()
+		if want := target + ": x-" + target + ".maxTurns on agent reviewer is not a whole number of 1 or more, so sync wrote no turn limit"; !strings.Contains(buf.String(), want) {
+			t.Errorf("notes:\n%s\nwant:\n%s", buf.String(), want)
+		}
 	}
 }

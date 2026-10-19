@@ -254,6 +254,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // `isolation`". No translation, the values match. The vendor's
 // conditional is top-level `autoMemoryEnabled`, default false.
 func agentMarkdown(a spec.Entry) string {
+	a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns, emit.AgentBackground)
 	resolved := emit.ResolveMeta(a.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {

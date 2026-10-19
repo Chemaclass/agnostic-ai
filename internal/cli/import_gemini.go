@@ -170,7 +170,7 @@ func importGeminiAgents(root, dstDir string) (int, error) {
 		return 0, nil
 	}
 	return importFlatMarkdownFilesAt(src, dstDir, allSpecFields, func(data []byte, dst string) ([]byte, error) {
-		data, err := importPortableAgentKey(data, dst, "gemini", "max_turns", "maxTurns")
+		data, err := importPortableAgentKey(data, dst, "gemini", "max_turns", "maxTurns", false)
 		if err != nil {
 			return nil, err
 		}

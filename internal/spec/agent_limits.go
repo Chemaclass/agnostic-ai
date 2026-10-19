@@ -37,6 +37,9 @@ func AgentLimitProblems(meta map[string]any) map[string]string {
 	if v, set := meta["maxTurns"]; set {
 		if _, ok := AgentMaxTurns(v); !ok {
 			out["maxTurns"] = fmt.Sprintf("maxTurns is %s; write a whole number of 1 or more", describeValue(v))
+			if tooLarge(v) {
+				out["maxTurns"] = fmt.Sprintf("maxTurns is %v, which is too large; write a whole number of 1 or more", v)
+			}
 		}
 	}
 	if v, set := meta["background"]; set {
@@ -45,6 +48,17 @@ func AgentLimitProblems(meta map[string]any) map[string]string {
 		}
 	}
 	return out
+}
+
+// tooLarge reports an integer above the largest int.
+func tooLarge(v any) bool {
+	switch n := v.(type) {
+	case int64:
+		return n > math.MaxInt
+	case uint64:
+		return n > math.MaxInt
+	}
+	return false
 }
 
 // describeValue names a frontmatter value with its type when the plain

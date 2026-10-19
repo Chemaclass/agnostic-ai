@@ -68,11 +68,11 @@ func TestImportPortableAgentKey_KeepsANativeValueItCannotMap(t *testing.T) {
 		"---\nmax_turns: 3\nmaxTurns: 4\n---\n\nBody.\n",
 		"---\nname: a\n---\n\nBody.\n",
 	} {
-		if got, _ := importPortableAgentKey([]byte(src), "", "gemini", "max_turns", "maxTurns"); string(got) != src {
+		if got, _ := importPortableAgentKey([]byte(src), "", "gemini", "max_turns", "maxTurns", false); string(got) != src {
 			t.Errorf("changed %q to %q", src, got)
 		}
 	}
-	out, err := importPortableAgentKey([]byte("---\nname: a # keep\nmax_turns: 3 # turns\n---\n\nBody.\n"), "", "gemini", "max_turns", "maxTurns")
+	out, err := importPortableAgentKey([]byte("---\nname: a # keep\nmax_turns: 3 # turns\n---\n\nBody.\n"), "", "gemini", "max_turns", "maxTurns", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,6 +121,39 @@ func TestImport_AgentLimitOverrideStaysTargetScoped(t *testing.T) {
 				if !reflect.DeepEqual(custom[k], want) {
 					t.Errorf("x-%s.%s=%v, want %v:\n%s", tc.target, k, custom[k], want, data)
 				}
+			}
+		})
+	}
+}
+
+// Gemini and OpenCode native files hold every key, so a key deleted
+// there stays deleted, and the write-back keeps order and comments.
+func TestImport_AgentLimitWriteBackKeepsOnlyTheScopedKey(t *testing.T) {
+	cases := []struct {
+		target, dir, native, spec, want string
+	}{
+		{"opencode", ".opencode/agents", "steps: 4 # tuned\n", "maxTurns: 12\nx-opencode:\n  steps: 3\n  hidden: true\n",
+			"---\nname: reviewer\ndescription: Review changes.\nmaxTurns: 12\nx-opencode:\n  steps: 4 # tuned\n---\n\nFind bugs.\n"},
+		{"gemini", ".gemini/agents", "max_turns: 4\n", "maxTurns: 12\nx-gemini:\n  max_turns: 3\n  temperature: 0.2\n",
+			"---\nname: reviewer\ndescription: Review changes.\nmaxTurns: 12\nx-gemini:\n  max_turns: 4\n---\n\nFind bugs.\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.target, func(t *testing.T) {
+			root := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, "+tc.target+"]\n")
+			specFile := filepath.Join(root, ".agnostic-ai", "agents", "reviewer.md")
+			writeFile(t, specFile, "---\nname: reviewer\ndescription: Review changes.\n"+tc.spec+"---\n\nFind bugs.\n")
+			writeFile(t, filepath.Join(root, tc.dir, "reviewer.md"), "---\nname: reviewer\ndescription: Review changes.\n"+tc.native+"---\n\nFind bugs.\n")
+			if out, err := runRoot(t, "import", tc.target, "--overwrite"); err != nil {
+				t.Fatalf("import: %v\n%s", err, out)
+			}
+			data, err := os.ReadFile(specFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != tc.want {
+				t.Errorf("got:\n%s\nwant:\n%s", data, tc.want)
 			}
 		})
 	}
