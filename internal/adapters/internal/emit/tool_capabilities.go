@@ -81,7 +81,8 @@ func ReportWidening(target, path, line, mode string) error {
 	message := fmt.Sprintf("%s: %s: %s", target, path, line)
 	switch mode {
 	case OnUnsupportedError:
-		return fmt.Errorf("%s", message)
+		// Sync names the target on every error it returns.
+		return fmt.Errorf("%s: %s", path, line)
 	case OnUnsupportedSilent:
 		return nil
 	default:
