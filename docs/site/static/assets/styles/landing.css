@@ -1093,6 +1093,204 @@ main > section[id] {
   }
 }
 
+/* With and without: two radios before the figure's parts, so the toggle
+   works without JavaScript. The rows stay the same elements; only what they
+   show changes. */
+.fanout-mode {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.fanout-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.fanout-tabs label {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#fanout-with:checked ~ .fanout-tabs label[for="fanout-with"],
+#fanout-without:checked ~ .fanout-tabs label[for="fanout-without"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+#fanout-without:checked ~ .fanout-tabs label[for="fanout-without"] {
+  color: var(--danger);
+}
+
+#fanout-with:focus-visible ~ .fanout-tabs label[for="fanout-with"],
+#fanout-without:focus-visible ~ .fanout-tabs label[for="fanout-without"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.fanout-hand,
+.fanout-drift,
+.fanout-summary .fanout-bad {
+  display: none;
+}
+
+/* A pulse travels down the trunk and out along each stub while sync runs. */
+.fanout-outputs > li:not(.fanout-more)::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 3px);
+  left: -1.5rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: fanout-flow 2.8s ease-in-out infinite;
+  animation-delay: calc(1.4s + var(--i) * 180ms);
+}
+
+.fanout-sync::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--fanout-trunk) - 2px);
+  top: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: fanout-drop 2.8s ease-in infinite 1s;
+  opacity: 0;
+}
+
+.fanout-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fanout-summary li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--paper);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+}
+
+.fanout-summary li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.fanout-summary .fanout-bad::before {
+  background: var(--danger);
+}
+
+/* Without: no shared source and no sync. Each file holds whatever someone
+   last typed into it, so the lines go dashed and the drifted rows say so. */
+#fanout-without:checked ~ .fanout-source {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+#fanout-without:checked ~ .fanout-sync code,
+#fanout-without:checked ~ .fanout-summary .fanout-good,
+#fanout-without:checked ~ .fanout-outputs .fanout-tools,
+#fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-check {
+  display: none;
+}
+
+#fanout-without:checked ~ .fanout-sync .fanout-hand {
+  display: inline-block;
+  position: relative;
+  margin-left: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px dashed var(--muted);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+#fanout-without:checked ~ .fanout-outputs .fanout-drift,
+#fanout-without:checked ~ .fanout-summary .fanout-bad {
+  display: inline-flex;
+}
+
+#fanout-without:checked ~ .fanout-outputs .fanout-drift {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+#fanout-without:checked ~ .fanout-outputs .is-drifted {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line-soft));
+}
+
+#fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-drift {
+  color: var(--danger);
+}
+
+#fanout-without:checked ~ .fanout-sync::before,
+#fanout-without:checked ~ .fanout-outputs::before,
+#fanout-without:checked ~ .fanout-outputs li::after {
+  background: repeating-linear-gradient(var(--muted) 0 4px, transparent 4px 8px);
+}
+
+#fanout-without:checked ~ .fanout-outputs li::after {
+  background: repeating-linear-gradient(90deg, var(--muted) 0 4px, transparent 4px 8px);
+}
+
+#fanout-without:checked ~ .fanout-sync::after,
+#fanout-without:checked ~ .fanout-outputs > li:not(.fanout-more)::before {
+  animation: none;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fanout-sync::after,
+  .fanout-outputs > li:not(.fanout-more)::before {
+    animation: none;
+  }
+}
+
+@keyframes fanout-drop {
+  0% { top: 0; opacity: 0; }
+  10% { opacity: 1; }
+  45% { top: 100%; opacity: 1; }
+  50%, 100% { top: 100%; opacity: 0; }
+}
+
+@keyframes fanout-flow {
+  0%, 40% { left: -1.5rem; opacity: 0; }
+  45% { opacity: 1; }
+  60% { left: -4px; opacity: 1; }
+  65%, 100% { left: -4px; opacity: 0; }
+}
+
 @keyframes fanout-caret {
   50% { opacity: 0; }
 }

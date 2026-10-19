@@ -11,19 +11,28 @@ source = ".agnostic-ai/AGNOSTIC_AI.md"
 note = "Run the project tests before finishing a change."
 targets = ["claude", "codex", "cursor", "windsurf", "gemini", "copilot"]
 more_label = "more tools"
+with_label = "With agnostic-ai"
+without_label = "Without"
+hand_label = "Edit each file by hand"
+with_summary = ["1 file you edit", "Every tool reads the same rule"]
+without_summary = ["{n} files you keep in step", "Each tool reads a different rule"]
 
 [[hero.fanout.outputs]]
 path = "CLAUDE.md"
 tools = "Claude Code"
+drift = "Run the project tests before finishing a change."
 [[hero.fanout.outputs]]
 path = "AGENTS.md"
 tools = "Codex, Cursor, Windsurf"
+drift = "Run tests before committing."
 [[hero.fanout.outputs]]
 path = "GEMINI.md"
 tools = "Gemini CLI"
+drift = "Run npm test."
 [[hero.fanout.outputs]]
 path = ".github/copilot-instructions.md"
 tools = "GitHub Copilot"
+drift = "No rule yet."
 
 [hero.video]
 video_id = "oHeKVk6bidA"
