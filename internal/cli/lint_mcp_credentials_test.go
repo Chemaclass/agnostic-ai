@@ -84,3 +84,19 @@ func TestLintAndSync_CredentialInArgsWarnsWithoutStoppingSync(t *testing.T) {
 		t.Errorf("a warning must not stop sync: %v\n%s", err, out)
 	}
 }
+
+// The project check and the agent-file check read the same fields, so a
+// value one flags the other flags too.
+func TestMCPCredentialChecks_AgreeOnTheFields(t *testing.T) {
+	e := mcpEntry(t, "name: api\nagent-only: true\ncommand: srv\nargs: [--token, "+lint049Token+"]\nx-cursor:\n  env:\n    GITHUB_TOKEN: ${env:GITHUB_TOKEN}\n    API_KEY: "+lint049Token+"\n")
+	var lint, agent []string
+	for _, f := range lintMCPCredentials([]spec.Entry{e}) {
+		lint = append(lint, f.Message[:strings.Index(f.Message, " holds")])
+	}
+	for _, issue := range agentFileCredentialIssues([]spec.Entry{e}) {
+		agent = append(agent, issue.Message[:strings.Index(issue.Message, " holds")])
+	}
+	if strings.Join(lint, "|") != strings.Join(agent, "|") || len(lint) != 2 {
+		t.Errorf("lint %q, agent file %q: want the same two fields", lint, agent)
+	}
+}

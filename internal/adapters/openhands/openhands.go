@@ -102,9 +102,9 @@ var caps = emit.Capabilities{
 	// its own skill folder directly (see path_rules.go). KindMCP reaches
 	// OpenHands only through sync --global.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
-	AgentFieldReasons: map[string]string{
-		"mcpServers": "OpenHands takes inline server definitions only; set x-openhands.mcp_servers",
-	},
+	// Each name in an agent's mcpServers is written to mcp_servers as
+	// the MCP spec's inline definition, the only form OpenHands takes.
+	AgentFields: []string{"mcpServers"},
 }
 
 // Adapter emits OpenHands configs.

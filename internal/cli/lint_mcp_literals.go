@@ -76,6 +76,17 @@ func lintMCPLiterals(mcps []spec.Entry) []lintFinding {
 	return out
 }
 
+// lintAgentFileCredentials reports, as LINT035 errors, the credentials
+// sync refuses to write into an agent file for a target in targets.
+func lintAgentFileCredentials(b spec.Bundle, targets []string) []lintFinding {
+	inlined := agentFileMCPs(b, targets)
+	var out []lintFinding
+	for _, issue := range append(mcpLiteralIssues(packSpecs(inlined)), agentFileCredentialIssues(inlined)...) {
+		out = append(out, lintFinding{Code: "LINT035", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
+	return out
+}
+
 // mcpCredentialSetting reports whether import's detector reads an `env`
 // or header value as a credential: a value under a credential name, or
 // one that holds a credential by its shape.
@@ -109,6 +120,22 @@ func markMCPLiterals(server map[string]any) map[string]any {
 			}
 		}
 		out[field] = marked
+	}
+	return out
+}
+
+// agentFileCredentialIssues reports mcpCredentialFields as errors for
+// the servers sync writes into an agent file, which is committed with
+// every copy of the agent. The message names the server and field,
+// never the value.
+func agentFileCredentialIssues(mcps []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range mcps {
+		fields := mcpCredentialFields(e)
+		for _, field := range fields {
+			out = append(out, validationIssue{Path: e.Path, Field: field,
+				Message: fmt.Sprintf("MCP server %q: %s holds a credential, and sync would write it into an agent file; use a ${NAME} reference with no default", e.Name, field)})
+		}
 	}
 	return out
 }

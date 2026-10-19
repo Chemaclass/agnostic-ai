@@ -302,4 +302,10 @@
 # with an empty tool list are left out with notes in sync, doctor and
 # compare, and lint reads Claude Code's agent fields. Same Linux amd64
 # release flags; retain the 8 KB allowance. No new dependencies.
-20107424
+# #2334 measured 20140192 on Go 1.27.2, up 40960 from main 165b90b5
+# (20099232): agent-only MCP servers, inline agent servers for Claude Code,
+# Qoder, Kiro and OpenHands, and the agent-file credential check. Same
+# Linux amd64 release flags; retain the 8 KB allowance. No new dependencies.
+# With validate and lint reporting agent-file credentials, #2334 measured
+# 20144288, up 45056 from main 165b90b5. Retain the 8 KB allowance.
+20152480

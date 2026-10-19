@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -67,14 +68,14 @@ func mcpBlockLiteral(field, key, value string) bool {
 	if field == "headers" {
 		value = mcpSchemeWord.ReplaceAllString(value, "")
 	}
-	return !mcpNativeReference.MatchString(value) && mcpCredentialSetting(key, value)
+	return !mcpNativeReference.MatchString(value) && mcpCredentialUnder(key, value)
 }
 
 // mcpCredentialDefault reports whether a reference in value falls back
-// to a credential, under a credential name or by its shape.
+// to a credential.
 func mcpCredentialDefault(key, value string) bool {
 	for _, m := range mcpReferenceDefault.FindAllStringSubmatch(value, -1) {
-		if m[1] != "" && (mcpCredentialKey(key) || mcpCredentialDetected(m[1])) {
+		if m[1] != "" && mcpCredentialUnder(key, m[1]) {
 			return true
 		}
 	}
@@ -103,4 +104,15 @@ func lintMCPCredentials(mcps []spec.Entry) []lintFinding {
 		}
 	}
 	return out
+}
+
+// mcpCredentialUnder reports whether value under key reads as a
+// credential: by its shape, or under a credential name unless it is a
+// short placeholder such as `none` under a name that ends in `key`.
+func mcpCredentialUnder(key, value string) bool {
+	if mcpCredentialDetected(value) {
+		return true
+	}
+	strength := mcpNameStrength(key, true)
+	return strength != preview.NoCredential && mcpSecretValue(mcpDetectorText(value), true, strength)
 }
