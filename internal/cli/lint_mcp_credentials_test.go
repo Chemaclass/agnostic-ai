@@ -88,7 +88,7 @@ func TestLintAndSync_CredentialInArgsWarnsWithoutStoppingSync(t *testing.T) {
 // The project check and the agent-file check read the same fields, so a
 // value one flags the other flags too.
 func TestMCPCredentialChecks_AgreeOnTheFields(t *testing.T) {
-	body := "command: srv\nargs: [--token, "+lint049Token+"]\nx-cursor:\n  env:\n    GITHUB_TOKEN: ${env:GITHUB_TOKEN}\n    API_KEY: "+lint049Token+"\n"
+	body := "command: srv\nargs: [--token, " + lint049Token + "]\nx-cursor:\n  env:\n    GITHUB_TOKEN: ${env:GITHUB_TOKEN}\n    API_KEY: " + lint049Token + "\n"
 	shared := mcpEntry(t, "name: api\n"+body)
 	only := mcpEntry(t, "name: api\nagent-only: true\n"+body)
 	var lint, agent []string
