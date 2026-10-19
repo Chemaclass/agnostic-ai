@@ -145,36 +145,41 @@ func TestHandler_SchemaAndHealth(t *testing.T) {
 	}
 }
 
-func TestHandler_AllowsLocalDevelopmentOriginsOnly(t *testing.T) {
+func TestHandler_ImpactRefusesANonJSONBody(t *testing.T) {
 	srv := demoServer(t, HandlerOptions{})
-	for origin, allowed := range map[string]bool{
-		"http://localhost:5173":     true,
-		"http://127.0.0.1:4173":     true,
-		"http://localhost":          true,
-		"https://evil.example":      false,
-		"http://localhost.evil.com": false,
+	body := `{"changes":[{"op":"add","list":"deny","rule":"mcp:railway/deploy"}]}`
+	for contentType, want := range map[string]int{
+		"text/plain":                        http.StatusUnsupportedMediaType,
+		"application/x-www-form-urlencoded": http.StatusUnsupportedMediaType,
+		"":                                  http.StatusUnsupportedMediaType,
+		"application/json; charset=utf-8":   http.StatusOK,
 	} {
-		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/views/authority/schema", nil)
-		req.Header.Set("Origin", origin)
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/views/authority/impact", strings.NewReader(body))
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		_ = resp.Body.Close()
-		got := resp.Header.Get("Access-Control-Allow-Origin")
-		if allowed && got != origin || !allowed && got != "" {
-			t.Errorf("%s: allow-origin %q", origin, got)
+		if resp.StatusCode != want {
+			t.Errorf("Content-Type %q = %d, want %d", contentType, resp.StatusCode, want)
 		}
 	}
-	req, _ := http.NewRequest(http.MethodOptions, srv.URL+"/api/views/authority/impact", nil)
+}
+
+func TestHandler_SetsNoCORSHeadersItself(t *testing.T) {
+	srv := demoServer(t, HandlerOptions{})
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/views/authority/schema", nil)
 	req.Header.Set("Origin", "http://localhost:5173")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent || !strings.Contains(resp.Header.Get("Access-Control-Allow-Methods"), "POST") {
-		t.Errorf("preflight = %d %q", resp.StatusCode, resp.Header.Get("Access-Control-Allow-Methods"))
+	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("allow-origin %q, want none: serve's origin guard decides", got)
 	}
 }
 

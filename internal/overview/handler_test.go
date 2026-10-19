@@ -31,7 +31,7 @@ func testInputs() (Inputs, error) {
 	}, nil
 }
 
-func TestNewHandler_ServesTheOverviewAndTheFeedWithLocalCORS(t *testing.T) {
+func TestNewHandler_ServesTheOverviewAndTheFeedWithoutCORSHeaders(t *testing.T) {
 	h := NewHandler(testInputs)
 
 	rec := serve(t, h, http.MethodGet, OverviewPath, "http://localhost:5173")
@@ -41,8 +41,8 @@ func TestNewHandler_ServesTheOverviewAndTheFeedWithLocalCORS(t *testing.T) {
 	if got := rec.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
 		t.Errorf("content type = %q", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
-		t.Errorf("allow origin = %q", got)
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("allow origin = %q, want none: serve's origin guard decides", got)
 	}
 	var view View
 	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
@@ -56,8 +56,8 @@ func TestNewHandler_ServesTheOverviewAndTheFeedWithLocalCORS(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("feed status = %d: %s", rec.Code, rec.Body)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:8080" {
-		t.Errorf("allow origin = %q", got)
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("allow origin = %q, want none", got)
 	}
 	var feed FeedView
 	if err := json.Unmarshal(rec.Body.Bytes(), &feed); err != nil {
@@ -65,37 +65,6 @@ func TestNewHandler_ServesTheOverviewAndTheFeedWithLocalCORS(t *testing.T) {
 	}
 	if feed.SchemaVersion != SchemaVersion || len(feed.Feed) != 1 || feed.Feed[0].Revision != "0123456789ab" {
 		t.Errorf("feed = %+v", feed)
-	}
-}
-
-func TestNewHandler_GivesOtherOriginsNoCORSHeader(t *testing.T) {
-	h := NewHandler(testInputs)
-	for _, origin := range []string{"http://example.com", "https://localhost:5173", "http://localhost.example.com", "http://127.0.0.2:80", "null", ""} {
-		rec := serve(t, h, http.MethodGet, FeedPath, origin)
-		if rec.Code != http.StatusOK {
-			t.Errorf("%q status = %d", origin, rec.Code)
-		}
-		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
-			t.Errorf("%q allow origin = %q, want none", origin, got)
-		}
-	}
-	if got := serve(t, h, http.MethodGet, FeedPath, "http://localhost").Header().Get("Access-Control-Allow-Origin"); got != "http://localhost" {
-		t.Errorf("portless localhost allow origin = %q", got)
-	}
-}
-
-func TestNewHandler_AnswersPreflightWithoutLoading(t *testing.T) {
-	loads := 0
-	h := NewHandler(func() (Inputs, error) {
-		loads++
-		return testInputs()
-	})
-	rec := serve(t, h, http.MethodOptions, OverviewPath, "http://localhost:3000")
-	if rec.Code != http.StatusNoContent || loads != 0 {
-		t.Errorf("preflight status = %d, loads = %d", rec.Code, loads)
-	}
-	if rec.Header().Get("Access-Control-Allow-Methods") == "" || rec.Header().Get("Access-Control-Allow-Origin") != "http://localhost:3000" {
-		t.Errorf("preflight headers = %v", rec.Header())
 	}
 }
 

@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -31,6 +34,7 @@ const defaultServeAddr = "127.0.0.1:4310"
 func newServeCmd() *cobra.Command {
 	var (
 		addr, dir, uiDir          string
+		allowOrigins              []string
 		open, global, noInstalled bool
 	)
 	cmd := &cobra.Command{
@@ -51,6 +55,17 @@ func newServeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if global && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
+			}
+			if err := requireLoopbackAddr(addr); err != nil {
+				return err
+			}
+			origins := make([]string, 0, len(allowOrigins))
+			for _, raw := range allowOrigins {
+				origin, err := authority.ParseOrigin(raw)
+				if err != nil {
+					return errs.Coded(errs.CodeFlagConflict, "--allow-origin: %v", err)
+				}
+				origins = append(origins, origin)
 			}
 			if uiDir != "" {
 				abs, err := filepath.Abs(uiDir)
@@ -84,16 +99,20 @@ func newServeCmd() *cobra.Command {
 			if uiDir == "" {
 				_, _ = fmt.Fprintln(out, "No --ui directory given, so only the API is served.")
 			}
+			if len(origins) > 0 {
+				_, _ = fmt.Fprintf(out, "Pages from %s may call the API.\n", strings.Join(origins, ", "))
+			}
 			_, _ = fmt.Fprintln(out, "Press Ctrl-C to stop.")
 			if open {
 				if err := openBrowser(url); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			return serveUntilInterrupted(cmd.Context(), ln, requireLocalHost(newServeMux(src.load, opts), ln.Addr()))
+			return serveUntilInterrupted(cmd.Context(), ln, requireLocalHost(newServeMux(src.load, opts, origins), ln.Addr()))
 		},
 	}
-	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Address to listen on.")
+	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Loopback address to listen on, such as 127.0.0.1:4310.")
+	cmd.Flags().StringArrayVar(&allowOrigins, "allow-origin", nil, "Origin, such as http://localhost:5173, whose pages may call the API from another port; repeat for more. The Vite dev server needs none, since it proxies /api.")
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
 	cmd.Flags().StringVar(&uiDir, "ui", "", "Directory of the built client to serve, such as ui/dist.")
 	cmd.Flags().BoolVar(&open, "open", false, "Open the served URL in a browser.")
@@ -109,7 +128,10 @@ func newServeCmd() *cobra.Command {
 // doctor) in the working directory, which serve has changed into for
 // the project. They are not available for --global, whose source
 // directory is not a project.
-func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
+//
+// Browser pages from origins other than the server's own and allowed
+// are refused before any API work runs.
+func newServeMux(load authority.Loader, opts authority.HandlerOptions, allowed []string) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
 	feed := newOverviewHandler(".")
@@ -122,7 +144,20 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 	}
 	mux.Handle(overview.OverviewPath, feed)
 	mux.Handle(overview.FeedPath, feed)
-	return authority.CORS(serializeAPI(mux))
+	return authority.OriginGuard(serializeAPI(mux), allowed)
+}
+
+// requireLoopbackAddr refuses a listen address other than localhost or a
+// loopback IP: serve is for this machine only, and its API has no login.
+func requireLoopbackAddr(addr string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return errs.Coded(errs.CodeFlagConflict, "--addr %s: %v", addr, err)
+	}
+	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		return errs.Coded(errs.CodeFlagConflict, "--addr %s is not a loopback address; serve answers only this machine, so use 127.0.0.1, ::1, or localhost", addr)
+	}
+	return nil
 }
 
 // requireLocalHost answers 421 to a request whose Host is not a loopback
@@ -140,7 +175,7 @@ func requireLocalHost(next http.Handler, listen net.Addr) http.Handler {
 			host = h
 		}
 		if !allowed[strings.ToLower(strings.Trim(host, "[]"))] {
-			http.Error(w, "this server answers only requests addressed to localhost", http.StatusMisdirectedRequest)
+			writeServeError(w, http.StatusMisdirectedRequest, "this server answers only requests addressed to localhost")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -149,16 +184,37 @@ func requireLocalHost(next http.Handler, listen net.Addr) http.Handler {
 
 // serializeAPI runs one API request at a time. Rendering adapters in
 // capture mode swaps package-level warning state, so two views rendering
-// at once would interleave it.
+// at once would interleave it. A request body is read in full before the
+// lock is taken, so a client that stalls mid-body holds up no one else.
 func serializeAPI(next http.Handler) http.Handler {
 	var mu sync.Mutex
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") {
-			mu.Lock()
-			defer mu.Unlock()
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
 		}
+		if r.Body != nil && r.Body != http.NoBody {
+			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, authority.MaxProposalBytes))
+			if err != nil {
+				writeServeError(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("the request body could not be read within %d bytes: %v", authority.MaxProposalBytes, err))
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+		mu.Lock()
+		defer mu.Unlock()
 		next.ServeHTTP(w, r)
 	})
+}
+
+// writeServeError answers with a JSON error, like the API's own errors.
+func writeServeError(w http.ResponseWriter, status int, message string) {
+	data, _ := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: message})
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(append(data, '\n'))
 }
 
 // serveUntilInterrupted serves on ln until the context ends or the

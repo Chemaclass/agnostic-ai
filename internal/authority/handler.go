@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -47,8 +47,8 @@ const (
 	pathHealth = "/api/health"
 )
 
-// maxProposalBytes bounds a proposal body.
-const maxProposalBytes = 1 << 20
+// MaxProposalBytes bounds a proposal body.
+const MaxProposalBytes = 1 << 20
 
 type handler struct {
 	load Loader
@@ -85,34 +85,7 @@ func NewHandler(load Loader, opts HandlerOptions) http.Handler {
 		writeError(w, http.StatusNotFound, fmt.Errorf("no endpoint at %s", r.URL.Path))
 	})
 	mux.HandleFunc("/", h.ui)
-	return CORS(mux)
-}
-
-// CORS lets a client served from http://localhost or http://127.0.0.1
-// on any port, such as a development server, call the API.
-func CORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if origin := r.Header.Get("Origin"); localOrigin(origin) {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-			w.Header().Set("Vary", "Origin")
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func localOrigin(origin string) bool {
-	u, err := url.Parse(origin)
-	if err != nil || u.Scheme != "http" || u.User != nil || u.Path != "" && u.Path != "/" {
-		return false
-	}
-	host := u.Hostname()
-	return host == "localhost" || host == "127.0.0.1"
+	return mux
 }
 
 func (h *handler) view(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +112,14 @@ func (h *handler) impact(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodPost) {
 		return
 	}
+	// A browser sends a text/plain or form POST to any origin without
+	// asking first, so only a JSON body, which needs a preflight, is read.
+	if media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || media != "application/json" {
+		writeError(w, http.StatusUnsupportedMediaType, errors.New("the proposal must be sent as application/json"))
+		return
+	}
 	var p Proposal
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxProposalBytes))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxProposalBytes))
 	if err := dec.Decode(&p); err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid proposal: %w", err))
 		return
