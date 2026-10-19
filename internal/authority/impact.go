@@ -1,11 +1,16 @@
 package authority
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
@@ -261,10 +266,64 @@ func applyProposal(cfg *config.Config, b spec.Bundle, opts Options, p paths, cha
 }
 
 // shownSpecYAML renders a settings spec for the impact diff with
-// credential values redacted, since the API returns the diff to any
-// local client.
+// credentials redacted, since the API returns the diff to any local
+// client. Permission rules are redacted by preview.RedactRule and kept
+// out of preview.Display, which would hide any rule that reads like a
+// command with an assignment; every other value goes through Display.
 func shownSpecYAML(e spec.Entry) string {
-	return preview.Display("settings.yaml", renderSpecYAML(e)).Text
+	standIns, rules := ruleStandIns(e)
+	shown := preview.Display("settings.yaml", renderSpecYAML(standIns))
+	switch {
+	case shown.Withheld:
+		return shown.Text
+	case !shown.Hidden:
+		return renderSpecYAML(withRules(e, func(rule string) string { return preview.RedactRule(rule) }))
+	}
+	return ruleStandIn.ReplaceAllStringFunc(shown.Text, func(m string) string {
+		n, _ := strconv.Atoi(strings.TrimPrefix(m, ruleStandInPrefix))
+		return yamlScalar(preview.RedactRule(rules[n]))
+	})
+}
+
+const ruleStandInPrefix = "agnostic-ai-rule-stand-in-"
+
+var ruleStandIn = regexp.MustCompile(ruleStandInPrefix + `[0-9]+`)
+
+// ruleStandIns returns a copy of e whose permission rules are numbered
+// stand-ins, and the rules in that order.
+func ruleStandIns(e spec.Entry) (spec.Entry, []string) {
+	var rules []string
+	out := withRules(e, func(rule string) string {
+		rules = append(rules, rule)
+		return ruleStandInPrefix + strconv.Itoa(len(rules)-1)
+	})
+	return out, rules
+}
+
+// withRules returns a copy of e with each permission rule replaced by
+// replace(rule).
+func withRules(e spec.Entry, replace func(string) string) spec.Entry {
+	e = cloneEntry(e)
+	perms, _ := e.Meta["permissions"].(map[string]any)
+	for _, list := range spec.PermissionLists {
+		rules, _ := perms[list].([]any)
+		for i, r := range rules {
+			if rule, ok := r.(string); ok {
+				rules[i] = replace(rule)
+			}
+		}
+	}
+	return e
+}
+
+// yamlScalar spells s as one YAML scalar on one line.
+func yamlScalar(s string) string {
+	data, err := yaml.Marshal(s)
+	if text := strings.TrimSuffix(string(data), "\n"); err == nil && !strings.Contains(text, "\n") {
+		return text
+	}
+	quoted, _ := json.Marshal(s)
+	return string(quoted)
 }
 
 // changeProblem returns why a change cannot apply, or "".

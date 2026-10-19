@@ -243,6 +243,8 @@ export interface Grant {
   source: Source
   wins: boolean
   note?: string
+  /** The rule holds a credential and is shown as <redacted>; a proposal cannot name it. */
+  redacted?: boolean
 }
 
 export interface Enforcement {

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -197,7 +198,6 @@ func transport(e spec.Entry) *Transport {
 // fragment value that is not only `${NAME}` references, since such text
 // may be a credential.
 func redactURL(raw string) string {
-	const redacted = "[redacted]"
 	rest, fragment, hasFragment := strings.Cut(raw, "#")
 	rest, query, hasQuery := strings.Cut(rest, "?")
 	if scheme, after, ok := strings.Cut(rest, "://"); ok {
@@ -206,7 +206,7 @@ func redactURL(raw string) string {
 			authority, path = after[:i], after[i:]
 		}
 		if at := strings.LastIndex(authority, "@"); at >= 0 && !onlyRefs(authority[:at]) {
-			authority = redacted + authority[at:]
+			authority = preview.Redacted + authority[at:]
 		}
 		rest = scheme + "://" + authority + redactPath(path)
 	}
@@ -222,14 +222,16 @@ func redactURL(raw string) string {
 
 // plainPathSegment matches a path word such as mcp, sse, or v1. Webhook
 // and bot URLs carry their token as a path segment, which mixes letters
-// and digits or runs long, so any other segment is redacted.
+// and digits or runs long, so any other segment is redacted. That errs
+// toward hiding: a harmless segment with a digit, such as `oauth2`, or
+// one over 32 characters is redacted too.
 var plainPathSegment = regexp.MustCompile(`^(?:[A-Za-z][A-Za-z._-]{0,31}|v[0-9]{1,3})$`)
 
 func redactPath(path string) string {
 	segments := strings.Split(path, "/")
 	for i, s := range segments {
 		if s != "" && !onlyRefs(s) && !plainPathSegment.MatchString(s) {
-			segments[i] = "[redacted]"
+			segments[i] = preview.Redacted
 		}
 	}
 	return strings.Join(segments, "/")
@@ -241,12 +243,12 @@ func redactPairs(text, sep string) string {
 		key, value, ok := strings.Cut(part, "=")
 		if !ok {
 			if part != "" && !onlyRefs(part) {
-				parts[i] = "[redacted]"
+				parts[i] = preview.Redacted
 			}
 			continue
 		}
 		if value != "" && !onlyRefs(value) {
-			parts[i] = key + "=[redacted]"
+			parts[i] = key + "=" + preview.Redacted
 		}
 	}
 	return strings.Join(parts, sep)

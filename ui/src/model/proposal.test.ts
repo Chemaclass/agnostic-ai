@@ -66,6 +66,17 @@ describe('client proposal preview', () => {
     expect(preview.unmatched).toHaveLength(1)
   })
 
+  it('offers no action on a rule shown redacted, since a proposal cannot name it', () => {
+    const resource = view.resources.find((r) => r.operations.some((o) => o.decided?.list === 'allow'))!
+    const op = structuredClone(resource.operations.find((o) => o.decided?.list === 'allow')!)
+    op.decided = { ...op.decided!, rule: 'shell(<redacted>)', redacted: true }
+    for (const kind of ['revoke', 'require-approval', 'block'] as const) {
+      const action = proposalAction(kind, resource, op)
+      expect(action.enabled, kind).toBe(false)
+      expect(action.reason, kind).toMatch(/holds a credential/)
+    }
+  })
+
   it('builds the body the impact endpoint expects', () => {
     const changes = [{ op: 'add' as const, list: 'deny' as const, rule: 'shell(rm:*)' }]
     expect(buildProposal(view, changes)).toEqual({ agentId: view.agent.id, target: view.harness.target, revision: view.snapshot.revision, changes })

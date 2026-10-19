@@ -212,3 +212,57 @@ func TestImpact_FirstPermissionProposalNeverReadsAsInstalled(t *testing.T) {
 		t.Errorf("carrier = %+v, want .claude/settings.json listed as not yet written", carrier)
 	}
 }
+
+func TestImpact_DiffRedactsACredentialInAPermissionRule(t *testing.T) {
+	const token = "ghp_0123456789abcdefghijklmnop"
+	for rule, rest := range map[string]string{
+		"shell(echo " + token + ")":       "",
+		"shell(FOO=" + token + " make)":   "",
+		"shell(echo " + token + " again)": "x-claude:\n  env:\n    GITHUB_TOKEN: " + token + "\n",
+	} {
+		root := writeProject(t, map[string]string{
+			"agnostic-ai.yaml":                       "version: 1\ntargets: [claude]\n",
+			".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [\"" + rule + "\", \"shell(FOO=bar make)\"]\n" + rest,
+		})
+		res := impactOf(t, root, Options{}, Proposal{Changes: []Change{{Op: "add", List: "deny", Rule: "Bash(rm:*)"}}})
+
+		if data := mustJSON(t, res); strings.Contains(data, token) {
+			t.Errorf("the impact result carries the token written in %s", rule)
+		}
+		if len(res.Diff) != 1 || !strings.Contains(res.Diff[0].After, "shell(<redacted>)") || !strings.Contains(res.Diff[0].After, "shell(FOO=bar make)") || !strings.Contains(res.Diff[0].After, "Bash(rm:*)") {
+			t.Errorf("diff = %+v, want the credential rule redacted and the others as written", res.Diff)
+		}
+	}
+}
+
+func TestImpact_RemovingARedactedRuleNeedsItsWrittenText(t *testing.T) {
+	const rule = "shell(echo ghp_0123456789abcdefghijklmnop)"
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude]\n",
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [\"" + rule + "\"]\n",
+	})
+	written := impactOf(t, root, Options{}, Proposal{Changes: []Change{{Op: "remove", List: "allow", Rule: rule}}})
+	if !written.Valid || len(written.Problems) != 0 {
+		t.Errorf("removing the rule as written: valid %v, problems %v", written.Valid, written.Problems)
+	}
+	shown := impactOf(t, root, Options{}, Proposal{Changes: []Change{{Op: "remove", List: "allow", Rule: "shell(<redacted>)"}}})
+	if shown.Valid || len(shown.Problems) != 1 {
+		t.Errorf("removing the redacted text: valid %v, problems %v; want one problem", shown.Valid, shown.Problems)
+	}
+}
+
+func TestImpact_DiffRedactsLiteralCredentialsInTheSettingsSpec(t *testing.T) {
+	const token = "ghp_0123456789abcdefghijklmnopqrstuvwxyz"
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude]\n",
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [Read]\nx-claude:\n  env:\n    GITHUB_TOKEN: " + token + "\n",
+	})
+	res := impactOf(t, root, Options{}, Proposal{Changes: []Change{{Op: "add", List: "deny", Rule: "Bash(rm:*)"}}})
+	data := mustJSON(t, res)
+	if strings.Contains(data, token) {
+		t.Error("the impact diff carries the literal token")
+	}
+	if !strings.Contains(data, "Bash(rm:*)") {
+		t.Error("the impact diff lost the proposed rule")
+	}
+}

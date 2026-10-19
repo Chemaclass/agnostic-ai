@@ -462,3 +462,20 @@ func TestBuildFeed_HypotheticalShellCardStaysConditional(t *testing.T) {
 		t.Errorf("in-sync consequence = %q, want what the rules allow, not what ran", synced.Consequence)
 	}
 }
+
+func TestBuildFeed_RedactedWinningRuleOffersNoRemoveProposal(t *testing.T) {
+	v := authorityView()
+	op := &v.Resources[0].Operations[0]
+	op.Decided.Rule, op.Decided.Redacted = "shell(<redacted>)", true
+	op.Grants = []authority.Grant{*op.Decided}
+	c, ok := cardWithCode(feedOf(t, Inputs{Authority: v}), shellAnyCode)
+	if !ok {
+		t.Fatal("no shell card")
+	}
+	if got := actionKinds(c); slices.Contains(got, ActionPropose) {
+		t.Errorf("actions = %v, want no proposal for a redacted rule", got)
+	}
+	if len(c.Evidence) != 1 || !strings.Contains(c.Evidence[0].Detail, "holds a credential; edit the file directly") {
+		t.Errorf("evidence = %+v", c.Evidence)
+	}
+}

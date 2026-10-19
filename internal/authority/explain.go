@@ -69,7 +69,7 @@ func grantPhrase(c *candidate) string {
 	if c.kind == grantProtected {
 		return "protected path " + c.protect.path + " (decision: " + c.protect.decision + ") in " + c.protect.source.Path
 	}
-	return c.list + " " + c.rule.raw + " in " + c.rule.source.Path
+	return c.list + " " + c.rule.shown + " in " + c.rule.source.Path
 }
 
 // conditionalSentence words an effect that holds only once the file

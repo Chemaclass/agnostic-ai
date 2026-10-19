@@ -112,12 +112,12 @@ func TestRedactURL_KeepsReferencesAndHidesWrittenCredentials(t *testing.T) {
 	for in, want := range map[string]string{
 		"https://api.githubcopilot.com/mcp/":                   "https://api.githubcopilot.com/mcp/",
 		"https://${HOST}/mcp?key=${KEY}":                       "https://${HOST}/mcp?key=${KEY}",
-		"https://u:pw@db.example/x?token=t1&mode=a":            "https://[redacted]@db.example/x?token=[redacted]&mode=[redacted]",
+		"https://u:pw@db.example/x?token=t1&mode=a":            "https://<redacted>@db.example/x?token=<redacted>&mode=<redacted>",
 		"https://${USER}:${PASS}@db.example/x":                 "https://${USER}:${PASS}@db.example/x",
-		"https://example.com/mcp#access_token=a.b.c":           "https://example.com/mcp#access_token=[redacted]",
-		"https://hooks.slack.com/services/T0A1/B0C2/xoxb9Zq":   "https://hooks.slack.com/services/[redacted]/[redacted]/[redacted]",
-		"https://api.telegram.org/bot123:abc/sendMessage":      "https://api.telegram.org/[redacted]/sendMessage",
-		"https://mcp.example.com/v1/sse/sk-live-4f9a/${TOKEN}": "https://mcp.example.com/v1/sse/[redacted]/${TOKEN}",
+		"https://example.com/mcp#access_token=a.b.c":           "https://example.com/mcp#access_token=<redacted>",
+		"https://hooks.slack.com/services/T0A1/B0C2/xoxb9Zq":   "https://hooks.slack.com/services/<redacted>/<redacted>/<redacted>",
+		"https://api.telegram.org/bot123:abc/sendMessage":      "https://api.telegram.org/<redacted>/sendMessage",
+		"https://mcp.example.com/v1/sse/sk-live-4f9a/${TOKEN}": "https://mcp.example.com/v1/sse/<redacted>/${TOKEN}",
 	} {
 		if got := redactURL(in); got != want {
 			t.Errorf("redactURL(%q) = %q, want %q", in, got, want)
@@ -150,25 +150,5 @@ func TestBuild_CredentialUseFollowsTheSubjectsToolPermissions(t *testing.T) {
 	}
 	if got := useOf(buildView(t, root, Options{Target: "codex"})); got != "unknown" {
 		t.Errorf("session on codex: use = %s, want unknown: the rule is not expressed there", got)
-	}
-}
-
-func TestImpact_DiffRedactsLiteralCredentialsInTheSettingsSpec(t *testing.T) {
-	const token = "ghp_0123456789abcdefghijklmnopqrstuvwxyz"
-	root := writeProject(t, map[string]string{
-		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude]\n",
-		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [Read]\nx-claude:\n  env:\n    GITHUB_TOKEN: " + token + "\n",
-	})
-	cfg, b := loadProject(t, root)
-	res, err := Impact(cfg, b, Options{Root: root, Now: fixedNow}, Proposal{Changes: []Change{{Op: "add", List: "deny", Rule: "Bash(rm:*)"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	data := mustJSON(t, res)
-	if strings.Contains(data, token) {
-		t.Error("the impact diff carries the literal token")
-	}
-	if !strings.Contains(data, "Bash(rm:*)") {
-		t.Error("the impact diff lost the proposed rule")
 	}
 }

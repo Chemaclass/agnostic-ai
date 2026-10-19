@@ -355,7 +355,11 @@ func shellAnyDraft(v *authority.View, r authority.Resource, op authority.Operati
 	tool := labels.of(target)
 	var actions []CardAction
 	evidence := []CardEvidence{}
-	if g, ok := winningAllow(op); ok {
+	g, ok := winningAllow(op)
+	switch {
+	case ok && g.Redacted:
+		evidence = append(evidence, CardEvidence{Path: g.Source.Path, Line: g.Source.Line, Detail: "permissions.allow: " + g.Rule + " (holds a credential; edit the file directly)"})
+	case ok:
 		evidence = append(evidence, CardEvidence{Path: g.Source.Path, Line: g.Source.Line, Detail: "permissions.allow: " + g.Rule})
 		actions = append(actions, CardAction{
 			ID:    "propose",
@@ -368,7 +372,7 @@ func shellAnyDraft(v *authority.View, r authority.Resource, op authority.Operati
 				Changes:  []authority.Change{{Op: "remove", List: "allow", Rule: g.Rule, Source: g.Source.Path}},
 			},
 		})
-	} else {
+	default:
 		evidence = append(evidence, CardEvidence{Detail: cmp.Or(op.Explanation, "The view resolves this operation as allowed.")})
 	}
 	query := url.Values{"resource": {r.ID}, "operation": {op.ID}, "target": {target}}

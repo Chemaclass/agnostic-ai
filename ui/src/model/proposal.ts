@@ -39,8 +39,15 @@ export interface ActionAvailability {
   changes: Change[]
 }
 
+const REDACTED = '<redacted>'
+
+const REDACTED_REASON = 'The rule holds a credential and is shown redacted; edit the settings file directly.'
+
 /** What each operation-row action proposes, and why it is unavailable when it is. */
 export function proposalAction(kind: ProposalActionKind, resource: Resource, op: Operation): ActionAvailability {
+  if (settingsGrant(op)?.redacted || resource.identity.pattern === REDACTED) {
+    return { enabled: false, reason: REDACTED_REASON, changes: [] }
+  }
   const rule = ruleForOperation(resource, op)
   switch (kind) {
     case 'revoke': {

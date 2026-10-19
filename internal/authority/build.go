@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -182,7 +183,8 @@ func parseRules(settings []spec.Entry, p paths, li *lineIndex) []ruleRef {
 				if lines != nil {
 					src.Line = lines[i]
 				}
-				out = append(out, ruleRef{list: list, raw: rule, caps: parseCapability(rule), entry: e, source: src})
+				shown := preview.RedactRule(rule)
+				out = append(out, ruleRef{list: list, raw: rule, shown: shown, redacted: shown != rule, caps: parseCapability(rule), entry: e, source: src})
 			}
 		}
 	}

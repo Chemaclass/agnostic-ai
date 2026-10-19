@@ -10,11 +10,14 @@ import (
 
 // ruleRef is one permission rule of a settings spec.
 type ruleRef struct {
-	list   string
-	raw    string
-	caps   []capability
-	entry  spec.Entry
-	source Source
+	list string
+	raw  string
+	// shown is raw, or raw redacted when it holds a credential.
+	shown    string
+	redacted bool
+	caps     []capability
+	entry    spec.Entry
+	source   Source
 }
 
 // protectRef is one path of a settings spec's protected block.
@@ -76,7 +79,7 @@ func (bd *builder) declare(s *subjectInfo, r *resourceInfo, action string) decla
 				continue
 			}
 			cand := candidate{kind: grantRule, list: rule.list, rule: rule, grant: Grant{
-				Rule: rule.raw, List: rule.list, Scope: "project", Source: rule.source, Note: note,
+				Rule: rule.shown, List: rule.list, Scope: "project", Source: rule.source, Note: note, Redacted: rule.redacted,
 			}}
 			switch rule.list {
 			case "deny":
@@ -199,7 +202,7 @@ func (bd *builder) narrowerConditions(r *resourceInfo, action string) []string {
 	for _, rule := range bd.rules {
 		for _, c := range rule.caps {
 			if narrowerThan(c, r, action) {
-				names = append(names, rule.list+" "+rule.raw)
+				names = append(names, rule.list+" "+rule.shown)
 				break
 			}
 		}

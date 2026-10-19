@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -266,6 +267,9 @@ func (bd *builder) ruleOn(target string, d *declaration) effective {
 		native:     slices.Clone(t.Native),
 		installs:   true,
 		carrier:    permissionFiles[target],
+	}
+	if w.rule.redacted {
+		out.native = []string{preview.Redacted}
 	}
 	form := classifyRule(w.rule.raw)
 	switch {

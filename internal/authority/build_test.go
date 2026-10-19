@@ -437,3 +437,58 @@ func TestBuild_EveryOperationHasOneEdgeAndNoListIsNull(t *testing.T) {
 		}
 	}
 }
+
+const ruleToken = "ghp_0123456789abcdefghijklmnop"
+
+func TestBuild_RedactsACredentialWrittenInAPermissionRule(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude]\n",
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [\"shell(echo " + ruleToken + ")\"]\n  ask: [\"shell(curl -H 'X-Api-Key: " + ruleToken + "':*)\"]\n",
+	})
+	v := buildView(t, root, Options{})
+
+	if data := mustJSON(t, v); strings.Contains(data, ruleToken) {
+		t.Fatalf("the view carries the token written in a rule: %s", data)
+	}
+	redacted := 0
+	for _, r := range v.Resources {
+		if r.Kind != ResourceCommandPattern || r.Identity.Pattern == "*" {
+			continue
+		}
+		redacted++
+		if !strings.HasPrefix(r.ID, "shell-redacted") || !strings.HasPrefix(r.Label, "<redacted>") || r.Identity.Pattern != "<redacted>" {
+			t.Errorf("resource = %+v, want a redacted id, label, and pattern", r)
+		}
+		if !strings.Contains(r.Description, "holds a credential") {
+			t.Errorf("description = %q", r.Description)
+		}
+		for _, op := range r.Operations {
+			if op.Decided == nil || op.Decided.Rule != "shell(<redacted>)" || !op.Decided.Redacted {
+				t.Errorf("decided = %+v, want the redacted rule", op.Decided)
+			}
+			for _, e := range op.Enforcement {
+				if e.Status == "native-rule" && !slices.Equal(e.Native, []string{"<redacted>"}) {
+					t.Errorf("native on %s = %v", e.Target, e.Native)
+				}
+			}
+		}
+	}
+	if redacted != 2 {
+		t.Errorf("found %d command resources, want 2", redacted)
+	}
+}
+
+func TestBuild_AgentToolListsAreRedactedToo(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                "version: 1\ntargets: [claude]\n",
+		".agnostic-ai/agents/deployer.md": "---\nname: deployer\ndescription: Deploys.\ncan: [read, \"shell(echo " + ruleToken + ")\"]\n---\n\nDeploy.\n",
+	})
+	v := buildView(t, root, Options{AgentID: "deployer"})
+
+	if data := mustJSON(t, v); strings.Contains(data, ruleToken) {
+		t.Fatalf("the view carries the token written in a tool list: %s", data)
+	}
+	if !slices.Contains(v.Agent.ToolScope.Declared, "shell(<redacted>)") || !slices.Contains(v.Agent.ToolScope.Capabilities, "shell(<redacted>)") {
+		t.Errorf("tool scope = %+v", v.Agent.ToolScope)
+	}
+}

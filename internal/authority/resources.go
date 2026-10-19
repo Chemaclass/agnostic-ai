@@ -3,6 +3,8 @@ package authority
 import (
 	"slices"
 	"strconv"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // resourceKind is the provider family a resource belongs to.
@@ -150,12 +152,21 @@ func shellResources(d discovery, ids map[string]bool, domains []string) []*resou
 			Basis:         "rule-pattern",
 			LabelResolved: true,
 		}
-		if p.exact {
+		switch {
+		case p.redacted:
+			r.res.ID = uniqueID(ids, "shell-redacted")
+			r.res.Label = preview.Redacted
+			if !p.exact {
+				r.res.Label += " …"
+			}
+			r.res.Description = "A command rule that holds a credential; the command is not shown."
+			r.res.Identity = Identity{Pattern: preview.Redacted}
+		case p.exact:
 			r.res.ID = uniqueID(ids, "shell-"+slug(p.prefix)+"-exact")
 			r.res.Label = p.prefix
 			r.res.Description = "Exactly this command."
 			r.res.Identity = Identity{Pattern: p.prefix}
-		} else {
+		default:
 			r.res.ID = uniqueID(ids, "shell-"+slug(p.prefix))
 			r.res.Label = p.prefix + " …"
 			r.res.Description = "Commands that start with \"" + p.prefix + "\"."

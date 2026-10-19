@@ -479,6 +479,9 @@ type Grant struct {
 	Source Source `json:"source"`
 	Wins   bool   `json:"wins"`
 	Note   string `json:"note,omitempty"`
+	// Redacted marks a Rule shown as <redacted> because it holds a
+	// credential. A proposal cannot name such a rule; edit the file.
+	Redacted bool `json:"redacted,omitempty"`
 }
 
 // Enforcement states how one coding tool carries the declared decision.
