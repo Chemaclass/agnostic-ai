@@ -35,7 +35,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Claude Code
 
 - Agents always get `name` and `description` (the name when missing), so Claude Code no longer skips them; `lint` warns (LINT048).
-- An agent whose `can:` names no Claude Code tool is left out with a note, instead of written with `tools: []`, which Claude Code refuses.
+- An agent with an empty tool list (such as `can: []` or `can: [delete]`) is left out with a note, not written as `tools: []`, which Claude Code refuses.
 - `lint` names the Claude Code field for agent keys like `maxturns` or `omit_claude_md`, and no longer points Claude projects to `x-junie`.
 - `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
 

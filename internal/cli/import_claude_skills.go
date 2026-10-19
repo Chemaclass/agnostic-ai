@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -96,8 +97,12 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		}
 		dstPath := filepath.Join(dstDir, e.Name())
 		if spec, err := os.ReadFile(dstPath); err == nil {
-			if _, _, meta := claudeFrontmatter(string(spec)); meta != nil {
+			_, _, meta := claudeFrontmatter(string(spec))
+			if meta != nil {
 				out = keepClaudeTierModel(out, meta, tiers)
+			}
+			if meta != nil || !strings.HasPrefix(string(spec), "---\n") {
+				out = dropClaudeIdentityFallback(out, meta)
 			}
 		}
 		if err := importMkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
@@ -109,6 +114,35 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// dropClaudeIdentityFallback removes from an imported agent the
+// `description` sync writes when the spec has none: one equal to the
+// name. Copying it would turn sync's stand-in into the spec's own
+// description for every target. A `name` equal to the file stem stays,
+// since it is the default anyway.
+func dropClaudeIdentityFallback(doc string, existing map[string]any) string {
+	rest, end, imported := claudeFrontmatter(doc)
+	if imported == nil {
+		return doc
+	}
+	name, _ := imported["name"].(string)
+	if _, declared := existing["description"]; declared || name == "" || imported["description"] != name {
+		return doc
+	}
+	var node yaml.Node
+	if err := yaml.Unmarshal([]byte(rest[:end]), &node); err != nil || len(node.Content) == 0 {
+		return doc
+	}
+	mapping := node.Content[0]
+	removeMappingKey(mapping, "description")
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if enc.Encode(mapping) != nil || enc.Close() != nil {
+		return doc
+	}
+	return "---\n" + buf.String() + rest[end+1:]
 }
 
 // importClaudeSkills copies each `.claude/skills/<name>/` directory tree

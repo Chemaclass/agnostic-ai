@@ -39,6 +39,8 @@ var agentNameRule = emit.NameRule{
 // whose tool list resolves to nothing is left out: "When nothing in the
 // tools list resolves to a tool ... Claude Code usually refuses to launch
 // the subagent", and dropping the list instead would grant every tool.
+// Only a list that resolves empty is caught; a misspelled tool name is
+// written as given.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	type resolved struct {
 		entry spec.Entry
@@ -50,8 +52,8 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	var undescribed []string
 	for _, agent := range agents {
 		meta, keys := agentMeta(agent)
-		if noUsableTool(meta) {
-			emit.NoteProject(fmt.Sprintf("%s: agent %s left out: its tool list names no tool Claude Code has, and Claude Code refuses to launch such an agent; list a tool it may use, or set `target:` to keep it off Claude Code", target, agent.Name))
+		if emptyToolList(meta) {
+			emit.NoteCoverageGap(target, spec.KindAgent, 1, fmt.Sprintf("agent %s has an empty tool list, such as `can: []` or `can: [delete]`, and Claude Code refuses to launch it; list a tool it may use, or set `target:` to keep it off Claude Code", agent.Name))
 			emit.NoteEntryOmitted(target, spec.KindAgent, agent.Name)
 			continue
 		}
@@ -112,8 +114,28 @@ func agentIdentity(meta map[string]any, keys []string, specName string) (map[str
 	return meta, keys, fallback
 }
 
-// noUsableTool reports a `tools` value that is set but names no tool.
-func noUsableTool(meta map[string]any) bool {
+// LeavesOutAgent reports whether sync leaves a, as written in its spec,
+// out of Claude Code for an empty tool list. `delete` counts as no tool:
+// sync drops it before the agent is written.
+func LeavesOutAgent(a spec.Entry) bool {
+	a, problem := a.NativeTools()
+	if problem != "" {
+		return false
+	}
+	meta, _ := agentMeta(a)
+	switch v := meta["tools"].(type) {
+	case []any:
+		meta = maps.Clone(meta)
+		meta["tools"] = slices.DeleteFunc(slices.Clone(v), func(t any) bool { return t == "Delete" })
+	case string:
+		meta = maps.Clone(meta)
+		meta["tools"] = strings.Join(slices.DeleteFunc(spec.SplitToolList(v), func(t string) bool { return t == "Delete" }), ", ")
+	}
+	return emptyToolList(meta)
+}
+
+// emptyToolList reports a `tools` value that is set but lists no tool.
+func emptyToolList(meta map[string]any) bool {
 	raw, set := meta["tools"]
 	if !set {
 		return false

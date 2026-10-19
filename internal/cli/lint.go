@@ -315,7 +315,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintDuplicateKeys(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
-	findings = append(findings, lintAgentDescriptions(entries)...)
+	findings = append(findings, lintAgentDescriptions(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
 	findings = append(findings, lintMCPToolRefs(targets, support, b.MCPs)...)
@@ -686,10 +686,10 @@ func lintNearMissKeys(entries []spec.Entry, targets []string) []lintFinding {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			if e.Kind == spec.KindSkill && k == "allowed-tools" {
+			if e.Kind == spec.KindSkill && k == "allowed-tools" || readByATarget(e, k, targets) {
 				continue
 			}
-			field, claude := claudeAgentNearMiss(e.Kind, k, targets)
+			field, claude := claudeAgentNearMiss(e, k, targets)
 			miss, ok := nearMiss{Use: field}, claude
 			if !ok {
 				miss, ok = nearMissKeys[k]

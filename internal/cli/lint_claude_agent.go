@@ -20,8 +20,8 @@ var claudeNativeAgentFields = []string{
 
 // claudeAgentNearMiss returns the Claude Code agent field key spells
 // with other case, `_`, or `-`, such as `max_turns` for `maxTurns`.
-func claudeAgentNearMiss(kind spec.Kind, key string, targets []string) (string, bool) {
-	if kind != spec.KindAgent || !slices.Contains(targets, "claude") || slices.Contains(claudeNativeAgentFields, key) {
+func claudeAgentNearMiss(e spec.Entry, key string, targets []string) (string, bool) {
+	if e.Kind != spec.KindAgent || !reachesClaude(e, targets) || slices.Contains(claudeNativeAgentFields, key) {
 		return "", false
 	}
 	folded := foldFieldName(key)
@@ -33,15 +33,19 @@ func claudeAgentNearMiss(kind spec.Kind, key string, targets []string) (string, 
 	return "", false
 }
 
+func reachesClaude(e spec.Entry, targets []string) bool {
+	return slices.Contains(targets, "claude") && e.EmitsTo("claude")
+}
+
 func foldFieldName(s string) string {
 	return strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(s))
 }
 
 // lintAgentDescriptions flags an agent with no description (LINT048,
 // warn). Tools read it to decide when to hand the agent a task, and
-// Claude Code skips an agent file without one. An agent with no body
+// Claude Code skips an agent file without one, so sync writes the name. An agent with no body
 // either is LINT001's.
-func lintAgentDescriptions(entries []spec.Entry) []lintFinding {
+func lintAgentDescriptions(entries []spec.Entry, targets []string) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
 		if e.Kind != spec.KindAgent || strings.TrimSpace(e.Body) == "" {
@@ -50,12 +54,11 @@ func lintAgentDescriptions(entries []spec.Entry) []lintFinding {
 		if desc, _ := e.Meta["description"].(string); strings.TrimSpace(desc) != "" {
 			continue
 		}
-		out = append(out, lintFinding{
-			Code:     "LINT048",
-			Severity: lintWarn,
-			Path:     e.Path,
-			Message:  "agent has no description, which tools read to decide when to hand it a task; Claude Code gets the name instead",
-		})
+		message := "agent has no description, which tools read to decide when to hand it a task"
+		if reachesClaude(e, targets) {
+			message += "; Claude Code gets the name instead"
+		}
+		out = append(out, lintFinding{Code: "LINT048", Severity: lintWarn, Path: e.Path, Message: message})
 	}
 	return out
 }

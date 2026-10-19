@@ -746,7 +746,11 @@ func newDoctorCmd() *cobra.Command {
 
 			// 3b. Config present on disk but not single-sourced, then
 			// the paths the user owns through sync.unmanaged.
+			unmanagedFound, leftOut := withoutLeftOutClaudeAgents(unmanagedFound, scope.bundle, cfg)
 			unmanaged := printUnmanagedConfig(cmd, cfg, unmanagedFound, unmanagedErr)
+			for _, line := range leftOut {
+				cmd.Printf("  ! %s\n", line)
+			}
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg)

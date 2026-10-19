@@ -60,11 +60,11 @@ func TestSync_ClaudeLeavesOutAnAgentWithNoUsableTool(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(dir, ".cursor", "agents", "idle.md")); err != nil {
 				t.Errorf("other targets still get the agent: %v", err)
 			}
-			want := "claude: agent idle left out: its tool list names no tool Claude Code has, and Claude Code refuses to launch such an agent; list a tool it may use, or set `target:` to keep it off Claude Code"
+			want := "1 agent reaches claude only in the source dir (agent idle has an empty tool list, such as `can: []` or `can: [delete]`, and Claude Code refuses to launch it; list a tool it may use, or set `target:` to keep it off Claude Code)"
 			if !strings.Contains(notes.String(), want) {
 				t.Errorf("notes:\n%s\nwant:\n%s", notes, want)
 			}
-			if !strings.Contains(notes.String(), "`can: delete` on 1 agent has no effect on claude, cursor (no native tool or rule, so sync leaves it out of the list)") && can == "can: [delete]" || strings.Contains(notes.String(), "`can` on 1 agent") {
+			if !strings.Contains(notes.String(), "`can: delete` on 1 agent has no effect on claude, cursor (delete has no native tool or rule, so sync leaves it out of the list)") && can == "can: [delete]" || strings.Contains(notes.String(), "`can` on 1 agent") {
 				t.Errorf("the note must name the delete entry, not the whole can: list, which restricts the agent:\n%s", notes)
 			}
 		})
@@ -80,7 +80,7 @@ func TestLintAgentDescriptions_WarnsOnAnAgentWithNone(t *testing.T) {
 		{Kind: spec.KindSkill, Name: "s", Path: "skills/s/SKILL.md", Body: "b"},
 	}
 
-	got := lintAgentDescriptions(entries)
+	got := lintAgentDescriptions(entries, []string{"claude"})
 
 	if len(got) != 2 || got[0].Path != "agents/bare.md" || got[1].Path != "agents/blank.md" {
 		t.Fatalf("findings = %v", got)

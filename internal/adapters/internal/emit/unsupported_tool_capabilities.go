@@ -76,7 +76,7 @@ func WithoutUnsupportedDelete(b spec.Bundle, target, mode string) (spec.Bundle, 
 					return nil, fmt.Errorf("%s", message)
 				}
 				if mode != OnUnsupportedSilent {
-					NoteFieldNoOp(target, e.Kind, source+": delete", 1, "no native tool or rule, so sync leaves it out of the list")
+					NoteFieldNoOp(target, e.Kind, source+": delete", 1, "delete has no native tool or rule, so sync leaves it out of the list")
 				}
 				e.Meta = maps.Clone(e.Meta)
 				if field == "permissions" {
