@@ -58,3 +58,5 @@ opencode-v2-permissions-last-match	opencode	Add these ordered rules to opencode.
 kiro-skill-precedence-docs	kiro	workspace skills take priority over global skills	yes	2292
 goose-delegated-policy-inheritance	goose	Bind subagents by their parent's hooks, mode and approvals	yes	signal:cap-agent-delegation-permission-inheritance
 junie-review-workflow-prompt	junie	# .github/workflows/code-review.yml [...] use_single_comment: true [...] prompt: "code-review"	yes	signal:cap-project-pull-request-review-workflows
+ellipsis-environment-hooks-validate	ellipsis	`hooks.validate` runs last every time and is never cached; the pull request check runs every hook, including `validate`.	yes	2320
+kiro-memory-user-setting	kiro	The Memory setting is a user setting. A value in workspace settings has no effect.	no	signal:cap-repository-scoped-learned-memory
