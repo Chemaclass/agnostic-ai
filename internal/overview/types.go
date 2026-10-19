@@ -182,4 +182,7 @@ type Finding struct {
 	// Section is the harness section the finding belongs to, when the
 	// check knows it. Empty lets the overview place it by its path.
 	Section string `json:"section,omitempty"`
+	// Identity tells apart findings whose Message was redacted to the
+	// same text. It is the message as written, so it is never served.
+	Identity string `json:"-"`
 }

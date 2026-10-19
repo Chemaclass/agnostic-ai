@@ -142,7 +142,7 @@ func lintCard(f Finding, where placer) draft {
 			Evidence:    []CardEvidence{{Path: f.Path, Line: f.Line, Detail: f.Message}},
 			Actions:     actions,
 		},
-		code: f.Code, path: f.Path, message: f.Message, target: f.Target,
+		code: f.Code, path: f.Path, message: cmp.Or(f.Identity, f.Message), target: f.Target,
 	}
 }
 
@@ -169,7 +169,7 @@ func doctorCard(f Finding, where placer) draft {
 			Evidence:    []CardEvidence{{Path: f.Path, Line: f.Line, Detail: f.Message}},
 			Actions:     actions,
 		},
-		code: f.Code, path: f.Path, message: f.Message, target: f.Target,
+		code: f.Code, path: f.Path, message: cmp.Or(f.Identity, f.Message), target: f.Target,
 	}
 }
 

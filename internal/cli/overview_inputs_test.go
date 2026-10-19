@@ -290,3 +290,30 @@ func TestServedFindingMessage_RedactsAGoQuotedRule(t *testing.T) {
 		t.Errorf("safe message changed: %s", got)
 	}
 }
+
+func TestOverviewFeed_RedactedFindingsKeepDistinctCards(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  deny: [\"Bash(echo ghp_0123456789abcdefghijklmnop * done)\", \"Bash(echo ghp_abcdefghijklmnop0123456789 * done)\"]\n")
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed := overview.BuildFeed(overview.Inputs{Cfg: cfg, Bundle: b, Findings: collectFindings(".", cfg, b)})
+	data, err := json.Marshal(feed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "ghp_") {
+		t.Fatalf("the feed carries a token: %s", data)
+	}
+	ids := map[string]bool{}
+	for _, c := range feed.Feed {
+		if c.Code == "LINT009" {
+			ids[c.ID] = true
+		}
+	}
+	if len(ids) != 2 {
+		t.Errorf("LINT009 cards = %d distinct, want 2: %+v", len(ids), feed.Feed)
+	}
+}

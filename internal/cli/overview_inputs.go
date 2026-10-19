@@ -70,7 +70,10 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 	out.compared, out.skipped = compared, skipped
 	out.findings = append(out.findings, overviewDoctorFindings(root, cfg, b)...)
 	for i := range out.findings {
-		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
+		f := &out.findings[i]
+		if shown := servedFindingMessage(f.Message); shown != f.Message {
+			f.Identity, f.Message = f.Message, shown
+		}
 	}
 	return out
 }
