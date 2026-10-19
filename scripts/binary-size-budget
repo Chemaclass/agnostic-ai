@@ -318,4 +318,6 @@
 # each tool's key, with validation, LINT050, import back, and notes for
 # an override of the wrong type. Same Linux amd64 release flags; retain
 # the 8 KB allowance. No new dependencies.
-20193440
+# The scoped import write-back that keeps key order and comments measured
+# 20197536, 4096 more. Retain the 8 KB allowance.
+20205728
