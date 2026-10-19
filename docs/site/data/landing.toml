@@ -9,21 +9,26 @@ secondary_label = "Explore the files"
 label = "One source file, synced into the file each coding tool reads"
 source = ".agnostic-ai/AGNOSTIC_AI.md"
 note = "Run the project tests before finishing a change."
-targets = ["claude", "codex", "cursor", "windsurf", "gemini", "copilot"]
+targets = ["claude", "codex", "cursor", "windsurf", "gemini"]
 more_label = "more tools"
+with_label = "With agnostic-ai"
+without_label = "Without"
+hand_label = "Edit each file by hand"
+with_summary = ["1 file you edit", "Every tool reads the same rule"]
+without_summary = ["{n} files you edit by hand", "Rules drift apart"]
 
 [[hero.fanout.outputs]]
 path = "CLAUDE.md"
 tools = "Claude Code"
+drift = "Run the project tests before finishing a change."
 [[hero.fanout.outputs]]
 path = "AGENTS.md"
 tools = "Codex, Cursor, Windsurf"
+drift = "Run tests before committing."
 [[hero.fanout.outputs]]
 path = "GEMINI.md"
 tools = "Gemini CLI"
-[[hero.fanout.outputs]]
-path = ".github/copilot-instructions.md"
-tools = "GitHub Copilot"
+drift = "No rule yet."
 
 [hero.video]
 video_id = "oHeKVk6bidA"
