@@ -320,4 +320,8 @@
 # the 8 KB allowance. No new dependencies.
 # The scoped import write-back that keeps key order and comments measured
 # 20197536, 4096 more. Retain the 8 KB allowance.
-20205728
+# #2340 measured 20209824 on Go 1.27.2, 4096 over the budget: agent
+# import returns keys the spec scopes under x-<target> to that block for
+# Cursor, Claude Code, Qoder, Junie, Gemini CLI and OpenCode. Same Linux
+# amd64 release flags; retain the 8 KB allowance. No new dependencies.
+20218016
