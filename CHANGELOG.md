@@ -7,7 +7,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - `view authority` shows what each agent may do on each coding tool, with the rule, file, and tool state behind every decision; `view overview` summarises the harness and lists evidence-backed findings; `serve` hosts both as versioned JSON for the web client under `ui/` (#1323).
+- The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.
+- Documentation links to shared permission and ownership guidance, sorts lint codes in one lookup, and explains how to diagnose plugin hook timeouts.
 - The homepage opens with one source note syncing into the file each tool reads, places the symlink answer beside the video, and the documentation index drops the retired talk demo.
+- The agent setup checklist asks before installing the CLI, never prints token or key values from imported settings, and stops when a step fails. Collapsible sections on documentation pages now have spacing and an open or closed marker.
+- The documentation sidebar uses short one-line labels, such as "Understand the setup" and "Set up with agents".
+- Documentation pages keep each fact in one place and link to it, so copies no longer drift. The setup guide links to the agent setup page instead of repeating its prompt. `hook run` documentation now says a hook that calls a script needs a sync first.
 - Target audits resume completed local research after fresh source verification and reject changed evidence or research inputs (#2280).
 - Target audits record stage intervals, review routing, and known triage usage, preserving unknown measurements (#2278).
 - Target audits confirm permission, rule order, path discovery, and import claims before filing, with explicit proof limits and an independent check (#2275).

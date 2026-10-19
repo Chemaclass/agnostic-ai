@@ -28,5 +28,3 @@ Before switching tools in an existing project, run [`agnostic-ai compare`](@/doc
 - A file that holds several kinds, such as `.claude/settings.json`, appears under each kind that writes to it.
 
 This page compares output files. It does not confirm native discovery or enforcement. Open a target page for field limits and the setting behind an optional output. Codex project commands, for example, can be written through a legacy opt-in but are not discovered by Codex.
-
-Next, [compare your own specs](@/docs/cli-reference/inspect.md#compare) before changing the selected targets.

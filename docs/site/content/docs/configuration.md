@@ -94,21 +94,17 @@ requires: ">=0.80.0"
 builtins: [handoff]
 ```
 
-The names are `handoff` (the skill), `handoff-hook` (optional Git snapshots and resume notices), `memory` (a project memory every tool shares), `rtk` (a Claude hook that shortens command output), and `caveman` (a response skill copied from a fixed upstream version). See [session handoffs](@/docs/handoff.md), [shared memory](@/docs/memory.md), and [RTK and Caveman](@/docs/rtk-and-caveman.md) for supported tools and any programs you need to install. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
+| Name | Adds | Setup and supported tools |
+|---|---|---|
+| `handoff` | A skill to leave and resume a task | [Session handoffs](@/docs/handoff.md) |
+| `handoff-hook` | Automatic Git snapshots and startup notices | [Automatic snapshots](@/docs/handoff.md#add-automatic-git-snapshots) |
+| `memory` | Shared project and personal memory | [Shared memory](@/docs/memory.md) |
+| `rtk` | A Claude Code hook that shortens command output; install RTK separately | [RTK setup](@/docs/rtk-and-caveman.md#turn-them-on) |
+| `caveman` | An on-demand response skill from a fixed upstream version; no separate program needed | [Caveman setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 
-To add the hooks, enable both:
+Enable names together in one list, such as `builtins: [handoff, handoff-hook]` or `builtins: [rtk, caveman]`. Names other than `handoff` are off in new projects. Before enabling RTK or Caveman, [check for an existing copy](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman).
 
-```yaml
-builtins: [handoff, handoff-hook]
-```
-
-RTK and Caveman are off unless named, including in projects created by `init`. Enable either independently, or both:
-
-```yaml
-builtins: [rtk, caveman]
-```
-
-`rtk` generates a Claude command-output hook; install RTK separately. `caveman` adds an on-demand response skill and needs no separate program. Before enabling either, [check your existing setup](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman) so an existing hook or skill does not run twice. That guide covers missing dependencies, adoption, removal, and licenses.
+Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
 
 The same list works in the [global home config](#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` turns them all off there. Removing a name removes the files or tool settings it manages on the next sync. Unrelated settings and project overrides remain.
 
@@ -147,12 +143,7 @@ requires: ">=0.73.0 <0.74.0"   # range: 0.73.0 and its patch releases
 - **Exact**: you commit generated files. Another release can write different content, so `sync --check` would fail in CI. When npm installs the tool, pin the same release in `package.json`.
 - **Range**: accept patch releases but not the next minor one.
 
-A binary outside the value stops every command that reads your specs, before it writes anything, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). The fix depends on the installed release:
-
-- **Newer than the project permits:** `agnostic-ai upgrade --requires` adopts the installed release. It sets an exact pin and matching schema URL, then syncs. Run it after your package-manager upgrade, with that manager's CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
-- **Older than the project needs:** install a fitting release with `agnostic-ai upgrade`, `upgrade --version vX.Y.Z`, or the project's package manager. The message names the command.
-
-`upgrade --requires` updates the base config and any existing local override. It handles project config only. For a global home pin, edit the file the error names. `sync --watch` stops when a pulled config puts the binary outside `requires`.
+A binary outside the value stops every command that reads your specs, before it writes anything, with [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). That page lists the fixes for a newer or older release. `sync --watch` stops when a pulled config puts the binary outside `requires`.
 
 A value is one or more space-separated terms. Every term must match: `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`. Anything else fails as AAI-004, naming the file. A build from source (`go run`, or a commit after a tag) is not a release, so it only warns once.
 
@@ -594,7 +585,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 
 ## Watched inputs
 
-`sync --watch` runs again when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys that specs do not cover, such as Claude `statusLine` or Codex `[history]`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
+`sync --watch` runs again when the config, sources, local specs, or overlays change. See [watch mode](@/docs/cli-reference/sync.md#watch-mode) for the full list. Overlays in `.agnostic-ai/overlays/` hold keys that specs do not cover, such as Claude `statusLine` or Codex `[history]`.
 
 ## Path semantics
 
@@ -620,25 +611,10 @@ When `<path>` is the target's own entry-point file (`outputs.claude.rules-file: 
 
 ### Per-target paragraphs
 
-`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/_index.md#per-target-body-fences).
+`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/_index.md#per-target-body-fences), with the same rules for shared entry-point files.
 
-```md
-Shared conventions for every tool.
-
-::target gemini
-Gemini reads `GEMINI.md` only. Load rules from `.gemini/rules/`.
-::end
-
-::targets codex amp
-Run `make preflight` before you stop.
-::end
-```
-
-- Unfenced content goes to every entry-point file.
-- A fenced block reaches a file when any of its readers is listed, so `::target codex` reaches every `AGENTS.md` reader. A shared file is never split.
-- Markers never reach output and must start at column 0.
 - `validate` flags a fence naming an unknown target or one that reads no entry-point file.
-- `import <tool>` keeps a fenced source when the imported file equals what sync renders. Otherwise it overwrites the source and warns.
+- For how `import` treats a fenced source, see [import](@/docs/cli-reference/start.md#files-and-source-order).
 
 ## Which value wins {#precedence}
 

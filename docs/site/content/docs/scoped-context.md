@@ -4,6 +4,7 @@ description = "Keep rules close to the directories where they apply across suppo
 weight = 40
 
 [extra]
+nav_title = "Folder instructions"
 group = "Workflows"
 +++
 
@@ -76,7 +77,7 @@ Globs are filename patterns such as `src/api/**`. With Codex enabled, an unscope
 
 Every pattern must cover a whole directory tree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns keep the whole rule inline, with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. The rule also stays inline, with a note, for output overrides, unmanaged destinations, and tools that read the root file without verified nested-file support. This applies to configured tools and to `--target`. Sync never widens a file filter to a whole directory. An inlined rule with `globs` begins with an `Applies to:` line listing them, such as ``Applies to: `resources/js/**` ``, so it does not read as a rule for the whole repository.
 
-Codex loads instructions for the directory it starts in. Start it inside the rule's directory. Starting at the root does not load nested files for later edits.
+Starting Codex at the root does not load nested files for later edits.
 
 </details>
 
@@ -167,7 +168,7 @@ Sync checks every configured tool that reads a shared output file, even with `--
 - Crush reads `.cursor/rules` without applying its conditions, so it conflicts with scoped Cursor rules.
 - Tools that share a nested `AGENTS.md` need the same scoped rules and the same text.
 
-Use compatible tools or separate worktrees. `prefer-spec` cannot bypass scope conflicts.
+`prefer-spec` cannot bypass scope conflicts.
 
 Keep headers enabled. Tools that read a file per directory reject `file` and `rules-dir` overrides. Scoped rules reject `rules-file` overrides, except Goose's `.goosehints` opt-in.
 

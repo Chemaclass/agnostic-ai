@@ -4,6 +4,7 @@ description = "See where a spec goes, compare tools, preview a spec, and trace a
 weight = 40
 
 [extra]
+nav_title = "Inspect and preview"
 group = "Reference"
 +++
 

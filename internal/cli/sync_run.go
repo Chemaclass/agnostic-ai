@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -564,6 +565,24 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
 }
 
+func prepareSyncTargets(out io.Writer, root string, cfg *config.Config, b spec.Bundle, targets []string, backup, keepEdits bool) ([]string, map[string]string, error) {
+	if len(targets) == 0 {
+		targets = cfg.Targets
+	}
+	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), targets...)); err != nil {
+		return nil, nil, err
+	}
+	warnBareCapabilitiesTo(out, cfg, b, targets)
+	if err := stopOnPendingImports(root, cfg); err != nil {
+		return nil, nil, err
+	}
+	if err := keepHandWrittenInstructions(cfg, b, targets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
+		return nil, nil, err
+	}
+	winners, err := detectCollisions(cfg, b, targets)
+	return targets, winners, err
+}
+
 // runSyncPass is one sync pass. With keepEdits, an output edited since the
 // last sync is left in place and named, and the rest is written. With
 // untrack, a generated path git both tracks and ignores is removed from
@@ -582,21 +601,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if !dryRun {
 		preparePersonalMemorySync(root, cfg)
 	}
-	effectiveTargets := targets
-	if len(effectiveTargets) == 0 {
-		effectiveTargets = cfg.Targets
-	}
-	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
-		return err
-	}
-	warnBareCapabilities(cfg, b, effectiveTargets)
-	if err := stopOnPendingImports(root, cfg); err != nil {
-		return err
-	}
-	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
-		return err
-	}
-	winners, err := detectCollisions(cfg, b, effectiveTargets)
+	effectiveTargets, winners, err := prepareSyncTargets(logOut, root, cfg, b, targets, backup, keepEdits)
 	if err != nil {
 		return err
 	}
@@ -1185,21 +1190,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		return err
 	}
 	cfg.Gitignore.Enabled = resolveGitignore(cfg, gitignoreFlag)
-	effectiveTargets := targets
-	if len(effectiveTargets) == 0 {
-		effectiveTargets = cfg.Targets
-	}
-	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
-		return err
-	}
-	warnBareCapabilitiesTo(cmd.ErrOrStderr(), cfg, b, effectiveTargets)
-	if err := stopOnPendingImports(root, cfg); err != nil {
-		return err
-	}
-	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
-		return err
-	}
-	winners, err := detectCollisions(cfg, b, effectiveTargets)
+	effectiveTargets, winners, err := prepareSyncTargets(cmd.ErrOrStderr(), root, cfg, b, targets, backup, keepEdits)
 	if err != nil {
 		return err
 	}
@@ -1212,13 +1203,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	defer release()
 	edits := editGuardFor(keepEdits, prev)
 
-	// mainSess handles the serial entry-point and shared-link writes; each
-	// target emits on its own session. The JSON path does not roll back
-	// writes, since targets share paths such as AGENTS.md: it reports a
-	// failed target's error and the writes it made before it. Only the
-	// orphan sweep and the ignore files are undone, when an ignore file
-	// fails after the sweep, and a .gitignore written by then keeps
-	// ignoring the outputs that stay.
+	// JSON retains partial target output except when coverage acceptance rejects the run.
 	mainSess := adapters.NewSession()
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {

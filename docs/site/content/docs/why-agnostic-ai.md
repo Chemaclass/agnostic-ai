@@ -5,6 +5,7 @@ weight = 5
 aliases = ["/docs/alternatives-why-not-symlinks/"]
 
 [extra]
+nav_title = "Understand the setup"
 group = "Start"
 next = "@/docs/getting-started.md"
 next_label = "Set up your project"

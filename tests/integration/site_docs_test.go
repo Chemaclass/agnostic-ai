@@ -887,7 +887,7 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	}
 	setup, _, _ = strings.Cut(setup, "\n---\n")
 	for _, required := range []string{
-		"Setup prompt and checklist: https://agnostic-ai.org/agent-setup.txt",
+		"](https://agnostic-ai.org/docs/agent-setup/)",
 		"Install options and commands: https://agnostic-ai.org/docs/installation/",
 		"Run the project tests before finishing a change.",
 		"Summarize which tests you ran.",

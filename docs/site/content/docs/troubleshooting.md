@@ -27,6 +27,7 @@ Run commands from the directory containing `agnostic-ai.yaml`. Start with the sy
 | A scoped rule is skipped, conflicts, or appears missing | Check [scoped-rule diagnostics](#scoped-rules) |
 | A generated skill links to a file the agent cannot open | Run `agnostic-ai doctor --check-references`; see [broken skill references](#broken-skill-references) |
 | Watch mode misses changes on a mounted filesystem | Try `agnostic-ai sync --watch --watch-poll` |
+| Claude Code reports that a hook timed out | Identify the [hook owner and slow command](#hook-timeouts) |
 
 ## Inspect the project
 
@@ -78,6 +79,18 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 | A placeholder link in an example, such as `[Logs](url)`, can never resolve | List its destination under [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) |
 
 </details>
+
+## Hook timeouts
+
+A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool running a hook. It does not establish who installed the hook or why its command was slow.
+
+In Claude Code, open `/hooks` and find the event and command named in the message. Check project settings, user settings, and enabled plugins. A command containing `${CLAUDE_PLUGIN_ROOT}` belongs to a plugin; update or diagnose that plugin rather than editing agnostic-ai specs. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks) explains hook locations and timeouts.
+
+For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/trace.md) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
+
+Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup before increasing their timeouts. Increase a timeout only after confirming that the command needs longer to finish; a longer timeout also makes a stuck command take longer to report.
+
+The [Caveman built-in](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman) supplies a skill, not the separate Caveman plugin's mode-tracking hooks.
 
 ## Report a problem
 

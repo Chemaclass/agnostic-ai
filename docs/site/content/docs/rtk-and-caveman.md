@@ -4,6 +4,7 @@ description = "Turn on RTK for shorter command output and Caveman for shorter an
 weight = 71
 
 [extra]
+nav_title = "RTK and Caveman"
 group = "Workflows"
 +++
 

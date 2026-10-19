@@ -113,10 +113,6 @@ func barePermissionOverridden(settings []spec.Entry, entry spec.Entry, target, n
 	return false
 }
 
-func warnBareCapabilities(cfg *config.Config, b spec.Bundle, targets []string) {
-	warnBareCapabilitiesTo(logOut, cfg, b, targets)
-}
-
 func warnBareCapabilitiesTo(out io.Writer, cfg *config.Config, b spec.Bundle, targets []string) {
 	if cfg.OnUnsupported == "silent" || verbosity < levelDefault {
 		return

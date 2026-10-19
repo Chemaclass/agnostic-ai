@@ -43,7 +43,7 @@ title = "You own the source"
 body = "Markdown and YAML in your repo. No account, no service."
 [[mission.principles]]
 title = "Generated files are outputs"
-body = "Same input, same bytes. `sync --check` catches drift in CI."
+body = "Same input, same bytes. Catch drift in CI with `sync --check`."
 [[mission.principles]]
 title = "Keep native tool files"
 body = "Each tool reads its own files. Sync flags what a tool cannot use."
@@ -130,7 +130,7 @@ name = "AGNOSTIC_AI.md"
 hint = "project guidance"
 file = "AGNOSTIC_AI.md"
 selected = true
-summary = "Project instructions. Each tool reads the same guidance from its own file or a reference to a shared file."
+summary = "Project instructions. Claude Code keeps rules in separate `.claude/rules/` files. Codex and Gemini CLI append an `agnostic-ai:rules` block to their root file. Select `rules/` to see the rule source."
 outputs = [
   { tool = "Claude Code", path = "CLAUDE.md" },
   { tool = "Codex", path = "AGENTS.md" },

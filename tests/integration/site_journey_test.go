@@ -42,10 +42,14 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 			t.Errorf("introduction does not explain %q", text)
 		}
 	}
-	for _, text := range []string{"CLAUDE.md", "AGENTS.md", `id="with-your-coding-agent"`, `id="in-your-terminal"`, `id="daily-use"`, "data-install-picker", "Copy agent setup prompt", "aria-label=\"Next lesson\""} {
+	for _, text := range []string{"CLAUDE.md", "AGENTS.md", `id="install-agnostic-ai"`, `id="daily-use"`, "data-install-picker", `href="https://agnostic-ai.org/docs/agent-setup/"`, "aria-label=\"Next lesson\""} {
 		if !strings.Contains(guide, text) {
 			t.Errorf("first setup is missing %q", text)
 		}
+	}
+	// The agent prompt lives on its own page; a second copy here would drift.
+	if strings.Contains(guide, "Copy agent setup prompt") {
+		t.Error("setup guide must link to the agent setup page instead of repeating its prompt")
 	}
 	proofStart := strings.Index(home, `id="first-sync"`)
 	explorerStart := strings.Index(home, `id="source-explorer"`)

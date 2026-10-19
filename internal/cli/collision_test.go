@@ -237,4 +237,10 @@ outputs:
 	if !strings.Contains(err.Error(), "output collision") {
 		t.Errorf("expected 'output collision' in error, got: %v", err)
 	}
+	if out, err := runCLI(t, "sync", "-t", "codex,amp", "--json"); err == nil || !strings.Contains(err.Error(), "output collision") {
+		t.Errorf("sync --json: %v, want output collision: %s", err, out)
+	}
+	if fileExists("AGENTS.md") {
+		t.Error("collision wrote AGENTS.md")
+	}
 }

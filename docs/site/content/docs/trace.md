@@ -5,6 +5,7 @@ weight = 90
 aliases = ["/docs/why/"]
 
 [extra]
+nav_title = "Trace outputs"
 group = "Workflows"
 +++
 
@@ -65,7 +66,7 @@ CLAUDE.md
     [instructions] AGNOSTIC_AI.md (.agnostic-ai/AGNOSTIC_AI.md): full
 ```
 
-The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Tools with no rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) also get rule text in a `## Rules` block in the entry-point file. Augment does the same in `AGENTS.md`. Each such rule is a `section` source. The file is credited to the first tool that reads it.
+The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Tools that get rule text in a `## Rules` block of the entry-point file ([inlined rules](@/docs/target-behavior.md#inlined-rules)) list each such rule as a `section` source. The file is credited to the first tool that reads it.
 
 </details>
 

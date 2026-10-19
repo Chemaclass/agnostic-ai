@@ -32,13 +32,9 @@ If an earlier step already rewrote the files, as a `postinstall` sync does, chec
 agnostic-ai sync --check --against HEAD
 ```
 
-It builds the files from the committed specs and compares them with the committed files. Ignored files are skipped.
+It builds the files from the committed specs and compares them with the committed files. A committed file that no spec produces anymore also fails, so this catches leftovers without `doctor`. See [what `--against` compares](@/docs/cli-reference/sync.md#against-details).
 
 `actions/checkout` fetches one commit by default. Set `fetch-depth: 2` so the check has the parent commit (in a pull request's merge commit, the base branch). Without it, a note says the comparison was skipped.
-
-A committed file that no spec produces anymore also fails, so this command catches leftovers without `doctor`. That covers a file with the generated header where a tool writes, and any file the parent commit's specs produced, such as a JSON file with no header.
-
-After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Only Cursor reads it there. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
 
 </details>
 
@@ -55,7 +51,7 @@ Add `agnostic-ai lint` to check spec quality. `sync --check` after `sync` adds n
 
 In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync`. See [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
-For cached environments that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/maintain.md#project-readiness). They check every configured tool without approving local hooks.
+For cached environments that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness). They check every configured tool without approving local hooks.
 
 <details>
 <summary>Install a pinned CLI in your CI job</summary>
@@ -66,21 +62,7 @@ In Node projects, install the CLI with the project's dependencies. Other project
 
 ### Node projects
 
-Pin the npm package as a dev dependency and sync on install:
-
-```bash
-npm install -D -E agnostic-ai    # or pnpm add -D -E, yarn add -D -E, bun add -D -E
-```
-
-```json
-{
-  "scripts": {
-    "postinstall": "agnostic-ai sync -q"
-  }
-}
-```
-
-The lockfile covers every OS and CPU, so one pin works on macOS, Linux, and Windows runners. For workspaces and git hooks, see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
+Pin the npm package as a dev dependency and sync on `postinstall`, as [Node monorepos](@/docs/git-hooks.md#node-monorepos) shows.
 
 With ignored generated files, `npm ci` already runs `postinstall`, so the job only checks the specs:
 

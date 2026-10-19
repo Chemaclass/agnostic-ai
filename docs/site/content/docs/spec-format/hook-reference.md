@@ -9,7 +9,7 @@ group = "Reference"
 
 # Hook reference
 
-### Portable events {#portable-events}
+## Portable events {#portable-events}
 
 Write `on` and `match` instead of one tool's own event name. Sync writes each tool's native event and matcher, so one spec runs on every tool that has a mapping.
 
@@ -54,7 +54,7 @@ The wrappers are bash scripts. On Windows, where a tool runs hook commands throu
 
 Cursor gets no `after-tool`, `after-edit`, or `stop`, because its `postToolUse`, `afterFileEdit`, and `stop` cannot block: exit 2 there is a failure Cursor moves past. `session-start` and `session-end` map without a wrapper. Cursor does not wait for either one, and on `session-start` it does not add plain stdout to the session as Claude Code does.
 
-#### Decision on stdout {#decision-on-stdout}
+### Decision on stdout {#decision-on-stdout}
 
 Set `decision: stdout` on a `before-tool` hook to decide with a JSON object instead of an exit code:
 
@@ -81,7 +81,7 @@ Only the top level counts, so a nested `decision` never overrides the verdict. R
 
 No tool reads this object itself. On every tool, sync runs the command through a bash wrapper that turns the decision into that tool's block, each `x-gemini.hooks` command handler included. So `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Augment runs only a bare script path, so it cannot run the wrapper, and `validate` names a `decision: stdout` hook that reaches it. Stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers blocks. A `\u` escape outside ASCII reads as `?`.
 
-#### Hooks Cursor and Copilot also read {#claude-settings-copies}
+### Hooks Cursor and Copilot also read {#claude-settings-copies}
 
 Cursor and Copilot also run `.claude/settings.json` hooks. When `cursor` is a target, sync puts `[ "$AGNOSTIC_AI_TARGET" = cursor ] && exit 0;` before the Claude Code copy of each portable hook that also reaches Cursor. Cursor's `sessionStart` hook sets that variable, so the hook runs once there, as Cursor's own copy. Claude Code sets it to `claude`, and an unset variable runs the hook.
 
@@ -110,7 +110,7 @@ Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event us
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`. `lint` warns on each hook the migration would rewrite (LINT034). `agnostic-ai import` follows the same rule.
 
-### Native events
+## Native events
 
 OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before/after events on macOS and Linux. Windows requires OpenCode V1 with the default V1 hooks; V2 cannot run V1 plugins. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and Windows refusal behavior. The default remains V1.
 

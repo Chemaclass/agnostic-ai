@@ -153,29 +153,33 @@ func TestSyncGlobal_NativePermissionShapeErrorsPreserveOwnedDenials(t *testing.T
 }
 
 func TestImportGlobal_PermissionRulesDetectCredentialAssignmentsAndNestedShells(t *testing.T) {
+	const numericCredential = "98765432101234567890"
 	nested := `curl -H "X-Api-Key: test-api-key" https://example.test`
 	for i := 0; i < 6; i++ {
 		nested = "sh -c '" + strings.ReplaceAll(nested, "'", "'\"'\"'") + "'"
 	}
 	for name, command := range map[string]string{
-		"assignment":                `API_KEY=12345 curl https://example.test`,
+		"assignment":                "API_KEY=" + numericCredential + " curl https://example.test",
 		"env argument":              `env API_KEY=test-api-key curl https://example.test`,
 		"assignment default":        `API_KEY=${TOKEN:-test-api-key} curl https://example.test`,
 		"nested shell":              `sh -c 'curl -H "X-Api-Key: test-api-key" https://example.test'`,
 		"nested double quotes":      `sh -c "curl -H \"X-Api-Key: test-api-key\" https://example.test"`,
-		"nested login shell":        `bash -lc 'env API_KEY=12345 curl https://example.test'`,
+		"nested login shell":        "bash -lc 'env API_KEY=" + numericCredential + " curl https://example.test'",
 		"nested beyond depth bound": nested,
 	} {
 		t.Run(name, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
+			// A short numeric path must not count as a leaked credential.
+			configDir := filepath.Join(home, "12345")
+			t.Setenv("CLAUDE_CONFIG_DIR", configDir)
 			rule := "Bash(" + command + ")"
-			mustWriteGlobalTest(t, filepath.Join(home, ".claude", "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
+			mustWriteGlobalTest(t, filepath.Join(configDir, "settings.json"), `{"permissions":{"allow":["Bash(ls:*)",`+jsonString(rule)+"]}}\n")
 			out, warnings, err := runImportGlobalTest("claude")
 			if err != nil {
 				t.Fatal(err)
 			}
 			got := readGlobalTest(t, filepath.Join(source, filepath.FromSlash(globalImportPermissionsSpec)))
-			if strings.Contains(got+out+warnings, "test-api-key") || strings.Contains(got+out+warnings, "12345") {
+			if strings.Contains(got+out+warnings, "test-api-key") || strings.Contains(got+out+warnings, numericCredential) {
 				t.Error("credential assignment or nested command was imported or displayed")
 			}
 			if !strings.Contains(warnings, "holds a credential") || !strings.Contains(got, "shell(ls:*)") {

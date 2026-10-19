@@ -137,6 +137,8 @@ Codex and Gemini section.
 | `::targets <a> <b>` | Opens a fence for several targets. |
 | `::end` | Closes the last open fence. A missing `::end` runs to the end of the body. |
 
+Marker lines must start at column 0.
+
 - `import` keeps fences intact. `import codex` adds them when Claude and Codex have the same agent or skill with different bodies.
 - Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A block reaches an entry-point file when any tool that reads the file is listed. Many tools share `AGENTS.md`, so `::target codex` text reaches every reader. A shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
 

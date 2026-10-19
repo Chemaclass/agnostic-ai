@@ -33,23 +33,12 @@ agnostic-ai graph --spec no-console-log
 
 # Only rules, as JSON
 agnostic-ai graph --kind rule --format json
-
-# Render an SVG of the whole graph
-agnostic-ai graph --format dot | dot -Tsvg > graph.svg
 ```
 
+For the flags, see [graph](@/docs/cli-reference/inspect.md#graph) in the CLI reference.
 
 <details>
-<summary>Look up graph filters and output formats</summary>
-
-## Flags
-
-| Flag | Description |
-|------|-------------|
-| `--format <text\|mermaid\|dot\|json>` | Output format. Default `text`. |
-| `--target <name>` | Restrict to one target. |
-| `--spec <name>` | Restrict to one spec name. |
-| `--kind <kind>` | Restrict to one kind (`agent`, `skill`, `rule`, `hook`, `mcp`, `command`). |
+<summary>Look up graph output formats</summary>
 
 ## Formats
 

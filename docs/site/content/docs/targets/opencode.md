@@ -15,7 +15,7 @@ set-up-this-tool = "@/docs/targets/opencode.md#first-rule"
 
 ## Set up this tool {#set-up-this-tool .legacy-anchor}
 
-OpenCode reads the root `AGENTS.md`, `.opencode/`, and `opencode.json`. Hook plugins use V1 by default. For OpenCode V2, select [V2 hooks](#opencode-v2-hooks) in each hook spec.
+OpenCode reads the root `AGENTS.md`, `.opencode/`, and `opencode.json`.
 
 ## First rule
 
@@ -206,4 +206,4 @@ Plugin hooks in `.opencode/plugins/` are not imported.
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

@@ -4,6 +4,7 @@ description = "Share one project note across your coding tools, then change it o
 weight = 20
 
 [extra]
+nav_title = "Set up your project"
 group = "Start"
 scripts = ["assets/scripts/landing.js"]
 next = "@/docs/scoped-context.md"
@@ -24,27 +25,19 @@ auto-manage-gitignore = "@/docs/configuration.md#gitignore"
 ci-gate = "@/docs/ci.md#ci"
 upgrade = "@/docs/installation.md#upgrade"
 inside-claude-code = "@/docs/installation.md#optional-extras"
+with-your-coding-agent = "@/docs/agent-setup.md"
+in-your-terminal = "@/docs/getting-started.md#install-agnostic-ai"
 +++
 
 # Set up your project {#getting-started}
 
 Claude Code and Codex read project notes to learn how to work in your codebase. Keep those notes in one place with agnostic-ai. Edit once, then sync the files your tools read.
 
-Use [your coding agent](#with-your-coding-agent) or follow [the terminal walkthrough](#in-your-terminal). Start in your project folder.
+Rather have your coding agent do it? [Paste one prompt](@/docs/agent-setup.md) instead, then come back for [the daily loop](#daily-use).
 
-## With your coding agent
+The walkthrough below writes one project note, generates files for Claude Code and Codex, then edits the note and updates both. Follow along with the tools you use, from your project folder.
 
-{{ <agent_setup_prompt /> }}
-
-The agent checks existing instructions, asks which tools you use and whether Git should track generated files, then previews and generates your setup. Review its changes and check that it reports `agnostic-ai sync --check` passing. You can finish here; the [full agent checklist](@/docs/agent-setup.md) covers the workflow it follows.
-
-To see how shared notes stay current, try [Change one note, update both tools](#daily-use) after setup.
-
-## In your terminal
-
-You will write one project note, generate files for Claude Code and Codex, then edit the note and update both. You can follow along with only the tools you use.
-
-### Install agnostic-ai
+## Install agnostic-ai
 
 {{ <install_picker /> }}
 
@@ -56,7 +49,7 @@ agnostic-ai --version
 
 Command not found? Open a new terminal or see [Installation](@/docs/installation.md#verify-the-install).
 
-### Initialize your project {#quickstart}
+## Initialize your project {#quickstart}
 
 From your project root:
 
@@ -70,7 +63,7 @@ When asked about Git, keep **Ignore them** (the default) for this walkthrough. C
 
 **Already have tool files?** In a terminal, `init` offers to import existing configuration such as `CLAUDE.md` and `AGENTS.md`. Accept to keep those instructions, then inspect the imported sources before syncing. Import can report sections that need a manual merge. For a selective import, use the [import reference](@/docs/migration.md#import-existing-tool-configuration). If `agnostic-ai.yaml` and `.agnostic-ai/` already exist, keep them and skip `init`.
 
-### Write a project note {#scaffold}
+## Write a project note {#scaffold}
 
 Create the source folder if needed:
 
@@ -86,7 +79,7 @@ Run the project tests before finishing a change.
 
 Adapt this to your project’s test command if you know it. This is the only instruction source you need to edit for this walkthrough.
 
-### Generate and inspect {#sync}
+## Generate and inspect {#sync}
 
 Preview the files before writing them:
 

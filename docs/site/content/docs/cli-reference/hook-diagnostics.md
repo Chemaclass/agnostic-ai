@@ -4,6 +4,7 @@ description = "Run sample hook events and understand diagnostic results and runt
 weight = 55
 
 [extra]
+nav_title = "Test hooks"
 group = "Reference"
 +++
 
@@ -27,27 +28,33 @@ hook protect-files: targets decide differently: claude block, codex allow
 
 For each configured tool the hook reaches, it runs every command sync wrote for that tool, from the project root, or from the handler's `cwd` on Copilot.
 
-### Event data replies
+### Build sample event data {#event-data-replies}
 
 `--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call (`BeforeTool` or `AfterTool` on Gemini). `--prompt <text>` builds `UserPromptSubmit` (`BeforeAgent` on Gemini). `SessionStart` takes its `source` from the matcher, or `startup` when the matcher is empty. `--payload <file>` sends a JSON file as is, for any event.
-### Matcher replies
+
+### Apply matchers {#matcher-replies}
 
 If the matcher does not match the tool or source, the tool would not run the hook, so that tool reports `allow` and why. A tool call from `--payload` matches its `tool_name` with the tool's own matcher rules, including Codex's `Edit` and `Write` aliases for `apply_patch`. Cursor, Goose, Copilot, and Kiro match the field their docs name for the event, such as the command, file path, or prompt text.
-### Missing event replies
+
+### Skip unsupported events {#missing-event-replies}
 
 A tool without the hook's event, such as Codex for `Notification`, is listed as not run.
-### Timeout replies
 
-The timeout sync writes, or the tool's default.
-### Async replies
+### Use the configured timeout {#timeout-replies}
+
+The command uses the timeout sync writes, or the tool's default listed below.
+
+### Report background hooks {#async-replies}
 
 An `async: true` hook, or an `asyncRewake: true` one on Claude Code and Qoder, runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because the tool does not wait for it. The same holds for Cursor `sessionStart` and `sessionEnd` hooks, Copilot `notification` hooks, and Cline hooks on any event but `PreToolUse` and `PostToolUse`.
-### Background commands replies
+
+### Stop leftover background commands {#background-commands-replies}
 
 On macOS and Linux, a command the hook leaves running is killed once the hook exits.
-### Stale tool file replies
 
-Commands come from the spec, so the run works before a sync. The tool prints a `warning` naming the file when the synced file is missing, when no handler under the event runs the command the spec produces, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. On Claude Code and Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`. An `env` warning names the keys, never their values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
+### Find stale generated hook files {#stale-tool-file-replies}
+
+Commands come from the spec. A command that calls a hook script needs a `sync` first, because sync copies the scripts into each tool's hook folder. The tool prints a `warning` naming the file when the synced file is missing, when no handler under the event runs the command the spec produces, or when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. On Claude Code and Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`. An `env` warning names the keys, never their values. A warning does not fail the run; `sync` clears it. The file is the one each [tool page](@/docs/targets/_index.md) lists, or the path `outputs` sets.
 
 <details>
 <summary>Environment variables per tool</summary>
@@ -176,7 +183,7 @@ The run exits 1 when a counted command times out or errors, when two counted too
 
 ### Assumed results {#assumed-results}
 
-Cursor, Copilot, Factory, Qoder, Antigravity, Kiro, and Windsurf (Devin CLI) leave out part of how a command runs. `hook run` runs them on these assumptions instead of skipping them:
+Cursor, Copilot, Factory, Qoder, Antigravity, Kiro, Windsurf (Devin CLI), Cline, and Crush leave out part of how a command runs. Cline and Crush are covered after the list. `hook run` runs them on these assumptions instead of skipping them:
 
 - Shell (Cursor, Factory, Antigravity, Kiro, Windsurf, Copilot's `command` form, and Qoder without `shell`): `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments. A command with shell syntax, such as a pipe, is listed as not run with a note to use a script path. Windows is not run. Copilot's and Qoder's exec form, which sync writes when the spec sets `args`, runs with no shell and assumes none.
 - Timeout (Cursor, Windsurf): 30 seconds when the spec sets none. Set `timeout` in the spec to remove this assumption. Copilot and Antigravity document their 30 second default, and Factory and Kiro 60 seconds.

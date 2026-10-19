@@ -4,6 +4,7 @@ description = "Review, environment, MCP, and import mappings for Ellipsis."
 weight = 261
 
 [extra]
+nav_title = "Ellipsis reference"
 group = "Reference"
 +++
 

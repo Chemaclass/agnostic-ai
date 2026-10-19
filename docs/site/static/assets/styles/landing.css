@@ -191,16 +191,12 @@ main > section[id] {
     margin-top: 0;
   }
 
-  /* The quickstart pairs its title with three links rather than a lead, so
-     the title keeps more of the row and still breaks at its own span. */
-  #quickstart > .wrap {
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  }
-
-  #quickstart > .wrap > .quickstart-links {
+  /* The quickstart pairs its title with the install command rather than a
+     lead, so the command fills the right of the row. */
+  #quickstart > .wrap > .hero-install {
     grid-column: 2;
     grid-row: 1;
-    justify-content: flex-end;
+    justify-self: end;
     margin-top: 0;
   }
 }
@@ -613,6 +609,10 @@ main > section[id] {
   letter-spacing: -0.01em;
 }
 
+.feature-list code {
+  white-space: nowrap;
+}
+
 .workflow-steps p,
 .feature-list p {
   margin: 0;
@@ -625,17 +625,36 @@ main > section[id] {
   margin-block: 0.85rem 0.75rem;
 }
 
+.workflow-file {
+  color: var(--muted);
+}
+
+.workflow-file svg {
+  flex: none;
+}
+
+/* Matches the command height, which carries a copy button. */
+.workflow-file code {
+  line-height: 2rem;
+}
+
 .quickstart-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem 1.25rem;
-  margin-top: 1.2rem;
-  font-size: 0.86rem;
-  font-weight: 700;
+  gap: 0.65rem 1.75rem;
+  margin-top: 1.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .quickstart-links a {
   color: var(--accent);
+  text-decoration: none;
+}
+
+.quickstart-links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .installer {
@@ -909,6 +928,8 @@ main > section[id] {
   border-radius: 18px;
   background: var(--surface);
   box-shadow: 0 24px 60px -32px rgb(0 0 0 / 0.35);
+  --fanout-trunk: 1.25rem;
+  --fanout-last: 2.25rem;
 }
 
 .fanout-source pre {
@@ -947,8 +968,9 @@ main > section[id] {
   content: "";
   position: absolute;
   inset-block: 0;
-  left: 1.25rem;
-  border-left: 1.5px solid var(--accent);
+  left: var(--fanout-trunk);
+  width: 2px;
+  background: var(--accent);
 }
 
 .fanout-sync code {
@@ -964,12 +986,25 @@ main > section[id] {
   font-weight: 600;
 }
 
+/* One continuous trunk on the list; each row adds only its stub. The last
+   row has a fixed height so the trunk can end at its stub. */
 .fanout-outputs {
+  position: relative;
   display: grid;
   gap: 0.5rem;
   margin: 0;
-  padding: 0 0 0 2.75rem;
+  padding: 0 0 0 calc(var(--fanout-trunk) + 1.5rem);
   list-style: none;
+}
+
+.fanout-outputs::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: calc(var(--fanout-last) / 2 - 1px);
+  left: var(--fanout-trunk);
+  width: 2px;
+  background: var(--accent);
 }
 
 .fanout-outputs li {
@@ -985,30 +1020,14 @@ main > section[id] {
   background: var(--paper);
 }
 
-.fanout-outputs li::before {
-  content: "";
-  position: absolute;
-  top: -0.5rem;
-  bottom: 0;
-  left: -1.5rem;
-  border-left: 1.5px solid var(--accent);
-}
-
-.fanout-outputs li:first-child::before {
-  top: 0;
-}
-
-.fanout-outputs li:last-child::before {
-  bottom: 50%;
-}
-
 .fanout-outputs li::after {
   content: "";
   position: absolute;
-  top: 50%;
-  left: -1.5rem;
-  width: 1.5rem;
-  border-top: 1.5px solid var(--accent);
+  top: calc(50% - 1px);
+  left: calc(-1.5rem - 1px);
+  width: calc(1.5rem + 1px);
+  height: 2px;
+  background: var(--accent);
   transform-origin: left;
 }
 
@@ -1035,6 +1054,8 @@ main > section[id] {
 }
 
 .fanout-outputs .fanout-more {
+  block-size: var(--fanout-last);
+  padding-block: 0;
   border: 0;
   background: none;
 }
@@ -1082,7 +1103,7 @@ main > section[id] {
 }
 
 @keyframes fanout-in {
-  from { opacity: 0; transform: translateX(-0.4rem); }
+  from { opacity: 0; }
 }
 
 @keyframes fanout-stub {

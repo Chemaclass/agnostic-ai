@@ -54,7 +54,7 @@ AGENTS.md                            # pointer body, plus the rules block when a
   - When Codex or another tool that copies rules into `AGENTS.md` writes that file, its `## Rules` block holds every rule without a scope. Cline loads that file by default, so an always-on rule gets no `.clinerules/` file and loads once.
   - Rules with `paths` keep their file. So does a rule whose text differs for Cline (a `::target cline` fence or a path variable).
   - Keep `AGENTS.md` on in Cline's Rules panel. Otherwise Cline misses the rules that have no file of their own.
-  - Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. Sync then stops writing `AGENTS.md` for every tool that reads it, Codex included. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+  - Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. Check [the effect on other targets sharing that file](@/docs/target-behavior.md#inlined-rules).
 - **Rules layouts**: Cline [searches both](https://docs.cline.bot/customization/cline-rules) `.clinerules/` and `.cline/rules/` in VS Code, Desktop, and the CLI, and [deprecates](https://docs.cline.bot/resources/deprecations) neither. `.clinerules/` is the default because the VS Code Rules panel creates rules there (`outputs.cline.rules-dir: .cline/rules` picks the other). Sync writes one and removes the files it wrote earlier in the other, so rules never load twice.
 - **Rule activation**: a scoped rule gets `paths` limited to its folder, even with `alwaysApply: true`. A rule without a scope gets native `paths` from its file selector with `alwaysApply: false`, or with `globs` other than a catch-all such as `**/*` and no `alwaysApply`. With no usable selector, `sync` reports it. See [Cline conditions](https://docs.cline.bot/customization/cline-rules) and [file-pattern limits for directory rules](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Agents**: always at `.cline/agents/`, whatever the rules folder is set to. All three Cline readers use `<workspace>/.cline/agents`.
@@ -134,7 +134,7 @@ Cline still reads a single-file `.clinerules`. It imports as one rule, `clinerul
 
 ## Protected paths
 
-Not enforced. Cline takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Cline takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
 
 ## VS Code memory startup
 

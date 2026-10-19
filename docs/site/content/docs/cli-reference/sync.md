@@ -4,6 +4,7 @@ description = "Write each tool's config, preview changes, and read a failing che
 weight = 20
 
 [extra]
+nav_title = "Generate output"
 group = "Reference"
 +++
 
@@ -50,7 +51,8 @@ For a normal edit, change the source under `.agnostic-ai/`, preview with `agnost
 - A tracked output that no spec produces fails as a leftover to delete. That covers a file with the generated header, and any file the previous state wrote that still holds what it wrote. The previous state is `HEAD` for `index` and the first parent for `HEAD`.
 - A file edited since is left alone.
 - A run narrowed with `-t`, `--only`, or `--except` skips the leftover comparison.
-- A hand-written skill, agent, rule, or command that Git tracks inside a folder the managed block ignores also fails, because only the tool that reads that folder sees it. The failure names the `import` that adopts it. List the file under `sync.unmanaged` to keep it.
+- A hand-written skill, agent, rule, or command that Git tracks inside a folder the managed block ignores also fails, because only the tool that reads that folder sees it. The failure names the `import` that adopts it. For example, a branch from before the move to `.agnostic-ai/` can add `.cursor/skills/<name>/SKILL.md`; the fix is `agnostic-ai import cursor`, then `git rm --cached` the file. Or list the file under `sync.unmanaged` to keep it.
+- An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
 
 </details>
 
@@ -59,7 +61,7 @@ For a normal edit, change the source under `.agnostic-ai/`, preview with `agnost
 - Loads overrides from `local/` in the source root. Reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there. See [global configuration](@/docs/configuration.md#global-configuration) and [global output](@/docs/target-behavior.md#global-output).
 - Works outside a project. It never loads project config or packs.
 - Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
-- MCP specs install servers in the user MCP files of Antigravity, Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. Claude also gets `permissions.default-mode`. Permission-list import and sync were added after v0.85.0; see [user permissions](@/docs/global-configuration.md#global-default-model-and-effort). See [default model and effort](@/docs/global-configuration.md#global-default-model-and-effort).
+- MCP specs install servers in the user MCP files of Antigravity, Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. Claude also gets `permissions.default-mode`. Permission-list import and sync were added after v0.85.0; see [global model, effort, and permissions](@/docs/global-configuration.md#global-default-model-and-effort).
 - Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
 
 Sync skips paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) and reports them as `~ skip (unmanaged) <path>`.

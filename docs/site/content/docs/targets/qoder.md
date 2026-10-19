@@ -101,7 +101,7 @@ Hooks are merged under `hooks` in the same file ([Qoder hooks](https://docs.qode
 <details>
 <summary>Unmanaged AGENTS.md</summary>
 
-Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. But sync then stops writing `AGENTS.md`, so other tools that read it, such as Codex, miss rule changes.
+Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. Check [the effect on other targets sharing that file](@/docs/target-behavior.md#inlined-rules).
 
 </details>
 
@@ -171,4 +171,4 @@ Hooks, personal settings, and the separate project `.mcp.json` are not imported.
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).

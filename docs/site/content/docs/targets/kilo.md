@@ -77,7 +77,7 @@ go to the shared `.agents/skills/<name>/SKILL.md` tree. Kilo loads it by default
 <details>
 <summary>No root rules block</summary>
 
-Kilo reads no rules block when a `file` output override moves the entry point off the root `AGENTS.md`, or when `AGENTS.md` is in `sync.unmanaged`. (`sync.unmanaged` also stops sync writing `AGENTS.md` for codex and every other reader.) Unscoped rules then get one file each under `.kilo/rules/`, listed by explicit path (not a glob) in the [`instructions`](https://kilo.ai/docs/customize/custom-rules) array of `kilo.jsonc`. When no rule file is left, sync removes only the `instructions` entries for rules that `AGENTS.md` now carries. Your own entries stay.
+Kilo reads no rules block when a `file` output override moves the entry point off the root `AGENTS.md`, or when `AGENTS.md` is in `sync.unmanaged`. Check [the effect on other targets sharing that file](@/docs/target-behavior.md#inlined-rules). Unscoped rules then get one file each under `.kilo/rules/`, listed by explicit path (not a glob) in the [`instructions`](https://kilo.ai/docs/customize/custom-rules) array of `kilo.jsonc`. When no rule file is left, sync removes only the `instructions` entries for rules that `AGENTS.md` now carries. Your own entries stay.
 
 </details>
 
@@ -145,4 +145,4 @@ Generated rule sections in `AGENTS.md` are recovered when their source specs are
 
 ## Protected paths
 
-Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a sync note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
