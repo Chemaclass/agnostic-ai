@@ -18,7 +18,7 @@ var mcpReferenceDefault = regexp.MustCompile(`\$\{[A-Za-z_][A-Za-z0-9_]*:-([^}]*
 // mcpNativeReference is a value that is only one tool's own reference
 // form, such as `${env:NAME}` or `{env:NAME}`, which an `x-<target>`
 // block may hold.
-var mcpNativeReference = regexp.MustCompile(`^(\$\{[^}]+\}|\{env:[^}]+\})+$`)
+var mcpNativeReference = regexp.MustCompile(`^(\$\{(env|input):[A-Za-z_][A-Za-z0-9_]*\}|\{env:[A-Za-z_][A-Za-z0-9_]*\})+$`)
 
 // mcpCredentialFields lists the places in e, outside what LINT035
 // checks, where the import detector finds a credential: `url`, `args`,
@@ -43,7 +43,7 @@ func mcpBlockCredentialFields(meta map[string]any, prefix string, inBlock bool) 
 	if u, _ := meta["url"].(string); u != "" && mcpCredentialDetected(u) {
 		out = append(out, prefix+"url")
 	}
-	if args := mcpArgStrings(meta["args"]); len(args) > 0 && mcpCredentialDetected(strings.Join(args, " ")) {
+	if args := mcpArgStrings(meta["args"]); len(args) > 0 && (mcpCredentialDetected(strings.Join(args, " ")) || slices.ContainsFunc(args, mcpCredentialDetected)) {
 		out = append(out, prefix+"args")
 	}
 	for _, field := range mcpSecretFields {
@@ -115,4 +115,12 @@ func mcpCredentialUnder(key, value string) bool {
 	}
 	strength := mcpNameStrength(key, true)
 	return strength != preview.NoCredential && mcpSecretValue(mcpDetectorText(value), true, strength)
+}
+
+// withoutEntries returns entries minus the ones in drop, by name. A
+// server sync writes into an agent file gets LINT035 instead of LINT049.
+func withoutEntries(entries, drop []spec.Entry) []spec.Entry {
+	return slices.DeleteFunc(slices.Clone(entries), func(e spec.Entry) bool {
+		return slices.ContainsFunc(drop, func(d spec.Entry) bool { return d.Name == e.Name })
+	})
 }

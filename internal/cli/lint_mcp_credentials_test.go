@@ -88,15 +88,44 @@ func TestLintAndSync_CredentialInArgsWarnsWithoutStoppingSync(t *testing.T) {
 // The project check and the agent-file check read the same fields, so a
 // value one flags the other flags too.
 func TestMCPCredentialChecks_AgreeOnTheFields(t *testing.T) {
-	e := mcpEntry(t, "name: api\nagent-only: true\ncommand: srv\nargs: [--token, "+lint049Token+"]\nx-cursor:\n  env:\n    GITHUB_TOKEN: ${env:GITHUB_TOKEN}\n    API_KEY: "+lint049Token+"\n")
+	body := "command: srv\nargs: [--token, "+lint049Token+"]\nx-cursor:\n  env:\n    GITHUB_TOKEN: ${env:GITHUB_TOKEN}\n    API_KEY: "+lint049Token+"\n"
+	shared := mcpEntry(t, "name: api\n"+body)
+	only := mcpEntry(t, "name: api\nagent-only: true\n"+body)
 	var lint, agent []string
-	for _, f := range lintMCPCredentials([]spec.Entry{e}) {
+	for _, f := range lintMCPCredentials([]spec.Entry{shared}) {
 		lint = append(lint, f.Message[:strings.Index(f.Message, " holds")])
 	}
-	for _, issue := range agentFileCredentialIssues([]spec.Entry{e}) {
+	for _, issue := range agentFileCredentialIssues([]spec.Entry{only}) {
 		agent = append(agent, issue.Message[:strings.Index(issue.Message, " holds")])
 	}
 	if strings.Join(lint, "|") != strings.Join(agent, "|") || len(lint) != 2 {
 		t.Errorf("lint %q, agent file %q: want the same two fields", lint, agent)
+	}
+}
+
+// A server sync writes into an agent file gets the LINT035 error only;
+// LINT049's "each tool's MCP file" would be false for it.
+func TestLint_AgentFileServerGetsNoLINT049(t *testing.T) {
+	dir := newProject(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\nagent-only: true\ncommand: srv\nargs: [--token, "+lint049Token+"]\n")
+	out, _ := runCLI(t, "lint")
+	if !strings.Contains(out, "LINT035") || strings.Contains(out, "LINT049") {
+		t.Errorf("want LINT035 alone:\n%s", out)
+	}
+}
+
+func TestLintMCPCredentials_NativeReferenceDefaultAndHeaderArg(t *testing.T) {
+	cases := map[string]struct{ body, field string }{
+		"native reference default": {"command: srv\nx-cursor:\n  env:\n    GITHUB_TOKEN: ${env:GITHUB_TOKEN:-" + lint049Token + "}\n", "x-cursor.env GITHUB_TOKEN"},
+		"header in one arg":        {"command: npx\nargs: [mcp-remote, https://h.example/mcp, --header, 'X-Api-Key: 9f8e7d6c5b4a39281706f5e4d3c2b1a0']\n", "args"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			findings := lintMCPCredentials([]spec.Entry{mcpEntry(t, "name: api\n"+c.body)})
+			if len(findings) != 1 || !strings.Contains(findings[0].Message, `"api": `+c.field+" ") {
+				t.Errorf("findings = %+v, want one naming %s", findings, c.field)
+			}
+		})
 	}
 }
