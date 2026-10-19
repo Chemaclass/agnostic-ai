@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -29,6 +30,16 @@ import (
 // as the spec has them. A file whose spec scopes none of its keys comes
 // back unchanged.
 func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]byte, error) {
+	return importScopedTargetKeysKeeping(data, dst, target, keep, nil)
+}
+
+// importScopedTargetKeysKeeping is importScopedTargetKeys where a scoped
+// key for which unwritten reports true is one the native file has no
+// place for: missing there, it was not deleted, so it stays.
+func importScopedTargetKeysKeeping(data []byte, dst, target string, keep []string, unwritten func(string) bool) ([]byte, error) {
+	if unwritten == nil {
+		unwritten = func(string) bool { return false }
+	}
 	existing, err := os.ReadFile(dst)
 	if errors.Is(err, fs.ErrNotExist) {
 		return data, nil
@@ -60,6 +71,9 @@ func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]
 		if slices.Contains(keep, k) || isNullNode(was) || mappingValue(native, k) != nil {
 			continue
 		}
+		if mappingValue(mapping, k) == nil && unwritten(k) {
+			continue
+		}
 		changed = true
 	}
 	if !changed {
@@ -76,7 +90,7 @@ func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]
 		case top != nil && !isNullNode(was):
 			block.Content = append(block.Content, k, specOrNative(was, top, k.Value))
 			removeOrShare(mapping, k.Value, have)
-		case isNullNode(was):
+		case isNullNode(was) || top == nil && unwritten(k.Value):
 			block.Content = append(block.Content, k, was)
 		}
 	}
@@ -182,4 +196,96 @@ func specScopesKey(dst, target, key string) bool {
 	}
 	have, _, ok := frontmatterNode(data)
 	return ok && mappingValue(mappingValue(have, "x-"+target), key) != nil
+}
+
+// importScopeTarget is the source the running importer reads, such as
+// cursor. Set per source by runImportSource. Sequential use only.
+var importScopeTarget string
+
+// importScopedSpecKeys applies importScopedTargetKeys for the running
+// source to a spec an importer writes at path, so a skill, rule,
+// command, or agent keeps the keys its spec scopes under x-<source>.
+//
+// unwritten reports a key the target's native file cannot hold, from the
+// importer's field set, so a scoped one missing there is not taken as
+// deleted. Nil treats every key as written.
+func importScopedSpecKeys(data []byte, path string, unwritten func(string) bool) ([]byte, error) {
+	if importScopeTarget == "" || !strings.HasPrefix(string(data), "---") {
+		return data, nil
+	}
+	return importScopedTargetKeysKeeping(data, path, importScopeTarget, scopedKeysOwned(importScopeTarget, path), unwritten)
+}
+
+// scopedKeysOwned lists the x-<target> keys of the spec at path that an
+// importer handles itself, so the scoped write-back leaves them as the
+// spec has them: Claude's readonly, which preserveClaudeReadonly
+// reconciles, and Cursor's agent tools, which Cursor never writes.
+func scopedKeysOwned(target, path string) []string {
+	switch target {
+	case "claude":
+		return []string{"readonly"}
+	case "cursor":
+		if filepath.Base(filepath.Dir(path)) == "agents" {
+			return []string{"tools"}
+		}
+	}
+	return nil
+}
+
+// dropEmptyScopedBlock removes an empty x-<target> block an import left
+// in data where the spec at path had one with keys: every key in it was
+// deleted from the native file. A merge-based import would otherwise
+// carry the spec's block back.
+func dropEmptyScopedBlock(data []byte, path, target string) ([]byte, error) {
+	if target == "" {
+		return data, nil
+	}
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok {
+		return data, nil
+	}
+	key := "x-" + target
+	block := mappingValue(mapping, key)
+	if block == nil || block.Kind != yaml.MappingNode || len(block.Content) > 0 {
+		return data, nil
+	}
+	existing, err := os.ReadFile(path)
+	if err != nil {
+		return data, nil
+	}
+	have, _, ok := frontmatterNode(existing)
+	if !ok {
+		return data, nil
+	}
+	if was := mappingValue(have, key); was == nil || was.Kind != yaml.MappingNode || len(was.Content) == 0 {
+		return data, nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content = append(mapping.Content[:i], mapping.Content[i+2:]...)
+			break
+		}
+	}
+	return encodeFrontmatter(mapping, rest, target)
+}
+
+// importScopedRename renames the top-level native key, such as Gemini's
+// `mcp_servers`, to specKey when the spec at dst scopes specKey under
+// x-<target> and not native: sync wrote the scoped value under the
+// tool's own name, so the write-back can then return it to x-<target>.
+func importScopedRename(data []byte, dst, target, native, specKey string) ([]byte, error) {
+	if !specScopesKey(dst, target, specKey) || specScopesKey(dst, target, native) {
+		return data, nil
+	}
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok || mappingValue(mapping, specKey) != nil {
+		return data, nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == native {
+			mapping.Content[i].Value = specKey
+			return encodeFrontmatter(mapping, rest, target)
+		}
+	}
+	return data, nil
 }

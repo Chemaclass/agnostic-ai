@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -158,7 +160,7 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
-		content, err := rulesDirFileContent(baseName, meta, body, opts)
+		content, err := rulesDirFileContent(baseName, meta, body, withScopedRuleKeys(opts, meta, out))
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
@@ -236,6 +238,33 @@ func rulesDirFileContent(name string, meta map[string]any, body string, opts rul
 		content += "\n"
 	}
 	return content, nil
+}
+
+// ruleContentKeys are the keys rulesDirFileContent writes itself; the
+// scoped write-back returns them to x-<source> when the spec scopes them.
+var ruleContentKeys = []string{"name", "description", "globs", "alwaysApply"}
+
+// withScopedRuleKeys adds to opts the keys the spec at dst sets under
+// x-<source> that the native file still holds, so they go back there:
+// the rule content keeps only rule fields, and would otherwise lose them.
+func withScopedRuleKeys(opts rulesDirImportOpts, meta map[string]any, dst string) rulesDirImportOpts {
+	if opts.NativeTarget != "" && opts.NativeTarget != importScopeTarget || importScopeTarget == "" {
+		return opts
+	}
+	existing, err := os.ReadFile(dst)
+	if err != nil {
+		return opts
+	}
+	have, _ := splitMdcFrontmatter(existing)
+	custom, _ := have["x-"+importScopeTarget].(map[string]any)
+	keys := slices.Clone(opts.NativeKeys)
+	for _, k := range slices.Sorted(maps.Keys(custom)) {
+		if _, native := meta[k]; native && !slices.Contains(keys, k) && !slices.Contains(ruleContentKeys, k) {
+			keys = append(keys, k)
+		}
+	}
+	opts.NativeTarget, opts.NativeKeys = importScopeTarget, keys
+	return opts
 }
 
 // scopeDir returns the directory portion of rel, normalized so root-level

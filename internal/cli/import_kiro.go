@@ -200,29 +200,27 @@ func importKiroAgentDocument(data []byte, canonicalName string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	meta, body := splitMdcFrontmatter(data)
-	displayName, _ := meta["name"].(string)
-	if displayName == "" {
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok {
 		return data, nil
 	}
-	delete(meta, "name")
-	native, _ := meta["x-kiro"].(map[string]any)
-	if native == nil {
-		native = map[string]any{}
+	at := -1
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == "name" && mapping.Content[i+1].Kind == yaml.ScalarNode && mapping.Content[i+1].Value != "" {
+			at = i
+		}
 	}
-	native["name"] = displayName
-	meta["x-kiro"] = native
-	front, err := yaml.Marshal(meta)
+	if at < 0 {
+		return data, nil
+	}
+	display := mapping.Content[at+1]
+	mapping.Content = append(mapping.Content[:at], mapping.Content[at+2:]...)
+	setMappingNode(xTargetMapping(mapping, "x-kiro"), "name", display)
+	out, err := encodeFrontmatter(mapping, rest, "kiro")
 	if err != nil {
-		return nil, fmt.Errorf("marshal %s frontmatter: %w", canonicalName, err)
+		return nil, fmt.Errorf("%s: %w", canonicalName, err)
 	}
-	var out strings.Builder
-	out.WriteString("---\n")
-	out.Write(front)
-	out.WriteString("---\n\n")
-	out.WriteString(strings.TrimRight(body, "\n"))
-	out.WriteString("\n")
-	return []byte(out.String()), nil
+	return out, nil
 }
 
 // importKiroSteering walks the flat `.kiro/steering/` directory and

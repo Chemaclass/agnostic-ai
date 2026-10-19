@@ -46,7 +46,7 @@ func importFromCursor(root string, src config.Sources) error {
 		if err != nil {
 			return nil, err
 		}
-		return importScopedTargetKeys(data, dst, "cursor", "tools")
+		return importScopedTargetKeys(data, dst, "cursor", scopedKeysOwned("cursor", dst)...)
 	})
 	if err != nil {
 		return err

@@ -25,6 +25,10 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
+	data, err := importScopedSpecKeys(data, path, func(key string) bool { return !fields.expresses(key) })
+	if err != nil {
+		return err
+	}
 	existing, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -32,11 +36,21 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
 	}
+	// An import that reconciles its own x-<target> block, as Claude's
+	// does, drops an emptied one before the merge so it can.
+	if fields.omitted["x-"+importScopeTarget] {
+		if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
+			return err
+		}
+	}
 	if !fields.all || len(fields.omitted) > 0 || fields.preserve != nil {
 		data, err = mergeSpecFrontmatter(existing, data, fields)
 		if err != nil {
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
+	}
+	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
+		return err
 	}
 	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
 }
@@ -45,6 +59,13 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 // the translator already settled, so the file is replaced whole. A
 // destination that parses the same as data is left as it is.
 func importWriteMarkdown(path string, data []byte, mode fs.FileMode) error {
+	data, err := importScopedSpecKeys(data, path, nil)
+	if err != nil {
+		return err
+	}
+	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
+		return err
+	}
 	if existing, err := os.ReadFile(path); err == nil {
 		data = keepEqualMarkdown(existing, data)
 	}
