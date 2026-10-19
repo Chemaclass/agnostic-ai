@@ -263,17 +263,20 @@ The change can widen access: on Kiro, `edit` also permits `delete_file`. Sync pr
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 
-A top-level `mcpServers` list limits which MCP servers one agent may reach. Without it, the agent gets the session's full set.
+A top-level `mcpServers` list limits which MCP servers one agent may reach. Each entry names a server, usually one in `mcps/`. Without the list, the agent gets the session's full set. An [agent-only server](@/docs/spec-format/mcps.md#agent-only) reaches only the agents that name it.
 
 | Target | Behavior |
 |--------|----------|
-| [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names, written to the agent file |
-| [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) | Server names or inline objects, written to the agent file |
-| [OpenHands](@/docs/targets/openhands.md) | Inline definitions only. Set `x-openhands.mcp_servers` |
-| [Antigravity](@/docs/targets/antigravity.md) | Inline objects only. Set `x-antigravity.mcpServers` |
-| [Kiro](@/docs/targets/kiro.md) | Inline definitions only. Set `x-kiro.mcpServers` |
+| [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) | Server names in the agent file. An agent-only server is written in full instead |
+| [Kiro](@/docs/targets/kiro.md) | Every named server written in full, under `mcpServers` |
+| [OpenHands](@/docs/targets/openhands.md) | Every named server written in full, under `mcp_servers`. Not when Goose shares `.agents/agents/`: set `outputs.openhands.agents-dir` |
+| [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names in the agent file. An agent-only server's name is left out, except on Junie when it is the only name, since an empty list there means every server |
+| [Antigravity](@/docs/targets/antigravity.md) | Dropped. Its docs give no shape for an inline server. Set `x-antigravity.mcpServers` |
+| [Gemini](@/docs/targets/gemini.md), [Copilot](@/docs/targets/copilot.md) | Dropped. Set `x-gemini.mcp_servers` or `x-copilot.mcp-servers` |
 
-Every other tool drops the list with a sync note. On the three inline tools, the note names the `x-<target>` key to set.
+Every other tool drops the list and leaves out agent-only servers, with a sync note. An `x-<target>` key for the list, such as `x-kiro.mcpServers`, replaces what sync would write.
+
+On Kiro and OpenHands, a name with no MCP spec cannot be written, so sync drops it with a note.
 
 **An empty list does not mean the same everywhere.** Junie treats `mcpServers: []` as keeping every configured server. Factory treats it as excluding every server. List the servers you want instead.
 

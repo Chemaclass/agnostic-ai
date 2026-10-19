@@ -54,6 +54,7 @@ Written identically to the other `.agents/skills/` tools, so the shared folder i
 
 OpenHands loads `.agents/agents/<name>.md` in local conversations. The writer is shared with Goose and writes `name`, `description`, an optional free-form `model`, and the prompt body.
 
+- Each server an agent names in `mcpServers` is written in full under `mcp_servers`, the only form OpenHands takes. Goose has no such key, so while Goose writes the same folder sync writes no servers and prints a note; set `outputs.openhands.agents-dir` to `.openhands/agents`. `x-openhands.mcp_servers` replaces the list.
 - A generic `tools` list is dropped with a sync note, because OpenHands uses its own tool names (`file_editor`, `terminal`). Set `x-openhands.tools` with those names instead. For an OpenHands profile that differs from Goose's, point `outputs.openhands.agents-dir` at `.openhands/agents`.
 - A portable `color` is dropped with a sync note, because [Goose's agent frontmatter](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md) has no color. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) to write it.
 

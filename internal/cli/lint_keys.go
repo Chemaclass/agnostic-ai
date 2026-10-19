@@ -26,7 +26,7 @@ var specKeys = []string{
 	"shell", "if", "commandWindows", "additionalContextLimit", "continueOnBlock", "failClosed",
 	"loop_limit", "prompt", "server", "tool", "input", "statusMessage", "sequential",
 	// MCP servers.
-	"url", "headers", "allowedEnvVars", "env", "cwd", "oauth", "roots", "auth", "trust", "version",
+	"agent-only", "url", "headers", "allowedEnvVars", "env", "cwd", "oauth", "roots", "auth", "trust", "version",
 	"alwaysAllow", "alwaysLoad", "bareElicitationCapability", "api_key", "bearer_token_env_var", "connectionTimeout",
 	"default_tools_approval_mode", "disabled_tools", "enabled_tools", "env_http_headers",
 	"env_vars", "excludeTools", "includeTools", "http_headers_helper", "oauth_callback_port",
