@@ -34,6 +34,7 @@ func kitSinkBundle() spec.Bundle {
 				"hooks": map[string]any{
 					"build_base":   map[string]any{"inputs": []any{"api-repo/package.json", "api-repo/package-lock.json"}},
 					"before_start": "cd /sandbox/api-repo\ntest -d node_modules\n",
+					"validate":     "command -v jq\n",
 				},
 				"variables":   []any{map[string]any{"name": "NPM_TOKEN"}, map[string]any{"name": "NODE_ENV", "value": "test"}},
 				"mcp_servers": []any{"slack"},

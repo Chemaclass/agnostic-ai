@@ -36,6 +36,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
 
+#### Ellipsis
+
+- `x-ellipsis.environment.hooks.validate` is written after `before_start` and imported back, so an environment that sets it is no longer dropped (#2320).
+
 ### Site
 
 - Global configuration docs distinguish shared-name checks from Kiro, Qoder, and Warp skill-name behavior (#2292).

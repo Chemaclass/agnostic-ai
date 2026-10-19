@@ -31,7 +31,7 @@ const (
 var (
 	ellipsisEnvironmentTopKeys = []string{"ellipsis", "repositories", "variables", "hooks", "compute", "mcp_servers"}
 	ellipsisServerKeys         = []string{"name", "url", "headers", "command", "args", "env"}
-	ellipsisHookNames          = []string{"build_base", "after_checkout", "before_start"}
+	ellipsisHookNames          = []string{"build_base", "after_checkout", "before_start", "validate"}
 	ellipsisIntegrations       = []string{"slack", "linear"}
 	ellipsisNamePattern        = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 	ellipsisRepoPattern        = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
@@ -51,9 +51,9 @@ type ellipsisEnvironmentImport struct {
 //
 //   - a `build_base` or `after_checkout` script that starts with the
 //     `cd /sandbox/<repo>` line sync writes becomes `install` or `setup`;
-//   - every other script, the cache inputs, `before_start`, variables,
-//     compute, and the connected integrations stay in `x-ellipsis` as
-//     written, so no behavior is rewritten;
+//   - every other script, the cache inputs, `before_start`, `validate`,
+//     variables, compute, and the connected integrations stay in
+//     `x-ellipsis` as written, so no behavior is rewritten;
 //   - each MCP server becomes a spec scoped to Ellipsis.
 //
 // A file it cannot express, such as more than one repository or a field the
@@ -336,7 +336,7 @@ func ellipsisHooks(raw any, repo string, imported *ellipsisEnvironmentImport) st
 			return fmt.Sprintf("hook %s %s", name, problem)
 		}
 		portable, isPortable := "", false
-		if name != "before_start" {
+		if name == "build_base" || name == "after_checkout" {
 			portable, isPortable = checkoutScript(script, repo)
 		}
 		switch name {

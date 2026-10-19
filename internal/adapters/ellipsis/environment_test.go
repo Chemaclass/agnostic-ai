@@ -203,6 +203,7 @@ func TestEnvironment_NativeLifecycleOptionsAreWrittenAsGiven(t *testing.T) {
 	hooks := map[string]any{
 		"build_base":     map[string]any{"inputs": []any{"api-repo/package.json", "api-repo/package-lock.json"}},
 		"before_start":   "cd /sandbox/api-repo\ntest -d node_modules\n",
+		"validate":       map[string]any{"run": "command -v jq\n"},
 		"after_checkout": nil,
 	}
 	delete(hooks, "after_checkout")
@@ -222,6 +223,8 @@ func TestEnvironment_NativeLifecycleOptionsAreWrittenAsGiven(t *testing.T) {
   before_start: |
     cd /sandbox/api-repo
     test -d node_modules
+  validate: |
+    command -v jq
 `
 	if got := readEnvFile(t); !strings.Contains(got, want) {
 		t.Errorf("native hooks not written as given:\n%s", got)
