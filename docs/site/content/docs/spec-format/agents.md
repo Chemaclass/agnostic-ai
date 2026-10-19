@@ -47,7 +47,7 @@ Run `agnostic-ai explain agents/code-reviewer.md` to inspect the translations, t
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
-| `description` | no | empty | When to hand a task to the agent. Tools show it in lists and use it to pick an agent. |
+| `description` | no | empty; the name for Claude Code, Qoder, Antigravity, and Gemini CLI | When to hand a task to the agent. Tools show it in lists and use it to pick an agent. Claude Code skips an agent without one, so sync writes the name there and prints a note. `lint` warns when it is missing (LINT048). |
 | `can` | no | unset | What the agent may do, in tool-neutral names. See [capabilities](#capabilities). |
 | `tools` | no | unset | The same list in Claude Code tool names. A spec sets `can` or `tools`, not both. See [`tools` support by target](#tools-support-by-target). |
 | `model` | no | unset | A string for every target, a map per target, or a [tier](#model-tiers) name. See [per-target `model` and `effort`](#per-target-model-and-effort). |
@@ -96,6 +96,7 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 | `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
 
 - Each capability becomes the tool's own name for it. `delete` raises a sync note on tools with no delete tool.
+- Claude Code refuses to launch an agent with an empty tool list, such as `can: []` or `can: [delete]`. Sync leaves such an agent out of `.claude/agents/` and prints a note.
 - Claude Code names still work as aliases. A list can mix both: `can: [read, Grep]`.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hook-reference.md#portable-events).
 - A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this.

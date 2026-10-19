@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -9,8 +10,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // unmanagedConfigGlobs enumerates known agentic config files that
@@ -118,6 +121,34 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, nil
+}
+
+// withoutLeftOutClaudeAgents moves out of found each Claude agent file
+// whose spec sync leaves out for an empty tool list. Import already has
+// that spec, so adopting the file changes nothing; the returned lines say
+// why it stays unmanaged instead.
+func withoutLeftOutClaudeAgents(found []unmanagedFinding, b spec.Bundle, cfg *config.Config) ([]unmanagedFinding, []string) {
+	dir := filepath.ToSlash(claudeLayoutFor(cfg).agents)
+	leftOut := map[string]string{}
+	for _, a := range b.Agents {
+		if a.EmitsTo("claude") && claude.LeavesOutAgent(a) {
+			leftOut[dir+"/"+a.Name+".md"] = a.Name
+		}
+	}
+	if len(leftOut) == 0 {
+		return found, nil
+	}
+	var kept []unmanagedFinding
+	var lines []string
+	for _, f := range found {
+		name, ok := leftOut[f.Path]
+		if f.Target != "claude" || !ok {
+			kept = append(kept, f)
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("%s: sync leaves agent %s out of Claude Code because its tool list is empty; give it a tool, or delete the file", f.Path, name))
+	}
+	return kept, lines
 }
 
 // reportUnmanagedConfig prints the doctor section listing agentic config

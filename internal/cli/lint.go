@@ -315,6 +315,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintDuplicateKeys(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
+	findings = append(findings, lintAgentDescriptions(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
 	findings = append(findings, lintMCPToolRefs(targets, support, b.MCPs)...)
@@ -634,10 +635,9 @@ type nearMiss struct {
 // agents ran with full tool access because `allowed_tools:` passed
 // validate, lint --strict, sync --check and doctor for months (#617).
 //
-// Two of these have no agnostic-ai equivalent at all. `maxTurns` and
-// `disallowedTools` are Junie's own keys, reachable only under
-// `x-junie`, so pointing at a bare agnostic-ai key would send users to
-// one that does not exist.
+// Two of these have no agnostic-ai key. Without Claude Code, `maxTurns`
+// and `disallowedTools` reach a tool only under `x-junie`; with it, the
+// Claude near-miss check names the top-level key Claude Code reads.
 var nearMissKeys = map[string]nearMiss{
 	"allowed_tools":    {Use: "tools", Owned: true},
 	"allowedTools":     {Use: "tools", Owned: true},
@@ -686,10 +686,14 @@ func lintNearMissKeys(entries []spec.Entry, targets []string) []lintFinding {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			if e.Kind == spec.KindSkill && k == "allowed-tools" {
+			if e.Kind == spec.KindSkill && k == "allowed-tools" || readByATarget(e, k, targets) {
 				continue
 			}
-			miss, ok := nearMissKeys[k]
+			field, claude := claudeAgentNearMiss(e, k, targets)
+			miss, ok := nearMiss{Use: field}, claude
+			if !ok {
+				miss, ok = nearMissKeys[k]
+			}
 			if !ok {
 				miss, ok = keyTypo(e.Kind, k, targets)
 			}
@@ -697,6 +701,9 @@ func lintNearMissKeys(entries []spec.Entry, targets []string) []lintFinding {
 				continue
 			}
 			message := fmt.Sprintf("`%s:` is not a key agnostic-ai reads, so it has no effect.", k)
+			if claude {
+				message = fmt.Sprintf("`%s:` is not a field Claude Code reads, so it has no effect.", k)
+			}
 			advice := fmt.Sprintf("Use `%s:` instead.", miss.Use)
 			switch {
 			case len(miss.ReadBy) > 0:

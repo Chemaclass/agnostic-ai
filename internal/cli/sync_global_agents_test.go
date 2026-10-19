@@ -226,7 +226,7 @@ func TestSyncGlobal_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 	for name, routing := range map[string]string{
 		"claude-only": "targets: [claude]", "excluded": "targets: [claude, amp]\ntarget-exclude: claude", "shared": "", "elsewhere": "target: gemini",
 	} {
-		mustWriteGlobalTest(t, filepath.Join(source, "agents", name+".md"), "---\nname: "+name+"\n"+routing+"\n---\nReview.\n")
+		mustWriteGlobalTest(t, filepath.Join(source, "agents", name+".md"), "---\nname: "+name+"\ndescription: Reviews.\n"+routing+"\n---\nReview.\n")
 	}
 	_, warnings, err := runGlobalAgentTest("--only", "claude,amp")
 	if err != nil {

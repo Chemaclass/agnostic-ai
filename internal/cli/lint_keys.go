@@ -60,6 +60,15 @@ func kindKeys(kind spec.Kind) []string {
 // configures none of them they do nothing, so one that is a near miss of
 // a portable key still gets flagged there: `glob:` meant as `globs:`.
 var targetKeys = map[string][]string{
-	"glob": {"qoder"},
-	"mode": {"kilo", "opencode"},
+	"glob":         {"qoder"},
+	"mode":         {"kilo", "opencode"},
+	"max_turns":    {"gemini"},
+	"mcp_servers":  {"gemini"},
+	"timeout_mins": {"gemini"},
+}
+
+// readByATarget reports whether a target configured here, and one the
+// spec reaches, reads key at the top level.
+func readByATarget(e spec.Entry, key string, targets []string) bool {
+	return slices.ContainsFunc(targetKeys[key], func(t string) bool { return slices.Contains(targets, t) && e.EmitsTo(t) })
 }

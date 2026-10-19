@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -264,6 +265,12 @@ func sameNameIn(kind spec.Kind, target string, p, g spec.Entry) bool {
 	return p.Name == g.Name
 }
 
+// leftOutOf reports whether sync leaves either agent out of target, so
+// the other one loads there with no clash.
+func leftOutOf(kind spec.Kind, target string, p, g spec.Entry) bool {
+	return kind == spec.KindAgent && target == "claude" && (claude.LeavesOutAgent(p) || claude.LeavesOutAgent(g))
+}
+
 func hasUserLevelSurface(kind spec.Kind, target string) bool {
 	if kind == spec.KindAgent {
 		return globalTargets[target].agents != ""
@@ -331,7 +338,7 @@ func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 				clash := globalNameClash{project: p, global: g}
 				for _, t := range shared {
 					globalWins, documented := globalNameWinners[kind.kind][t]
-					if !documented || !hasUserLevelSurface(kind.kind, t) || !sameNameIn(kind.kind, t, p, g) || !p.EmitsTo(t) || !g.EmitsTo(t) {
+					if !documented || !hasUserLevelSurface(kind.kind, t) || !sameNameIn(kind.kind, t, p, g) || !p.EmitsTo(t) || !g.EmitsTo(t) || leftOutOf(kind.kind, t, p, g) {
 						continue
 					}
 					if globalWins {

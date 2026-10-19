@@ -1,4 +1,6 @@
 ---
+name: alpha
+description: alpha
 disallowedTools: Write, Edit, NotebookEdit
 ---
 
