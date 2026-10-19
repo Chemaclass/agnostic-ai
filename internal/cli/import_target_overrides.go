@@ -1,15 +1,17 @@
 package cli
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // importScopedTargetKeys returns a key the spec at dst sets under
@@ -20,7 +22,8 @@ import (
 // place.
 //
 // The block is rebuilt from the spec's own, so its order and comments
-// stay. A scoped key the native file no longer holds was deleted there
+// stay, and a value the native file did not change keeps the spec's
+// node. A scoped key the native file no longer holds was deleted there
 // and is dropped, unless it is a delete marker (`null`). Keys in keep,
 // which the target never writes or which its import scopes itself, stay
 // as the spec has them. A file whose spec scopes none of its keys comes
@@ -51,14 +54,15 @@ func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]
 	if native != nil && native.Kind != yaml.MappingNode {
 		return data, nil
 	}
-	moved := false
+	changed := false
 	for i := 0; i+1 < len(scoped.Content); i += 2 {
-		k := scoped.Content[i].Value
-		if !slices.Contains(keep, k) && mappingValue(mapping, k) != nil && mappingValue(native, k) == nil && !isNullNode(scoped.Content[i+1]) {
-			moved = true
+		k, was := scoped.Content[i].Value, scoped.Content[i+1]
+		if slices.Contains(keep, k) || isNullNode(was) || mappingValue(native, k) != nil {
+			continue
 		}
+		changed = true
 	}
-	if !moved {
+	if !changed {
 		return data, nil
 	}
 	block := &yaml.Node{Kind: yaml.MappingNode, Style: scoped.Style &^ yaml.FlowStyle, HeadComment: scoped.HeadComment, LineComment: scoped.LineComment, FootComment: scoped.FootComment}
@@ -68,10 +72,10 @@ func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]
 		case slices.Contains(keep, k.Value):
 			block.Content = append(block.Content, k, was)
 		case inBlock != nil:
-			block.Content = append(block.Content, k, keepComments(inBlock, was))
+			block.Content = append(block.Content, k, specOrNative(was, inBlock, k.Value))
 		case top != nil && !isNullNode(was):
-			block.Content = append(block.Content, k, keepComments(top, was))
-			removeOrShare(mapping, k.Value, mappingValue(have, k.Value))
+			block.Content = append(block.Content, k, specOrNative(was, top, k.Value))
+			removeOrShare(mapping, k.Value, have)
 		case isNullNode(was):
 			block.Content = append(block.Content, k, was)
 		}
@@ -83,17 +87,36 @@ func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]
 			}
 		}
 	}
+	if len(block.Content) == 0 {
+		block.Style = yaml.FlowStyle
+	}
 	setMappingNode(mapping, key, block)
-	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
-	enc.SetIndent(2)
-	if err := enc.Encode(mapping); err != nil {
-		return nil, fmt.Errorf("encode %s agent frontmatter: %w", target, err)
+	return encodeFrontmatter(mapping, rest, target)
+}
+
+// specOrNative returns the spec's node when the native value means the
+// same, so its comments, order and style stay, and the native node,
+// with the spec's comments, when it changed. A tool list the native
+// file writes as one comma-separated string, as Qoder does, matches the
+// spec's list.
+func specOrNative(was, native *yaml.Node, key string) *yaml.Node {
+	var a, b any
+	if was.Decode(&a) == nil && native.Decode(&b) == nil {
+		if reflect.DeepEqual(a, b) {
+			return was
+		}
+		if text, ok := b.(string); ok && key == "tools" && reflect.DeepEqual(toStringSlice(a), spec.SplitToolList(text)) && len(toStringSlice(a)) > 0 {
+			return was
+		}
 	}
-	if err := enc.Close(); err != nil {
-		return nil, err
+	out := *native
+	if out.LineComment == "" {
+		out.LineComment = was.LineComment
 	}
-	return []byte("---\n" + buf.String() + rest), nil
+	if out.HeadComment == "" {
+		out.HeadComment = was.HeadComment
+	}
+	return &out
 }
 
 // frontmatterNode returns the frontmatter mapping of a Markdown spec and
@@ -124,13 +147,19 @@ func mappingValue(mapping *yaml.Node, key string) *yaml.Node {
 }
 
 // removeOrShare puts the spec's shared value back for key, or removes
-// key when the spec shares none.
-func removeOrShare(mapping *yaml.Node, key string, shared *yaml.Node) {
+// key when the spec shares none. A spec that shares `can` gets it back
+// for a scoped `tools`.
+func removeOrShare(mapping *yaml.Node, key string, have *yaml.Node) {
+	sharedKey, shared := key, mappingValue(have, key)
+	if shared == nil && key == "tools" {
+		sharedKey, shared = "can", mappingValue(have, "can")
+	}
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
 		if mapping.Content[i].Value != key {
 			continue
 		}
 		if shared != nil {
+			mapping.Content[i].Value = sharedKey
 			mapping.Content[i+1] = shared
 		} else {
 			mapping.Content = append(mapping.Content[:i], mapping.Content[i+2:]...)
@@ -139,19 +168,18 @@ func removeOrShare(mapping *yaml.Node, key string, shared *yaml.Node) {
 	}
 }
 
-// keepComments returns value with the comments of was when value has
-// none, so a comment written on the spec's override survives import.
-func keepComments(value, was *yaml.Node) *yaml.Node {
-	out := *value
-	if out.LineComment == "" {
-		out.LineComment = was.LineComment
-	}
-	if out.HeadComment == "" {
-		out.HeadComment = was.HeadComment
-	}
-	return &out
-}
-
 func isNullNode(n *yaml.Node) bool {
 	return n.Kind == yaml.ScalarNode && n.Tag == "!!null"
+}
+
+// specScopesKey reports whether the spec at dst sets key under
+// `x-<target>`, so the native value under that key came from there and
+// a translation meant for a shared value must leave it alone.
+func specScopesKey(dst, target, key string) bool {
+	data, err := os.ReadFile(dst)
+	if err != nil {
+		return false
+	}
+	have, _, ok := frontmatterNode(data)
+	return ok && mappingValue(mappingValue(have, "x-"+target), key) != nil
 }

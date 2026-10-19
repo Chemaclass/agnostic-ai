@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"strings"
@@ -48,28 +49,54 @@ func importNeutralToolNames(doc, field string, rename bool) string {
 }
 
 func importNativeAgentTools(data []byte, target, field string) ([]byte, error) {
-	meta, body := splitMdcFrontmatter(data)
+	meta, _ := splitMdcFrontmatter(data)
 	value, set := meta[field]
 	if !set {
 		return data, nil
 	}
-	portable, exact := importNativeAgentCan(value, target)
-	delete(meta, field)
-	if exact {
-		meta["can"] = portable
-	} else {
-		custom, _ := meta["x-"+target].(map[string]any)
-		if custom == nil {
-			custom = map[string]any{}
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok {
+		return data, nil
+	}
+	at := -1
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == field {
+			at = i
 		}
-		custom[field] = value
-		meta["x-"+target] = custom
 	}
-	front, err := yaml.Marshal(meta)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %s agent frontmatter: %w", target, err)
+	if at < 0 {
+		return data, nil
 	}
-	return []byte("---\n" + string(front) + "---\n\n" + strings.TrimRight(body, "\n") + "\n"), nil
+	if portable, exact := importNativeAgentCan(value, target); exact {
+		var node yaml.Node
+		if err := node.Encode(portable); err != nil {
+			return nil, fmt.Errorf("encode %s agent can: %w", target, err)
+		}
+		node.Style = mapping.Content[at+1].Style
+		node.LineComment = mapping.Content[at+1].LineComment
+		mapping.Content[at].Value = "can"
+		mapping.Content[at+1] = &node
+	} else {
+		native := mapping.Content[at+1]
+		mapping.Content = append(mapping.Content[:at], mapping.Content[at+2:]...)
+		setMappingNode(xTargetMapping(mapping, "x-"+target), field, native)
+	}
+	return encodeFrontmatter(mapping, rest, target)
+}
+
+// encodeFrontmatter writes mapping back as the frontmatter of a
+// Markdown spec, followed by rest, the text from its closing `---` on.
+func encodeFrontmatter(mapping *yaml.Node, rest, target string) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(mapping); err != nil {
+		return nil, fmt.Errorf("encode %s agent frontmatter: %w", target, err)
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return []byte("---\n" + buf.String() + rest), nil
 }
 
 func importNeutralPermissionRule(rule string) string {

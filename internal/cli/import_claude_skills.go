@@ -93,17 +93,30 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
-		out := importNeutralToolNames(scopeClaudeModel(header.Strip(string(data))), "tools", true)
+		dstPath := filepath.Join(dstDir, e.Name())
+		// The readonly import owns disallowedTools when the spec sets
+		// readonly, since sync writes readonly as that list.
+		owned := []string{"readonly"}
+		if spec, err := os.ReadFile(dstPath); err == nil {
+			if have, _ := splitMdcFrontmatter(spec); have["readonly"] != nil {
+				owned = append(owned, "disallowedTools")
+			}
+		}
+		scoped, err := importScopedTargetKeys([]byte(header.Strip(string(data))), dstPath, "claude", owned...)
+		if err != nil {
+			return count, err
+		}
+		out := string(scoped)
+		if !specScopesKey(dstPath, "claude", "model") {
+			out = scopeClaudeModel(out)
+		}
+		if !specScopesKey(dstPath, "claude", "tools") {
+			out = importNeutralToolNames(out, "tools", true)
+		}
 		name := strings.TrimSuffix(e.Name(), ".md")
 		if codexPresent && !codexHasAgent(root, canonicalSpecSlug(name)) {
 			out = addTargetFrontmatter(out, "claude")
 		}
-		dstPath := filepath.Join(dstDir, e.Name())
-		scoped, err := importScopedTargetKeys([]byte(out), dstPath, "claude", "model", "tools", "disallowedTools", "readonly")
-		if err != nil {
-			return count, err
-		}
-		out = string(scoped)
 		if spec, err := os.ReadFile(dstPath); err == nil {
 			_, _, meta := claudeFrontmatter(string(spec))
 			if meta != nil {
