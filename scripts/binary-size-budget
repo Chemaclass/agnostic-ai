@@ -297,4 +297,9 @@
 # (20005024): global Claude permissions import, managed rule merging,
 # shape validation and credential safeguards. Same Linux amd64 release
 # flags; retain the current 32 KB headroom. No new dependencies.
-20082848
+# #2325 measured 20099232 on Go 1.27.2, up 24576 from main 3ba67b58
+# (20074656): Claude agents get a name and description fallback, agents
+# with an empty tool list are left out with notes in sync, doctor and
+# compare, and lint reads Claude Code's agent fields. Same Linux amd64
+# release flags; retain the 8 KB allowance. No new dependencies.
+20107424
