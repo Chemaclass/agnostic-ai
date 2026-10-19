@@ -324,4 +324,9 @@
 # import returns keys the spec scopes under x-<target> to that block for
 # Cursor, Claude Code, Qoder, Junie, Gemini CLI and OpenCode. Same Linux
 # amd64 release flags; retain the 8 KB allowance. No new dependencies.
-20218016
+# #2342 measured 20226208 on Go 1.27.2, 8192 over the budget: every
+# importer's skills, rules, commands and agents keep x-<target> keys
+# scoped, Gemini maps mcp_servers back, and Kiro agents import in place.
+# Same Linux amd64 release flags; retain the 8 KB allowance. No new
+# dependencies.
+20234400
