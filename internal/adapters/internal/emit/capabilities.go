@@ -191,6 +191,8 @@ var capabilityWarnState struct {
 	pending []pendingWarn
 }
 
+const capabilityWarningFix = "remove targets you do not use from `targets:` in agnostic-ai.yaml, or set `on-unsupported: silent` to hide these"
+
 // FlushCapabilityWarnings prints one line per (kind, count) group across
 // all buffered targets and clears the buffer. Safe to call when empty.
 func FlushCapabilityWarnings() {
@@ -224,7 +226,7 @@ func FlushCapabilityWarnings() {
 		_, _ = fmt.Fprintf(Warner, "  %s %d %s unsupported by %s\n",
 			bang, k.n, pluralizeKind(k.k, k.n), strings.Join(targets, ", "))
 	}
-	_, _ = fmt.Fprintln(Warner, "    fix: remove targets you do not use from `targets:` in agnostic-ai.yaml, or set `on-unsupported: silent` to hide these")
+	_, _ = fmt.Fprintln(Warner, "    fix: "+capabilityWarningFix)
 	capabilityWarnState.pending = nil
 }
 

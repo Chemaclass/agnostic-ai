@@ -47,7 +47,8 @@ type pendingFieldNote struct {
 	// reason is a short, user-facing phrase explaining why the field has
 	// no effect, e.g. "no file-based way to pre-disable a project-scoped
 	// MCP server".
-	reason string
+	reason     string
+	suggestion string
 }
 
 // pendingSurfaceNote is a coverage note for a spec that emits in full
@@ -208,12 +209,26 @@ func NoteCoverageGap(target string, kind spec.Kind, count int, via string) {
 // file-based way to pre-disable a project-scoped MCP server". No-op when
 // count is zero. Notes buffer until FlushCoverageNotes renders them.
 func NoteFieldNoOp(target string, kind spec.Kind, field string, count int, reason string) {
+	noteFieldNoOp(target, kind, field, count, reason, false)
+}
+
+// NoteSkillFieldNoOp is NoteFieldNoOp for a skill; shared marks a copy
+// in a shared global skills directory, which carries no target overrides.
+func NoteSkillFieldNoOp(target, field string, count int, reason string, shared bool) {
+	noteFieldNoOp(target, spec.KindSkill, field, count, reason, shared)
+}
+
+func noteFieldNoOp(target string, kind spec.Kind, field string, count int, reason string, shared bool) {
 	if count <= 0 || notesSkipped.Load() {
 		return
 	}
+	// Built before locking: the first call renders every adapter, and a
+	// renderer that records a note would otherwise deadlock.
+	suggestion := fieldNoteSuggestion(kind, field, reason, shared)
 	coverageNoteState.mu.Lock()
 	coverageNoteState.pendingField = append(coverageNoteState.pendingField, pendingFieldNote{
 		target: target, kind: kind, field: field, count: count, reason: reason,
+		suggestion: suggestion,
 	})
 	coverageNoteState.mu.Unlock()
 }
@@ -324,11 +339,14 @@ func flushFieldNotesLocked() {
 		coverageNoteState.environmentFields = nil
 		return
 	}
+	// suggestion is part of the key: one note can need different fixes,
+	// such as a shared global skill folder that has no target overrides.
 	type key struct {
-		kind   spec.Kind
-		field  string
-		count  int
-		reason string
+		kind       spec.Kind
+		field      string
+		count      int
+		reason     string
+		suggestion string
 	}
 	order := []key{}
 	groups := map[key][]string{}
@@ -339,7 +357,7 @@ func flushFieldNotesLocked() {
 			continue
 		}
 		seen[dedupKey] = true
-		k := key{p.kind, p.field, p.count, p.reason}
+		k := key{p.kind, p.field, p.count, p.reason, p.suggestion}
 		if _, ok := groups[k]; !ok {
 			order = append(order, k)
 		}
@@ -348,6 +366,9 @@ func flushFieldNotesLocked() {
 	for _, k := range order {
 		targets := groups[k]
 		_, _ = fmt.Fprintf(Warner, "  note: %s (%s)\n", fieldNoteText(k.kind, k.field, k.count, targets), k.reason)
+		if k.suggestion != "" {
+			_, _ = fmt.Fprintf(Warner, "    fix: %s\n", k.suggestion)
+		}
 	}
 	coverageNoteState.pendingField = nil
 	coverageNoteState.environmentFields = nil
