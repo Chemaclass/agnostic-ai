@@ -279,8 +279,17 @@ func operationID(resourceID, action string) string {
 	return resourceID + ":" + action
 }
 
-// capabilityName spells the capability an operation needs, for notes
-// and agent-scope translation.
+// shownCapability is capabilityName as the view shows it: a command
+// pattern that holds a credential reads as shell(<redacted>).
+func shownCapability(r *resourceInfo, action string) string {
+	if r.kind == kindShell && r.shell != nil && r.shell.redacted {
+		return capShell + "(" + preview.Redacted + ")"
+	}
+	return capabilityName(r, action)
+}
+
+// capabilityName spells the capability an operation needs, for
+// agent-scope translation.
 func capabilityName(r *resourceInfo, action string) string {
 	switch r.kind {
 	case kindFiles:

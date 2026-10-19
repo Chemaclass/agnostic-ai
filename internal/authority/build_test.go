@@ -492,3 +492,17 @@ func TestBuild_AgentToolListsAreRedactedToo(t *testing.T) {
 		t.Errorf("tool scope = %+v", v.Agent.ToolScope)
 	}
 }
+
+func TestBuild_ARedactedCommandStaysRedactedInAListedAgentsNotes(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"agnostic-ai.yaml":                       "version: 1\ntargets: [claude, codex, cursor, opencode]\n",
+		".agnostic-ai/settings/permissions.yaml": "permissions:\n  allow: [\"shell(echo " + ruleToken + ")\", \"shell(curl " + ruleToken + ":*)\"]\n",
+		".agnostic-ai/agents/reader.md":          "---\nname: reader\ndescription: Reads.\ncan: [read]\n---\n\nRead.\n",
+	})
+	for _, target := range []string{"claude", "codex", "cursor", "opencode"} {
+		v := buildView(t, root, Options{AgentID: "reader", Target: target})
+		if data := mustJSON(t, v); strings.Contains(data, ruleToken) {
+			t.Errorf("%s: the view carries the token through a narrowing note", target)
+		}
+	}
+}
