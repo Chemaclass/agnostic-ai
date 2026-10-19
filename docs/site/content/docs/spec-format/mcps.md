@@ -76,7 +76,7 @@ env:
 
 Sync writes `NODE_ENV: production` to every tool. An editor with the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
 
-`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
+`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too. Empty values, numbers, and booleans are not checked. A credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, or in a `${NAME:-default}` default gets a LINT049 warning instead: it reads the value's shape, and those places take no `!literal` mark, so `sync` still runs.
 
 [`agnostic-ai migrate --only secrets`](@/docs/cli-reference/upgrades.md#migrate) rewrites existing specs. A value that looks like a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, and the command lists each variable to set, never the value. Every other value gets `!literal`. It leaves two cases to you: a key with a [credential name](#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
 
