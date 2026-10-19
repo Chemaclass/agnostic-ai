@@ -60,6 +60,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT046 | Warning. A spec writes one top-level key more than once, in its frontmatter or in a YAML spec such as a hook or MCP server. Sync uses the last value, and other YAML parsers reject the file. `import cursor` in 0.83.0 left a repeated `workspaces`. Remove the extra lines; `lint --strict` fails until you do. |
 | LINT047 | Warning. With Claude Code enabled, a skill or command name holds a character Claude Code refuses: a control, zero-width, text-direction, or private-use character, `<` or `>`, or a blank other than one plain space between words. Claude Code does not load it. The finding names the code points. Rename the folder or file, or edit `name:`. `lint --strict` fails. |
 | LINT048 | Warning. An agent with a body has no `description`. Tools read it to decide when to hand the agent a task, and Claude Code skips an agent file without one, so sync writes the name there instead. Add a `description:` that says when to use the agent. |
+| LINT049 | Warning. An MCP spec holds what looks like a credential where LINT035 does not look: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. The finding names the server and the field, never the value. Write a `${NAME}` reference with no default. `${NAME}` references and `!literal` plain settings pass. `lint --strict` fails. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings). |
 
 ## Context budgets
 

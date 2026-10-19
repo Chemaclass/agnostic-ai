@@ -86,7 +86,7 @@ mcpServers: [github]
 
 Sync leaves the server out of every project and user MCP file. It writes the server's full definition into the agent file of each agent that names it, on the tools whose agent file can hold one: [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Kiro](@/docs/targets/kiro.md), and [OpenHands](@/docs/targets/openhands.md). Every other tool gets no copy of the server, and sync prints a note. See [`mcpServers` support by target](@/docs/spec-format/agents.md#mcpservers-support-by-target).
 
-- The agent file is committed with every copy of the agent, so sync checks a server it writes there more strictly. Besides a literal `env` or `headers` value, it refuses a credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, and in a `${NAME:-default}` default. The check also covers servers from a [pack](@/docs/packs.md). `validate` and `lint` (LINT035) report the same values.
+- The agent file is committed with every copy of the agent, so sync checks a server it writes there more strictly. Besides a literal `env` or `headers` value, it refuses a credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, and in a `${NAME:-default}` default. The check also covers servers from a [pack](@/docs/packs.md). `validate` and `lint` (LINT035) report the same values. Elsewhere they are a LINT049 warning.
 - `agent-only` must be `true` or `false`. Sync and `validate` refuse any other value, such as `yes`.
 - A server no agent names reaches no tool. Sync prints a note.
 - A `disabled: true` server is left out of the agent file.
@@ -105,7 +105,7 @@ env:
 
 Sync writes `NODE_ENV: production` to every tool. An editor with the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
 
-`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
+`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too. Empty values, numbers, and booleans are not checked. A credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, or in a `${NAME:-default}` default gets a LINT049 warning instead: it reads the value's shape, and those places take no `!literal` mark, so `sync` still runs. For a server sync writes into an [agent file](#agent-only), the same check is an error.
 
 [`agnostic-ai migrate --only secrets`](@/docs/cli-reference/upgrades.md#migrate) rewrites existing specs. A value that looks like a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, and the command lists each variable to set, never the value. Every other value gets `!literal`. It leaves two cases to you: a key with a [credential name](#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
 
