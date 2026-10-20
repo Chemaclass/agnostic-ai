@@ -700,7 +700,7 @@ details[open] summary::after {
   }
 
   .archive-row {
-    grid-template-columns: 9rem minmax(0, 1fr) auto;
+    grid-template-columns: 9rem minmax(0, 1fr) minmax(0, 0.6fr);
     align-items: start;
   }
 }
