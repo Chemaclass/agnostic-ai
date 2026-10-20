@@ -142,19 +142,14 @@
 // since kiro.dev/docs/mcp/configuration/ makes that the documented
 // remedy for OAuth scope errors (target-audit 2026-08-27, #634).
 //
-// Ignore specs emit as `.kiroignore` (override via
-// outputs.kiro.ignore-file), gitignore syntax under a `#` provenance
-// header: "To exclude files in a specific project, create a
-// `.kiroignore` file in your project root (or any subdirectory) and add
-// patterns for files you want to exclude" and "`.kiroignore` uses
-// standard gitignore syntax" (kiro.dev/docs/kiroignore/, target-audit
-// 2026-09-11). Two vendor caveats gate how far the file reaches, and
-// neither is something an emitter can set: the IDE reads ignore
-// filenames from its own `kiroAgent.agentIgnoreFiles` setting, so
-// `.kiroignore` has to be in that array before the IDE honors it, and
-// CLI V3 reads only a workspace `.kiroignore` (no global ignore file),
-// blocking direct reads of matching files and filtering them from
-// content- and filename-search results.
+// Ignore specs emit as the project `.kiroignore` (override via
+// outputs.kiro.ignore-file), with gitignore syntax and a `#` provenance
+// header. The IDE honors the file only when it is listed in
+// `kiroAgent.agentIgnoreFiles`. CLI V3 honors workspace `.kiroignore`,
+// `~/.kiro/settings/kiroignore`, and Git's global ignore file
+// (`core.excludesfile`, only in Git repositories). Matching files are
+// blocked from direct reads and filtered from content and filename
+// search results (kiro.dev/docs/kiroignore/).
 //
 // Commands emit their bodies as `.kiro/prompts/<name>.md`, with Markdown
 // provenance and native argument placeholders preserved. No command
