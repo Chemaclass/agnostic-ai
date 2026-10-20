@@ -12,8 +12,8 @@ amp	docs	https://ampcode.com/docs/customize/plugins	200	llms-txt	87f760b11829578
 amp	docs	https://ampcode.com/docs/customize/skills	200	llms-txt	f53c797cdbf9d7603f0e95a40f68ce869e4a3db887bd7e08833ba042350221e9	2026-10-08
 amp	docs	https://ampcode.com/docs/integrations	200	llms-txt	ff65d261ca199d97349021499af17ee4118c86da3cdbbf7764e438d070aca710	2026-10-20
 amp	docs	https://ampcode.com/docs/orbs/customizing	200	llms-txt	e11cc6a01b69f6ef91a6bdf8fce9c47ae4e691116b0d2a144da15fa31a542833	2026-10-20
-amp	docs	https://ampcode.com/docs/orbs/portals	200	llms-txt	3c45dd9dcddcebc7d84861a26b3e40e69d300ae4224a99d3229c944447ef799f	2026-10-19
-amp	docs	https://ampcode.com/docs/the-dial	200	llms-txt	6003621faf0a6493d9628f907a84df4c7a3e671ced9d5591816079d5ff438b29	2026-10-13
+amp	docs	https://ampcode.com/docs/orbs/portals	200	llms-txt	148cebc07781d3ee66cf3fd3d748741275c2353018cb07369e43169c98858c96	2026-10-20
+amp	docs	https://ampcode.com/docs/the-dial	200	llms-txt	8b28fb76dec46bcc9f953f04c386d5f7424978eaf4d542568a72f22ec07a896b	2026-10-20
 amp	docs	https://ampcode.com/docs/tools	200	llms-txt	3157b7a4f040ba46a33ae268cf6dd132c054981255773ab5c2585f340071fba7	2026-10-08
 amp	docs	https://ampcode.com/llms.txt	200	text	49af44ad72cfc47d622475b653a14a3b97963c004b252c290b6d50eeb4728d17	2026-10-20
 amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	0ff1e85515ad59145ea9bde52f2414bf1d9ad541d62c374b0439f1ad9f28ae75	2026-10-15
@@ -148,7 +148,7 @@ goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guid
 jules	changelog	https://jules.google/docs/changelog/	200	html	94ba5b0ded038d5f50a722c7aec178ca276a00e6e16e7bc6900aaed8028051dc	2026-09-22
 jules	docs	https://jules.google/docs	200	html	c648501d2a6994eb5a16b74df1505bfd205ede672fa19b94e922135cbc5c4a0e	2026-09-22
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	526c09d918b2b262288b771097bfc03798377a910a5dd0e9c19d6ec827311c4f	2026-10-17
-junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	c3f5e42f28a7ff60c1d5f2249f957ffff94c8a171ad46e12db77755a3e55b3f3	2026-10-20
+junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	20237cb26b628a0cc0d7f858b38fb69f299a99948c7a26d4f7daeea2b7b01d6d	2026-10-20
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/automated-code-reviews.html	200	html	77840d1fdf89c4fd516af364381a68604b6093a06e06d3e85ae3527367fc8000	2026-10-19
@@ -160,7 +160,7 @@ junie	docs	https://junie.jetbrains.com/docs/junie-cli-configuration.html	200	htm
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-demo.html	200	html	c1d3aa8a46fd86ef31a231f99c785a1adaa20a78feca20f9dc47b0c7d9919785	2026-10-15
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-extensions.html	200	html	9919b2a8822fab898bce884cbc4b7fffa053b2b0a7e0259aba969294ff147208	2026-10-08
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-hooks.html	200	html	a51e00a2fca105b9d5cfe7a0a71236d7d75e48c17a9624a02d70ef658c7d99b4	2026-09-23
-junie	docs	https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html	200	html	c822a68ee483c84ee06d37e8fe26198139e4adaa1837c3a6a06a94e1562cf2b7	2026-09-23
+junie	docs	https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html	200	html	05b2c4a3933218c159e30a61a49fff60e0cde647ea88ac051696c960e5e28d87	2026-10-20
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-subagents.html	200	html	35e248628d1bc6991f3aa504e844b8a8a9256ddf627d500f1ec48b42cea2638c	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/junie-ide-plugin.html	200	html	449e8eb6fd90e5d927a05ac44bc01b614723cc005ed158b3943c245510668e40	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/junie-plugin-mcp-settings.html	200	html	3ae0851364240b41c0cfe9f53f5f323d94f5aac9dbfd5b53bb32240629187209	2026-10-09
@@ -199,7 +199,7 @@ kiro	docs	https://kiro.dev/docs/tools.md	200	markdown-mirror	6b15001dac8a6a69947
 kiro	docs	https://kiro.dev/docs/workflows.md	200	markdown-mirror	2a91200e43472e3f9e8a99fe8cd805c21d247d44367a135034b8952f47a48b6e	2026-10-14
 kiro	docs	https://kiro.dev/docs/workflows/authoring.md	200	markdown-mirror	babc841792d257054790c5b454caa1b254ea16df8f13c52daa1099276e73c4c5	2026-10-02
 opencode	changelog	https://github.com/anomalyco/opencode/releases	200	github-api	74e730fc73b46ea57ca5f15fa73e19d57defe7d6012e4874fd32ddf6bdbcd804	2026-10-17
-opencode	changelog	https://opencode.ai/update/api/latest/cli/npm	200	json	c0c178dd9cfb98d8a24c1b0c05034d09f527de688a01f9956247fca981c68fa5	2026-10-20
+opencode	changelog	https://opencode.ai/update/api/latest/cli/npm	200	json	fd99edca4ae757a335fd22a99d8b2e90ea58b5fb5284f474fd066224ac0b0525	2026-10-20
 opencode	docs	https://opencode.ai/docs/agents.md	200	markdown-mirror	5ad5f1eb8e8423c768d522b902bf607ff88221a0863d681f8ce3c2418dfd2ca1	2026-10-12
 opencode	docs	https://opencode.ai/docs/commands.md	200	markdown-mirror	83d45ec744510fa500599effc790fccee745c1a3cf41eeeaef6964fd0f077d5f	2026-10-15
 opencode	docs	https://opencode.ai/docs/mcp-servers.md	200	markdown-mirror	12ed2af6c5f48701160ab6e1abe79fedbe293e55c5889c447be57ff79cd14de0	2026-10-11
