@@ -107,7 +107,7 @@ func TestImport_AgentScopedValuesRoundTripAsWritten(t *testing.T) {
 		{name: "gemini scoped tools", target: "gemini", dir: ".gemini/agents",
 			fields: "tools: [Read, Grep]\nx-gemini:\n  tools: [read_file] # gemini names\n"},
 		{name: "cursor lone key deleted", target: "cursor", dir: ".cursor/agents",
-			fields: "x-cursor:\n  foo: bar\n", edit: "foo: bar\n", edited: "x-cursor: {}\n", others: "claude", absent: "foo:"},
+			fields: "x-cursor:\n  foo: bar\n", edit: "foo: bar\n", edited: "", others: "claude", absent: "foo:"},
 		{name: "junie nested override", target: "junie", dir: ".junie/agents",
 			fields: "x-junie:\n  extra: {zed: 1, alpha: [x, y]} # nested\n  list: [b, a]\n"},
 		{name: "qoder scoped tool list", target: "qoder", dir: ".qoder/agents",
@@ -146,7 +146,7 @@ func TestImport_AgentScopedValuesRoundTripAsWritten(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := strings.Replace(spec, "Review the diff.", "Review the whole diff.", 1)
-			if tc.edited != "" {
+			if tc.edit != "" {
 				want = "---\nname: rev\ndescription: Reviews\n" + tc.edited + "---\n\nReview the whole diff.\n"
 			}
 			if string(got) != want {

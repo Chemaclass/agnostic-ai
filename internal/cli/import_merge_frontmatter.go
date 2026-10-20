@@ -25,12 +25,32 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
+	return importWriteSpecMarkdownCarrying(path, data, mode, fields, func(key string) bool { return !fields.expresses(key) })
+}
+
+// importWriteSpecMarkdownCarrying is importWriteSpecMarkdown for a
+// native format that holds fewer keys than fields expresses: unwritten
+// reports the ones it cannot hold, which the scoped write-back keeps.
+func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode, fields specFields, unwritten func(string) bool) error {
+	overwrite := fields.all && len(fields.omitted) == 0 && fields.preserve == nil
+	data, err := importScopedSpecKeys(data, path, unwritten, overwrite)
+	if err != nil {
+		return err
+	}
 	existing, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
+		importPendingKeptNote, importNativeSource = "", ""
 		return importWriteFile(path, data, mode)
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
+	}
+	// An import that reconciles its own x-<target> block, as Claude's
+	// does, drops an emptied one before the merge so it can.
+	if fields.omitted["x-"+importScopeTarget] {
+		if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
+			return err
+		}
 	}
 	if !fields.all || len(fields.omitted) > 0 || fields.preserve != nil {
 		data, err = mergeSpecFrontmatter(existing, data, fields)
@@ -38,6 +58,10 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 			return fmt.Errorf("merge %s: %w", path, err)
 		}
 	}
+	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
+		return err
+	}
+	flushKeptNote(path, data)
 	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
 }
 
@@ -45,6 +69,21 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 // the translator already settled, so the file is replaced whole. A
 // destination that parses the same as data is left as it is.
 func importWriteMarkdown(path string, data []byte, mode fs.FileMode) error {
+	return importWriteMarkdownCarrying(path, data, mode, nil)
+}
+
+// importWriteMarkdownCarrying is importWriteMarkdown for a native format
+// that holds only some keys; unwritten reports the others. Nil means it
+// holds every key.
+func importWriteMarkdownCarrying(path string, data []byte, mode fs.FileMode, unwritten func(string) bool) error {
+	data, err := importScopedSpecKeys(data, path, unwritten, true)
+	if err != nil {
+		return err
+	}
+	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
+		return err
+	}
+	flushKeptNote(path, data)
 	if existing, err := os.ReadFile(path); err == nil {
 		data = keepEqualMarkdown(existing, data)
 	}

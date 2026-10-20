@@ -46,7 +46,7 @@ func importFromCursor(root string, src config.Sources) error {
 		if err != nil {
 			return nil, err
 		}
-		return importScopedTargetKeys(data, dst, "cursor", "tools")
+		return importScopedTargetKeys(data, dst, "cursor", scopedKeysOwned("cursor", dst)...)
 	})
 	if err != nil {
 		return err
@@ -127,6 +127,7 @@ func importFlatMarkdownFilesAt(src, dstDir string, fields specFields, transform 
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
+		importReadingNative(srcPath)
 		out := header.Strip(string(data))
 		dstPath := filepath.Join(dstDir, e.Name())
 		if transform != nil {
@@ -173,6 +174,7 @@ func importCursorRules(root, dstDir string) (int, error) {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
+		importReadingNative(path)
 		name := strings.TrimSuffix(d.Name(), ".mdc")
 		translated, err := translateCursorRule(name, data)
 		if err != nil {
@@ -182,7 +184,7 @@ func importCursorRules(root, dstDir string) (int, error) {
 		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return fmt.Errorf("%s: %w", filepath.Dir(dst), err)
 		}
-		if err := importWriteMarkdown(dst, translated, 0o644); err != nil {
+		if err := importWriteMarkdownCarrying(dst, translated, 0o644, importCarrying(cursorRuleKeys)); err != nil {
 			return fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++
@@ -193,6 +195,9 @@ func importCursorRules(root, dstDir string) (int, error) {
 	}
 	return count, nil
 }
+
+// cursorRuleKeys are the frontmatter keys a `.mdc` rule carries.
+var cursorRuleKeys = []string{"name", "description", "globs", "alwaysApply"}
 
 // translateCursorRule rewrites a .mdc file as an agnostic rule. Frontmatter
 // is parsed, a name field is injected if absent, and the result is

@@ -93,16 +93,9 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
+		importReadingNative(srcPath)
 		dstPath := filepath.Join(dstDir, e.Name())
-		// The readonly import owns disallowedTools when the spec sets
-		// readonly, since sync writes readonly as that list.
-		owned := []string{"readonly"}
-		if spec, err := os.ReadFile(dstPath); err == nil {
-			if have, _ := splitMdcFrontmatter(spec); have["readonly"] != nil {
-				owned = append(owned, "disallowedTools")
-			}
-		}
-		scoped, err := importScopedTargetKeys([]byte(header.Strip(string(data))), dstPath, "claude", owned...)
+		scoped, err := importScopedTargetKeys([]byte(header.Strip(string(data))), dstPath, "claude", scopedKeysOwned("claude", dstPath)...)
 		if err != nil {
 			return count, err
 		}

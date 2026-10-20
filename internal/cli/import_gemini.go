@@ -174,6 +174,9 @@ func importGeminiAgents(root, dstDir string) (int, error) {
 		if err != nil {
 			return nil, err
 		}
+		if data, err = importScopedRename(data, dst, "gemini", "mcp_servers", "mcpServers"); err != nil {
+			return nil, err
+		}
 		if data, err = importScopedTargetKeys(data, dst, "gemini"); err != nil {
 			return nil, err
 		}

@@ -472,6 +472,7 @@ func copyMarkdownFile(src, dst string) error {
 		}
 		return fmt.Errorf("read %s: %w", src, err)
 	}
+	importReadingNative(src)
 	out := header.Strip(string(data))
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
