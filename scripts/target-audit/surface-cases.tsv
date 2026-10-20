@@ -60,3 +60,9 @@ goose-delegated-policy-inheritance	goose	Bind subagents by their parent's hooks,
 junie-review-workflow-prompt	junie	# .github/workflows/code-review.yml [...] use_single_comment: true [...] prompt: "code-review"	yes	signal:cap-project-pull-request-review-workflows
 ellipsis-environment-hooks-validate	ellipsis	`hooks.validate` runs last every time and is never cached; the pull request check runs every hook, including `validate`.	yes	2320
 kiro-memory-user-setting	kiro	The Memory setting is a user setting. A value in workspace settings has no effect.	no	signal:cap-repository-scoped-learned-memory
+warp-factory-role-skills	warp	Team-owned `SKILL.md` files live in the factory definition and are shared across the factory or scoped to one agent.	yes	signal:cap-agent-skill-scoping
+amp-linear-account-project-subscription	amp	Each subscription names its own Amp project: a workspace project or one of your personal projects.	no	signal:cap-scheduled-project-agents
+claude-mod-person-approval-answer	claude	Added `decider: "person"` to a mod's `tool.check` answer: only the permission dialog or a host's callback can approve the ask	yes	signal:cap-inprocess-agent-session-extensions
+kilo-browser-origin-approval	kilo	`browser_open` ... current origin and all origins	yes	signal:cap-browser-origin-approval-policy
+kilo-managed-session-custom-agent	kilo	Agent Manager can run a custom agent	no	signal:cap-managed-session-agent-selection
+kilo-custom-delegator-edit-rules	kilo	`edit` rules ... no longer constrain the subagents it starts	yes	signal:cap-agent-delegation-permission-inheritance

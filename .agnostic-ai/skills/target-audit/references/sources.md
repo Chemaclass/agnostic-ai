@@ -147,7 +147,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## amp
 
-- docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/the-dial · /docs/orbs/customizing · /docs/orbs/portals
+- docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/the-dial · /docs/orbs/customizing · /docs/orbs/portals · /docs/integrations (Linear subscriptions and project routing, configured in account settings)
 - changelog: https://ampcode.com/news.rss (official Chronicle feed; `ampcode.com/chronicle` serves an app shell; individual posts keep `/news/<slug>`)
 - schema: https://ampcode.com/cli-settings.schema.json (the authoritative `.amp/settings.json` key list; `/docs/cli/settings` prose lists a subset)
 - trap: `ampcode.com/manual` returns 200 but serves an empty SvelteKit shell. Do not cite it.
@@ -172,7 +172,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## warp
 
-- docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/agents/capabilities/mcp.md · https://docs.warp.dev/agents/capabilities/rules.md (project instruction discovery) · https://docs.warp.dev/agents/cli/configuration.md (CLI global instruction discovery)
+- docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/factories/factory-skills.md (versioned shared and per-agent factory procedures) · https://docs.warp.dev/agents/capabilities/mcp.md · https://docs.warp.dev/agents/capabilities/rules.md (project instruction discovery) · https://docs.warp.dev/agents/cli/configuration.md (CLI global instruction discovery)
 - changelog: https://docs.warp.dev/changelog/2026.md (dated release entries; advance the year when a new annual page appears) · https://docs.warp.dev/changelog.md (year index, retained to detect new annual pages; the old getting-started path redirects here)
 - schema: https://www.schemastore.org/warp-workflows.json
 - watch: a native rules-dir surface (today: AGENTS.md, `.agents/skills/`, workflows, `.warp/.mcp.json`); another move of the MCP page (it 308s from `/knowledge-and-collaboration/mcp`); whether either MCP table gains `description`, `disabled` or `roots`.
