@@ -58,6 +58,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- Kiro docs list CLI V3 global ignore files (#2349).
 - Claude Code docs say how to check what it loaded, that Explore and Plan skip `CLAUDE.md`, and how to run Explore on a cheaper model. The agents page says to write the trigger in `description` and when not to write an agent, and lists Claude's inline MCP servers, `permissionMode` limits, `color` values, and the auto memory needed for agent `memory` (#2326).
 - The memory page gives Kiro IDE's memory default and its user-only setting (#2321).
 - Global configuration docs distinguish shared-name checks from Kiro, Qoder, and Warp skill-name behavior (#2292).
