@@ -127,6 +127,7 @@ func importFlatMarkdownFilesAt(src, dstDir string, fields specFields, transform 
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
+		importReadingNative(srcPath)
 		out := header.Strip(string(data))
 		dstPath := filepath.Join(dstDir, e.Name())
 		if transform != nil {
@@ -173,6 +174,7 @@ func importCursorRules(root, dstDir string) (int, error) {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
+		importReadingNative(path)
 		name := strings.TrimSuffix(d.Name(), ".mdc")
 		translated, err := translateCursorRule(name, data)
 		if err != nil {

@@ -149,6 +149,7 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 
+		importReadingNative(path)
 		kind, baseName := classifyRulesDirFile(rel, data)
 		dstDir := pickKindDir(kind, src)
 		meta, rest := splitMdcFrontmatter([]byte(header.Strip(string(data))))

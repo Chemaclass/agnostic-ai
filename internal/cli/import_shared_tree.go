@@ -445,6 +445,7 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 			return nil
 		}
 		if filepath.Base(path) == "SKILL.md" {
+			importReadingNative(path)
 			data = []byte(header.Strip(string(data)))
 			if transformSkill != nil {
 				data, err = transformSkill(data)

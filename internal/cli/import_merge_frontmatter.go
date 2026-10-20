@@ -40,6 +40,7 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	existing, err := os.ReadFile(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
+		importPendingKeptNote, importNativeSource = "", ""
 		return importWriteFile(path, data, mode)
 	case err != nil:
 		return fmt.Errorf("read %s: %w", path, err)
@@ -60,6 +61,7 @@ func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode,
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err
 	}
+	flushKeptNote(path, data)
 	return importWriteFile(path, keepEqualMarkdown(existing, data), mode)
 }
 
@@ -81,6 +83,7 @@ func importWriteMarkdownCarrying(path string, data []byte, mode fs.FileMode, unw
 	if data, err = dropEmptyScopedBlock(data, path, importScopeTarget); err != nil {
 		return err
 	}
+	flushKeptNote(path, data)
 	if existing, err := os.ReadFile(path); err == nil {
 		data = keepEqualMarkdown(existing, data)
 	}

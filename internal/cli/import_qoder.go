@@ -114,6 +114,7 @@ func importQoderAgents(root, dstDir string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
+		importReadingNative(srcPath)
 		dst := filepath.Join(dstDir, e.Name())
 		scoped, err := importScopedTargetKeys([]byte(header.Strip(string(data))), dst, "qoder")
 		if err != nil {

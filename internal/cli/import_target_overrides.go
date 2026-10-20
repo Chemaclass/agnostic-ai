@@ -323,8 +323,44 @@ func noteUnseenScopedKeys(scoped, mapping, native *yaml.Node, dst, key string, k
 			shown = rel
 		}
 	}
-	keptf("note: %s keeps %s, which the %s file does not carry, so import cannot see a change to it there; edit the spec to change or remove it\n",
-		filepath.ToSlash(shown), strings.Join(unseen, ", "), strings.TrimPrefix(key, "x-"))
+	pronoun := "it"
+	if len(unseen) > 1 {
+		pronoun = "them"
+	}
+	importPendingKeptNote = fmt.Sprintf("note: %s keeps %s, which the %s file does not carry, so import cannot see a change to %s there; edit the spec to change or remove %s\n",
+		filepath.ToSlash(shown), strings.Join(unseen, ", "), strings.TrimPrefix(key, "x-"), pronoun, pronoun)
+}
+
+// importPendingKeptNote is the note noteUnseenScopedKeys built for the
+// spec being written, and importNativeSource the native file the running
+// importer read it from, when it says. Sequential use only.
+var (
+	importPendingKeptNote string
+	importNativeSource    string
+)
+
+// importReadingNative records path as the native file the next spec
+// write comes from.
+func importReadingNative(path string) { importNativeSource = path }
+
+// flushKeptNote prints the pending kept-key note when the native file
+// changed since the last sync wrote it, and clears both. Repeating the
+// note on every import would bury the ones that matter. Without a known
+// source, a write that changes the spec at path stands in for it.
+func flushKeptNote(path string, data []byte) {
+	note, source := importPendingKeptNote, importNativeSource
+	importPendingKeptNote, importNativeSource = "", ""
+	if note == "" {
+		return
+	}
+	if source != "" {
+		if raw, err := os.ReadFile(source); err == nil && unchangedSinceSync(source, string(raw)) {
+			return
+		}
+	} else if existing, err := os.ReadFile(path); err == nil && sameSpecMarkdown(existing, data) {
+		return
+	}
+	keptf("%s", note)
 }
 
 // importCarrying returns the unwritten test for a native format that

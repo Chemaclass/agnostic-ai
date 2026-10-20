@@ -137,6 +137,7 @@ func importKiroCommands(root, dstDir string, cfg *config.Config) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", path, err)
 		}
+		importReadingNative(path)
 		body, generated := strings.CutPrefix(string(data), header.Line(header.FormatMarkdown)+"\n")
 		if !generated {
 			body = header.Strip(string(data))

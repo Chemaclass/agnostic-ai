@@ -93,6 +93,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
+		importReadingNative(srcPath)
 		dstPath := filepath.Join(dstDir, e.Name())
 		scoped, err := importScopedTargetKeys([]byte(header.Strip(string(data))), dstPath, "claude", scopedKeysOwned("claude", dstPath)...)
 		if err != nil {

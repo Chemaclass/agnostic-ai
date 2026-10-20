@@ -216,10 +216,44 @@ func TestImportScopedTargetKeys_NotesKeysTheNativeFileDoesNotCarry(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	flushKeptNote(dst, got)
 	if want := "---\nname: rev\nx-amp:\n  metadata:\n    owner: me\n---\n\nBody.\n"; string(got) != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 	if want := "note: .agnostic-ai/skills/rev/SKILL.md keeps x-amp.metadata, which the amp file does not carry, so import cannot see a change to it there; edit the spec to change or remove it\n"; logged.String() != want {
+		t.Errorf("notes:\n%s\nwant:\n%s", logged.String(), want)
+	}
+}
+
+// The kept-key note is for an import that changes the spec: an unedited
+// native file says nothing, and two keys read as "them".
+func TestImport_KeptKeyNoteOnlyWhenTheFileChanged(t *testing.T) {
+	root := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor, claude]\n")
+	writeFile(t, filepath.Join(root, ".agnostic-ai", "rules", "go.md"), "---\nname: go\ndescription: Go\nglobs: '**/*.go'\nx-cursor:\n  foo: bar\n  baz: 1\n---\n\nReview the diff.\n")
+	mustSync(t)
+	var logged strings.Builder
+	prev := logOut
+	logOut = &logged
+	t.Cleanup(func() { logOut = prev })
+	if out, err := runRoot(t, "import", "cursor", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if strings.Contains(logged.String(), "note: .agnostic-ai/rules/go.md keeps") {
+		t.Errorf("an unedited import printed the note:\n%s", logged.String())
+	}
+	native := filepath.Join(root, ".cursor", "rules", "go.mdc")
+	data, err := os.ReadFile(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, native, editBody(string(data)))
+	logged.Reset()
+	if out, err := runRoot(t, "import", "cursor", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if want := "note: .agnostic-ai/rules/go.md keeps x-cursor.foo, x-cursor.baz, which the cursor file does not carry, so import cannot see a change to them there; edit the spec to change or remove them\n"; !strings.Contains(logged.String(), want) {
 		t.Errorf("notes:\n%s\nwant:\n%s", logged.String(), want)
 	}
 }
