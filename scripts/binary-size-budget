@@ -328,5 +328,7 @@
 # importer's skills, rules, commands and agents keep x-<target> keys
 # scoped, Gemini maps mcp_servers back, and Kiro agents import in place.
 # Same Linux amd64 release flags; retain the 8 KB allowance. No new
-# dependencies.
-20234400
+# dependencies. Keeping scoped keys a rule format cannot hold, and the
+# note naming them, measured 20234400, 8192 more. Retain the 8 KB
+# allowance.
+20242592
