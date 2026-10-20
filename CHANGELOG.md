@@ -4,69 +4,45 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## v0.86.0 - 2026-10-20
+
 ### General
 
-- `explain --layers` shows which source files replace or extend a project spec, in text or JSON (#2350).
-
-- `import` keeps a key a skill, rule, or command spec sets under `x-<target>` there, for every tool it reads, instead of moving it to the shared spec where every other tool got it on the next sync. A Gemini CLI agent's `x-gemini.mcpServers` goes back there too, rather than to a top-level `mcp_servers` Claude Code then received. When every scoped key is deleted from the tool's file, the block goes with it, and Claude Code's `x-claude.disallowedTools` next to `readonly` always goes back under `x-claude`. A scoped key the tool's file has no place for stays in the spec, and import prints a note naming it. `import kiro` now keeps the key order and comments of an agent file (#2342).
-
-- Agents take two portable fields: `maxTurns`, the most turns an agent takes, and `background: true`, which runs it without making the session wait. Sync writes each under the tool's own key (Claude Code, Junie, Qoder, Gemini CLI `max_turns`, Kilo Code and OpenCode `steps`, Cursor `is_background`) and prints a note on tools that have none. A value under `x-<target>` still wins. Specs that already set these at the top level now also reach Gemini CLI, Kilo Code, OpenCode, Qoder, and Cursor. `import` reads the native keys back, and `validate`, `lint` (LINT050), and `sync` stop on a value of the wrong type. `lint` now suggests `maxTurns` for `max_turns` and `steps` instead of `x-junie.maxTurns` (#2327).
-- `lint` warns (LINT049) on a credential in an MCP `url` or `args`, an `x-<target>` `env` or `headers` value, or a reference default (#2335).
-- An MCP spec marked `agent-only: true` stays out of every MCP file; Claude Code, Qoder, Kiro, and OpenHands get it in the agents that name it (#2328).
-- Kiro and OpenHands agents get the MCP servers their `mcpServers` list names, written in full, so `x-kiro.mcpServers` copies are no longer needed (#2328).
-- `sync` adds a `fix:` line under notes for dropped skill and agent fields and unsupported global agents, naming what to write instead. `sync --json` carries it in an optional `suggestion` field, and `sync --global --json` now includes its warnings and notes (#2329).
-- The homepage sync figure has a "With agnostic-ai" and "Without" toggle: with it, one note flows into every tool file; without it, each file holds a different rule you keep in step by hand.
-- The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.
-- Documentation links to shared permission and ownership guidance, sorts lint codes in one lookup, and explains how to diagnose plugin hook timeouts.
-- The homepage opens with one source note syncing into the file each tool reads, places the symlink answer beside the video, and the documentation index drops the retired talk demo.
-- The agent setup checklist asks before installing the CLI, never prints token or key values from imported settings, and stops when a step fails. Collapsible sections on documentation pages now have spacing and an open or closed marker.
-- The documentation sidebar uses short one-line labels, such as "Understand the setup" and "Set up with agents".
-- Documentation pages keep each fact in one place and link to it, so copies no longer drift. The setup guide links to the agent setup page instead of repeating its prompt. `hook run` documentation now says a hook that calls a script needs a sync first.
-- Target audits resume completed local research after fresh source verification and reject changed evidence or research inputs (#2280).
-- Target audits record stage intervals, review routing, and known triage usage, preserving unknown measurements (#2278).
-- Target audits confirm permission, rule order, path discovery, and import claims before filing, with explicit proof limits and an independent check (#2275).
-- Target audits validate recorded target and page coverage before updating the vendor source lock; manual updates use `--update-unvalidated` (#2277).
-- The update-available prompt is now three lines: the version change, a release link, and the question (#2265).
-- Target audits report separate vendor, built-in, repository and source recovery work with baseline evidence (#2279).
-- Reusing a target-audit fetch directory reports only the requested targets and their current mirrors (#2276).
+- `import` keeps tool-specific keys and comments under `x-<target>` across spec kinds (#2340, #2341, #2342, #2343).
+- Agents support `maxTurns`, `background`, and agent-only MCP servers (#2327, #2339, #2328, #2334).
+- `lint` flags MCP secrets, sync notes suggest fixes, and upgrade prompts are shorter (#2335, #2337, #2329, #2331, #2265, #2266).
+- `explain --layers` shows which source files replace or extend a project spec, in text or JSON (#2350, #2352).
+- Target audits resume research and verify coverage, claims and metrics (#2280, #2287, #2278, #2286, #2275, #2282, #2277, #2285, #2279, #2284, #2276, #2283).
 
 ### By tool
 
-#### Factory
+#### Claude Code
 
-- MCP `x-factory.enabledTools` survives sync and native import, including empty lists and names also listed in `disabledTools` (#2291).
+- **Breaking:** scoped agent tools become plain tools, so command limits broaden (#2333, #2336); restrict commands with `PreToolUse` or settings deny rules.
+- Agents get required names and descriptions; agents with no usable tools are skipped with a note (#2332).
+- `lint` names native agent fields and warns when combined descriptions exceed Claude Code's startup budget (#2326, #2330).
+- `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
 
 #### OpenCode
 
-- Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269).
-- Restricted agents keep native V2 project permission limits from `opencode.json`, including ordered deny and ask rules (#2267).
+- Native agent permission rules keep their order through import and sync, so overlapping `deny` and `ask` rules stay effective (#2269, #2270).
+- Restricted agents keep native V2 project permission limits from `opencode.json`, including ordered deny and ask rules (#2267, #2273).
 
-#### Claude Code
+#### Factory
 
-- **Breaking:** a scoped capability such as `shell(git diff *)` becomes `Bash`; limit commands with an agent `PreToolUse` hook or a settings deny rule (#2333).
-- Agents always get `name` and `description` (the name when missing), so Claude Code no longer skips them; `lint` warns (LINT048).
-- An agent with an empty tool list (such as `can: []` or `can: [delete]`) is left out with a note, not written as `tools: []`, which Claude Code refuses.
-- `lint` names the Claude Code field for agent keys like `maxturns` or `omit_claude_md`, and no longer points Claude projects to `x-junie`.
-- `lint` estimates the combined agent description size at 4 characters per token and warns past the 15,000 tokens where Claude Code warns at startup (#2326).
-- `import --global claude` copies user permission rules into the home, and `sync --global` merges home rules into user settings (#2259).
+- MCP `x-factory.enabledTools` survives sync and native import, including empty lists and names also listed in `disabledTools` (#2291, #2297).
 
 #### Ellipsis
 
-- `x-ellipsis.environment.hooks.validate` is written after `before_start` and imported back, so an environment that sets it is no longer dropped (#2320).
-
-#### Cursor
-
-- `import cursor` keeps a key the spec sets under `x-cursor` there, with its comment, instead of moving it to the shared spec where every other tool got it on the next sync. `import` for Claude Code, Qoder, Junie, Gemini CLI, and OpenCode agents does the same for their own `x-<target>` block (#2340).
+- `x-ellipsis.environment.hooks.validate` is written after `before_start` and imported back, so an environment that sets it is kept (#2320, #2323).
 
 ### Site
 
-- Kiro docs list CLI V3 global ignore files (#2349).
-- Claude Code docs say how to check what it loaded, that Explore and Plan skip `CLAUDE.md`, and how to run Explore on a cheaper model. The agents page says to write the trigger in `description` and when not to write an agent, and lists Claude's inline MCP servers, `permissionMode` limits, `color` values, and the auto memory needed for agent `memory` (#2326).
-- The memory page gives Kiro IDE's memory default and its user-only setting (#2321).
-- Global configuration docs distinguish shared-name checks from Kiro, Qoder, and Warp skill-name behavior (#2292).
-- Onboarding starts with one project note, shows both tool outputs, and keeps agent-assisted and terminal setup in one guide.
-- Docs guide new users through a Claude Code or Codex setup, with focused reference pages and complete details for coding agents (#2289).
-- OpenCode docs distinguish V1 and V2 outside-project access defaults and show a native V2 rule that requests approval (#2293).
+- The homepage shows how one source syncs to each tool, with a comparison to hand-edited files and an explanation of native rule placement (#2317).
+- Setup and reference docs use focused pages, shorter navigation, and a safer agent setup checklist (#2289, #2296).
+- Claude Code docs explain loaded context, agent triggers, inline MCP, permissions, and memory requirements (#2326, #2330).
+- Docs clarify Kiro global ignores and memory defaults, plus shared skill-name precedence (#2349, #2351, #2321, #2292, #2298).
+- OpenCode docs distinguish V1 and V2 outside-project access defaults and show a native V2 rule that requests approval (#2293, #2299).
 
 ## v0.85.0 - 2026-10-15
 
