@@ -66,3 +66,4 @@ claude-mod-person-approval-answer	claude	Added `decider: "person"` to a mod's `t
 kilo-browser-origin-approval	kilo	`browser_open` ... current origin and all origins	yes	signal:cap-browser-origin-approval-policy
 kilo-managed-session-custom-agent	kilo	Agent Manager can run a custom agent	no	signal:cap-managed-session-agent-selection
 kilo-custom-delegator-edit-rules	kilo	`edit` rules ... no longer constrain the subagents it starts	yes	signal:cap-agent-delegation-permission-inheritance
+amp-project-remote-mcp-headers	amp	Remote MCP definitions are available across Amp clients without a local settings file. Store one definition in your personal settings, a workspace, or a project: Some servers need more headers on every request, such as an organization ID. Amp encrypts secret values and never shows them again; leave one blank to keep it.	yes	signal:cap-project-remote-mcp-secret-headers
