@@ -55,6 +55,7 @@ func newExplainCmd() *cobra.Command {
 		target  string
 		inputs  bool
 		context bool
+		layers  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "explain <spec | AAI-NNN | LINTNNN> | --file <path> --target <name> | --context --target <name>",
@@ -77,6 +78,9 @@ func newExplainCmd() *cobra.Command {
 
   # Machine-readable, for editor extensions or scripts
   agnostic-ai explain rules/conventional-commits.md --json
+
+  # Which sources replace or extend a spec
+  agnostic-ai explain rules/conventional-commits.md --layers
 
   # Where sync --global places a global spec, per target
   agnostic-ai explain --global settings/defaults.yaml
@@ -103,6 +107,15 @@ func newExplainCmd() *cobra.Command {
   agnostic-ai explain --context --target codex --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if layers {
+				if len(args) != 1 || global || file != "" || target != "" || inputs || context {
+					return errs.Coded(errs.CodeFlagConflict, "--layers requires one spec and cannot be combined with --global, --file, --target, --inputs, or --context")
+				}
+				if errs.IsCode(args[0]) || isLintCode(args[0]) {
+					return errs.Coded(errs.CodeFlagConflict, "--layers requires a spec path or builtin reference, not an error or lint code")
+				}
+				return runExplainLayers(cmd, args[0], jsonOut)
+			}
 			if context {
 				if len(args) > 0 || global || inputs || target == "" {
 					return errs.Coded(errs.CodeFlagConflict, "--context requires --target and cannot be combined with a spec, --global, or --inputs")
@@ -183,6 +196,7 @@ func newExplainCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&layers, "layers", false, "Show the project source layers that replace or extend this spec.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
 	cmd.Flags().BoolVar(&global, "global", false, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --global writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")

@@ -331,4 +331,8 @@
 # dependencies. Keeping scoped keys a rule format cannot hold, and the
 # note naming them, measured 20234400, 8192 more. Retain the 8 KB
 # allowance.
-20242592
+# #2350 measured 20254880 on Go 1.27.2, up 16384 from main 72f0e416
+# (20238496): explain --layers records the source replacement/extension
+# chain and reports it in text and JSON. Same Linux amd64 release flags;
+# retain the 8 KB allowance. No new dependencies.
+20263072

@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `explain --layers` shows which source files replace or extend a project spec, in text or JSON (#2350).
+
 - `import` keeps a key a skill, rule, or command spec sets under `x-<target>` there, for every tool it reads, instead of moving it to the shared spec where every other tool got it on the next sync. A Gemini CLI agent's `x-gemini.mcpServers` goes back there too, rather than to a top-level `mcp_servers` Claude Code then received. When every scoped key is deleted from the tool's file, the block goes with it, and Claude Code's `x-claude.disallowedTools` next to `readonly` always goes back under `x-claude`. A scoped key the tool's file has no place for stays in the spec, and import prints a note naming it. `import kiro` now keeps the key order and comments of an agent file (#2342).
 
 - Agents take two portable fields: `maxTurns`, the most turns an agent takes, and `background: true`, which runs it without making the session wait. Sync writes each under the tool's own key (Claude Code, Junie, Qoder, Gemini CLI `max_turns`, Kilo Code and OpenCode `steps`, Cursor `is_background`) and prints a note on tools that have none. A value under `x-<target>` still wins. Specs that already set these at the top level now also reach Gemini CLI, Kilo Code, OpenCode, Qoder, and Cursor. `import` reads the native keys back, and `validate`, `lint` (LINT050), and `sync` stop on a value of the wrong type. `lint` now suggests `maxTurns` for `max_turns` and `steps` instead of `x-junie.maxTurns` (#2327).

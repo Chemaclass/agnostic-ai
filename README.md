@@ -71,6 +71,8 @@ agnostic-ai why AGENTS.md  # trace an output to its source
 agnostic-ai doctor --fix   # repair generated files
 ```
 
+`agnostic-ai explain <spec> --layers` shows which built-in, pack, project, and personal sources replace or extend a spec.
+
 The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers import, compare, explain, upgrade, and the other commands.
 
 ## What you can share

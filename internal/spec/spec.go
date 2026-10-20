@@ -762,6 +762,10 @@ func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
 // layer replace earlier ones; new names append. Each Entry is tagged
 // with its source Layer.Name for provenance.
 func LoadLayered(layers []Layer) (Bundle, error) {
+	return loadLayered(layers, nil)
+}
+
+func loadLayered(layers []Layer, history *layerHistoryRecorder) (Bundle, error) {
 	var b Bundle
 	for _, layer := range layers {
 		lb, err := loadLayer(layer)
@@ -777,7 +781,7 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 			{&b.Settings, lb.Settings}, {&b.Reviews, lb.Reviews},
 			{&b.Environments, lb.Environments}, {&b.Ignores, lb.Ignores},
 		} {
-			merged, shadowed := mergeEntries(*m.into, m.from, layer.Extends)
+			merged, shadowed := mergeEntries(*m.into, m.from, layer.Extends, history)
 			*m.into = merged
 			b.Shadowed = append(b.Shadowed, shadowed...)
 		}
@@ -853,7 +857,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 //
 // In an extending layer, an entry from a lower layer is merged into
 // instead (see extendEntry).
-func mergeEntries(base, src []Entry, extends bool) ([]Entry, []Entry) {
+func mergeEntries(base, src []Entry, extends bool, history *layerHistoryRecorder) ([]Entry, []Entry) {
 	if len(src) == 0 {
 		return base, nil
 	}
@@ -865,11 +869,20 @@ func mergeEntries(base, src []Entry, extends bool) ([]Entry, []Entry) {
 	for _, e := range src {
 		if i, ok := idx[e.Name]; ok {
 			if extends {
+				if history != nil {
+					history.record(e, "extend")
+				}
 				base[i] = extendEntry(base[i], e)
 			} else {
+				if history != nil {
+					history.record(e, "replace")
+				}
 				base[i] = e
 			}
 			continue
+		}
+		if history != nil {
+			history.record(e, "base")
 		}
 		if extends {
 			if expanded := expandParent(e.Body, ""); expanded != e.Body {

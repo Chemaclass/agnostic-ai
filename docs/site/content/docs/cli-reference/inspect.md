@@ -26,6 +26,7 @@ agnostic-ai explain builtin:handoff --json
 | Flag | Description |
 |------|-------------|
 | `--json` | Stable JSON for editor extensions and scripts. |
+| `--layers` | Show which project source layers replace or extend a spec. Add `--json` for the same ordered sources. |
 | `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
 
 <details>
@@ -71,6 +72,28 @@ agnostic-ai explain settings/permissions.yaml --json
 The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, and `supported`. `widening` lists extra access when present. `override` names a native field or policy source that replaces the portable rule. The array is omitted for specs without these fields.
 
 </details>
+
+### Debug a replaced spec
+
+When editing a pack rule has no effect, inspect its source layers:
+
+```bash
+agnostic-ai explain rules/conventional-commits.md --layers
+```
+
+```text
+rule conventional-commits
+  .agnostic-ai/packs/team/rules/conventional-commits.md [pack:team] base (replaced)
+  rules/conventional-commits.md [project] replace (contributor)
+  .agnostic-ai/local/rules/conventional-commits.md [project-user] extend (contributor)
+effective source: .agnostic-ai/local/rules/conventional-commits.md
+```
+
+Here the project replaces the pack rule, and the personal file extends the project rule. Edit either contributor to change the effective spec. You can also pass the replaced pack path to get the same report.
+
+Sources follow sync's resolution order: enabled built-ins, installed packs, project specs, then project-local overrides. `base` starts a spec, `replace` discards the earlier chain, and `extend` merges with it. `contributor` means the source survives resolution, without attributing individual fields or body text. An extension can replace body text or metadata while still participating in the merge.
+
+With `--json`, `spec` identifies the effective source and `sources` lists each candidate's `source`, `operation`, and final `role`. Built-ins use a symbolic `builtin` name and version instead of a cache path. The view reads installed sources offline. It supports project specs only and cannot be combined with the other explain views or `--target`.
 
 ### Explain a source file
 
