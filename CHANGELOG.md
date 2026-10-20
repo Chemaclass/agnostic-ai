@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### Site
+
+- The v0.86.0 briefing uses a source file path in its `explain --layers` examples.
+
 ## v0.86.0 - 2026-10-20
 
 ### General
