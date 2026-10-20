@@ -30,13 +30,15 @@ import (
 // as the spec has them. A file whose spec scopes none of its keys comes
 // back unchanged.
 func importScopedTargetKeys(data []byte, dst, target string, keep ...string) ([]byte, error) {
-	return importScopedTargetKeysKeeping(data, dst, target, keep, nil)
+	return importScopedTargetKeysKeeping(data, dst, target, keep, nil, false)
 }
 
 // importScopedTargetKeysKeeping is importScopedTargetKeys where a scoped
 // key for which unwritten reports true is one the native file has no
-// place for: missing there, it was not deleted, so it stays.
-func importScopedTargetKeysKeeping(data []byte, dst, target string, keep []string, unwritten func(string) bool) ([]byte, error) {
+// place for: missing there, it was not deleted, so it stays. With
+// overwrite, the write replaces the spec instead of merging into it, so
+// such a key has to be written back into the block.
+func importScopedTargetKeysKeeping(data []byte, dst, target string, keep []string, unwritten func(string) bool, overwrite bool) ([]byte, error) {
 	if unwritten == nil {
 		unwritten = func(string) bool { return false }
 	}
@@ -58,20 +60,24 @@ func importScopedTargetKeysKeeping(data []byte, dst, target string, keep []strin
 	}
 	doc, rest, ok := frontmatterNode(data)
 	if !ok {
-		return data, nil
+		if strings.HasPrefix(string(data), "---") {
+			return data, nil
+		}
+		doc, rest = &yaml.Node{Kind: yaml.MappingNode}, "---\n\n"+string(data)
 	}
 	mapping := doc
 	native := mappingValue(mapping, key)
 	if native != nil && native.Kind != yaml.MappingNode {
 		return data, nil
 	}
+	noteUnseenScopedKeys(scoped, mapping, native, dst, key, keep, unwritten)
 	changed := false
 	for i := 0; i+1 < len(scoped.Content); i += 2 {
 		k, was := scoped.Content[i].Value, scoped.Content[i+1]
 		if slices.Contains(keep, k) || isNullNode(was) || mappingValue(native, k) != nil {
 			continue
 		}
-		if mappingValue(mapping, k) == nil && unwritten(k) {
+		if mappingValue(mapping, k) == nil && unwritten(k) && !overwrite {
 			continue
 		}
 		changed = true
@@ -209,11 +215,11 @@ var importScopeTarget string
 // unwritten reports a key the target's native file cannot hold, from the
 // importer's field set, so a scoped one missing there is not taken as
 // deleted. Nil treats every key as written.
-func importScopedSpecKeys(data []byte, path string, unwritten func(string) bool) ([]byte, error) {
-	if importScopeTarget == "" || !strings.HasPrefix(string(data), "---") {
+func importScopedSpecKeys(data []byte, path string, unwritten func(string) bool, overwrite bool) ([]byte, error) {
+	if importScopeTarget == "" {
 		return data, nil
 	}
-	return importScopedTargetKeysKeeping(data, path, importScopeTarget, scopedKeysOwned(importScopeTarget, path), unwritten)
+	return importScopedTargetKeysKeeping(data, path, importScopeTarget, scopedKeysOwned(importScopeTarget, path), unwritten, overwrite)
 }
 
 // scopedKeysOwned lists the x-<target> keys of the spec at path that an
@@ -288,4 +294,41 @@ func importScopedRename(data []byte, dst, target, native, specKey string) ([]byt
 		}
 	}
 	return data, nil
+}
+
+// noteUnseenScopedKeys prints one note for a spec whose scoped keys the
+// native file has no place for: import keeps them, since it cannot see a
+// change to them there.
+func noteUnseenScopedKeys(scoped, mapping, native *yaml.Node, dst, key string, keep []string, unwritten func(string) bool) {
+	var unseen []string
+	for i := 0; i+1 < len(scoped.Content); i += 2 {
+		k := scoped.Content[i].Value
+		if slices.Contains(keep, k) || isNullNode(scoped.Content[i+1]) || mappingValue(mapping, k) != nil || mappingValue(native, k) != nil || !unwritten(k) {
+			continue
+		}
+		unseen = append(unseen, key+"."+k)
+	}
+	if len(unseen) == 0 {
+		return
+	}
+	shown := dst
+	if wd, err := os.Getwd(); err == nil {
+		real := func(p string) string {
+			if r, err := filepath.EvalSymlinks(p); err == nil {
+				return r
+			}
+			return p
+		}
+		if rel, err := filepath.Rel(real(wd), real(dst)); err == nil && !strings.HasPrefix(rel, "..") {
+			shown = rel
+		}
+	}
+	keptf("note: %s keeps %s, which the %s file does not carry, so import cannot see a change to it there; edit the spec to change or remove it\n",
+		filepath.ToSlash(shown), strings.Join(unseen, ", "), strings.TrimPrefix(key, "x-"))
+}
+
+// importCarrying returns the unwritten test for a native format that
+// holds only the keys in carryable.
+func importCarrying(carryable []string) func(string) bool {
+	return func(key string) bool { return !slices.Contains(carryable, key) }
 }

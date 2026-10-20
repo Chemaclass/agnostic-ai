@@ -160,7 +160,8 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
-		content, err := rulesDirFileContent(baseName, meta, body, withScopedRuleKeys(opts, meta, out))
+		ruleOpts := withScopedRuleKeys(opts, meta, out)
+		content, err := rulesDirFileContent(baseName, meta, body, ruleOpts)
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
@@ -172,7 +173,8 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 			}
 			return nil
 		}
-		if err := importWriteSpecMarkdown(out, []byte(content), 0o644, flattenedKindFields(kind)); err != nil {
+		carried := importCarrying(append(slices.Clone(ruleContentKeys), ruleOpts.NativeKeys...))
+		if err := importWriteSpecMarkdownCarrying(out, []byte(content), 0o644, flattenedKindFields(kind), carried); err != nil {
 			return fmt.Errorf("write %s: %w", out, err)
 		}
 		if opts.Seen != nil {

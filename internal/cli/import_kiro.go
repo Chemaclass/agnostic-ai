@@ -149,7 +149,8 @@ func importKiroCommands(root, dstDir string, cfg *config.Config) (int, error) {
 		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 		}
-		if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
+		// A Kiro prompt is only a body, so it carries no spec key.
+		if err := importWriteMarkdownCarrying(dst, []byte(body), 0o644, importCarrying(nil)); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++

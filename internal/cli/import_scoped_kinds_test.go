@@ -42,17 +42,16 @@ func TestImport_ScopedKeysStayScopedForEveryKind(t *testing.T) {
 				mustSync(t)
 				var natives []string
 				_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-					if err != nil || d.IsDir() || strings.Contains(path, ".agnostic-ai") || strings.Contains(path, "/.git/") {
+					if err != nil || d.IsDir() || strings.Contains(path, ".agnostic-ai") || strings.Contains(path, "/.git/") || strings.Contains(path, "/."+others+"/") {
 						return nil
 					}
-					data, _ := os.ReadFile(path)
-					if strings.Contains(string(data), "foo: bar") || strings.Contains(string(data), `"foo": "bar"`) || strings.Contains(string(data), `foo = "bar"`) {
+					if data, _ := os.ReadFile(path); strings.Contains(string(data), "Review the diff.") {
 						natives = append(natives, path)
 					}
 					return nil
 				})
 				if len(natives) == 0 {
-					t.Skipf("%s writes no x-%s.foo for a %s", target, target, k.kind)
+					t.Skipf("%s writes no file for a %s", target, k.kind)
 				}
 				for _, n := range natives {
 					data, _ := os.ReadFile(n)
@@ -176,5 +175,51 @@ func TestImportKiroAgentDocument_MovesNameInPlace(t *testing.T) {
 	}
 	if want := "---\ndescription: Reviews # why\nmodel: auto\nx-kiro:\n  name: Rev Bot\n---\n\nBody.\n"; string(got) != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A rule format holds only rule fields, so a scoped key it cannot carry
+// stays in the spec next to the ones it does.
+func TestImport_RuleScopedKeysTheFormatCannotHoldStay(t *testing.T) {
+	for _, tc := range []struct{ target, native string }{
+		{"cursor", ".cursor/rules/rev.mdc"},
+		{"qoder", ".qoder/rules/rev.md"},
+	} {
+		for name, block := range map[string]string{"with a rule field": "  alwaysApply: true\n  foo: bar\n", "alone": "  foo: bar\n"} {
+			t.Run(tc.target+"/"+name, func(t *testing.T) {
+				spec := "---\nname: rev\ndescription: Reviews\nglobs: '**/*.go'\nx-" + tc.target + ":\n" + block + "---\n\nReview the diff.\n"
+				got := importRoundTrip(t, tc.target+", claude", tc.target, "rules/rev.md", spec, tc.native, editBody)
+				meta, _ := splitMdcFrontmatter([]byte(got))
+				custom, _ := meta["x-"+tc.target].(map[string]any)
+				if custom["foo"] != "bar" {
+					t.Errorf("x-%s.foo lost:\n%s", tc.target, got)
+				}
+				if strings.Contains(block, "alwaysApply") && custom["alwaysApply"] != true {
+					t.Errorf("x-%s.alwaysApply lost:\n%s", tc.target, got)
+				}
+			})
+		}
+	}
+}
+
+// Import says which scoped keys it keeps without seeing them: one the
+// native file has no field for stays in the spec even when deleted there.
+func TestImportScopedTargetKeys_NotesKeysTheNativeFileDoesNotCarry(t *testing.T) {
+	root := testutil.TempCwd(t)
+	dst := filepath.Join(root, ".agnostic-ai", "skills", "rev", "SKILL.md")
+	writeFile(t, dst, "---\nname: rev\nx-amp:\n  metadata:\n    owner: me\n  icon: x\n---\n\nBody.\n")
+	var logged strings.Builder
+	prev := logOut
+	logOut = &logged
+	t.Cleanup(func() { logOut = prev })
+	got, err := importScopedTargetKeysKeeping([]byte("---\nname: rev\n---\n\nBody.\n"), dst, "amp", nil, importCarrying([]string{"name", "icon"}), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "---\nname: rev\nx-amp:\n  metadata:\n    owner: me\n---\n\nBody.\n"; string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if want := "note: .agnostic-ai/skills/rev/SKILL.md keeps x-amp.metadata, which the amp file does not carry, so import cannot see a change to it there; edit the spec to change or remove it\n"; logged.String() != want {
+		t.Errorf("notes:\n%s\nwant:\n%s", logged.String(), want)
 	}
 }

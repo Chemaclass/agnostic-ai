@@ -25,7 +25,15 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
-	data, err := importScopedSpecKeys(data, path, func(key string) bool { return !fields.expresses(key) })
+	return importWriteSpecMarkdownCarrying(path, data, mode, fields, func(key string) bool { return !fields.expresses(key) })
+}
+
+// importWriteSpecMarkdownCarrying is importWriteSpecMarkdown for a
+// native format that holds fewer keys than fields expresses: unwritten
+// reports the ones it cannot hold, which the scoped write-back keeps.
+func importWriteSpecMarkdownCarrying(path string, data []byte, mode fs.FileMode, fields specFields, unwritten func(string) bool) error {
+	overwrite := fields.all && len(fields.omitted) == 0 && fields.preserve == nil
+	data, err := importScopedSpecKeys(data, path, unwritten, overwrite)
 	if err != nil {
 		return err
 	}
@@ -59,7 +67,14 @@ func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields 
 // the translator already settled, so the file is replaced whole. A
 // destination that parses the same as data is left as it is.
 func importWriteMarkdown(path string, data []byte, mode fs.FileMode) error {
-	data, err := importScopedSpecKeys(data, path, nil)
+	return importWriteMarkdownCarrying(path, data, mode, nil)
+}
+
+// importWriteMarkdownCarrying is importWriteMarkdown for a native format
+// that holds only some keys; unwritten reports the others. Nil means it
+// holds every key.
+func importWriteMarkdownCarrying(path string, data []byte, mode fs.FileMode, unwritten func(string) bool) error {
+	data, err := importScopedSpecKeys(data, path, unwritten, true)
 	if err != nil {
 		return err
 	}
