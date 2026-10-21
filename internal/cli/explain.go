@@ -43,6 +43,7 @@ type explainOutput struct {
 	ModelTier    string              `json:"model_tier,omitempty"`
 	Models       []explainModel      `json:"models,omitempty"`
 	Capabilities []explainCapability `json:"capabilities,omitempty"`
+	Overrides    []explainOverride   `json:"overrides,omitempty"`
 }
 
 type explainSpecRef = specSourceRef
@@ -158,6 +159,7 @@ func newExplainCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			overrides := explainSkillOverrides(entry, cfg, bundle)
 			if jsonOut {
 				if configured == nil {
 					configured = []contribution{}
@@ -174,6 +176,7 @@ func newExplainCmd() *cobra.Command {
 					ModelTier:          entry.ModelTier,
 					Models:             explainModels(entry, configured),
 					Capabilities:       explainCapabilities(entry, cfg, bundle.Settings...),
+					Overrides:          overrides,
 				})
 			}
 			out := cmd.OutOrStdout()
@@ -193,6 +196,7 @@ func newExplainCmd() *cobra.Command {
 					_, _ = fmt.Fprintf(out, "  %s\n", formatContribution(c))
 				}
 			}
+			printExplainSkillOverrides(out, overrides)
 			return nil
 		},
 	}

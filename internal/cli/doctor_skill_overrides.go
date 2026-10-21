@@ -517,17 +517,21 @@ func (r skillOverrideRecord) MarshalJSON() ([]byte, error) {
 	return json.Marshal(entry(r))
 }
 
-// skillOverrideRecords keeps project files relative, as other doctor JSON
-// paths are, and the files outside the project absolute.
+// recordPath keeps project files relative, as other JSON paths are, and
+// the files outside the project absolute.
+func (r *skillOverrideReport) recordPath() string {
+	if r.rootLocal || r.scope == skillOverrideUser {
+		if abs, err := filepath.Abs(r.path); err == nil {
+			return filepath.ToSlash(abs)
+		}
+	}
+	return r.display()
+}
+
 func skillOverrideRecords(reports []*skillOverrideReport) []skillOverrideRecord {
 	records := []skillOverrideRecord{}
 	for _, report := range reports {
-		path := report.display()
-		if report.rootLocal || report.scope == skillOverrideUser {
-			if abs, err := filepath.Abs(report.path); err == nil {
-				path = filepath.ToSlash(abs)
-			}
-		}
+		path := report.recordPath()
 		if report.problem != "" {
 			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Problem: report.problem})
 			continue

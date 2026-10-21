@@ -73,6 +73,24 @@ The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, a
 
 </details>
 
+### Claude skill overrides
+
+For a skill that sync writes for Claude Code, `explain` lists each Claude settings file whose `skillOverrides` names the skill. It checks every file [`doctor` reads](@/docs/cli-reference/check.md#claude-skill-overrides), highest precedence first. A file that a higher file overrules is marked, so the first line without that mark is the value Claude Code applies:
+
+```text
+claude overrides:
+  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)
+  ~/.claude/settings.json: name-only (not applied: a higher file sets it)
+```
+
+The block is omitted when no file names the skill. `--json` adds the same entries, or omits the key:
+
+```json
+"overrides": [{"target": "claude", "path": ".claude/settings.local.json", "scope": "local", "value": "off", "effective": true}]
+```
+
+A file that cannot be read shows its problem instead, as `problem` in JSON with no `value`.
+
 ### Debug a replaced spec
 
 When editing a pack rule has no effect, inspect its source layers:

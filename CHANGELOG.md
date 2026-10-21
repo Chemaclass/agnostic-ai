@@ -15,6 +15,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `doctor` lists synced skills that `skillOverrides` turns off or hides, and `doctor --fix` offers to re-enable them in `.claude/settings.local.json` (#2357).
 - `doctor` checks `skillOverrides` in every Claude settings file Claude Code reads, names each file, and adds `skill_overrides` to `--json` (#2370).
+- `explain <skill>` shows each Claude settings file whose `skillOverrides` names the skill, marks the ones a higher file overrules, and adds `overrides` to `--json` (#2371).
 
 ### Site
 
