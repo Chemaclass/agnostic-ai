@@ -73,6 +73,24 @@ The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, a
 
 </details>
 
+### Claude skill overrides
+
+For a skill that sync writes for Claude Code, `explain` lists each Claude settings file whose `skillOverrides` names the skill. It checks the files [`doctor` reads](@/docs/cli-reference/check.md#claude-skill-overrides), highest precedence first; managed settings and `--settings` are not read. A line that does not take effect is marked, so the first unmarked line is the value Claude Code applies:
+
+```text
+claude overrides:
+  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)
+  ~/.claude/settings.json: name-only (not applied: a higher file sets it)
+```
+
+A value Claude Code rejects, such as `"Off"` or `false`, shows as rejected. Claude Code may then skip the whole file, so its other lines say so and overrule nothing. Two keys in one file that name the skill with different values are both marked as conflicting, since Claude Code does not say which applies. The file still overrules lower files. A file that is not strict JSON shows as skipped by Claude Code, even when no other file names the skill. The block is omitted when no file names the skill and every file reads. `--json` adds the same entries, or omits the key:
+
+```json
+"overrides": [{"target": "claude", "path": ".claude/settings.local.json", "scope": "local", "value": "off", "effective": true}]
+```
+
+A rejected value adds `"rejected": true`, a conflicting key `"conflict": true`, and another line in a file with a rejected value `"uncertain": true`. A skipped file has `problem` and no `value`.
+
 ### Debug a replaced spec
 
 When editing a pack rule has no effect, inspect its source layers:

@@ -27,13 +27,14 @@ func writeSkillOverrideProject(t *testing.T, config string, skills ...string) {
 func TestDoctor_ReportsClaudeSkillOverrides(t *testing.T) {
 	const claudeOnly = "version: 1\ntargets: [claude]\n"
 	cases := []struct {
-		name     string
-		config   string
-		path     string
-		settings string
-		args     []string
-		want     []string
-		absent   bool
+		name       string
+		config     string
+		path       string
+		settings   string
+		args       []string
+		want       []string
+		absentText []string
+		absent     bool
 	}{
 		{name: "no file", config: claudeOnly, absent: true},
 		{name: "all on", config: claudeOnly, settings: `{"skillOverrides":{"a":"on"}}`, absent: true},
@@ -50,18 +51,22 @@ func TestDoctor_ReportsClaudeSkillOverrides(t *testing.T) {
 			"turns off 2 of 3 synced skills (off), so Claude Code refuses to run them: a, b",
 		}},
 		{name: "invalid JSON", config: claudeOnly, settings: `{"skillOverrides":`, want: []string{
-			"! cannot parse .claude/settings.local.json:",
+			"! .claude/settings.local.json: Claude Code skips this file (",
 		}},
 		{name: "empty file", config: claudeOnly, settings: " \n", absent: true},
-		{name: "JSONC comment", config: claudeOnly, settings: "// mine\n{\"skillOverrides\":{\"a\":\"off\"}}", want: []string{
-			"turns off 1 of 3 synced skills (off)",
-		}},
+		{name: "comment is a syntax error", config: claudeOnly, settings: "// mine\n{\"skillOverrides\":{\"a\":\"off\"}}", want: []string{
+			"! .claude/settings.local.json: Claude Code skips this file (invalid character '/'",
+		}, absentText: []string{"turns off"}},
+		{name: "trailing comma is a syntax error", config: claudeOnly, settings: `{"skillOverrides":{"a":"off",}}`, want: []string{
+			"! .claude/settings.local.json: Claude Code skips this file (",
+		}, absentText: []string{"turns off"}},
 		{name: "not an object", config: claudeOnly, settings: `{"skillOverrides":"off"}`, want: []string{
 			`! .claude/settings.local.json: skillOverrides is not an object, so it was not checked; Claude Code expects {"<skill>": "off"}`,
 		}},
-		{name: "unknown value", config: claudeOnly, settings: `{"skillOverrides":{"a":"disabled","b":false}}`, want: []string{
-			`! .claude/settings.local.json sets a value Claude Code does not document ("disabled") for: a`,
-			`! .claude/settings.local.json sets a value Claude Code does not document (false) for: b`,
+		{name: "rejected value", config: claudeOnly, settings: `{"skillOverrides":{"a":"disabled","b":false,"c":null}}`, want: []string{
+			`! .claude/settings.local.json sets a value Claude Code rejects ("disabled"), which may make it skip the whole file, for: a`,
+			`! .claude/settings.local.json sets a value Claude Code rejects (false), which may make it skip the whole file, for: b`,
+			`! .claude/settings.local.json sets a value Claude Code rejects (null), which may make it skip the whole file, for: c`,
 		}},
 		{name: "custom dir", config: "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    dir: tools/claude\n", path: "tools/claude/settings.local.json", settings: `{"skillOverrides":{"a":"off"}}`, want: []string{
 			"! tools/claude/settings.local.json turns off 1 of 3 synced skills (off)",
@@ -97,6 +102,11 @@ func TestDoctor_ReportsClaudeSkillOverrides(t *testing.T) {
 					t.Errorf("missing %q:\n%s", want, out)
 				}
 			}
+			for _, absent := range c.absentText {
+				if strings.Contains(out, absent) {
+					t.Errorf("unexpected %q:\n%s", absent, out)
+				}
+			}
 		})
 	}
 }
@@ -122,7 +132,7 @@ func TestDoctor_SkillOverridesLeavesSettingsUnchanged(t *testing.T) {
 	silence(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
 	path := filepath.Join(".claude", "settings.local.json")
-	const body = "{\n  // keep\n  \"skillOverrides\": {\"a\": \"off\"}\n}\n"
+	const body = "{\n  \"model\": \"opus\",\n  \"skillOverrides\": {\"a\": \"off\"}\n}\n"
 	mustWrite(t, path, body)
 	if _, err := runDoctor(t); err != nil && !strings.Contains(err.Error(), "drift") {
 		t.Fatalf("doctor: %v", err)
@@ -164,7 +174,7 @@ func collectTestSkillOverrides(t *testing.T, settings string, skills ...string) 
 }
 
 func TestResetClaudeSkillOverrides_RemovesOnlyConfirmedKeys(t *testing.T) {
-	const settings = "{\n  // mine\n  \"model\": \"opus\",\n  \"skillOverrides\": {\n    \"a\": \"off\",\n    \"b\": \"user-invocable-only\",\n    \"personal\": \"off\"\n  }\n}\n"
+	const settings = "{\n  \"model\": \"opus\",\n  \"skillOverrides\": {\n    \"a\": \"off\",\n    \"b\": \"user-invocable-only\",\n    \"personal\": \"off\"\n  }\n}\n"
 	report := collectTestSkillOverrides(t, settings, "a", "b")
 	var asked []string
 	removed, err := resetClaudeSkillOverrides(report, false, func(question string) (bool, error) {
@@ -188,7 +198,7 @@ func TestResetClaudeSkillOverrides_RemovesOnlyConfirmedKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "{\n  // mine\n  \"model\": \"opus\",\n  \"skillOverrides\": {\n    \"b\": \"user-invocable-only\",\n    \"personal\": \"off\"\n  }\n}\n"
+	want := "{\n  \"model\": \"opus\",\n  \"skillOverrides\": {\n    \"b\": \"user-invocable-only\",\n    \"personal\": \"off\"\n  }\n}\n"
 	if string(got) != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -544,7 +554,7 @@ func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
 			},
 			want: []string{
 				"! .claude/settings.local.json turns off 1 of 3 synced skills (off)",
-				"! cannot parse ~/.claude/settings.json:",
+				"! ~/.claude/settings.json: Claude Code skips this file (",
 			},
 			absent: []string{"parse ~/.claude/settings.json: parse", "cannot read"},
 		},
@@ -823,9 +833,9 @@ func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
 	got := doctorSkillOverridesJSON(t)
 	want := []map[string]any{
 		entry(".claude/settings.local.json", "local", "a", "on", true, true),
-		entry(".claude/settings.json", "shared", "a", "off", true, false),
-		entry(".claude/settings.json", "shared", "b", "", true, true),
-		entry(".claude/settings.json", "shared", "mine", "off", false, true),
+		{"path": ".claude/settings.json", "scope": "shared", "skill": "a", "value": "off", "synced": true, "effective": false, "uncertain": true},
+		{"path": ".claude/settings.json", "scope": "shared", "skill": "b", "value": `""`, "synced": true, "effective": false, "rejected": true},
+		{"path": ".claude/settings.json", "scope": "shared", "skill": "mine", "value": "off", "synced": false, "effective": true, "uncertain": true},
 	}
 	if len(got) != len(want)+1 {
 		t.Fatalf("got %+v", got)
@@ -836,7 +846,7 @@ func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
 		}
 	}
 	problem := got[len(want)]
-	if problem["path"] != filepath.ToSlash(userFile) || problem["scope"] != "user" || len(problem) != 3 || !strings.HasPrefix(problem["problem"].(string), "cannot parse ") {
+	if problem["path"] != filepath.ToSlash(userFile) || problem["scope"] != "user" || len(problem) != 3 || !strings.Contains(problem["problem"].(string), "Claude Code skips this file (") {
 		t.Errorf("problem record: %v", problem)
 	}
 	project := doctorSkillOverridesJSON(t, "--scope", "project")
@@ -906,5 +916,173 @@ func TestDoctor_SkillOverridesNamesUnreadableFileOnce(t *testing.T) {
 	}
 	if strings.Count(out, "settings.json") != 1 {
 		t.Errorf("path named more than once:\n%s", out)
+	}
+}
+
+func TestResetClaudeSkillOverrides_RemovesEveryKeyNamingTheSkill(t *testing.T) {
+	report := collectTestSkillOverrides(t, `{"skillOverrides":{"A":"off","a":"off"}}`, "a")
+	if got := []bool{report.entries[0].Effective, report.entries[1].Effective}; !reflect.DeepEqual(got, []bool{true, false}) {
+		t.Errorf("effective = %v, want only the first key", got)
+	}
+	removed, err := resetClaudeSkillOverrides(report, false, func(string) (bool, error) { return true, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 1 {
+		t.Errorf("removed %d, want 1", removed)
+	}
+	got, err := os.ReadFile(filepath.Join(".claude", "settings.local.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{}"; string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestDoctor_SkillOverridesReportsConflictingKeysInOneFile(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"A":"on","a":"off","b":"off"}}`)
+	out, _ := runDoctor(t)
+	for _, want := range []string{
+		"! .claude/settings.local.json names a under more than one key with different values (A: on, a: off); Claude Code may apply either",
+		"! .claude/settings.local.json turns off 1 of 2 synced skills (off), so Claude Code refuses to run them: b",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestResetClaudeSkillOverrides_RemovesConflictingKeysOnConfirm(t *testing.T) {
+	report := collectTestSkillOverrides(t, `{"skillOverrides":{"A":"on","a":"off"}}`, "a")
+	var asked []string
+	removed, err := resetClaudeSkillOverrides(report, false, func(question string) (bool, error) {
+		asked = append(asked, question)
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Remove the conflicting keys for 1 synced skill in .claude/settings.local.json (a)?"}; !reflect.DeepEqual(asked, want) {
+		t.Errorf("asked %q, want %q", asked, want)
+	}
+	if removed != 1 {
+		t.Errorf("removed %d, want 1", removed)
+	}
+	got, err := os.ReadFile(filepath.Join(".claude", "settings.local.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "{}" {
+		t.Errorf("got:\n%s", got)
+	}
+}
+
+func TestDoctor_SkillOverridesCautionsFileWithRejectedValue(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","mine":"Off"}}`)
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
+	out, _ := runDoctor(t)
+	for _, want := range []string{
+		"! .claude/settings.local.json turns off 1 of 1 synced skills (off)",
+		"  ~ .claude/settings.local.json has a rejected value, so Claude Code may skip it and these entries may not apply",
+		"! ~/.claude/settings.json lists 1 of 1 synced skills without their description (name-only): a",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+	records := doctorSkillOverridesJSON(t)
+	if len(records) != 3 || records[0]["uncertain"] != true || records[2]["effective"] != true {
+		t.Errorf("records = %+v", records)
+	}
+}
+
+func TestDoctor_SkillOverridesConflictingKeysStillOverruleLowerFiles(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
+	out, _ := runDoctor(t)
+	if !strings.Contains(out, "names deploy under more than one key with different values (Deploy: on, deploy: name-only)") {
+		t.Errorf("missing conflict:\n%s", out)
+	}
+	if strings.Contains(out, ".claude/settings.json turns off") {
+		t.Errorf("reported a shared entry the local file overrules:\n%s", out)
+	}
+}
+
+// resetWithLowerFile runs --fix's reset on the local file while the user
+// file sets the same skill.
+func resetWithLowerFile(t *testing.T, local, user string) (asked []string, out string) {
+	t.Helper()
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), local)
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), user)
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+	if err := applySkillOverrideReset(cmd, report, false, func(question string) (bool, error) {
+		asked = append(asked, question)
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return asked, buf.String()
+}
+
+func TestApplySkillOverrideReset_NamesTheLowerValueThatThenApplies(t *testing.T) {
+	cases := []struct {
+		name, local, user, question, done string
+	}{
+		{
+			name:     "conflicting keys",
+			local:    `{"skillOverrides":{"A":"on","a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"off"}}`,
+			question: "Remove the conflicting keys for 1 synced skill in .claude/settings.local.json (a)? Then a lower file applies: a: off in ~/.claude/settings.json",
+			done:     "  ✓ removed the entries for 1 synced skill(s) in .claude/settings.local.json; a lower file still sets: a: off in ~/.claude/settings.json\n",
+		},
+		{
+			name:     "same value below",
+			local:    `{"skillOverrides":{"a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"off"}}`,
+			question: "Remove the entries for 1 synced skill turned off in .claude/settings.local.json (a)? Then a lower file applies: a: off in ~/.claude/settings.json",
+			done:     "  ✓ removed the entries for 1 synced skill(s) in .claude/settings.local.json; a lower file still sets: a: off in ~/.claude/settings.json\n",
+		},
+		{
+			name:     "lower file turns it on",
+			local:    `{"skillOverrides":{"a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"on"}}`,
+			question: "Re-enable 1 synced skill turned off in .claude/settings.local.json (a)?",
+			done:     "  ✓ re-enabled 1 synced skill(s) in .claude/settings.local.json\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			asked, out := resetWithLowerFile(t, c.local, c.user)
+			if want := []string{c.question}; !reflect.DeepEqual(asked, want) {
+				t.Errorf("asked %q, want %q", asked, want)
+			}
+			if out != c.done {
+				t.Errorf("output %q, want %q", out, c.done)
+			}
+		})
 	}
 }
