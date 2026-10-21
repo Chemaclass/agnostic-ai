@@ -9,14 +9,14 @@ group = "Reference"
 
 # Error codes
 
-Find the `[AAI-NNN]` code from your terminal below, or run `agnostic-ai explain AAI-NNN`. If you have a symptom rather than a code, use [Troubleshooting](@/docs/troubleshooting.md). The suggested fix appears after each error:
+Find the `[AAI-NNN]` code from your terminal below. For a symptom without a code, use [Troubleshooting](@/docs/troubleshooting.md). Each error prints its fix:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
   fix: Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
 
-Look up a code from the terminal:
+`agnostic-ai explain` prints the cause and fix of a code. Pass `--json` for JSON output.
 
 ```
 $ agnostic-ai explain AAI-003
@@ -28,8 +28,6 @@ Cause:
 Fix:
   Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
-
-Pass `--json` for JSON output.
 
 ## Numbering
 
@@ -76,7 +74,7 @@ The config's `requires` key names the agnostic-ai releases your specs work with:
 [AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
 ```
 
-**Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets `requires` and the schema tag to the installed release, then syncs. Use the installed package-manager CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
+**Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets `requires` and the schema tag to the installed release, then syncs. For a package-manager install, run it through the manager, such as `pnpm exec agnostic-ai upgrade --requires`.
 
 - **Installed release is older:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. For a project install through a package manager, the message names the install command, such as `pnpm install`.
 - **You want to keep an older pin:** install the release it names through your package manager or `upgrade --version`. The latter also downgrades a standalone binary.
@@ -109,9 +107,9 @@ The tool name passed to `agnostic-ai import` is not supported.
 
 `import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote.
 
-It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec.
+It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec, and `import --dry-run` fails the same way.
 
-The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose. `import --dry-run` fails the same way.
+The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose.
 
 **Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it. When the message names what the spec would lose, make the tool's edit in the spec instead to keep it.
 

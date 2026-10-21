@@ -11,7 +11,7 @@ group = "Reference"
 
 `ignore/` lists paths supported tools leave out of context or indexing, such as generated code, copied dependencies, and large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
 
-Claude Code and Codex have no ignore-spec output. Other tools differ on whether an ignore file affects reads, indexing, or shell commands. An ignore file alone does not establish an access restriction. Check the [target support table](@/docs/targets/_index.md#capability-matrix) and [permission support](@/docs/spec-format/settings.md#support-by-target). Use exact paths or narrow patterns.
+Claude Code and Codex get no ignore output. In other tools, an ignore file covers reads, indexing, or shell commands, depending on the tool. It is not an access restriction on its own: to block access, use [permissions](@/docs/spec-format/settings.md#support-by-target). The [target support table](@/docs/targets/_index.md#capability-matrix) lists which tools get an ignore file. Use exact paths or narrow patterns.
 
 ## Write one
 
@@ -19,9 +19,7 @@ Claude Code and Codex have no ignore-spec output. Other tools differ on whether 
 agnostic-ai new ignore generated-files
 ```
 
-Replace the description and comment inside the gitignore fence with your path patterns. The template excludes no paths by default.
-
-Markdown with optional YAML settings between `---` lines at the top, one file per group. The body holds gitignore-syntax patterns.
+The template excludes nothing. Replace its description and the comment inside the `gitignore` fence with your patterns. Write one file per group, with optional YAML settings between `---` lines at the top and gitignore-syntax patterns in the body.
 
 ````markdown
 Paths to leave out of context or indexing.
@@ -33,7 +31,7 @@ dist/
 ```
 ````
 
-With fenced code blocks, only the lines inside them are patterns. The text around them is prose, which formatters like Prettier can safely rewrite. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`.
+With fenced code blocks, only the lines inside them are patterns. The text around them is prose that formatters such as Prettier can rewrite. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`.
 
 ## Output
 

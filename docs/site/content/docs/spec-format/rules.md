@@ -9,9 +9,9 @@ group = "Reference"
 
 # Rules
 
-`rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Each tool loads rules in its own format (Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections). You write a rule once, and every tool gets it.
+`rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Sync writes each rule in every tool's own format: Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections.
 
-Keep a rule short and write it as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md) instead, so it loads only when needed.
+Keep a rule short and write it as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md), which loads only when needed.
 
 ## Write one
 
@@ -28,7 +28,7 @@ alwaysApply: true
 Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 ```
 
-A rule for one file type, loaded when the agent works on matching files:
+A rule that loads when the agent works on matching files:
 
 ```markdown
 ---
@@ -89,4 +89,4 @@ The section's source comment records the shift, as in `<!-- source: .agnostic-ai
 | `paths` | no | unset | Another name for `globs`, the form Claude Code writes. Every tool reads it as `globs`. Set only one of them; `validate` rejects a rule whose `paths` and `globs` name different patterns. See [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | `alwaysApply` | no | `false` with `globs`, else depends on the tool; `new rule` seeds `true` | Asks the tool to always load the rule. Unset on a rule with `globs`, it is `false` in every tool that has an activation field, so the rule loads only on matching files. A catch-all such as `**/*` keeps the rule always-on. With `scope`, the rule stays within the scope plus patterns. `new rule --scope` omits it. |
 
-Tools differ on what a rule with neither `globs` nor `alwaysApply` does. Each target page says when its rules load. Set `alwaysApply: true` when a rule must load everywhere.
+A rule with neither `globs` nor `alwaysApply` loads differently per tool; each target page says when. Set `alwaysApply: true` when a rule must load everywhere.

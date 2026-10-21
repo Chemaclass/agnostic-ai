@@ -9,7 +9,7 @@ group = "Reference"
 
 # Troubleshooting
 
-Run commands from the directory containing `agnostic-ai.yaml`. Start with the symptom below, then rerun the failed command after applying the fix.
+Find your symptom below, apply the fix, and rerun the failed command. Run commands from the directory that holds `agnostic-ai.yaml`.
 
 | Symptom | Next step |
 |---|---|
@@ -68,7 +68,7 @@ See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes
 
 A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
 
-A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. That shows the file exists, but not that every tool resolves links from the project root. Prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
+A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. Not every tool resolves links from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
 
 | Cause | Fix |
 |---|---|
@@ -86,13 +86,13 @@ A message such as `Skill "deploy" is disabled via skillOverrides` means your Cla
 
 ## Hook timeouts
 
-A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool running a hook. It does not establish who installed the hook or why its command was slow.
+A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool running a hook. It does not say who installed the hook or why its command was slow.
 
-In Claude Code, open `/hooks` and find the event and command named in the message. Check project settings, user settings, and enabled plugins. A command containing `${CLAUDE_PLUGIN_ROOT}` belongs to a plugin; update or diagnose that plugin rather than editing agnostic-ai specs. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks) explains hook locations and timeouts.
+In Claude Code, open `/hooks` and find the event and command named in the message. Check project settings, user settings, and enabled plugins. A command containing `${CLAUDE_PLUGIN_ROOT}` belongs to a plugin; update or diagnose that plugin, not your agnostic-ai specs. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks) explains hook locations and timeouts.
 
 For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/trace.md) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
 
-Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup before increasing their timeouts. Increase a timeout only after confirming that the command needs longer to finish; a longer timeout also makes a stuck command take longer to report.
+Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup before increasing their timeouts. Raise a timeout only once you know the command needs longer; a longer timeout also makes a stuck command take longer to report.
 
 The [Caveman built-in](@/docs/rtk-and-caveman.md#if-you-already-use-rtk-or-caveman) supplies a skill, not the separate Caveman plugin's mode-tracking hooks.
 

@@ -9,7 +9,7 @@ group = "Reference"
 
 # Environments
 
-`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree (a separate checkout of the same repository), a cloud sandbox, or a preview. That means install dependencies, copy local config, start the dev server, and stop it afterwards. Each tool has its own file for this, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
+`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree (a separate checkout of the same repository), a cloud sandbox, or a preview. That covers installing dependencies, copying local config, starting the dev server, and stopping it afterwards. Sync writes it into each tool's own file, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
 
 ## Write one
 
@@ -17,9 +17,7 @@ group = "Reference"
 agnostic-ai new environment development
 ```
 
-Replace the description and add the reviewed commands you need. The template has no executable setup, install, or cleanup command.
-
-Save plain YAML as `.agnostic-ai/environments/development.yaml`. Create the referenced setup and cleanup scripts before syncing:
+It creates `.agnostic-ai/environments/development.yaml`, a plain YAML file with no commands. Replace the description, add the commands you have reviewed, and create any script they call before syncing:
 
 ```yaml
 name: dev
@@ -64,7 +62,7 @@ Specs merge by top-level key, and the last value wins. A field that no enabled t
 - [Ellipsis](@/docs/targets/ellipsis.md): `install` runs as `hooks.build_base` and `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, in `.ellipsis/environments/<name>.yaml`. Sync writes the file only for the environment that `x-ellipsis.environment` selects. `setup-windows`, `cleanup`, `dev-commands`, and `terminals` get a note that they have no effect. `import ellipsis` reads the file back.
 - Other tools report the spec as unsupported.
 
-Before starting a cached environment, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync. A successful install alone does not check the current generated files.
+A successful install does not check the generated files. Before starting a cached environment, run the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 
@@ -91,13 +89,13 @@ How the script runs:
 
 ### Refresh an existing worktree
 
-After changing setup or dependencies, sync the selected worktree and explicitly rerun its Claude setup:
+After changing setup or dependencies, sync one worktree and rerun its Claude setup:
 
 ```bash
 agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
 ```
 
-The helper checks repository ownership and the current generated setup script, including `outputs.claude.dir`. It resets only that linked worktree's completion marker and runs setup again. A failure leaves no marker so a later attempt can recover. It refuses the main checkout and unregistered paths. It does not install dependencies unless your setup command does. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for the command requirements.
+The helper checks repository ownership and the current generated setup script, including `outputs.claude.dir`. It resets only that linked worktree's completion marker and runs setup again. A failure leaves no marker, so a later attempt can recover. It refuses the main checkout and unregistered paths, and installs dependencies only if your setup command does. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for the command requirements.
 
 ### Include setup in new worktrees
 
@@ -120,4 +118,4 @@ x-claude:
 
 ## Import
 
-When several tools keep their own environment file, `import` limits each spec it writes to its tool with `targets: [<tool>]`. The next sync then writes every file back as it was, instead of mixing one tool's dev commands or setup into the others. Remove the line to share a spec across tools. A project with one tool's environment file gets one shared spec.
+When several tools keep their own environment file, `import` limits each spec it writes to its tool with `targets: [<tool>]`. The next sync then writes every file back as it was, without mixing one tool's dev commands or setup into the others. Remove the line to share a spec across tools. A project with one tool's environment file gets one shared spec.

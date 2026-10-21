@@ -19,9 +19,7 @@ Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick t
 agnostic-ai new command review-changes
 ```
 
-Replace the description and prompt body before running `agnostic-ai sync`.
-
-Save this as `.agnostic-ai/commands/review-changes.md`, then sync and use `/review-changes` in a supported tool. Codex command output is opt-in through `outputs.codex.commands-dir`; use a skill for its default on-demand workflow.
+It creates `.agnostic-ai/commands/review-changes.md`. Replace the description and prompt as below, run `agnostic-ai sync`, then type `/review-changes` in a supported tool.
 
 ```markdown
 ---
@@ -55,7 +53,7 @@ Diff the branch against `main` and list bugs with `file:line`, most severe first
 
 ## Output
 
-- Codex gets commands only when `outputs.codex.commands-dir` is set.
+- Codex gets commands only when `outputs.codex.commands-dir` is set. Without it, write a skill for Codex.
 - Gemini writes each command as a `.toml` file named after `name`.
 - Tools without command support log a warning and skip them.
 
@@ -63,7 +61,7 @@ Each target page lists the exact directory.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 
-A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Each tool supports only what its docs show:
+A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Support follows each tool's docs:
 
 | Target | `` !`command` `` | `$ARGUMENTS` | `$1`, `$2`, ... |
 |--------|------------------|--------------|-----------------|
@@ -76,4 +74,4 @@ A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$AR
 
 A tool that reads the syntax as plain text gets a note naming each line. `on-unsupported: error` fails the sync, and `lint` reports LINT019. Gemini has its own argument and shell placeholders ([custom commands](https://geminicli.com/docs/cli/custom-commands)). Write them in a `::target gemini` fence.
 
-Kiro uses `${1}` through `${10}` and `${@}` for its own arguments. Put Kiro-specific templates in a `::target kiro` fence. Sync keeps them as written and does not map a bare `$1`.
+Kiro uses `${1}` through `${10}` and `${@}` for its arguments. Put them in a `::target kiro` fence. Sync keeps them as written and does not map a bare `$1`.
