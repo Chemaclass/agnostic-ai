@@ -278,6 +278,11 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 			return nil, 0, err
 		}
 		findings = append(findings, memory...)
+		overlays, err := lintUnreadOverlays(".")
+		if err != nil {
+			return nil, 0, err
+		}
+		findings = append(findings, overlays...)
 	}
 	findings = append(findings, lintGeminiHookVariables(scope.cfg, scope.targets, scope.bundle)...)
 	configPath := config.ConfigFileName

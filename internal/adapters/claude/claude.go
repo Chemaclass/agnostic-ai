@@ -70,6 +70,9 @@ const (
 	defaultAgentsDir   = ".claude/agents"
 	defaultSkillsDir   = ".claude/skills"
 	defaultMCPFile     = ".mcp.json"
+)
+
+var (
 	// settingsOverlayPath is the project-relative path to the captured
 	// non-hooks portion of `.claude/settings.json`. `agnostic-ai import
 	// claude` writes this file; the emitter loads it and layers the
@@ -77,7 +80,11 @@ const (
 	// `.claude/`, so a re-sync from a fresh checkout still produces a
 	// settings.json with statusLine, enabledPlugins, and any other keys
 	// the user had configured.
-	settingsOverlayPath = ".agnostic-ai/overlays/claude.settings.json"
+	settingsOverlayPath = emit.Overlay(target, "claude.settings.json")
+	// hookEventsOverlayPath holds the keys and event order captured
+	// around `hooks` at import.
+	hookEventsOverlayPath = emit.Overlay(target, "claude.settings.hook-events.json")
+	helperOverlays        = emit.NewHelperOverlays(target)
 )
 
 var caps = emit.Capabilities{
@@ -175,7 +182,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	if err := sess.RestoreHelperFiles(target, dryRun); err != nil {
+	if err := sess.RestoreHelperFiles(helperOverlays, dryRun); err != nil {
 		return err
 	}
 
@@ -596,7 +603,7 @@ func mergeCustomKey(doc *emit.OrderedJSON, key string, value any) any {
 // 4-space indent across a round-trip.
 func detectSettingsIndent(settingsPath string) string {
 	candidates := []string{
-		filepath.Join(".agnostic-ai", "overlays", "claude.settings.json"),
+		settingsOverlayPath,
 		settingsPath,
 	}
 	for _, p := range candidates {
@@ -617,7 +624,7 @@ func detectSettingsIndent(settingsPath string) string {
 // the caller then appends `hooks` and falls back to canonical lifecycle
 // order.
 func loadCapturedHookOrder() claudehooks.Order {
-	data, err := os.ReadFile(filepath.Join(".agnostic-ai", "overlays", "claude.settings.hook-events.json"))
+	data, err := os.ReadFile(hookEventsOverlayPath)
 	if err != nil {
 		return claudehooks.Order{}
 	}

@@ -196,6 +196,12 @@ func CapabilityWarningsDigest() string { return emit.CapabilityWarningsDigest() 
 // (target, kind) capability warnings currently buffered.
 func PendingCapabilityWarningsCount() int { return emit.PendingCapabilityWarningsCount() }
 
+// KnownOverlay is one path under `.agnostic-ai/overlays/` a target reads.
+type KnownOverlay = emit.KnownOverlay
+
+// KnownOverlays returns every overlay some target reads at sync.
+func KnownOverlays() []KnownOverlay { return emit.KnownOverlays() }
+
 // NoteProject buffers a project-wide note that belongs to no single
 // target, so it flushes and sticky-suppresses with the coverage notes.
 func NoteProject(text string) { emit.NoteProject(text) }

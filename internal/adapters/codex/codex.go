@@ -111,6 +111,9 @@ const (
 	legacyAgentsDir   = ".agents/agents"
 	legacySkillsDir   = ".codex/skills"
 	legacyCommandsDir = ".codex/prompts"
+)
+
+var (
 	// configOverlayPath is the project-relative path to the captured
 	// non-hooks/non-mcp portion of `.codex/config.toml`. `agnostic-ai
 	// import codex` writes this file; the emitter prepends it before
@@ -118,7 +121,8 @@ const (
 	// checkout still carries the user's first-class Codex keys (model,
 	// sandbox, history, ...). Keys Codex ignores in a project config
 	// stay in the overlay but not in the output.
-	configOverlayPath = ".agnostic-ai/overlays/codex.config.toml"
+	configOverlayPath = emit.Overlay(target, "codex.config.toml")
+	helperOverlays    = emit.NewHelperOverlays(target)
 )
 
 var caps = emit.Capabilities{
@@ -293,7 +297,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := materializeHookScripts(sess, hooks, dryRun); err != nil {
 		return err
 	}
-	return sess.RestoreHelperFiles(target, dryRun)
+	return sess.RestoreHelperFiles(helperOverlays, dryRun)
 }
 
 // sweepLegacyTrees removes agnostic-ai-managed leftovers from prior

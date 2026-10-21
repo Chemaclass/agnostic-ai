@@ -29,7 +29,8 @@ const agnosticOverlayDir = ".agnostic-ai/overlays"
 // back to `.<tool>/<basename>` with its mode bits preserved. No-op when
 // the overlay tree is missing or empty — projects that did not capture
 // any helpers have nothing to restore.
-func (s *Session) RestoreHelperFiles(tool string, dryRun bool) error {
+func (s *Session) RestoreHelperFiles(h HelperOverlays, dryRun bool) error {
+	tool := h.tool
 	srcDir := filepath.Join(agnosticOverlayDir, tool)
 	entries, err := os.ReadDir(srcDir)
 	if IsAbsent(err) {
