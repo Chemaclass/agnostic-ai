@@ -74,6 +74,10 @@ func CommandHandlers(h spec.Entry) []claudehooks.CommandEntry {
 	return hookHandlers(h)
 }
 
+// SettingsOverlayPath is the project overlay sync merges into the
+// settings file, as a slash path.
+func SettingsOverlayPath() string { return settingsOverlayPath }
+
 // SettingsFilePath is the settings file sync writes hooks to.
 func SettingsFilePath(cfg *config.Config) string {
 	return filepath.Join(emit.OutputDir(cfg, target, defaultDir), "settings.json")

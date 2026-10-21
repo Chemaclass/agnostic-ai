@@ -111,7 +111,7 @@ Entries in the `--json` report have these fields:
 | `lint` | `code`, `severity` (`error` or `warn`), `path`, `message`. |
 | `hook_trust` | `path`, `event`, `group`, `handler`, `hook`, `status` (`untrusted`, `modified`, `disabled`, or `unknown`). An `unknown` entry adds `problem` with the failed check. |
 | `packaging_ignore` | `path`, and either `uncovered` (generated paths) or `problem` (why coverage could not be checked). |
-| `skill_overrides` | With `claude` selected, one item per `skillOverrides` entry: `path`, `scope` (`local`, `shared`, or `user`), `skill` (the key as written), `value`, and `synced` (false for a skill sync does not write). A file that could not be read has `problem` instead of `skill` and `value`. Paths outside the project are absolute. |
+| `skill_overrides` | With `claude` selected, one item per `skillOverrides` entry, highest file first: `path`, `scope` (`local`, `shared`, or `user`), `skill` (the key as written), `value` (the string set, or the JSON text of another value), `synced` (false for a skill sync does not write), and `effective` (false when a higher file sets the same skill). A file that could not be read or parsed has one item with only `path`, `scope`, and `problem`. Paths outside the project are absolute. |
 
 Then doctor prints:
 
@@ -143,7 +143,7 @@ It reads only the root ignore file. It ignores `package.json` allowlists, built-
 
 ### Claude skill overrides
 
-Claude Code's `/skills` menu saves each skill you switch off in `.claude/settings.local.json`, a file that is yours and that git ignores. A skill switched off there still syncs, but Claude Code refuses to run it. Claude Code also reads `skillOverrides` from the shared `.claude/settings.json` and from your user `~/.claude/settings.json` (under `CLAUDE_CONFIG_DIR` when set). Doctor reads each of these files and lists the synced skills each one affects, by state, in Claude Code's order: local, shared, user.
+Claude Code's `/skills` menu saves each skill you switch off in `.claude/settings.local.json`, a file that is yours and that git ignores. A skill switched off there still syncs, but Claude Code refuses to run it. Claude Code also reads `skillOverrides` from the shared `.claude/settings.json` and from your user `~/.claude/settings.json` (under `CLAUDE_CONFIG_DIR` when set). Doctor reads each of these files and lists the synced skills each one affects, by state, highest file first: local, shared, user.
 
 ```text
 Claude skill overrides:
@@ -157,11 +157,13 @@ Claude skill overrides:
   ~ ~/.claude/settings.json also sets 4 entries for skills sync does not write
 ```
 
-The shared file is team policy, so its line points to the [overlay](@/docs/spec-format/overlays.md) that sync writes it from. Each file is reported on its own: Claude Code does not document how one key merges across files.
+Doctor reports an entry only when no higher file sets the same skill, since the higher file's value applies. A user file that turns `deploy` off is not reported when the project's local file turns it back `on`. `--json` lists every entry and marks the hidden ones `effective: false`.
 
-When the project sits below the git root, Claude Code reads the local file at the root, or at the main checkout in a worktree. Doctor reads that file too and labels it `(git root)` or `(main checkout)`. Where both local files set a key, Claude Code applies the root file's value. Claude Code skips the root file on Windows and when the root is your home folder, and so does doctor. Claude Code also skips it when you do not own the root or its `.git` or `.claude` entry; doctor does not check ownership and still reports it.
+The shared file is team policy, so its line points to the [overlay](@/docs/spec-format/overlays.md) that sync writes it from. When the overlay sets the same value, the line is a `~` note that names the overlay, not a warning.
 
-`doctor --fix` in a terminal asks once per state whether to re-enable those skills. A yes removes only their entries and keeps the rest of the file as it was. Doctor never changes the file without a yes. It does not offer the change for a linked, hard-linked, read-only, or other user's file, one that sets `skillOverrides` twice, or one listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged). It replaces the file in one step, so a failed write leaves it as it was, and leaves it alone if it changed while doctor ran. Skills whose generated files are under `sync.unmanaged` do not count as synced. `--fix` edits only the project's `.claude/settings.local.json`, never the other files. Entries for skills sync does not write, such as your personal ones, are never removed or named: a file with a finding counts them, and `--json` lists them with `synced: false`. `--scope project` reads only the shared file. Managed (enterprise) settings are not read.
+When the project sits below the git root, Claude Code reads the local file at the root, or at the main checkout in a worktree. Doctor reads that file too, lists it first, and labels it `(git root)` or `(main checkout)`. Where both local files set a key, Claude Code applies the root file's value. Claude Code skips the root file on Windows and when the root is your home folder, and so does doctor. Claude Code also skips it when you do not own the root or its `.git` or `.claude` entry; doctor does not check ownership and still reports it.
+
+`doctor --fix` in a terminal asks once per state whether to re-enable those skills. A yes removes only their entries and keeps the rest of the file as it was. Doctor never changes the file without a yes. It does not offer the change for a linked, hard-linked, read-only, or other user's file, one that sets `skillOverrides` twice, or one listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged). It replaces the file in one step, so a failed write leaves it as it was, and leaves it alone if it changed while doctor ran. Skills whose generated files are under `sync.unmanaged` do not count as synced. `--fix` edits only the project's `.claude/settings.local.json`, never the other files. Entries for skills sync does not write, such as your personal ones, are never removed or named: a file with a finding counts them, and `--json` lists them with `synced: false`. `--scope project` reads only the shared file. An empty settings file counts as no settings. Managed (enterprise) settings are not read.
 
 Subcommands run one check:
 

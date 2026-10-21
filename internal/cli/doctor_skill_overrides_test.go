@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -49,8 +50,9 @@ func TestDoctor_ReportsClaudeSkillOverrides(t *testing.T) {
 			"turns off 2 of 3 synced skills (off), so Claude Code refuses to run them: a, b",
 		}},
 		{name: "invalid JSON", config: claudeOnly, settings: `{"skillOverrides":`, want: []string{
-			"! cannot read .claude/settings.local.json: parse .claude/settings.local.json:",
+			"! cannot parse .claude/settings.local.json:",
 		}},
+		{name: "empty file", config: claudeOnly, settings: " \n", absent: true},
 		{name: "JSONC comment", config: claudeOnly, settings: "// mine\n{\"skillOverrides\":{\"a\":\"off\"}}", want: []string{
 			"turns off 1 of 3 synced skills (off)",
 		}},
@@ -490,9 +492,10 @@ func TestCollectClaudeSkillOverrides_LeavesHardLinkedSettings(t *testing.T) {
 
 func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
 	const (
-		local  = ".claude/settings.local.json"
-		shared = ".claude/settings.json"
-		user   = "user"
+		local   = ".claude/settings.local.json"
+		shared  = ".claude/settings.json"
+		overlay = ".agnostic-ai/overlays/claude.settings.json"
+		user    = "user"
 	)
 	cases := []struct {
 		name   string
@@ -541,8 +544,34 @@ func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
 			},
 			want: []string{
 				"! .claude/settings.local.json turns off 1 of 3 synced skills (off)",
-				"! cannot read ~/.claude/settings.json: parse ~/.claude/settings.json:",
+				"! cannot parse ~/.claude/settings.json:",
 			},
+			absent: []string{"parse ~/.claude/settings.json: parse", "cannot read"},
+		},
+		{
+			name:   "a higher file turning a skill back on hides the lower entry",
+			files:  map[string]string{user: `{"skillOverrides":{"a":"off","b":"off"}}`, shared: `{"skillOverrides":{"A":"on"}}`, local: `{"skillOverrides":{"b":"on"}}`},
+			absent: []string{"Claude skill overrides:"},
+		},
+		{
+			name: "shared entry the overlay sets is a note",
+			files: map[string]string{
+				shared:  `{"skillOverrides":{"b":"off","c":"name-only"}}`,
+				overlay: `{"skillOverrides":{"b":"off","c":"off"}}`,
+			},
+			want: []string{
+				"! .claude/settings.json lists 1 of 3 synced skills without their description (name-only): c",
+				"→ team policy: set skillOverrides in .agnostic-ai/overlays/claude.settings.json and run `agnostic-ai sync`",
+				"~ .claude/settings.json turns off 1 of 3 synced skills (off) as .agnostic-ai/overlays/claude.settings.json sets: b",
+			},
+			absent: []string{"! .claude/settings.json turns off"},
+		},
+		{
+			name:   "overlay note under project scope",
+			files:  map[string]string{shared: `{"skillOverrides":{"b":"off"}}`, overlay: `{"skillOverrides":{"b":"off"}}`},
+			args:   []string{"--scope", "project"},
+			want:   []string{"~ .claude/settings.json turns off 1 of 3 synced skills (off) as .agnostic-ai/overlays/claude.settings.json sets: b"},
+			absent: []string{"! ", "→"},
 		},
 		{
 			name:  "entries for skills sync does not write are counted",
@@ -654,18 +683,28 @@ func skillOverrideGitRepo(t *testing.T) string {
 func TestDoctor_SkillOverridesReadsGitRootLocalFileForNestedProject(t *testing.T) {
 	t.Run("git root", func(t *testing.T) {
 		root := skillOverrideGitRepo(t)
-		mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+		mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","c":"on"}}`)
 		testutil.Chdir(t, mustMkdir(t, filepath.Join(root, "sub")))
 		silence(t)
-		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b", "c")
+		mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"b":"off","c":"off"}}`)
 		out, _ := runDoctor(t)
+		out = skillOverridesSection(out)
+		last := -1
 		for _, want := range []string{
-			"! ../.claude/settings.local.json (git root) turns off 1 of 2 synced skills (off), so Claude Code refuses to run them: a",
+			"! ../.claude/settings.local.json (git root) turns off 1 of 3 synced skills (off), so Claude Code refuses to run them: a",
 			"→ Claude Code reads it for the whole repository; review them in Claude Code with /skills, or delete the entries from ../.claude/settings.local.json",
+			"! .claude/settings.local.json turns off 1 of 3 synced skills (off), so Claude Code refuses to run them: b\n",
 		} {
-			if !strings.Contains(out, want) {
+			i := strings.Index(out, want)
+			if i < 0 {
 				t.Errorf("missing %q:\n%s", want, out)
+				continue
 			}
+			if i < last {
+				t.Errorf("%q out of order:\n%s", want, out)
+			}
+			last = i
 		}
 	})
 	t.Run("main checkout", func(t *testing.T) {
@@ -688,7 +727,7 @@ func TestDoctor_SkillOverridesReadsGitRootLocalFileForNestedProject(t *testing.T
 		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
 		mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
 		out, _ := runDoctor(t)
-		if n := strings.Count(out, "turns off 1 of 1 synced skills"); n != 1 || strings.Contains(out, "(git root)") {
+		if n := strings.Count(out, "turns off 1 of 1 synced skills"); n != 1 || strings.Contains(out, "(git root)") || !strings.Contains(out, "doctor --fix` in a terminal") {
 			t.Errorf("want one local line, got %d:\n%s", n, out)
 		}
 	})
@@ -740,11 +779,11 @@ func mustMkdir(t *testing.T, dir string) string {
 	return dir
 }
 
-func doctorSkillOverridesJSON(t *testing.T, args ...string) []skillOverrideRecord {
+func doctorSkillOverridesJSON(t *testing.T, args ...string) []map[string]any {
 	t.Helper()
 	out, _ := runDoctorStdout(t, append([]string{"--json"}, args...)...)
 	var got struct {
-		SkillOverrides []skillOverrideRecord `json:"skill_overrides"`
+		SkillOverrides []map[string]any `json:"skill_overrides"`
 	}
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("parse: %v\n%s", err, out)
@@ -775,31 +814,33 @@ func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
 		t.Errorf("want [], got %+v", got)
 	}
 	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"on"}}`)
-	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"b":"user-invocable-only","mine":"off"}}`)
+	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"a":"off","b":"","mine":"off"}}`)
 	userFile := filepath.Join(home, ".claude", "settings.json")
 	mustWrite(t, userFile, `{"skillOverrides":`)
-	want := []skillOverrideRecord{
-		{Path: ".claude/settings.local.json", Scope: "local", Skill: "a", Value: "on", Synced: true},
-		{Path: ".claude/settings.json", Scope: "shared", Skill: "b", Value: "user-invocable-only", Synced: true},
-		{Path: ".claude/settings.json", Scope: "shared", Skill: "mine", Value: "off"},
-		{Path: filepath.ToSlash(userFile), Scope: "user"},
+	entry := func(path, scope, skill, value string, synced, effective bool) map[string]any {
+		return map[string]any{"path": path, "scope": scope, "skill": skill, "value": value, "synced": synced, "effective": effective}
 	}
 	got := doctorSkillOverridesJSON(t)
-	if len(got) != len(want) {
-		t.Fatalf("got %+v\nwant %+v", got, want)
+	want := []map[string]any{
+		entry(".claude/settings.local.json", "local", "a", "on", true, true),
+		entry(".claude/settings.json", "shared", "a", "off", true, false),
+		entry(".claude/settings.json", "shared", "b", "", true, true),
+		entry(".claude/settings.json", "shared", "mine", "off", false, true),
+	}
+	if len(got) != len(want)+1 {
+		t.Fatalf("got %+v", got)
 	}
 	for i := range want {
-		problem := got[i].Problem
-		got[i].Problem = ""
-		if got[i] != want[i] {
-			t.Errorf("record %d: got %+v, want %+v", i, got[i], want[i])
-		}
-		if (want[i].Scope == "user") != (problem != "") {
-			t.Errorf("record %d problem %q", i, problem)
+		if !reflect.DeepEqual(got[i], want[i]) {
+			t.Errorf("record %d: got %v, want %v", i, got[i], want[i])
 		}
 	}
+	problem := got[len(want)]
+	if problem["path"] != filepath.ToSlash(userFile) || problem["scope"] != "user" || len(problem) != 3 || !strings.HasPrefix(problem["problem"].(string), "cannot parse ") {
+		t.Errorf("problem record: %v", problem)
+	}
 	project := doctorSkillOverridesJSON(t, "--scope", "project")
-	if len(project) != 2 || project[0].Scope != "shared" || project[1].Scope != "shared" {
+	if len(project) != 3 || project[0]["scope"] != "shared" || project[0]["effective"] != true {
 		t.Errorf("--scope project: %+v", project)
 	}
 }
