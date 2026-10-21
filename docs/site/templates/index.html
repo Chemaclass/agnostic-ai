@@ -86,12 +86,13 @@
         <div class="fanout-tabs"><label for="fanout-with">{{ fanout.with_label }}</label><label for="fanout-without">{{ fanout.without_label }}</label></div>
         <div class="spec-card fanout-source">
           <div class="file-name">{{ fanout.source }}</div>
-          <pre><code>{{ fanout.note }}</code></pre>
+          <pre><code>{{ fanout.line }}</code></pre>
+          <p class="fanout-note">{{ fanout.note | markdown(inline=true) | safe }}</p>
         </div>
         <p class="fanout-sync"><span class="fanout-step"><code>agnostic-ai sync</code><span class="fanout-hand">{{ fanout.hand_label }}</span></span></p>
         <ul class="fanout-outputs">
           {% for output in fanout.outputs %}
-          <li style="--i: {{ loop.index0 }}"{% if output.drift != fanout.note %} class="is-drifted"{% endif %}><code class="fanout-path">{{ output.path }}</code><span class="fanout-tools">{{ output.tools }}</span><svg class="fanout-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><code class="fanout-drift">{{ output.drift }}</code></li>
+          <li style="--i: {{ loop.index0 }}"{% if output.drift != output.line %} class="is-drifted"{% endif %}><span class="fanout-head"><code class="fanout-path">{{ output.path }}</code><span class="fanout-tools">{{ output.tools }}</span></span><svg class="fanout-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><code class="fanout-line">{{ output.line }}</code><code class="fanout-drift">{{ output.drift }}</code></li>
           {% endfor %}
           <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ matrix.targets | length - fanout.targets | length }} {{ fanout.more_label }}</a></li>
         </ul>

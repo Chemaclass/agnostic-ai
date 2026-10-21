@@ -3,18 +3,11 @@ package integration
 import (
 	"encoding/json"
 	"html"
-	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/BurntSushi/toml"
-
-	"github.com/chemaclass/agnostic-ai/internal/cli"
-	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
@@ -57,10 +50,8 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 		t.Fatal("first-sync proof must precede the full source explorer")
 	}
 	proof := home[proofStart : strings.Index(home[proofStart:], "</section>")+proofStart]
-	for _, text := range []string{".agnostic-ai/AGNOSTIC_AI.md", "CLAUDE.md", "AGENTS.md", "agnostic-ai sync"} {
-		if !strings.Contains(proof, text) {
-			t.Errorf("static first-sync proof is missing %q", text)
-		}
+	if !strings.Contains(proof, "agnostic-ai sync") {
+		t.Error("static first-sync proof is missing the sync command")
 	}
 	if strings.Contains(proof, " hidden") || strings.Contains(proof, "data-source-panel") {
 		t.Error("first-sync proof must show its source and every output without JavaScript")
@@ -86,60 +77,27 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 
 }
 
+// assertFirstSyncProof checks the hero renders landing.toml as written.
+// TestSiteDocs_LandingHeroMatchesSync checks those lines against a real sync.
 func assertFirstSyncProof(t *testing.T, proof string) {
 	t.Helper()
-	var landing struct {
-		Hero struct {
-			Fanout struct {
-				Source  string
-				Note    string
-				Targets []string
-				Outputs []struct{ Path string }
-			}
-		}
-	}
-	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
-		t.Fatalf("decode first-sync example: %v", err)
-	}
-	fanout := landing.Hero.Fanout
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(dir, "global"))
-	if err := os.MkdirAll(".agnostic-ai", 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for path, body := range map[string]string{
-		"agnostic-ai.yaml": "version: 1\ntargets: [" + strings.Join(fanout.Targets, ", ") + "]\n",
-		fanout.Source:      fanout.Note + "\n",
-	} {
-		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-			t.Fatalf("write %s: %v", path, err)
-		}
-	}
-	command := cli.NewRootCmd("test")
-	command.SetArgs([]string{"sync", "--gitignore=off"})
-	command.SetOut(io.Discard)
-	command.SetErr(io.Discard)
-	if err := command.Execute(); err != nil {
-		t.Fatalf("sync first-note example: %v", err)
-	}
+	fanout := loadHeroFanout(t)
 	source := regexp.MustCompile(`(?s)<div class="file-name">([^<]+)</div>\s*<pre><code>(.*?)</code></pre>`).FindStringSubmatch(proof)
-	if source == nil || html.UnescapeString(source[1]) != fanout.Source || strings.TrimSpace(html.UnescapeString(source[2])) != fanout.Note {
-		t.Errorf("homepage does not show %s with the note %q", fanout.Source, fanout.Note)
+	if source == nil || html.UnescapeString(source[1]) != fanout.Source || html.UnescapeString(source[2]) != fanout.Line {
+		t.Errorf("homepage does not show %s with the line %q", fanout.Source, fanout.Line)
 	}
-	shown := regexp.MustCompile(`<code class="fanout-path">([^<]+)</code>`).FindAllStringSubmatch(proof, -1)
-	if len(shown) != len(fanout.Outputs) {
-		t.Errorf("homepage shows %d generated files, landing.toml lists %d", len(shown), len(fanout.Outputs))
+	rows := regexp.MustCompile(`<li style="--i: \d+"( class="is-drifted")?><span class="fanout-head"><code class="fanout-path">([^<]+)</code>.*?<code class="fanout-line">([^<]*)</code><code class="fanout-drift">([^<]*)</code></li>`).FindAllStringSubmatch(proof, -1)
+	if len(rows) != len(fanout.Outputs) {
+		t.Fatalf("homepage shows %d generated files, landing.toml lists %d", len(rows), len(fanout.Outputs))
 	}
-	for _, match := range shown {
-		path := html.UnescapeString(match[1])
-		body, err := os.ReadFile(path)
-		if err != nil {
-			t.Errorf("homepage shows %s, but sync for %v does not write it: %v", path, fanout.Targets, err)
-			continue
+	for index, row := range rows {
+		want := fanout.Outputs[index]
+		path, line, drift := html.UnescapeString(row[2]), html.UnescapeString(row[3]), html.UnescapeString(row[4])
+		if path != want.Path || line != want.Line || drift != want.Drift {
+			t.Errorf("homepage card %d shows %s %q / %q, landing.toml has %s %q / %q", index, path, line, drift, want.Path, want.Line, want.Drift)
 		}
-		if text := withoutProvenanceBanner(string(body)); !strings.Contains(text, fanout.Note) && !strings.Contains(text, "@AGENTS.md") {
-			t.Errorf("%s carries neither the note nor a reference to it:\n%s", path, text)
+		if drifted := row[1] != ""; drifted != (want.Drift != want.Line) {
+			t.Errorf("homepage card %s marks drift %v, want %v", want.Path, drifted, want.Drift != want.Line)
 		}
 	}
 }
