@@ -306,8 +306,8 @@ var lintCodes = map[string]lintCode{
 	"LINT051": {
 		Severity: lintWarn,
 		Title:    "Overlay file sync does not read",
-		Cause:    "A file under `.agnostic-ai/overlays/` is not one any target reads, such as `gemini.settings.json` or a misspelled `claude.setings.json`. Its keys reach no tool. Sync prints the same note. A known overlay of a target missing from `targets` is not flagged, and dot files such as `.DS_Store` are skipped.",
-		Fix:      "For a target with no overlay, such as Gemini CLI, move the keys under `x-<target>` in a `settings/` spec. Otherwise rename the file to an overlay the finding lists, or delete it.",
+		Cause:    "A file under `.agnostic-ai/overlays/` is not one any target reads, such as `gemini.settings.json` or a misspelled `claude.setings.json`. Its keys reach no tool. A name that differs from a known overlay only in case is read only where file names ignore case, such as macOS and Windows. Sync prints the same note. A known overlay of a target missing from `targets` is not flagged. Dot files, dot folders, and README files at the top of `overlays/` are skipped.",
+		Fix:      "For a `<target>.settings.*` file of a tool that merges `x-<target>` from settings specs, such as Gemini CLI, move the keys there. Otherwise rename the file to an overlay the finding lists, or delete it.",
 	},
 	"LINT036": {
 		Severity: lintError,

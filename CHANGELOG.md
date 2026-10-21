@@ -7,7 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Builds use Go 1.27.3 to fix certificate verification vulnerability GO-2026-6809.
-- `sync` prints a note and `lint` warns (LINT051) for a file under `.agnostic-ai/overlays/` that no tool reads, such as `gemini.settings.json` or a misspelled overlay name (#2367).
+- `sync` prints a note and `lint` warns (LINT051) for a file under `.agnostic-ai/overlays/` that no tool reads, such as `gemini.settings.json` or a misspelled overlay name, and `lint --strict` fails on it. Dot files, dot folders, and top-level README files are skipped (#2367).
 
 ### By tool
 
