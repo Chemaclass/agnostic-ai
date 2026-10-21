@@ -1,0 +1,7 @@
+version: 1
+targets: [claude, codex, gemini]
+models:
+  fast:
+    claude: haiku
+    codex: luna
+    gemini: gemini-3-flash-preview

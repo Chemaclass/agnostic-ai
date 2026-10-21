@@ -6,29 +6,32 @@ primary_label = "Set up with an agent"
 secondary_label = "Explore the files"
 
 [hero.fanout]
-label = "One source file, synced into the file each coding tool reads"
-source = ".agnostic-ai/AGNOSTIC_AI.md"
-note = "Run tests before finishing a change."
-targets = ["claude", "codex", "cursor", "windsurf", "gemini"]
+label = "One agent spec, synced into the agent file each coding tool reads"
+source = ".agnostic-ai/agents/reviewer.md"
+line = "model: fast"
+targets = ["claude", "codex", "gemini"]
 more_label = "more tools"
 with_label = "With agnostic-ai"
 without_label = "Without"
 hand_label = "Edit each file by hand"
-with_summary = ["1 file you edit", "Every tool reads the same rule"]
-without_summary = ["{n} files you edit by hand", "Rules drift apart"]
+with_summary = ["1 file you edit", "Each tool gets its own model"]
+without_summary = ["{n} files you edit by hand", "Models drift apart"]
 
 [[hero.fanout.outputs]]
-path = "CLAUDE.md"
+path = ".claude/agents/reviewer.md"
 tools = "Claude Code"
-drift = "Run tests before finishing a change."
+line = "model: haiku"
+drift = "model: haiku"
 [[hero.fanout.outputs]]
-path = "AGENTS.md"
-tools = "Codex, Cursor, Windsurf"
-drift = "Run tests before committing."
+path = ".codex/agents/reviewer.toml"
+tools = "Codex"
+line = 'model = "gpt-6-luna"'
+drift = 'model = "gpt-5.4"'
 [[hero.fanout.outputs]]
-path = "GEMINI.md"
+path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"
-drift = "No rule yet."
+line = "model: gemini-3-flash-preview"
+drift = "No agent yet."
 
 [hero.video]
 video_id = "oHeKVk6bidA"

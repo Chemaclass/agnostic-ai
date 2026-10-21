@@ -940,7 +940,7 @@ main > section[id] {
   }
 }
 
-/* The hero shows the product: one source note fanning out into the file
+/* The hero shows the product: one source spec fanning out into the file
    each tool reads. The tree draws in once on load; with reduced motion it
    renders finished. */
 .fanout {
@@ -1064,9 +1064,8 @@ main > section[id] {
 }
 
 .fanout-tools {
-  margin-left: auto;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .fanout-check {
@@ -1186,21 +1185,27 @@ main > section[id] {
 .fanout-outputs > li:not(.fanout-more) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "path mark" "detail detail";
+  grid-template-areas: "head mark" "detail detail";
 }
 
-.fanout-path { grid-area: path; }
+.fanout-head {
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  min-width: 0;
+}
+
 .fanout-check { grid-area: mark; }
 
-/* The tool names and the file text share one grid cell, with the same
-   box and line height, so the cards keep their height when the toggle
+/* The synced line and the hand-edited line share one grid cell, with the
+   same box and line height, so the cards keep their height when the toggle
    flips. */
-.fanout-tools,
+.fanout-line,
 .fanout-drift {
   grid-area: detail;
-  margin-left: 0;
   padding-block: 0.45rem;
-  border: 1px solid transparent;
   line-height: 1.2rem;
 }
 
@@ -1286,7 +1291,7 @@ main > section[id] {
 
 #fanout-without:checked ~ .fanout-sync code,
 #fanout-without:checked ~ .fanout-summary .fanout-good,
-#fanout-without:checked ~ .fanout-outputs .fanout-tools,
+#fanout-without:checked ~ .fanout-outputs .fanout-line,
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-check {
   visibility: hidden;
 }
@@ -1309,9 +1314,10 @@ main > section[id] {
 }
 
 /* The file text sits in the same dark slab as the source file above. */
+.fanout-line,
 .fanout-drift {
   padding-inline: 0.75rem;
-  border-color: var(--slab-line);
+  border: 1px solid var(--slab-line);
   border-radius: 8px;
   background: var(--slab);
   color: var(--slab-ink);
