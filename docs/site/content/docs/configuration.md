@@ -87,7 +87,7 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 
 ## Built-ins
 
-`builtins` turns on specs bundled with the binary. None are on unless listed; `init` writes `builtins: [handoff]` for a new project.
+`builtins` turns on specs bundled with the binary. None are on unless listed; `init` writes `builtins: [handoff]` for a new project, or `[handoff, memory]` with `--memory`.
 
 ```yaml
 requires: ">=0.80.0"
@@ -241,7 +241,7 @@ Each release fixes the ids. When an upgrade changes one, the next `sync` prints 
 
 Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, and `ellipsis` (20 in total). `-t/--target` replaces the list for one run.
 
-A likely typo of a built-in target, such as `cursr`, fails before any write. Sync warns about and skips any other unknown name, since it may be an external adapter missing from this machine's PATH.
+A likely typo of a built-in target, such as `cursr`, fails before any write. Any other unknown name is skipped with a warning, since it may be an external adapter missing from this machine's PATH.
 
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
