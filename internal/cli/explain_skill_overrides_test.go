@@ -121,12 +121,12 @@ func TestExplain_SkillOverridesNameEachScope(t *testing.T) {
 		{
 			name:  "undocumented value",
 			files: map[string]string{".claude/settings.local.json": `{"skillOverrides":{"deploy":false}}`},
-			want:  "  .claude/settings.local.json: false (a value Claude Code does not document; change it in /skills)\n",
+			want:  "  .claude/settings.local.json: false (rejected by Claude Code, which may skip the whole file; change it in /skills)\n",
 		},
 		{
 			name:  "broken user file",
 			files: map[string]string{"user": `{"skillOverrides":`},
-			want:  "  cannot parse ~/.claude/settings.json:",
+			want:  "  ~/.claude/settings.json: Claude Code skips this file (",
 		},
 	}
 	for _, c := range cases {
@@ -193,7 +193,7 @@ func TestExplain_SkillOverridesJSONProblemHasNoValue(t *testing.T) {
 		t.Fatalf("overrides = %+v, want one problem", raw.Overrides)
 	}
 	record := raw.Overrides[0]
-	if problem, _ := record["problem"].(string); !strings.HasPrefix(problem, "cannot parse ~/.claude/settings.json:") {
+	if problem, _ := record["problem"].(string); !strings.HasPrefix(problem, "~/.claude/settings.json: Claude Code skips this file (") {
 		t.Errorf("problem = %q", problem)
 	}
 	for _, key := range []string{"value", "effective"} {
@@ -241,6 +241,78 @@ func TestExplain_SkillOverridesNameTheGitRootLocalFile(t *testing.T) {
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
 	want := "claude overrides:\n  ../.claude/settings.local.json (git root): off (Claude Code refuses to run it; read for the whole repository; change it in /skills)\n"
+	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
+		t.Errorf("block:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestExplain_SkillOverridesTreatSettingsAsStrictJSON(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), "{\n  // mine\n  \"skillOverrides\": {\"deploy\": \"off\"}\n}\n")
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	got := explainOverridesBlock(runExplain(t, deploySkill))
+	for _, want := range []string{
+		"  .claude/settings.local.json: Claude Code skips this file (invalid character '/'",
+		"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestExplain_SkillOverridesRejectedValueOverrulesNothing(t *testing.T) {
+	cases := []struct{ value, shown string }{
+		{`"Off"`, `"Off"`},
+		{`false`, `false`},
+		{`null`, `null`},
+	}
+	for _, c := range cases {
+		t.Run(c.value, func(t *testing.T) {
+			testutil.TempCwd(t)
+			silence(t)
+			home := skillOverrideHome(t)
+			writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+			mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":`+c.value+`}}`)
+			mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+			want := "claude overrides:\n" +
+				"  .claude/settings.local.json: " + c.shown + " (rejected by Claude Code, which may skip the whole file; change it in /skills)\n" +
+				"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n"
+			if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
+				t.Errorf("block:\n%s\nwant:\n%s", got, want)
+			}
+		})
+	}
+}
+
+func TestExplain_SkillOverridesNeedThisSkillWrittenForClaude(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	mustWrite(t, filepath.FromSlash(deploySkill), "---\nname: deploy\ndescription: Deploys.\ntargets: [cursor]\n---\n\nBody.\n")
+	mustWrite(t, filepath.Join(".agnostic-ai", "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\nx-claude:\n  name: Deploy\n---\n\nBody.\n")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	if out := runExplain(t, deploySkill); strings.Contains(out, "claude overrides:") {
+		t.Errorf("unexpected block for a skill not written for claude:\n%s", out)
+	}
+	if out := runExplain(t, ".agnostic-ai/skills/other/SKILL.md"); !strings.Contains(out, "claude overrides:\n  .claude/settings.local.json: off") {
+		t.Errorf("missing block for the skill Claude sees as Deploy:\n%s", out)
+	}
+}
+
+func TestExplain_SkillOverridesSecondKeyInOneFileIsNotApplied(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"name-only","Deploy":"off"}}`)
+	want := "claude overrides:\n" +
+		"  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)\n" +
+		"  .claude/settings.local.json: name-only (not applied: another key in this file names the skill)\n"
 	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
 		t.Errorf("block:\n%s\nwant:\n%s", got, want)
 	}

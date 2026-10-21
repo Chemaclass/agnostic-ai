@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -21,10 +20,12 @@ type explainOverride struct {
 	Scope     string `json:"scope"`
 	Value     string `json:"value"`
 	Effective bool   `json:"effective"`
+	Rejected  bool   `json:"rejected,omitempty"`
 	Problem   string `json:"problem,omitempty"`
 	label     string
 	rootLocal bool
 	overlay   bool
+	sameFile  bool
 }
 
 func (o explainOverride) MarshalJSON() ([]byte, error) {
@@ -41,20 +42,19 @@ func (o explainOverride) MarshalJSON() ([]byte, error) {
 }
 
 // explainSkillOverrides lists each Claude settings file entry that names
-// the skill, highest precedence first. It is nil unless sync writes the
-// skill for claude.
+// the skill, highest precedence first, and each file Claude Code skips.
+// It is nil unless sync writes this skill for claude.
 func explainSkillOverrides(entry spec.Entry, cfg *config.Config, bundle spec.Bundle) []explainOverride {
 	if entry.Kind != spec.KindSkill || !slices.Contains(cfg.Targets, "claude") {
 		return nil
 	}
-	name, _ := adapters.ResolveMeta(entry.Meta, "claude")["name"].(string)
-	if name == "" {
-		name = entry.Name
-	}
-	folded := claudeSkillName(name)
-	if _, synced := claudeSyncedSkills(cfg, bundle)[folded]; !synced {
+	i := slices.IndexFunc(bundle.For("claude").Skills, func(skill spec.Entry) bool {
+		return skill.Path == entry.Path && skill.Name == entry.Name
+	})
+	if i < 0 || !claudeWritesSkill(cfg, bundle.For("claude").Skills[i]) {
 		return nil
 	}
+	folded := claudeSkillName(claudeSeenSkillName(bundle.For("claude").Skills[i]))
 	var overrides []explainOverride
 	for _, report := range collectClaudeSkillOverrides(cfg, bundle, false) {
 		base := explainOverride{Target: "claude", Path: report.recordPath(), Scope: string(report.scope), label: report.label(), rootLocal: report.rootLocal}
@@ -68,7 +68,8 @@ func explainSkillOverrides(entry spec.Entry, cfg *config.Config, bundle spec.Bun
 				continue
 			}
 			override := base
-			override.Value, override.Effective, override.overlay = e.Value, e.Effective, e.Overlay
+			override.Value, override.Effective, override.Rejected = e.Value, e.Effective, e.Rejected
+			override.overlay, override.sameFile = e.Overlay, e.sameFile
 			overrides = append(overrides, override)
 		}
 	}
@@ -84,6 +85,10 @@ func printExplainSkillOverrides(out io.Writer, overrides []explainOverride) {
 		switch {
 		case o.Problem != "":
 			_, _ = fmt.Fprintf(out, "  %s\n", o.Problem)
+		case o.Rejected:
+			_, _ = fmt.Fprintf(out, "  %s: %s (rejected by Claude Code, which may skip the whole file; %s)\n", o.label, o.Value, o.where())
+		case o.sameFile:
+			_, _ = fmt.Fprintf(out, "  %s: %s (not applied: another key in this file names the skill)\n", o.label, o.Value)
 		case !o.Effective:
 			_, _ = fmt.Fprintf(out, "  %s: %s (not applied: a higher file sets it)\n", o.label, o.Value)
 		default:
@@ -100,10 +105,8 @@ func explainOverrideEffect(value string) string {
 		return "Claude Code refuses to run it"
 	case "user-invocable-only":
 		return "hidden from Claude"
-	case "name-only":
-		return "listed without its description"
 	}
-	return "a value Claude Code does not document"
+	return "listed without its description"
 }
 
 // where says how far the file reaches and where to change the entry.

@@ -66,17 +66,28 @@ type skillOverrideEntry struct {
 	Key string
 	// Skill is the name Claude Code sees for a synced skill, "" otherwise.
 	Skill string
-	// Value is the string set, or the JSON text of a value that is not one.
+	// Value is the string set, or the JSON text of a rejected value.
 	Value  string
 	Synced bool
-	// Effective is false when a higher settings file sets the same skill.
+	// Effective is false when a higher settings file or an earlier key in
+	// the same file sets the same skill, and for a rejected value.
 	Effective bool
+	// Rejected is true for a value Claude Code's settings schema refuses:
+	// anything but on, off, user-invocable-only, or name-only.
+	Rejected bool
+	// sameFile is true when an earlier key in the same file names the skill.
+	sameFile bool
 	// Overlay is true for a shared file entry that the claude settings
 	// overlay sets to the same value.
 	Overlay bool
 	// raw is the value's JSON text; text is true when it is a string.
 	raw  string
 	text bool
+}
+
+// accepted is true for a value Claude Code's settings schema allows.
+func (e skillOverrideEntry) accepted() bool {
+	return e.documented() || (e.text && e.Value == "on")
 }
 
 // documented is true for a value that changes the skill as Claude Code
@@ -160,18 +171,26 @@ func (r *skillOverrideReport) hasFindings() bool {
 // it sees, for every skill sync writes for claude.
 func claudeSyncedSkills(cfg *config.Config, bundle spec.Bundle) map[string]string {
 	synced := map[string]string{}
-	skillsDir := claudeLayoutFor(cfg).skills
 	for _, skill := range bundle.For("claude").Skills {
-		if cfg.IsUnmanaged(filepath.Join(skillsDir, skill.Name, "SKILL.md")) {
-			continue
+		if claudeWritesSkill(cfg, skill) {
+			name := claudeSeenSkillName(skill)
+			synced[claudeSkillName(name)] = name
 		}
-		name, _ := adapters.ResolveMeta(skill.Meta, "claude")["name"].(string)
-		if name == "" {
-			name = skill.Name
-		}
-		synced[claudeSkillName(name)] = name
 	}
 	return synced
+}
+
+// claudeWritesSkill is false for a skill whose generated file is under
+// sync.unmanaged.
+func claudeWritesSkill(cfg *config.Config, skill spec.Entry) bool {
+	return !cfg.IsUnmanaged(filepath.Join(claudeLayoutFor(cfg).skills, skill.Name, "SKILL.md"))
+}
+
+func claudeSeenSkillName(skill spec.Entry) string {
+	if name, _ := adapters.ResolveMeta(skill.Meta, "claude")["name"].(string); name != "" {
+		return name
+	}
+	return skill.Name
 }
 
 // claudeSettingsFiles lists the files Claude Code reads skillOverrides
@@ -282,15 +301,21 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle, project
 		if report == nil {
 			continue
 		}
-		var here []string
+		here := map[string]bool{}
 		for i := range report.entries {
 			entry := &report.entries[i]
+			entry.Overlay = report.scope == skillOverrideShared && entry.documented() && overlay[entry.Key] == entry.Value
 			folded := claudeSkillName(entry.Key)
-			entry.Effective = !set[folded]
-			entry.Overlay = report.scope == skillOverrideShared && entry.text && entry.documented() && overlay[entry.Key] == entry.Value
-			here = append(here, folded)
+			switch {
+			case entry.Rejected, set[folded]:
+				entry.Effective = false
+			case here[folded]:
+				entry.Effective, entry.sameFile = false, true
+			default:
+				here[folded] = true
+			}
 		}
-		for _, folded := range here {
+		for folded := range here {
 			set[folded] = true
 		}
 		report.findings()
@@ -358,13 +383,14 @@ func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced ma
 			report.uneditable = fmt.Errorf("%s is listed under sync.unmanaged, so doctor leaves it to you", report.display())
 		}
 	}
-	clean, _ := adapters.StripJSONC(data)
-	if len(bytes.TrimSpace(clean)) == 0 {
+	if len(bytes.TrimSpace(data)) == 0 {
 		return nil
 	}
+	// Claude Code reads settings as strict JSON: a comment or a trailing
+	// comma makes it skip the whole file.
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(clean, &root); err != nil {
-		report.problem = fmt.Sprintf("cannot parse %s: %v", report.label(), err)
+	if err := json.Unmarshal(data, &root); err != nil {
+		report.problem = fmt.Sprintf("%s: Claude Code skips this file (%v)", report.label(), err)
 		return report
 	}
 	raw, ok := root["skillOverrides"]
@@ -380,8 +406,11 @@ func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced ma
 		entry := skillOverrideEntry{Key: key, raw: strings.TrimSpace(string(rawValue)), Effective: true}
 		entry.Value = entry.raw
 		var text string
-		if json.Unmarshal(rawValue, &text) == nil {
+		if strings.HasPrefix(entry.raw, `"`) && json.Unmarshal(rawValue, &text) == nil {
 			entry.Value, entry.text = text, true
+		}
+		if !entry.accepted() {
+			entry.Value, entry.Rejected, entry.Effective = entry.raw, true, false
 		}
 		entry.Skill, entry.Synced = synced[claudeSkillName(key)]
 		if !entry.Synced {
@@ -395,16 +424,25 @@ func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced ma
 
 // findings groups the entries that take effect on synced skills by value.
 // "on" changes nothing, and an entry the overlay sets goes to overlaid.
+// A later key naming the same skill joins the finding, so --fix removes it
+// too and it cannot take over.
 func (r *skillOverrideReport) findings() {
 	states, overlaid := map[string]*skillOverrideFinding{}, map[string]*skillOverrideFinding{}
 	unknown := map[string]*skillOverrideFinding{}
+	repeats := map[string][]string{}
 	for _, entry := range r.entries {
-		if !entry.Synced || !entry.Effective || (entry.text && entry.Value == "on") {
+		if entry.sameFile {
+			folded := claudeSkillName(entry.Key)
+			repeats[folded] = append(repeats[folded], entry.Key)
+		}
+	}
+	for _, entry := range r.entries {
+		if !entry.Synced || (!entry.Rejected && (!entry.Effective || entry.Value == "on")) {
 			continue
 		}
 		group, value := states, entry.Value
 		switch {
-		case !entry.documented():
+		case entry.Rejected:
 			group, value = unknown, entry.raw
 		case entry.Overlay:
 			group = overlaid
@@ -415,6 +453,9 @@ func (r *skillOverrideReport) findings() {
 			group[value] = finding
 		}
 		finding.keys = append(finding.keys, entry.Key)
+		if !entry.Rejected {
+			finding.keys = append(finding.keys, repeats[claudeSkillName(entry.Key)]...)
+		}
 		if !slices.Contains(finding.skills, entry.Skill) {
 			finding.skills = append(finding.skills, entry.Skill)
 		}
@@ -458,7 +499,7 @@ func reportClaudeSkillOverrides(cmd *cobra.Command, reports []*skillOverrideRepo
 			cmd.Printf("  ! %s %s %d of %d synced skills%s (%s)%s: %s\n", report.label(), state.effect, len(finding.skills), report.synced, state.object, finding.value, state.result, listSkillOverrideNames(finding.skills))
 		}
 		for _, finding := range report.unknown {
-			cmd.Printf("  ! %s sets a value Claude Code does not document (%s) for: %s\n", report.label(), finding.value, listSkillOverrideNames(finding.skills))
+			cmd.Printf("  ! %s sets a value Claude Code rejects (%s), which may make it skip the whole file, for: %s\n", report.label(), finding.value, listSkillOverrideNames(finding.skills))
 		}
 		if len(report.states) > 0 {
 			report.printNextStep(cmd)
@@ -502,6 +543,7 @@ type skillOverrideRecord struct {
 	Value     string `json:"value"`
 	Synced    bool   `json:"synced"`
 	Effective bool   `json:"effective"`
+	Rejected  bool   `json:"rejected,omitempty"`
 	Problem   string `json:"problem,omitempty"`
 }
 
@@ -537,7 +579,7 @@ func skillOverrideRecords(reports []*skillOverrideReport) []skillOverrideRecord 
 			continue
 		}
 		for _, entry := range report.entries {
-			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Skill: entry.Key, Value: entry.Value, Synced: entry.Synced, Effective: entry.Effective})
+			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Skill: entry.Key, Value: entry.Value, Synced: entry.Synced, Effective: entry.Effective, Rejected: entry.Rejected})
 		}
 	}
 	return records

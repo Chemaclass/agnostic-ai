@@ -349,8 +349,9 @@
 # in precedence order, finds the git root or main checkout local file,
 # and adds skill_overrides to --json. Same Linux amd64 release flags;
 # retain the 8 KB allowance. No new dependencies.
-# #2371 measured 20381856 on Go 1.27.3, up 8192 from main 307e5a27
+# #2371 measured 20390048 on Go 1.27.3, up 16384 from main 307e5a27
 # (20373664): explain <skill> lists each Claude settings file whose
-# skillOverrides names the skill and adds overrides to --json. Same Linux
+# skillOverrides names the skill and adds overrides to --json; doctor
+# reads those files as strict JSON and flags rejected values. Same Linux
 # amd64 release flags; retain the 8 KB allowance. No new dependencies.
-20390048
+20398240

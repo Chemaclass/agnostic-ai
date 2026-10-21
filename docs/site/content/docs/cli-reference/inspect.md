@@ -75,7 +75,7 @@ The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, a
 
 ### Claude skill overrides
 
-For a skill that sync writes for Claude Code, `explain` lists each Claude settings file whose `skillOverrides` names the skill. It checks every file [`doctor` reads](@/docs/cli-reference/check.md#claude-skill-overrides), highest precedence first. A file that a higher file overrules is marked, so the first line without that mark is the value Claude Code applies:
+For a skill that sync writes for Claude Code, `explain` lists each Claude settings file whose `skillOverrides` names the skill. It checks the files [`doctor` reads](@/docs/cli-reference/check.md#claude-skill-overrides), highest precedence first; managed settings and `--settings` are not read. A line that does not take effect is marked, so the first unmarked line is the value Claude Code applies:
 
 ```text
 claude overrides:
@@ -83,13 +83,13 @@ claude overrides:
   ~/.claude/settings.json: name-only (not applied: a higher file sets it)
 ```
 
-The block is omitted when no file names the skill. `--json` adds the same entries, or omits the key:
+A value Claude Code rejects, such as `"Off"` or `false`, shows as rejected and does not overrule a lower file. A file that is not strict JSON shows as skipped by Claude Code, even when no other file names the skill. The block is omitted when no file names the skill and every file reads. `--json` adds the same entries, or omits the key:
 
 ```json
 "overrides": [{"target": "claude", "path": ".claude/settings.local.json", "scope": "local", "value": "off", "effective": true}]
 ```
 
-A file that cannot be read shows its problem instead, as `problem` in JSON with no `value`.
+A rejected value adds `"rejected": true`. A skipped file has `problem` and no `value`.
 
 ### Debug a replaced spec
 
