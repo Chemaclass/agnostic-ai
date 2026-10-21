@@ -162,7 +162,7 @@ outputs:
 
 Other settings survive import and sync through the overlay `agnostic-ai import claude` captures (`.agnostic-ai/overlays/claude.settings.json`). For a single value in both, this block wins. `permissions` `allow`/`deny`/`ask` lists combine across the overlay, `settings` specs, and this block.
 
-Claude Code's `/skills` menu saves per-skill toggles as `skillOverrides` in `.claude/settings.local.json`. `agnostic-ai doctor` reports synced skills that file turns off, and `doctor --fix` offers to re-enable them. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides). To set the same visibility for the whole team, put `skillOverrides` under `outputs.claude.settings`.
+Claude Code's `/skills` menu saves per-skill toggles as `skillOverrides` in `.claude/settings.local.json`. `agnostic-ai doctor` reports synced skills that file turns off, and `doctor --fix` offers to re-enable them. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides). To set visibility for the whole team, put `skillOverrides` in `.agnostic-ai/overlays/claude.settings.json`; sync writes it to `.claude/settings.json`.
 
 ## Import
 

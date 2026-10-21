@@ -178,12 +178,24 @@ func removeJSONMember(text string, open, closing int, members []jsonMember, i in
 		// as `{ }` gets its spacing back; only the line break an insert
 		// into `{}` adds goes with it.
 		rest := text[m.end:closing]
-		if strings.HasPrefix(strings.TrimLeft(rest, " \t\r\n"), ",") || rest == fileNewline(text)+lineIndent(text, open) {
+		if j := skipJSONSpace(text, m.end); j < closing && text[j] == ',' {
+			rest = text[m.end:j] + text[j+1:closing]
+			if strings.TrimSpace(rest) == "" {
+				rest = ""
+			}
+		}
+		if rest == fileNewline(text)+lineIndent(text, open) {
 			rest = ""
 		}
 		return text[:open+1] + rest + text[closing:]
 	default:
-		return text[:keptBefore(text, open+1, m.start)] + text[m.end:]
+		// The only member sits below a comment: a trailing comma after
+		// it, past any comment, would be left with nothing to separate.
+		rest := text[m.end:]
+		if j := skipJSONSpace(text, m.end); j < closing && text[j] == ',' {
+			rest = text[m.end:j] + text[j+1:]
+		}
+		return text[:keptBefore(text, open+1, m.start)] + rest
 	}
 }
 

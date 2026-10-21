@@ -5,8 +5,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -261,5 +264,131 @@ func TestResetClaudeSkillOverrides_RemovesDuplicateKeys(t *testing.T) {
 	got, _ := os.ReadFile(filepath.Join(".claude", "settings.local.json"))
 	if want := `{"skillOverrides":{"b":"on"}}`; string(got) != want {
 		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestCollectClaudeSkillOverrides_MatchesTheNameClaudeSees(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWrite(t, filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Reviews.\nx-claude:\n  name: claude-review\n---\n\nBody.\n")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"claude-review":"off","review":"off"}}`)
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := collectClaudeSkillOverrides(cfg, bundle)
+	if report == nil || len(report.states) != 1 {
+		t.Fatalf("report: %+v", report)
+	}
+	if got := report.states[0]; strings.Join(got.keys, ",") != "claude-review" || strings.Join(got.skills, ",") != "claude-review" {
+		t.Errorf("finding: %+v", got)
+	}
+}
+
+func TestResetClaudeSkillOverrides_RefusesRepeatedSkillOverridesObject(t *testing.T) {
+	const settings = `{"skillOverrides":{"a":"off"},"skillOverrides":{"b":"off"}}`
+	report := collectTestSkillOverrides(t, settings, "a", "b")
+	removed, err := resetClaudeSkillOverrides(report, false, func(string) (bool, error) { return true, nil })
+	if !errors.Is(err, errSkillOverridesRepeated) || removed != 0 {
+		t.Fatalf("removed %d, err %v", removed, err)
+	}
+	got, _ := os.ReadFile(filepath.Join(".claude", "settings.local.json"))
+	if string(got) != settings {
+		t.Errorf("file changed: %s", got)
+	}
+}
+
+func TestResetClaudeSkillOverrides_RefusesSymlinkedSettings(t *testing.T) {
+	report := collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
+	target, err := filepath.Abs("elsewhere.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, target, `{"skillOverrides":{"a":"off"}}`)
+	path := filepath.Join(".claude", "settings.local.json")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	removed, err := resetClaudeSkillOverrides(report, false, func(string) (bool, error) { return true, nil })
+	if err == nil || removed != 0 {
+		t.Fatalf("removed %d, err %v", removed, err)
+	}
+	if got, _ := os.ReadFile(target); string(got) != `{"skillOverrides":{"a":"off"}}` {
+		t.Errorf("link target changed: %s", got)
+	}
+}
+
+func TestResetClaudeSkillOverrides_BackupKeepsPrivateMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX file modes")
+	}
+	report := collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
+	path := filepath.Join(".claude", "settings.local.json")
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path+".bak", []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resetClaudeSkillOverrides(report, true, func(string) (bool, error) { return true, nil }); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path + ".bak")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("backup mode %v, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestApplySkillOverrideReset_ReportsWriteFailureAndContinues(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a file the user cannot write")
+	}
+	report := collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
+	path := filepath.Join(".claude", "settings.local.json")
+	if err := os.Chmod(path, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	if err := applySkillOverrideReset(cmd, report, false, func(string) (bool, error) { return true, nil }); err != nil {
+		t.Fatalf("doctor stopped: %v", err)
+	}
+	if !strings.Contains(out.String(), "! .claude/settings.local.json") {
+		t.Errorf("missing warning:\n%s", out.String())
+	}
+}
+
+func TestDoctor_SkillOverridesNamesFileFixCannotEdit(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"},"skillOverrides":{"b":"off"}}`)
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := collectClaudeSkillOverrides(cfg, bundle)
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	reportClaudeSkillOverrides(cmd, report)
+	if err := applySkillOverrideReset(cmd, report, false, func(question string) (bool, error) {
+		t.Errorf("asked %q for a file doctor cannot edit", question)
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "could change which overrides apply") || strings.Contains(text, "doctor --fix") {
+		t.Errorf("output:\n%s", text)
 	}
 }

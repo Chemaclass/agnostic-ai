@@ -34,7 +34,10 @@ type skillOverrideState struct {
 
 const maxListedSkillOverrides = 10
 
-var errSkillOverridesChanged = errors.New("changed while doctor ran; left as is")
+var (
+	errSkillOverridesChanged  = errors.New("changed while doctor ran; left as is")
+	errSkillOverridesRepeated = errors.New("sets skillOverrides more than once, so removing entries could change which overrides apply; edit it in /skills")
+)
 
 type skillOverrideFinding struct {
 	value  string
@@ -49,8 +52,11 @@ type skillOverrideReport struct {
 	data    []byte
 	synced  int
 	problem string
-	states  []skillOverrideFinding
-	unknown []skillOverrideFinding
+	// uneditable says why doctor --fix cannot change the file, so it
+	// does not ask.
+	uneditable error
+	states     []skillOverrideFinding
+	unknown    []skillOverrideFinding
 }
 
 func (r *skillOverrideReport) display() string {
@@ -63,7 +69,11 @@ func (r *skillOverrideReport) display() string {
 func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillOverrideReport {
 	synced := map[string]string{}
 	for _, skill := range bundle.For("claude").Skills {
-		synced[claudeSkillName(skill.Name)] = skill.Name
+		name, _ := adapters.ResolveMeta(skill.Meta, "claude")["name"].(string)
+		if name == "" {
+			name = skill.Name
+		}
+		synced[claudeSkillName(name)] = name
 	}
 	if len(synced) == 0 {
 		return nil
@@ -78,6 +88,7 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillO
 		return report
 	}
 	report.data = data
+	report.uneditable = skillOverridesEditBlock(report, data)
 	clean, _ := adapters.StripJSONC(data)
 	var root map[string]json.RawMessage
 	if err := json.Unmarshal(clean, &root); err != nil {
@@ -159,9 +170,15 @@ func reportClaudeSkillOverrides(cmd *cobra.Command, report *skillOverrideReport)
 	for _, finding := range report.unknown {
 		cmd.Printf("  ! %s sets a value Claude Code does not document (%s) for: %s\n", report.display(), finding.value, listSkillOverrideNames(finding.skills))
 	}
-	if len(report.states) > 0 {
-		cmd.Printf("    → review them in Claude Code with /skills, run `agnostic-ai doctor --fix` in a terminal, or delete the entries from %s\n", report.display())
+	if len(report.states) == 0 {
+		return
 	}
+	if report.uneditable != nil {
+		cmd.Printf("  ! %v\n", report.uneditable)
+		cmd.Println("    → review them in Claude Code with /skills")
+		return
+	}
+	cmd.Printf("    → review them in Claude Code with /skills, run `agnostic-ai doctor --fix` in a terminal, or delete the entries from %s\n", report.display())
 }
 
 func claudeSkillOverrideState(value string) skillOverrideState {
@@ -184,7 +201,7 @@ func listSkillOverrideNames(names []string) string {
 // each state's entries. The file is the developer's, so nothing changes
 // without a yes.
 func fixClaudeSkillOverrides(cmd *cobra.Command, report *skillOverrideReport, backup bool) error {
-	if report == nil || len(report.states) == 0 {
+	if report == nil || len(report.states) == 0 || report.uneditable != nil {
 		return nil
 	}
 	in := cmd.InOrStdin()
@@ -194,7 +211,7 @@ func fixClaudeSkillOverrides(cmd *cobra.Command, report *skillOverrideReport, ba
 		return nil
 	}
 	reader := bufio.NewReader(in)
-	removed, err := resetClaudeSkillOverrides(report, backup, func(question string) (bool, error) {
+	return applySkillOverrideReset(cmd, report, backup, func(question string) (bool, error) {
 		cmd.PrintErrf("%s [y/N] ", question)
 		line, err := reader.ReadString('\n')
 		if errors.Is(err, io.EOF) {
@@ -206,12 +223,18 @@ func fixClaudeSkillOverrides(cmd *cobra.Command, report *skillOverrideReport, ba
 		answer := strings.TrimSpace(line)
 		return strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes"), nil
 	})
-	if errors.Is(err, errSkillOverridesChanged) {
-		cmd.Printf("  ! %v\n", err)
+}
+
+// applySkillOverrideReset reports a file it could not change as a
+// warning, so the rest of doctor --fix still runs.
+func applySkillOverrideReset(cmd *cobra.Command, report *skillOverrideReport, backup bool, confirm func(string) (bool, error)) error {
+	if report.uneditable != nil {
 		return nil
 	}
+	removed, err := resetClaudeSkillOverrides(report, backup, confirm)
 	if err != nil {
-		return err
+		cmd.Printf("  ! %v\n", err)
+		return nil
 	}
 	if removed > 0 {
 		cmd.Printf("  ✓ re-enabled %d synced skill(s) in %s\n", removed, report.display())
@@ -243,9 +266,9 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 	if len(keys) == 0 {
 		return 0, nil
 	}
-	info, err := os.Stat(report.path)
+	info, err := os.Lstat(report.path)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", report.path, err)
+		return 0, fmt.Errorf("%s: %w", report.display(), err)
 	}
 	now, err := os.ReadFile(report.path)
 	if err != nil {
@@ -253,6 +276,9 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 	}
 	if string(now) != string(report.data) {
 		return 0, fmt.Errorf("%s %w", report.display(), errSkillOverridesChanged)
+	}
+	if err := skillOverridesEditBlock(report, now); err != nil {
+		return 0, err
 	}
 	out, err := removeSkillOverrideKeys(report.path, now, keys)
 	if err != nil {
@@ -268,11 +294,55 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 		if err := os.WriteFile(backupPath, now, info.Mode().Perm()); err != nil {
 			return 0, fmt.Errorf("%s: %w", backupPath, err)
 		}
+		// WriteFile keeps the mode of a .bak that already exists.
+		if err := os.Chmod(backupPath, info.Mode().Perm()); err != nil {
+			return 0, fmt.Errorf("%s: %w", backupPath, err)
+		}
 	}
 	if err := os.WriteFile(report.path, out, info.Mode().Perm()); err != nil {
 		return 0, fmt.Errorf("%s: %w", report.path, err)
 	}
 	return skills, nil
+}
+
+// skillOverridesEditBlock says why doctor must not edit the file: a
+// link points at a file the user may share, and a repeated
+// skillOverrides object shows another copy once the last one empties.
+func skillOverridesEditBlock(report *skillOverrideReport, data []byte) error {
+	info, err := os.Lstat(report.path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", report.display(), err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s: not a regular file, so doctor leaves it to you", report.display())
+	}
+	repeated, err := rootKeyCount(data, "skillOverrides")
+	if err != nil {
+		return fmt.Errorf("parse %s: %w", report.display(), err)
+	}
+	if repeated > 1 {
+		return fmt.Errorf("%s %w", report.display(), errSkillOverridesRepeated)
+	}
+	return nil
+}
+
+func rootKeyCount(data []byte, key string) (int, error) {
+	text := string(data)
+	open, err := jsonRootOpen(text)
+	if err != nil {
+		return 0, err
+	}
+	members, _, err := scanJSONObject(text, open)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, m := range members {
+		if m.key == key {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // removeSkillOverrideKeys drops every copy of each key, since a JSON
