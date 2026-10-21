@@ -335,4 +335,8 @@
 # (20238496): explain --layers records the source replacement/extension
 # chain and reports it in text and JSON. Same Linux amd64 release flags;
 # retain the 8 KB allowance. No new dependencies.
-20263072
+# #2357 measured 20283552 on Go 1.27.3, up 24576 from main 15ce4fe4
+# (20258976): doctor reports synced skills that Claude skillOverrides turns
+# off, and doctor --fix removes confirmed entries in place. Same Linux amd64
+# release flags; retain the 8 KB allowance. No new dependencies.
+20291744

@@ -633,7 +633,8 @@ func newDoctorCmd() *cobra.Command {
 			"  3. Report unsupported spec kinds per target, then spec health: the\n" +
 			"     findings `agnostic-ai lint` reports.\n" +
 			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/,\n" +
-			"     and project skills or agents that share a name with a global one.\n" +
+			"     project skills or agents that share a name with a global one, and\n" +
+			"     synced skills your local Claude settings turn off (skillOverrides).\n" +
 			"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
@@ -644,7 +645,8 @@ func newDoctorCmd() *cobra.Command {
 			"  9. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
 			"failing. Subcommands run individual checks.\n\n" +
-			"--scope project skips local Codex hook trust and reports it as skipped. " +
+			"--scope project skips local Codex hook trust and reports it as skipped, " +
+			"and skips the local Claude skillOverrides check. " +
 			"All project checks stay enabled. With --fix, only project drift is repaired; " +
 			"trust is never approved. JSON output stays read-only.",
 		Example: `  # Project and local runtime diagnostic
@@ -754,6 +756,16 @@ func newDoctorCmd() *cobra.Command {
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg)
+			// The local settings file is per developer, like hook trust.
+			if diagnosticScope != "project" && slices.Contains(cfg.Targets, "claude") && (len(targets) == 0 || slices.Contains(targets, "claude")) {
+				overrides := collectClaudeSkillOverrides(cfg, scope.bundle)
+				reportClaudeSkillOverrides(cmd, overrides)
+				if fix {
+					if err := fixClaudeSkillOverrides(cmd, overrides, backup); err != nil {
+						return err
+					}
+				}
+			}
 			if migrationHint != "" {
 				cmd.Println()
 				cmd.Println("Spec migrations:")
@@ -889,8 +901,8 @@ func newDoctorCmd() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
 	cmd.Flags().StringVar(&diagnosticScope, "scope", "all", "Checks to run: all includes local hook trust; project skips it")
-	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift and offer removal of kept orphans in a terminal")
-	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting or confirmed orphan removal")
+	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift, and in a terminal offer removal of kept orphans and of skillOverrides entries for synced skills")
+	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting, confirmed orphan removal, or confirmed skillOverrides removal")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&checkGlobs, "check-globs", false, "Flag rules whose `globs:` pattern matches no files in the working tree")
 	cmd.Flags().BoolVar(&checkRefs, "check-references", false, "Flag relative Markdown links in emitted skills whose file is missing on disk")
