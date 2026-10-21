@@ -492,6 +492,29 @@ main > section[id] {
   overflow: auto;
 }
 
+/* On a large screen every entry takes one height that ends level with the
+   last entry in the tree beside it. */
+@media (min-width: 1180px) {
+  .explorer-output-panel pre {
+    height: 19rem;
+    max-height: 19rem;
+  }
+}
+
+/* A tool that cannot take the spec kind: one line on what sync does instead. */
+.explorer-output-note {
+  margin: 0;
+  padding: 1rem;
+  color: var(--slab-dim);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.explorer-output-note code {
+  background: var(--slab-raised);
+  color: var(--slab-ink);
+}
+
 .explorer-reach {
   margin: 0;
   color: var(--muted);
