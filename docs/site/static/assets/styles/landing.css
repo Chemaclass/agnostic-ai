@@ -492,6 +492,29 @@ main > section[id] {
   overflow: auto;
 }
 
+/* On a large screen every entry takes one height that ends level with the
+   last entry in the tree beside it. */
+@media (min-width: 1180px) {
+  .explorer-output-panel pre {
+    height: 19rem;
+    max-height: 19rem;
+  }
+}
+
+/* A tool that cannot take the spec kind: one line on what sync does instead. */
+.explorer-output-note {
+  margin: 0;
+  padding: 1rem;
+  color: var(--slab-dim);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.explorer-output-note code {
+  background: var(--slab-raised);
+  color: var(--slab-ink);
+}
+
 .explorer-reach {
   margin: 0;
   color: var(--muted);
@@ -1169,10 +1192,16 @@ main > section[id] {
 .fanout-path { grid-area: path; }
 .fanout-check { grid-area: mark; }
 
+/* The tool names and the file text share one grid cell, with the same
+   box and line height, so the cards keep their height when the toggle
+   flips. */
 .fanout-tools,
 .fanout-drift {
   grid-area: detail;
   margin-left: 0;
+  padding-block: 0.45rem;
+  border: 1px solid transparent;
+  line-height: 1.2rem;
 }
 
 .fanout-hand,
@@ -1279,9 +1308,15 @@ main > section[id] {
   white-space: nowrap;
 }
 
+/* The file text sits in the same dark slab as the source file above. */
 .fanout-drift {
-  color: var(--muted);
-  font-size: 0.8rem;
+  padding-inline: 0.75rem;
+  border-color: var(--slab-line);
+  border-radius: 8px;
+  background: var(--slab);
+  color: var(--slab-ink);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted {
@@ -1289,7 +1324,7 @@ main > section[id] {
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-drift {
-  color: var(--danger);
+  color: #ef8f74;
 }
 
 #fanout-without:checked ~ .fanout-sync::before,

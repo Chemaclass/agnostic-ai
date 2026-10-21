@@ -15,11 +15,11 @@
 
 [[files]]
   path = ".agnostic-ai/commands/review.md"
-  body = "---\nname: review\ndescription: Review a change against main.\ntargets: [kiro]\n---\n\nReview $ARGUMENTS against main and report bugs with file and line references.\n"
+  body = "---\nname: review\ndescription: Review a change against main.\n---\n\nReview the current branch against main and report bugs with file and line references.\n"
 
 [[files]]
   path = ".agnostic-ai/hooks/format.yaml"
-  body = "name: format\ntargets: [claude, codex]\nevent: PostToolUse\nmatcher: Edit|Write\ncommand: .claude/hooks/format.sh\n"
+  body = "name: format\non: after-edit\ncommand: .agnostic-ai/scripts/format.sh\n"
 
 [[files]]
   path = ".agnostic-ai/local/rules/my-style.md"
@@ -42,12 +42,12 @@
   body = "---\nname: testing\nglobs: [\"**/*.test.ts\"]\n---\n\nOne behavior per test. Mock HTTP with `msw`.\n"
 
 [[files]]
-  path = ".agnostic-ai/scripts/claude/format.sh"
-  body = "#!/bin/sh\nfile=$(jq -r '.tool_input.file_path // empty')\n[ -z \"$file\" ] || npx prettier --write \"$file\"\n"
+  path = ".agnostic-ai/scripts/format.sh"
+  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
 
 [[files]]
   path = ".agnostic-ai/settings/model.yaml"
-  body = "model:\n  claude: claude-opus-5-5\n  codex: gpt-6-sol\neffort:\n  claude: xhigh\n  codex: high\n"
+  body = "model:\n  claude: claude-opus-5-5\n  codex: gpt-6-sol\n  gemini: gemini-3.1-pro-preview\neffort:\n  claude: xhigh\n  codex: high\n"
 
 [[files]]
   path = ".agnostic-ai/settings/permissions.yaml"
@@ -62,8 +62,12 @@
   body = "---\nname: test-writer\ndescription: Writes a failing test for a bug.\ntools:\n  - Read\n  - Grep\n  - Edit\nmodel: claude-sonnet-5\neffort: medium\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
 
 [[files]]
+  path = ".claude/commands/review.md"
+  body = "---\nname: review\ndescription: Review a change against main.\n---\n\nReview the current branch against main and report bugs with file and line references.\n"
+
+[[files]]
   path = ".claude/hooks/format.sh"
-  body = "#!/bin/sh\nfile=$(jq -r '.tool_input.file_path // empty')\n[ -z \"$file\" ] || npx prettier --write \"$file\"\n"
+  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
 
 [[files]]
   path = ".claude/rules/my-style.md"
@@ -75,7 +79,7 @@
 
 [[files]]
   path = ".claude/settings.json"
-  body = "{\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"~/.claude/statusline.sh\"\n  },\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(pnpm test:*)\"\n    ],\n    \"ask\": [\n      \"Bash(git push:*)\"\n    ],\n    \"deny\": [\n      \"Read(.env)\"\n    ]\n  },\n  \"model\": \"claude-opus-5-5\",\n  \"effortLevel\": \"xhigh\",\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \".claude/hooks/format.sh\"\n          }\n        ]\n      }\n    ]\n  },\n  \"env\": {\n    \"AGNOSTIC_AI_TARGET\": \"claude\"\n  }\n}\n"
+  body = "{\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"~/.claude/statusline.sh\"\n  },\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(pnpm test:*)\"\n    ],\n    \"ask\": [\n      \"Bash(git push:*)\"\n    ],\n    \"deny\": [\n      \"Read(.env)\"\n    ]\n  },\n  \"model\": \"claude-opus-5-5\",\n  \"effortLevel\": \"xhigh\",\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|MultiEdit|Write|NotebookEdit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \".claude/hooks/format.sh\"\n          }\n        ]\n      }\n    ]\n  },\n  \"env\": {\n    \"AGNOSTIC_AI_TARGET\": \"claude\"\n  }\n}\n"
 
 [[files]]
   path = ".claude/skills/release/SKILL.md"
@@ -95,23 +99,27 @@
 
 [[files]]
   path = ".codex/hooks/format.sh"
-  body = "#!/bin/sh\nfile=$(jq -r '.tool_input.file_path // empty')\n[ -z \"$file\" ] || npx prettier --write \"$file\"\n"
+  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
 
 [[files]]
   path = ".gemini/agents/test-writer.md"
   body = "---\nname: test-writer\ndescription: Writes a failing test for a bug.\ntools:\n  - read_file\n  - grep_search\n  - replace\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
 
 [[files]]
+  path = ".gemini/commands/review.toml"
+  body = "description = \"Review a change against main.\"\nprompt = \"\"\"\nReview the current branch against main and report bugs with file and line references.\n\"\"\"\n"
+
+[[files]]
+  path = ".gemini/hooks/format.sh"
+  body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
+
+[[files]]
   path = ".gemini/settings.json"
-  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
+  body = "{\n  \"hooks\": {\n    \"AfterTool\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".gemini/hooks/format.sh\",\n            \"env\": {\n              \"AGNOSTIC_AI_TARGET\": \"gemini\"\n            },\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"^(write_file|replace)$\"\n      }\n    ]\n  },\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  },\n  \"model\": {\n    \"name\": \"gemini-3.1-pro-preview\"\n  }\n}\n"
 
 [[files]]
   path = ".gemini/skills/release/SKILL.md"
   body = "---\nname: release\ndescription: Cut a release and verify it.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
-
-[[files]]
-  path = ".kiro/prompts/review.md"
-  body = "Review $ARGUMENTS against main and report bugs with file and line references.\n"
 
 [[files]]
   path = ".mcp.json"
@@ -119,12 +127,23 @@
 
 [[files]]
   path = "AGENTS.md"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### testing\n\n<!-- source: .agnostic-ai/rules/testing.md scope: 1 -->\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n\n### my-style\n\n<!-- source: .agnostic-ai/local/rules/my-style.md -->\nAnswer in short sentences.\n\n\n<!-- agnostic-ai:rules:end -->\n"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n### my-style\n\nAnswer in short sentences.\n"
+
+[[files]]
+  path = "AGENTS.md"
+  part = "instructions"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
 
 [[files]]
   path = "CLAUDE.md"
+  part = "instructions"
   body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
 
 [[files]]
   path = "GEMINI.md"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n<!-- agnostic-ai:rules:start -->\n\n## Rules\n\n### testing\n\n<!-- source: .agnostic-ai/rules/testing.md scope: 1 -->\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n\n### my-style\n\n<!-- source: .agnostic-ai/local/rules/my-style.md -->\nAnswer in short sentences.\n\n\n<!-- agnostic-ai:rules:end -->\n"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n### my-style\n\nAnswer in short sentences.\n"
+
+[[files]]
+  path = "GEMINI.md"
+  part = "instructions"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"

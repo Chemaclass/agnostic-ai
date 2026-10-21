@@ -1,5 +1,3 @@
 name: format
-targets: [claude, codex]
-event: PostToolUse
-matcher: Edit|Write
-command: .claude/hooks/format.sh
+on: after-edit
+command: .agnostic-ai/scripts/format.sh
