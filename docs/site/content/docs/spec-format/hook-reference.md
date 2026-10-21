@@ -147,7 +147,7 @@ args: ["--deny", "git push --force"]
 timeout: 10
 ```
 
-OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before and after events on macOS and Linux. The default stays V1. Windows needs V1 with the default V1 hooks, since V2 cannot run V1 plugins. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and how Windows refuses V2.
+OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before and after events on macOS and Linux. The default stays V1. Windows needs V1 with the default V1 hooks; V2 cannot run V1 plugins. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and how Windows refuses V2.
 
 Command hooks receive event JSON on stdin. Read the shell command from `tool_input` and the edited paths with [`agnostic-ai hook paths`](@/docs/spec-format/hook-reference.md#edited-paths). `AGNOSTIC_AI_TARGET` names the tool that ran the hook; see [which target ran a hook](@/docs/spec-format/hook-reference.md#hook-target).
 

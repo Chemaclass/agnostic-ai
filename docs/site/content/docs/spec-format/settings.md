@@ -169,7 +169,7 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 ## Effort by target
 
-`effort` reaches four tools, each under its own key. A value the tool does not accept is not written and raises a sync note, as does `effort` on every other tool. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value.
+`effort` reaches four tools, each under its own key. A value the tool does not accept is not written and raises a sync note, as does `effort` on every other tool. The other tools still get their files. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value.
 
 `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it. Otherwise the value goes under `x-<target>`.
 

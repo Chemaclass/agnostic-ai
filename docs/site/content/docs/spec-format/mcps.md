@@ -237,5 +237,5 @@ This table covers project files. For user files written by `sync --global`, see 
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
 | [Copilot](@/docs/targets/copilot.md) | A `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. The key is removed from both MCP files with a note. Disable the server in VS Code yourself |
 | [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers written to `.mcp.json`. Import restores it |
-| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | The key is removed with a note, so the server stays on. Disable the server in the tool itself |
+| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | The key is removed with a note, and the server stays in the file. Disable the server in the tool itself; Warp starts a project server only when you start it |
 | [Ellipsis](@/docs/targets/ellipsis.md) | Server left out, since a listed server is always available. Written into the environment file, not an MCP file |
