@@ -66,7 +66,6 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
 }
 
 body {
@@ -168,7 +167,6 @@ a:focus-visible {
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
-  min-height: 0;
 }
 
 /* Sticky footer: when total content is shorter than the viewport, the
@@ -181,10 +179,13 @@ a:focus-visible {
 
 /* Desktop only: let the layout grow to fill the viewport so panels
    feel proportional on big screens. On mobile we keep natural heights
-   so panels stack without dead space. */
+   so panels stack without dead space. A zero basis keeps long output
+   scrolling inside its panel; the minimum is the panel's 460px plus
+   the layout padding, so the footer never covers the panels. */
 @media (min-width: 901px) {
   .layout {
-    flex: 1 1 auto;
+    flex: 1 0 0;
+    min-height: 500px;
   }
 }
 
