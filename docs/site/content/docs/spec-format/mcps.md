@@ -12,11 +12,11 @@ group = "Reference"
 
 `mcps/` connects agents to outside tools and data through the Model Context Protocol: a browser, a database, GitHub, an issue tracker. Each tool keeps servers in its own file and format, such as `.mcp.json`, `.cursor/mcp.json`, or `[mcp_servers.*]` in `.codex/config.toml`. One YAML file per server feeds all of them.
 
-Compare connection fields before changing tools with [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare). It reports written fields and references a tool leaves out without printing their values or connecting to servers.
+Before you change tools, compare connection fields with [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare). It reports the fields each tool gets and the references it leaves out, without printing values or connecting to servers.
 
 ## Write one
 
-`agnostic-ai new mcp filesystem` creates `mcps/filesystem.yaml`: plain YAML, no markdown body.
+`agnostic-ai new mcp filesystem` creates `mcps/filesystem.yaml`, plain YAML with no markdown body. Replace its placeholder with:
 
 ```yaml
 name: filesystem
@@ -86,7 +86,7 @@ mcpServers: [github]
 
 Sync leaves the server out of every project and user MCP file. It writes the server's full definition into the agent file of each agent that names it, on the tools whose agent file can hold one: [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Kiro](@/docs/targets/kiro.md), and [OpenHands](@/docs/targets/openhands.md). Every other tool gets no copy of the server, and sync prints a note. See [`mcpServers` support by target](@/docs/spec-format/agents.md#mcpservers-support-by-target).
 
-- The agent file is committed with every copy of the agent, so sync checks a server it writes there more strictly. Besides a literal `env` or `headers` value, it refuses a credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, and in a `${NAME:-default}` default. The check also covers servers from a [pack](@/docs/packs.md). `validate` and `lint` (LINT035) report the same values. Elsewhere they are a LINT049 warning.
+- The agent file is committed with every copy of the agent, so sync checks a server it writes there more strictly. Besides a literal `env` or `headers` value, it refuses a credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, and in a `${NAME:-default}` default, even for a server from a [pack](@/docs/packs.md). `validate` and `lint` report these as LINT035; outside an agent file they are a [LINT049 warning](#plain-settings).
 - `agent-only` must be `true` or `false`. Sync and `validate` refuse any other value, such as `yes`.
 - A server no agent names reaches no tool. Sync prints a note.
 - A `disabled: true` server is left out of the agent file.
@@ -105,7 +105,13 @@ env:
 
 Sync writes `NODE_ENV: production` to every tool. An editor with the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
 
-`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too. Empty values, numbers, and booleans are not checked. A credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, or in a `${NAME:-default}` default gets a LINT049 warning instead: it reads the value's shape, and those places take no `!literal` mark, so `sync` still runs. For a server sync writes into an [agent file](#agent-only), the same check is an error.
+Any other `env` or `headers` value fails:
+
+- `agnostic-ai lint` reports it as LINT035, and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value.
+- A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, fails too.
+- Empty values, numbers, and booleans are not checked.
+
+A credential in `url` or `args`, in an `x-<target>` block's `env` or `headers`, or in a `${NAME:-default}` default gets a LINT049 warning instead, and `sync` still runs. The check reads the value's shape, and those places take no `!literal` mark. In an [agent file](#agent-only) it is an error.
 
 [`agnostic-ai migrate --only secrets`](@/docs/cli-reference/upgrades.md#migrate) rewrites existing specs. A value that looks like a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, and the command lists each variable to set, never the value. Every other value gets `!literal`. It leaves two cases to you: a key with a [credential name](#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
 
@@ -137,7 +143,7 @@ Sync writes each tool's own form. Where a tool cannot read a reference in that f
 
 Kiro expands only variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset.
 
-[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable that is unset in your shell, including in `x-<target>` blocks and disabled servers. A tool started from a desktop launcher may see a different environment, and Continue also reads `.env` files, so treat the list as a hint.
+[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable that is unset in your shell, including in `x-<target>` blocks and disabled servers. Treat the list as a hint: a tool started from a desktop launcher may see a different environment, and Continue reads secrets from files too.
 
 Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env`. Its CLI also reads environment variables. See [Continue's secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables). Keep `.env` files out of Git.
 
@@ -188,8 +194,6 @@ The [credential-name rules](@/docs/spec-format/mcp-import.md#credential-names) d
 
 ## Target-only fields
 
-These fields apply only to the listed tools.
-
 | Target | Extra fields |
 |--------|--------------|
 | [Codex](@/docs/targets/codex.md) | `env_vars`, `env_http_headers`, `http_headers_helper`, `auth`, `required`, `startup_timeout_sec`, `startup_timeout_ms`, `tool_timeout_sec`, `default_tools_approval_mode`, `scopes`, `oauth_resource`, `experimental_environment`, `enabled_tools`, `disabled_tools` |
@@ -204,9 +208,7 @@ These fields apply only to the listed tools.
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
 | [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in `~/.openhands/mcp.json` |
 
-On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
-
-Set Factory's native tool list with `x-factory.enabledTools`. See [Factory MCP behavior](@/docs/targets/factory.md#mcp) for filtering and import details.
+On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target. Factory's tool list goes under `x-factory` ([filtering and import](@/docs/targets/factory.md#mcp)):
 
 ```yaml
 x-factory:
@@ -214,7 +216,7 @@ x-factory:
   disabledTools: [shared_tool]
 ```
 
-Crush's `channel_enabled` keeps explicit `true` and `false`. `channel_reply` selects direct and group reply tools, their argument names and tools that suppress duplicate replies. Set these fields at the top level or under `x-crush`, which wins. Import and sync preserve them. See [Crush MCP channels](@/docs/targets/crush.md#mcp).
+Crush's `channel_enabled` keeps explicit `true` and `false`. `channel_reply` selects the direct and group reply tools, their argument names, and the tools that suppress duplicate replies. Set these fields at the top level or under `x-crush`, which wins. Import and sync preserve them. See [Crush MCP channels](@/docs/targets/crush.md#mcp).
 
 Claude Code's `alwaysLoad` and `bareElicitationCapability` keep an explicit `true` or `false`. Omit a flag to keep Claude Code's default. Set them at the top level or under `x-claude`, which wins. Other tools leave out both flags. See [Claude Code MCP behavior](@/docs/targets/claude-reference.md#mcp-mappings).
 
@@ -226,12 +228,14 @@ x-claude:
 
 ## `disabled` support by target
 
+This table covers project files. For user files written by `sync --global`, see [global MCP servers](@/docs/global-configuration.md#global-mcp-servers).
+
 | Target | Behavior |
 |--------|----------|
 | [Antigravity](@/docs/targets/antigravity.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Qoder](@/docs/targets/qoder.md), [Windsurf](@/docs/targets/windsurf.md) | Native `disabled` |
 | [Codex](@/docs/targets/codex.md) | Mapped to `enabled = false` |
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
-| [Copilot](@/docs/targets/copilot.md) | A `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. Removed from both MCP files with a note. Disable the server in VS Code for that half |
+| [Copilot](@/docs/targets/copilot.md) | A `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. The key is removed from both MCP files with a note. Disable the server in VS Code yourself |
 | [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers written to `.mcp.json`. Import restores it |
-| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Removed with a note. Disable the server in the tool itself |
+| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | The key is removed with a note, so the server stays on. Disable the server in the tool itself |
 | [Ellipsis](@/docs/targets/ellipsis.md) | Server left out, since a listed server is always available. Written into the environment file, not an MCP file |

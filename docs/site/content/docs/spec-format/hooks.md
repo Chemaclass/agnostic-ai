@@ -60,7 +60,7 @@ sources = "@/docs/cli-reference/hook-diagnostics.md#sources"
 ## Sources {#sources .legacy-anchor}
 
 
-`hooks/` holds commands the AI tool runs at fixed points: when a session starts, before a tool call, after a file edit, when the agent stops. The coding tool invokes a configured command at a supported event. Hooks must be enabled and trusted in that tool.
+`hooks/` holds commands the AI tool runs at fixed points: when a session starts, before a tool call, after a file edit, when the agent stops. Hooks must be enabled and trusted in that tool.
 
 ## Write one
 
@@ -80,7 +80,7 @@ on: session-start
 command: git status --short
 ```
 
-This command reports Git state; it does not block actions. Run it from a Git project. Sync, then test the generated command:
+This command reports Git state and blocks nothing. Run it from a Git project. Sync, then test the generated command:
 
 ```bash
 agnostic-ai lint
@@ -89,11 +89,11 @@ agnostic-ai hook run session-status
 agnostic-ai sync --check
 ```
 
-For a guard, use `on: before-tool` and a script that reads event JSON on stdin. Exit 0 allows the call to continue; exit 2 blocks supported tool calls with stderr as the reason. Review the [event and failure contract](@/docs/spec-format/hook-reference.md#portable-events) before relying on a guard. Hook scripts run with your tools' access.
+For a guard, use `on: before-tool` and a script that reads event JSON on stdin. Exit 0 allows the call to continue; exit 2 blocks supported tool calls with stderr as the reason. Read the [event and failure contract](@/docs/spec-format/hook-reference.md#portable-events) before you rely on a guard.
 
-Use [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare) to check how tools write hook events, matchers, commands, timeouts, and failure policies. The report names missing mappings, target exclusions, and ignored options. Written configuration does not prove a hook ran.
+Hook scripts run with your tools' access, so review hook specs like code. Sync never runs a hook; the configured tools do, and [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs one when you ask. A written configuration does not prove a hook ran.
 
-Sync never runs a hook. The configured tools do. [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs one when you ask. Review hook specs like code.
+[`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare) shows how each tool writes hook events, matchers, commands, timeouts, and failure policies. The report names missing mappings, target exclusions, and ignored options.
 
 ## Choose the next step
 
