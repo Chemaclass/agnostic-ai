@@ -127,7 +127,7 @@
 
 [[files]]
   path = "AGENTS.md"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\n<!-- source: .agnostic-ai/rules/testing.md scope: 1 -->\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n\n### my-style\n\n<!-- source: .agnostic-ai/local/rules/my-style.md -->\nAnswer in short sentences.\n\n"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n### my-style\n\nAnswer in short sentences.\n"
 
 [[files]]
   path = "AGENTS.md"
@@ -141,7 +141,7 @@
 
 [[files]]
   path = "GEMINI.md"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\n<!-- source: .agnostic-ai/rules/testing.md scope: 1 -->\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n\n### my-style\n\n<!-- source: .agnostic-ai/local/rules/my-style.md -->\nAnswer in short sentences.\n\n"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n### my-style\n\nAnswer in short sentences.\n"
 
 [[files]]
   path = "GEMINI.md"
