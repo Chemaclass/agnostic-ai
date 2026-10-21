@@ -122,6 +122,8 @@ type skillOverrideFile struct {
 // skillOverrideBelow is the next lower file's value for a skill.
 type skillOverrideBelow struct {
 	value, label string
+	// uncertain is true when that file holds a rejected value.
+	uncertain bool
 }
 
 // skillOverrideReport is what one settings file's skillOverrides does to
@@ -357,7 +359,7 @@ func lowerSkillOverrides(lower []*skillOverrideReport) map[string]skillOverrideB
 			if entry.Conflict {
 				value = "conflicting values"
 			}
-			here[folded] = skillOverrideBelow{value, report.label()}
+			here[folded] = skillOverrideBelow{value, report.label(), report.hasRejected()}
 		}
 		maps.Copy(below, here)
 	}
@@ -365,15 +367,22 @@ func lowerSkillOverrides(lower []*skillOverrideReport) map[string]skillOverrideB
 }
 
 // stillSet lists the skills that a lower file still changes, with what it
-// sets and where.
-func (r *skillOverrideReport) stillSet(skills []string) []string {
-	var out []string
+// sets and where. uncertain is true when one of those files holds a
+// rejected value, so Claude Code may skip it.
+func (r *skillOverrideReport) stillSet(skills []string) (out []string, uncertain bool) {
 	for _, skill := range skills {
-		if below, ok := r.below[claudeSkillName(skill)]; ok && below.value != "on" {
-			out = append(out, fmt.Sprintf("%s: %s in %s", skill, below.value, below.label))
+		below, ok := r.below[claudeSkillName(skill)]
+		if !ok || below.value == "on" {
+			continue
 		}
+		item := fmt.Sprintf("%s: %s in %s", skill, below.value, below.label)
+		if below.uncertain {
+			item += " (Claude Code may skip that file over a rejected value)"
+			uncertain = true
+		}
+		out = append(out, item)
 	}
-	return out
+	return out, uncertain
 }
 
 // markSkillOverrideEntries sets which of a file's entries take effect.
@@ -767,12 +776,16 @@ func applySkillOverrideReset(cmd *cobra.Command, report *skillOverrideReport, ba
 	if removed == 0 {
 		return nil
 	}
-	lower := report.stillSet(report.removed)
+	lower, uncertain := report.stillSet(report.removed)
 	if reenabled := removed - len(lower); reenabled > 0 {
 		cmd.Printf("  ✓ re-enabled %d synced skill(s) in %s\n", reenabled, report.display())
 	}
 	if len(lower) > 0 {
-		cmd.Printf("  ✓ removed the entries for %d synced skill(s) in %s; a lower file still sets: %s\n", len(lower), report.display(), strings.Join(lower, ", "))
+		sets := "still sets"
+		if uncertain {
+			sets = "may still set"
+		}
+		cmd.Printf("  ✓ removed the entries for %d synced skill(s) in %s; a lower file %s: %s\n", len(lower), report.display(), sets, strings.Join(lower, ", "))
 	}
 	return nil
 }
@@ -806,7 +819,7 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 			noun = "skill"
 		}
 		names := listSkillOverrideNames(finding.skills)
-		lower := report.stillSet(finding.skills)
+		lower, uncertain := report.stillSet(finding.skills)
 		var question string
 		switch {
 		case g.prompt == "":
@@ -816,7 +829,10 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 		default:
 			question = fmt.Sprintf("Re-enable %d synced %s %s in %s (%s)?", len(finding.skills), noun, g.prompt, report.display(), names)
 		}
-		if len(lower) > 0 {
+		switch {
+		case uncertain:
+			question += " Then a lower file may apply: " + strings.Join(lower, ", ")
+		case len(lower) > 0:
 			question += " Then a lower file applies: " + strings.Join(lower, ", ")
 		}
 		yes, err := confirm(question)

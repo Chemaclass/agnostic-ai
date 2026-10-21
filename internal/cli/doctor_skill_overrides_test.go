@@ -1067,6 +1067,13 @@ func TestApplySkillOverrideReset_NamesTheLowerValueThatThenApplies(t *testing.T)
 			done:     "  ✓ removed the entries for 1 synced skill(s) in .claude/settings.local.json; a lower file still sets: a: off in ~/.claude/settings.json\n",
 		},
 		{
+			name:     "lower file with a rejected value",
+			local:    `{"skillOverrides":{"a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"name-only","zzz":"Off"}}`,
+			question: "Remove the entries for 1 synced skill turned off in .claude/settings.local.json (a)? Then a lower file may apply: a: name-only in ~/.claude/settings.json (Claude Code may skip that file over a rejected value)",
+			done:     "  ✓ removed the entries for 1 synced skill(s) in .claude/settings.local.json; a lower file may still set: a: name-only in ~/.claude/settings.json (Claude Code may skip that file over a rejected value)\n",
+		},
+		{
 			name:     "lower file turns it on",
 			local:    `{"skillOverrides":{"a":"off"}}`,
 			user:     `{"skillOverrides":{"a":"on"}}`,
