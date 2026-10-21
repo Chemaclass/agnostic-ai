@@ -11,7 +11,7 @@ group = "Reference"
 
 ## Source and targets
 
-`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 26 targets. [Global output](#global-output) lists the paths. It works from any directory and loads no packs or project specs.
+`agnostic-ai sync --global` installs your user-level instructions, rules, hooks, and skills for 22 of the 26 targets. [Global output](#global-output) lists the paths. It runs from any directory and loads no packs or project specs.
 
 The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
@@ -28,7 +28,7 @@ The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 └── local/                  # optional personal layer, same layout
 ```
 
-Specs in `local/` merge into shared specs of the same kind and name, field by field, and new names append. A `::parent` line extends the shared body. See [local overrides](@/docs/local-overrides.md#override-fields). `local/AGNOSTIC_AI.md` comes last in the managed instructions block. Add `/local/` to the source root's `.gitignore` before adding personal files.
+A spec in `local/` merges field by field into the shared spec of the same kind and name. A new name adds a spec. A `::parent` line extends the shared body. See [local overrides](@/docs/local-overrides.md#override-fields). `local/AGNOSTIC_AI.md` comes last in the managed instructions block. Add `/local/` to the source root's `.gitignore` before adding personal files.
 
 To sync a fixed set of tools without `--only` on every run, list them in the source root's `agnostic-ai.yaml`:
 
@@ -39,7 +39,8 @@ targets: [claude, codex, cursor]
 - `sync --global`, `lint --global`, and `validate --global` then use only those targets. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one.
 - `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`.
 - A target with no user-level files, such as `aider` or `continue`, is skipped with one warning. An unknown name stops the run.
-- [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration.md#models) work as in a project. For each key, `local/agnostic-ai.yaml` replaces the shared value. A `models` tier replaces the same-name tier whole. When a file's tiers do not load, `sync --global` stops. With `-t`, it warns, skips that file's tiers, and omits the `model` of any spec that names one.
+- [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration.md#models) work as in a project. For each key, `local/agnostic-ai.yaml` replaces the shared value, and a `models` tier replaces the same-name tier whole.
+- When a file's tiers do not load, `sync --global` stops. With `-t`, it warns, skips that file's tiers, and omits the `model` of any spec that names one.
 - [`on-unsupported`](@/docs/configuration.md#on-unsupported) sets what `sync --global` does with a skill line that Claude Code expands and another target reads as plain text: `warn` prints a note, `error` fails the sync, `silent` hides it. See [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax).
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
@@ -51,7 +52,7 @@ targets: [claude, codex, cursor]
 - Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hook-reference.md#portable-events).
 - Copilot user hooks write `~/.copilot/hooks/agnostic-ai.json`; `COPILOT_HOME` moves the native home. `import --global copilot` adopts matching handlers from neighboring user JSON files without adding a second copy. See [Copilot hooks](@/docs/targets/copilot.md#hooks) for conflict recovery.
-- Cline SDK/CLI global hooks write `~/.cline/hooks/<Event>`; `CLINE_DIR` moves the root. The VS Code extension uses a separate Documents folder that sync does not write. See [Cline global hooks](@/docs/targets/cline.md#global-hooks).
+- Cline SDK/CLI global hooks write `~/.cline/hooks/<Event>`; `CLINE_DIR` moves the root. The VS Code extension reads only its Documents `Cline/Hooks/` folder at user level, which sync does not write. See [Cline global hooks](@/docs/targets/cline.md#global-hooks).
 - Kiro CLI V3 global hooks write one `~/.kiro/hooks/<name>.json` per spec, using the same format as project hooks. `KIRO_HOME` moves the hooks and scripts with Kiro's other global folders. Shared scripts go to `~/.kiro/scripts/`. Unrelated hook files stay; a conflicting file stops sync.
 - Targets without global agent output warn and skip agents.
 - Output is real files, never symlinks. A user file that is itself a symlink, such as a dotfiles-managed `CLAUDE.md`, is written through. A symlink inside a skills, agents, or rules directory stops the run.
@@ -59,7 +60,8 @@ targets: [claude, codex, cursor]
 - A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block never counts.
 - A file or hook that already matches what sync would write is adopted. One that differs, even by one byte, stops the run. So do an unmanaged agent, skill, or rule collision, a damaged marker, invalid native JSON, corrupt state, and state recorded under another `HOME`.
 - Without `--only`, explicit targets, or a home `targets` list, a target with a relative root variable or an invalid agent name is skipped with a warning. Naming it makes that an error.
-- Each tool decides which settings win when global and project configuration both exist. See [shared names](#global-shared-names). Sync Goose and OpenHands together to update their shared agent file.
+- Each tool decides which settings win when global and project configuration both exist. See [shared names](#global-shared-names).
+- Sync Goose and OpenHands together to update their shared agent file.
 
 Ordinary `agnostic-ai sync` reads only the names of `~/.agnostic-ai/` specs, to [warn about shared names](#global-shared-names).
 
@@ -75,11 +77,11 @@ A project skill or agent can share its `name` with one in the home. Sync writes 
 ! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on claude
 ```
 
-A home skill can hide a project skill with the same name. Claude Code and Amp do not document a project setting that selects only that project copy while keeping other home skills. Amp's `amp.skills.disableGlobalAgentsSkills` disables discovery of all skills from the global agents folders; it does not choose one conflicting name. Sync keeps both copies and explains that limit; it does not change your home files. Renaming a copy lets both load, but changes the name you use to call it. Doctor reports the limit even when sync warnings are silenced.
+A home skill can hide a project skill with the same name. Claude Code and Amp document no project setting that picks the project copy and keeps the other home skills. Amp's `amp.skills.disableGlobalAgentsSkills` turns off every skill in the global agents folders, not one name. Sync keeps both copies, explains the limit, and leaves your home files alone. Renaming a copy lets both load, but changes the name you call it by. Doctor reports the limit even when sync warnings are off.
 
 A winning global copy changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused here. When both copies hold the same content, it says to delete one before they drift apart.
 
-The table shows the targets currently covered by the shared-name check, including Codex's no-warning case.
+The shared-name check covers these targets:
 
 | Target | Skill with the same name | Agent with the same name |
 |--------|--------------------------|--------------------------|
@@ -88,7 +90,11 @@ The table shows the targets currently covered by the shared-name check, includin
 | Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
 | Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
 
-Other tools also document skill-name behavior, but sync and doctor do not check them: [Kiro](https://kiro.dev/docs/skills/#skill-scope) gives workspace skills priority over global skills, and [Qoder](https://docs.qoder.com/extensions/skills) gives project skills priority over user skills. [Warp](https://docs.warp.dev/agents/capabilities/skills#skill-name-conflicts) prefers home skills, then higher directories, when resolving names in the background. Its slash-command menu shows all matches; natural-language requests give the agent all in-scope options with their paths.
+Sync and doctor do not check other tools, though some document what happens:
+
+- [Kiro](https://kiro.dev/docs/skills/#skill-scope) prefers workspace skills over global skills.
+- [Qoder](https://docs.qoder.com/extensions/skills) prefers project skills over user skills.
+- [Warp](https://docs.warp.dev/agents/capabilities/skills#skill-name-conflicts) prefers home skills, then higher directories, when it resolves names in the background. Its slash-command menu shows all matches, and a plain-language request gives the agent every match in scope with its path.
 
 <details>
 <summary>Which pairs the check compares</summary>
@@ -105,7 +111,7 @@ To keep one name in both places, list it in [`sync.allow-global-names`](@/docs/c
 
 ### Default model and effort {#global-default-model-and-effort}
 
-Settings specs in the home set each tool's default model and effort in its user settings file. `model` and `effort` each take one string for every target, or a per-target map with an optional `default`:
+A settings spec in the home sets each tool's default model and effort in its user settings file. `model` and `effort` each take one string for every target, or a per-target map with an optional `default`:
 
 ```yaml
 # ~/.agnostic-ai/settings/defaults.yaml
@@ -125,7 +131,7 @@ effort:
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
-Other targets, and permission lists for every target but Claude, raise a coverage note, and so does `effort` on Gemini. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
+Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
 
 Accepted `effort` values:
 
@@ -133,7 +139,7 @@ Accepted `effort` values:
 - Qoder: `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`.
 - Codex: any string.
 
-A dotted key is a nested JSON object: sync sets `name` inside `model` and leaves the other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+A dotted key is a nested JSON object: for `model.name`, sync sets `name` inside `model` and leaves the other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 
 Set Claude Code's starting permission mode in a home settings spec:
 
@@ -145,9 +151,7 @@ permissions:
 
 `sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`. It accepts `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, and `bypassPermissions`. A later settings spec wins. Removing the field removes the managed mode, unless you changed it by hand.
 
-Claude permission-list import and sync were added after v0.85.0. The v0.85.0 release does not support these lists.
-
-Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule:
+Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-claude.permissions`, merge into `~/.claude/settings.json` rule by rule. Importing and syncing these lists needs v0.86.0 or later.
 
 - Sync appends each rule a list lacks after the rules already there. A rule already there is adopted.
 - Sync records both added and adopted rules in `state/global.json`. Dropping a rule from the specs removes it, including a rule you wrote before adoption.
@@ -157,9 +161,9 @@ Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-c
 
 Claude Code saves standing permission approvals to the project's `.claude/settings.local.json`, which global import does not read. See [Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files).
 
-Other targets report a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
+Any `permissions` field on a target other than Claude raises a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 
-Set personal transcript age limits with `session-retention-days` in a home settings spec. Global sync maps it to Claude Code, Gemini CLI, and Qoder CLI; project sync leaves it out. It is unset by default and does not enable disabled cleanup. See [session retention](@/docs/spec-format/settings.md#session-retention) for the native keys, deletion warning, and restoration rules.
+`session-retention-days` in a home settings spec sets how many days your transcripts are kept. Global sync maps it to Claude Code, Gemini CLI, and Qoder CLI; project sync leaves it out. It is unset by default and does not turn on cleanup a tool has turned off. See [session retention](@/docs/spec-format/settings.md#session-retention) for the native keys, deletion warning, and restoration rules.
 
 Each item wins over the one before it:
 
@@ -169,7 +173,7 @@ Each item wins over the one before it:
 4. An agent's own `model` and `effort`, for that agent.
 5. The tool's flag for one run, such as `codex -m` or `claude --model`.
 
-Sync edits only the keys it writes. Removing the spec removes only those keys, and a file sync created is deleted once it is empty.
+Sync edits only the keys it writes. Removing the spec removes only those keys, and sync deletes a file it created once the file is empty.
 
 - A key that already holds the value sync would write is adopted.
 - A key with another value stops the run and names the file, key, and both values. This is normal for Codex, whose `/model` picker saves to `config.toml`. `--backup` overwrites the key and keeps `<path>.bak`.
@@ -187,7 +191,7 @@ agnostic-ai sync --global --only claude,codex
 agnostic-ai sync --global --only claude,codex --check
 ```
 
-Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. If a hand-copied file sits at an output path, save its edits in the source and move it aside first. `--backup` does not bypass unmanaged collisions.
+Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`. If a hand-copied file sits at an output path, copy its edits into the source and move the file aside first. `--backup` does not override a file sync does not own.
 
 ### MCP servers {#global-mcp-servers}
 
@@ -267,9 +271,10 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - Aider reaches a home instructions file only through a `read:` entry in `~/.aider.conf.yml`.
 - Continue's one documented home setting is the `rules:` list in the `config.yaml` it rewrites itself.
 - Jules documents nothing at user level.
+- Ellipsis reads only files in the repository.
 
 Hooks reach nine tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, and Cline SDK/CLI. The other tools have no user-level hook output:
 
-- Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
-- Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones. OpenCode defaults to V1; each hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux. On Windows, V2 refuses matching callbacks; use OpenCode V1 with the default V1 hooks.
-- Cline global hooks write `~/.cline/hooks/<Event>` for the SDK and CLI. The VS Code extension reads only its Documents `Cline/Hooks/` folder at user level. See [Cline global hooks](@/docs/targets/cline.md#global-hooks).
+- Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`.
+- Junie's hooks are Early Access.
+- Amp, OpenCode, and Kilo take hooks only as TypeScript plugins. Sync writes them for OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) at project level only. OpenCode defaults to V1; a hook selects [V2](@/docs/targets/opencode.md#opencode-v2-hooks) with `x-opencode.plugin-api: v2` on macOS and Linux. On Windows, V2 refuses matching callbacks, so keep the default V1 hooks.
