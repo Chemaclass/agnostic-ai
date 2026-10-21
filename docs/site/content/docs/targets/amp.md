@@ -81,7 +81,7 @@ Under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `comm
 
 - `x-amp.includeTools` limits the tools a server exposes (tool names or glob patterns, [Amp skills docs](https://ampcode.com/docs/customize/skills)). Amp recommends fewer tools for better model performance. It stays under `x-amp` because Amp's MCP page does not mention it.
 - Sync changes only `amp.mcpServers`. Other keys (theme, editor settings) stay.
-- Amp asks you to approve workspace MCP servers the first time you open the project.
+- Amp asks you to approve each workspace MCP server: the CLI when it first finds the server, and [orbs](https://ampcode.com/docs/customize/mcp#mcp-in-orbs) separately. Orbs ask again after the server's configuration changes, so editing an MCP spec and syncing brings the prompt back there.
 
 ### Settings
 
