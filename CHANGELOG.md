@@ -11,6 +11,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### Site
 
 - The memory reference lists Kiro IDE Memory as off by default and describes its shared local IDE/CLI store (#2353).
+- The Amp page says orbs ask to approve workspace MCP servers separately from the CLI, and again after a server's configuration changes (#2358).
 - Update archive summaries wrap within their column, keeping release titles readable on desktop.
 
 - The v0.86.0 briefing uses a source file path in its `explain --layers` examples.
