@@ -344,4 +344,9 @@
 # from one registry of the overlays adapters read, with typo and
 # case-only hints. Same Linux amd64 release flags; retain the 8 KB
 # allowance. No new dependencies.
-20336800
+# #2374 measured 20373664 on Go 1.27.3, up 45056 from main a3e64150
+# (20328608): doctor reads skillOverrides from every Claude settings file
+# in precedence order, finds the git root or main checkout local file,
+# and adds skill_overrides to --json. Same Linux amd64 release flags;
+# retain the 8 KB allowance. No new dependencies.
+20381856
