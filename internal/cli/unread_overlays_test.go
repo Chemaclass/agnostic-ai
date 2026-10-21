@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -247,8 +248,11 @@ func TestSettingsPassThroughTargets_MatchAdapters(t *testing.T) {
 			t.Errorf("%s merges x-%s settings but is missing from settingsPassThroughTargets", target, target)
 		}
 	}
+	// Targets that read the x-<target> block their own way rather than
+	// through MergeSettingsCustomKeys.
+	ownWay := map[string]string{"ellipsis": "copies x-ellipsis into its review and environment files"}
 	for target := range settingsPassThroughTargets {
-		if !found[target] {
+		if !found[target] && ownWay[target] == "" {
 			t.Errorf("%s is in settingsPassThroughTargets but merges no x-%s settings", target, target)
 		}
 	}
@@ -284,5 +288,68 @@ func TestUnreadOverlays_SuggestsHelperFolderForTypos(t *testing.T) {
 	}
 	if msg := got[".agnostic-ai/overlays/codx/README.md"]; !strings.Contains(msg, "did you mean codex/?") {
 		t.Errorf("codx: %q", msg)
+	}
+}
+
+func TestUnreadOverlays_UnreadableFolderOnlySkips(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("folder permissions do not block reads here")
+	}
+	seedOverlayProject(t, map[string]string{"private/x.json": "{}\n", "gemini.settings.json": "{}\n"})
+	private := filepath.Join(".agnostic-ai", "overlays", "private")
+	if err := os.Chmod(private, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(private, 0o755) })
+
+	got := overlayMessages(t)
+	if got[".agnostic-ai/overlays/gemini.settings.json"] == "" {
+		t.Errorf("want gemini.settings.json flagged, got %v", got)
+	}
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Errorf("sync failed on an unreadable overlay folder: %v", err)
+	}
+	if _, err := runCLI(t, "lint"); err != nil {
+		t.Errorf("lint failed on an unreadable overlay folder: %v", err)
+	}
+}
+
+func TestUnreadOverlays_SymlinkedHelperFolderWithWrongCaseSaysToRename(t *testing.T) {
+	seedOverlayProject(t, nil)
+	real := t.TempDir()
+	mustWriteFile(t, filepath.Join(real, "README.md"), "# Claude\n")
+	overlays := filepath.Join(".agnostic-ai", "overlays")
+	if err := os.MkdirAll(overlays, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, filepath.Join(overlays, "Claude")); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	_, err := os.Stat(filepath.Join(overlays, "claude"))
+	msg := overlayMessages(t)[".agnostic-ai/overlays/Claude"]
+	if err == nil && !strings.Contains(msg, "rename it to claude/") {
+		t.Errorf("want a rename hint on a case-insensitive filesystem, got %q", msg)
+	}
+	if err != nil && !strings.Contains(msg, "sync does not read") {
+		t.Errorf("want the not-read message, got %q", msg)
+	}
+}
+
+func TestUnreadOverlays_SkipsOnlyPlainReadmes(t *testing.T) {
+	seedOverlayProject(t, map[string]string{
+		"Readme":               "x\n",
+		"README.md":            "x\n",
+		"README.settings.json": "{}\n",
+	})
+	got := overlayMessages(t)
+	if len(got) != 1 || got[".agnostic-ai/overlays/README.settings.json"] == "" {
+		t.Errorf("want only README.settings.json flagged, got %v", got)
+	}
+}
+
+func TestUnreadOverlays_EllipsisSettingsGetTheXEllipsisHint(t *testing.T) {
+	seedOverlayProject(t, map[string]string{"ellipsis.settings.yaml": "x: 1\n"})
+	if msg := overlayMessages(t)[".agnostic-ai/overlays/ellipsis.settings.yaml"]; !strings.Contains(msg, "x-ellipsis") {
+		t.Errorf("want the x-ellipsis hint, got %q", msg)
 	}
 }

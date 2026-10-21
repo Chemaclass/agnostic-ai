@@ -20,9 +20,9 @@ type unreadOverlay struct {
 	Message string
 }
 
-// settingsPassThroughTargets lists the targets that merge a settings
-// spec's `x-<target>` block into their own settings file.
-var settingsPassThroughTargets = setOf("amp", "augment", "copilot", "factory", "gemini", "junie", "kilo", "opencode", "qoder", "windsurf")
+// settingsPassThroughTargets lists the targets that write a settings
+// spec's `x-<target>` block into their own files.
+var settingsPassThroughTargets = setOf("amp", "augment", "copilot", "ellipsis", "factory", "gemini", "junie", "kilo", "opencode", "qoder", "windsurf")
 
 func overlayKnown(rel string) bool {
 	for _, o := range adapters.KnownOverlays() {
@@ -45,7 +45,8 @@ func overlayFolderKnown(name string) bool {
 // unreadOverlays lists the files under root's overlay directory that no
 // target reads, whether or not that target is in `targets`. A symlinked
 // overlay directory is followed, as sync's readers follow it. Dot files,
-// dot folders, and README files at the top are skipped.
+// dot folders, and README files at the top are skipped, and so is any
+// entry the walk cannot read.
 func unreadOverlays(root string) ([]unreadOverlay, error) {
 	dir := filepath.Join(root, agnosticOverlayDir)
 	info, err := os.Stat(dir)
@@ -61,8 +62,13 @@ func unreadOverlays(root string) ([]unreadOverlay, error) {
 	}
 	var out []unreadOverlay
 	err = filepath.WalkDir(walkRoot, func(p string, d fs.DirEntry, err error) error {
+		// The check only adds notes: an entry it cannot read is skipped,
+		// never a reason to fail sync or lint.
 		if err != nil {
-			return err
+			if d != nil && d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
 		}
 		if p == walkRoot {
 			return nil
@@ -89,7 +95,7 @@ func unreadOverlays(root string) ([]unreadOverlay, error) {
 				rel += "/"
 			}
 		}
-		if !strings.Contains(rel, "/") && strings.HasPrefix(strings.ToUpper(d.Name()), "README") {
+		if !strings.Contains(rel, "/") && strings.EqualFold(strings.TrimSuffix(d.Name(), filepath.Ext(d.Name())), "README") {
 			return nil
 		}
 		if overlayKnown(rel) {
@@ -114,6 +120,8 @@ func caseOnlyMatch(dir, rel string, known []adapters.KnownOverlay) string {
 		var name string
 		switch {
 		case !o.Dir() && strings.EqualFold(rel, o.Name):
+			name = o.Name
+		case o.Dir() && strings.EqualFold(rel, o.Name):
 			name = o.Name
 		case o.Dir():
 			first, rest, nested := strings.Cut(rel, "/")
@@ -140,7 +148,7 @@ func caseOnlyMatch(dir, rel string, known []adapters.KnownOverlay) string {
 func unreadOverlayMessage(dir, rel string) string {
 	known := adapters.KnownOverlays()
 	if name := caseOnlyMatch(dir, rel, known); name != "" {
-		return "sync reads this file here only because file names ignore case on this filesystem; rename it to " + name + " so every checkout reads it"
+		return "sync reads this here only because file names ignore case on this filesystem; rename it to " + name + " so every checkout reads it"
 	}
 	if target, rest, ok := strings.Cut(rel, "."); ok && !strings.Contains(rel, "/") && strings.HasPrefix(rest, "settings.") {
 		if _, pass := settingsPassThroughTargets[target]; pass {
