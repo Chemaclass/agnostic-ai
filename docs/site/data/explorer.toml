@@ -19,7 +19,7 @@
 
 [[files]]
   path = ".agnostic-ai/hooks/format.yaml"
-  body = "name: format\non: after-edit\ncommand: .claude/hooks/format.sh\n"
+  body = "name: format\non: after-edit\ncommand: .agnostic-ai/scripts/format.sh\n"
 
 [[files]]
   path = ".agnostic-ai/local/rules/my-style.md"
@@ -42,12 +42,12 @@
   body = "---\nname: testing\nglobs: [\"**/*.test.ts\"]\n---\n\nOne behavior per test. Mock HTTP with `msw`.\n"
 
 [[files]]
-  path = ".agnostic-ai/scripts/claude/format.sh"
+  path = ".agnostic-ai/scripts/format.sh"
   body = "#!/bin/sh\nfiles=$(agnostic-ai hook paths) || exit 1\nprintf '%s\\n' \"$files\" | while IFS= read -r f; do\n  [ -z \"$f\" ] || npx prettier --write \"$f\"\ndone\n"
 
 [[files]]
   path = ".agnostic-ai/settings/model.yaml"
-  body = "model:\n  claude: claude-opus-5-5\n  codex: gpt-6-sol\n  gemini: gemini-3-pro\neffort:\n  claude: xhigh\n  codex: high\n"
+  body = "model:\n  claude: claude-opus-5-5\n  codex: gpt-6-sol\n  gemini: gemini-3.1-pro-preview\neffort:\n  claude: xhigh\n  codex: high\n"
 
 [[files]]
   path = ".agnostic-ai/settings/permissions.yaml"
@@ -115,7 +115,7 @@
 
 [[files]]
   path = ".gemini/settings.json"
-  body = "{\n  \"hooks\": {\n    \"AfterTool\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".gemini/hooks/format.sh\",\n            \"env\": {\n              \"AGNOSTIC_AI_TARGET\": \"gemini\"\n            },\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"^(write_file|replace)$\"\n      }\n    ]\n  },\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  },\n  \"model\": {\n    \"name\": \"gemini-3-pro\"\n  }\n}\n"
+  body = "{\n  \"hooks\": {\n    \"AfterTool\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".gemini/hooks/format.sh\",\n            \"env\": {\n              \"AGNOSTIC_AI_TARGET\": \"gemini\"\n            },\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"^(write_file|replace)$\"\n      }\n    ]\n  },\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  },\n  \"model\": {\n    \"name\": \"gemini-3.1-pro-preview\"\n  }\n}\n"
 
 [[files]]
   path = ".gemini/skills/release/SKILL.md"

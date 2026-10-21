@@ -253,8 +253,8 @@ docs_label = "Rules"
 id = "scripts"
 name = "scripts/"
 hint = "hook scripts"
-file = "scripts/claude/format.sh"
-summary = "Hook script bodies. Sync copies each one into the hooks folder of every tool the hook targets."
+file = "scripts/format.sh"
+summary = "Hook scripts. Sync copies each one into each tool's hooks folder and points the hook there."
 outputs = [
   { tool = "Claude Code", path = ".claude/hooks/format.sh" },
   { tool = "Codex", path = ".codex/hooks/format.sh" },
@@ -275,7 +275,7 @@ outputs = [
   { tool = "Codex", path = ".codex/config.toml" },
   { tool = "Gemini CLI", path = ".gemini/settings.json" },
 ]
-reach = "Codex and Gemini CLI have no portable permission list, so sync prints a note instead of guessing. Gemini CLI has no effort setting."
+reach = "Codex and Gemini CLI have no portable permission list, so sync prints a note instead of guessing. Sync writes no effort for Gemini CLI; set its thinking level under `x-gemini`."
 href = "@/docs/spec-format/settings.md"
 anchor = "settings"
 docs_label = "Settings"
