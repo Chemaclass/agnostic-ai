@@ -326,6 +326,9 @@ func skillOverridesEditBlock(report *skillOverrideReport, data []byte) error {
 	if info.Mode().Perm()&0o200 == 0 {
 		return fmt.Errorf("%s: read-only, so doctor leaves it to you", report.display())
 	}
+	if reason := settingsFileShared(info); reason != "" {
+		return fmt.Errorf("%s %s, so doctor leaves it to you", report.display(), reason)
+	}
 	repeated, err := rootKeyCount(data, "skillOverrides")
 	if err != nil {
 		return fmt.Errorf("parse %s: %w", report.display(), err)
