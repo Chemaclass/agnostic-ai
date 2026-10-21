@@ -967,7 +967,7 @@ func TestResetClaudeSkillOverrides_RemovesConflictingKeysOnConfirm(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"Re-enable 1 synced skill set by conflicting keys in .claude/settings.local.json (a)?"}; !reflect.DeepEqual(asked, want) {
+	if want := []string{"Remove the conflicting keys for 1 synced skill in .claude/settings.local.json (a)?"}; !reflect.DeepEqual(asked, want) {
 		t.Errorf("asked %q, want %q", asked, want)
 	}
 	if removed != 1 {
@@ -1002,5 +1002,87 @@ func TestDoctor_SkillOverridesCautionsFileWithRejectedValue(t *testing.T) {
 	records := doctorSkillOverridesJSON(t)
 	if len(records) != 3 || records[0]["uncertain"] != true || records[2]["effective"] != true {
 		t.Errorf("records = %+v", records)
+	}
+}
+
+func TestDoctor_SkillOverridesConflictingKeysStillOverruleLowerFiles(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
+	out, _ := runDoctor(t)
+	if !strings.Contains(out, "names deploy under more than one key with different values (Deploy: on, deploy: name-only)") {
+		t.Errorf("missing conflict:\n%s", out)
+	}
+	if strings.Contains(out, ".claude/settings.json turns off") {
+		t.Errorf("reported a shared entry the local file overrules:\n%s", out)
+	}
+}
+
+// resetWithLowerFile runs --fix's reset on the local file while the user
+// file sets the same skill.
+func resetWithLowerFile(t *testing.T, local, user string) (asked []string, out string) {
+	t.Helper()
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), local)
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), user)
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+	if err := applySkillOverrideReset(cmd, report, false, func(question string) (bool, error) {
+		asked = append(asked, question)
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return asked, buf.String()
+}
+
+func TestApplySkillOverrideReset_NamesTheLowerValueThatThenApplies(t *testing.T) {
+	cases := []struct {
+		name, local, user, question, done string
+	}{
+		{
+			name:     "conflicting keys",
+			local:    `{"skillOverrides":{"A":"on","a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"off"}}`,
+			question: "Remove the conflicting keys for 1 synced skill in .claude/settings.local.json (a)? Then a lower file applies: a: off in ~/.claude/settings.json",
+			done:     "  ✓ removed the entries for 1 synced skill(s) in .claude/settings.local.json; a lower file still sets: a: off in ~/.claude/settings.json\n",
+		},
+		{
+			name:     "same value below",
+			local:    `{"skillOverrides":{"a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"off"}}`,
+			question: "Remove the entries for 1 synced skill turned off in .claude/settings.local.json (a)? Then a lower file applies: a: off in ~/.claude/settings.json",
+			done:     "  ✓ removed the entries for 1 synced skill(s) in .claude/settings.local.json; a lower file still sets: a: off in ~/.claude/settings.json\n",
+		},
+		{
+			name:     "lower file turns it on",
+			local:    `{"skillOverrides":{"a":"off"}}`,
+			user:     `{"skillOverrides":{"a":"on"}}`,
+			question: "Re-enable 1 synced skill turned off in .claude/settings.local.json (a)?",
+			done:     "  ✓ re-enabled 1 synced skill(s) in .claude/settings.local.json\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			asked, out := resetWithLowerFile(t, c.local, c.user)
+			if want := []string{c.question}; !reflect.DeepEqual(asked, want) {
+				t.Errorf("asked %q, want %q", asked, want)
+			}
+			if out != c.done {
+				t.Errorf("output %q, want %q", out, c.done)
+			}
+		})
 	}
 }

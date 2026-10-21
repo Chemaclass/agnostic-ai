@@ -83,7 +83,7 @@ claude overrides:
   ~/.claude/settings.json: name-only (not applied: a higher file sets it)
 ```
 
-A value Claude Code rejects, such as `"Off"` or `false`, shows as rejected. Claude Code may then skip the whole file, so its other lines say so and overrule nothing. Two keys in one file that name the skill with different values are both marked as conflicting, since Claude Code does not say which applies, and neither overrules a lower file. A file that is not strict JSON shows as skipped by Claude Code, even when no other file names the skill. The block is omitted when no file names the skill and every file reads. `--json` adds the same entries, or omits the key:
+A value Claude Code rejects, such as `"Off"` or `false`, shows as rejected. Claude Code may then skip the whole file, so its other lines say so and overrule nothing. Two keys in one file that name the skill with different values are both marked as conflicting, since Claude Code does not say which applies. The file still overrules lower files. A file that is not strict JSON shows as skipped by Claude Code, even when no other file names the skill. The block is omitted when no file names the skill and every file reads. `--json` adds the same entries, or omits the key:
 
 ```json
 "overrides": [{"target": "claude", "path": ".claude/settings.local.json", "scope": "local", "value": "off", "effective": true}]

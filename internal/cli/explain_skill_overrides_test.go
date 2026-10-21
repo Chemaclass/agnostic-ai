@@ -318,7 +318,7 @@ func TestExplain_SkillOverridesSecondKeyInOneFileIsNotApplied(t *testing.T) {
 	}
 }
 
-func TestExplain_SkillOverridesConflictingKeysInOneFileApplyNeither(t *testing.T) {
+func TestExplain_SkillOverridesMarksConflictingKeysInOneFile(t *testing.T) {
 	testutil.TempCwd(t)
 	silence(t)
 	home := skillOverrideHome(t)
@@ -328,7 +328,7 @@ func TestExplain_SkillOverridesConflictingKeysInOneFileApplyNeither(t *testing.T
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: on (conflicts with another key in this file)\n" +
 		"  .claude/settings.local.json: off (conflicts with another key in this file)\n" +
-		"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n"
+		"  ~/.claude/settings.json: name-only (not applied: a higher file sets it)\n"
 	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
 		t.Errorf("block:\n%s\nwant:\n%s", got, want)
 	}
@@ -336,7 +336,7 @@ func TestExplain_SkillOverridesConflictingKeysInOneFileApplyNeither(t *testing.T
 	if err := json.Unmarshal([]byte(runExplain(t, deploySkill, "--json")), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Overrides) != 3 || !got.Overrides[0].Conflict || !got.Overrides[1].Conflict || got.Overrides[0].Effective || !got.Overrides[2].Effective {
+	if len(got.Overrides) != 3 || !got.Overrides[0].Conflict || !got.Overrides[1].Conflict || got.Overrides[0].Effective || got.Overrides[2].Effective {
 		t.Errorf("overrides = %+v", got.Overrides)
 	}
 }
@@ -360,5 +360,21 @@ func TestExplain_SkillOverridesFileWithRejectedValueIsUncertain(t *testing.T) {
 	}
 	if len(got.Overrides) != 2 || !got.Overrides[0].Uncertain || got.Overrides[1].Uncertain || !got.Overrides[1].Effective {
 		t.Errorf("overrides = %+v", got.Overrides)
+	}
+}
+
+func TestExplain_SkillOverridesConflictingKeysStillOverruleLowerFiles(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"deploy":"off"}}`)
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"name-only"}}`)
+	want := "claude overrides:\n" +
+		"  .claude/settings.local.json: on (conflicts with another key in this file)\n" +
+		"  .claude/settings.local.json: name-only (conflicts with another key in this file)\n" +
+		"  .claude/settings.json: off (not applied: a higher file sets it)\n"
+	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
+		t.Errorf("block:\n%s\nwant:\n%s", got, want)
 	}
 }

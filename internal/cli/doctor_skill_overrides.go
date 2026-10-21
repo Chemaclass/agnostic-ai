@@ -119,6 +119,11 @@ type skillOverrideFile struct {
 	editable bool
 }
 
+// skillOverrideBelow is the next lower file's value for a skill.
+type skillOverrideBelow struct {
+	value, label string
+}
+
 // skillOverrideReport is what one settings file's skillOverrides does to
 // the skills sync writes for Claude.
 type skillOverrideReport struct {
@@ -137,6 +142,11 @@ type skillOverrideReport struct {
 	// overlaid are the shared file's states the overlay sets, which
 	// sync wrote on purpose.
 	overlaid []skillOverrideFinding
+	// below maps a folded skill name to the value a lower file sets for
+	// it, which applies once this file's entries are removed.
+	below map[string]skillOverrideBelow
+	// removed lists the skills --fix removed entries for.
+	removed []string
 	// entries lists every key, sorted, including "on" and unsynced ones.
 	entries []skillOverrideEntry
 	// unsynced counts the entries that match no synced skill.
@@ -326,14 +336,50 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle, project
 		report.findings()
 		reports = append(reports, report)
 	}
+	for i, report := range reports {
+		report.below = lowerSkillOverrides(reports[i+1:])
+	}
 	return reports
 }
 
+// lowerSkillOverrides maps each skill the lower files set to the highest
+// one's accepted value, or "conflicting values" when its keys disagree.
+func lowerSkillOverrides(lower []*skillOverrideReport) map[string]skillOverrideBelow {
+	below := map[string]skillOverrideBelow{}
+	for _, report := range lower {
+		here := map[string]skillOverrideBelow{}
+		for _, entry := range report.entries {
+			folded := claudeSkillName(entry.Key)
+			if _, set := below[folded]; set || entry.Rejected {
+				continue
+			}
+			value := entry.Value
+			if entry.Conflict {
+				value = "conflicting values"
+			}
+			here[folded] = skillOverrideBelow{value, report.label()}
+		}
+		maps.Copy(below, here)
+	}
+	return below
+}
+
+// stillSet lists the skills that a lower file still changes, with what it
+// sets and where.
+func (r *skillOverrideReport) stillSet(skills []string) []string {
+	var out []string
+	for _, skill := range skills {
+		if below, ok := r.below[claudeSkillName(skill)]; ok && below.value != "on" {
+			out = append(out, fmt.Sprintf("%s: %s in %s", skill, below.value, below.label))
+		}
+	}
+	return out
+}
+
 // markSkillOverrideEntries sets which of a file's entries take effect.
-// Neither a key that conflicts with another in the same file nor any key
-// in a file Claude Code may skip overrules a lower file, since Claude
-// Code does not document what it applies then. set gains the skills this
-// file decides.
+// No key in a file Claude Code may skip overrules a lower file, since
+// Claude Code does not document whether it reads the rest of that file.
+// set gains the skills this file decides.
 func markSkillOverrideEntries(report *skillOverrideReport, set map[string]bool, overlay map[string]string) {
 	uncertain := report.hasRejected()
 	values := map[string]map[string]bool{}
@@ -356,7 +402,9 @@ func markSkillOverrideEntries(report *skillOverrideReport, set map[string]bool, 
 		case entry.Rejected, set[folded]:
 			entry.Effective = false
 		case len(values[folded]) > 1:
+			// Whichever key Claude Code picks, this file sets the skill.
 			entry.Effective, entry.Conflict = false, true
+			here[folded] = true
 		case here[folded]:
 			entry.Effective, entry.sameFile = false, true
 		default:
@@ -710,13 +758,21 @@ func applySkillOverrideReset(cmd *cobra.Command, report *skillOverrideReport, ba
 	if report.uneditable != nil {
 		return nil
 	}
+	report.removed = nil
 	removed, err := resetClaudeSkillOverrides(report, backup, confirm)
 	if err != nil {
 		cmd.Printf("  ! %v\n", err)
 		return nil
 	}
-	if removed > 0 {
-		cmd.Printf("  ✓ re-enabled %d synced skill(s) in %s\n", removed, report.display())
+	if removed == 0 {
+		return nil
+	}
+	lower := report.stillSet(report.removed)
+	if reenabled := removed - len(lower); reenabled > 0 {
+		cmd.Printf("  ✓ re-enabled %d synced skill(s) in %s\n", reenabled, report.display())
+	}
+	if len(lower) > 0 {
+		cmd.Printf("  ✓ removed the entries for %d synced skill(s) in %s; a lower file still sets: %s\n", len(lower), report.display(), strings.Join(lower, ", "))
 	}
 	return nil
 }
@@ -739,7 +795,7 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 			conflicted.keys = append(conflicted.keys, finding.keys...)
 			conflicted.skills = append(conflicted.skills, finding.skills...)
 		}
-		groups = append(groups, group{conflicted, "set by conflicting keys"})
+		groups = append(groups, group{conflicted, ""})
 	}
 	var keys []string
 	skills := 0
@@ -749,7 +805,20 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 		if len(finding.skills) == 1 {
 			noun = "skill"
 		}
-		question := fmt.Sprintf("Re-enable %d synced %s %s in %s (%s)?", len(finding.skills), noun, g.prompt, report.display(), listSkillOverrideNames(finding.skills))
+		names := listSkillOverrideNames(finding.skills)
+		lower := report.stillSet(finding.skills)
+		var question string
+		switch {
+		case g.prompt == "":
+			question = fmt.Sprintf("Remove the conflicting keys for %d synced %s in %s (%s)?", len(finding.skills), noun, report.display(), names)
+		case len(lower) > 0:
+			question = fmt.Sprintf("Remove the entries for %d synced %s %s in %s (%s)?", len(finding.skills), noun, g.prompt, report.display(), names)
+		default:
+			question = fmt.Sprintf("Re-enable %d synced %s %s in %s (%s)?", len(finding.skills), noun, g.prompt, report.display(), names)
+		}
+		if len(lower) > 0 {
+			question += " Then a lower file applies: " + strings.Join(lower, ", ")
+		}
 		yes, err := confirm(question)
 		if err != nil {
 			return 0, err
@@ -757,6 +826,7 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 		if yes {
 			keys = append(keys, finding.keys...)
 			skills += len(finding.skills)
+			report.removed = append(report.removed, finding.skills...)
 		}
 	}
 	if len(keys) == 0 {
