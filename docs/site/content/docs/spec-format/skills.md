@@ -54,7 +54,7 @@ model: {claude: opus}
 3. Commit `chore(release): v<version>` and tag it.
 ```
 
-After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file and its schema. The example body describes the procedure; put the actual schema beside `SKILL.md` when using the nested layout.
+After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Then ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file. In the nested layout, put the schema the body names beside `SKILL.md`.
 
 ## Fields
 
@@ -95,7 +95,7 @@ Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSe
 
 ## Bundled files and output
 
-Only `SKILL.md` and flat `skills/*.md` files are read as skills. Every other file in a nested skill directory is a bundled file (scripts, templates, fixtures, extra `*.md`). Bundled files are copied unchanged to the same relative path under each tool's skills directory. Import and sync keep executable bits.
+Only `SKILL.md` and flat `skills/*.md` files are read as skills. Every other file in a nested skill directory is a bundled file (scripts, templates, fixtures, extra `*.md`), copied unchanged to the same relative path under each tool's skills directory. Import and sync keep executable bits.
 
 Most tools get `<dir>/<name>/SKILL.md` with the bundled files. Several share `.agents/skills/`, so identical files are written once. Tools without skill support get the skill as a `skill-<name>.md` rule. Bundled files cannot follow, so they raise a sync note. Set `outputs.<target>.emit-skills-as-commands: true` to also write a slash command. Each target page gives the exact directory.
 
@@ -134,7 +134,7 @@ A `$1` or `` !`command` `` inside a fenced code block counts as an example and i
 
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
-Only the tools listed were checked. Setting it stops the model from using a skill on its own. The user can still call it. Without it, each tool uses its default, which lets the model use the skill, in every tool below.
+Without the field, every tool below lets the model use the skill on its own. Only the listed tools were checked.
 
 | Target | Behavior |
 |--------|----------|
@@ -144,6 +144,6 @@ Only the tools listed were checked. Setting it stops the model from using a skil
 | [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.crush.skills-dir: .crush/skills` |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.factory.skills-dir: .factory/skills` |
 
-Crush and Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-` key. It also needs the `skills-dir` override above whenever another target writes `.agents/skills`; otherwise sync stops with `AAI-102`. A manual-only skill that becomes usable by the model crosses a safety boundary.
+Crush and Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-` key, plus the `skills-dir` override above whenever another target writes `.agents/skills`; otherwise sync stops with `AAI-102`. A manual-only skill that the model can use crosses a safety boundary.
 
 OpenHands' `triggers` is unrelated: it loads a skill when a keyword appears. Devin spells this restriction `triggers: [user]`.

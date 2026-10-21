@@ -9,9 +9,9 @@ group = "Reference"
 
 # Overlays
 
-`overlays/` keeps the parts of a tool's configuration that no shared spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files. Sync also restores a deleted `.claude/` or `.codex/` directory with those keys.
+`overlays/` keeps the parts of a Claude Code or Codex configuration that no shared spec covers yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` saves them here, and `sync` writes them back into the tool's files, restoring a deleted `.claude/` or `.codex/` directory with those keys.
 
-To change an imported setting, edit its overlay below and run `agnostic-ai sync --dry-run` to review the result. Then sync and check the tool's generated file. An overlay reaches one tool only; move a setting into a portable spec when it should reach other tools and that spec kind supports it.
+To change an imported setting, edit its overlay, review the result with `agnostic-ai sync --dry-run`, then sync. An overlay reaches one tool only. Move a setting into a portable spec when it should reach other tools and that spec kind supports it.
 
 ## Files
 
@@ -24,6 +24,6 @@ To change an imported setting, edit its overlay below and run `agnostic-ai sync 
 | `codex.exec-policies-header.txt` | `.codex/rules/default.rules` | The comment block above the first rule |
 | `claude/<file>`, `codex/<file>` | `.claude/<file>`, `.codex/<file>` | Helper files: Claude `CLAUDE.md`, `README.md`, and `statusline.sh`; Codex `README.md`. File modes are kept, so a script stays executable |
 
-Sync reads only these files. Any other file here, such as `gemini.settings.json` or a misspelled `claude.setings.json`, gets a sync note and a `lint` warning (LINT051). Dot files, dot folders, and README files at the top are skipped. Only Claude Code and Codex read overlays. For Gemini CLI and the other tools that merge `x-<target>` from a [settings spec](@/docs/spec-format/settings.md), put the keys there; Cursor's settings spec drops that block.
+Sync reads only these files. Any other file here, such as `gemini.settings.json` or a misspelled `claude.setings.json`, gets a sync note and a `lint` warning (LINT051). Dot files, dot folders, and README files at the top are skipped. For Gemini CLI and the other tools that merge `x-<target>` from a [settings spec](@/docs/spec-format/settings.md), put the keys there; Cursor's settings spec drops that block.
 
 `sync --watch` re-runs when an overlay changes. The target pages say which source wins: [Claude settings](@/docs/targets/claude-reference.md#claude-settings), [Codex config](@/docs/targets/codex-reference.md#codex-config), and [Codex exec policies](@/docs/targets/codex-reference.md#codex-exec-policies).
