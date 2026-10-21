@@ -9,9 +9,9 @@ group = "Reference"
 
 # MCP recipes
 
-Copy a recipe into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`). Replace example paths and export any variables named by `${NAME}` references before starting your coding tool. Run `agnostic-ai lint`, then `agnostic-ai sync`, and confirm the server connects in the tool.
+Copy a recipe into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`). Replace example paths, and export each variable a `${NAME}` reference names before you start your coding tool. Run `agnostic-ai lint`, then `agnostic-ai sync`, and confirm the server connects in the tool.
 
-These recipes were checked on 2026-10-03. Compare each with its linked source before using it. See [MCP servers](@/docs/spec-format/mcps.md) for fields and [environment-reference support](@/docs/spec-format/mcps.md#environment-references) for values a tool cannot read.
+These recipes were checked on 2026-10-03, so compare each with its linked source before you use it. [MCP servers](@/docs/spec-format/mcps.md) lists the fields, and [environment references](@/docs/spec-format/mcps.md#environment-references) lists the values each tool cannot read.
 
 ## GitHub (remote)
 
@@ -32,7 +32,7 @@ Create a personal access token on GitHub and export it as `GITHUB_PAT`.
 
 A shared spec can use each person's own `${GITHUB_PAT}` without storing the token. If only you want this server, save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so only you get the server. Teammates who want it add their own file.
 
-`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. A personal file is still a loaded spec; placing a server there does not disable it. To keep a server off, leave it out of every spec that loads, or turn it off in the tool itself. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+A personal file is still a loaded spec, so it does not turn the server off. To keep a server off, leave it out of every spec that loads, or turn it off in the tool itself. `disabled: true` does not keep a server off on every tool; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 ## Context7 (remote)
 
