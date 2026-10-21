@@ -54,6 +54,23 @@ The wrappers are bash scripts. On Windows, where a tool runs hook commands throu
 
 Cursor gets no `after-tool`, `after-edit`, or `stop`, because its `postToolUse`, `afterFileEdit`, and `stop` cannot block: exit 2 there is a failure Cursor moves past. `session-start` and `session-end` map without a wrapper. Cursor does not wait for either one, and on `session-start` it does not add plain stdout to the session as Claude Code does.
 
+A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report:
+
+- an unknown value
+- both forms mixed in one spec
+- an event that a tool the hook reaches reads differently, such as `on: stop` on Crush
+- a tool kind that a tool the hook reaches lacks, such as `match: read` on Codex
+
+Sync reports missing mappings. For a tool with no mapping, write `event` for the hook, or limit it with `targets`. Trae has no portable hook mapping yet.
+
+On Kiro, only `on: before-tool` maps; use a command that exits 2 to block the tool call. Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`, and its `stop` event uses exit 1 to keep the agent running, so none of them maps. `decision: stdout` has no Kiro mapping either.
+
+- For Kiro's built-in tools, sync matches the documented tool IDs from start to end. Kiro's own category selectors also match parts of tool IDs, so a `read` selector could run on an MCP tool with `read` in its name; the portable mapping does not. A new built-in ID needs an updated mapping.
+- The `edit` matcher leaves out `code`, which Kiro's own `write` category includes.
+- `match: mcp:<server>` becomes `@<server>/*` and matches that server only, even when its name is `mcp`, `builtin`, or `powers`.
+
+`agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`. `lint` warns on each hook the migration would rewrite (LINT034). `agnostic-ai import` follows the same rule.
+
 ### Decision on stdout {#decision-on-stdout}
 
 Set `decision: stdout` on a `before-tool` hook to decide with a JSON object instead of an exit code:
@@ -77,9 +94,9 @@ With `decision: stdout`, stdout carries only the decision. Print logs to stderr.
 - `"allow"`, or empty stdout, goes on as a plain exit 0. It never grants more than the tool's own permission rules do.
 - Anything else blocks, so a broken guard never lets a call through. That covers stdout that is not one JSON object, an object with no top-level `decision` or more than one, and a `decision` of another value.
 
-Only the top level counts, so a nested `decision` never overrides the verdict. Raw NUL and SOH bytes block. Any exit code other than 0 keeps its usual meaning.
+Only the top level counts, so a nested `decision` never overrides the verdict. Raw NUL and SOH bytes block, and so does stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers. A `\u` escape outside ASCII reads as `?`. Any exit code other than 0 keeps its usual meaning.
 
-No tool reads this object itself. On every tool, sync runs the command through a bash wrapper that turns the decision into that tool's block, each `x-gemini.hooks` command handler included. So `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Augment runs only a bare script path, so it cannot run the wrapper, and `validate` names a `decision: stdout` hook that reaches it. Stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers blocks. A `\u` escape outside ASCII reads as `?`.
+No tool reads this object itself. On every tool, sync runs the command through a bash wrapper that turns the decision into that tool's block, each `x-gemini.hooks` command handler included. So `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Augment runs only a bare script path, so it cannot run the wrapper, and `validate` names a `decision: stdout` hook that reaches it.
 
 ### Hooks Cursor and Copilot also read {#claude-settings-copies}
 
@@ -93,28 +110,9 @@ A hook still runs twice on Cursor when:
 
 A hook synced to `claude` and `copilot` runs twice on Copilot, which sets no variable. Both copies block on exit 2.
 
-A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report:
-
-- an unknown value
-- both forms mixed in one spec
-- an event that a tool the hook reaches reads differently, such as `on: stop` on Crush
-- a tool kind that a tool the hook reaches lacks, such as `match: read` on Codex
-
-Kiro supports `on: before-tool`. Use a command that exits 2 to block the tool call. Other portable events and `decision: stdout` have no Kiro mapping.
-
-For built-in tools, sync matches the documented tool IDs from start to end. Native category selectors also match parts of tool IDs, so a `read` selector could otherwise run on an MCP tool with `read` in its name. The portable mapping avoids that match. New built-in IDs need an updated mapping. The `edit` matcher excludes `code`, which Kiro's own `write` category includes.
-
-`match: mcp:<server>` becomes `@<server>/*` and matches that server only, even when its name is `mcp`, `builtin`, or `powers`.
-
-Kiro CLI V3 cannot block on `after-tool` or `prompt-submit`. Its `stop` event uses exit 1 to keep the agent running, so it has no portable mapping. Trae has no portable hook mapping yet. Sync reports missing mappings. Write `event` for those hooks, or limit them with `targets`.
-
-`agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`. `lint` warns on each hook the migration would rewrite (LINT034). `agnostic-ai import` follows the same rule.
-
 ## Native events
 
-OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before/after events on macOS and Linux. Windows requires OpenCode V1 with the default V1 hooks; V2 cannot run V1 plugins. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and Windows refusal behavior. The default remains V1.
-
-`agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. It is plain YAML with no markdown body.
+`agnostic-ai new hook session-status` creates `hooks/session-status.yaml`, plain YAML with no markdown body. Replace its placeholder with a native hook, such as:
 
 ```yaml
 name: session-status
@@ -135,7 +133,7 @@ matcher: Edit|Write
 command: 'files=$(agnostic-ai hook paths) || exit 1; printf "%s\n" "$files" | grep "\.go$" | while IFS= read -r f; do gofmt -w "$f"; done'
 ```
 
-Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools. `agnostic-ai` must be on the hook's `PATH`. The `|| exit 1` fails the hook when `hook paths` fails, for example on bad JSON or a missing binary. Without it, the pipe into the loop would exit 0.
+Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools. `agnostic-ai` must be on the hook's `PATH`. The `|| exit 1` fails the hook when `hook paths` fails, for example on bad JSON or a missing binary; without it, the loop would exit 0.
 
 Run a script with exact arguments and no shell, so spaces and `$` pass through untouched:
 
@@ -148,6 +146,8 @@ command: scripts/hooks/guard.sh
 args: ["--deny", "git push --force"]
 timeout: 10
 ```
+
+OpenCode V2 hooks select `x-opencode.plugin-api: v2` and use native before and after events on macOS and Linux. The default stays V1. Windows needs V1 with the default V1 hooks; V2 cannot run V1 plugins. See [OpenCode V2 hooks](@/docs/targets/opencode.md#opencode-v2-hooks) for stdin, exit codes, timeouts, and how Windows refuses V2.
 
 Command hooks receive event JSON on stdin. Read the shell command from `tool_input` and the edited paths with [`agnostic-ai hook paths`](@/docs/spec-format/hook-reference.md#edited-paths). `AGNOSTIC_AI_TARGET` names the tool that ran the hook; see [which target ran a hook](@/docs/spec-format/hook-reference.md#hook-target).
 

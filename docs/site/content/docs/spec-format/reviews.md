@@ -9,7 +9,7 @@ group = "Reference"
 
 # Reviews
 
-`reviews/` tells code-review bots what to check in this project: the layering rule, the error handling, the migrations that need a second look. Each review bot reads its guidance from its own files. A review spec feeds all of them from one source.
+`reviews/` tells code-review bots what to check in this project: the layering rule, the error handling, the migrations that need a second look. One review spec writes that guidance into each bot's own file:
 
 | Target | Reads |
 |--------|-------|
@@ -28,9 +28,7 @@ Ellipsis also needs the reviewer, its model, and any review posting rules from a
 agnostic-ai new review code-quality
 ```
 
-Replace the description and body with the checks your review bot should apply.
-
-Save Markdown with optional YAML settings as `.agnostic-ai/reviews/code-quality.md`. Sync, check the output, then start a review in a supported tool. These specs supply guidance; they do not install or start a review bot.
+It creates `.agnostic-ai/reviews/code-quality.md`. Replace the description and body with the checks the bot should apply, then sync and start a review in a supported tool. The spec supplies guidance only; it does not install or start a review bot.
 
 ```markdown
 ---
@@ -44,7 +42,7 @@ Reviews follow `scope` and the folder layout like [rules](@/docs/spec-format/rul
 
 ## Include a file
 
-A line holding only `@path` includes that file, read from the project root. A folder's `README.md` can then serve as its review, with no symlink or copy:
+A line holding only `@path` includes that file, read from the project root. A folder's `README.md` can then be its review, with no symlink or copy:
 
 ```markdown
 ---
@@ -55,7 +53,7 @@ target: cursor
 @services/billing/README.md
 ```
 
-Sync writes the file's text in place of the line. A change to the README then shows up in `sync --check`.
+Sync writes the file's text in place of the line, so a README change shows up in `sync --check`.
 
 - A missing file, an absolute path, or a path outside the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)).
 - A line inside a fenced code block stays as written.

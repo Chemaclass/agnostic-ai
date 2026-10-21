@@ -18,14 +18,13 @@ mcp-servers = "@/docs/spec-format/mcps.md"
 
 # Spec format
 
-Each AI coding tool keeps its configuration in its own place and format: `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, `.gemini/settings.json`. A spec is one file under `.agnostic-ai/` that says what you want, once. `agnostic-ai sync` writes it for every tool you enable, in that tool's own format.
-
+A spec is one file under `.agnostic-ai/` that says what you want, once. `agnostic-ai sync` writes it for every tool you enable, in that tool's own place and format, such as `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, or `.gemini/settings.json`.
 
 ## Choose what to write
 
 Start with a [rule](@/docs/spec-format/rules.md) for a short instruction that applies to routine work. Use a [skill](@/docs/spec-format/skills.md) for a procedure the agent needs only for certain tasks. Use an [agent](@/docs/spec-format/agents.md) when a specialist needs separate instructions or access limits. Add a [hook](@/docs/spec-format/hooks.md) when the tool must run a command at a fixed event.
 
-Write the smallest spec that covers the task. State when it applies, what the agent should do, and what result it should return. Keep commands and file paths explicit. Test the generated files with `agnostic-ai lint`, `agnostic-ai sync --dry-run`, and `agnostic-ai sync --check` after syncing.
+Write the smallest spec that covers the task. State when it applies, what the agent should do, and what result it should return. Keep commands and file paths explicit. Check the result with `agnostic-ai lint` and `agnostic-ai sync --dry-run`, then sync and run `agnostic-ai sync --check`.
 
 ## Terms used in these pages
 
@@ -42,7 +41,7 @@ Write the smallest spec that covers the task. State when it applies, what the ag
 
 ## Folders
 
-Each folder holds one kind of spec. Pick the one that fits what you want the agent to do.
+Each folder holds one kind of spec.
 
 | Folder | Holds | Use it when |
 |--------|-------|-------------|
@@ -63,7 +62,7 @@ Two more entries sit next to them:
 - `AGNOSTIC_AI.md` is the instruction text every entry-point file carries, such as `AGENTS.md` and `CLAUDE.md`. See [entry-point files](@/docs/configuration.md#entry-point-files).
 - `local/` holds personal specs that stay out of Git. See [local overrides](@/docs/local-overrides.md).
 
-Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [tool support table](@/docs/targets/_index.md#capability-matrix) shows which tools get each kind. Each tool's page shows how it writes that kind.
+Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [tool support table](@/docs/targets/_index.md#capability-matrix) shows which tools get each kind, and each tool's page shows how it writes it.
 
 `agnostic-ai new <kind> <name>` creates a starter spec for [each supported kind](@/docs/cli-reference/start.md#new). [Getting started](@/docs/getting-started.md) walks through a first rule.
 
@@ -84,7 +83,7 @@ rules/
     └── api/limits.md            # scope: "backend/api"
 ```
 
-For rules, scope decides where the rule applies. A rule can set `scope: services/payments`, which wins over its folder under `rules/`. A folder scopes a rule only when it names a project directory. `agnostic-ai new rule payments-context --scope services/payments` creates one.
+For rules, scope decides where the rule applies. A folder scopes a rule only when it names a project directory, and a `scope:` field wins over the folder ([rule fields](@/docs/spec-format/rules.md#fields)).
 
 Scoped rules stay out of the root instruction file. Supported tools get a path condition or a nested instruction file. Other tools skip the rule with a warning, or fail under `on-unsupported: error`. [Directory-specific instructions](@/docs/scoped-context.md) lists supported tools and limits on file patterns.
 

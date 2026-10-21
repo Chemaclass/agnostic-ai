@@ -25,9 +25,7 @@ Give the agent one responsibility, the files or decisions it owns, and a clear r
 agnostic-ai new agent code-reviewer
 ```
 
-Edit `.agnostic-ai/agents/code-reviewer.md` (or its configured source path). Claude Code limits this agent to the tools it lists; Codex drops `can` with a note. `readonly` also does not give a Codex child agent a separate sandbox. See [tool support](#tools-support-by-target).
-
-YAML settings between `---` lines configure the agent. The body is its prompt.
+Edit `.agnostic-ai/agents/code-reviewer.md` (or its configured source path). YAML settings between `---` lines configure the agent. The body is its prompt.
 
 ```markdown
 ---
@@ -40,7 +38,7 @@ model: {claude: sonnet, codex: sol}
 You are a code reviewer. Report concise findings with `file:line` references.
 ```
 
-Claude Code gets `tools: [Read, Bash]`: it ignores the pattern, so this agent can run any command there. To keep it to `git diff`, see [capabilities](#capabilities).
+Claude Code gets `tools: [Read, Bash]`. It ignores the pattern, so this agent can run any command there; to keep it to `git diff`, see [capabilities](#capabilities). Codex drops `can` with a note ([tool support](#tools-support-by-target)).
 
 Run `agnostic-ai explain agents/code-reviewer.md` to inspect the translations, then `agnostic-ai sync` and `agnostic-ai sync --check`.
 
@@ -106,7 +104,7 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 - To limit an agent's commands on Claude Code, add a `PreToolUse` hook to its `hooks` that blocks the rest, or deny commands in a [settings spec's permissions](@/docs/spec-format/settings.md#permission-rules), which Claude Code applies to the main conversation and to every agent.
 - A skill's `allowed-tools` keeps the pattern: there `shell(git diff *)` pre-approves those commands.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hook-reference.md#portable-events).
-- A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this.
+- A tool that grants more than you asked for prints a note ([wider access](#tools-support-by-target)).
 - `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`.
 - A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
 
@@ -227,7 +225,7 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 
 `lint` flags:
 
-- a tier a spec names with no entry and no `default` for one of the spec's targets
+- a tier a spec names with no entry and no `default` for one of the spec's targets (LINT025)
 - a tier named like a Claude model (LINT025)
 - a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026)
 
@@ -266,7 +264,7 @@ Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list
 
 On Trae, an explicitly empty list (`can: []` or `tools`) disables all tools. Use `x-trae: {tools: ""}` to restrict only Trae. Leaving the field unset lets Trae load every available tool.
 
-The change can widen access: on Kiro, `edit` also permits `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each tool's own names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
+The change can widen access: on Kiro, `edit` also allows `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each tool's own names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 
@@ -289,7 +287,10 @@ On Kiro and OpenHands, a name with no MCP spec cannot be written, so sync drops 
 
 ## `maxTurns` and `background` by target {#maxturns-and-background-by-target}
 
-`maxTurns` limits how many turns the agent takes before it stops and returns. `background: true` runs the agent without making the main session wait for it. Without either, the tool's own default applies. A value under `x-<target>` wins over the shared one, and sync prints a note and uses the shared value when that override has the wrong type. `validate`, `lint` (LINT050), and `sync` stop on a `maxTurns` that is not a whole number of 1 or more, or a `background` that is not `true` or `false`.
+`maxTurns` limits how many turns the agent takes before it stops and returns. `background: true` runs the agent without making the main session wait for it. Without either, the tool's own default applies.
+
+- A value under `x-<target>` wins over the shared one. When that override has the wrong type, sync prints a note and uses the shared value.
+- `validate`, `lint` (LINT050), and `sync` stop on a `maxTurns` that is not a whole number of 1 or more, or a `background` that is not `true` or `false`.
 
 | Target | `maxTurns` | `background` |
 |--------|------------|--------------|
