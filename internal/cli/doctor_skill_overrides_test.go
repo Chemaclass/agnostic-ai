@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -153,7 +154,7 @@ func collectTestSkillOverrides(t *testing.T, settings string, skills ...string) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := collectClaudeSkillOverrides(cfg, bundle)
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
 	if report == nil {
 		t.Fatal("no report")
 	}
@@ -277,7 +278,7 @@ func TestCollectClaudeSkillOverrides_MatchesTheNameClaudeSees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := collectClaudeSkillOverrides(cfg, bundle)
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
 	if report == nil || len(report.states) != 1 {
 		t.Fatalf("report: %+v", report)
 	}
@@ -409,7 +410,7 @@ func TestCollectClaudeSkillOverrides_SkipsUnmanagedSkills(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			report := collectClaudeSkillOverrides(cfg, bundle)
+			report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
 			if report == nil || len(report.states) != 1 || strings.Join(report.states[0].skills, ",") != "b" || report.synced != 1 {
 				t.Fatalf("report: %+v", report)
 			}
@@ -427,11 +428,11 @@ func TestApplySkillOverrideReset_LeavesUnmanagedSettingsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := collectClaudeSkillOverrides(cfg, bundle)
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
-	reportClaudeSkillOverrides(cmd, report)
+	reportClaudeSkillOverrides(cmd, []*skillOverrideReport{report})
 	if err := applySkillOverrideReset(cmd, report, false, func(question string) (bool, error) {
 		t.Errorf("asked %q for an unmanaged file", question)
 		return true, nil
@@ -452,11 +453,11 @@ func TestDoctor_SkillOverridesNamesFileFixCannotEdit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := collectClaudeSkillOverrides(cfg, bundle)
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
-	reportClaudeSkillOverrides(cmd, report)
+	reportClaudeSkillOverrides(cmd, []*skillOverrideReport{report})
 	if err := applySkillOverrideReset(cmd, report, false, func(question string) (bool, error) {
 		t.Errorf("asked %q for a file doctor cannot edit", question)
 		return true, nil
@@ -481,8 +482,364 @@ func TestCollectClaudeSkillOverrides_LeavesHardLinkedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := collectClaudeSkillOverrides(cfg, bundle)
+	report := localSkillOverrides(collectClaudeSkillOverrides(cfg, bundle, false))
 	if report == nil || report.uneditable == nil || !strings.Contains(report.uneditable.Error(), "hard link") {
 		t.Fatalf("report: %+v", report)
+	}
+}
+
+func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
+	const (
+		local  = ".claude/settings.local.json"
+		shared = ".claude/settings.json"
+		user   = "user"
+	)
+	cases := []struct {
+		name   string
+		files  map[string]string
+		args   []string
+		userAt string
+		want   []string
+		absent []string
+	}{
+		{
+			name:  "user only",
+			files: map[string]string{user: `{"skillOverrides":{"a":"off"}}`},
+			want: []string{
+				"! ~/.claude/settings.json turns off 1 of 3 synced skills (off), so Claude Code refuses to run them: a",
+				"→ applies to every project on this machine; delete the entries from ~/.claude/settings.json",
+			},
+			absent: []string{"doctor --fix"},
+		},
+		{
+			name:  "shared only",
+			files: map[string]string{shared: `{"skillOverrides":{"b":"user-invocable-only"}}`},
+			want: []string{
+				"! .claude/settings.json hides 1 of 3 synced skills from Claude (user-invocable-only): b",
+				"→ team policy: set skillOverrides in .agnostic-ai/overlays/claude.settings.json and run `agnostic-ai sync`",
+			},
+			absent: []string{"doctor --fix", "delete the entries"},
+		},
+		{
+			name: "every file in Claude Code's order",
+			files: map[string]string{
+				user:   `{"skillOverrides":{"a":"off"}}`,
+				shared: `{"skillOverrides":{"b":"user-invocable-only"}}`,
+				local:  `{"skillOverrides":{"c":"off"}}`,
+			},
+			want: []string{
+				"! .claude/settings.local.json turns off 1 of 3 synced skills (off), so Claude Code refuses to run them: c",
+				"! .claude/settings.json hides 1 of 3 synced skills from Claude (user-invocable-only): b",
+				"! ~/.claude/settings.json turns off 1 of 3 synced skills (off), so Claude Code refuses to run them: a",
+			},
+		},
+		{
+			name: "broken user file does not hide the local one",
+			files: map[string]string{
+				user:  `{"skillOverrides":`,
+				local: `{"skillOverrides":{"a":"off"}}`,
+			},
+			want: []string{
+				"! .claude/settings.local.json turns off 1 of 3 synced skills (off)",
+				"! cannot read ~/.claude/settings.json: parse ~/.claude/settings.json:",
+			},
+		},
+		{
+			name:  "entries for skills sync does not write are counted",
+			files: map[string]string{user: `{"skillOverrides":{"a":"off","mine":"off","other":"on"}}`, shared: `{"skillOverrides":{"b":"off","mine":"off"}}`},
+			want: []string{
+				"! .claude/settings.json turns off 1 of 3 synced skills (off)",
+				"~ .claude/settings.json also sets 1 entry for skills sync does not write",
+				"! ~/.claude/settings.json turns off 1 of 3 synced skills (off)",
+				"~ ~/.claude/settings.json also sets 2 entries for skills sync does not write",
+			},
+			absent: []string{"mine", "other"},
+		},
+		{
+			name: "project scope reads only the shared file",
+			files: map[string]string{
+				user:   `{"skillOverrides":{"a":"off"}}`,
+				shared: `{"skillOverrides":{"b":"off"}}`,
+				local:  `{"skillOverrides":{"c":"off"}}`,
+			},
+			args:   []string{"--scope", "project"},
+			want:   []string{"! .claude/settings.json turns off 1 of 3 synced skills (off)"},
+			absent: []string{"settings.local.json turns off", "~/.claude/settings.json"},
+		},
+		{
+			name:   "claude not selected",
+			files:  map[string]string{user: `{"skillOverrides":{"a":"off"}}`, shared: `{"skillOverrides":{"b":"off"}}`},
+			args:   []string{"--target", "codex"},
+			absent: []string{"Claude skill overrides:"},
+		},
+		{
+			name:   "config dir is the project's claude dir",
+			files:  map[string]string{shared: `{"skillOverrides":{"b":"off"}}`},
+			userAt: ".claude",
+			want:   []string{"! .claude/settings.json turns off 1 of 3 synced skills (off)"},
+			absent: []string{"every project on this machine"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeSkillOverrideProject(t, "version: 1\ntargets: [claude, codex]\n", "a", "b", "c")
+			userDir := filepath.Join(skillOverrideHome(t), ".claude")
+			if c.userAt != "" {
+				userDir = filepath.Join(dir, c.userAt)
+				t.Setenv("CLAUDE_CONFIG_DIR", userDir)
+			}
+			for path, body := range c.files {
+				if path == user {
+					path = filepath.Join(userDir, "settings.json")
+				}
+				mustWrite(t, filepath.FromSlash(path), body)
+			}
+			out, _ := runDoctor(t, c.args...)
+			out = skillOverridesSection(out)
+			last := -1
+			for _, want := range c.want {
+				i := strings.Index(out, want)
+				if i < 0 {
+					t.Errorf("missing %q:\n%s", want, out)
+					continue
+				}
+				if i < last {
+					t.Errorf("%q out of order:\n%s", want, out)
+				}
+				last = i
+			}
+			for _, absent := range c.absent {
+				if strings.Contains(out, absent) {
+					t.Errorf("unexpected %q:\n%s", absent, out)
+				}
+			}
+		})
+	}
+}
+
+func TestDoctor_SkillOverridesReadsClaudeConfigDir(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	configDir := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", configDir)
+	mustWrite(t, filepath.Join(configDir, "settings.json"), `{"skillOverrides":{"a":"off"}}`)
+	mustWrite(t, filepath.Join(skillOverrideHome(t), ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
+	out, _ := runDoctor(t)
+	if want := filepath.ToSlash(filepath.Join(configDir, "settings.json")) + " turns off 1 of 1 synced skills (off)"; !strings.Contains(out, want) {
+		t.Errorf("missing %q:\n%s", want, out)
+	}
+	if strings.Contains(out, "name-only") {
+		t.Errorf("read ~/.claude with CLAUDE_CONFIG_DIR set:\n%s", out)
+	}
+}
+
+func skillOverrideGitRepo(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("Claude Code keeps the local file beside the project on Windows")
+	}
+	isolateGit(t)
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	git(t, root, "init", "-q")
+	git(t, root, "commit", "-q", "--allow-empty", "-m", "init")
+	return root
+}
+
+func TestDoctor_SkillOverridesReadsGitRootLocalFileForNestedProject(t *testing.T) {
+	t.Run("git root", func(t *testing.T) {
+		root := skillOverrideGitRepo(t)
+		mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+		testutil.Chdir(t, mustMkdir(t, filepath.Join(root, "sub")))
+		silence(t)
+		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+		out, _ := runDoctor(t)
+		for _, want := range []string{
+			"! ../.claude/settings.local.json (git root) turns off 1 of 2 synced skills (off), so Claude Code refuses to run them: a",
+			"→ Claude Code reads it for the whole repository; review them in Claude Code with /skills, or delete the entries from ../.claude/settings.local.json",
+		} {
+			if !strings.Contains(out, want) {
+				t.Errorf("missing %q:\n%s", want, out)
+			}
+		}
+	})
+	t.Run("main checkout", func(t *testing.T) {
+		root := skillOverrideGitRepo(t)
+		mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+		worktree := filepath.Join(filepath.Dir(root), filepath.Base(root)+"-wt")
+		git(t, root, "worktree", "add", "-q", worktree)
+		testutil.Chdir(t, worktree)
+		silence(t)
+		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+		out, _ := runDoctor(t)
+		if want := "../" + filepath.Base(root) + "/.claude/settings.local.json (main checkout) turns off 1 of 1 synced skills (off)"; !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	})
+	t.Run("project at the root reads the file once", func(t *testing.T) {
+		root := skillOverrideGitRepo(t)
+		testutil.Chdir(t, root)
+		silence(t)
+		writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+		mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+		out, _ := runDoctor(t)
+		if n := strings.Count(out, "turns off 1 of 1 synced skills"); n != 1 || strings.Contains(out, "(git root)") {
+			t.Errorf("want one local line, got %d:\n%s", n, out)
+		}
+	})
+}
+
+func TestDoctor_SkillOverridesSkipsGitRootFileWhenRootIsHome(t *testing.T) {
+	root := skillOverrideGitRepo(t)
+	t.Setenv("HOME", root)
+	t.Setenv("USERPROFILE", root)
+	mustWrite(t, filepath.Join(root, ".claude", "settings.local.json"), `{"skillOverrides":{"a":"off"}}`)
+	testutil.Chdir(t, mustMkdir(t, filepath.Join(root, "sub")))
+	silence(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	out, _ := runDoctor(t)
+	if strings.Contains(out, "Claude skill overrides:") {
+		t.Errorf("read the home folder's local file:\n%s", out)
+	}
+}
+
+// skillOverridesSection keeps the doctor block, so hints from other
+// blocks do not match.
+func skillOverridesSection(out string) string {
+	start := strings.Index(out, "Claude skill overrides:")
+	if start < 0 {
+		return ""
+	}
+	section := out[start:]
+	if end := strings.Index(section, "\n\n"); end >= 0 {
+		section = section[:end]
+	}
+	return section
+}
+
+// skillOverrideHome gives the test its own home folder, so a user
+// settings file one test writes never reaches another.
+func skillOverrideHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	return home
+}
+
+func mustMkdir(t *testing.T, dir string) string {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func doctorSkillOverridesJSON(t *testing.T, args ...string) []skillOverrideRecord {
+	t.Helper()
+	out, _ := runDoctorStdout(t, append([]string{"--json"}, args...)...)
+	var got struct {
+		SkillOverrides []skillOverrideRecord `json:"skill_overrides"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("parse: %v\n%s", err, out)
+	}
+	if got.SkillOverrides == nil {
+		t.Fatalf("skill_overrides missing or null:\n%s", out)
+	}
+	return got.SkillOverrides
+}
+
+func runDoctorStdout(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs(append([]string{"doctor"}, args...))
+	err := root.Execute()
+	return out.String(), err
+}
+
+func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+	if got := doctorSkillOverridesJSON(t); len(got) != 0 {
+		t.Errorf("want [], got %+v", got)
+	}
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"on"}}`)
+	mustWrite(t, filepath.Join(".claude", "settings.json"), `{"skillOverrides":{"b":"user-invocable-only","mine":"off"}}`)
+	userFile := filepath.Join(home, ".claude", "settings.json")
+	mustWrite(t, userFile, `{"skillOverrides":`)
+	want := []skillOverrideRecord{
+		{Path: ".claude/settings.local.json", Scope: "local", Skill: "a", Value: "on", Synced: true},
+		{Path: ".claude/settings.json", Scope: "shared", Skill: "b", Value: "user-invocable-only", Synced: true},
+		{Path: ".claude/settings.json", Scope: "shared", Skill: "mine", Value: "off"},
+		{Path: filepath.ToSlash(userFile), Scope: "user"},
+	}
+	got := doctorSkillOverridesJSON(t)
+	if len(got) != len(want) {
+		t.Fatalf("got %+v\nwant %+v", got, want)
+	}
+	for i := range want {
+		problem := got[i].Problem
+		got[i].Problem = ""
+		if got[i] != want[i] {
+			t.Errorf("record %d: got %+v, want %+v", i, got[i], want[i])
+		}
+		if (want[i].Scope == "user") != (problem != "") {
+			t.Errorf("record %d problem %q", i, problem)
+		}
+	}
+	project := doctorSkillOverridesJSON(t, "--scope", "project")
+	if len(project) != 2 || project[0].Scope != "shared" || project[1].Scope != "shared" {
+		t.Errorf("--scope project: %+v", project)
+	}
+}
+
+func TestDoctor_FixEditsOnlyTheLocalFile(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+	const others = `{"skillOverrides":{"a":"off"}}`
+	userFile := filepath.Join(skillOverrideHome(t), ".claude", "settings.json")
+	mustWrite(t, filepath.Join(".claude", "settings.json"), others)
+	mustWrite(t, userFile, others)
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"b":"off"}}`)
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetIn(strings.NewReader("y\n"))
+	root.SetArgs([]string{"doctor", "--fix"})
+	_ = root.Execute()
+	if n := strings.Count(out.String(), "~ kept skillOverrides in"); n != 1 || !strings.Contains(out.String(), "~ kept skillOverrides in .claude/settings.local.json") {
+		t.Errorf("want one kept note for the local file:\n%s", out.String())
+	}
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports := collectClaudeSkillOverrides(cfg, bundle, false)
+	if len(reports) != 3 {
+		t.Fatalf("reports: %d", len(reports))
+	}
+	if _, err := resetClaudeSkillOverrides(localSkillOverrides(reports), false, func(string) (bool, error) { return true, nil }); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join(".claude", "settings.json"), userFile} {
+		if got, _ := os.ReadFile(path); string(got) != others {
+			t.Errorf("%s changed: %s", path, got)
+		}
+	}
+	if got, _ := os.ReadFile(filepath.Join(".claude", "settings.local.json")); string(got) != `{}` {
+		t.Errorf("local file: %s", got)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -15,7 +16,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -45,10 +48,46 @@ type skillOverrideFinding struct {
 	skills []string
 }
 
+// skillOverrideScope is which Claude settings file a report describes.
+type skillOverrideScope string
+
+const (
+	skillOverrideLocal  skillOverrideScope = "local"
+	skillOverrideShared skillOverrideScope = "shared"
+	skillOverrideUser   skillOverrideScope = "user"
+)
+
+// skillOverrideEntry is one key of a file's skillOverrides object.
+type skillOverrideEntry struct {
+	// Key is as written in the file.
+	Key string
+	// Skill is the name Claude Code sees for a synced skill, "" otherwise.
+	Skill string
+	// Value is the string set, or the JSON text of a value that is not one.
+	Value  string
+	Synced bool
+}
+
+// skillOverrideFile is one settings file Claude Code reads
+// skillOverrides from.
+type skillOverrideFile struct {
+	path  string
+	scope skillOverrideScope
+	// rootLocal marks the local file at the git root or main checkout,
+	// which Claude Code reads when started below it.
+	rootLocal bool
+	// checkout names where a rootLocal file sits: "git root" or
+	// "main checkout".
+	checkout string
+	// editable is true only for the project's own local file; --fix
+	// never touches another one.
+	editable bool
+}
+
 // skillOverrideReport is what one settings file's skillOverrides does to
 // the skills sync writes for Claude.
 type skillOverrideReport struct {
-	path    string
+	skillOverrideFile
 	data    []byte
 	synced  int
 	problem string
@@ -57,16 +96,49 @@ type skillOverrideReport struct {
 	uneditable error
 	states     []skillOverrideFinding
 	unknown    []skillOverrideFinding
+	// entries lists every key, sorted, including "on" and unsynced ones.
+	entries []skillOverrideEntry
+	// unsynced counts the entries that match no synced skill.
+	unsynced int
 }
 
 func (r *skillOverrideReport) display() string {
 	return filepath.ToSlash(r.path)
 }
 
-// collectClaudeSkillOverrides reads the project-local Claude settings
-// file, which the /skills menu writes per developer. It returns nil when
-// nothing there changes a synced skill.
-func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillOverrideReport {
+// label names the file in doctor output: project files relative to the
+// project, the user file from ~, and a root local file with where it is.
+func (r *skillOverrideReport) label() string {
+	if r.rootLocal {
+		return r.labelPath() + " (" + r.checkout + ")"
+	}
+	return r.labelPath()
+}
+
+func (r *skillOverrideReport) labelPath() string {
+	switch {
+	case r.scope == skillOverrideUser:
+		return homeRelative(r.path)
+	case r.rootLocal:
+		if cwd, err := os.Getwd(); err == nil {
+			if real, err := filepath.EvalSymlinks(cwd); err == nil {
+				cwd = real
+			}
+			if rel, err := filepath.Rel(cwd, r.path); err == nil {
+				return filepath.ToSlash(rel)
+			}
+		}
+	}
+	return r.display()
+}
+
+func (r *skillOverrideReport) hasFindings() bool {
+	return r.problem != "" || len(r.states) > 0 || len(r.unknown) > 0
+}
+
+// claudeSyncedSkills maps the folded name Claude Code matches to the name
+// it sees, for every skill sync writes for claude.
+func claudeSyncedSkills(cfg *config.Config, bundle spec.Bundle) map[string]string {
 	synced := map[string]string{}
 	skillsDir := claudeLayoutFor(cfg).skills
 	for _, skill := range bundle.For("claude").Skills {
@@ -79,27 +151,145 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillO
 		}
 		synced[claudeSkillName(name)] = name
 	}
+	return synced
+}
+
+// claudeSettingsFiles lists the files Claude Code reads skillOverrides
+// from, highest precedence first, without the managed files. projectOnly
+// keeps the shared file alone. code.claude.com/docs/en/settings
+func claudeSettingsFiles(cfg *config.Config, projectOnly bool) []skillOverrideFile {
+	shared := skillOverrideFile{path: claude.SettingsFilePath(cfg), scope: skillOverrideShared}
+	if projectOnly {
+		return []skillOverrideFile{shared}
+	}
+	files := []skillOverrideFile{{path: filepath.Join(claudeLayoutFor(cfg).dir, "settings.local.json"), scope: skillOverrideLocal, editable: true}}
+	if root, checkout, ok := claudeLocalSettingsRoot(); ok {
+		files = append(files, skillOverrideFile{path: filepath.Join(root, ".claude", "settings.local.json"), scope: skillOverrideLocal, rootLocal: true, checkout: checkout})
+	}
+	files = append(files, shared)
+	if path, ok := claudeUserSettingsPath(); ok {
+		files = append(files, skillOverrideFile{path: path, scope: skillOverrideUser})
+	}
+	var out []skillOverrideFile
+	for _, file := range files {
+		if !slices.ContainsFunc(out, func(kept skillOverrideFile) bool { return sameSettingsFile(kept.path, file.path) }) {
+			out = append(out, file)
+		}
+	}
+	return out
+}
+
+// claudeLocalSettingsRoot is where Claude Code v2.1.211+ keeps the local
+// settings file for a session started below it: the repository root, or
+// the main checkout in a worktree. It keeps the file beside the project
+// on Windows and when that root is the home folder.
+func claudeLocalSettingsRoot() (root, checkout string, ok bool) {
+	if runtime.GOOS == "windows" {
+		return "", "", false
+	}
+	layout, err := gitquery.LayoutAt(".")
+	if err != nil || filepath.Base(layout.CommonDir) != ".git" {
+		return "", "", false
+	}
+	root = filepath.Dir(layout.CommonDir)
+	if home, err := globalUserHome(); err == nil && samePath(resolvedPath(home), resolvedPath(root)) {
+		return "", "", false
+	}
+	checkout = "git root"
+	if !samePath(layout.GitDir, layout.CommonDir) {
+		checkout = "main checkout"
+	}
+	return root, checkout, true
+}
+
+// claudeUserSettingsPath honors CLAUDE_CONFIG_DIR. Without it and with no
+// home folder, there is no user file to read.
+func claudeUserSettingsPath() (string, bool) {
+	dir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if dir == "" {
+		home, err := globalUserHome()
+		if err != nil {
+			return "", false
+		}
+		dir = filepath.Join(home, ".claude")
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	return filepath.Join(dir, "settings.json"), true
+}
+
+func sameSettingsFile(a, b string) bool {
+	return samePath(resolvedPath(a), resolvedPath(b)) || sameFile(a, b)
+}
+
+// resolvedPath is path made absolute with its folder's links resolved,
+// so a file that does not exist yet still compares by location.
+func resolvedPath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real
+	}
+	if dir, err := filepath.EvalSymlinks(filepath.Dir(abs)); err == nil {
+		return filepath.Join(dir, filepath.Base(abs))
+	}
+	return abs
+}
+
+// collectClaudeSkillOverrides returns one report per settings file that
+// sets skillOverrides, highest precedence first. It is empty when claude
+// has no synced skill.
+func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle, projectOnly bool) []*skillOverrideReport {
+	synced := claudeSyncedSkills(cfg, bundle)
 	if len(synced) == 0 {
 		return nil
 	}
-	report := &skillOverrideReport{path: filepath.Join(claudeLayoutFor(cfg).dir, "settings.local.json"), synced: len(synced)}
+	var reports []*skillOverrideReport
+	for _, file := range claudeSettingsFiles(cfg, projectOnly) {
+		if report := readSkillOverrideFile(cfg, file, synced); report != nil {
+			reports = append(reports, report)
+		}
+	}
+	return reports
+}
+
+// localSkillOverrides is the one report doctor --fix may edit, or nil.
+func localSkillOverrides(reports []*skillOverrideReport) *skillOverrideReport {
+	for _, report := range reports {
+		if report.editable {
+			return report
+		}
+	}
+	return nil
+}
+
+// readSkillOverrideFile is nil when the file is missing or sets no
+// skillOverrides. A file that repeats the key reads as encoding/json
+// does, with the last object.
+func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced map[string]string) *skillOverrideReport {
+	report := &skillOverrideReport{skillOverrideFile: file, synced: len(synced)}
 	data, err := os.ReadFile(report.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		report.problem = fmt.Sprintf("cannot read %s: %v", report.display(), err)
+		report.problem = fmt.Sprintf("cannot read %s: %v", report.label(), err)
 		return report
 	}
 	report.data = data
-	report.uneditable = skillOverridesEditBlock(report, data)
-	if cfg.IsUnmanaged(report.path) {
-		report.uneditable = fmt.Errorf("%s is listed under sync.unmanaged, so doctor leaves it to you", report.display())
+	if report.editable {
+		report.uneditable = skillOverridesEditBlock(report, data)
+		if cfg.IsUnmanaged(report.path) {
+			report.uneditable = fmt.Errorf("%s is listed under sync.unmanaged, so doctor leaves it to you", report.display())
+		}
 	}
 	clean, _ := adapters.StripJSONC(data)
 	var root map[string]json.RawMessage
 	if err := json.Unmarshal(clean, &root); err != nil {
-		report.problem = fmt.Sprintf("cannot read %s: parse %s: %v", report.display(), report.display(), err)
+		report.problem = fmt.Sprintf("cannot read %s: parse %s: %v", report.label(), report.labelPath(), err)
 		return report
 	}
 	raw, ok := root["skillOverrides"]
@@ -108,19 +298,27 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillO
 	}
 	var overrides map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &overrides); err != nil || overrides == nil {
-		report.problem = fmt.Sprintf(`%s: skillOverrides is not an object, so it was not checked; Claude Code expects {"<skill>": "off"}`, report.display())
+		report.problem = fmt.Sprintf(`%s: skillOverrides is not an object, so it was not checked; Claude Code expects {"<skill>": "off"}`, report.label())
 		return report
 	}
 	byValue := map[string]*skillOverrideFinding{}
 	var unknownOrder []string
 	for key, rawValue := range overrides {
-		name, ok := synced[claudeSkillName(key)]
-		if !ok {
-			continue
-		}
 		value := strings.TrimSpace(string(rawValue))
 		var text string
-		if json.Unmarshal(rawValue, &text) == nil {
+		isText := json.Unmarshal(rawValue, &text) == nil
+		entry := skillOverrideEntry{Key: key, Value: value}
+		if isText {
+			entry.Value = text
+		}
+		name, ok := synced[claudeSkillName(key)]
+		entry.Skill, entry.Synced = name, ok
+		report.entries = append(report.entries, entry)
+		if !ok {
+			report.unsynced++
+			continue
+		}
+		if isText {
 			if text == "on" {
 				continue
 			}
@@ -141,6 +339,7 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillO
 			finding.skills = append(finding.skills, name)
 		}
 	}
+	slices.SortFunc(report.entries, func(a, b skillOverrideEntry) int { return strings.Compare(a.Key, b.Key) })
 	for _, state := range claudeSkillOverrideStates {
 		if finding, ok := byValue[state.value]; ok {
 			slices.Sort(finding.keys)
@@ -154,38 +353,95 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillO
 		slices.Sort(finding.skills)
 		report.unknown = append(report.unknown, *finding)
 	}
-	if len(report.states) == 0 && len(report.unknown) == 0 {
-		return nil
-	}
 	return report
 }
 
-func reportClaudeSkillOverrides(cmd *cobra.Command, report *skillOverrideReport) {
-	if report == nil {
+func reportClaudeSkillOverrides(cmd *cobra.Command, reports []*skillOverrideReport) {
+	if !slices.ContainsFunc(reports, (*skillOverrideReport).hasFindings) {
 		return
 	}
 	cmd.Println()
 	cmd.Println("Claude skill overrides:")
-	if report.problem != "" {
-		cmd.Printf("  ! %s\n", report.problem)
-		return
+	for _, report := range reports {
+		if !report.hasFindings() {
+			continue
+		}
+		if report.problem != "" {
+			cmd.Printf("  ! %s\n", report.problem)
+			continue
+		}
+		for _, finding := range report.states {
+			state := claudeSkillOverrideState(finding.value)
+			cmd.Printf("  ! %s %s %d of %d synced skills%s (%s)%s: %s\n", report.label(), state.effect, len(finding.skills), report.synced, state.object, finding.value, state.result, listSkillOverrideNames(finding.skills))
+		}
+		for _, finding := range report.unknown {
+			cmd.Printf("  ! %s sets a value Claude Code does not document (%s) for: %s\n", report.label(), finding.value, listSkillOverrideNames(finding.skills))
+		}
+		if len(report.states) > 0 {
+			report.printNextStep(cmd)
+		}
+		if report.unsynced > 0 {
+			noun := "entries"
+			if report.unsynced == 1 {
+				noun = "entry"
+			}
+			cmd.Printf("  ~ %s also sets %d %s for skills sync does not write\n", report.label(), report.unsynced, noun)
+		}
 	}
-	for _, finding := range report.states {
-		state := claudeSkillOverrideState(finding.value)
-		cmd.Printf("  ! %s %s %d of %d synced skills%s (%s)%s: %s\n", report.display(), state.effect, len(finding.skills), report.synced, state.object, finding.value, state.result, listSkillOverrideNames(finding.skills))
-	}
-	for _, finding := range report.unknown {
-		cmd.Printf("  ! %s sets a value Claude Code does not document (%s) for: %s\n", report.display(), finding.value, listSkillOverrideNames(finding.skills))
-	}
-	if len(report.states) == 0 {
-		return
-	}
-	if report.uneditable != nil {
-		cmd.Printf("  ! %v\n", report.uneditable)
+}
+
+func (r *skillOverrideReport) printNextStep(cmd *cobra.Command) {
+	switch {
+	case r.editable && r.uneditable != nil:
+		cmd.Printf("  ! %v\n", r.uneditable)
 		cmd.Println("    → review them in Claude Code with /skills")
-		return
+	case r.editable:
+		cmd.Printf("    → review them in Claude Code with /skills, run `agnostic-ai doctor --fix` in a terminal, or delete the entries from %s\n", r.display())
+	case r.rootLocal:
+		cmd.Printf("    → Claude Code reads it for the whole repository; review them in Claude Code with /skills, or delete the entries from %s\n", r.labelPath())
+	case r.scope == skillOverrideShared:
+		cmd.Println("    → team policy: set skillOverrides in .agnostic-ai/overlays/claude.settings.json and run `agnostic-ai sync`")
+	default:
+		cmd.Printf("    → applies to every project on this machine; delete the entries from %s\n", r.labelPath())
 	}
-	cmd.Printf("    → review them in Claude Code with /skills, run `agnostic-ai doctor --fix` in a terminal, or delete the entries from %s\n", report.display())
+}
+
+// skillOverrideRecord is one skill_overrides item in doctor --json. A
+// file that could not be read has only path, scope, and problem.
+type skillOverrideRecord struct {
+	Path    string `json:"path"`
+	Scope   string `json:"scope"`
+	Skill   string `json:"skill,omitempty"`
+	Value   string `json:"value,omitempty"`
+	Synced  bool   `json:"synced"`
+	Problem string `json:"problem,omitempty"`
+}
+
+// skillOverrideRecords keeps project files relative, as other doctor JSON
+// paths are, and the files outside the project absolute.
+func skillOverrideRecords(reports []*skillOverrideReport) []skillOverrideRecord {
+	records := []skillOverrideRecord{}
+	for _, report := range reports {
+		path := report.display()
+		if report.rootLocal || report.scope == skillOverrideUser {
+			if abs, err := filepath.Abs(report.path); err == nil {
+				path = filepath.ToSlash(abs)
+			}
+		}
+		if report.problem != "" {
+			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Problem: report.problem})
+			continue
+		}
+		for _, entry := range report.entries {
+			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Skill: entry.Key, Value: entry.Value, Synced: entry.Synced})
+		}
+	}
+	return records
+}
+
+// claudeSkillOverridesSelected is true when doctor checks claude.
+func claudeSkillOverridesSelected(cfg *config.Config, targets []string) bool {
+	return slices.Contains(cfg.Targets, "claude") && (len(targets) == 0 || slices.Contains(targets, "claude"))
 }
 
 func claudeSkillOverrideState(value string) skillOverrideState {
