@@ -82,7 +82,7 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 
 ## A synced skill is disabled via skillOverrides
 
-A message such as `Skill "deploy" is disabled via skillOverrides` means your Claude Code settings switched the skill off, usually from the `/skills` menu. Sync still writes it. Run `agnostic-ai doctor` to list every synced skill your local settings turn off, then re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides).
+A message such as `Skill "deploy" is disabled via skillOverrides` means your Claude Code settings switched the skill off, usually from the `/skills` menu. Sync still writes it. Run `agnostic-ai doctor` to list every synced skill your Claude settings turn off, file by file, then re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides).
 
 ## Hook timeouts
 

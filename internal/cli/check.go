@@ -634,7 +634,7 @@ func newDoctorCmd() *cobra.Command {
 			"     findings `agnostic-ai lint` reports.\n" +
 			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/,\n" +
 			"     project skills or agents that share a name with a global one, and\n" +
-			"     synced skills your local Claude settings turn off (skillOverrides).\n" +
+			"     synced skills a Claude settings file turns off (skillOverrides).\n" +
 			"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
@@ -646,7 +646,7 @@ func newDoctorCmd() *cobra.Command {
 			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
 			"failing. Subcommands run individual checks.\n\n" +
 			"--scope project skips local Codex hook trust and reports it as skipped, " +
-			"and skips the local Claude skillOverrides check. " +
+			"and reads only the shared Claude settings file for skillOverrides. " +
 			"All project checks stay enabled. With --fix, only project drift is repaired; " +
 			"trust is never approved. JSON output stays read-only.",
 		Example: `  # Project and local runtime diagnostic
@@ -695,7 +695,11 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 				hookTrust, trustCheck := doctorTrustForScope(scope.cfg, targets, diagnosticScope)
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck)
+				var overrides []*skillOverrideReport
+				if claudeSkillOverridesSelected(scope.cfg, targets) {
+					overrides = collectClaudeSkillOverrides(scope.cfg, scope.bundle, diagnosticScope == "project")
+				}
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, hookTrust, collectPackagingIgnoreFindings(reports), trustCheck, skillOverrideRecords(overrides))
 			}
 
 			configOK := doctorConfigOK()
@@ -756,12 +760,11 @@ func newDoctorCmd() *cobra.Command {
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg)
-			// The local settings file is per developer, like hook trust.
-			if diagnosticScope != "project" && slices.Contains(cfg.Targets, "claude") && (len(targets) == 0 || slices.Contains(targets, "claude")) {
-				overrides := collectClaudeSkillOverrides(cfg, scope.bundle)
+			if claudeSkillOverridesSelected(cfg, targets) {
+				overrides := collectClaudeSkillOverrides(cfg, scope.bundle, diagnosticScope == "project")
 				reportClaudeSkillOverrides(cmd, overrides)
 				if fix {
-					if err := fixClaudeSkillOverrides(cmd, overrides, backup); err != nil {
+					if err := fixClaudeSkillOverrides(cmd, localSkillOverrides(overrides), backup); err != nil {
 						return err
 					}
 				}
@@ -900,7 +903,7 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
-	cmd.Flags().StringVar(&diagnosticScope, "scope", "all", "Checks to run: all includes local hook trust; project skips it")
+	cmd.Flags().StringVar(&diagnosticScope, "scope", "all", "Checks to run: all includes local hook trust and personal Claude settings; project skips them")
 	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift, and in a terminal offer removal of kept orphans and of skillOverrides entries for synced skills")
 	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting, confirmed orphan removal, or confirmed skillOverrides removal")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
@@ -914,7 +917,7 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// doctorJSONOutput adds lint, hook trust, packaging warnings, and opt-in references.
+// doctorJSONOutput adds lint, hook trust, packaging warnings, skill overrides, and opt-in references.
 type doctorJSONOutput struct {
 	jsonOutput
 	Lint            []lintFinding            `json:"lint"`
@@ -923,18 +926,19 @@ type doctorJSONOutput struct {
 	HookTrustCheck  *doctorTrustCheck        `json:"hook_trust_check,omitempty"`
 	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
 	// CoverageAccepted counts the coverage notes coverage.accept matches.
-	CoverageAccepted int `json:"coverage_accepted"`
+	CoverageAccepted int                   `json:"coverage_accepted"`
+	SkillOverrides   []skillOverrideRecord `json:"skill_overrides"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
 // in writes. Lint, hook trust, and packaging findings have their own lists. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding, trustCheck *doctorTrustCheck, skillOverrides []skillOverrideRecord) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted, HookTrustCheck: trustCheck}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted, HookTrustCheck: trustCheck, SkillOverrides: skillOverrides}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}
