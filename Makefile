@@ -199,6 +199,12 @@ site-serve:
 		echo "$$want required, found $${have:-nothing}."; \
 		exit 1; \
 	fi
+	$(MAKE) playground-build
+	@# Production copies the playground into /playground/ after the site
+	@# build; a link that lives only while serving gives the same URL.
+	@link=$(SITE_DIR)/static/playground; \
+	trap 'rm -f "$$link"' EXIT INT TERM; \
+	ln -sfn ../../playground "$$link"; \
 	zola --root $(SITE_DIR) serve
 
 site-clean:
