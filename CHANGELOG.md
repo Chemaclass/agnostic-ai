@@ -16,6 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- The home page hero leads with "Set up with an agent", which opens the agent setup page. In the "Without" view, each file's text shows in a dark code box like the source file (#2362).
 - The memory reference lists Kiro IDE Memory as off by default and describes its shared local IDE/CLI store (#2353).
 - The Amp page says orbs ask to approve workspace MCP servers separately from the CLI, and again after a server's configuration changes (#2358).
 - Update archive summaries wrap within their column, keeping release titles readable on desktop.

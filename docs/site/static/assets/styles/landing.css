@@ -1141,8 +1141,9 @@ main > section[id] {
   outline-offset: 2px;
 }
 
-/* Each pair of alternates shares one grid cell and swaps visibility, so
-   the figure keeps the height of the taller state when the toggle flips. */
+/* The sync step and the summary share one grid cell with their
+   alternates and swap visibility, so they keep the taller state's height
+   when the toggle flips. */
 /* The chip sits above the trunk, so the travelling pulse passes behind it. */
 .fanout-step {
   position: relative;
@@ -1176,9 +1177,14 @@ main > section[id] {
 }
 
 .fanout-hand,
-.fanout-drift,
 .fanout-bad {
   visibility: hidden;
+}
+
+/* Each view sizes its cards to its own line, so a file text that wraps
+   on a phone does not stretch the With view. */
+.fanout-drift {
+  display: none;
 }
 
 /* A pulse travels down the trunk and out along each stub while sync runs. */
@@ -1257,15 +1263,21 @@ main > section[id] {
 
 #fanout-without:checked ~ .fanout-sync code,
 #fanout-without:checked ~ .fanout-summary .fanout-good,
-#fanout-without:checked ~ .fanout-outputs .fanout-tools,
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-check {
   visibility: hidden;
 }
 
+#fanout-without:checked ~ .fanout-outputs .fanout-tools {
+  display: none;
+}
+
 #fanout-without:checked ~ .fanout-sync .fanout-hand,
-#fanout-without:checked ~ .fanout-outputs .fanout-drift,
 #fanout-without:checked ~ .fanout-summary .fanout-bad {
   visibility: visible;
+}
+
+#fanout-without:checked ~ .fanout-outputs .fanout-drift {
+  display: block;
 }
 
 .fanout-hand {
@@ -1279,9 +1291,15 @@ main > section[id] {
   white-space: nowrap;
 }
 
+/* The file text sits in the same dark slab as the source file above. */
 .fanout-drift {
-  color: var(--muted);
-  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--slab-line);
+  border-radius: 8px;
+  background: var(--slab);
+  color: var(--slab-ink);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted {
@@ -1289,7 +1307,7 @@ main > section[id] {
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-drift {
-  color: var(--danger);
+  color: #ef8f74;
 }
 
 #fanout-without:checked ~ .fanout-sync::before,
