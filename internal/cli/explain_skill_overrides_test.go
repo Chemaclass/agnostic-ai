@@ -309,11 +309,56 @@ func TestExplain_SkillOverridesSecondKeyInOneFileIsNotApplied(t *testing.T) {
 	silence(t)
 	skillOverrideHome(t)
 	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
-	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"name-only","Deploy":"off"}}`)
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off","Deploy":"off"}}`)
 	want := "claude overrides:\n" +
 		"  .claude/settings.local.json: off (Claude Code refuses to run it; change it in /skills)\n" +
-		"  .claude/settings.local.json: name-only (not applied: another key in this file names the skill)\n"
+		"  .claude/settings.local.json: off (not applied: another key in this file names the skill)\n"
 	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
 		t.Errorf("block:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestExplain_SkillOverridesConflictingKeysInOneFileApplyNeither(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"Deploy":"on","deploy":"off"}}`)
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	want := "claude overrides:\n" +
+		"  .claude/settings.local.json: on (conflicts with another key in this file)\n" +
+		"  .claude/settings.local.json: off (conflicts with another key in this file)\n" +
+		"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n"
+	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
+		t.Errorf("block:\n%s\nwant:\n%s", got, want)
+	}
+	var got explainOutput
+	if err := json.Unmarshal([]byte(runExplain(t, deploySkill, "--json")), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Overrides) != 3 || !got.Overrides[0].Conflict || !got.Overrides[1].Conflict || got.Overrides[0].Effective || !got.Overrides[2].Effective {
+		t.Errorf("overrides = %+v", got.Overrides)
+	}
+}
+
+func TestExplain_SkillOverridesFileWithRejectedValueIsUncertain(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "deploy")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"deploy":"off","mine":"Off"}}`)
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"deploy":"name-only"}}`)
+	want := "claude overrides:\n" +
+		"  .claude/settings.local.json: off (Claude Code refuses to run it; this file has a rejected value, so Claude Code may skip it)\n" +
+		"  ~/.claude/settings.json: name-only (listed without its description; applies to every project)\n"
+	if got := explainOverridesBlock(runExplain(t, deploySkill)); got != want {
+		t.Errorf("block:\n%s\nwant:\n%s", got, want)
+	}
+	var got explainOutput
+	if err := json.Unmarshal([]byte(runExplain(t, deploySkill, "--json")), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Overrides) != 2 || !got.Overrides[0].Uncertain || got.Overrides[1].Uncertain || !got.Overrides[1].Effective {
+		t.Errorf("overrides = %+v", got.Overrides)
 	}
 }

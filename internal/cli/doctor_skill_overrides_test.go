@@ -833,9 +833,9 @@ func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
 	got := doctorSkillOverridesJSON(t)
 	want := []map[string]any{
 		entry(".claude/settings.local.json", "local", "a", "on", true, true),
-		entry(".claude/settings.json", "shared", "a", "off", true, false),
+		{"path": ".claude/settings.json", "scope": "shared", "skill": "a", "value": "off", "synced": true, "effective": false, "uncertain": true},
 		{"path": ".claude/settings.json", "scope": "shared", "skill": "b", "value": `""`, "synced": true, "effective": false, "rejected": true},
-		entry(".claude/settings.json", "shared", "mine", "off", false, true),
+		{"path": ".claude/settings.json", "scope": "shared", "skill": "mine", "value": "off", "synced": false, "effective": true, "uncertain": true},
 	}
 	if len(got) != len(want)+1 {
 		t.Fatalf("got %+v", got)
@@ -937,5 +937,70 @@ func TestResetClaudeSkillOverrides_RemovesEveryKeyNamingTheSkill(t *testing.T) {
 	}
 	if want := "{}"; string(got) != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestDoctor_SkillOverridesReportsConflictingKeysInOneFile(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a", "b")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"A":"on","a":"off","b":"off"}}`)
+	out, _ := runDoctor(t)
+	for _, want := range []string{
+		"! .claude/settings.local.json names a under more than one key with different values (A: on, a: off); Claude Code may apply either",
+		"! .claude/settings.local.json turns off 1 of 2 synced skills (off), so Claude Code refuses to run them: b",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestResetClaudeSkillOverrides_RemovesConflictingKeysOnConfirm(t *testing.T) {
+	report := collectTestSkillOverrides(t, `{"skillOverrides":{"A":"on","a":"off"}}`, "a")
+	var asked []string
+	removed, err := resetClaudeSkillOverrides(report, false, func(question string) (bool, error) {
+		asked = append(asked, question)
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Re-enable 1 synced skill set by conflicting keys in .claude/settings.local.json (a)?"}; !reflect.DeepEqual(asked, want) {
+		t.Errorf("asked %q, want %q", asked, want)
+	}
+	if removed != 1 {
+		t.Errorf("removed %d, want 1", removed)
+	}
+	got, err := os.ReadFile(filepath.Join(".claude", "settings.local.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "{}" {
+		t.Errorf("got:\n%s", got)
+	}
+}
+
+func TestDoctor_SkillOverridesCautionsFileWithRejectedValue(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), `{"skillOverrides":{"a":"off","mine":"Off"}}`)
+	mustWrite(t, filepath.Join(home, ".claude", "settings.json"), `{"skillOverrides":{"a":"name-only"}}`)
+	out, _ := runDoctor(t)
+	for _, want := range []string{
+		"! .claude/settings.local.json turns off 1 of 1 synced skills (off)",
+		"  ~ .claude/settings.local.json has a rejected value, so Claude Code may skip it and these entries may not apply",
+		"! ~/.claude/settings.json lists 1 of 1 synced skills without their description (name-only): a",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+	records := doctorSkillOverridesJSON(t)
+	if len(records) != 3 || records[0]["uncertain"] != true || records[2]["effective"] != true {
+		t.Errorf("records = %+v", records)
 	}
 }

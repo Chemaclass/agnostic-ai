@@ -21,6 +21,8 @@ type explainOverride struct {
 	Value     string `json:"value"`
 	Effective bool   `json:"effective"`
 	Rejected  bool   `json:"rejected,omitempty"`
+	Conflict  bool   `json:"conflict,omitempty"`
+	Uncertain bool   `json:"uncertain,omitempty"`
 	Problem   string `json:"problem,omitempty"`
 	label     string
 	rootLocal bool
@@ -70,6 +72,7 @@ func explainSkillOverrides(entry spec.Entry, cfg *config.Config, bundle spec.Bun
 			override := base
 			override.Value, override.Effective, override.Rejected = e.Value, e.Effective, e.Rejected
 			override.overlay, override.sameFile = e.Overlay, e.sameFile
+			override.Conflict, override.Uncertain = e.Conflict, e.Uncertain
 			overrides = append(overrides, override)
 		}
 	}
@@ -87,10 +90,14 @@ func printExplainSkillOverrides(out io.Writer, overrides []explainOverride) {
 			_, _ = fmt.Fprintf(out, "  %s\n", o.Problem)
 		case o.Rejected:
 			_, _ = fmt.Fprintf(out, "  %s: %s (rejected by Claude Code, which may skip the whole file; %s)\n", o.label, o.Value, o.where())
+		case o.Conflict:
+			_, _ = fmt.Fprintf(out, "  %s: %s (conflicts with another key in this file)\n", o.label, o.Value)
 		case o.sameFile:
 			_, _ = fmt.Fprintf(out, "  %s: %s (not applied: another key in this file names the skill)\n", o.label, o.Value)
 		case !o.Effective:
 			_, _ = fmt.Fprintf(out, "  %s: %s (not applied: a higher file sets it)\n", o.label, o.Value)
+		case o.Uncertain:
+			_, _ = fmt.Fprintf(out, "  %s: %s (%s; this file has a rejected value, so Claude Code may skip it)\n", o.label, o.Value, explainOverrideEffect(o.Value))
 		default:
 			_, _ = fmt.Fprintf(out, "  %s: %s (%s; %s)\n", o.label, o.Value, explainOverrideEffect(o.Value), o.where())
 		}

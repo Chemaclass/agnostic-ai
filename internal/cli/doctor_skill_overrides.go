@@ -75,7 +75,14 @@ type skillOverrideEntry struct {
 	// Rejected is true for a value Claude Code's settings schema refuses:
 	// anything but on, off, user-invocable-only, or name-only.
 	Rejected bool
-	// sameFile is true when an earlier key in the same file names the skill.
+	// Conflict is true when another key in the same file names the skill
+	// with a different value; Claude Code does not say which one applies.
+	Conflict bool
+	// Uncertain is true when the file also holds a rejected value, so
+	// Claude Code may skip the whole file.
+	Uncertain bool
+	// sameFile is true when an earlier key in the same file names the
+	// skill with the same value.
 	sameFile bool
 	// Overlay is true for a shared file entry that the claude settings
 	// overlay sets to the same value.
@@ -124,6 +131,9 @@ type skillOverrideReport struct {
 	uneditable error
 	states     []skillOverrideFinding
 	unknown    []skillOverrideFinding
+	// conflicts holds one finding per skill that keys in this file set
+	// to different values; value lists each key and its value.
+	conflicts []skillOverrideFinding
 	// overlaid are the shared file's states the overlay sets, which
 	// sync wrote on purpose.
 	overlaid []skillOverrideFinding
@@ -164,7 +174,18 @@ func (r *skillOverrideReport) labelPath() string {
 }
 
 func (r *skillOverrideReport) hasFindings() bool {
-	return r.problem != "" || len(r.states) > 0 || len(r.unknown) > 0 || len(r.overlaid) > 0
+	return r.problem != "" || r.actionable() || len(r.unknown) > 0 || len(r.overlaid) > 0
+}
+
+// actionable is true when --fix has entries to offer.
+func (r *skillOverrideReport) actionable() bool {
+	return len(r.states) > 0 || len(r.conflicts) > 0
+}
+
+// hasRejected is true when Claude Code may skip the file over a value it
+// rejects.
+func (r *skillOverrideReport) hasRejected() bool {
+	return slices.ContainsFunc(r.entries, func(e skillOverrideEntry) bool { return e.Rejected })
 }
 
 // claudeSyncedSkills maps the folded name Claude Code matches to the name
@@ -301,27 +322,53 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle, project
 		if report == nil {
 			continue
 		}
-		here := map[string]bool{}
-		for i := range report.entries {
-			entry := &report.entries[i]
-			entry.Overlay = report.scope == skillOverrideShared && entry.documented() && overlay[entry.Key] == entry.Value
-			folded := claudeSkillName(entry.Key)
-			switch {
-			case entry.Rejected, set[folded]:
-				entry.Effective = false
-			case here[folded]:
-				entry.Effective, entry.sameFile = false, true
-			default:
-				here[folded] = true
-			}
-		}
-		for folded := range here {
-			set[folded] = true
-		}
+		markSkillOverrideEntries(report, set, overlay)
 		report.findings()
 		reports = append(reports, report)
 	}
 	return reports
+}
+
+// markSkillOverrideEntries sets which of a file's entries take effect.
+// Neither a key that conflicts with another in the same file nor any key
+// in a file Claude Code may skip overrules a lower file, since Claude
+// Code does not document what it applies then. set gains the skills this
+// file decides.
+func markSkillOverrideEntries(report *skillOverrideReport, set map[string]bool, overlay map[string]string) {
+	uncertain := report.hasRejected()
+	values := map[string]map[string]bool{}
+	for _, entry := range report.entries {
+		if !entry.Rejected {
+			folded := claudeSkillName(entry.Key)
+			if values[folded] == nil {
+				values[folded] = map[string]bool{}
+			}
+			values[folded][entry.Value] = true
+		}
+	}
+	here := map[string]bool{}
+	for i := range report.entries {
+		entry := &report.entries[i]
+		entry.Overlay = report.scope == skillOverrideShared && entry.documented() && overlay[entry.Key] == entry.Value
+		entry.Uncertain = uncertain && !entry.Rejected
+		folded := claudeSkillName(entry.Key)
+		switch {
+		case entry.Rejected, set[folded]:
+			entry.Effective = false
+		case len(values[folded]) > 1:
+			entry.Effective, entry.Conflict = false, true
+		case here[folded]:
+			entry.Effective, entry.sameFile = false, true
+		default:
+			here[folded] = true
+		}
+	}
+	if uncertain {
+		return
+	}
+	for folded := range here {
+		set[folded] = true
+	}
 }
 
 // claudeOverlaySkillOverrides maps each key the claude settings overlay
@@ -430,11 +477,26 @@ func (r *skillOverrideReport) findings() {
 	states, overlaid := map[string]*skillOverrideFinding{}, map[string]*skillOverrideFinding{}
 	unknown := map[string]*skillOverrideFinding{}
 	repeats := map[string][]string{}
+	conflicts := map[string]*skillOverrideFinding{}
 	for _, entry := range r.entries {
-		if entry.sameFile {
-			folded := claudeSkillName(entry.Key)
+		folded := claudeSkillName(entry.Key)
+		switch {
+		case entry.sameFile:
 			repeats[folded] = append(repeats[folded], entry.Key)
+		case entry.Conflict && entry.Synced:
+			finding, ok := conflicts[folded]
+			if !ok {
+				finding = &skillOverrideFinding{skills: []string{entry.Skill}}
+				conflicts[folded] = finding
+			} else {
+				finding.value += ", "
+			}
+			finding.keys = append(finding.keys, entry.Key)
+			finding.value += entry.Key + ": " + entry.Value
 		}
+	}
+	for _, folded := range slices.Sorted(maps.Keys(conflicts)) {
+		r.conflicts = append(r.conflicts, *conflicts[folded])
 	}
 	for _, entry := range r.entries {
 		if !entry.Synced || (!entry.Rejected && (!entry.Effective || entry.Value == "on")) {
@@ -498,10 +560,16 @@ func reportClaudeSkillOverrides(cmd *cobra.Command, reports []*skillOverrideRepo
 			state := claudeSkillOverrideState(finding.value)
 			cmd.Printf("  ! %s %s %d of %d synced skills%s (%s)%s: %s\n", report.label(), state.effect, len(finding.skills), report.synced, state.object, finding.value, state.result, listSkillOverrideNames(finding.skills))
 		}
+		for _, finding := range report.conflicts {
+			cmd.Printf("  ! %s names %s under more than one key with different values (%s); Claude Code may apply either\n", report.label(), finding.skills[0], finding.value)
+		}
 		for _, finding := range report.unknown {
 			cmd.Printf("  ! %s sets a value Claude Code rejects (%s), which may make it skip the whole file, for: %s\n", report.label(), finding.value, listSkillOverrideNames(finding.skills))
 		}
-		if len(report.states) > 0 {
+		if report.actionable() && report.hasRejected() {
+			cmd.Printf("  ~ %s has a rejected value, so Claude Code may skip it and these entries may not apply\n", report.label())
+		}
+		if report.actionable() {
 			report.printNextStep(cmd)
 		}
 		for _, finding := range report.overlaid {
@@ -544,6 +612,8 @@ type skillOverrideRecord struct {
 	Synced    bool   `json:"synced"`
 	Effective bool   `json:"effective"`
 	Rejected  bool   `json:"rejected,omitempty"`
+	Conflict  bool   `json:"conflict,omitempty"`
+	Uncertain bool   `json:"uncertain,omitempty"`
 	Problem   string `json:"problem,omitempty"`
 }
 
@@ -579,7 +649,7 @@ func skillOverrideRecords(reports []*skillOverrideReport) []skillOverrideRecord 
 			continue
 		}
 		for _, entry := range report.entries {
-			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Skill: entry.Key, Value: entry.Value, Synced: entry.Synced, Effective: entry.Effective, Rejected: entry.Rejected})
+			records = append(records, skillOverrideRecord{Path: path, Scope: string(report.scope), Skill: entry.Key, Value: entry.Value, Synced: entry.Synced, Effective: entry.Effective, Rejected: entry.Rejected, Conflict: entry.Conflict, Uncertain: entry.Uncertain})
 		}
 	}
 	return records
@@ -610,7 +680,7 @@ func listSkillOverrideNames(names []string) string {
 // each state's entries. The file is the developer's, so nothing changes
 // without a yes.
 func fixClaudeSkillOverrides(cmd *cobra.Command, report *skillOverrideReport, backup bool) error {
-	if report == nil || len(report.states) == 0 || report.uneditable != nil {
+	if report == nil || !report.actionable() || report.uneditable != nil {
 		return nil
 	}
 	in := cmd.InOrStdin()
@@ -655,14 +725,31 @@ func applySkillOverrideReset(cmd *cobra.Command, report *skillOverrideReport, ba
 // file in place, so comments, order, and every other key stay as they
 // were. It returns how many synced skills it re-enabled.
 func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm func(string) (bool, error)) (int, error) {
+	type group struct {
+		finding skillOverrideFinding
+		prompt  string
+	}
+	var groups []group
+	for _, finding := range report.states {
+		groups = append(groups, group{finding, claudeSkillOverrideState(finding.value).prompt})
+	}
+	if len(report.conflicts) > 0 {
+		var conflicted skillOverrideFinding
+		for _, finding := range report.conflicts {
+			conflicted.keys = append(conflicted.keys, finding.keys...)
+			conflicted.skills = append(conflicted.skills, finding.skills...)
+		}
+		groups = append(groups, group{conflicted, "set by conflicting keys"})
+	}
 	var keys []string
 	skills := 0
-	for _, finding := range report.states {
+	for _, g := range groups {
+		finding := g.finding
 		noun := "skills"
 		if len(finding.skills) == 1 {
 			noun = "skill"
 		}
-		question := fmt.Sprintf("Re-enable %d synced %s %s in %s (%s)?", len(finding.skills), noun, claudeSkillOverrideState(finding.value).prompt, report.display(), listSkillOverrideNames(finding.skills))
+		question := fmt.Sprintf("Re-enable %d synced %s %s in %s (%s)?", len(finding.skills), noun, g.prompt, report.display(), listSkillOverrideNames(finding.skills))
 		yes, err := confirm(question)
 		if err != nil {
 			return 0, err
