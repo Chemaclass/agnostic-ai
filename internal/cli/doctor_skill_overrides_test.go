@@ -884,3 +884,27 @@ func TestDoctor_FixEditsOnlyTheLocalFile(t *testing.T) {
 		t.Errorf("local file: %s", got)
 	}
 }
+
+func TestDoctor_SkillOverridesNamesUnreadableFileOnce(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a file the user cannot read")
+	}
+	testutil.TempCwd(t)
+	silence(t)
+	home := skillOverrideHome(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n", "a")
+	path := filepath.Join(home, ".claude", "settings.json")
+	mustWrite(t, path, `{"skillOverrides":{"a":"off"}}`)
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+	out, _ := runDoctor(t)
+	out = skillOverridesSection(out)
+	if want := "! cannot read ~/.claude/settings.json: permission denied"; !strings.HasSuffix(out, want) {
+		t.Errorf("missing %q:\n%s", want, out)
+	}
+	if strings.Count(out, "settings.json") != 1 {
+		t.Errorf("path named more than once:\n%s", out)
+	}
+}

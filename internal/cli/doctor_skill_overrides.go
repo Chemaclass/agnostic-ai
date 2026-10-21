@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -302,7 +303,7 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle, project
 // sets in skillOverrides to its string value. Sync and lint report an
 // overlay that does not parse.
 func claudeOverlaySkillOverrides() map[string]string {
-	data, err := os.ReadFile(filepath.FromSlash(claude.SettingsOverlayPath()))
+	data, err := os.ReadFile(claudeOverlayPath("."))
 	if err != nil {
 		return nil
 	}
@@ -342,6 +343,11 @@ func readSkillOverrideFile(cfg *config.Config, file skillOverrideFile, synced ma
 		return nil
 	}
 	if err != nil {
+		// The label already names the file, so drop the path the error repeats.
+		var pathErr *fs.PathError
+		if errors.As(err, &pathErr) {
+			err = pathErr.Err
+		}
 		report.problem = fmt.Sprintf("cannot read %s: %v", report.label(), err)
 		return report
 	}
@@ -459,7 +465,7 @@ func reportClaudeSkillOverrides(cmd *cobra.Command, reports []*skillOverrideRepo
 		}
 		for _, finding := range report.overlaid {
 			state := claudeSkillOverrideState(finding.value)
-			cmd.Printf("  ~ %s %s %d of %d synced skills%s (%s) as %s sets: %s\n", report.label(), state.effect, len(finding.skills), report.synced, state.object, finding.value, claude.SettingsOverlayPath(), listSkillOverrideNames(finding.skills))
+			cmd.Printf("  ~ %s %s %d of %d synced skills%s (%s) as %s sets: %s\n", report.label(), state.effect, len(finding.skills), report.synced, state.object, finding.value, filepath.ToSlash(claudeOverlayPath("")), listSkillOverrideNames(finding.skills))
 		}
 		if report.unsynced > 0 {
 			noun := "entries"
@@ -481,7 +487,7 @@ func (r *skillOverrideReport) printNextStep(cmd *cobra.Command) {
 	case r.rootLocal:
 		cmd.Printf("    → Claude Code reads it for the whole repository; review them in Claude Code with /skills, or delete the entries from %s\n", r.labelPath())
 	case r.scope == skillOverrideShared:
-		cmd.Println("    → team policy: set skillOverrides in .agnostic-ai/overlays/claude.settings.json and run `agnostic-ai sync`")
+		cmd.Printf("    → team policy: set skillOverrides in %s and run `agnostic-ai sync`\n", filepath.ToSlash(claudeOverlayPath("")))
 	default:
 		cmd.Printf("    → applies to every project on this machine; delete the entries from %s\n", r.labelPath())
 	}
