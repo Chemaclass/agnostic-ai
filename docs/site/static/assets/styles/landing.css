@@ -1190,10 +1190,8 @@ main > section[id] {
 
 .fanout-head {
   grid-area: head;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.15rem 0.6rem;
+  display: grid;
+  gap: 0.15rem;
   min-width: 0;
 }
 
