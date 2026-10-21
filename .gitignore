@@ -167,6 +167,7 @@ WARP.md
 # =============================================================================
 /docs/playground/agnostic-ai.wasm
 /docs/playground/wasm_exec.js
+/docs/site/static/playground
 
 # =============================================================================
 # bashunit run state (written by `make test-shell`)
