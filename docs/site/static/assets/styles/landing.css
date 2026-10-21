@@ -1164,9 +1164,8 @@ main > section[id] {
   outline-offset: 2px;
 }
 
-/* The sync step and the summary share one grid cell with their
-   alternates and swap visibility, so they keep the taller state's height
-   when the toggle flips. */
+/* Each pair of alternates shares one grid cell and swaps visibility, so
+   the figure keeps the height of the taller state when the toggle flips. */
 /* The chip sits above the trunk, so the travelling pulse passes behind it. */
 .fanout-step {
   position: relative;
@@ -1193,21 +1192,22 @@ main > section[id] {
 .fanout-path { grid-area: path; }
 .fanout-check { grid-area: mark; }
 
+/* The tool names and the file text share one grid cell, with the same
+   box and line height, so the cards keep their height when the toggle
+   flips. */
 .fanout-tools,
 .fanout-drift {
   grid-area: detail;
   margin-left: 0;
+  padding-block: 0.45rem;
+  border: 1px solid transparent;
+  line-height: 1.2rem;
 }
 
 .fanout-hand,
+.fanout-drift,
 .fanout-bad {
   visibility: hidden;
-}
-
-/* Each view sizes its cards to its own line, so a file text that wraps
-   on a phone does not stretch the With view. */
-.fanout-drift {
-  display: none;
 }
 
 /* A pulse travels down the trunk and out along each stub while sync runs. */
@@ -1286,21 +1286,15 @@ main > section[id] {
 
 #fanout-without:checked ~ .fanout-sync code,
 #fanout-without:checked ~ .fanout-summary .fanout-good,
+#fanout-without:checked ~ .fanout-outputs .fanout-tools,
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-check {
   visibility: hidden;
 }
 
-#fanout-without:checked ~ .fanout-outputs .fanout-tools {
-  display: none;
-}
-
 #fanout-without:checked ~ .fanout-sync .fanout-hand,
+#fanout-without:checked ~ .fanout-outputs .fanout-drift,
 #fanout-without:checked ~ .fanout-summary .fanout-bad {
   visibility: visible;
-}
-
-#fanout-without:checked ~ .fanout-outputs .fanout-drift {
-  display: block;
 }
 
 .fanout-hand {
@@ -1316,8 +1310,8 @@ main > section[id] {
 
 /* The file text sits in the same dark slab as the source file above. */
 .fanout-drift {
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--slab-line);
+  padding-inline: 0.75rem;
+  border-color: var(--slab-line);
   border-radius: 8px;
   background: var(--slab);
   color: var(--slab-ink);
