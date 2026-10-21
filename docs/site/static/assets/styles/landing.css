@@ -1141,8 +1141,9 @@ main > section[id] {
   outline-offset: 2px;
 }
 
-/* Each pair of alternates shares one grid cell and swaps visibility, so
-   the figure keeps the height of the taller state when the toggle flips. */
+/* The sync step and the summary share one grid cell with their
+   alternates and swap visibility, so they keep the taller state's height
+   when the toggle flips. */
 /* The chip sits above the trunk, so the travelling pulse passes behind it. */
 .fanout-step {
   position: relative;
