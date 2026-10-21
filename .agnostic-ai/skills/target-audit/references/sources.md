@@ -211,7 +211,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: hooks (`.agents/hooks.json`) run in the IDE: `transcriptPath` resolves under `~/.gemini/antigravity-ide`. Do not re-open.
 - decision: subagents emit to nested `.agents/agents/<name>/agent.md` (#717). Never write a generic `tools`: the vocabulary (`view_file`, `run_command`) has zero Claude overlap and an unmapped name can hang the subagent. Use `x-antigravity.tools`.
 - decision: global skills go to `~/.gemini/config/skills/`; `~/.gemini/antigravity/skills/` is legacy (#896).
-- trap: `/docs/slash-commands` says `/learn` writes `.antigravity/rules.md`. Every rules page says `.agents/rules/`. Likely stale copy; only running `/learn` in the IDE settles it. Do not file on the prose.
+- note: `/docs/slash-commands` documents `/learn` proposing changes in `learning_proposal.md` before approved writes to `AGENTS.md`, `GEMINI.md`, `.agents/rules/*.md` or `.agents/skills/<name>/SKILL.md`. This is documented behavior, not a native execution check.
 - note: a rules file caps at 24,000 bytes and truncates over it, a coverage note (#1114, corrects the earlier 12,000-character/undocumented-outcome reading). A separate 20,000-token aggregate budget across `always_on` rules demotes the largest to a path-plus-description pointer; docs-only, no note.
 
 ## junie
@@ -260,7 +260,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 ## trae
 
 - docs: https://docs.trae.ai/ide/rules · https://docs.trae.ai/ide/model-context-protocol · https://docs.trae.ai/ide/add-mcp-servers · https://docs.trae.ai/ide/skills · https://docs.trae.ai/ide/subagents · https://docs.trae.ai/ide/slash-commands · https://docs.trae.ai/ide/hook-configuration-reference · https://docs.trae.ai/ide/automate-actions-with-hooks · https://docs.trae.ai/ide/ignore-files · https://docs.trae.ai/ide/sandbox (the sandbox the hook pages say hook commands run in; its `sandbox.json` is user level, not a project file)
-- changelog: https://www.trae.ai/api/changelog (primary JSON feed, latest entry 2026-10-08) · https://docs.trae.ai/ide/changelog (documentation alternative, latest entry 2026-08-19; checked 2026-09-23 by extracting the router payload's text, which lags the JSON feed rather than stopping in 2025)
+- changelog: https://www.trae.ai/api/changelog (primary JSON feed) · https://docs.trae.ai/ide/changelog (documentation alternative; extract the router payload's text, which can lag the JSON feed)
 - quirk: WebFetch and a `.md` suffix both fail; the page is an SPA shell. Curl to disk, brace-match `window._ROUTER_DATA`, and collect the Quill delta's `ops[].insert` per `zoneId`.
 - quirk: walk `window._ROUTER_DATA`'s nav tree for the full page list. The sidebar missed `/ide/ignore-files` and `/ide/automate-actions-with-hooks` for three audits.
 - quirk: `docs.trae.ai/ide/mcp` 302s to a marketing page. The live MCP pages are `model-context-protocol` and `add-mcp-servers`.
