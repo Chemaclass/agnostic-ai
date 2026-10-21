@@ -1,3 +1,5 @@
 #!/bin/sh
-file=$(jq -r '.tool_input.file_path // empty')
-[ -z "$file" ] || npx prettier --write "$file"
+files=$(agnostic-ai hook paths) || exit 1
+printf '%s\n' "$files" | while IFS= read -r f; do
+  [ -z "$f" ] || npx prettier --write "$f"
+done
