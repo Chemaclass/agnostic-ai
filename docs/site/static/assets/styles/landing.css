@@ -1176,9 +1176,14 @@ main > section[id] {
 }
 
 .fanout-hand,
-.fanout-drift,
 .fanout-bad {
   visibility: hidden;
+}
+
+/* Each view sizes its cards to its own line, so a file text that wraps
+   on a phone does not stretch the With view. */
+.fanout-drift {
+  display: none;
 }
 
 /* A pulse travels down the trunk and out along each stub while sync runs. */
@@ -1257,15 +1262,21 @@ main > section[id] {
 
 #fanout-without:checked ~ .fanout-sync code,
 #fanout-without:checked ~ .fanout-summary .fanout-good,
-#fanout-without:checked ~ .fanout-outputs .fanout-tools,
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-check {
   visibility: hidden;
 }
 
+#fanout-without:checked ~ .fanout-outputs .fanout-tools {
+  display: none;
+}
+
 #fanout-without:checked ~ .fanout-sync .fanout-hand,
-#fanout-without:checked ~ .fanout-outputs .fanout-drift,
 #fanout-without:checked ~ .fanout-summary .fanout-bad {
   visibility: visible;
+}
+
+#fanout-without:checked ~ .fanout-outputs .fanout-drift {
+  display: block;
 }
 
 .fanout-hand {
@@ -1279,20 +1290,15 @@ main > section[id] {
   white-space: nowrap;
 }
 
-/* The file text sits in the same dark slab as the source file above. It
-   shares a grid cell with the tool names, so one line keeps the With
-   view's cards their own height. */
+/* The file text sits in the same dark slab as the source file above. */
 .fanout-drift {
-  display: block;
   padding: 0.45rem 0.75rem;
   border: 1px solid var(--slab-line);
   border-radius: 8px;
   background: var(--slab);
   color: var(--slab-ink);
   font-size: 0.75rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted {
