@@ -473,7 +473,7 @@ func TestCollectClaudeSkillOverrides_LeavesHardLinkedSettings(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("link counts come from POSIX stat")
 	}
-	report := collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
+	collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
 	if err := os.Link(filepath.Join(".claude", "settings.local.json"), "shared.json"); err != nil {
 		t.Skipf("hard link: %v", err)
 	}
@@ -481,7 +481,7 @@ func TestCollectClaudeSkillOverrides_LeavesHardLinkedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report = collectClaudeSkillOverrides(cfg, bundle)
+	report := collectClaudeSkillOverrides(cfg, bundle)
 	if report == nil || report.uneditable == nil || !strings.Contains(report.uneditable.Error(), "hard link") {
 		t.Fatalf("report: %+v", report)
 	}
