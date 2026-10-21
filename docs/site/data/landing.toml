@@ -2,13 +2,13 @@
 title = "One source."
 accent_title = "Every AI coding tool."
 body = "Write your project instructions once, in your repository. `agnostic-ai sync` writes the file each tool reads, in its own format."
-primary_label = "Set up your project"
+primary_label = "Set up with an agent"
 secondary_label = "Explore the files"
 
 [hero.fanout]
 label = "One source file, synced into the file each coding tool reads"
 source = ".agnostic-ai/AGNOSTIC_AI.md"
-note = "Run the project tests before finishing a change."
+note = "Run tests before finishing a change."
 targets = ["claude", "codex", "cursor", "windsurf", "gemini"]
 more_label = "more tools"
 with_label = "With agnostic-ai"
@@ -20,7 +20,7 @@ without_summary = ["{n} files you edit by hand", "Rules drift apart"]
 [[hero.fanout.outputs]]
 path = "CLAUDE.md"
 tools = "Claude Code"
-drift = "Run the project tests before finishing a change."
+drift = "Run tests before finishing a change."
 [[hero.fanout.outputs]]
 path = "AGENTS.md"
 tools = "Codex, Cursor, Windsurf"

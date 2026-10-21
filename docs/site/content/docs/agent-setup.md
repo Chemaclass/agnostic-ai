@@ -12,7 +12,7 @@ group = "Start"
 
 {{ <agent_setup_prompt /> }}
 
-You need a coding agent, opened in your project folder. It asks which tools the project uses and whether Git should track the generated files. Setup is done when `agnostic-ai sync --check` passes. Then [try a first session](@/docs/getting-started.md#sync) and learn [the daily loop](@/docs/getting-started.md#daily-use).
+You need a coding agent, opened in your project folder. It asks which tools the project uses and whether Git should track the generated files. Setup is done when `agnostic-ai sync --check` passes. Then [try a first session](@/docs/getting-started.md#sync) and learn [the daily loop](@/docs/getting-started.md#daily-use). To set up by hand instead, follow the [manual walkthrough](@/docs/getting-started.md).
 
 <details>
 <summary>Read the full checklist your coding agent follows</summary>

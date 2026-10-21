@@ -457,7 +457,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		"Set up your project",
+		`href="https://agnostic-ai.org/docs/agent-setup/">Set up with an agent<svg`,
 		"Install agnostic-ai",
 		`data-installer-os="macos"`,
 		`data-installer-os="windows"`,
