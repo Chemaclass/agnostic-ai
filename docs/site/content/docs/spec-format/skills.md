@@ -54,7 +54,7 @@ model: {claude: opus}
 3. Commit `chore(release): v<version>` and tag it.
 ```
 
-After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Then ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file. In the nested layout, put the schema the body names beside `SKILL.md`.
+After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Then ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file and its schema. In the nested layout, put the schema the body names beside `SKILL.md`.
 
 ## Fields
 
