@@ -134,7 +134,6 @@ id = "instructions"
 name = "AGNOSTIC_AI.md"
 hint = "project guidance"
 file = "AGNOSTIC_AI.md"
-selected = true
 summary = "Project instructions, written into each tool's root file. Select `rules/` to see where rules land."
 outputs = [
   { tool = "Claude Code", path = "CLAUDE.md", part = "instructions" },
@@ -150,6 +149,7 @@ id = "agents"
 name = "agents/"
 hint = "delegate work"
 file = "agents/test-writer.md"
+selected = true
 summary = "Subagents with a role, their tools, and a model per tool."
 outputs = [
   { tool = "Claude Code", path = ".claude/agents/test-writer.md" },
