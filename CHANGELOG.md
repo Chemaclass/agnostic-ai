@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- Builds use Go 1.27.3 to fix certificate verification vulnerability GO-2026-6809.
+
 ### Site
 
 - The memory reference lists Kiro IDE Memory as off by default and describes its shared local IDE/CLI store (#2353).
