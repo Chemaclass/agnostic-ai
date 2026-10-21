@@ -227,7 +227,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	sort.Strings(dirs)
 	for _, dir := range dirs {
-		if err := sess.WriteSkillFolders(byDir[dir], target, dir, dryRun); err != nil {
+		if err := writeSkillFolders(sess, byDir[dir], dir, dryRun); err != nil {
 			return err
 		}
 	}

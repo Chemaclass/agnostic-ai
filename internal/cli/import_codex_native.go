@@ -471,10 +471,14 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			if !ok {
 				continue
 			}
-			if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
+			skillMD, err := os.ReadFile(filepath.Join(skillSrc, "SKILL.md"))
+			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			} else if err != nil {
-				return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+				return count, fmt.Errorf("read skill %s: %w", e.Name(), err)
+			}
+			if adapters.WrittenFromCommand(string(skillMD)) {
+				continue
 			}
 			skillDst := filepath.Join(dstDir, filepath.FromSlash(location.scope), e.Name())
 			if !folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillDst, location.scope) {

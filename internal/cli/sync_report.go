@@ -196,6 +196,17 @@ type specBaseline struct {
 	targets map[string][]string
 }
 
+// writtenAsSkill reports whether target writes specs of kind as skills.
+func writtenAsSkill(cfg *config.Config, target string, kind spec.Kind) bool {
+	switch kind {
+	case spec.KindAgent:
+		return adapters.WritesAgentsAsSkills(cfg, target)
+	case spec.KindCommand:
+		return adapters.WritesCommandsAsSkills(cfg, target)
+	}
+	return false
+}
+
 // specSums fingerprints the merged config and each source spec a target in
 // targets emits, keyed by a stable identity, so the next sync can name what
 // changed since this one. A spec only other tools read, such as a built-in
@@ -212,7 +223,7 @@ func specSums(cfg *config.Config, b spec.Bundle, targets []string) specBaseline 
 		}
 		caps := adapter.Capabilities()
 		for _, e := range b.For(target).All() {
-			if len(caps) > 0 && !slices.Contains(caps, e.Kind) && (e.Kind != spec.KindAgent || !adapters.WritesAgentsAsSkills(cfg, target)) {
+			if len(caps) > 0 && !slices.Contains(caps, e.Kind) && !writtenAsSkill(cfg, target, e.Kind) {
 				continue
 			}
 			key := specKey(e)
