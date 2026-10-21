@@ -409,3 +409,29 @@ func TestGlobalSettings_PermissionModeRespectsTargetRouting(t *testing.T) {
 		})
 	}
 }
+
+func TestEditJSONRoot_RemovingOnlyMemberAfterCommentDropsTrailingComma(t *testing.T) {
+	in := "{\n  \"skillOverrides\": {\n    // keep\n    \"a\": \"off\",\n  }\n}\n"
+	got, err := editJSONRoot("s.json", []byte(in), nil, nil, []string{"skillOverrides.a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(got), ",") || !strings.Contains(string(got), "// keep") {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestEditJSONRoot_RemovingOnlyMemberDropsCommaAfterComment(t *testing.T) {
+	for _, in := range []string{
+		"{\n  \"skillOverrides\": {\n    // keep\n    \"a\": \"off\" /* why */,\n  }\n}\n",
+		"{\"skillOverrides\": {\"a\": \"off\" /* why */,}}\n",
+	} {
+		got, err := editJSONRoot("s.json", []byte(in), nil, nil, []string{"skillOverrides.a"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(got), ",") {
+			t.Errorf("%q: got %q", in, got)
+		}
+	}
+}

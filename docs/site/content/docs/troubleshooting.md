@@ -80,6 +80,10 @@ A link that works from the project root, such as `apps/engine/src/lib.ts`, count
 
 </details>
 
+## A synced skill is disabled via skillOverrides
+
+A message such as `Skill "deploy" is disabled via skillOverrides` means your Claude Code settings switched the skill off, usually from the `/skills` menu. Sync still writes it. Run `agnostic-ai doctor` to list every synced skill your local settings turn off, then re-enable them in `/skills` or with `agnostic-ai doctor --fix` in a terminal. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides).
+
 ## Hook timeouts
 
 A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from the coding tool running a hook. It does not establish who installed the hook or why its command was slow.

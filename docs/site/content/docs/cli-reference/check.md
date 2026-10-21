@@ -87,8 +87,8 @@ Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [li
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--scope <all\|project>` | `all` (default) includes local Codex hook trust. `project` skips that runtime check and keeps all project checks. |
-| `--fix` | Write missing files and overwrite stale or manually edited generated files. Remove each nested `CLAUDE.md` whose text is already in a scoped rule. In a terminal, ask before removing each kept orphan, with No as the default. Without a terminal, keep orphans and explain why. Exit non-zero while any orphan remains. |
-| `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting it or removing a confirmed orphan. |
+| `--fix` | Write missing files and overwrite stale or manually edited generated files. Remove each nested `CLAUDE.md` whose text is already in a scoped rule. In a terminal, ask before removing each kept orphan, and before removing each group of [Claude skill overrides](#claude-skill-overrides), with No as the default. Without a terminal, keep orphans and overrides and explain why. Exit non-zero while any orphan remains. |
+| `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting it, removing a confirmed orphan, or removing confirmed skill overrides. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`, plus `lint`, `hook_trust`, and `packaging_ignore` lists, and `references` with `--check-references`. |
@@ -129,6 +129,7 @@ Then doctor prints:
 | **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
 | **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`. Per tool, it shows which wins. A name in [`sync.allow-global-names`](@/docs/configuration.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration.md#global-shared-names). | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text. Replace it with your own instructions. | Never |
+| **Claude skill overrides** | With `claude` selected: synced skills that `skillOverrides` in your local `.claude/settings.local.json` turns off, hides from Claude, or lists without a description. See [Claude skill overrides](#claude-skill-overrides). | Never |
 
 <details>
 <summary>What the packaging check covers</summary>
@@ -138,6 +139,19 @@ The check handles literal paths, `*`, `?`, character classes, and `**` segments.
 It reads only the root ignore file. It ignores `package.json` allowlists, built-in package exclusions, nested ignore files, and Dockerfile-specific ignore files. Verify with `npm pack --dry-run`, `vsce ls`, or your Docker build context.
 
 </details>
+
+### Claude skill overrides
+
+Claude Code's `/skills` menu saves each skill you switch off in `.claude/settings.local.json`, a file that is yours and that git ignores. A skill switched off there still syncs, but Claude Code refuses to run it. Doctor lists the synced skills it affects, by state:
+
+```text
+Claude skill overrides:
+  ! .claude/settings.local.json turns off 1 of 3 synced skills (off), so Claude Code refuses to run them: deploy
+  ! .claude/settings.local.json hides 1 of 3 synced skills from Claude (user-invocable-only): review
+    → review them in Claude Code with /skills, run `agnostic-ai doctor --fix` in a terminal, or delete the entries from .claude/settings.local.json
+```
+
+`doctor --fix` in a terminal asks once per state whether to re-enable those skills. A yes removes only their entries and keeps the rest of the file as it was. Doctor never changes the file without a yes. It does not offer the change for a linked, hard-linked, read-only, or other user's file, one that sets `skillOverrides` twice, or one listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged). It replaces the file in one step, so a failed write leaves it as it was, and leaves it alone if it changed while doctor ran. Skills whose generated files are under `sync.unmanaged` do not count as synced. Entries for skills sync does not write, such as your personal ones, are never reported or removed. `--scope project` skips this check. Other settings files are not read yet.
 
 Subcommands run one check:
 

@@ -8,6 +8,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Builds use Go 1.27.3 to fix certificate verification vulnerability GO-2026-6809.
 
+### By tool
+
+#### Claude Code
+
+- `doctor` lists synced skills that `skillOverrides` in `.claude/settings.local.json` turns off or hides, and `doctor --fix` offers to re-enable them in a terminal (#2357).
+
 ### Site
 
 - The memory reference lists Kiro IDE Memory as off by default and describes its shared local IDE/CLI store (#2353).
