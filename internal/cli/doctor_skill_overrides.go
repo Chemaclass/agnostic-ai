@@ -68,7 +68,11 @@ func (r *skillOverrideReport) display() string {
 // nothing there changes a synced skill.
 func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillOverrideReport {
 	synced := map[string]string{}
+	skillsDir := claudeLayoutFor(cfg).skills
 	for _, skill := range bundle.For("claude").Skills {
+		if cfg.IsUnmanaged(filepath.Join(skillsDir, skill.Name, "SKILL.md")) {
+			continue
+		}
 		name, _ := adapters.ResolveMeta(skill.Meta, "claude")["name"].(string)
 		if name == "" {
 			name = skill.Name
@@ -89,6 +93,9 @@ func collectClaudeSkillOverrides(cfg *config.Config, bundle spec.Bundle) *skillO
 	}
 	report.data = data
 	report.uneditable = skillOverridesEditBlock(report, data)
+	if cfg.IsUnmanaged(report.path) {
+		report.uneditable = fmt.Errorf("%s is listed under sync.unmanaged, so doctor leaves it to you", report.display())
+	}
 	clean, _ := adapters.StripJSONC(data)
 	var root map[string]json.RawMessage
 	if err := json.Unmarshal(clean, &root); err != nil {
@@ -299,8 +306,8 @@ func resetClaudeSkillOverrides(report *skillOverrideReport, backup bool, confirm
 			return 0, fmt.Errorf("%s: %w", backupPath, err)
 		}
 	}
-	if err := os.WriteFile(report.path, out, info.Mode().Perm()); err != nil {
-		return 0, fmt.Errorf("%s: %w", report.path, err)
+	if err := replaceSettingsFile(report.path, out, info.Mode().Perm()); err != nil {
+		return 0, err
 	}
 	return skills, nil
 }
@@ -316,12 +323,40 @@ func skillOverridesEditBlock(report *skillOverrideReport, data []byte) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("%s: not a regular file, so doctor leaves it to you", report.display())
 	}
+	if info.Mode().Perm()&0o200 == 0 {
+		return fmt.Errorf("%s: read-only, so doctor leaves it to you", report.display())
+	}
 	repeated, err := rootKeyCount(data, "skillOverrides")
 	if err != nil {
 		return fmt.Errorf("parse %s: %w", report.display(), err)
 	}
 	if repeated > 1 {
 		return fmt.Errorf("%s %w", report.display(), errSkillOverridesRepeated)
+	}
+	return nil
+}
+
+// replaceSettingsFile writes body beside path and renames it into place,
+// so a failed write never leaves the user's settings empty or cut short.
+func replaceSettingsFile(path string, body []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("%s: %w", filepath.Dir(path), err)
+	}
+	name := tmp.Name()
+	defer func() { _ = os.Remove(name) }()
+	_, err = tmp.Write(body)
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Chmod(name, perm)
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	if err := os.Rename(name, path); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	return nil
 }

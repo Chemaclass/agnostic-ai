@@ -151,7 +151,7 @@ Claude skill overrides:
     → review them in Claude Code with /skills, run `agnostic-ai doctor --fix` in a terminal, or delete the entries from .claude/settings.local.json
 ```
 
-`doctor --fix` in a terminal asks once per state whether to re-enable those skills. A yes removes only their entries and keeps the rest of the file as it was. Doctor never changes the file without a yes. It does not offer the change for a linked file or one that sets `skillOverrides` twice, and leaves the file alone if it changed while doctor ran. Entries for skills sync does not write, such as your personal ones, are never reported or removed. `--scope project` skips this check. Other settings files are not read yet.
+`doctor --fix` in a terminal asks once per state whether to re-enable those skills. A yes removes only their entries and keeps the rest of the file as it was. Doctor never changes the file without a yes. It does not offer the change for a linked or read-only file, one that sets `skillOverrides` twice, or one listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged). It replaces the file in one step, so a failed write leaves it as it was, and leaves it alone if it changed while doctor ran. Skills whose generated files are under `sync.unmanaged` do not count as synced. Entries for skills sync does not write, such as your personal ones, are never reported or removed. `--scope project` skips this check. Other settings files are not read yet.
 
 Subcommands run one check:
 

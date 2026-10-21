@@ -346,24 +346,100 @@ func TestResetClaudeSkillOverrides_BackupKeepsPrivateMode(t *testing.T) {
 	}
 }
 
-func TestApplySkillOverrideReset_ReportsWriteFailureAndContinues(t *testing.T) {
+func TestApplySkillOverrideReset_ReportsWriteFailureAndKeepsFile(t *testing.T) {
 	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
-		t.Skip("needs a file the user cannot write")
+		t.Skip("needs a directory the user cannot write")
 	}
-	report := collectTestSkillOverrides(t, `{"skillOverrides":{"a":"off"}}`, "a")
-	path := filepath.Join(".claude", "settings.local.json")
-	if err := os.Chmod(path, 0o444); err != nil {
+	const settings = `{"model":"opus","skillOverrides":{"a":"off"}}`
+	report := collectTestSkillOverrides(t, settings, "a")
+	if err := os.Chmod(".claude", 0o555); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+	t.Cleanup(func() { _ = os.Chmod(".claude", 0o755) })
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	if err := applySkillOverrideReset(cmd, report, false, func(string) (bool, error) { return true, nil }); err != nil {
 		t.Fatalf("doctor stopped: %v", err)
 	}
-	if !strings.Contains(out.String(), "! .claude/settings.local.json") {
+	if !strings.Contains(out.String(), "! .claude") {
 		t.Errorf("missing warning:\n%s", out.String())
+	}
+	if got, _ := os.ReadFile(filepath.Join(".claude", "settings.local.json")); string(got) != settings {
+		t.Errorf("file damaged: %q", got)
+	}
+}
+
+func TestResetClaudeSkillOverrides_RefusesReadOnlyFile(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("POSIX file modes")
+	}
+	const settings = `{"skillOverrides":{"a":"off"}}`
+	report := collectTestSkillOverrides(t, settings, "a")
+	path := filepath.Join(".claude", "settings.local.json")
+	if err := os.Chmod(path, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+	if removed, err := resetClaudeSkillOverrides(report, false, func(string) (bool, error) { return true, nil }); err == nil || removed != 0 {
+		t.Fatalf("removed %d, err %v", removed, err)
+	}
+	if got, _ := os.ReadFile(path); string(got) != settings {
+		t.Errorf("read-only file changed: %s", got)
+	}
+}
+
+func TestCollectClaudeSkillOverrides_SkipsUnmanagedSkills(t *testing.T) {
+	cases := []struct{ name, config string }{
+		{"directory", "sync:\n  unmanaged: [.claude/skills/a/]\n"},
+		{"exact path", "sync:\n  unmanaged: [.claude/skills/a/SKILL.md]\n"},
+		{"custom dir", "outputs:\n  claude:\n    dir: tools/claude\nsync:\n  unmanaged: [tools/claude/skills/a/]\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			silence(t)
+			writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\n"+c.config, "a", "b")
+			dir := ".claude"
+			if strings.Contains(c.config, "tools/claude") {
+				dir = filepath.Join("tools", "claude")
+			}
+			mustWrite(t, filepath.Join(dir, "settings.local.json"), `{"skillOverrides":{"a":"off","b":"off"}}`)
+			cfg, bundle, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			report := collectClaudeSkillOverrides(cfg, bundle)
+			if report == nil || len(report.states) != 1 || strings.Join(report.states[0].skills, ",") != "b" || report.synced != 1 {
+				t.Fatalf("report: %+v", report)
+			}
+		})
+	}
+}
+
+func TestApplySkillOverrideReset_LeavesUnmanagedSettingsFile(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	writeSkillOverrideProject(t, "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [.claude/settings.local.json]\n", "a")
+	const settings = `{"skillOverrides":{"a":"off"}}`
+	mustWrite(t, filepath.Join(".claude", "settings.local.json"), settings)
+	cfg, bundle, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := collectClaudeSkillOverrides(cfg, bundle)
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	reportClaudeSkillOverrides(cmd, report)
+	if err := applySkillOverrideReset(cmd, report, false, func(question string) (bool, error) {
+		t.Errorf("asked %q for an unmanaged file", question)
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "sync.unmanaged") {
+		t.Errorf("output:\n%s", out.String())
 	}
 }
 
