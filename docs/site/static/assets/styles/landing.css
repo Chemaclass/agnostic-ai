@@ -971,26 +971,6 @@ main > section[id] {
   color: inherit;
 }
 
-/* Says where the tier's per-tool models come from, so the source line is
-   not read as a built-in name. */
-.fanout-note {
-  margin: 0;
-  padding: 0 1rem 0.6rem;
-  color: var(--slab-dim);
-  font-size: 0.75rem;
-  line-height: 1.4;
-}
-
-.fanout-note code {
-  padding: 0;
-  background: none;
-  color: var(--slab-ink);
-  font-size: inherit;
-}
-
-.fanout-note a {
-  color: inherit;
-}
 
 .fanout-source pre code::after {
   content: "";
@@ -1315,6 +1295,17 @@ main > section[id] {
   background: var(--paper);
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.75rem;
+}
+
+.fanout-summary li a {
+  color: inherit;
+}
+
+.fanout-summary li code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
 }
 
 .fanout-summary li::before {

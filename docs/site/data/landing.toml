@@ -9,13 +9,12 @@ secondary_label = "Explore the files"
 label = "One agent spec, synced into the agent file each coding tool reads"
 source = ".agnostic-ai/agents/reviewer.md"
 line = "model: fast"
-note = "`fast` is a [model tier](@/docs/configuration.md#models) you name once in `agnostic-ai.yaml`."
 targets = ["claude", "codex", "gemini"]
 more_label = "more tools"
 with_label = "With agnostic-ai"
 without_label = "Without"
 hand_label = "Edit each file by hand"
-with_summary = ["1 spec to edit", "Right model per tool"]
+with_summary = ["1 spec", "[`fast` is a tier in agnostic-ai.yaml](@/docs/configuration.md#models)"]
 without_summary = ["{n} files by hand", "Models go stale"]
 
 [[hero.fanout.outputs]]

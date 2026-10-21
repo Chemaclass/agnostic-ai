@@ -87,7 +87,6 @@
         <div class="spec-card fanout-source">
           <div class="file-name">{{ fanout.source }}</div>
           <pre><code>{{ fanout.line }}</code></pre>
-          <p class="fanout-note">{{ fanout.note | markdown(inline=true) | safe }}</p>
         </div>
         <p class="fanout-sync"><span class="fanout-step"><code>agnostic-ai sync</code><span class="fanout-hand">{{ fanout.hand_label }}</span></span></p>
         <ul class="fanout-outputs">
@@ -97,7 +96,7 @@
           <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ matrix.targets | length - fanout.targets | length }} {{ fanout.more_label }}</a></li>
         </ul>
         <div class="fanout-summary">
-          <ul class="fanout-good">{% for line in fanout.with_summary %}<li>{{ line }}</li>{% endfor %}</ul>
+          <ul class="fanout-good">{% for line in fanout.with_summary %}<li>{{ line | markdown(inline=true) | safe }}</li>{% endfor %}</ul>
           {% set file_count = fanout.outputs | length %}<ul class="fanout-bad">{% for line in fanout.without_summary %}<li>{{ line | replace(from="{n}", to=file_count ~ "") }}</li>{% endfor %}</ul>
         </div>
       </figure>
