@@ -1279,7 +1279,9 @@ main > section[id] {
   white-space: nowrap;
 }
 
-/* The file text sits in the same dark slab as the source file above. */
+/* The file text sits in the same dark slab as the source file above. It
+   shares a grid cell with the tool names, so one line keeps the With
+   view's cards their own height. */
 .fanout-drift {
   display: block;
   padding: 0.45rem 0.75rem;
@@ -1287,8 +1289,10 @@ main > section[id] {
   border-radius: 8px;
   background: var(--slab);
   color: var(--slab-ink);
-  font-size: 0.8rem;
-  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted {
