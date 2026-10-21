@@ -161,7 +161,7 @@ To share something a tool learned, ask it to save the fact in shared memory. Cla
 | Copilot | Copilot Memory, hosted: repository facts and your preferences, dropped after 28 days unused. The VS Code memory tool: notes on your machine | Copilot Memory is on for individual plans; organization admins enable it first. CLI: `/memory on` or `/memory off`. The VS Code tool is built in |
 | Qoder | CLI Auto-Memory: notes the agent keeps on your machine. The IDE has a separate memory | CLI: off (`autoMemoryEnabled`). IDE: not documented |
 | Kilo Code | Kilo Memory: project notes outside the repository, no personal memory | Off (Settings > Context, or `/memory on`) |
-| Kiro | Memory: notes Kiro creates and refines for a repository, plus global ones in the IDE | IDE: on, "Use and learn" (the user setting **Kiro Agent: Memory**; a workspace value has no effect). CLI: not documented (`/memories`, then `config`) |
+| Kiro | Memory: learned notes stored per user account, shared by the IDE and CLI | IDE: off (the user setting **Kiro Agent: Memory**; a workspace value has no effect). CLI: not documented (`/memories`, then `config`) |
 | Augment | Agent Memories in the IDE, which you approve one by one | Not documented |
 | Trae | Memories, global and for each project, as local Markdown files | Not documented |
 | Goose | Memory extension: files in `.goose/memory/` and `~/.config/goose/memory/` | Not documented (Extensions) |
