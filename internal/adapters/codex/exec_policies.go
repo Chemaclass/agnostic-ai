@@ -17,21 +17,21 @@ const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask k
 
 const otherToolPermissionsReason = "Codex has no per-tool allow/deny/ask key and its exec policies match shell commands, so only Bash rules translate"
 
-const (
-	defaultExecPoliciesFile = ".codex/rules/default.rules"
+const defaultExecPoliciesFile = ".codex/rules/default.rules"
 
+var (
 	// execPoliciesOverlayPath is the captured YAML representation written
 	// by `agnostic-ai import codex` from a pre-existing
 	// `.codex/rules/default.rules`. Loaded automatically when neither
 	// `outputs.codex.exec-policies` inline nor `exec-policies-file` is
 	// set. Round-trip parity with the codex config overlay pattern.
-	execPoliciesOverlayPath = ".agnostic-ai/overlays/codex.exec-policies.yaml"
+	execPoliciesOverlayPath = emit.Overlay(target, "codex.exec-policies.yaml")
 
 	// execPoliciesHeaderOverlayPath holds the optional file-level comment
 	// block lifted off the top of `.codex/rules/default.rules` at import.
 	// Re-rendered above the first `prefix_rule(...)` so a hand-authored
 	// file header round-trips byte-stably.
-	execPoliciesHeaderOverlayPath = ".agnostic-ai/overlays/codex.exec-policies-header.txt"
+	execPoliciesHeaderOverlayPath = emit.Overlay(target, "codex.exec-policies-header.txt")
 )
 
 // emitExecPolicies writes resolved native or translated command prefixes.

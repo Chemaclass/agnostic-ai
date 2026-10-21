@@ -26,7 +26,7 @@ func TestRestoreHelperFiles_IsRecorded(t *testing.T) {
 	}
 
 	sess.StartRecording()
-	if err := sess.RestoreHelperFiles("claude", false); err != nil {
+	if err := sess.RestoreHelperFiles(NewHelperOverlays("claude"), false); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	paths := sess.StopRecording()
@@ -64,7 +64,7 @@ func TestRestoreHelperFiles_PreservesMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := sess.RestoreHelperFiles("claude", false); err != nil {
+	if err := sess.RestoreHelperFiles(NewHelperOverlays("claude"), false); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 

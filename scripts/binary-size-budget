@@ -339,4 +339,9 @@
 # (20258976): doctor reports synced skills that Claude skillOverrides turns
 # off, and doctor --fix removes confirmed entries in place. Same Linux amd64
 # release flags; retain the 8 KB allowance. No new dependencies.
-20291744
+# #2368 measured 20328608 on Go 1.27.3, up 36864 from main f44ef240
+# (20291744): sync notes and LINT051 name overlay files no tool reads,
+# from one registry of the overlays adapters read, with typo and
+# case-only hints. Same Linux amd64 release flags; retain the 8 KB
+# allowance. No new dependencies.
+20336800

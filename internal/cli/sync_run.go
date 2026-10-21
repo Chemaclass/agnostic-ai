@@ -605,6 +605,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err != nil {
 		return err
 	}
+	if err := noteUnreadOverlays(root); err != nil {
+		return err
+	}
 	// A mistyped key parses and emits, so without this line nothing in a
 	// sync says the rule or agent lost its setting. Pack specs are not the
 	// user's to edit; lint still reports them.

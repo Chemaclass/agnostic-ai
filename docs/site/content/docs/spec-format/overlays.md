@@ -21,6 +21,9 @@ To change an imported setting, edit its overlay below and run `agnostic-ai sync 
 | `claude.settings.hook-events.json` | `.claude/settings.json` | The keys that sat next to `hooks`, and the order of its events, so the `hooks` block keeps both |
 | `codex.config.toml` | `.codex/config.toml` | The keys import did not move into a spec, such as `sandbox`, `[history]`, and `[tui]`. Keys Codex ignores in a project config stay here but are not written ([list](@/docs/targets/codex-reference.md#keys-codex-ignores-in-a-project-config)) |
 | `codex.exec-policies.yaml` | `.codex/rules/default.rules` | Every `prefix_rule(...)` from the imported file |
+| `codex.exec-policies-header.txt` | `.codex/rules/default.rules` | The comment block above the first rule |
 | `claude/<file>`, `codex/<file>` | `.claude/<file>`, `.codex/<file>` | Helper files: Claude `CLAUDE.md`, `README.md`, and `statusline.sh`; Codex `README.md`. File modes are kept, so a script stays executable |
+
+Sync reads only these files. Any other file here, such as `gemini.settings.json` or a misspelled `claude.setings.json`, gets a sync note and a `lint` warning (LINT051). Dot files, dot folders, and README files at the top are skipped. Only Claude Code and Codex read overlays. For Gemini CLI and the other tools that merge `x-<target>` from a [settings spec](@/docs/spec-format/settings.md), put the keys there; Cursor's settings spec drops that block.
 
 `sync --watch` re-runs when an overlay changes. The target pages say which source wins: [Claude settings](@/docs/targets/claude-reference.md#claude-settings), [Codex config](@/docs/targets/codex-reference.md#codex-config), and [Codex exec policies](@/docs/targets/codex-reference.md#codex-exec-policies).

@@ -303,6 +303,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An MCP spec holds what the import detector reads as a credential in a place LINT035 does not check: user info or a token in `url`, a token in `args`, an `env` or `headers` value in an `x-<target>` block, or the default of a `${NAME:-default}` reference. Sync writes it into each tool's MCP file. The finding names the server and the field, never the value.",
 		Fix:      "Write the credential as a `${NAME}` reference with no default and set the variable. `lint --strict` fails until you do.",
 	},
+	"LINT051": {
+		Severity: lintWarn,
+		Title:    "Overlay file sync does not read",
+		Cause:    "A file under `.agnostic-ai/overlays/` is not one any target reads, such as `gemini.settings.json` or a misspelled `claude.setings.json`. Its keys reach no tool. A name that differs from a known overlay only in case is read only where file names ignore case, such as macOS and Windows. Sync prints the same note. A known overlay of a target missing from `targets` is not flagged. Dot files, dot folders, and README files at the top of `overlays/` are skipped.",
+		Fix:      "For a `<target>.settings.*` file of a tool that merges `x-<target>` from settings specs, such as Gemini CLI, move the keys there. Otherwise rename the file to an overlay the finding lists, or delete it.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",
