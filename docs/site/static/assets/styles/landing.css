@@ -1279,9 +1279,16 @@ main > section[id] {
   white-space: nowrap;
 }
 
+/* The file text sits in the same dark slab as the source file above. */
 .fanout-drift {
-  color: var(--muted);
+  display: block;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--slab-line);
+  border-radius: 8px;
+  background: var(--slab);
+  color: var(--slab-ink);
   font-size: 0.8rem;
+  overflow-wrap: anywhere;
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted {
@@ -1289,7 +1296,8 @@ main > section[id] {
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-drift {
-  color: var(--danger);
+  border-left: 3px solid #ef8f74;
+  color: #ef8f74;
 }
 
 #fanout-without:checked ~ .fanout-sync::before,
