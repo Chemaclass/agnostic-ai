@@ -1300,7 +1300,6 @@ main > section[id] {
 }
 
 #fanout-without:checked ~ .fanout-outputs .is-drifted .fanout-drift {
-  border-left: 3px solid #ef8f74;
   color: #ef8f74;
 }
 
