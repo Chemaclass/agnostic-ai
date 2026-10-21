@@ -60,6 +60,9 @@ func TestSiteDocs_LandingHeroMatchesSync(t *testing.T) {
 	if !slices.Equal(config.Targets, fanout.Targets) {
 		t.Errorf("hero lists targets %v, fixtures/hero syncs %v", fanout.Targets, config.Targets)
 	}
+	if len(fanout.Outputs) != len(fanout.Targets) {
+		t.Errorf("hero shows %d cards for %d targets; each target needs one card", len(fanout.Outputs), len(fanout.Targets))
+	}
 	if len(fanout.Outputs) == 0 {
 		t.Fatal("hero shows no output cards")
 	}
@@ -116,7 +119,7 @@ func isOneLine(text string) bool {
 
 func hasLine(body, want string) bool {
 	for _, line := range strings.Split(body, "\n") {
-		if strings.TrimSpace(line) == want {
+		if strings.TrimRight(line, "\r") == want {
 			return true
 		}
 	}

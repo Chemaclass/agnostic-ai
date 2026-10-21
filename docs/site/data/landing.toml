@@ -1,7 +1,7 @@
 [hero]
 title = "One source."
 accent_title = "Every AI coding tool."
-body = "Write your project instructions once, in your repository. `agnostic-ai sync` writes the file each tool reads, in its own format."
+body = "Write your project instructions and agents once, in your repository. `agnostic-ai sync` writes the file each tool reads, in its own format."
 primary_label = "Set up with an agent"
 secondary_label = "Explore the files"
 
@@ -9,13 +9,14 @@ secondary_label = "Explore the files"
 label = "One agent spec, synced into the agent file each coding tool reads"
 source = ".agnostic-ai/agents/reviewer.md"
 line = "model: fast"
+note = "`fast` is a [model tier](@/docs/configuration.md#models) you name once in `agnostic-ai.yaml`."
 targets = ["claude", "codex", "gemini"]
 more_label = "more tools"
 with_label = "With agnostic-ai"
 without_label = "Without"
 hand_label = "Edit each file by hand"
-with_summary = ["1 file you edit", "Each tool gets its own model"]
-without_summary = ["{n} files you edit by hand", "Models drift apart"]
+with_summary = ["1 spec to edit", "Right model per tool"]
+without_summary = ["{n} files by hand", "Models go stale"]
 
 [[hero.fanout.outputs]]
 path = ".claude/agents/reviewer.md"
@@ -26,7 +27,7 @@ drift = "model: haiku"
 path = ".codex/agents/reviewer.toml"
 tools = "Codex"
 line = 'model = "gpt-6-luna"'
-drift = 'model = "gpt-5.4"'
+drift = 'model = "gpt-5.4-mini"'
 [[hero.fanout.outputs]]
 path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"

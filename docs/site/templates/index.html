@@ -87,6 +87,7 @@
         <div class="spec-card fanout-source">
           <div class="file-name">{{ fanout.source }}</div>
           <pre><code>{{ fanout.line }}</code></pre>
+          <p class="fanout-note">{{ fanout.note | markdown(inline=true) | safe }}</p>
         </div>
         <p class="fanout-sync"><span class="fanout-step"><code>agnostic-ai sync</code><span class="fanout-hand">{{ fanout.hand_label }}</span></span></p>
         <ul class="fanout-outputs">

@@ -957,7 +957,7 @@ main > section[id] {
 
 .fanout-source pre {
   margin: 0;
-  padding: 1rem;
+  padding: 0.7rem 1rem;
   color: var(--slab-ink);
   font-size: 0.85rem;
   line-height: 1.6;
@@ -968,6 +968,27 @@ main > section[id] {
 .fanout-source pre code {
   padding: 0;
   background: none;
+  color: inherit;
+}
+
+/* Says where the tier's per-tool models come from, so the source line is
+   not read as a built-in name. */
+.fanout-note {
+  margin: 0;
+  padding: 0 1rem 0.6rem;
+  color: var(--slab-dim);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.fanout-note code {
+  padding: 0;
+  background: none;
+  color: var(--slab-ink);
+  font-size: inherit;
+}
+
+.fanout-note a {
   color: inherit;
 }
 
@@ -984,7 +1005,7 @@ main > section[id] {
 .fanout-sync {
   position: relative;
   margin: 0;
-  padding-block: 0.9rem;
+  padding-block: 0.65rem;
 }
 
 .fanout-sync::before {
@@ -1037,7 +1058,7 @@ main > section[id] {
   align-items: center;
   gap: 0.25rem 0.75rem;
   min-width: 0;
-  padding: 0.6rem 0.85rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: var(--paper);
@@ -1188,11 +1209,39 @@ main > section[id] {
   grid-template-areas: "head mark" "detail detail";
 }
 
+/* Path and tool name share one row, so a card is two lines tall. In a
+   narrow card the path alone says which tool reads the file. */
+.fanout-outputs > li:not(.fanout-more) {
+  container-type: inline-size;
+}
+
 .fanout-head {
   grid-area: head;
-  display: grid;
-  gap: 0.15rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
   min-width: 0;
+}
+
+.fanout-head .fanout-tools {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.fanout-head .fanout-path {
+  overflow-wrap: normal;
+}
+
+@container (max-width: 22rem) {
+  .fanout-head .fanout-tools {
+    display: none;
+  }
+}
+
+@container (max-width: 15rem) {
+  .fanout-head .fanout-path {
+    overflow-wrap: anywhere;
+  }
 }
 
 .fanout-check { grid-area: mark; }
@@ -1203,7 +1252,7 @@ main > section[id] {
 .fanout-line,
 .fanout-drift {
   grid-area: detail;
-  padding-block: 0.45rem;
+  padding-block: 0.3rem;
   line-height: 1.2rem;
 }
 
