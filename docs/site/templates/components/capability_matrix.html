@@ -53,7 +53,7 @@
         <tr data-capability-target="{{ target.id }}" data-capability-search="{{ target.name }} {{ target.id }}">
           <th scope="row"><a href="{{ get_url(path=target.href) }}"><span>{{ target.name }}</span><code>{{ target.id }}</code></a></th>
           {%- for status in target.statuses %}{% set i = loop.index0 %}{% set feature = matrix.features[i] %}{% if not feature.tool_specific %}
-          <td class="capability-cell capability-cell-{{ status }}" data-label="{{ feature.label }}">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}</td>{% endif %}
+          <td class="capability-cell capability-cell-{{ status }}" data-label="{{ feature.label }}">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#{{ target.opt_in_anchor | default(value="config-keys") }}" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}</td>{% endif %}
           {%- endfor %}
         </tr>
         {%- endfor %}

@@ -138,18 +138,21 @@ id = "amp"
 name = "Amp"
 href = "@/docs/targets/amp.md"
 statuses = ["opt-in", "native", "native", "no", "native", "no", "source", "no", "native", "no"]
+opt_in = { agent = "outputs.amp.agents" }
 
 [[targets]]
 id = "zed"
 name = "Zed"
 href = "@/docs/targets/zed.md"
 statuses = ["opt-in", "native", "native", "opt-in", "native", "mapped", "no", "no", "no", "no"]
+opt_in = { agent = "outputs.zed.agents", hook = "outputs.zed.tasks-file" }
 
 [[targets]]
 id = "warp"
 name = "Warp"
 href = "@/docs/targets/warp.md"
 statuses = ["opt-in", "native", "native", "no", "native", "no", "no", "no", "no", "no"]
+opt_in = { agent = "outputs.warp.agents" }
 
 [[targets]]
 id = "opencode"
@@ -234,6 +237,8 @@ id = "ellipsis"
 name = "Ellipsis"
 href = "@/docs/targets/ellipsis.md"
 statuses = ["no", "no", "no", "no", "native", "no", "opt-in", "native", "native", "no"]
+opt_in_anchor = "first-review"
+opt_in = { settings = "x-ellipsis" }
 
 # Native tool names from the adapter capability tables.
 

@@ -127,6 +127,7 @@ Amp uses `AGENTS.md` (plural). On the first sync after upgrading, a generated `A
 | Key | Default | Notes |
 | --- | --- | --- |
 | `outputs.amp.skills-dir` | `.agents/skills` | |
+| `outputs.amp.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
 | `outputs.amp.mcp-file` | `.amp/settings.json` | also carries settings; one file, one override |
 | `outputs.amp.setup-file` | `.agents/setup` | |
 | `outputs.amp.environment-file` | `.amp/services.yaml` | |
