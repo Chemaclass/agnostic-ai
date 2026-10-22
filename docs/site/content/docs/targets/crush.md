@@ -116,6 +116,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 | Key | Default | Notes |
 | --- | --- | --- |
 | `outputs.crush.skills-dir` | `.agents/skills` | |
+| `outputs.crush.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
 | `outputs.crush.mcp-file` | `crush.json` | also the hooks file |
 | `outputs.crush.ignore-file` | `.crushignore` | |
 

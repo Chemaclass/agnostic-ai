@@ -129,6 +129,95 @@ func TestSiteDocs_TargetCapabilityMatrixMatchesAdapters(t *testing.T) {
 	}
 }
 
+func TestSiteDocs_OptInCellsOpenTheSectionNamingTheKey(t *testing.T) {
+	var matrix struct {
+		Features []struct {
+			ID string `toml:"id"`
+		} `toml:"features"`
+		Targets []struct {
+			ID          string            `toml:"id"`
+			Href        string            `toml:"href"`
+			Statuses    []string          `toml:"statuses"`
+			OptInAnchor string            `toml:"opt_in_anchor"`
+			OptIn       map[string]string `toml:"opt_in"`
+		} `toml:"targets"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/data/capabilities.toml", &matrix); err != nil {
+		t.Fatalf("decode target capability data: %v", err)
+	}
+	for _, target := range matrix.Targets {
+		anchor := target.OptInAnchor
+		if anchor == "" {
+			anchor = "config-keys"
+		}
+		optIn := map[string]bool{}
+		for index, status := range target.Statuses {
+			if status != "opt-in" {
+				continue
+			}
+			feature := matrix.Features[index].ID
+			optIn[feature] = true
+			key := target.OptIn[feature]
+			if key == "" {
+				t.Errorf("%s %s is opt-in but opt_in names no key to set", target.ID, feature)
+				continue
+			}
+			page := filepath.Join(siteDocsContentDir, strings.TrimPrefix(target.Href, "@/docs/"))
+			section, ok := markdownSection(readBuiltFile(t, page), anchor)
+			if !ok {
+				t.Errorf("%s has no section with anchor #%s for its %s opt-in cell", page, anchor, feature)
+				continue
+			}
+			yamlKey := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:`)
+			if !strings.Contains(section, "`"+key+"`") && !yamlKey.MatchString(section) {
+				t.Errorf("%s#%s does not name %s, the key for the %s opt-in cell", page, anchor, key, feature)
+			}
+		}
+		for feature := range target.OptIn {
+			if !optIn[feature] {
+				t.Errorf("%s opt_in names a key for %s, which is not an opt-in cell", target.ID, feature)
+			}
+		}
+	}
+}
+
+var (
+	markdownHeading = regexp.MustCompile(`^(#{2,6}) (.+?)(?: \{#([^ }]+)([^}]*)\})?$`)
+	slugSeparators  = regexp.MustCompile(`[^a-z0-9]+`)
+)
+
+// markdownSection returns the text under the heading whose anchor is
+// anchor, up to the next heading of the same or a higher level. A
+// legacy-anchor heading holds no text, so it never matches. Lines in
+// code fences are never headings.
+func markdownSection(page, anchor string) (string, bool) {
+	var out []string
+	level := 0
+	fenced := false
+	for line := range strings.SplitSeq(page, "\n") {
+		if strings.HasPrefix(line, "```") {
+			fenced = !fenced
+		}
+		if m := markdownHeading.FindStringSubmatch(line); m != nil && !fenced {
+			if level > 0 && len(m[1]) <= level {
+				break
+			}
+			id := m[3]
+			if id == "" {
+				id = strings.Trim(slugSeparators.ReplaceAllString(strings.ToLower(m[2]), "-"), "-")
+			}
+			if level == 0 && id == anchor && !strings.Contains(m[4], "legacy-anchor") {
+				level = len(m[1])
+				continue
+			}
+		}
+		if level > 0 {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n"), level > 0
+}
+
 func TestSiteDocs_PlaygroundUsesSharedNavigation(t *testing.T) {
 	page := readBuiltFile(t, "../../docs/playground/index.html")
 	for _, required := range []string{
@@ -413,7 +502,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`data-capability-browser`,
 		`data-capability-target="claude"`,
 		`href="https://agnostic-ai.org/docs/targets/"`,
-		`href="https://agnostic-ai.org/docs/targets/ellipsis/#config-keys"`,
+		`href="https://agnostic-ai.org/docs/targets/ellipsis/#first-review"`,
 		`How to read it`,
 		`Dedicated target format.`,
 		`Another native format preserves the content.`,

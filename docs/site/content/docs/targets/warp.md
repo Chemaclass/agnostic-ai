@@ -78,6 +78,7 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 | Key | Default | Notes |
 | --- | --- | --- |
 | `outputs.warp.skills-dir` | `.agents/skills` | |
+| `outputs.warp.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
 | `outputs.warp.workflows-dir` | empty | opt-in |
 | `outputs.warp.mcp-file` | `.warp/.mcp.json` | |
 | `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips the write of instructions that point to source specs |

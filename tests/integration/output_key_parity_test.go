@@ -55,6 +55,7 @@ var valueOutputKeys = map[string]bool{
 	"emit-agents-as-commands": true, "emit-skills-as-commands": true,
 	"collision-policy": true, "provenance-header": true,
 	"nested-glob-rules": true, "exec-policies-from-permissions": true,
+	"agents": true,
 }
 
 // documentedNoOpKeys are keys a target page documents as no longer
