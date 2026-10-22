@@ -198,7 +198,7 @@ test.describe('authority', () => {
     await openApp(page, '?view=control')
     await expect(page.getByRole('heading', { level: 1, name: 'Control' })).toBeVisible()
     await expect(page.locator('.page-subtitle')).not.toBeEmpty()
-    await expect(page.getByText('Deep view not built yet; Authority is the reference implementation')).toBeVisible()
+    await expect(page.locator('.callout')).toHaveCount(0)
     await expect(page.locator('.support-table')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Items' })).toBeVisible()
     await saveScreenshot(page, '07-section-overview-control.png')

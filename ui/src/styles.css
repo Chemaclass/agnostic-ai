@@ -246,8 +246,7 @@ kbd {
   gap: 8px;
 }
 
-.topbar-controls {
-  margin-left: auto;
+.page-controls {
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
@@ -2506,17 +2505,11 @@ input:hover {
     width: 100%;
   }
 
-  .topbar-controls {
-    order: 4;
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .topbar-controls .field {
+  .page-controls .field {
     flex: 1 1 140px;
   }
 
-  .topbar-controls select {
+  .page-controls select {
     width: 100%;
     min-width: 0;
   }

@@ -1,5 +1,5 @@
-// Overview page for a harness section that has no deep view yet:
-// what it holds, which coding tools support each kind, and its cards.
+// Overview page for a harness section: what it holds, which coding
+// tools support each kind, and its cards.
 
 import type { AuthorityView, OverviewView } from '../contract'
 import type { FeedDecisions } from '../model/feed'
@@ -49,28 +49,6 @@ export function SectionPage({
   return (
     <>
       <PageHeader eyebrow="Harness section" title={section.label} subtitle={section.question} />
-      <p className="lede">{section.description}</p>
-
-      {section.status === 'deep-view' ? (
-        <div className="callout">
-          <p>
-            <strong>{section.label} has a deep view.</strong> It resolves every operation for each agent and coding tool.
-          </p>
-          <AppLink to={{ view: 'authority' }} className="button button-primary">
-            Open the deep view
-          </AppLink>
-        </div>
-      ) : (
-        <div className="callout">
-          <p>
-            <strong>Deep view not built yet; Authority is the reference implementation.</strong> This page lists what the section holds and which coding tools
-            support it.
-          </p>
-          <AppLink to={{ view: 'authority' }} className="button">
-            Open Authority
-          </AppLink>
-        </div>
-      )}
 
       <section className="block" aria-labelledby="kinds-title">
         <h2 id="kinds-title">What it holds</h2>

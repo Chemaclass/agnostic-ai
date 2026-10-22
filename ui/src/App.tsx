@@ -186,7 +186,7 @@ export default function App() {
   if (state.view === 'feed') {
     page = <FeedPage overview={overview} authority={authority} decisions={decisions} updateDecisions={updateDecisions} acted={acted} markActed={markActed} />
   } else if (state.view === 'authority') {
-    page = <AuthorityPage authority={authority} impact={currentImpact} onValidate={validate} />
+    page = <AuthorityPage authority={authority} overview={overview} impact={currentImpact} onValidate={validate} />
   } else if (state.view === 'inspect') {
     page = <InspectPage authority={authority} overview={overview} />
   } else {

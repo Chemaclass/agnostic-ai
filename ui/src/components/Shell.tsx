@@ -1,6 +1,8 @@
-// The frame around every page: header with the coding tool and agent
-// selectors, the harness navigation, and the footer that always states
-// the snapshot revision and that runtime enforcement is not observed.
+// The frame around every page: the header with the project chip, the
+// harness navigation, and the footer that always states the snapshot
+// revision and that runtime enforcement is not observed. The coding tool
+// and agent selectors belong to the Authority page, the only view that
+// resolves anything per tool and per agent.
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import type { AuthorityView, OverviewView } from '../contract'
@@ -40,12 +42,6 @@ export function Header({
   const app = useApp()
   const view = authority.loaded?.data
   const snapshot = view?.snapshot ?? overview.loaded?.data.snapshot
-  const tools = view?.harness.available.length
-    ? view.harness.available
-    : (overview.loaded?.data.targets.map((t) => ({ target: t.target, label: t.label })) ?? [])
-  const agents = view?.agents ?? []
-  const target = view?.harness.target ?? app.state.target ?? ''
-  const agentId = view?.agent.id ?? app.state.agentId ?? ''
 
   return (
     <header className="topbar">
@@ -73,34 +69,51 @@ export function Header({
           </span>
         )}
       </div>
-      <div className="topbar-controls">
-        <label className="field">
-          <span className="field-label">Coding tool</span>
-          <select value={target} onChange={(e) => app.navigate({ target: e.target.value })} disabled={tools.length === 0}>
-            {tools.length === 0 && <option value="">{authority.error && overview.error ? 'Unavailable' : 'Loading…'}</option>}
-            {tools.map((t) => (
-              <option key={t.target} value={t.target}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">Agent</span>
-          <select value={agentId} onChange={(e) => app.navigate({ agentId: e.target.value })} disabled={agents.length === 0}>
-            {agents.length === 0 && <option value="">{authority.error ? 'Unavailable' : 'Loading…'}</option>}
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
       </button>
     </header>
+  )
+}
+
+// The coding tool and agent the Authority view resolves effects for.
+// Rendered on the Authority page only; every other page is independent
+// of both.
+export function SubjectControls({ authority, overview }: { authority: Remote<AuthorityView>; overview: Remote<OverviewView> }) {
+  const app = useApp()
+  const view = authority.loaded?.data
+  const tools = view?.harness.available.length
+    ? view.harness.available
+    : (overview.loaded?.data.targets.map((t) => ({ target: t.target, label: t.label })) ?? [])
+  const agents = view?.agents ?? []
+  const target = view?.harness.target ?? app.state.target ?? ''
+  const agentId = view?.agent.id ?? app.state.agentId ?? ''
+
+  return (
+    <div className="page-controls" role="group" aria-label="Resolve for">
+      <label className="field">
+        <span className="field-label">Coding tool</span>
+        <select value={target} onChange={(e) => app.navigate({ target: e.target.value })} disabled={tools.length === 0}>
+          {tools.length === 0 && <option value="">{authority.error && overview.error ? 'Unavailable' : 'Loading…'}</option>}
+          {tools.map((t) => (
+            <option key={t.target} value={t.target}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span className="field-label">Agent</span>
+        <select value={agentId} onChange={(e) => app.navigate({ agentId: e.target.value })} disabled={agents.length === 0}>
+          {agents.length === 0 && <option value="">{authority.error ? 'Unavailable' : 'Loading…'}</option>}
+          {agents.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   )
 }
 

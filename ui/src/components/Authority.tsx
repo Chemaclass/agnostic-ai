@@ -2,7 +2,7 @@
 // the permission circuit, the proposal panel, and the uncertainties.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AuthorityView, Change, Resource } from '../contract'
+import type { AuthorityView, Change, OverviewView, Resource } from '../contract'
 import type { ImpactState } from '../App'
 import { validationAvailability } from '../api'
 import { findDomain, findProvider, findResource, primaryDomain, providersInDomain, resourceTitle, SECRETS_DOMAIN } from '../model/domains'
@@ -13,10 +13,20 @@ import { ErrorPanel, Notice } from './Banner'
 import { Circuit, type ProposedMark } from './Circuit'
 import { ProposalPanel } from './Proposal'
 import { ResourceDetail } from './ResourceDetail'
-import type { Remote } from './Shell'
+import { SubjectControls, type Remote } from './Shell'
 import { Uncertainties } from './Uncertainties'
 
-export function AuthorityPage({ authority, impact, onValidate }: { authority: Remote<AuthorityView>; impact: ImpactState; onValidate: () => void }) {
+export function AuthorityPage({
+  authority,
+  overview,
+  impact,
+  onValidate,
+}: {
+  authority: Remote<AuthorityView>
+  overview: Remote<OverviewView>
+  impact: ImpactState
+  onValidate: () => void
+}) {
   const app = useApp()
   const view = authority.loaded?.data
   const [draftOpen, setDraftOpen] = useState(false)
@@ -52,6 +62,7 @@ export function AuthorityPage({ authority, impact, onValidate }: { authority: Re
     return (
       <>
         <PageHeader title="Authority" subtitle="Which exact resources can the agent reach, and why?" />
+        <SubjectControls authority={authority} overview={overview} />
         {authority.error ? (
           <>
             <ErrorPanel error={authority.error} />
@@ -131,6 +142,7 @@ export function AuthorityPage({ authority, impact, onValidate }: { authority: Re
     return (
       <>
         <PageHeader eyebrow={<Breadcrumbs view={view} domainId={domain.id} resource={resource} />} title={title} subtitle={resourceSubtitle ?? subtitle} />
+        <SubjectControls authority={authority} overview={overview} />
         {notices}
         <SubjectStrip view={view} compact />
         <ResourceDetail
@@ -158,6 +170,7 @@ export function AuthorityPage({ authority, impact, onValidate }: { authority: Re
     return (
       <>
         <PageHeader eyebrow={<Breadcrumbs view={view} domainId={domain.id} />} title={domain.label} subtitle={`Capability domain → providers → concrete resources · ${subtitle}`} />
+        <SubjectControls authority={authority} overview={overview} />
         {notices}
         <SubjectStrip view={view} compact />
         <DomainBanner view={view} domain={domain} />
@@ -193,6 +206,7 @@ export function AuthorityPage({ authority, impact, onValidate }: { authority: Re
   return (
     <>
       <PageHeader title="Authority" subtitle={`${subtitle} · Which exact resources can it reach, and why?`} />
+      <SubjectControls authority={authority} overview={overview} />
       {notices}
       <SubjectStrip view={view} />
       <DomainGrid view={view} />
