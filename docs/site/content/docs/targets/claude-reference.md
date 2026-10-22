@@ -164,6 +164,8 @@ Other settings survive import and sync through the overlay `agnostic-ai import c
 
 Claude Code's `/skills` menu saves per-skill toggles as `skillOverrides` in `.claude/settings.local.json`. `agnostic-ai doctor` reports synced skills that this file, the shared `.claude/settings.json`, or your user `~/.claude/settings.json` turns off, naming each file. `doctor --fix` offers to re-enable them in `.claude/settings.local.json` only. See [Claude skill overrides](@/docs/cli-reference/check.md#claude-skill-overrides). `agnostic-ai explain <skill>` shows the entries that name one skill, file by file; see [explain](@/docs/cli-reference/inspect.md#claude-skill-overrides). To set visibility for the whole team, put `skillOverrides` in `.agnostic-ai/overlays/claude.settings.json`; sync writes it to `.claude/settings.json`.
 
+Claude Code counts `sandbox.allowNestedUserNamespaces: true` only from user or managed settings and ignores it in a project `.claude/settings.json`. Set it under `x-claude.sandbox` in a home settings spec and run `sync --global`.
+
 ## Import
 
 `agnostic-ai import claude` reads the Claude Code files:
