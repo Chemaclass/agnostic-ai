@@ -39,6 +39,7 @@ var sourceMatchers = map[string][]string{
 	"SessionStart": {"startup", "resume", "clear", "compact", "fork"},
 	"PreCompact":   {"manual", "auto"},
 	"PostCompact":  {"manual", "auto"},
+	"SessionEnd":   {"other"},
 }
 
 // matcherFreeEvents ignore the matcher or take any value: Codex matches
