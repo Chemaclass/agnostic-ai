@@ -115,7 +115,7 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 	hooks := []spec.Entry{
 		{
 			Kind: spec.KindHook, Name: "bad", Path: "hooks/bad.yaml",
-			Meta: map[string]any{"event": "SessionEnd", "matcher": "Bash"},
+			Meta: map[string]any{"event": "Stop", "matcher": "Bash"},
 		},
 		{
 			Kind: spec.KindHook, Name: "ok", Path: "hooks/ok.yaml",
@@ -123,7 +123,7 @@ func TestLintHookMatcherMisuse_FlagsMatcherOnNonToolEvent(t *testing.T) {
 		},
 		{
 			Kind: spec.KindHook, Name: "no-matcher", Path: "hooks/nm.yaml",
-			Meta: map[string]any{"event": "SessionEnd"},
+			Meta: map[string]any{"event": "Stop"},
 		},
 	}
 	findings := lintHookMatcherMisuse(hooks)
@@ -173,6 +173,19 @@ func TestLintHookMatcherMisuse_CursorMatcherEventsStayClean(t *testing.T) {
 				t.Errorf("expected no finding for %s, got %+v", event, got)
 			}
 		})
+	}
+}
+
+// Claude Code filters SessionEnd on why the session ended and Codex on
+// the end reason, so a matcher there is read, not ignored.
+func TestLintHookMatcherMisuse_SessionEndMatcherStaysClean(t *testing.T) {
+	for _, matcher := range []string{"other", "logout"} {
+		hooks := []spec.Entry{
+			{Kind: spec.KindHook, Name: "bye", Path: "hooks/bye.yaml", Meta: map[string]any{"event": "SessionEnd", "matcher": matcher}},
+		}
+		if got := lintHookMatcherMisuse(hooks); len(got) != 0 {
+			t.Errorf("expected no finding for SessionEnd matcher %q, got %+v", matcher, got)
+		}
 	}
 }
 
