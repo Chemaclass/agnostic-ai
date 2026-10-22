@@ -215,9 +215,8 @@ func handWrittenSkill(cfg *config.Config, target, name string) bool {
 	return false
 }
 
-// commandSkill is command c as a top-level skill only the user starts,
-// unless c sets disable-model-invocation itself. dropped counts the
-// fields left behind.
+// commandSkill is command c as a top-level skill only the user starts.
+// dropped counts the fields left behind.
 func commandSkill(c spec.Entry, argumentHint bool, dropped map[string]int) spec.Entry {
 	s := c
 	s.Kind = spec.KindSkill
@@ -252,10 +251,11 @@ func commandSkill(c spec.Entry, argumentHint bool, dropped map[string]int) spec.
 	set("name", c.Name)
 	set("description", "The "+c.Name+" command.")
 	set("disable-model-invocation", true)
+	s.Meta["disable-model-invocation"] = true
 	s.Body = emit.CommandSkillPreamble + "\n\n" + c.Body
-	if c.BodyLine > commandSkillPreambleLines {
-		s.BodyLine = c.BodyLine - commandSkillPreambleLines
-	}
+	// Without frontmatter no line maps the preamble onto the file, so
+	// notes name the path alone.
+	s.BodyLine = max(c.BodyLine-commandSkillPreambleLines, 0)
 	return s
 }
 

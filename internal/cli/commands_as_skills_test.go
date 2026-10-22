@@ -256,6 +256,31 @@ func TestSync_NotesArgumentsInACommandSkillUnderOnUnsupportedError(t *testing.T)
 	}
 }
 
+func TestSync_NamesOnlyThePathForSyntaxInACommandWithoutFrontmatter(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "copilot")
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "fix.md"), "Fix issue $1.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	path := filepath.Join(".agnostic-ai", "commands", "fix.md")
+	if !strings.Contains(notes.String(), path) || strings.Contains(notes.String(), path+":") {
+		t.Errorf("want the note to name %s without a line past the body, got:\n%s", path, notes.String())
+	}
+}
+
+func TestSync_KeepsACommandSkillUserRunWhenTheCommandAllowsTheModel(t *testing.T) {
+	commandsAsSkillsProject(t, "copilot")
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "review.md"), "---\nname: review\ndisable-model-invocation: false\n---\n\nReview.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".github", "skills", "review", "SKILL.md")); !strings.Contains(got, "disable-model-invocation: true") {
+		t.Errorf("a command written as a skill must stay user-run:\n%s", got)
+	}
+}
+
 func TestLint_ReportsArgumentsInACommandCodexWritesAsASkill(t *testing.T) {
 	commandsAsSkillsProject(t, "codex")
 
