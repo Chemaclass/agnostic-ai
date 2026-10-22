@@ -71,15 +71,22 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 }
 
 // overviewLintFindings is what `lint` reports for the project, each with
-// the cause `explain` gives for its code. A lint run that stops early
-// becomes one finding, so the feed shows the gap instead of hiding it.
+// the cause `explain` gives for its code.
 func overviewLintFindings(cfg *config.Config, b spec.Bundle) []overview.Finding {
-	findings, err := lintScopeFindings(loadedProjectCheckScope(cfg, b))
+	return overviewScopeLintFindings(loadedProjectCheckScope(cfg, b), overviewConfigPath(), filepath.ToSlash)
+}
+
+// overviewScopeLintFindings is what `lint` reports for scope, each with
+// the cause `explain` gives for its code and its path shown through
+// display. A lint run that stops early becomes one finding on
+// configPath, so the feed shows the gap instead of hiding it.
+func overviewScopeLintFindings(scope checkScope, configPath string, display func(string) string) []overview.Finding {
+	findings, err := lintScopeFindings(scope)
 	if err != nil {
 		return []overview.Finding{{
 			Source:      overview.SourceLint,
 			Severity:    lintError.String(),
-			Path:        overviewConfigPath(),
+			Path:        display(configPath),
 			Message:     "Lint stopped before it finished: " + err.Error(),
 			Explanation: "The feed holds no lint findings until lint runs to the end.",
 		}}
@@ -91,7 +98,7 @@ func overviewLintFindings(cfg *config.Config, b spec.Bundle) []overview.Finding 
 			Code:     f.Code,
 			Severity: f.Severity.String(),
 			Message:  f.Message,
-			Path:     filepath.ToSlash(f.Path),
+			Path:     display(f.Path),
 		}
 		if code, ok := lintCodes[f.Code]; ok {
 			finding.Explanation = code.Cause

@@ -79,7 +79,7 @@ Applying is listed under `supportedActions` as unsupported. Editing the spec and
 | GET | `/api/views/feed` | `overview.FeedView` |
 | GET | `/api/health` | `{ok, revision}` |
 
-`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration; the overview and feed are not available there, because its source directory is not a project.
+`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration from any directory. Its overview and feed run `lint --global` and compare the files `sync --global` would write with disk, as `sync --global --check` does; the doctor checks read a project and are skipped, and the evidence note says so.
 
 ## Uncertainty codes
 

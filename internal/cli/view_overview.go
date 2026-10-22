@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
@@ -15,7 +16,7 @@ import (
 // project, as text or as the overview/v1 JSON document.
 func newViewOverviewCmd() *cobra.Command {
 	var dir string
-	var asJSON bool
+	var asJSON, global bool
 	cmd := &cobra.Command{
 		Use:   "overview",
 		Short: "Show the harness overview: what each section holds, which tools support it, and a feed of findings.",
@@ -28,15 +29,16 @@ func newViewOverviewCmd() *cobra.Command {
   agnostic-ai view overview
 
   # Print the overview document of another project
-  agnostic-ai view overview --dir ../service --json`,
+  agnostic-ai view overview --dir ../service --json
+
+  # Summarize the user-level configuration
+  agnostic-ai view overview --global`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			leave, err := overviewEnterDir(dir)
-			if err != nil {
-				return err
+			if global && cmd.Flags().Changed("dir") {
+				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
 			}
-			defer leave()
-			in, err := overviewInputs(".", nil)
+			in, err := loadOverviewInputs(dir, global)
 			if err != nil {
 				return err
 			}
@@ -50,7 +52,22 @@ func newViewOverviewCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to inspect.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON on stdout.")
+	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	return cmd
+}
+
+// loadOverviewInputs builds the overview inputs of the project in dir,
+// or of the user-level configuration when global is set.
+func loadOverviewInputs(dir string, global bool) (overview.Inputs, error) {
+	if global {
+		return globalOverviewInputs()
+	}
+	leave, err := overviewEnterDir(dir)
+	if err != nil {
+		return overview.Inputs{}, err
+	}
+	defer leave()
+	return overviewInputs(".", nil)
 }
 
 // overviewEnterDir changes into dir for the command and returns the

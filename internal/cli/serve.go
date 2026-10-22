@@ -107,18 +107,14 @@ func newServeCmd() *cobra.Command {
 //
 // The overview and feed views run the read-only checks (lint, drift,
 // doctor) in the working directory, which serve has changed into for
-// the project. They are not available for --global, whose source
-// directory is not a project.
+// the project. For --global they run the global lint and compare the
+// files sync --global would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
 	feed := newOverviewHandler(".")
 	if opts.Global {
-		feed = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"error":"the overview and feed views read a project; they are not available with --global"}`))
-		})
+		feed = newGlobalOverviewHandler()
 	}
 	mux.Handle(overview.OverviewPath, feed)
 	mux.Handle(overview.FeedPath, feed)
