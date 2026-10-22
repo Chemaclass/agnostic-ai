@@ -142,8 +142,12 @@ func renderedManualOnly(rendered string) bool {
 	if err != nil {
 		return false
 	}
-	manual, _ := entry.Meta["disable-model-invocation"].(bool)
-	return manual
+	if manual, _ := entry.Meta["disable-model-invocation"].(bool); manual {
+		return true
+	}
+	// Devin's own form: a skill only the user triggers.
+	triggers, _ := entry.Meta["triggers"].([]any)
+	return len(triggers) == 1 && triggers[0] == "user"
 }
 
 var skillFieldKeepers = struct {

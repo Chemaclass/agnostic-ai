@@ -349,3 +349,117 @@ func TestLint_SkipsCopilotForACommandItDoesNotGet(t *testing.T) {
 		t.Errorf("copilot gets no command here, got:\n%s", out)
 	}
 }
+
+// Zed, Windsurf, and Crush each document a SKILL.md field that keeps a
+// skill out of the model's reach, so a command reaches them as a skill.
+func TestSync_WritesACommandAsAUserRunSkillWithTheToolsOwnField(t *testing.T) {
+	cases := map[string]struct {
+		want, absent []string
+	}{
+		"zed":      {want: []string{"disable-model-invocation: true"}, absent: []string{"triggers", "user-invocable"}},
+		"windsurf": {want: []string{"triggers:\n  - user\n"}, absent: []string{"disable-model-invocation", "user-invocable"}},
+		"crush":    {want: []string{"disable-model-invocation: true", "user-invocable: true"}, absent: []string{"triggers"}},
+	}
+	for target, c := range cases {
+		t.Run(target, func(t *testing.T) {
+			notes := commandsAsSkillsProject(t, target)
+
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			got := readFile(t, filepath.Join(".agents", "skills", "review", "SKILL.md"))
+			for _, want := range append([]string{"name: review", "Run it only when the user calls it by name", "Review $ARGUMENTS."}, c.want...) {
+				if !strings.Contains(got, want) {
+					t.Errorf("want %q in the %s skill:\n%s", want, target, got)
+				}
+			}
+			for _, absent := range c.absent {
+				if strings.Contains(got, absent) {
+					t.Errorf("%s reads no %q:\n%s", target, absent, got)
+				}
+			}
+			if want := "1 command reaches " + target + " but not as a command (written as a skill the user runs by name)"; !strings.Contains(notes.String(), want) {
+				t.Errorf("want note %q, got:\n%s", want, notes.String())
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+// Zed and Windsurf write the same .agents/skills folder with different
+// fields, so neither can keep a command user-run there.
+func TestSync_LeavesCommandsOffToolsSharingASkillsFolder(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "zed, windsurf")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\n---\n\nShip it.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(".agents", "skills", "review")); !os.IsNotExist(err) {
+		t.Errorf("no command skill in a shared folder, stat err = %v", err)
+	}
+	ship := readFile(t, filepath.Join(".agents", "skills", "ship", "SKILL.md"))
+	if strings.Contains(ship, "triggers") || strings.Contains(ship, "disable-model-invocation") {
+		t.Errorf("a shared SKILL.md carries no tool's own field:\n%s", ship)
+	}
+	for _, target := range []string{"windsurf", "zed"} {
+		if !regexp.MustCompile("`disable-model-invocation` on 1 skill has no effect on [a-z, ]*" + target).MatchString(notes.String()) {
+			t.Errorf("want the dropped field noted on %s, got:\n%s", target, notes.String())
+		}
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+// An x-<target> value is the author's choice for that tool and wins.
+func TestSync_AnExplicitTargetValueWinsOverTheUserOnlyField(t *testing.T) {
+	commandsAsSkillsProject(t, "windsurf")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\nx-windsurf:\n  triggers: [user, model]\n---\n\nShip it.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".agents", "skills", "ship", "SKILL.md")); !strings.Contains(got, "triggers:\n  - user\n  - model\n") {
+		t.Errorf("want the x-windsurf triggers:\n%s", got)
+	}
+}
+
+// A user-only skill imports back to the portable field, so sync writes
+// the same file again and other tools keep it user-only too.
+func TestImport_ReadsTheToolsUserOnlyFieldBackAsDisableModelInvocation(t *testing.T) {
+	for _, target := range []string{"windsurf", "crush", "zed"} {
+		t.Run(target, func(t *testing.T) {
+			commandsAsSkillsProject(t, target)
+			const spec = "---\nname: ship\ndescription: Ships.\nlicense: MIT\ndisable-model-invocation: true\n---\n\nShip it.\n"
+			writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), spec)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if err := os.RemoveAll(filepath.Join(".agnostic-ai", "skills", "ship")); err != nil {
+				t.Fatal(err)
+			}
+
+			importCapturing(t, target)
+
+			got := readFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"))
+			meta, _ := splitMdcFrontmatter([]byte(got))
+			if meta["disable-model-invocation"] != true || meta["license"] != "MIT" {
+				t.Errorf("want disable-model-invocation and license back:\n%s", got)
+			}
+			for _, native := range []string{"triggers", "user-invocable", "x-" + target} {
+				if _, ok := meta[native]; ok {
+					t.Errorf("want no %s in the spec:\n%s", native, got)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(".agnostic-ai", "skills", "review")); !os.IsNotExist(err) {
+				t.Errorf("import must leave the command skill to the command spec, stat err = %v", err)
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check after import: %v\n%s", err, out)
+			}
+		})
+	}
+}

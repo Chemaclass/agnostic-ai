@@ -98,8 +98,7 @@ const (
 const defaultIgnoreFile = ".crushignore"
 
 var caps = emit.Capabilities{
-	SkillFields: emit.SkillFieldCoverage{Handled: []string{manualOnlyField}},
-	Target:      target,
+	Target: target,
 	// KindRule is declared even though this adapter never writes rules
 	// itself: they reach Crush through the shared AGENTS.md entry-point
 	// sync writes centrally. KindAgent is absent; Crush has no agent
@@ -123,15 +122,16 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // project-root AGENTS.md (with rule bodies inlined) is written by
 // `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	coverage := caps
+	coverage.SkillFields = userOnly.Coverage(sess, skillsDir, caps.SkillFields)
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
-	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	noteDroppedManualOnly(b.Skills)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := userOnly.WriteFolders(sess, b.Skills, skillsDir, dryRun); err != nil {
 		return err
 	}
 	return emitCrushJSON(sess, b.MCPs, b.Hooks, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)

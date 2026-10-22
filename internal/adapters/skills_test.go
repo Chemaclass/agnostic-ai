@@ -103,7 +103,7 @@ func TestSkillCoverage_ReportsEveryOmittedFieldAndKeepsNativeFields(t *testing.T
 					retained[field] = true
 				}
 			}
-			if target == "codex" {
+			if target == "codex" || target == "crush" {
 				retained["disable-model-invocation"] = true
 			}
 			for field := range skill.Meta {
