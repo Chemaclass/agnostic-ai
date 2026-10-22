@@ -543,3 +543,26 @@ func TestImport_AWindsurfSkillTightenedToTheUserStaysThatWay(t *testing.T) {
 		t.Errorf("want the skill kept user-only:\n%s", got)
 	}
 }
+
+// Another x-windsurf key brings the override block back on import, but
+// not its stale triggers.
+func TestImport_AWindsurfSkillTightenedToTheUserStaysThatWayBesideOtherOverrides(t *testing.T) {
+	commandsAsSkillsProject(t, "windsurf")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\nx-windsurf:\n  description: Ships on Devin.\n  triggers: [user, model]\n---\n\nShip it.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native := filepath.Join(".agents", "skills", "ship", "SKILL.md")
+	writeFile(t, native, strings.Replace(readFile(t, native), "  - user\n  - model\n", "  - user\n", 1))
+
+	if out, err := runCLI(t, "import", "windsurf", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	got := readFile(t, native)
+	if strings.Contains(got, "model") || !strings.Contains(got, "triggers:\n  - user\n") || !strings.Contains(got, "Ships on Devin.") {
+		t.Errorf("want the skill kept user-only with its description override:\n%s", got)
+	}
+}

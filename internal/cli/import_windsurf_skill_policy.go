@@ -2,9 +2,9 @@ package cli
 
 import "gopkg.in/yaml.v3"
 
-// windsurfSkillFields is the Agent Skills baseline with Devin's trigger
-// policy taken from the native file.
-var windsurfSkillFields = specFields{keys: defaultSkillFields.keys, preserve: preserveWindsurfSkillTriggers}
+// windsurfSkillFields is the Agent Skills baseline plus Devin's triggers,
+// which the native file always states, so import takes the policy from it.
+var windsurfSkillFields = specFields{keys: fieldsOf("name", "description", "license", "triggers").keys, preserve: preserveWindsurfSkillTriggers}
 
 // preserveWindsurfSkillTriggers drops the spec's x-windsurf.triggers on
 // import. The native file states the policy, as triggers the import
