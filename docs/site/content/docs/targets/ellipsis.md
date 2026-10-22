@@ -64,7 +64,7 @@ x-ellipsis:
     session: 3
 ```
 
-The reviewer needs a name, one engine (`claude_code` or `codex`), and an explicit model supported by Ellipsis. The review prompt comes from the review spec, not the agent specs or a settings `prompt` field.
+The reviewer needs a name, one engine (`claude_code`, `codex`, or `gemini`), and an explicit model supported by Ellipsis. The review prompt comes from the review spec, not the agent specs or a settings `prompt` field.
 
 Preview with `agnostic-ai sync --dry-run`, then run `agnostic-ai sync` and `agnostic-ai sync --check`. A review spec and complete reviewer produce `.ellipsis/code-review.yaml`. Missing requirements produce a note with the key to fix.
 

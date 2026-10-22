@@ -23,7 +23,7 @@ const ellipsisReviewFile = ".ellipsis/code-review.yaml"
 var ellipsisFileKeys = []string{"ellipsis", "pull_requests", "reviewers", "output", "budget"}
 
 // ellipsisEngines name the session block that holds a reviewer's prompt.
-var ellipsisEngines = []string{"claude_code", "codex"}
+var ellipsisEngines = []string{"claude_code", "codex", "gemini"}
 
 // importFromEllipsis reads a hand-written `.ellipsis/code-review.yaml`
 // into a review spec and a settings spec, reversing the ellipsis emit:
@@ -181,5 +181,5 @@ func takeEllipsisPrompt(rel string, reviewer map[string]any) (string, error) {
 		delete(session, "prompt")
 		return strings.TrimSpace(prompt), nil
 	}
-	return "", fmt.Errorf("%s: reviewer %v has neither a claude_code nor a codex block with a prompt", rel, reviewer["name"])
+	return "", fmt.Errorf("%s: reviewer %v has no claude_code, codex, or gemini block with a prompt", rel, reviewer["name"])
 }

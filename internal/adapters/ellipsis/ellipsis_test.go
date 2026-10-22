@@ -64,7 +64,7 @@ func promptOf(t *testing.T, file string) string {
 	if err := yaml.Unmarshal([]byte(file), &doc); err != nil || len(doc.Reviewers) != 1 {
 		t.Fatalf("parse generated file: %v\n%s", err, file)
 	}
-	for _, key := range []string{"claude_code", "codex"} {
+	for _, key := range []string{"claude_code", "codex", "gemini"} {
 		if engine, ok := doc.Reviewers[0][key].(map[string]any); ok {
 			if p, ok := engine["prompt"].(string); ok {
 				return p
@@ -358,5 +358,28 @@ func TestEmit_PassesThroughEveryEllipsisBlockKey(t *testing.T) {
 	want := "ellipsis:\n  kind: code_review\n  name: api-review\n  description: Review the API\n  enabled: false\n  metadata:\n    team: api\nreviewers:\n"
 	if got := readReview(t, reviewFile); !strings.Contains(got, want) {
 		t.Errorf("ellipsis block not written as set:\n%s", got)
+	}
+}
+
+func TestEmit_WritesAGeminiReviewer(t *testing.T) {
+	testutil.TempCwd(t)
+	x := map[string]any{"reviewer": map[string]any{
+		"name":   "project-review",
+		"gemini": map[string]any{"model": "gemini-4-argon"},
+	}}
+	if err := emitBundle(t, &config.Config{}, review("r", "", "Check."), settings(x)); err != nil {
+		t.Fatal(err)
+	}
+	want := header.Line(header.FormatYAML) + `ellipsis:
+  kind: code_review
+  name: code-review
+reviewers:
+  - name: project-review
+    gemini:
+      prompt: Check.
+      model: gemini-4-argon
+`
+	if got := readReview(t, reviewFile); got != want {
+		t.Errorf("mismatch\n--- want ---\n%s\n--- got ---\n%s", want, got)
 	}
 }

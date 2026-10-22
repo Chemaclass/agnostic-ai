@@ -62,6 +62,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Ellipsis
 
 - `x-ellipsis.environment.hooks.validate` is written after `before_start` and imported back, so an environment that sets it is kept (#2320, #2323).
+- A reviewer with a `gemini` block (model `gemini-4-argon` or `gemini-3.8-flash`) is written to `.ellipsis/code-review.yaml` and imported back; two engine blocks still stop the file. Environment variables starting with `GEMINI_` or `GOOGLE_` now stop the environment file, as Ellipsis rejects them (#2385).
 
 ### Site
 

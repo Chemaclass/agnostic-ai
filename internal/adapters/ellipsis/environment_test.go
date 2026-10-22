@@ -419,6 +419,8 @@ var brokenEnvironments = []struct {
 	{"variables not a list", selected(map[string]any{"variables": "NODE_ENV"}), nil, "x-ellipsis.environment.variables must be a list", ""},
 	{"variable name starts with a digit", selected(map[string]any{"variables": []any{map[string]any{"name": "1TOKEN"}}}), nil, "x-ellipsis.environment.variables", ""},
 	{"variable name reserved", selected(map[string]any{"variables": []any{map[string]any{"name": "ANTHROPIC_API_KEY"}}}), nil, "ANTHROPIC_API_KEY", ""},
+	{"variable name reserved for Gemini", selected(map[string]any{"variables": []any{map[string]any{"name": "GEMINI_API_KEY"}}}), nil, "GEMINI_API_KEY", ""},
+	{"variable name reserved for Google", selected(map[string]any{"variables": []any{map[string]any{"name": "GOOGLE_CLOUD_PROJECT"}}}), nil, "GOOGLE_CLOUD_PROJECT", ""},
 	{"credential variable holds a value", selected(map[string]any{"variables": []any{map[string]any{"name": "NPM_TOKEN", "value": "npm_abc"}}}), nil, "omit value", ""},
 	{"hooks not a mapping", selected(map[string]any{"hooks": "npm ci"}), nil, "x-ellipsis.environment.hooks must be a mapping", ""},
 	{"unknown hook", selected(map[string]any{"hooks": map[string]any{"after_start": "x"}}), nil, "x-ellipsis.environment.hooks.after_start", ""},

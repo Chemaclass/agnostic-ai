@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	engines = []string{"claude_code", "codex"}
+	engines = []string{"claude_code", "codex", "gemini"}
 	// settingsKeys are the x-ellipsis keys that map to a block of the
 	// file. Ellipsis fails a sync on an unknown field, so any other key
 	// stops the file here instead of there.
@@ -122,7 +122,7 @@ func optionalBlock(x map[string]any, key string, problems []string) (map[string]
 func (f *reviewConfig) readReviewer(x map[string]any, environment string) []string {
 	raw, held := x["reviewer"]
 	if !held {
-		return []string{"x-ellipsis.reviewer is not set: add a settings spec whose x-ellipsis.reviewer names the reviewer, one engine block (claude_code or codex), and its model"}
+		return []string{"x-ellipsis.reviewer is not set: add a settings spec whose x-ellipsis.reviewer names the reviewer, one engine block (claude_code, codex, or gemini), and its model"}
 	}
 	reviewer, ok := raw.(map[string]any)
 	if !ok {
@@ -146,9 +146,9 @@ func (f *reviewConfig) readReviewer(x map[string]any, environment string) []stri
 	}
 	switch len(found) {
 	case 0:
-		return append(problems, "x-ellipsis.reviewer needs a claude_code or codex block")
+		return append(problems, "x-ellipsis.reviewer needs a claude_code, codex, or gemini block")
 	case 2:
-		return append(problems, "x-ellipsis.reviewer takes only one of claude_code and codex")
+		return append(problems, "x-ellipsis.reviewer takes only one of claude_code, codex, and gemini")
 	}
 	f.engine = found[0]
 	block, ok := reviewer[f.engine].(map[string]any)

@@ -66,7 +66,7 @@ func parsedReview(t *testing.T, path string) map[string]any {
 	reviewers, _ := doc["reviewers"].([]any)
 	for _, r := range reviewers {
 		reviewer, _ := r.(map[string]any)
-		for _, engine := range []string{"claude_code", "codex"} {
+		for _, engine := range []string{"claude_code", "codex", "gemini"} {
 			if block, ok := reviewer[engine].(map[string]any); ok {
 				block["prompt"] = strings.TrimSpace(block["prompt"].(string))
 			}
@@ -302,5 +302,21 @@ func TestFindUnmanagedConfig_FlagsAHandWrittenEllipsisFileOnly(t *testing.T) {
 	got, err = findUnmanagedConfig(dir, &config.Config{})
 	if err != nil || len(got) != 0 {
 		t.Errorf("a generated file must not be flagged: %+v (%v)", got, err)
+	}
+}
+
+func TestImportEllipsis_KeepsAGeminiReviewer(t *testing.T) {
+	native := strings.Replace(handWrittenEllipsis, "claude_code:", "gemini:", 1)
+	native = strings.Replace(native, "claude-opus-5-5", "gemini-4-argon", 1)
+	dir := ellipsisImportProject(t, native)
+	execCLI(t, "import", "ellipsis")
+	settings := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis.yaml"))
+	for _, want := range []string{"gemini:", "gemini-4-argon"} {
+		if !strings.Contains(settings, want) {
+			t.Errorf("settings spec lost %q:\n%s", want, settings)
+		}
+	}
+	if strings.Contains(settings, "Find bugs") {
+		t.Errorf("the prompt must not be copied into settings:\n%s", settings)
 	}
 }

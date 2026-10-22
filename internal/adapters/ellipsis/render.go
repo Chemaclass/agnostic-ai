@@ -9,7 +9,7 @@ import (
 )
 
 // reviewerOrder follows the order Ellipsis documents a reviewer in.
-var reviewerOrder = []string{"name", "paths", "claude_code", "codex", "environment", "skills", "permissions", "budget", "comments"}
+var reviewerOrder = []string{"name", "paths", "claude_code", "codex", "gemini", "environment", "skills", "permissions", "budget", "comments"}
 
 // render writes the file with the keys in documented order. Nested
 // settings keep their own values and sort by key, so a sync is stable.
