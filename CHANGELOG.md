@@ -4,58 +4,56 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## v0.87.0 - 2026-10-22
+
 ### General
 
-- Builds use Go 1.27.3 to fix certificate verification vulnerability GO-2026-6809.
-- `lint` no longer warns (LINT005) that `SessionEnd` takes no matcher. Claude Code and Codex both read one (#2392).
-- `sync` prints a note and `lint` warns (LINT051) for a file under `.agnostic-ai/overlays/` that no tool reads, such as `gemini.settings.json` or a misspelled overlay name, and `lint --strict` fails on it. Dot files, dot folders, and top-level README files are skipped (#2367).
+- Builds use Go 1.27.3 to fix certificate verification vulnerability GO-2026-6809 (#2354).
+- `sync` and `lint` flag overlay files no tool reads; `lint --strict` fails on them (#2367, #2368).
+- Commands become user-run skills on Codex, Copilot, Zed, Windsurf, and Crush; custom Codex command paths stay in use (#2382, #2386, #2389, #2400).
 
 ### By tool
 
 #### Claude Code
 
-- `doctor` lists synced skills that `skillOverrides` turns off or hides, and `doctor --fix` offers to re-enable them in `.claude/settings.local.json` (#2357).
-- `doctor` checks `skillOverrides` in every Claude settings file Claude Code reads, names each file, and adds `skill_overrides` to `--json` (#2370).
-- `explain <skill>` shows each Claude settings file whose `skillOverrides` names the skill, marks the ones a higher file overrules, and adds `overrides` to `--json` (#2371).
-- `doctor` reads Claude settings files as strict JSON, as Claude Code does: a file with a comment or trailing comma is reported as skipped, and a rejected `skillOverrides` value, such as `"Off"` or `false`, no longer hides the same skill's entry in a lower file (#2371).
-- `mcp:<server>` in an agent's `can:` or a settings permission list is written `mcp__<server>__*` for a server name that contains `__` or ends in `_`, such as `reports__v2`, because Claude Code reads the bare `mcp__reports__v2` as a rule for server `reports` (#2391).
-- `doctor --fix` says a lower file's `skillOverrides` value may apply, not that it applies, when that file holds a rejected value, since Claude Code may then skip the file (#2383).
-
-#### Copilot
-
-- `sync` writes each command as a skill under `.github/skills/` that only the user starts, instead of skipping it. A skill spec with the same name wins (#2382).
-- Skill files keep `argument-hint` and `disable-model-invocation`, which VS Code reads (#2382).
-
-#### Codex
-
-- `sync` writes each command as a skill under `.agents/skills/` that only the user starts, instead of skipping it, unless `outputs.codex.commands-dir` is set. A skill spec with the same name wins (#2382).
-
-#### Zed
-
-- `sync` writes `disable-model-invocation: true` to skill files and each command as a user-run skill, unless another tool writes the skills folder (#2389).
+- `doctor` finds skills hidden or disabled by `skillOverrides` across settings files; `doctor --fix` offers to re-enable them (#2357, #2359, #2370, #2374).
+- `explain <skill>` shows `skillOverrides` by settings file, and `doctor` reports invalid JSON and rejected values (#2371, #2381).
+- `doctor --fix` explains when a rejected value leaves a lower settings file's skill override uncertain (#2383, #2384).
+- MCP server permissions keep their scope when a server name contains `__` or ends in `_` (#2391, #2397).
+- `lint` accepts a matcher on `SessionEnd` hooks (#2392, #2396).
 
 #### Windsurf
 
-- Removing `triggers` from a dedicated skill folder and importing lifts the user-only restriction for Windsurf (#2402).
+- Skills keep user-only invocation in a dedicated skill folder (#2389, #2400).
+- Importing a dedicated skill folder after removing `triggers` lifts the restriction for Windsurf (#2402, #2404).
 
-- `sync` writes `disable-model-invocation: true` as `triggers: [user]`, and commands as user-run skills, unless another tool writes the skills folder (#2389).
+#### Copilot
+
+- Skills keep `argument-hint` and `disable-model-invocation` for VS Code (#2382, #2386).
+
+#### Codex
+
+- `lint` accepts a matcher on `SessionEnd` hooks (#2392, #2396).
+
+#### Zed
+
+- Skills keep user-only invocation unless another tool shares the skill folder (#2389, #2400).
 
 #### Crush
 
-- `sync` writes `disable-model-invocation: true` with `user-invocable: true`, and commands as user-run skills, unless the skills folder is shared (#2389).
+- Skills keep user-only invocation unless another tool shares the skill folder (#2389, #2400).
+
+#### Ellipsis
+
+- Reviews support Gemini, and environment files reject reserved `GEMINI_` and `GOOGLE_` names (#2385, #2398).
 
 ### Site
 
-- Opt-in cells in the target matrix open the section that names the key, and the Amp, Zed, Warp, and Crush pages list `outputs.<target>.agents` (#2390).
-- The home page hero shows one agent spec line, `model: fast`, becoming a different line in each tool's agent file: `model: haiku` for Claude Code, `model = "gpt-6-luna"` for Codex, and `model: gemini-3-flash-preview` for Gemini CLI. A chip under the cards says `fast` is a model tier set in `agnostic-ai.yaml`. In the "Without" view, Codex sits on a retired model and Gemini CLI has no agent file (#2372).
-- The home page hero leads with "Set up with an agent", which opens the agent setup page. In the "Without" view, each file's text shows in a dark code box like the source file (#2362).
-- The memory reference lists Kiro IDE Memory as off by default and describes its shared local IDE/CLI store (#2353).
-- The Amp page says orbs ask to approve workspace MCP servers separately from the CLI, and again after a server's configuration changes (#2358).
-- Update archive summaries wrap within their column, keeping release titles readable on desktop.
-- Every homepage explorer entry shows Claude Code, Codex, and Gemini CLI tabs. A tool that cannot take that kind of file says what sync does instead, and shown files leave out sync's comment lines; the `AGNOSTIC_AI.md` entry shows only the instructions (#2361).
-- The playground footer sits below the editor panels instead of covering them.
-
-- The v0.86.0 briefing uses a source file path in its `explain --layers` examples.
+- The home page shows agent setup, native model choices, and consistent tool examples (#2361, #2362, #2365, #2366, #2369, #2372, #2373, #2378).
+- Opt-in matrix cells open the setting to configure, and target pages name agent output keys (#2390, #2399).
+- Reference pages clarify configuration, specs, hooks, MCP, errors, and user-only sandbox settings (#2375, #2376, #2377, #2379, #2395).
+- Memory docs clarify Kiro defaults, and Amp docs explain workspace MCP approval (#2353, #2354, #2356, #2358).
+- The playground serves locally and keeps its footer clear; update titles and release examples are readable (#2364, #2380).
 
 ## v0.86.0 - 2026-10-20
 
@@ -88,7 +86,6 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Ellipsis
 
 - `x-ellipsis.environment.hooks.validate` is written after `before_start` and imported back, so an environment that sets it is kept (#2320, #2323).
-- A reviewer with a `gemini` block (model `gemini-4-argon` or `gemini-3.8-flash`) is written to `.ellipsis/code-review.yaml` and imported back; two engine blocks still stop the file. Environment variables starting with `GEMINI_` or `GOOGLE_` now stop the environment file, as Ellipsis rejects them (#2385).
 
 ### Site
 
