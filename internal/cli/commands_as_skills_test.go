@@ -210,7 +210,7 @@ func TestSync_WritesANestedCommandAsATopLevelSkill(t *testing.T) {
 }
 
 func TestSync_ASkillWhoseNameDiffersOnlyInCaseWinsOverACommand(t *testing.T) {
-	commandsAsSkillsProject(t, "copilot")
+	notes := commandsAsSkillsProject(t, "copilot")
 	writeFile(t, filepath.Join(".agnostic-ai", "commands", "Helper.md"), "---\nname: Helper\ndescription: Helps.\n---\n\nCommand body.\n")
 	writeFile(t, filepath.Join(".agnostic-ai", "skills", "helper", "SKILL.md"), "---\nname: helper\ndescription: Helps.\n---\n\nSkill body.\n")
 
@@ -219,6 +219,19 @@ func TestSync_ASkillWhoseNameDiffersOnlyInCaseWinsOverACommand(t *testing.T) {
 	}
 	if got := readFile(t, filepath.Join(".github", "skills", "helper", "SKILL.md")); !strings.Contains(got, "Skill body.") {
 		t.Errorf("the skill spec must win:\n%s", got)
+	}
+	// A case-insensitive disk resolves Helper to helper, so list names.
+	entries, err := os.ReadDir(filepath.Join(".github", "skills"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() == "Helper" {
+			t.Errorf("the command must not get its own folder next to the skill")
+		}
+	}
+	if want := "the skill spec of the same name takes its folder: Helper"; !strings.Contains(notes.String(), want) {
+		t.Errorf("want note %q, got:\n%s", want, notes.String())
 	}
 	if out, err := runCLI(t, "sync", "--check"); err != nil {
 		t.Errorf("sync --check: %v\n%s", err, out)
