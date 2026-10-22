@@ -516,7 +516,7 @@ func TestAffectedTargetsForKind_MCPHitsNewlySupportedTargets(t *testing.T) {
 	entry := spec.Entry{Kind: spec.KindMCP, Name: "fs"}
 	for _, target := range []string{"qoder", "factory", "openhands"} {
 		t.Run(target, func(t *testing.T) {
-			got := affectedTargetsForKind(spec.KindMCP, []string{target}, entry)
+			got := affectedTargetsForKind(targetsSupportingKind[spec.KindMCP], []string{target}, entry)
 			if !slices.Equal(got, []string{target}) {
 				t.Errorf("affectedTargetsForKind(mcp, [%s], entry) = %v, want [%s]", target, got, target)
 			}
@@ -1766,6 +1766,29 @@ func TestWatchSync_PersonalMemoryChangesDoNotResync(t *testing.T) {
 			time.Sleep(300 * time.Millisecond)
 			if got := strings.TrimPrefix(buf.String(), before); strings.Contains(got, "re-sync") {
 				t.Errorf("personal memory triggered sync: %s", got)
+			}
+		})
+	}
+}
+
+func TestPlanWatchResync_SpecWrittenAsASkillHitsItsSkillTargets(t *testing.T) {
+	for _, c := range []struct{ name, config, path, body string }{
+		{"command", "version: 1\ntargets: [claude, codex, copilot]\n",
+			filepath.Join(".agnostic-ai", "commands", "review.md"), reviewCommand},
+		{"agent", "version: 1\ntargets: [claude, crush]\noutputs:\n  crush:\n    agents: skill\n",
+			filepath.Join(".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: Helps.\n---\n\nHelp.\n"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", c.config)
+			writeFile(t, c.path, c.body)
+			cfg, b, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan := planWatchResync(".", cfg, b, []string{c.path}, cfg.Targets)
+			if plan.full || !slices.Equal(plan.targets, cfg.Targets) {
+				t.Errorf("an edit to %s must re-sync %v, got %+v", c.path, cfg.Targets, plan)
 			}
 		})
 	}

@@ -43,6 +43,7 @@ func (f specFields) expresses(key string) bool {
 var (
 	defaultSkillFields   = fieldsOf("name", "description", "license")
 	opencodeSkillFields  = specFields{keys: fieldsOf("name", "description", "license", "disable-model-invocation", "metadata").keys, preserve: preserveOpencodeSkillPolicy}
+	copilotSkillFields   = fieldsOf("name", "description", "license", "argument-hint", "disable-model-invocation")
 	cursorSkillFields    = fieldsOf("name", "description", "license", "paths", "disable-model-invocation", "icon", "color", "metadata")
 	flattenedSkillFields = fieldsOf("name", "description")
 )

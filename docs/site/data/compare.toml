@@ -69,7 +69,7 @@
 
   [[targets.kinds]]
     id = "command"
-    paths = []
+    paths = [".agents/skills/deploy/SKILL.md", ".agents/skills/deploy/agents/openai.yaml"]
 
   [[targets.kinds]]
     id = "settings"
@@ -198,7 +198,7 @@
 
   [[targets.kinds]]
     id = "command"
-    paths = []
+    paths = [".github/skills/deploy/SKILL.md"]
 
   [[targets.kinds]]
     id = "settings"

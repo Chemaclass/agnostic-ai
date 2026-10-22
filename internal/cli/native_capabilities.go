@@ -3,7 +3,6 @@ package cli
 import (
 	"maps"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
@@ -312,23 +311,35 @@ var hookEventAliases = map[string]map[string]string{
 	"kiro": {"AgentSpawn": "SessionStart", "agentSpawn": "SessionStart"},
 }
 
+// commandSkillKind keys the targets in a kindSupport that get commands
+// as skills, which read a command body the way they read a skill's.
+const commandSkillKind spec.Kind = "command-as-skill"
+
 // projectKindSupport is targetsSupportingKind plus the targets cfg has
-// write agents as skills, which then consume agent specs.
+// write agents or commands as skills, which then consume those specs.
 func projectKindSupport(cfg *config.Config) kindSupport {
-	var extra []string
-	for _, t := range cfg.Targets {
-		if adapters.WritesAgentsAsSkills(cfg, t) {
-			extra = append(extra, t)
+	out, cloned := targetsSupportingKind, false
+	for _, kind := range []spec.Kind{spec.KindAgent, spec.KindCommand} {
+		var extra []string
+		for _, t := range cfg.Targets {
+			if writtenAsSkill(cfg, t, kind) {
+				extra = append(extra, t)
+			}
+		}
+		if len(extra) == 0 {
+			continue
+		}
+		if !cloned {
+			out, cloned = maps.Clone(targetsSupportingKind), true
+		}
+		support := maps.Clone(out[kind])
+		for _, t := range extra {
+			support[t] = struct{}{}
+		}
+		out[kind] = support
+		if kind == spec.KindCommand {
+			out[commandSkillKind] = setOf(extra...)
 		}
 	}
-	if len(extra) == 0 {
-		return targetsSupportingKind
-	}
-	out := maps.Clone(targetsSupportingKind)
-	agents := maps.Clone(out[spec.KindAgent])
-	for _, t := range extra {
-		agents[t] = struct{}{}
-	}
-	out[spec.KindAgent] = agents
 	return out
 }

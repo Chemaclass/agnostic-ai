@@ -172,6 +172,7 @@ var caps = emit.Capabilities{
 	// effort: agent.go notes the drop with the user-tier alternative.
 	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
+	SkillFields:    emit.SkillFieldCoverage{Markdown: skillMarkdown},
 	AgentFieldReasons: map[string]string{
 		"mcpServers": "sync writes no inline agent server here; set x-copilot.mcp-servers",
 	},
@@ -210,7 +211,12 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 // `.github/copilot-instructions.md` entry-point is written by `sync`,
 // not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	coverage := caps
+	if sess.SkillsDirWrittenByOthers(skillsDir, target) {
+		coverage.SkillFields.Markdown = sharedSkillMarkdown
+	}
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emitInstructionFiles(sess, b, cfg, dryRun); err != nil {
@@ -219,7 +225,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, defaultAgentsDir), dryRun); err != nil {
 		return err
 	}
-	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	byDir := skillsByDir(sess, b.Skills, skillsDir, skillsDir == defaultSkillsDir)
 	dirs := make([]string, 0, len(byDir))
 	for dir := range byDir {
@@ -227,7 +232,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	sort.Strings(dirs)
 	for _, dir := range dirs {
-		if err := sess.WriteSkillFolders(byDir[dir], target, dir, dryRun); err != nil {
+		if err := writeSkillFolders(sess, byDir[dir], dir, dryRun); err != nil {
 			return err
 		}
 	}

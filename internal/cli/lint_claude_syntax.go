@@ -34,7 +34,11 @@ func plainTextReaders(e spec.Entry, use spec.ClaudeSyntaxUse, targets []string, 
 		if _, ok := support[e.Kind][t]; !ok || !e.EmitsTo(t) || !use.ReachesTarget(t) {
 			continue
 		}
-		if !adapters.ExpandsClaudeSyntax(t, e.Kind, use.Syntax) {
+		kind := e.Kind
+		if _, asSkill := support[commandSkillKind][t]; asSkill && kind == spec.KindCommand {
+			kind = spec.KindSkill
+		}
+		if !adapters.ExpandsClaudeSyntax(t, kind, use.Syntax) {
 			out = append(out, t)
 		}
 	}

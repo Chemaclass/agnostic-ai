@@ -67,7 +67,7 @@ func importFromCopilot(root string, src config.Sources) error {
 	skills := 0
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range copilotSkillsDirs {
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills, Fields: &copilotSkillFields})
 		if err != nil {
 			return err
 		}

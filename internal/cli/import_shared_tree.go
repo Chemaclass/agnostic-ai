@@ -247,7 +247,7 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 		} else if err != nil {
 			return count, fmt.Errorf("read skill %s: %w", e.Name(), err)
 		}
-		if adapters.WrittenFromAgent(string(skillMD)) {
+		if adapters.WrittenFromAgent(string(skillMD)) || adapters.WrittenFromCommand(string(skillMD)) {
 			continue
 		}
 		if !opts.Folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillDst, opts.Scope) {
@@ -311,7 +311,7 @@ func skillFolderSourceWithClaims(root, dir, dstDir string, e fs.DirEntry, source
 		if _, overlaps := resolvedInside(dst, resolved); overlaps {
 			if sourceNames != nil {
 				skillMD, err := os.ReadFile(filepath.Join(resolved, "SKILL.md"))
-				if err == nil && !adapters.WrittenFromAgent(string(skillMD)) {
+				if err == nil && !adapters.WrittenFromAgent(string(skillMD)) && !adapters.WrittenFromCommand(string(skillMD)) {
 					sourceNames[e.Name()] = true
 				}
 			}

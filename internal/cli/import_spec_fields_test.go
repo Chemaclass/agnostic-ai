@@ -27,7 +27,7 @@ func TestSpecFields_MatchWhatSyncEmits(t *testing.T) {
 		emitted string
 		fields  specFields
 	}{
-		{"copilot", "skills", skillSpec, ".github/skills/probe/SKILL.md", defaultSkillFields},
+		{"copilot", "skills", strings.Replace(skillSpec, "license: MIT", "license: MIT\ndisable-model-invocation: true", 1), ".github/skills/probe/SKILL.md", copilotSkillFields},
 		{"opencode", "skills", strings.Replace(skillSpec, "license: MIT", "license: MIT\ndisable-model-invocation: true\nmetadata: {owner: team}", 1), ".opencode/skills/probe/SKILL.md", opencodeSkillFields},
 		{"kiro", "skills", skillSpec, ".kiro/skills/probe/SKILL.md", defaultSkillFields},
 		{"zed", "skills", skillSpec, ".agents/skills/probe/SKILL.md", defaultSkillFields},

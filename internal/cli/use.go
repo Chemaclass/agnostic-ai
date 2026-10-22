@@ -444,6 +444,13 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []string) {
 	for _, t := range tools {
 		mine := b.For(t)
+		if adapters.WritesCommandsAsSkills(cfg, t) {
+			commands := slices.DeleteFunc(slices.Clone(mine.Commands), func(e spec.Entry) bool {
+				return adapters.OmittedEntry(t, spec.KindCommand, e.Name)
+			})
+			mine.Skills = append(slices.Clone(mine.Skills), commands...)
+			mine.Commands = nil
+		}
 		_, _ = fmt.Fprintf(w, "%s %s now reads, from .agnostic-ai/:\n", tick(), t)
 		if path := adapters.EntryPointPath(cfg, t); path != "" {
 			_, _ = fmt.Fprintf(w, "    %-16s %s\n", "instructions", path)

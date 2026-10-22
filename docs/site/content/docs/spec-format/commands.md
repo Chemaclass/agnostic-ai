@@ -53,11 +53,22 @@ Diff the branch against `main` and list bugs with `file:line`, most severe first
 
 ## Output
 
-- Codex gets commands only when `outputs.codex.commands-dir` is set. Without it, write a skill for Codex.
 - Gemini writes each command as a `.toml` file named after `name`.
-- Tools without command support log a warning and skip them.
+- Codex without `outputs.codex.commands-dir`, and Copilot, get each command as a skill. See [tools without commands](#tools-without-commands).
+- Other tools without command support log a note and skip them.
 
 Each target page lists the exact directory.
+
+## Tools without commands {#tools-without-commands}
+
+A tool that has skills but no commands gets each command as a skill only the user starts, when the tool can keep the model from starting it. Today that is [Codex](@/docs/targets/codex.md) and [Copilot](@/docs/targets/copilot.md). Copilot qualifies only while no other tool writes its skills folder, since a shared `SKILL.md` cannot keep the field. The skill:
+
+- is written at the top level of the skills folder, whatever folder the command sits in under `commands/`;
+- sets `disable-model-invocation: true`, which Codex reads as `allow_implicit_invocation: false` in `agents/openai.yaml`, and Copilot keeps in `SKILL.md`;
+- keeps `name`, `description`, the target fields, and `argument-hint` where the tool reads it, and notes any other field it leaves out;
+- opens with one line asking the model to run it only when called, and to treat the text typed after its name as its arguments, since neither tool fills in `$ARGUMENTS` in a skill. Sync notes each `$ARGUMENTS` or `$1` line, and `on-unsupported: error` does not fail on them.
+
+A skill spec with the same name wins, ignoring case, and so does a hand-written skill folder of that name in a skills folder the tool reads. Sync notes the skipped command. Another tool that reads the same skills folder, such as Gemini CLI reading `.agents/skills`, also sees the skill; sync notes that it lists the command twice, or that its model can start it. Cline, Windsurf, Amp, Zed, Warp, Antigravity, Continue, Goose, OpenHands, and Crush have no switch sync writes to keep a skill user-only, so they skip commands. `target-exclude` stops sync from writing a command for a tool, but a tool that reads another tool's skills folder still sees the skill written there, such as Gemini CLI reading the copy Codex writes to `.agents/skills`.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 

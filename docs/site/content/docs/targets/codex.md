@@ -53,13 +53,14 @@ Already configured? Check [import coverage](@/docs/targets/codex-reference.md#im
 | Instructions and project-wide rules | `AGENTS.md` |
 | Directory-scoped rules | `<scope>/AGENTS.md` |
 | Skills and bundled files | `.agents/skills/<name>/SKILL.md` |
+| Commands | `.agents/skills/<name>/SKILL.md`, as [skills the user runs by name](@/docs/spec-format/commands.md#tools-without-commands) |
 | Agents | `.codex/agents/<name>.toml` |
 | Hooks | `.codex/hooks.json`, when configured |
 | Settings and MCP servers | `.codex/config.toml`, when configured |
 | App environment | `.codex/environments/environment.toml`, when configured |
 | Exec policies | `.codex/rules/default.rules`, opt-in |
 
-An empty kind creates no corresponding files. Prefer skills for prompt procedures: project custom-prompt output is a deprecated compatibility option that Codex does not discover. See [output overrides](@/docs/targets/codex-reference.md#config-keys).
+An empty kind creates no corresponding files. Prefer skills for prompt procedures: project custom-prompt output is a deprecated compatibility option that Codex does not discover. With `outputs.codex.commands-dir` set, commands go there instead of becoming skills. See [output overrides](@/docs/targets/codex-reference.md#config-keys).
 
 ## Loading and limits
 

@@ -83,6 +83,8 @@ A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its ow
 
 [Copilot skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) at `.github/skills/<name>/SKILL.md`. Copilot also reads `.claude/skills/` and `.agents/skills/`. A skill found there and not in `.github/skills/` is written in place. `outputs.copilot.skills-dir` sends every skill to one directory.
 
+`SKILL.md` keeps `argument-hint` and `disable-model-invocation`, unless another target writes the same skills folder ([agent skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)). Copilot has no commands, so each command becomes a skill there that only the user starts from the `/` menu ([commands](@/docs/spec-format/commands.md#tools-without-commands)).
+
 ### Old copies
 
 Sync removes old `agent-<name>.instructions.md` and `skill-<name>.instructions.md` files.

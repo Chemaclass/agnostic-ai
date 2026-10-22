@@ -791,6 +791,7 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 	}
 	kinds := map[spec.Kind]struct{}{}
 	affected := map[string]struct{}{}
+	support := projectKindSupport(cfg)
 	for _, raw := range changed {
 		cp, err := filepath.Abs(raw)
 		if err != nil {
@@ -809,7 +810,7 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 		}
 		kind := owner.Kind
 		kinds[kind] = struct{}{}
-		for _, t := range affectedTargetsForKind(kind, configured, owner) {
+		for _, t := range affectedTargetsForKind(support[kind], configured, owner) {
 			affected[t] = struct{}{}
 		}
 	}
@@ -901,13 +902,12 @@ func findSpecOwner(b spec.Bundle, cp string) (spec.Entry, bool) {
 	return spec.Entry{}, false
 }
 
-// affectedTargetsForKind returns the configured targets that emit kind
-// and are allowed by the owning spec's target scoping, in configured
-// order. targetsSupportingKind is the same capability matrix the
-// orphan-kind validator uses, so a rule change hits every rule-emitting
-// target while a claude-scoped agent hits only claude.
-func affectedTargetsForKind(kind spec.Kind, configured []string, owner spec.Entry) []string {
-	emitters := targetsSupportingKind[kind]
+// affectedTargetsForKind returns the configured targets in emitters, the
+// project's targets for the owner's kind, that the owning spec's target
+// scoping allows, in configured order. A rule change hits every
+// rule-emitting target, a claude-scoped agent hits only claude, and a
+// command hits the targets that write it as a skill.
+func affectedTargetsForKind(emitters map[string]struct{}, configured []string, owner spec.Entry) []string {
 	var out []string
 	for _, t := range configured {
 		if _, ok := emitters[t]; !ok {

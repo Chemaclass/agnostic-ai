@@ -782,6 +782,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	if err != nil {
 		return err
 	}
+	own = withCommandsAsSkills(own, cfg, a.Name())
 	mode := ""
 	if cfg != nil {
 		mode = cfg.OnUnsupported
