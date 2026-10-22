@@ -265,6 +265,7 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{
 			SkipNames:      seenSkills,
 			TransformSkill: normalizeWindsurfSkill,
+			Fields:         &windsurfSkillFields,
 		})
 		if err != nil {
 			return err

@@ -521,3 +521,25 @@ func TestImport_KeepsACrushSkillHiddenFromTheUser(t *testing.T) {
 		t.Errorf("want the skill still hidden from the command palette:\n%s", got)
 	}
 }
+
+// Tightening a native Windsurf skill to triggers: [user] survives import
+// over a spec that allowed the model, and the next sync.
+func TestImport_AWindsurfSkillTightenedToTheUserStaysThatWay(t *testing.T) {
+	commandsAsSkillsProject(t, "windsurf")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\nx-windsurf:\n  triggers: [user, model]\n---\n\nShip it.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native := filepath.Join(".agents", "skills", "ship", "SKILL.md")
+	writeFile(t, native, strings.Replace(readFile(t, native), "  - user\n  - model\n", "  - user\n", 1))
+
+	if out, err := runCLI(t, "import", "windsurf", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, native); strings.Contains(got, "model") || !strings.Contains(got, "triggers:\n  - user\n") {
+		t.Errorf("want the skill kept user-only:\n%s", got)
+	}
+}
