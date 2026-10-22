@@ -135,7 +135,7 @@ A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same na
 | `mcp:<server>`, `mcp:<server>/<tool>` | One MCP server, or one of its tools | `mcp__<server>`, `mcp__<server>__<tool>` |
 
 - Each rule becomes the tool's own permission name. `delete` raises a sync note where a tool has no delete permission.
-- A Claude Code rule still works as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both.
+- A Claude Code rule still works as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both. For Claude Code, a server name that contains `__` or ends in `_`, such as `reports__v2`, becomes `mcp__<server>__*`, the only whole-server form Claude Code matches for it.
 - `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a tool would drop it.
 - `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule that has a capability of its own. An adjacent `WebFetch, WebSearch` pair becomes `web`. The rest stay as aliases, and sync writes the same files.

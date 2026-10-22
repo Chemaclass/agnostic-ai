@@ -42,8 +42,8 @@ func TranslateAgentCapabilityIn(target, rule string, entry spec.Entry) Capabilit
 
 func TranslatePermissionCapabilityIn(target, list, rule string, entry spec.Entry, settings []spec.Entry, cfg *config.Config) CapabilityTranslation {
 	normalized := spec.NewBundle(settings).For(target).Settings
-	entry = entry.NativePermissions()
-	names, problem := spec.CapabilityTools([]string{rule})
+	entry = entry.NativePermissionsFor(target)
+	names, problem := spec.CapabilityToolsFor(target, []string{rule})
 	if problem != "" {
 		return CapabilityTranslation{}
 	}

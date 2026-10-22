@@ -690,13 +690,13 @@ func filterEntriesFor(entries []Entry, target string) []Entry {
 		if reason != "" {
 			continue
 		}
-		if native, reason = native.NativeTools(); reason != "" {
+		if native, reason = native.NativeToolsFor(target); reason != "" {
 			continue
 		}
 		if native, reason = native.NativeAllowedTools(); reason != "" {
 			continue
 		}
-		e = native.NativePermissions()
+		e = native.NativePermissionsFor(target)
 		if resolved := e.BodyFor(target); resolved != e.Body {
 			e.Body = resolved
 			e.BodyLine = 0

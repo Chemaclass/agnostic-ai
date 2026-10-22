@@ -100,6 +100,7 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 - Each capability becomes the tool's own name for it. `delete` raises a sync note on tools with no delete tool.
 - Claude Code refuses to launch an agent with an empty tool list, such as `can: []` or `can: [delete]`. Sync leaves such an agent out of `.claude/agents/` and prints a note.
 - Claude Code names still work as aliases. A list can mix both: `can: [read, Grep]`.
+- For Claude Code, a server name that contains `__` or ends in `_`, such as `reports__v2`, becomes `mcp__<server>__*`, the only whole-server form Claude Code matches for it.
 - Claude Code reads an agent's `tools` by tool name and ignores a pattern there. Sync writes `shell(git diff *)` as `Bash` and `read(src/**)` as `Read`, and prints a note such as `claude: .agnostic-ai/agents/code-reviewer.md: shell(git diff *) becomes Bash; Claude Code does not limit an agent's tools to a pattern`. `on-unsupported: error` fails on it. `Agent(<type>)` and `x-claude.tools` are written as given.
 - To limit an agent's commands on Claude Code, add a `PreToolUse` hook to its `hooks` that blocks the rest, or deny commands in a [settings spec's permissions](@/docs/spec-format/settings.md#permission-rules), which Claude Code applies to the main conversation and to every agent.
 - A skill's `allowed-tools` keeps the pattern: there `shell(git diff *)` pre-approves those commands.

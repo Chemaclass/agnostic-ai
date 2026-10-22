@@ -119,7 +119,7 @@ func agentIdentity(meta map[string]any, keys []string, specName string) (map[str
 // out of Claude Code for an empty tool list. `delete` counts as no tool:
 // sync drops it before the agent is written.
 func LeavesOutAgent(a spec.Entry) bool {
-	a, problem := a.NativeTools()
+	a, problem := a.NativeToolsFor("claude")
 	if problem != "" {
 		return false
 	}
