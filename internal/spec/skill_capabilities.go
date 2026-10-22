@@ -11,11 +11,11 @@ func SkillCapabilityProblem(meta map[string]any) string {
 	if !set {
 		return ""
 	}
-	_, problem := skillCapabilityTools(raw)
+	_, problem := skillCapabilityTools("", raw)
 	return problem
 }
 
-func skillCapabilityTools(raw any) ([]string, string) {
+func skillCapabilityTools(target string, raw any) ([]string, string) {
 	var list []any
 	switch value := raw.(type) {
 	case []any:
@@ -33,7 +33,7 @@ func skillCapabilityTools(raw any) ([]string, string) {
 		if !ok {
 			return nil, fmt.Sprintf("allowed-tools: entry %v is not a capability name", item)
 		}
-		names, problem := capabilityToolsOf(name, capabilityForm{field: "allowed-tools:", paths: true})
+		names, problem := capabilityToolsOf(name, capabilityForm{field: "allowed-tools:", paths: true, claude: target == "claude"})
 		if problem != "" {
 			return nil, problem
 		}
@@ -43,6 +43,11 @@ func skillCapabilityTools(raw any) ([]string, string) {
 }
 
 func (e Entry) NativeAllowedTools() (Entry, string) {
+	return e.NativeAllowedToolsFor("")
+}
+
+// NativeAllowedToolsFor is NativeAllowedTools in the spelling target reads.
+func (e Entry) NativeAllowedToolsFor(target string) (Entry, string) {
 	if e.Kind != KindSkill {
 		return e, ""
 	}
@@ -50,7 +55,7 @@ func (e Entry) NativeAllowedTools() (Entry, string) {
 	if !set {
 		return e, ""
 	}
-	names, problem := skillCapabilityTools(raw)
+	names, problem := skillCapabilityTools(target, raw)
 	if problem != "" {
 		return e, problem
 	}

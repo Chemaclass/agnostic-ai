@@ -58,7 +58,7 @@ func TranslatePermissionCapability(target, list, rule string, cfg *config.Config
 }
 
 func translateCapability(target, list, rule string, cfg *config.Config) CapabilityTranslation {
-	names, problem := spec.CapabilityTools([]string{rule})
+	names, problem := spec.CapabilityToolsFor(target, []string{rule})
 	if problem != "" {
 		return CapabilityTranslation{}
 	}

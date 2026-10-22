@@ -51,7 +51,7 @@ func globalPermissionRules(target string, settings []spec.Entry, mode string) (m
 				}
 			}
 		}
-		entry = entry.NativePermissions()
+		entry = entry.NativePermissionsFor(target)
 		perms, _ := entry.Meta["permissions"].(map[string]any)
 		for _, list := range spec.PermissionLists {
 			for _, rule := range stringSliceFromAny(perms[list]) {

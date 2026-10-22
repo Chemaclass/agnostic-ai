@@ -16,7 +16,13 @@ const permissionsKey = "permissions"
 // read(<path>) and edit(<path>) scope a rule to files. A Claude Code
 // rule passes through as an alias.
 func PermissionRules(list, rule string) ([]string, string) {
-	return capabilityToolsOf(rule, capabilityForm{field: "permissions." + list + ":", paths: true})
+	return PermissionRulesFor("", list, rule)
+}
+
+// PermissionRulesFor is PermissionRules in the spelling target reads; see
+// CapabilityToolsFor for the one difference.
+func PermissionRulesFor(target, list, rule string) ([]string, string) {
+	return capabilityToolsOf(rule, capabilityForm{field: "permissions." + list + ":", paths: true, claude: target == "claude"})
 }
 
 // SettingsPermissionProblems returns why each permission rule in a
@@ -70,6 +76,11 @@ func NeutralPermission(rule string) (string, bool) {
 // A rule that cannot be read stays as written, as any unknown rule did
 // before, and sync stops on it first.
 func (e Entry) NativePermissions() Entry {
+	return e.NativePermissionsFor("")
+}
+
+// NativePermissionsFor is NativePermissions in the spelling target reads.
+func (e Entry) NativePermissionsFor(target string) Entry {
 	if e.Kind != KindSettings {
 		return e
 	}
@@ -87,7 +98,7 @@ func (e Entry) NativePermissions() Entry {
 		changed := false
 		for _, raw := range rules {
 			rule, ok := raw.(string)
-			names, problem := PermissionRules(list, rule)
+			names, problem := PermissionRulesFor(target, list, rule)
 			if !ok || problem != "" || len(names) == 1 && names[0] == rule {
 				out = append(out, raw)
 				continue

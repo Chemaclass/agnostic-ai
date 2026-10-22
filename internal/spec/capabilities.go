@@ -49,7 +49,7 @@ func AgentCapabilityProblem(meta map[string]any) string {
 	if _, both := meta[toolsKey]; both {
 		return "sets both can: and tools:; keep one"
 	}
-	_, problem := capabilityToolNames(raw)
+	_, problem := capabilityToolNames("", raw)
 	return problem
 }
 
@@ -57,9 +57,19 @@ func AgentCapabilityProblem(meta map[string]any) string {
 // stands for, or why it cannot be read. A Claude-style name passes
 // through as an alias, so a list may mix both forms.
 func CapabilityTools(can []string) ([]string, string) {
+	return CapabilityToolsFor("", can)
+}
+
+// CapabilityToolsFor is CapabilityTools in the spelling target reads. For
+// claude, a whole-server `mcp:<server>` rule whose server name contains
+// `__` or ends in `_` is written `mcp__<server>__*`, the only form Claude
+// Code matches for such a name. Other targets keep `mcp__<server>`.
+func CapabilityToolsFor(target string, can []string) ([]string, string) {
+	form := agentForm
+	form.claude = target == "claude"
 	var out []string
 	for _, c := range can {
-		names, problem := capabilityToolsOf(c, agentForm)
+		names, problem := capabilityToolsOf(c, form)
 		if problem != "" {
 			return nil, problem
 		}
@@ -68,7 +78,7 @@ func CapabilityTools(can []string) ([]string, string) {
 	return out, ""
 }
 
-func capabilityToolNames(raw any) ([]string, string) {
+func capabilityToolNames(target string, raw any) ([]string, string) {
 	list, ok := raw.([]any)
 	if !ok {
 		return nil, "can: must be a list, such as [read, shell(git diff *)]"
@@ -81,12 +91,19 @@ func capabilityToolNames(raw any) ([]string, string) {
 		}
 		can = append(can, s)
 	}
-	return CapabilityTools(can)
+	return CapabilityToolsFor(target, can)
 }
 
 type capabilityForm struct {
-	field string
-	paths bool
+	field  string
+	paths  bool
+	claude bool
+}
+
+// needsMCPWildcard reports a server name Claude Code reads as a different
+// server in its bare form: one that contains `__` or ends in `_`.
+func needsMCPWildcard(server string) bool {
+	return strings.Contains(server, "__") || strings.HasSuffix(server, "_")
 }
 
 var agentForm = capabilityForm{field: "can:", paths: true}
@@ -125,6 +142,9 @@ func capabilityToolsOf(c string, form capabilityForm) ([]string, string) {
 		}
 		if hasTool {
 			return []string{mcpToolPrefix + server + "__" + tool}, ""
+		}
+		if form.claude && needsMCPWildcard(server) {
+			return []string{mcpToolPrefix + server + "__*"}, ""
 		}
 		return []string{mcpToolPrefix + server}, ""
 	}
@@ -186,10 +206,18 @@ func NeutralCapability(tool string) (string, bool) {
 	if hasTool {
 		return mcpToolKind + server + "/" + name, true
 	}
+	if needsMCPWildcard(server) {
+		return "", false
+	}
 	return mcpToolKind + server, true
 }
 
 func (e Entry) NativeTools() (Entry, string) {
+	return e.NativeToolsFor("")
+}
+
+// NativeToolsFor is NativeTools in the spelling target reads.
+func (e Entry) NativeToolsFor(target string) (Entry, string) {
 	if e.Kind != KindAgent {
 		return e, ""
 	}
@@ -200,7 +228,7 @@ func (e Entry) NativeTools() (Entry, string) {
 	if !set {
 		return e, ""
 	}
-	names, _ := capabilityToolNames(raw)
+	names, _ := capabilityToolNames(target, raw)
 	tools := make([]any, len(names))
 	for i, n := range names {
 		tools[i] = n

@@ -122,7 +122,7 @@ func reportWidenedTools(agents []spec.Entry, mode string) error {
 // in its spec, when a scoped capability widens it, or false when nothing
 // widens.
 func WidenedAgentTools(a spec.Entry) ([]string, bool) {
-	a, problem := a.NativeTools()
+	a, problem := a.NativeToolsFor("claude")
 	if problem != "" {
 		return nil, false
 	}
