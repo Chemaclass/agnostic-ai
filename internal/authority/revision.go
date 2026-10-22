@@ -2,11 +2,11 @@ package authority
 
 import (
 	"cmp"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"slices"
@@ -67,10 +67,13 @@ func (p paths) source(e spec.Entry) *Source {
 // Revision is the short content hash of every input a view is built
 // from: the config files, in order, then every loaded spec sorted by
 // kind and path, each with its fields and body. Two views with the same
-// revision were built from the same sources.
+// revision were built from the same sources. It is the first 12 hex
+// digits of a 64-bit FNV-1a hash: the revision only tells a client that
+// the sources changed, so a stale proposal is refused. It protects
+// nothing, which is why it is not a cryptographic digest.
 func Revision(b spec.Bundle, opts Options) string {
 	p := newPaths(opts.Root)
-	h := sha256.New()
+	h := fnv.New64a()
 	for _, f := range opts.ConfigFiles {
 		data, err := os.ReadFile(filepath.Join(p.root, filepath.FromSlash(f)))
 		if err != nil {
