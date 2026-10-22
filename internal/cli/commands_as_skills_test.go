@@ -610,3 +610,34 @@ func TestImport_DroppingAnAnchoredWindsurfTriggerKeepsItsAliases(t *testing.T) {
 		t.Errorf("want no dangling alias in the spec:\n%s", got)
 	}
 }
+
+// Letting the model start a skill again from the tool survives import
+// when the native file still states the tool's own policy.
+func TestImport_LoosenedNativePolicyReplacesThePortableRestriction(t *testing.T) {
+	cases := map[string]struct{ from, to string }{
+		"crush":    {"disable-model-invocation: true\n", ""},
+		"windsurf": {"  - user\n", "  - user\n  - model\n"},
+	}
+	for target, c := range cases {
+		t.Run(target, func(t *testing.T) {
+			commandsAsSkillsProject(t, target)
+			writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\n---\n\nShip it.\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			native := filepath.Join(".agents", "skills", "ship", "SKILL.md")
+			writeFile(t, native, strings.Replace(readFile(t, native), c.from, c.to, 1))
+			loosened := readFile(t, native)
+
+			if out, err := runCLI(t, "import", target, "--overwrite"); err != nil {
+				t.Fatalf("import: %v\n%s", err, out)
+			}
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if got := readFile(t, native); strings.Contains(got, "disable-model-invocation: true") || got != loosened && target == "windsurf" {
+				t.Errorf("want the loosened policy kept, had:\n%s\ngot:\n%s", loosened, got)
+			}
+		})
+	}
+}

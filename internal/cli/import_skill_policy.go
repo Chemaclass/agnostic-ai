@@ -20,9 +20,36 @@ func preserveWindsurfSkillTriggers(existing, _ *yaml.Node) {
 }
 
 // preserveCrushSkillPolicy drops the spec's x-crush invocation fields on
-// import, for the same reason: the native file states them.
-func preserveCrushSkillPolicy(existing, _ *yaml.Node) {
+// import, for the same reason: the native file states them. A native file
+// that keeps user-invocable but lets the model start the skill also drops
+// the portable restriction. A file with neither field may be a copy
+// shared with other targets, so it leaves the restriction alone.
+func preserveCrushSkillPolicy(existing, imported *yaml.Node) {
 	removeScopedKeys(existing, "x-crush", "disable-model-invocation", "user-invocable")
+	if crushStatesModelInvocation(imported) {
+		if i := mappingIndex(existing, "disable-model-invocation"); i >= 0 {
+			detachDependents(existing, existing.Content[i+1])
+			removeMappingKey(existing, "disable-model-invocation")
+		}
+	}
+}
+
+// crushStatesModelInvocation reports whether an imported Crush skill
+// carries user-invocable without disable-model-invocation: true, so the
+// native file lets the model start it.
+func crushStatesModelInvocation(imported *yaml.Node) bool {
+	if i := mappingIndex(imported, "disable-model-invocation"); i >= 0 && imported.Content[i+1].Value == "true" {
+		return false
+	}
+	i := mappingIndex(imported, "x-crush")
+	if i < 0 {
+		return false
+	}
+	custom := imported.Content[i+1]
+	if j := mappingIndex(custom, "disable-model-invocation"); j >= 0 && custom.Content[j+1].Value == "true" {
+		return false
+	}
+	return mappingIndex(custom, "user-invocable") >= 0
 }
 
 // removeScopedKeys removes keys from existing's scoped block, and the
