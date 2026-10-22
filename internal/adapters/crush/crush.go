@@ -9,8 +9,9 @@
 //
 // Skills emit as one folder per skill under `.agents/skills/<name>/SKILL.md`,
 // the first location Crush scans (ahead of `.crush/skills`,
-// `.claude/skills`, and `.cursor/skills`). The renderer matches the
-// codex/amp/zed output byte-for-byte so the shared tree dedupes. Setting
+// `.claude/skills`, and `.cursor/skills`). In a folder another target
+// also writes, the renderer matches its output byte-for-byte so the
+// shared tree dedupes; see userOnly for the fields it adds otherwise. Setting
 // `x-crush.user-invocable: true` on a skill adds that flag to its
 // frontmatter so the skill also shows up in Crush's command palette
 // (ctrl+p); the shared renderer passes any `x-crush` key through
