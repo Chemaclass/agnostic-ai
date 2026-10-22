@@ -52,6 +52,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 
 - **Rules**: root rules are included in `AGENTS.md`. Scoped rules go to `<scope>/AGENTS.md` ([tools that share it](@/docs/scoped-context.md)).
 - **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, the path Warp recommends. A skill in a scope folder moves under that scope, and import keeps it there. Identical root copies are written once.
+  - Warp documents no field that keeps a skill user-only: agents invoke any skill when relevant, and `/{skill-name}` runs it by hand. So `disable-model-invocation` is dropped with a note, and commands are skipped.
   - Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. agnostic-ai writes only `.agents/skills/`. Warp also picks up OpenCode's default `.opencode/skills/`, with no extra file.
   - `WARP_SKILL_DIRS` adds directories outside the repo for Cloud agents to index skills from. It does not change which project folders Warp scans.
 - **Workflows**: with `outputs.warp.workflows-dir` set, each agent becomes a [Warp Workflow](https://docs.warp.dev/terminal/entry/yaml-workflows) at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). Warp now recommends Warp Drive workflows stored in the cloud, but <code>{&#123;path_to_git_repo}}/.warp/workflows/</code> still loads.

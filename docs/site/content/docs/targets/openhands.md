@@ -50,6 +50,8 @@ AGENTS.md                          # pointer body + inlined always-on rules (sha
 
 Written identically to the other `.agents/skills/` tools, so the shared folder is written once.
 
+The [OpenHands skills docs](https://docs.openhands.dev/overview/skills) document no field that keeps a skill user-only. The SDK reads `disable-model-invocation`, but such a skill then runs only when a `triggers` keyword appears anywhere in a message, not by name. Sync does not write it: `disable-model-invocation` is dropped with a note, and commands are skipped.
+
 ### Agents
 
 OpenHands loads `.agents/agents/<name>.md` in local conversations. The writer is shared with Goose and writes `name`, `description`, an optional free-form `model`, and the prompt body.

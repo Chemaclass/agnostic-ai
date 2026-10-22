@@ -327,7 +327,7 @@
 
   [[targets.kinds]]
     id = "command"
-    paths = []
+    paths = [".agents/skills/deploy/SKILL.md"]
 
   [[targets.kinds]]
     id = "settings"
@@ -456,7 +456,7 @@
 
   [[targets.kinds]]
     id = "command"
-    paths = []
+    paths = [".agents/skills/deploy/SKILL.md"]
 
   [[targets.kinds]]
     id = "settings"
@@ -714,7 +714,7 @@
 
   [[targets.kinds]]
     id = "command"
-    paths = []
+    paths = [".agents/skills/deploy/SKILL.md"]
 
   [[targets.kinds]]
     id = "settings"
