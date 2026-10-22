@@ -7,6 +7,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -261,11 +262,26 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 	}
 	c.agents += nativeAgents
 	seenSkills := map[string]bool{}
-	for _, skillsDir := range windsurfSkillsDirs {
+	skillsDirs := windsurfSkillsDirs
+	if cfg != nil && cfg.Outputs["windsurf"].SkillsDir != "" {
+		skillsDirs = []string{cfg.Outputs["windsurf"].SkillsDir}
+	}
+	writers := adapters.SkillDirectoryWriters(cfg)
+	for _, skillsDir := range skillsDirs {
+		dedicated := cfg != nil
+		for _, writer := range writers[filepath.Clean(skillsDir)] {
+			if writer != "windsurf" {
+				dedicated = false
+			}
+		}
+		fields := windsurfSkillFields
+		if dedicated {
+			fields.preserve = preserveDedicatedWindsurfSkillPolicy
+		}
 		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{
 			SkipNames:      seenSkills,
 			TransformSkill: normalizeWindsurfSkill,
-			Fields:         &windsurfSkillFields,
+			Fields:         &fields,
 		})
 		if err != nil {
 			return err

@@ -36,6 +36,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Windsurf
 
+- Removing `triggers` from a dedicated skill folder and importing lifts the user-only restriction for Windsurf (#2402).
+
 - `sync` writes `disable-model-invocation: true` as `triggers: [user]`, and commands as user-run skills, unless another tool writes the skills folder (#2389).
 
 #### Crush
