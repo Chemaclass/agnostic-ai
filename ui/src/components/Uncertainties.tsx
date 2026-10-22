@@ -36,7 +36,9 @@ export function Uncertainties({ view, defaultOpen, title = 'Uncertainties' }: { 
       <h2 id={`${id}-title`} className="panel-title">
         <button type="button" className="disclosure" aria-expanded={open} aria-controls={`${id}-list`} onClick={() => setOpen((o) => !o)}>
           <span className="disclosure-mark" aria-hidden="true">
-            {open ? '−' : '+'}
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round">
+              <path d={open ? 'M6 12h12' : 'M6 12h12M12 6v12'} />
+            </svg>
           </span>
           {title}
           <span className="disclosure-count">

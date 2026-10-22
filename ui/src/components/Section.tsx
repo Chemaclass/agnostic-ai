@@ -26,7 +26,7 @@ export function SectionPage({
   if (!data) {
     return (
       <>
-        <PageHeader title="Harness section" />
+        <PageHeader title={sectionId.charAt(0).toUpperCase() + sectionId.slice(1)} />
         {overview.error ? <ErrorPanel error={overview.error} /> : <p className="loading" aria-busy="true">Loading the overview…</p>}
       </>
     )
@@ -48,7 +48,7 @@ export function SectionPage({
 
   return (
     <>
-      <PageHeader eyebrow="Harness section" title={section.label} subtitle={section.question} />
+      <PageHeader title={section.label} subtitle={section.question} />
 
       <section className="block" aria-labelledby="kinds-title">
         <h2 id="kinds-title">What it holds</h2>

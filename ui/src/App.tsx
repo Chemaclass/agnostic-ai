@@ -31,11 +31,14 @@ function safeStorage(): Storage | undefined {
 }
 
 function initialTheme(): 'dark' | 'light' {
+  let stored: string | null = null
   try {
-    return window.localStorage.getItem('agnostic-ai.theme') === 'light' ? 'light' : 'dark'
+    stored = window.localStorage.getItem('agnostic-ai.theme')
   } catch {
-    return 'dark'
+    // Storage may be unavailable; fall through to the OS preference.
   }
+  if (stored === 'light' || stored === 'dark') return stored
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
 // Loads a document and keeps the previous one on screen while a new

@@ -41,6 +41,9 @@
   --radius-pill: 999px;
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+  --measure: 60ch;
+  --kbd-on-accent: rgba(0, 0, 0, 0.12);
+  --kbd-on-accent-line: rgba(0, 0, 0, 0.25);
   --nav-width: 220px;
   --topbar-height: 64px;
 }
@@ -126,6 +129,24 @@ select {
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
+}
+
+::selection {
+  background: var(--accent-wash-strong);
+  color: var(--text);
+}
+
+html {
+  scrollbar-color: var(--line-strong) transparent;
+  accent-color: var(--accent);
+  caret-color: var(--accent);
+}
+
+table,
+.kind-count,
+.disclosure-count,
+.nav-count {
+  font-variant-numeric: tabular-nums;
 }
 
 /* In-page jumps land below the sticky header. */
@@ -644,8 +665,8 @@ input:hover {
 }
 
 .button-primary kbd {
-  background: rgba(0, 0, 0, 0.12);
-  border-color: rgba(0, 0, 0, 0.25);
+  background: var(--kbd-on-accent);
+  border-color: var(--kbd-on-accent-line);
   color: inherit;
 }
 
@@ -719,7 +740,7 @@ input:hover {
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: var(--panel-sunken);
@@ -921,9 +942,9 @@ input:hover {
 
 .feed-status p {
   padding: 8px 14px;
-  border-left: 3px solid var(--accent);
+  border: 1px solid var(--accent-wash-strong);
   background: var(--accent-wash);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-sm);
 }
 
 .feed-list {
@@ -1022,6 +1043,22 @@ input:hover {
 
 .card-consequence {
   color: var(--text-muted);
+  max-width: var(--measure);
+}
+
+.card-title,
+.mini-card-title,
+.mini-card p,
+.item-main,
+.page-subtitle,
+.block p {
+  max-width: var(--measure);
+  text-wrap: pretty;
+}
+
+.card-title,
+.mini-card-title {
+  text-wrap: balance;
 }
 
 .is-current .card-consequence {
@@ -1165,6 +1202,12 @@ input:hover {
   font-weight: 700;
   font-size: 16px;
   color: var(--text);
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.mini-card-title:hover {
+  text-decoration-color: var(--accent);
 }
 
 .tool-list {
@@ -1536,9 +1579,9 @@ input:hover {
 
 .caveat {
   padding: 10px 14px;
-  border-left: 3px solid var(--approval);
+  border: 1px solid var(--line);
   background: var(--approval-wash);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-sm);
   font-size: 14px;
 }
 
@@ -2202,6 +2245,7 @@ input:hover {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: none;
