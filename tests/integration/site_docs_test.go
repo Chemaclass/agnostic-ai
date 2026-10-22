@@ -82,6 +82,10 @@ func TestSiteDocs_TargetCapabilityMatrixMatchesAdapters(t *testing.T) {
 		for _, kind := range target.Supports {
 			declared[target.Name][kind] = true
 		}
+		// Commands written as skills map to that target's skills.
+		if adapters.WritesCommandsAsSkills(&config.Config{}, target.Name) {
+			declared[target.Name][spec.KindCommand] = true
+		}
 	}
 	if len(matrix.Targets) != len(declared) {
 		t.Fatalf("target capability matrix has %d targets, adapters declare %d", len(matrix.Targets), len(declared))
@@ -409,7 +413,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`data-capability-browser`,
 		`data-capability-target="claude"`,
 		`href="https://agnostic-ai.org/docs/targets/"`,
-		`href="https://agnostic-ai.org/docs/targets/codex/#config-keys"`,
+		`href="https://agnostic-ai.org/docs/targets/ellipsis/#config-keys"`,
 		`How to read it`,
 		`Dedicated target format.`,
 		`Another native format preserves the content.`,

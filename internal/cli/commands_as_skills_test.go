@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -144,5 +145,150 @@ func TestLint_CountsCommandsWrittenAsSkillsAsConsumed(t *testing.T) {
 	out, _ := runCLI(t, "lint")
 	if strings.Contains(out, "LINT004") {
 		t.Errorf("copilot writes the command as a skill, got:\n%s", out)
+	}
+}
+
+// Codex keeps the flag in agents/openai.yaml, so a Copilot SKILL.md in
+// the same folder could not keep it and still match Codex's copy.
+func TestSync_CopilotSharingCodexSkillsFolderKeepsFilesInStep(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "codex, copilot")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, copilot]\noutputs:\n  copilot:\n    skills-dir: .agents/skills\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\nargument-hint: \"[env]\"\n---\n\nShip it.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".agents", "skills", "review", "agents", "openai.yaml")); !strings.Contains(got, "allow_implicit_invocation: false") {
+		t.Errorf("codex still gets the user-run skill:\n%s", got)
+	}
+	if want := "copilot also reads .agents/skills, so its model can start review on its own from the skill written there for codex"; !strings.Contains(notes.String(), want) {
+		t.Errorf("want note %q, got:\n%s", want, notes.String())
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+// Copilot's own .github/skills copy wins over the Codex copy in
+// .agents/skills, so Copilot needs no note about it.
+func TestSync_NoReaderNoteWhenCopilotHasItsOwnCopy(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "codex, copilot")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if strings.Contains(notes.String(), "copilot also reads") {
+		t.Errorf("copilot has its own user-run copy, got:\n%s", notes.String())
+	}
+}
+
+func TestSync_LeavesCommandsOffCodexWithoutSkills(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "codex")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\noutputs:\n  codex:\n    shared-subagents: false\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if strings.Contains(notes.String(), "written as a skill the user runs by name") {
+		t.Errorf("codex writes no skills here, got:\n%s", notes.String())
+	}
+}
+
+func TestSync_WritesANestedCommandAsATopLevelSkill(t *testing.T) {
+	commandsAsSkillsProject(t, "codex")
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "git", "commit.md"), "---\nname: commit\ndescription: Commit.\n---\n\nCommit.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(".agents", "skills", "commit", "SKILL.md")); err != nil {
+		t.Errorf("want the command at the top level: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join("git", ".agents")); !os.IsNotExist(err) {
+		t.Errorf("no skills tree under git/, stat err = %v", err)
+	}
+}
+
+func TestSync_ASkillWhoseNameDiffersOnlyInCaseWinsOverACommand(t *testing.T) {
+	commandsAsSkillsProject(t, "copilot")
+	writeFile(t, filepath.Join(".agnostic-ai", "commands", "Helper.md"), "---\nname: Helper\ndescription: Helps.\n---\n\nCommand body.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "helper", "SKILL.md"), "---\nname: helper\ndescription: Helps.\n---\n\nSkill body.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".github", "skills", "helper", "SKILL.md")); !strings.Contains(got, "Skill body.") {
+		t.Errorf("the skill spec must win:\n%s", got)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func TestSync_NotesClaudeSyntaxOnTheCommandLine(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "copilot")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	// review.md has five frontmatter lines and a blank line before its body.
+	if want := filepath.Join(".agnostic-ai", "commands", "review.md") + ":7"; !strings.Contains(notes.String(), want) {
+		t.Errorf("want the note to name %s, got:\n%s", want, notes.String())
+	}
+}
+
+func TestLint_ReportsArgumentsInACommandCodexWritesAsASkill(t *testing.T) {
+	commandsAsSkillsProject(t, "codex")
+
+	out, _ := runCLI(t, "lint")
+	if !strings.Contains(out, "LINT019") || !strings.Contains(out, "codex reads $ARGUMENTS as plain text") {
+		t.Errorf("want LINT019 for codex, got:\n%s", out)
+	}
+}
+
+func TestSync_LeavesAHandWrittenSkillOfTheCommandNameAlone(t *testing.T) {
+	for _, c := range []struct{ target, path string }{
+		{"codex", filepath.Join(".agents", "skills", "review", "SKILL.md")},
+		{"copilot", filepath.Join(".agents", "skills", "review", "SKILL.md")},
+		{"copilot", filepath.Join(".github", "skills", "review", "SKILL.md")},
+	} {
+		t.Run(c.target+"/"+filepath.ToSlash(c.path), func(t *testing.T) {
+			notes := commandsAsSkillsProject(t, c.target)
+			const own = "---\nname: review\ndescription: Mine.\n---\n\nMy own review.\n"
+			writeFile(t, c.path, own)
+
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if got := readFile(t, c.path); got != own {
+				t.Errorf("sync replaced the hand-written skill:\n%s", got)
+			}
+			if want := "a skill sync did not write already has its folder: review"; !strings.Contains(notes.String(), want) {
+				t.Errorf("want note %q, got:\n%s", want, notes.String())
+			}
+		})
+	}
+}
+
+func TestSync_NotesFieldsCopilotDropsInASharedSkillsFolder(t *testing.T) {
+	notes := commandsAsSkillsProject(t, "codex, copilot")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, copilot]\noutputs:\n  copilot:\n    skills-dir: .agents/skills\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\n---\n\nShip it.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if !regexp.MustCompile("`disable-model-invocation` on 1 skill has no effect on [a-z, ]*copilot").MatchString(notes.String()) {
+		t.Errorf("want the dropped field noted on copilot, got:\n%s", notes.String())
+	}
+}
+
+func TestLint_SkipsCopilotForACommandItDoesNotGet(t *testing.T) {
+	commandsAsSkillsProject(t, "codex, copilot")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, copilot]\noutputs:\n  copilot:\n    skills-dir: .agents/skills\n")
+
+	out, _ := runCLI(t, "lint")
+	if strings.Contains(out, "copilot reads $ARGUMENTS") || strings.Contains(out, "codex, copilot read $ARGUMENTS") {
+		t.Errorf("copilot gets no command here, got:\n%s", out)
 	}
 }

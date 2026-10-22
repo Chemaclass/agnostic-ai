@@ -355,4 +355,10 @@
 # reads those files as strict JSON and flags rejected values and keys
 # that conflict in one file. Same Linux amd64 release flags; retain the
 # 8 KB allowance. No new dependencies.
-20410528
+# #2382 measured 20435104 on Go 1.27.3, up 32768 from main 0e28b055
+# (20402336): commands are written as user-run skills on Codex and
+# Copilot, with clash, shared-folder and hand-written skill checks, and
+# Copilot skills keep argument-hint and disable-model-invocation. Same
+# Linux amd64 release flags; retain the 8 KB allowance. No new
+# dependencies.
+20443296

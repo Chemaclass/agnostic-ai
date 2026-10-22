@@ -71,6 +71,10 @@ func sampleEntryForKind(kind spec.Kind) spec.Entry {
 func TestNativeCapabilities_MatchDeclaredAdapterSupport(t *testing.T) {
 	for _, target := range adapters.Names() {
 		for _, kind := range spec.AllKinds {
+			// projectKindSupport adds a target that writes commands as skills.
+			if kind == spec.KindCommand && adapters.WritesCommandsAsSkills(&config.Config{}, target) {
+				continue
+			}
 			if !declaresSupport(t, target, kind) {
 				continue
 			}

@@ -15,7 +15,13 @@ import (
 var skillFields = []string{"license", "argument-hint", "disable-model-invocation"}
 
 // SkillMarkdown renders s with the fields Copilot reads.
-func (Adapter) SkillMarkdown(s spec.Entry) string {
+func (Adapter) SkillMarkdown(s spec.Entry) string { return skillMarkdown(s) }
+
+// sharedSkillMarkdown is the SKILL.md every target writing one folder
+// agrees on.
+func sharedSkillMarkdown(s spec.Entry) string { return emit.SkillMarkdown(s, target) }
+
+func skillMarkdown(s spec.Entry) string {
 	resolved := emit.ResolveMeta(s.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -38,10 +44,16 @@ func (Adapter) SkillMarkdown(s spec.Entry) string {
 	return front + "\n" + body + "\n"
 }
 
+// writeSkillFolders writes skills into dir. A directory another target
+// also writes gets the common SKILL.md, so the shared files agree.
 func writeSkillFolders(sess *emit.Session, skills []spec.Entry, dir string, dryRun bool) error {
+	render := skillMarkdown
+	if sess.SkillsDirWrittenByOthers(dir, target) {
+		render = sharedSkillMarkdown
+	}
 	for _, s := range skills {
 		folder := filepath.Join(dir, s.Name)
-		if err := sess.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader((Adapter{}).SkillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
+		if err := sess.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader(render(s), emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 		if err := sess.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun); err != nil {

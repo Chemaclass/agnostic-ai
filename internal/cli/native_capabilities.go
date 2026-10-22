@@ -308,6 +308,10 @@ var hookEventAliases = map[string]map[string]string{
 	"kiro": {"AgentSpawn": "SessionStart", "agentSpawn": "SessionStart"},
 }
 
+// commandSkillKind keys the targets in a kindSupport that get commands
+// as skills, which read a command body the way they read a skill's.
+const commandSkillKind spec.Kind = "command-as-skill"
+
 // projectKindSupport is targetsSupportingKind plus the targets cfg has
 // write agents or commands as skills, which then consume those specs.
 func projectKindSupport(cfg *config.Config) kindSupport {
@@ -330,6 +334,9 @@ func projectKindSupport(cfg *config.Config) kindSupport {
 			support[t] = struct{}{}
 		}
 		out[kind] = support
+		if kind == spec.KindCommand {
+			out[commandSkillKind] = setOf(extra...)
+		}
 	}
 	return out
 }
