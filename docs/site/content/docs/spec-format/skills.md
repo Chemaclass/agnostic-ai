@@ -89,7 +89,7 @@ allowed-tools: [read(src/**), edit(src/**), shell(git diff *), mcp:github]
 
 The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each tool gets its own names where it supports this field. A tool that drops a restriction or grants more access raises a sync note. `on-unsupported: error` fails when a tool would grant more access.
 
-Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. So do scoped names such as `Read(src/**)` and `Bash(git diff *)`. A list can mix neutral and Claude Code names.
+Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. So do scoped names such as `Read(src/**)` and `Bash(git diff *)`. A list can mix neutral and Claude Code names. For Claude Code, `mcp:<server>` for a server name that contains `__` or ends in `_` becomes `mcp__<server>__*`, as in an agent's `can`.
 
 `agnostic-ai migrate --only capabilities` rewrites Claude Code names that map exactly, including an adjacent `WebFetch, WebSearch` pair as `web`. `import` writes neutral names where the tool's own names map one to one. Neither guesses a narrower restriction from a tool's bundle of tools. `lint --suggest-capabilities` suggests neutral names for Claude Code names (LINT037). It suggests nothing by default.
 

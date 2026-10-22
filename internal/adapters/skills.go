@@ -34,7 +34,7 @@ func PrepareSkillCapabilities(target string, skills []spec.Entry, mode string) (
 		if !skill.EmitsTo(target) {
 			continue
 		}
-		native, problem := skill.NativeAllowedTools()
+		native, problem := skill.NativeAllowedToolsFor(target)
 		if problem != "" {
 			return nil, fmt.Errorf("%s: %s", skill.Path, problem)
 		}

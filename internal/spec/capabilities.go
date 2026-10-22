@@ -206,6 +206,9 @@ func NeutralCapability(tool string) (string, bool) {
 	if hasTool {
 		return mcpToolKind + server + "/" + name, true
 	}
+	if needsMCPWildcard(server) {
+		return "", false
+	}
 	return mcpToolKind + server, true
 }
 
