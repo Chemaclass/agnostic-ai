@@ -1,6 +1,7 @@
 package crush
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,7 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func emitManualOnlySkill(t *testing.T, sess *emit.Session) (skill, notes string) {
+func emitManualOnlySkill(t *testing.T, sess *emit.Session, extra map[string]any) (skill, notes string) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	buf := &strings.Builder{}
@@ -25,6 +26,9 @@ func emitManualOnlySkill(t *testing.T, sess *emit.Session) (skill, notes string)
 		Kind: spec.KindSkill, Name: "release", Path: "skills/release/SKILL.md", Body: "body",
 		Meta: map[string]any{"description": "d", "disable-model-invocation": true},
 	}}
+	for k, v := range extra {
+		entries[0].Meta[k] = v
+	}
 	if err := New().Emit(sess, spec.NewBundle(entries), &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +38,7 @@ func emitManualOnlySkill(t *testing.T, sess *emit.Session) (skill, notes string)
 
 // Crush lists a skill for the user only with both fields set.
 func TestEmit_ManualOnlySkillGetsBothCrushFields(t *testing.T) {
-	skill, notes := emitManualOnlySkill(t, emit.NewSession())
+	skill, notes := emitManualOnlySkill(t, emit.NewSession(), nil)
 
 	for _, want := range []string{"disable-model-invocation: true", "user-invocable: true"} {
 		if !strings.Contains(skill, want) {
@@ -51,12 +55,25 @@ func TestEmit_ManualOnlySkillGetsBothCrushFields(t *testing.T) {
 func TestEmit_ManualOnlyDropsInASharedSkillsFolder(t *testing.T) {
 	sess := emit.NewSession()
 	sess.SetSkillsDirWriters(map[string][]string{".agents/skills": {"codex", target}})
-	skill, notes := emitManualOnlySkill(t, sess)
+	skill, notes := emitManualOnlySkill(t, sess, nil)
 
 	if strings.Contains(skill, "disable-model-invocation") || strings.Contains(skill, "user-invocable") {
 		t.Errorf("shared SKILL.md must match the other writers:\n%s", skill)
 	}
 	if !strings.Contains(notes, "`disable-model-invocation` on 1 skill has no effect on crush") {
 		t.Errorf("want the dropped field noted:\n%s", notes)
+	}
+}
+
+// A spec's own user-invocable value reaches the file, so the author's
+// choice is kept instead of dropped.
+func TestEmit_ManualOnlySkillKeepsTheSpecsUserInvocable(t *testing.T) {
+	for _, value := range []bool{true, false} {
+		skill, _ := emitManualOnlySkill(t, emit.NewSession(), map[string]any{"user-invocable": value})
+		for _, want := range []string{"disable-model-invocation: true", fmt.Sprintf("user-invocable: %t", value)} {
+			if !strings.Contains(skill, want) {
+				t.Errorf("user-invocable: %t: SKILL.md missing %q:\n%s", value, want, skill)
+			}
+		}
 	}
 }

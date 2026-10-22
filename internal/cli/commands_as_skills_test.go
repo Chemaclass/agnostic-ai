@@ -463,3 +463,44 @@ func TestImport_ReadsTheToolsUserOnlyFieldBackAsDisableModelInvocation(t *testin
 		})
 	}
 }
+
+// A command is run by the user, so an x-<target> field cannot hand its
+// skill to the model.
+func TestSync_ACommandsTargetFieldCannotLetTheModelStartIt(t *testing.T) {
+	cases := map[string]struct{ override, want string }{
+		"windsurf": {"x-windsurf:\n  triggers: [user, model]\n", "triggers:\n  - user\n"},
+		"zed":      {"x-zed:\n  disable-model-invocation: false\n", "disable-model-invocation: true"},
+		"crush":    {"x-crush:\n  disable-model-invocation: false\n  user-invocable: false\n", "user-invocable: true"},
+	}
+	for target, c := range cases {
+		t.Run(target, func(t *testing.T) {
+			commandsAsSkillsProject(t, target)
+			writeFile(t, filepath.Join(".agnostic-ai", "commands", "review.md"), "---\ndescription: Review a change.\n"+c.override+"---\n\nReview $ARGUMENTS.\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			got := readFile(t, filepath.Join(".agents", "skills", "review", "SKILL.md"))
+			if !strings.Contains(got, c.want) || strings.Contains(got, "model\n") || strings.Contains(got, ": false") {
+				t.Errorf("want %q and no model-startable value:\n%s", c.want, got)
+			}
+		})
+	}
+}
+
+// A skill made user-only for one tool through x-<target> still gets that
+// tool's own field.
+func TestSync_AUserOnlyValueUnderTheTargetGetsTheToolsField(t *testing.T) {
+	cases := map[string]string{"windsurf": "triggers:\n  - user\n", "crush": "user-invocable: true"}
+	for target, want := range cases {
+		t.Run(target, func(t *testing.T) {
+			commandsAsSkillsProject(t, target)
+			writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\nx-"+target+":\n  disable-model-invocation: true\n---\n\nShip it.\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if got := readFile(t, filepath.Join(".agents", "skills", "ship", "SKILL.md")); !strings.Contains(got, want) {
+				t.Errorf("want %q:\n%s", want, got)
+			}
+		})
+	}
+}

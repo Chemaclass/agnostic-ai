@@ -18,8 +18,7 @@ type UserOnlySkill struct {
 // disable-model-invocation: true, adds the target's own fields. A value
 // the spec or x-<target> sets for one of those keys wins.
 func (u UserOnlySkill) Markdown(s spec.Entry) string {
-	manual, _ := s.Meta["disable-model-invocation"].(bool)
-	if resolved, _ := ResolveMeta(s.Meta, u.Target)["disable-model-invocation"].(bool); !manual || !resolved {
+	if manual, _ := ResolveMeta(s.Meta, u.Target)["disable-model-invocation"].(bool); !manual {
 		return SkillMarkdown(s, u.Target)
 	}
 	custom, _ := s.Meta[XPrefix+u.Target].(map[string]any)
@@ -27,18 +26,22 @@ func (u UserOnlySkill) Markdown(s spec.Entry) string {
 	for k, v := range custom {
 		merged[k] = v
 	}
-	keys := make([]string, 0, len(u.Keys))
+	added := false
 	for _, k := range u.Keys {
-		_, explicit := custom[k]
-		// A spec's own value, such as user-invocable: false, is the
-		// author's choice too.
-		_, own := s.Meta[k]
-		if !explicit && (!own || k == "disable-model-invocation") {
-			merged[k] = u.Values[k]
-			keys = append(keys, k)
+		if _, explicit := custom[k]; explicit {
+			continue
 		}
+		// A spec's own value, such as user-invocable: false, is the
+		// author's choice too. SkillMarkdown drops it at the top level,
+		// so it moves into the target's fields.
+		if own, ok := s.Meta[k]; ok && k != "disable-model-invocation" {
+			merged[k] = own
+		} else {
+			merged[k] = u.Values[k]
+		}
+		added = true
 	}
-	if len(keys) == 0 {
+	if !added {
 		return SkillMarkdown(s, u.Target)
 	}
 	out := s

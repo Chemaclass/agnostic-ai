@@ -22,8 +22,7 @@ type SkillSidecarRenderer interface {
 
 // ManualOnlySkillReader is implemented by adapters whose manual-only
 // marker lives outside SKILL.md frontmatter. A set marker, either way,
-// silences the note, as an explicit x-<target> field does on crush and
-// factory.
+// silences the note, as an explicit x-<target> field does on factory.
 type ManualOnlySkillReader interface {
 	SkillInvocationPolicySet(skill spec.Entry) bool
 }
