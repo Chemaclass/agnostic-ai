@@ -42,7 +42,7 @@ func importFromCrush(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFoldersWith(root, filepath.Join(root, crushSkillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{TransformSkill: normalizeCrushSkill})
+	skills, err := importSkillFoldersWith(root, filepath.Join(root, crushSkillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{TransformSkill: normalizeCrushSkill, Fields: &crushSkillFields})
 	if err != nil {
 		return err
 	}

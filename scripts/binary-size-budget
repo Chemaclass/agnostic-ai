@@ -361,9 +361,9 @@
 # Copilot skills keep argument-hint and disable-model-invocation. Same
 # Linux amd64 release flags; retain the 8 KB allowance. No new
 # dependencies.
-# #2389 measured 20451488 on Go 1.27.3, up 16384 from #2382's
+# #2389 measured 20459680 on Go 1.27.3, up 24576 from #2382's
 # 20435104: Zed, Windsurf, and Crush write their own user-only skill
-# fields, import reads them back, and commands reach those tools as
-# user-run skills. Same Linux amd64 release flags; retain the 8 KB
-# allowance. No new dependencies.
-20459680
+# fields, import reads them back and lets the native file decide the
+# policy, and commands reach those tools as user-run skills. Same Linux
+# amd64 release flags; retain the 8 KB allowance. No new dependencies.
+20467872

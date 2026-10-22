@@ -566,3 +566,47 @@ func TestImport_AWindsurfSkillTightenedToTheUserStaysThatWayBesideOtherOverrides
 		t.Errorf("want the skill kept user-only with its description override:\n%s", got)
 	}
 }
+
+// Showing a hidden Crush skill in the palette from the tool survives
+// import over a spec that hid it, and the next sync.
+func TestImport_ACrushSkillShownToTheUserStaysThatWay(t *testing.T) {
+	commandsAsSkillsProject(t, "crush")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\nx-crush:\n  user-invocable: false\n---\n\nShip it.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native := filepath.Join(".agents", "skills", "ship", "SKILL.md")
+	writeFile(t, native, strings.Replace(readFile(t, native), "user-invocable: false", "user-invocable: true", 1))
+
+	if out, err := runCLI(t, "import", "crush", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, native); !strings.Contains(got, "user-invocable: true") {
+		t.Errorf("want the skill kept in the command palette:\n%s", got)
+	}
+}
+
+// Dropping an anchored trigger list keeps the spec readable where an
+// alias reused it.
+func TestImport_DroppingAnAnchoredWindsurfTriggerKeepsItsAliases(t *testing.T) {
+	commandsAsSkillsProject(t, "windsurf")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\nx-windsurf:\n  triggers: &who [user, model]\nmetadata:\n  who: *who\n---\n\nShip it.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native := filepath.Join(".agents", "skills", "ship", "SKILL.md")
+	writeFile(t, native, strings.Replace(readFile(t, native), "  - user\n  - model\n", "  - user\n", 1))
+
+	if out, err := runCLI(t, "import", "windsurf", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md")); strings.Contains(got, "*who") {
+		t.Errorf("want no dangling alias in the spec:\n%s", got)
+	}
+}
