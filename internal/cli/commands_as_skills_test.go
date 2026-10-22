@@ -612,7 +612,8 @@ func TestImport_DroppingAnAnchoredWindsurfTriggerKeepsItsAliases(t *testing.T) {
 }
 
 // Letting the model start a skill again from the tool survives import
-// when the native file still states the tool's own policy.
+// when the native file still states the tool's own policy, for that tool
+// only: other tools keep the restriction.
 func TestImport_LoosenedNativePolicyReplacesThePortableRestriction(t *testing.T) {
 	cases := map[string]struct{ from, to string }{
 		"crush":    {"disable-model-invocation: true\n", ""},
@@ -638,6 +639,31 @@ func TestImport_LoosenedNativePolicyReplacesThePortableRestriction(t *testing.T)
 			if got := readFile(t, native); strings.Contains(got, "disable-model-invocation: true") || got != loosened && target == "windsurf" {
 				t.Errorf("want the loosened policy kept, had:\n%s\ngot:\n%s", loosened, got)
 			}
+			spec := readFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"))
+			if meta, _ := splitMdcFrontmatter([]byte(spec)); meta["disable-model-invocation"] != true {
+				t.Errorf("one tool's file must not lift the restriction for every tool:\n%s", spec)
+			}
 		})
+	}
+}
+
+// An x-crush block anchored and reused under another target stays
+// readable when import drops its invocation fields.
+func TestImport_DroppingFieldsFromAnAnchoredCrushBlockKeepsItsAliases(t *testing.T) {
+	commandsAsSkillsProject(t, "crush")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\nx-crush: &policy\n  disable-model-invocation: true\n  user-invocable: true\nx-zed: *policy\n---\n\nShip it.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native := filepath.Join(".agents", "skills", "ship", "SKILL.md")
+	writeFile(t, native, strings.Replace(readFile(t, native), "Ship it.", "Ship it now.", 1))
+	if out, err := runCLI(t, "import", "crush", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import: %v\n%s", err, out)
 	}
 }

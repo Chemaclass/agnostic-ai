@@ -21,16 +21,21 @@ func preserveWindsurfSkillTriggers(existing, _ *yaml.Node) {
 
 // preserveCrushSkillPolicy drops the spec's x-crush invocation fields on
 // import, for the same reason: the native file states them. A native file
-// that keeps user-invocable but lets the model start the skill also drops
-// the portable restriction. A file with neither field may be a copy
-// shared with other targets, so it leaves the restriction alone.
+// that keeps user-invocable but lets the model start the skill lifts the
+// restriction for Crush only, as x-crush.disable-model-invocation: false:
+// one tool's file must not hand the skill to every tool's model. A file
+// with neither field may be a copy shared with other targets, so it
+// leaves the restriction alone.
 func preserveCrushSkillPolicy(existing, imported *yaml.Node) {
 	removeScopedKeys(existing, "x-crush", "disable-model-invocation", "user-invocable")
-	if crushStatesModelInvocation(imported) {
-		if i := mappingIndex(existing, "disable-model-invocation"); i >= 0 {
-			detachDependents(existing, existing.Content[i+1])
-			removeMappingKey(existing, "disable-model-invocation")
-		}
+	if !crushStatesModelInvocation(imported) || mappingIndex(existing, "disable-model-invocation") < 0 {
+		return
+	}
+	custom := imported.Content[mappingIndex(imported, "x-crush")+1]
+	if mappingIndex(custom, "disable-model-invocation") < 0 {
+		custom.Content = append(custom.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "disable-model-invocation"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"})
 	}
 }
 
@@ -53,22 +58,27 @@ func crushStatesModelInvocation(imported *yaml.Node) bool {
 }
 
 // removeScopedKeys removes keys from existing's scoped block, and the
-// block once empty. An alias to a removed node gets its own copy first,
-// so the spec stays readable.
+// block once empty. Aliases to the block or anything in it get their own
+// copy first, and an alias block is resolved to one, so the spec stays
+// readable and other aliases keep their values.
 func removeScopedKeys(existing *yaml.Node, block string, keys ...string) {
 	index := mappingIndex(existing, block)
 	if index < 0 {
 		return
 	}
 	custom := existing.Content[index+1]
+	if custom.Kind == yaml.AliasNode {
+		custom = detachImportOverride(custom)
+	} else {
+		detachDependents(existing, custom)
+		custom = detachImportOverride(custom)
+	}
 	if custom.Kind != yaml.MappingNode {
 		return
 	}
+	existing.Content[index+1] = custom
 	for _, key := range keys {
-		if i := mappingIndex(custom, key); i >= 0 {
-			detachDependents(existing, custom.Content[i+1])
-			removeMappingKey(custom, key)
-		}
+		removeMappingKey(custom, key)
 	}
 	if len(custom.Content) == 0 {
 		removeMappingKey(existing, block)
