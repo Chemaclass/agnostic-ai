@@ -138,7 +138,8 @@ Without the field, every tool below lets the model use the skill on its own. Onl
 
 | Target | Behavior |
 |--------|----------|
-| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md) | Written to `SKILL.md` |
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
+| [Copilot](@/docs/targets/copilot.md) | Written to `SKILL.md`, with `argument-hint`. Both are dropped when another target also writes Copilot's skills folder |
 | [OpenCode](@/docs/targets/opencode.md) | Written to `SKILL.md`. V2 2.0.26 honors it; V1 does not. Native `metadata.opencode/autoinvoke` takes precedence |
 | [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit value in `x-codex.policy` or a bundled `agents/openai.yaml` wins |
 | [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.crush.skills-dir: .crush/skills` |
