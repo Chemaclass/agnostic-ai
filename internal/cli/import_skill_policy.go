@@ -3,20 +3,51 @@ package cli
 import "gopkg.in/yaml.v3"
 
 // windsurfSkillFields is the Agent Skills baseline plus Devin's triggers,
-// which the native file always states, so import takes the policy from it.
-var windsurfSkillFields = specFields{keys: fieldsOf("name", "description", "license", "triggers").keys, preserve: preserveWindsurfSkillTriggers}
+// whose absence can also mean the folder is shared with another target.
+var windsurfSkillFields = specFields{
+	keys: fieldsOf("name", "description", "license", "triggers").keys,
+	// This flag is native only when x-windsurf explicitly passes it through.
+	scopedNative: map[string]bool{"disable-model-invocation": true},
+	preserve:     preserveWindsurfSkillTriggers,
+}
 
 // crushSkillFields is the Agent Skills baseline plus Crush's palette flag,
 // which the native file states beside disable-model-invocation.
 var crushSkillFields = specFields{keys: fieldsOf("name", "description", "license", "user-invocable").keys, preserve: preserveCrushSkillPolicy}
 
-// preserveWindsurfSkillTriggers drops the spec's x-windsurf.triggers on
-// import. The native file states the policy, as triggers the import
-// already read or as Devin's default, so a kept override would undo a
-// change made in the tool. Sync never shares a skills folder that
-// carries the override (AAI-102), so the file always reflects it.
 func preserveWindsurfSkillTriggers(existing, _ *yaml.Node) {
 	removeScopedKeys(existing, "x-windsurf", "triggers")
+}
+
+func preserveDedicatedWindsurfSkillPolicy(existing, imported *yaml.Node) {
+	var meta map[string]any
+	if existing.Decode(&meta) != nil {
+		return
+	}
+	custom, _ := meta["x-windsurf"].(map[string]any)
+	restricted := meta["disable-model-invocation"] == true || custom["disable-model-invocation"] == true
+	removeScopedKeys(existing, "x-windsurf", "triggers", "disable-model-invocation")
+	if !restricted || mappingIndex(imported, "disable-model-invocation") >= 0 {
+		return
+	}
+	index := mappingIndex(imported, "x-windsurf")
+	if index >= 0 {
+		custom := imported.Content[index+1]
+		if mappingIndex(custom, "triggers") >= 0 || mappingIndex(custom, "disable-model-invocation") >= 0 {
+			return
+		}
+		custom.Content = append(custom.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "disable-model-invocation"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"})
+		return
+	}
+	// Only this tool's permission changes; the portable restriction stays.
+	override := &yaml.Node{}
+	if override.Encode(map[string]any{"disable-model-invocation": false}) != nil {
+		return
+	}
+	imported.Content = append(imported.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "x-windsurf"}, override)
 }
 
 // preserveCrushSkillPolicy drops the spec's x-crush invocation fields on

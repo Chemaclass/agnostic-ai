@@ -25,7 +25,7 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
-	return importWriteSpecMarkdownCarrying(path, data, mode, fields, func(key string) bool { return !fields.expresses(key) })
+	return importWriteSpecMarkdownCarrying(path, data, mode, fields, func(key string) bool { return !fields.expresses(key) && !fields.scopedNative[key] })
 }
 
 // importWriteSpecMarkdownCarrying is importWriteSpecMarkdown for a

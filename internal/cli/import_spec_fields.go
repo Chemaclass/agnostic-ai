@@ -9,10 +9,11 @@ import "gopkg.in/yaml.v3"
 // it, which the spec must lose. A target that round-trips everything
 // declares allSpecFields and gets a plain overwrite.
 type specFields struct {
-	keys     map[string]bool
-	all      bool
-	omitted  map[string]bool
-	preserve func(existing, imported *yaml.Node)
+	keys         map[string]bool
+	scopedNative map[string]bool
+	all          bool
+	omitted      map[string]bool
+	preserve     func(existing, imported *yaml.Node)
 }
 
 // allSpecFields marks a native format that carries every key a spec can

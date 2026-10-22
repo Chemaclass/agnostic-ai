@@ -650,3 +650,72 @@ func TestImportFromWindsurf_ScopedRulesFollowRulesDirOverride(t *testing.T) {
 		t.Errorf("missing imported spec %s: %v", got, err)
 	}
 }
+
+func TestImportWindsurf_RemovedTriggersRespectFolderWriters(t *testing.T) {
+	for _, tc := range []struct {
+		name, targets, outputs, native string
+		shared                         bool
+	}{
+		{name: "sole default writer", targets: "windsurf, claude", native: ".agents/skills"},
+		{name: "dedicated native folder", targets: "windsurf, codex", outputs: "  windsurf:\n    skills-dir: .devin/skills\n", native: ".devin/skills"},
+		{name: "custom dedicated folder", targets: "windsurf, codex", outputs: "  windsurf:\n    skills-dir: custom/skills\n", native: "custom/skills"},
+		{name: "shared default folder", targets: "windsurf, codex", native: ".agents/skills", shared: true},
+		{name: "shared custom folder", targets: "windsurf, zed", outputs: "  windsurf:\n    skills-dir: .devin/skills\n  zed:\n    skills-dir: .devin/skills/./\n", native: ".devin/skills", shared: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			cfg := "version: 1\ntargets: [" + tc.targets + "]\n"
+			if tc.outputs != "" {
+				cfg += "outputs:\n" + tc.outputs
+			}
+			writeFile(t, "agnostic-ai.yaml", cfg)
+			const source = ".agnostic-ai/skills/ship/SKILL.md"
+			writeFile(t, source, "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\n---\n\nShip it.\n")
+			execCLI(t, "sync")
+			native := filepath.Join(tc.native, "ship/SKILL.md")
+			body := readFile(t, native)
+			writeFile(t, native, strings.Replace(body, "triggers:\n  - user\n", "", 1))
+			execCLI(t, "import", "windsurf", "--overwrite")
+			meta, _ := splitMdcFrontmatter([]byte(readFile(t, source)))
+			if meta["disable-model-invocation"] != true {
+				t.Errorf("portable restriction lost: %#v", meta)
+			}
+			custom, _ := meta["x-windsurf"].(map[string]any)
+			if tc.shared {
+				if _, set := custom["disable-model-invocation"]; set {
+					t.Errorf("shared file lifted restriction: %#v", meta)
+				}
+			} else if custom["disable-model-invocation"] != false {
+				t.Errorf("want Windsurf-only permission: %#v", meta)
+			}
+			execCLI(t, "sync")
+			if got := readFile(t, native); strings.Contains(got, "triggers:") {
+				t.Errorf("removed triggers restored:\n%s", got)
+			}
+			execCLI(t, "sync", "--check")
+			execCLI(t, "import", "windsurf", "--overwrite")
+			execCLI(t, "sync", "--check")
+		})
+	}
+}
+
+func TestImportWindsurf_RemovedScopedInvocationFieldsStayRemoved(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [windsurf, claude]\n")
+	const source = ".agnostic-ai/skills/ship/SKILL.md"
+	writeFile(t, source, "---\nname: ship\ndescription: Ships.\nx-windsurf:\n  description: Ships in Devin.\n  disable-model-invocation: true\n---\n\nShip it.\n")
+	execCLI(t, "sync")
+	const native = ".agents/skills/ship/SKILL.md"
+	body := readFile(t, native)
+	body = strings.Replace(body, "triggers:\n  - user\n", "", 1)
+	body = strings.Replace(body, "disable-model-invocation: true\n", "", 1)
+	writeFile(t, native, body)
+	execCLI(t, "import", "windsurf", "--overwrite")
+	execCLI(t, "sync")
+	if got := readFile(t, native); strings.Contains(got, "triggers:") || strings.Contains(got, "disable-model-invocation: true") {
+		t.Errorf("restored restriction:\n%s", got)
+	}
+	execCLI(t, "sync", "--check")
+}

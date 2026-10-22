@@ -749,6 +749,19 @@ func CapabilityMatrix() []TargetCapabilities {
 	return matrix
 }
 
+func SkillDirectoryWriters(cfg *config.Config) map[string][]string {
+	writers := map[string][]string{}
+	if cfg == nil {
+		return writers
+	}
+	for _, target := range cfg.Targets {
+		if dir := emit.VarsFor(cfg, target)[emit.VarSkillsDir]; dir != "" {
+			writers[filepath.Clean(dir)] = append(writers[filepath.Clean(dir)], target)
+		}
+	}
+	return writers
+}
+
 // EmitWithProvenance wraps adapter.Emit with the per-target provenance
 // header toggle and per-target spec scoping. Filters the bundle through
 // `spec.Bundle.For(target)` so adapters only see entries whose
@@ -770,13 +783,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 			codexSkills = emit.OutputSkillsDir(cfg, "codex", emit.CodexSkillsRoot)
 		}
 		sess.SetCodexSkillsDir(codexSkills)
-		writers := map[string][]string{}
-		for _, t := range cfg.Targets {
-			if dir := emit.VarsFor(cfg, t)[emit.VarSkillsDir]; dir != "" {
-				writers[filepath.Clean(dir)] = append(writers[filepath.Clean(dir)], t)
-			}
-		}
-		sess.SetSkillsDirWriters(writers)
+		sess.SetSkillsDirWriters(SkillDirectoryWriters(cfg))
 	}
 	own, err := withAgentsAsSkills(b.For(a.Name()), cfg, a.Name())
 	if err != nil {
