@@ -309,6 +309,7 @@ func TestImportEllipsis_KeepsAGeminiReviewer(t *testing.T) {
 	native := strings.Replace(handWrittenEllipsis, "claude_code:", "gemini:", 1)
 	native = strings.Replace(native, "claude-opus-5-5", "gemini-4-argon", 1)
 	dir := ellipsisImportProject(t, native)
+	want := parsedReview(t, filepath.Join(dir, ellipsisFile))
 	execCLI(t, "import", "ellipsis")
 	settings := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "ellipsis.yaml"))
 	for _, want := range []string{"gemini:", "gemini-4-argon"} {
@@ -318,5 +319,19 @@ func TestImportEllipsis_KeepsAGeminiReviewer(t *testing.T) {
 	}
 	if strings.Contains(settings, "Find bugs") {
 		t.Errorf("the prompt must not be copied into settings:\n%s", settings)
+	}
+	review := readFile(t, filepath.Join(dir, ".agnostic-ai", "reviews", "review.md"))
+	if !strings.Contains(review, "Find bugs in this pull request.") {
+		t.Errorf("the prompt belongs in the review spec:\n%s", review)
+	}
+
+	execCLI(t, "sync")
+	wantYAML, _ := yaml.Marshal(want)
+	gotYAML, _ := yaml.Marshal(parsedReview(t, filepath.Join(dir, ellipsisFile)))
+	if string(wantYAML) != string(gotYAML) {
+		t.Errorf("import then sync changed the file's meaning\n--- want ---\n%s\n--- got ---\n%s", wantYAML, gotYAML)
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import and sync: %v", err)
 	}
 }

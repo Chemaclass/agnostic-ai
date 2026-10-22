@@ -144,10 +144,10 @@ func (f *reviewConfig) readReviewer(x map[string]any, environment string) []stri
 			found = append(found, engine)
 		}
 	}
-	switch len(found) {
-	case 0:
+	switch {
+	case len(found) == 0:
 		return append(problems, "x-ellipsis.reviewer needs a claude_code, codex, or gemini block")
-	case 2:
+	case len(found) > 1:
 		return append(problems, "x-ellipsis.reviewer takes only one of claude_code, codex, and gemini")
 	}
 	f.engine = found[0]
