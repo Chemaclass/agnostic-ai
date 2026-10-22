@@ -79,7 +79,7 @@ Next, [add a skill](@/docs/spec-format/skills.md).
 | Key | Default | Notes |
 | --- | --- | --- |
 | `outputs.zed.skills-dir` | `.agents/skills` | |
-| `outputs.zed.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
+| `outputs.zed.agents` | unset (agents are dropped) | `skill` writes each agent as an on-demand skill. Sync keeps it off with a note while another tool with subagents writes the same skills folder; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills) |
 | `outputs.zed.mcp-file` | `.zed/settings.json` | |
 | `outputs.zed.tasks-file` | empty | opt-in |
 | `outputs.zed.rules-file` | unset | writes the legacy single document and skips the write of instructions that point to source specs, so pointing it at `.rules` replaces the pointer file instead of clashing with it |

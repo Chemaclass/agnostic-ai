@@ -150,11 +150,13 @@ func TestSiteDocs_OptInCellsOpenTheSectionNamingTheKey(t *testing.T) {
 		if anchor == "" {
 			anchor = "config-keys"
 		}
+		optIn := map[string]bool{}
 		for index, status := range target.Statuses {
 			if status != "opt-in" {
 				continue
 			}
 			feature := matrix.Features[index].ID
+			optIn[feature] = true
 			key := target.OptIn[feature]
 			if key == "" {
 				t.Errorf("%s %s is opt-in but opt_in names no key to set", target.ID, feature)
@@ -166,8 +168,14 @@ func TestSiteDocs_OptInCellsOpenTheSectionNamingTheKey(t *testing.T) {
 				t.Errorf("%s has no section with anchor #%s for its %s opt-in cell", page, anchor, feature)
 				continue
 			}
-			if !strings.Contains(section, key) {
+			yamlKey := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:`)
+			if !strings.Contains(section, "`"+key+"`") && !yamlKey.MatchString(section) {
 				t.Errorf("%s#%s does not name %s, the key for the %s opt-in cell", page, anchor, key, feature)
+			}
+		}
+		for feature := range target.OptIn {
+			if !optIn[feature] {
+				t.Errorf("%s opt_in names a key for %s, which is not an opt-in cell", target.ID, feature)
 			}
 		}
 	}
@@ -180,12 +188,17 @@ var (
 
 // markdownSection returns the text under the heading whose anchor is
 // anchor, up to the next heading of the same or a higher level. A
-// legacy-anchor heading holds no text, so it never matches.
+// legacy-anchor heading holds no text, so it never matches. Lines in
+// code fences are never headings.
 func markdownSection(page, anchor string) (string, bool) {
 	var out []string
 	level := 0
+	fenced := false
 	for line := range strings.SplitSeq(page, "\n") {
-		if m := markdownHeading.FindStringSubmatch(line); m != nil {
+		if strings.HasPrefix(line, "```") {
+			fenced = !fenced
+		}
+		if m := markdownHeading.FindStringSubmatch(line); m != nil && !fenced {
 			if level > 0 && len(m[1]) <= level {
 				break
 			}
