@@ -264,7 +264,7 @@
     function stateBadge(cell) {
       const label = labels.get(cell.status) || cell.status;
       if (cell.status === "opt-in") {
-        const anchor = link(cell.target.href + "#config-keys", label);
+        const anchor = link(cell.target.optInHref, label);
         anchor.className = "capability-state capability-state-opt-in capability-state-link";
         anchor.setAttribute("aria-label", label + " for " + cell.target.name + ". View the required config key.");
         return anchor;
@@ -353,7 +353,7 @@
       const nothing = lacking.filter(function (other) { return other.status !== "opt-in"; });
       optIn.forEach(function (other, index) {
         parent.appendChild(document.createTextNode((index > 0 ? "; " : "") + other.target.name + " needs a "));
-        parent.appendChild(link(other.target.href + "#config-keys", "config key"));
+        parent.appendChild(link(other.target.optInHref, "config key"));
       });
       if (nothing.length > 0) {
         const verb = nothing.length > 1 ? " get no output" : " gets no output";
@@ -399,7 +399,7 @@
             const item = kindItem(gap.feature);
             if (gap.status === "opt-in") {
               item.appendChild(document.createTextNode("needs a "));
-              item.appendChild(link(entry.target.href + "#config-keys", "config key"));
+              item.appendChild(link(entry.target.optInHref, "config key"));
             } else {
               item.appendChild(document.createTextNode("no output"));
             }
