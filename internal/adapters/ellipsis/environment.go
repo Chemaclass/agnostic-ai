@@ -28,7 +28,7 @@ var (
 	integrations = []string{"slack", "linear"}
 	// reservedVariablePrefixes and reservedVariables are names Ellipsis
 	// rejects in `variables`.
-	reservedVariablePrefixes = []string{"ANTHROPIC_", "OPENAI_", "CODEX_", "CLAUDE_CODE_USE_"}
+	reservedVariablePrefixes = []string{"ANTHROPIC_", "OPENAI_", "CODEX_", "GEMINI_", "GOOGLE_", "CLAUDE_CODE_USE_"}
 	reservedVariables        = []string{"CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR", "ELLIPSIS_LLM_PROXY_URL"}
 
 	environmentName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)

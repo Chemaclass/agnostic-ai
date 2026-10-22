@@ -24,7 +24,7 @@ Start with [one Ellipsis review](@/docs/targets/ellipsis.md). This reference cov
 | `x-ellipsis.output` | `output`, copied as written |
 | `x-ellipsis.budget` | `budget`, copied as written |
 
-The reviewer needs a `name`, one engine block (`claude_code` or `codex`), and that block's `model`. Ellipsis names the model for every session, so none is guessed. Other native reviewer keys, such as `paths`, `environment`, `skills`, `permissions`, `budget`, and `comments`, pass through. A later settings spec replaces each top-level `x-ellipsis` block it sets (`ellipsis`, `pull_requests`, `reviewer`, `output`, `budget`) as a whole.
+The reviewer needs a `name`, one engine block (`claude_code`, `codex`, or `gemini`), and that block's `model`. Ellipsis names the model for every session, so none is guessed. Other native reviewer keys, such as `paths`, `environment`, `skills`, `permissions`, `budget`, and `comments`, pass through. A later settings spec replaces each top-level `x-ellipsis` block it sets (`ellipsis`, `pull_requests`, `reviewer`, `output`, `budget`) as a whole.
 
 Nothing is added for you. With no `output` block, Ellipsis stays silent on a pass and comments on a failure, and never approves. Automatic approval needs `output.on_pass: approve` in your settings.
 
@@ -107,7 +107,7 @@ x-ellipsis:
     mcp_servers: [slack]    # connected integrations, listed by name
 ```
 
-A variable under a credential name, such as `NPM_TOKEN`, or with a value that looks like a credential, such as `postgres://admin:pw@db/app`, may not carry a `value`: the file is committed, so the secret stays in Ellipsis. Names Ellipsis rejects (`ANTHROPIC_`, `OPENAI_`, `CODEX_` and `CLAUDE_CODE_USE_` prefixes, and three exact names) stop the file.
+A variable under a credential name, such as `NPM_TOKEN`, or with a value that looks like a credential, such as `postgres://admin:pw@db/app`, may not carry a `value`: the file is committed, so the secret stays in Ellipsis. Names Ellipsis rejects (`ANTHROPIC_`, `OPENAI_`, `CODEX_`, `GEMINI_`, `GOOGLE_` and `CLAUDE_CODE_USE_` prefixes, and three exact names) stop the file.
 
 ### MCP servers
 
