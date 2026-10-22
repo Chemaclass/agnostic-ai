@@ -68,6 +68,14 @@ var caps = emit.Capabilities{
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook},
 }
 
+// userOnly is how Zed keeps a skill out of the agent's catalog while it
+// stays a slash command (zed.dev/docs/ai/skills#disable-model-invocation).
+var userOnly = emit.UserOnlySkill{
+	Target: target,
+	Keys:   []string{"disable-model-invocation"},
+	Values: map[string]any{"disable-model-invocation": true},
+}
+
 // skillNameRule is Zed's documented skill identifier constraint. The
 // same rule holds for OpenCode, so it lives behind emit.ValidateNames
 // rather than in two adapters (#857).
@@ -100,6 +108,9 @@ func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool 
 	}
 }
 
+// SkillMarkdown renders s with the field that keeps it user-run.
+func (Adapter) SkillMarkdown(s spec.Entry) string { return userOnly.Markdown(s) }
+
 // Emit writes one native skill folder per skill under .agents/skills/,
 // the legacy merged rules document when opted in via
 // outputs.zed.rules-file, Zed Tasks when outputs.zed.tasks-file is set,
@@ -107,14 +118,16 @@ func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool 
 // entries exist. The root `.rules` entry-point (with rule bodies
 // inlined) is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	coverage := caps
+	coverage.SkillFields = userOnly.Coverage(sess, skillsDir, caps.SkillFields)
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err
 	}
-	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := userOnly.WriteFolders(sess, b.Skills, skillsDir, dryRun); err != nil {
 		return err
 	}
 	// Agents have no per-agent surface in current Zed; only the legacy

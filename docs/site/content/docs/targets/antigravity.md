@@ -96,6 +96,8 @@ One custom subagent at `.agents/agents/<name>/agent.md`, the nested form in [Ant
 
 Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --global` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
 
+Antigravity documents no field that keeps a skill user-only: the agent reads relevant skills on its own, and `/<skill-name>` runs one by hand ([Antigravity skills](https://antigravity.google/docs/skills)). Its `disable-slash-command: true` does the opposite, leaving the skill to the model. So `disable-model-invocation` is dropped with a note, and commands are skipped.
+
 ### MCP
 
 One `mcpServers` object in `.agents/mcp_config.json` ([docs](https://antigravity.google/docs/mcp?tab=ide)).

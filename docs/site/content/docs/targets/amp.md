@@ -58,6 +58,7 @@ Root rules go into `AGENTS.md`. Scoped rules use `<scope>/AGENTS.md`. See [direc
 
 Amp's [native skills layout](https://ampcode.com/docs/customize/skills). Frontmatter carries `name` and `description`. Files next to the skill are copied as they are. Amp [replaced custom slash commands with skills](https://ampcode.com/news/slashing-custom-commands), so skills are no longer written as `.agents/commands/skill-<name>.md`.
 
+- Amp has no user-only skill: it [removed user-invokable skills](https://ampcode.com/news/neo) on 2026-05-06, and the model decides when to load every skill. So `disable-model-invocation` is dropped with a note, and commands are skipped.
 - Any `x-amp` key passes through. `x-amp.mcpServers` ties MCP servers to one skill and hides their tools until it loads. Amp recommends this over user settings for most cases ([Amp skills docs](https://ampcode.com/docs/customize/skills)). A sibling `mcp.json` also works, and frontmatter wins.
 - Amp also loads `.claude/skills/`, `~/.claude/skills/`, and `~/.claude/plugins/cache/`. The first skill with a given `name` wins, and `.agents/skills/` comes before `.claude/skills/` ([skill order](https://ampcode.com/docs/customize/skills)). A skill synced to both `claude` and `amp` loads once. A skill for `claude` only still loads.
 - A skill with the same name in `~/.config/agents/skills/`, `~/.agents/skills/`, or `~/.config/amp/skills/` hides the project skill. `~/.claude/skills/` does not.

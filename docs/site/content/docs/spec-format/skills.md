@@ -142,9 +142,11 @@ Without the field, every tool below lets the model use the skill on its own. Onl
 | [Copilot](@/docs/targets/copilot.md) | Written to `SKILL.md`, with `argument-hint`. Both are dropped when another target also writes Copilot's skills folder |
 | [OpenCode](@/docs/targets/opencode.md) | Written to `SKILL.md`. V2 2.0.26 honors it; V1 does not. Native `metadata.opencode/autoinvoke` takes precedence |
 | [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit value in `x-codex.policy` or a bundled `agents/openai.yaml` wins |
-| [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.crush.skills-dir: .crush/skills` |
+| [Zed](@/docs/targets/zed.md) | Written to `SKILL.md` |
+| [Windsurf](@/docs/targets/windsurf.md) | Written as `triggers: [user]` to `SKILL.md`. An explicit `x-windsurf.triggers` wins |
+| [Crush](@/docs/targets/crush.md) | Written to `SKILL.md` with `user-invocable: true`, which keeps the skill in Crush's command palette |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.factory.skills-dir: .factory/skills` |
 
-Crush and Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-` key, plus the `skills-dir` override above whenever another target writes `.agents/skills`; otherwise sync stops with `AAI-102`. A manual-only skill that the model can use crosses a safety boundary.
+Zed, Windsurf, and Crush write it only while no other target writes the same skills folder, since every writer of a shared `SKILL.md` must agree on its bytes. Otherwise the field is dropped with a note; point the tool's `skills-dir` at a folder of its own to keep it. Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-factory` key, plus the `skills-dir` override above whenever another target writes `.agents/skills`; otherwise sync stops with `AAI-102`. A manual-only skill that the model can use crosses a safety boundary.
 
-OpenHands' `triggers` is unrelated: it loads a skill when a keyword appears. Devin spells this restriction `triggers: [user]`.
+These tools were checked and document no field that keeps a skill user-only, so the field is dropped with a note: Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands. Each target page links the vendor docs. OpenHands' SDK reads the field, but such a skill then runs only on a `triggers` keyword, so sync does not write it.

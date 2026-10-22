@@ -144,9 +144,10 @@ func TestImportWindsurf_ImportsEveryProjectSkillPathWithPrecedence(t *testing.T)
 	}
 }
 
+// `triggers: [user]` alone imports as disable-model-invocation; see
+// TestImport_ReadsTheToolsUserOnlyFieldBackAsDisableModelInvocation.
 func TestImportWindsurf_PreservesSkillTriggersUnderTargetMeta(t *testing.T) {
 	values := map[string][]any{
-		"user-only":  {"user"},
 		"model-only": {"model"},
 		"both":       {"user", "model"},
 	}

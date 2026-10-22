@@ -125,7 +125,7 @@ statuses = ["native", "native", "native", "native", "no", "no", "no", "no", "no"
 id = "windsurf"
 name = "Windsurf / Devin"
 href = "@/docs/targets/windsurf.md"
-statuses = ["native", "native", "native", "native", "native", "no", "native", "no", "no", "native"]
+statuses = ["native", "native", "native", "native", "native", "mapped", "native", "no", "no", "native"]
 
 [[targets]]
 id = "continue"
@@ -144,7 +144,7 @@ opt_in = { agent = "outputs.amp.agents" }
 id = "zed"
 name = "Zed"
 href = "@/docs/targets/zed.md"
-statuses = ["opt-in", "native", "native", "opt-in", "native", "no", "no", "no", "no", "no"]
+statuses = ["opt-in", "native", "native", "opt-in", "native", "mapped", "no", "no", "no", "no"]
 opt_in = { agent = "outputs.zed.agents", hook = "outputs.zed.tasks-file" }
 
 [[targets]]
@@ -182,7 +182,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "no", "n
 id = "crush"
 name = "Crush"
 href = "@/docs/targets/crush.md"
-statuses = ["no", "native", "native", "native", "native", "no", "no", "no", "no", "native"]
+statuses = ["no", "native", "native", "native", "native", "mapped", "no", "no", "no", "native"]
 
 [[targets]]
 id = "trae"

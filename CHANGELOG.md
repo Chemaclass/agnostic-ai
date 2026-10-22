@@ -30,6 +30,18 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `sync` writes each command as a skill under `.agents/skills/` that only the user starts, instead of skipping it, unless `outputs.codex.commands-dir` is set. A skill spec with the same name wins (#2382).
 
+#### Zed
+
+- `sync` writes `disable-model-invocation: true` to skill files and each command as a user-run skill, unless another tool writes the skills folder (#2389).
+
+#### Windsurf
+
+- `sync` writes `disable-model-invocation: true` as `triggers: [user]`, and commands as user-run skills, unless another tool writes the skills folder (#2389).
+
+#### Crush
+
+- `sync` writes `disable-model-invocation: true` with `user-invocable: true`, and commands as user-run skills, unless the skills folder is shared (#2389).
+
 ### Site
 
 - Opt-in cells in the target matrix open the section that names the key, and the Amp, Zed, Warp, and Crush pages list `outputs.<target>.agents` (#2390).

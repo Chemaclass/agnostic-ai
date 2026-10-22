@@ -242,6 +242,18 @@ var caps = emit.Capabilities{
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore, spec.KindMCP, spec.KindHook, spec.KindSettings},
 }
 
+// userOnly is how Devin keeps a skill to `/skill-name`: "Set `triggers:
+// [user]` to prevent the agent from invoking a skill on its own"
+// (docs.devin.ai/cli/extensibility/skills/overview).
+var userOnly = emit.UserOnlySkill{
+	Target: target,
+	Keys:   []string{"triggers"},
+	Values: map[string]any{"triggers": []any{"user"}},
+}
+
+// SkillMarkdown renders s with the field that keeps it user-run.
+func (Adapter) SkillMarkdown(s spec.Entry) string { return userOnly.Markdown(s) }
+
 // Adapter emits Windsurf configs.
 type Adapter struct{}
 
@@ -281,7 +293,10 @@ func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
 // config, no longer writes anything: Emit warns instead
 // (warnWorkflowsDirRemoved).
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
+	coverage := caps
+	coverage.SkillFields = userOnly.Coverage(sess, skillsDir, caps.SkillFields)
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := reportPermissionWidening(b.Settings, cfg.OnUnsupported); err != nil {
@@ -310,8 +325,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitAgents(sess, b.Agents, agentsDir, rulesDir, dryRun); err != nil {
 		return err
 	}
-	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
+	if err := userOnly.WriteFolders(sess, b.Skills, skillsDir, dryRun); err != nil {
 		return err
 	}
 	if err := emitIgnores(sess, b.Ignores, cfg, dryRun); err != nil {

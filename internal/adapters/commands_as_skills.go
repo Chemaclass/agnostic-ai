@@ -215,6 +215,23 @@ func handWrittenSkill(cfg *config.Config, target, name string) bool {
 	return false
 }
 
+// invocationFields decide whether the model may start a skill. A
+// command is the user's to run, so an x-<target> value for one of them
+// is left out of the skill.
+var invocationFields = []string{"disable-model-invocation", "triggers", "user-invocable"}
+
+func withoutInvocationFields(custom map[string]any, prefix string, dropped map[string]int) map[string]any {
+	out := make(map[string]any, len(custom))
+	for k, v := range custom {
+		if slices.Contains(invocationFields, k) {
+			dropped[prefix+"."+k]++
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // commandSkill is command c as a top-level skill only the user starts.
 // dropped counts the fields left behind.
 func commandSkill(c spec.Entry, argumentHint bool, dropped map[string]int) spec.Entry {
@@ -240,6 +257,11 @@ func commandSkill(c spec.Entry, argumentHint bool, dropped map[string]int) spec.
 		case !slices.Contains(s.MetaKeys, k):
 			s.Meta[k] = v
 			s.MetaKeys = append(s.MetaKeys, k)
+		}
+	}
+	for k, v := range s.Meta {
+		if custom, ok := v.(map[string]any); ok && strings.HasPrefix(k, emit.XPrefix) {
+			s.Meta[k] = withoutInvocationFields(custom, k, dropped)
 		}
 	}
 	set := func(key string, value any) {

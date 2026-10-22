@@ -16,7 +16,7 @@ func preserveOpencodeSkillPolicy(existing, imported *yaml.Node) {
 	if custom.Encode(values) != nil {
 		return
 	}
-	detachOpencodeDependents(existing, original)
+	detachDependents(existing, original)
 	removeMappingKey(custom, "disable-model-invocation")
 	metadataIndex := mappingIndex(custom, "metadata")
 	if metadataIndex >= 0 {
@@ -52,7 +52,7 @@ func preserveOpencodeSkillPolicy(existing, imported *yaml.Node) {
 	}
 }
 
-func detachOpencodeDependents(existing, replaced *yaml.Node) {
+func detachDependents(existing, replaced *yaml.Node) {
 	removed := map[*yaml.Node]bool{}
 	var collect func(*yaml.Node)
 	collect = func(node *yaml.Node) {

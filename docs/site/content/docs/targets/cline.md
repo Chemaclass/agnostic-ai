@@ -63,6 +63,7 @@ AGENTS.md                            # pointer body, plus the rules block when a
   - The generated-file comment sits inside the prompt. Above the `---` line, the file would not load.
   - Set `tools`, `skills`, `providerId`, `modelId`, and `maxIterations` under `x-cline`.
 - **Skills**: `.cline/skills/<name>/SKILL.md`, as [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend. A flat file in the rules folder never loads as a skill. Frontmatter has `name` and `description`. Files next to the skill are copied unchanged.
+  - Cline documents no field that keeps a skill user-only: any enabled skill runs from the chat input as `/<name>`, and the model can also pick it ([Cline skills](https://docs.cline.bot/customization/skills)). Its `disabled` field hides the skill from the person too. So `disable-model-invocation` is dropped with a note, and commands are skipped.
 
 <details>
 <summary>Old agent .md files</summary>

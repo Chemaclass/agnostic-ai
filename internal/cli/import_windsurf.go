@@ -135,9 +135,11 @@ func normalizeWindsurfRuleMeta(meta map[string]any) {
 	}
 }
 
-// normalizeWindsurfSkill moves Devin-only trigger policy under the target
-// namespace. The shared skill renderer resolves it back to top-level
-// `triggers` for Windsurf without leaking that native key to other targets.
+// normalizeWindsurfSkill turns `triggers: [user]`, the form sync writes
+// for `disable-model-invocation: true`, back into that portable field,
+// and moves any other trigger policy under the target namespace. The
+// skill renderer resolves it back to top-level `triggers` for Windsurf
+// without leaking that native key to other targets.
 func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 	meta, body := splitMdcFrontmatter(data)
 	triggers, ok := meta["triggers"]
@@ -145,12 +147,22 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 		return data, nil
 	}
 	delete(meta, "triggers")
+	if list, _ := triggers.([]any); len(list) == 1 && list[0] == "user" && meta["disable-model-invocation"] == nil {
+		meta["disable-model-invocation"] = true
+		return skillMarkdownOf(meta, body)
+	}
 	targetMeta, _ := meta["x-windsurf"].(map[string]any)
 	if targetMeta == nil {
 		targetMeta = map[string]any{}
 	}
 	targetMeta["triggers"] = triggers
 	meta["x-windsurf"] = targetMeta
+	return skillMarkdownOf(meta, body)
+}
+
+// skillMarkdownOf renders an imported SKILL.md from its frontmatter and
+// body.
+func skillMarkdownOf(meta map[string]any, body string) ([]byte, error) {
 	front, err := yaml.Marshal(meta)
 	if err != nil {
 		return nil, fmt.Errorf("marshal frontmatter: %w", err)
@@ -190,8 +202,9 @@ func normalizeWindsurfSkill(data []byte) ([]byte, error) {
 //     list becomes can only when every native name has an exact neutral form.
 //   - `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/`
 //     reconstruct native skill folders with bundled assets. Earlier paths
-//     win same-name collisions. `triggers` moves under `x-windsurf` so its
-//     manual/model invocation boundary survives sync without leaking.
+//     win same-name collisions. `triggers: [user]` imports as
+//     `disable-model-invocation: true`; any other `triggers` moves under
+//     `x-windsurf`, so the invocation boundary survives sync without leaking.
 //   - `.devin/mcp_config.json`'s `mcpServers` map writes one yaml per
 //     server. See importWindsurfMCP for the `transport` -> `type`
 //     rename this importer applies on the way in.
@@ -252,6 +265,7 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{
 			SkipNames:      seenSkills,
 			TransformSkill: normalizeWindsurfSkill,
+			Fields:         &windsurfSkillFields,
 		})
 		if err != nil {
 			return err
