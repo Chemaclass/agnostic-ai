@@ -504,3 +504,20 @@ func TestSync_AUserOnlyValueUnderTheTargetGetsTheToolsField(t *testing.T) {
 		})
 	}
 }
+
+// A native Crush skill with disable-model-invocation alone is hidden from
+// the user too, and import keeps it hidden after the next sync.
+func TestImport_KeepsACrushSkillHiddenFromTheUser(t *testing.T) {
+	commandsAsSkillsProject(t, "crush")
+	const native = "---\nname: ship\ndescription: Ships.\ndisable-model-invocation: true\n---\n\nShip it.\n"
+	writeFile(t, filepath.Join(".agents", "skills", "ship", "SKILL.md"), native)
+
+	importCapturing(t, "crush")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	got := readFile(t, filepath.Join(".agents", "skills", "ship", "SKILL.md"))
+	if strings.Contains(got, "user-invocable: true") || !strings.Contains(got, "disable-model-invocation: true") {
+		t.Errorf("want the skill still hidden from the command palette:\n%s", got)
+	}
+}

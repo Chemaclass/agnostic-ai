@@ -92,6 +92,11 @@ func normalizeCrushSkill(data []byte) ([]byte, error) {
 			delete(meta, key)
 		}
 	}
+	// Crush leaves a skill out of the command palette unless it sets
+	// user-invocable, and sync would add it to a user-only skill.
+	if manual == true && !hasInvocable {
+		targetMeta["user-invocable"] = false
+	}
 	meta["x-crush"] = targetMeta
 	return skillMarkdownOf(meta, body)
 }
