@@ -237,6 +237,25 @@ func TestSync_NotesClaudeSyntaxOnTheCommandLine(t *testing.T) {
 	}
 }
 
+func TestSync_NotesArgumentsInACommandSkillUnderOnUnsupportedError(t *testing.T) {
+	for _, target := range []string{"codex", "copilot"} {
+		t.Run(target, func(t *testing.T) {
+			notes := commandsAsSkillsProject(t, target)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\non-unsupported: error\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "commands", "fix.md"), "Fix issue $1.\n")
+
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("argument syntax in a command written as a skill must not fail sync: %v\n%s", err, out)
+			}
+			for _, want := range []string{"`$ARGUMENTS`", "`$N`"} {
+				if !strings.Contains(notes.String(), want) {
+					t.Errorf("want a note for %s, got:\n%s", want, notes.String())
+				}
+			}
+		})
+	}
+}
+
 func TestLint_ReportsArgumentsInACommandCodexWritesAsASkill(t *testing.T) {
 	commandsAsSkillsProject(t, "codex")
 

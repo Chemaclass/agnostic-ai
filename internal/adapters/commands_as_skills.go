@@ -14,12 +14,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// commandSkillPreamble opens each command written as a skill. It asks
-// for what the manual-only flag does where a tool drops the flag, and
-// marks the file so import leaves it to the command spec.
-const commandSkillPreamble = "This skill is a command. Run it only when the user calls it by name, " +
-	"and treat the text they type after the name as its arguments."
-
 // commandSkillPreambleLines is how far the preamble and its blank line
 // push the command body down.
 const commandSkillPreambleLines = 2
@@ -47,7 +41,7 @@ type specFileRenderer interface {
 // WrittenFromCommand reports whether a SKILL.md is a command sync wrote
 // as a skill, so import leaves it to the command spec.
 func WrittenFromCommand(skillMD string) bool {
-	return strings.Contains(skillMD, commandSkillPreamble)
+	return strings.Contains(skillMD, emit.CommandSkillPreamble)
 }
 
 // WritesCommandsAsSkills reports whether target writes commands as
@@ -258,7 +252,7 @@ func commandSkill(c spec.Entry, argumentHint bool, dropped map[string]int) spec.
 	set("name", c.Name)
 	set("description", "The "+c.Name+" command.")
 	set("disable-model-invocation", true)
-	s.Body = commandSkillPreamble + "\n\n" + c.Body
+	s.Body = emit.CommandSkillPreamble + "\n\n" + c.Body
 	if c.BodyLine > commandSkillPreambleLines {
 		s.BodyLine = c.BodyLine - commandSkillPreambleLines
 	}
