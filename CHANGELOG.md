@@ -19,6 +19,15 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `doctor` reads Claude settings files as strict JSON, as Claude Code does: a file with a comment or trailing comma is reported as skipped, and a rejected `skillOverrides` value, such as `"Off"` or `false`, no longer hides the same skill's entry in a lower file (#2371).
 - `doctor --fix` says a lower file's `skillOverrides` value may apply, not that it applies, when that file holds a rejected value, since Claude Code may then skip the file (#2383).
 
+#### Copilot
+
+- `sync` writes each command as a skill under `.github/skills/` that only the user starts, instead of skipping it. A skill spec with the same name wins (#2382).
+- Skill files keep `argument-hint` and `disable-model-invocation`, which VS Code reads (#2382).
+
+#### Codex
+
+- `sync` writes each command as a skill under `.agents/skills/` that only the user starts, instead of skipping it, unless `outputs.codex.commands-dir` is set. A skill spec with the same name wins (#2382).
+
 ### Site
 
 - The home page hero shows one agent spec line, `model: fast`, becoming a different line in each tool's agent file: `model: haiku` for Claude Code, `model = "gpt-6-luna"` for Codex, and `model: gemini-3-flash-preview` for Gemini CLI. A chip under the cards says `fast` is a model tier set in `agnostic-ai.yaml`. In the "Without" view, Codex sits on a retired model and Gemini CLI has no agent file (#2372).
