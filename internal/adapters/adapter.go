@@ -27,6 +27,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/jules"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/junie"
@@ -889,6 +890,7 @@ var registry = map[string]Adapter{
 	"trae":        trae.New(),
 	"jules":       jules.New(),
 	"goose":       goose.New(),
+	"grok":        grok.New(),
 	"augment":     augment.New(),
 	"qoder":       qoder.New(),
 	"openhands":   openhands.New(),

@@ -116,3 +116,7 @@ label = "Kilo Code"
 [[targets]]
 id = "ellipsis"
 label = "Ellipsis"
+
+[[targets]]
+id = "grok"
+label = "Grok Build"

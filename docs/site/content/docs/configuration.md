@@ -239,11 +239,13 @@ Each release fixes the ids. When an upgrade changes one, the next `sync` prints 
 
 ## `targets`
 
-Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, and `ellipsis` (20 in total). `-t/--target` replaces the list for one run.
+Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, `ellipsis`, and `grok` (20 in total). `-t/--target` replaces the list for one run.
 
 A likely typo of a built-in target, such as `cursr`, fails before any write. Any other unknown name is skipped with a warning, since it may be an external adapter missing from this machine's PATH.
 
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
+
+Grok requires explicit selection and visible native instructions. Use `gitignore.commit: [grok:instructions]`; see the [complete Grok setup](@/docs/targets/grok.md#first-rule) and its output overrides.
 
 ## `sync`
 

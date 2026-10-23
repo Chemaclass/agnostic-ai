@@ -13,6 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -117,6 +118,13 @@ type globalTarget struct {
 // config.yaml Continue itself rewrites), and jules (nothing documented
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
+	"grok": {
+		rootEnv: "GROK_HOME", root: globalPathHome + ".grok",
+		instructions: globalPathHome + ".grok/AGENTS.md", skills: globalPathHome + ".grok/skills", agents: globalPathHome + ".grok/agents",
+		hooksDir: globalPathHome + ".grok/hooks", hookScriptsDir: globalPathHome + ".grok/hook-scripts",
+		mcp:      globalMCPFile{path: globalPathHome + ".grok/config.toml", format: "toml", key: "mcp_servers", private: true, validate: grok.ValidateMCPs},
+		settings: globalSettingsFile{path: globalPathHome + ".grok/config.toml", format: grokTOMLFormat, private: true, model: "models.default", reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
+	},
 	"claude": {
 		rootEnv:      "CLAUDE_CONFIG_DIR",
 		root:         globalPathHome + ".claude",

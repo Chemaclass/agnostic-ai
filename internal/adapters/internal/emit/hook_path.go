@@ -44,6 +44,8 @@ func HookScriptsDir(target string) string {
 		return ".agents/hooks"
 	case "windsurf":
 		return ".devin/hooks"
+	case "grok":
+		return ".grok/hook-scripts"
 	case "kiro":
 		return ".kiro/scripts"
 	case "cline":

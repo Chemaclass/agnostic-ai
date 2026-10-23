@@ -26,6 +26,8 @@ Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-sta
 
 {{ <capability_matrix /> }}
 
+[Grok Build](@/docs/targets/grok.md) requires explicit selection because its native rules must remain visible to Git.
+
 ## Tools without a target
 
 Many tools read the root `AGENTS.md` and `.agents/skills/`. Enable a target that writes both, such as [codex](@/docs/targets/codex.md) with its default output paths. Those tools then get your project-wide rules and skills. Codex includes project-wide rules in `AGENTS.md`; see [cross-target behavior](@/docs/target-behavior.md#entry-point-files).

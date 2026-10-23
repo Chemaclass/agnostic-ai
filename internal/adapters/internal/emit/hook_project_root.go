@@ -14,6 +14,7 @@ const gitHookRoot = "$(git rev-parse --show-toplevel)"
 
 var nativeHookRoots = map[string]string{
 	"claude":  claudeProjectDir,
+	"grok":    claudeProjectDir,
 	"cursor":  claudeProjectDir,
 	"trae":    claudeProjectDir,
 	"gemini":  "GEMINI_PROJECT_DIR",

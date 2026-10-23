@@ -99,6 +99,7 @@ var TargetVarPaths = map[string]map[string]string{
 	"openhands": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".agents/agents",
 	},
+	"grok": {VarSkillsDir: ".grok/skills", VarAgentsDir: ".grok/agents", VarCommandsDir: ".grok/commands", VarRulesDir: ".grok/rules", VarMCPFile: ".grok/config.toml"},
 	"factory": {
 		VarAgentsDir: ".factory/droids", VarCommandsDir: ".factory/commands",
 		VarMCPFile: ".factory/mcp.json",
@@ -122,6 +123,7 @@ var TargetVarPaths = map[string]map[string]string{
 // move with a bare `dir` override, so a spec body that names
 // `{{rules_dir}}` must name the moved path, not the default (#849).
 var dirRelativeVars = map[string]map[string]string{
+	"grok": {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules", VarMCPFile: "config.toml"},
 	"claude": {
 		VarSkillsDir: "skills", VarAgentsDir: "agents",
 		VarCommandsDir: "commands", VarRulesDir: "rules",

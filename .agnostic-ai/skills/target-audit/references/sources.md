@@ -369,3 +369,11 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: a second file path or a file kind other than `code_review`, a new top-level block, a reviewer key beside `claude_code`, `codex` and `gemini`, `output` defaults, and the 64-reviewer limit. Unknown fields fail the vendor's sync, so a new required field is a finding.
 - decision: one reviewer, with scoped reviews as conditional prompt sections, because the vendor's per-reviewer `paths` filter needs several reviewers (#2187). Revisit after a real pull request trial.
 - decision: reviewer, model, filters, posting, and budget come from `x-ellipsis` on a settings spec, copied as written; the prompt comes only from review specs.
+
+## grok
+
+- docs: https://docs.x.ai/build/features/project-rules · https://docs.x.ai/build/features/subagents · https://docs.x.ai/build/features/skills-plugins-marketplaces · https://docs.x.ai/build/features/mcp-servers · https://docs.x.ai/build/features/hooks · https://docs.x.ai/build/settings
+- changelog: https://x.ai/changelog/build
+- code: https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8 (source contract pin, independent of the stable binary version)
+- watch: Gitignored project rule discovery, project config scope, native agent tool names and effort values, skill invocation fields, hook shell and exit semantics, MCP transport and enabled fields, GROK_HOME paths, model table ownership.
+- trap: project rules must be visible to Git. Keep this target explicit and require gitignore.commit instructions, without changing a user's ignore or trust policy.

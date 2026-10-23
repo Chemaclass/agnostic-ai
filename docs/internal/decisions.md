@@ -53,3 +53,13 @@ Design choices and their reasons. Add new decisions without removing earlier one
 **Decision:** `scripts/jev-triage.sh` asks Jev whether each changed page contradicts any claim we make about its target, and whether it changes a project configuration feature. Jev's possible problems determine the reading order. A target whose changed pages Jev fully answers with no possible problem, a configuration-feature score under 0.1, and no `mentions:` label skips the auditor, and one such target per run is audited anyway. With no key, or on any API failure, the script writes possible problems based on matching words, and every changed page is read as before.
 
 **Why:** measured, not assumed. On 33 labeled past findings Jev flagged every confirmed difference from vendor documentation in every run, where word matching alone flagged 12 of 18. A full audit of 25 targets with 19 changed pages cost 13 requests, 136,688 input tokens, and $0.0057, checked against the TypeSafe dashboard. Keeping the script optional preserves the audit for anyone without a key. Tradeoff: a wrong `clear` skips a read, so the threshold for skipping a page is far stricter than the threshold for requesting a review, and the random spot check keeps testing it. Details and numbers: [Jev triage](jev-triage.md).
+
+## 006: Grok Build requires explicit selection
+
+**Date:** 2026-10-23
+
+**Context:** Grok skips ignored project instructions, while sync ignores generated output by default.
+
+**Decision:** Register `grok` as a supported target and offer it in explicit selection, while keeping it outside `DefaultTargets`. Require `gitignore.commit: [grok:instructions]` or an intentionally disabled ignore manager, and check the native rule paths against Grok's root and global ignore inputs before emission.
+
+**Why:** Default generation would otherwise create rule files Grok cannot read. Changing the user's ignore or trust policy silently would hide a real setup decision. This is an explicit exception to the adapter guide's default-target registration step. Setup and runtime limits live on the [Grok Build target page](../site/content/docs/targets/grok.md).

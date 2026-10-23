@@ -769,6 +769,13 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
+	for _, target := range targets {
+		if validate := globalTargets[target].mcp.validate; validate != nil {
+			if err := validate(b.For(target).MCPs); err != nil {
+				return nil, globalState{}, err
+			}
+		}
+	}
 	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
@@ -1107,6 +1114,23 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	// User settings and MCP servers merge last: a file may also hold
 	// hooks or agent efforts this run changed, so each edit starts from
 	// that planned content.
+	grokReads := map[string]*diskSnapshot{}
+	if slices.Contains(targets, "grok") {
+		g := globalTargets["grok"]
+		for _, path := range []string{g.path(home, g.settings.path), g.mcpPath(home), old.SettingsPaths["grok"], old.MCPPaths["grok"]} {
+			if path == "" {
+				continue
+			}
+			if grokReads[path] != nil {
+				continue
+			}
+			snapshot, err := snapshotFile(path)
+			if err != nil {
+				return nil, next, err
+			}
+			grokReads[path] = snapshot
+		}
+	}
 	placeEdit := func(path string, m globalSettingsMerge, mode fs.FileMode) error {
 		if m.data == nil && len(m.adopted) == 0 {
 			return nil
@@ -1128,9 +1152,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		w := &writes[i]
 		if w.planned == nil {
-			snapshot, err := snapshotFile(path)
-			if err != nil {
-				return err
+			snapshot, ok := grokReads[path]
+			if !ok {
+				var err error
+				snapshot, err = snapshotFile(path)
+				if err != nil {
+					return err
+				}
 			}
 			w.planned = snapshot
 		}
@@ -1161,6 +1189,12 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		if emptied[path] {
 			return []byte("{}\n")
+		}
+		if snapshot := grokReads[path]; snapshot != nil {
+			if snapshot.data == nil {
+				return []byte{}
+			}
+			return snapshot.data
 		}
 		return nil
 	}
@@ -1194,7 +1228,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules); err != nil {
 					return nil, next, err
 				}
-				if err := placeEdit(moved, m, 0o644); err != nil {
+				if err := placeEdit(moved, m, g.settings.fileMode()); err != nil {
 					return nil, next, err
 				}
 				previous = nil
@@ -1222,7 +1256,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				next.Settings[target] = m.owned
 				next.SettingsPaths[target] = path
 			}
-			if err := placeEdit(path, m, 0o644); err != nil {
+			if err := placeEdit(path, m, g.settings.fileMode()); err != nil {
 				return nil, next, err
 			}
 		}

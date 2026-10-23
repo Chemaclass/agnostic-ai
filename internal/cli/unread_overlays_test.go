@@ -250,7 +250,7 @@ func TestSettingsPassThroughTargets_MatchAdapters(t *testing.T) {
 	}
 	// Targets that read the x-<target> block their own way rather than
 	// through MergeSettingsCustomKeys.
-	ownWay := map[string]string{"ellipsis": "copies x-ellipsis into its review and environment files"}
+	ownWay := map[string]string{"grok": "reads native permission and plugins tables", "ellipsis": "copies x-ellipsis into its review and environment files"}
 	for target := range settingsPassThroughTargets {
 		if !found[target] && ownWay[target] == "" {
 			t.Errorf("%s is in settingsPassThroughTargets but merges no x-%s settings", target, target)

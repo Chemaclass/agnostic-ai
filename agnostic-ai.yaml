@@ -49,6 +49,8 @@ targets:
   - kilo
   - jules
   - goose
+  # Grok requires an explicit visible-instructions policy; see https://agnostic-ai.org/docs/targets/grok/.
+  # - grok
   - augment
   - amp
   - warp
