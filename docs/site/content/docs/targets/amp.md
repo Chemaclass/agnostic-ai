@@ -90,15 +90,7 @@ Under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `comm
 
 - They go to `.amp/settings.json`, Amp's [workspace settings file](https://ampcode.com/docs/cli/settings). Amp finds it by searching up from the working directory to the repository root. Workspace settings override user settings. MCP servers and settings are merged in one write, and every other key stays.
 - **`allow` and `ask` cannot be written.** Amp's [settings schema](https://ampcode.com/cli-settings.schema.json) has no tool allow-list. `amp.tools.disable` only disables, and `amp.mcpPermissions` matches MCP servers, not tools. Amp [does not ask for approval by default](https://ampcode.com/docs/tools) and points to a [permissions plugin](https://ampcode.com/docs/customize/plugins#example-plugin-permissions). `model` has no key either, because Amp picks models through the Dial.
-- **`deny` cannot be written until Amp publishes tool names.** `amp.tools.disable` takes tool names, `builtin:toolname` to disable only the built-in, and `*` globs, but only `amp tools list` gives the names. Amp would ignore a guessed name for `Bash(rm:*)`, so sync raises a note. Write the list yourself:
-
-  ```yaml
-  # .agnostic-ai/settings/policy.yaml
-  x-amp:
-    amp.tools.disable:
-      - "builtin:oracle"
-      - "Bash*"
-  ```
+- **Portable `deny` is not enforced.** `amp.tools.disable` takes native tool names, `builtin:toolname`, and `*` patterns. Run `amp tools list`, then copy the names you want to disable into `x-amp.amp.tools.disable`. Use names from your installed version; a name Amp does not recognize leaves the tool available.
 
 - A settings spec cannot set `amp.mcpServers`, because that would replace every server from MCP specs.
 - **The nearest file wins, with no merging.** A subdirectory with its own `.amp/` hides the root file for that subtree, for settings and `amp.mcpServers`. Delete the nested `.amp/` or copy the generated keys into it.
