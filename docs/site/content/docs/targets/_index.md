@@ -28,6 +28,8 @@ Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-sta
 
 [CodeBuddy Code](@/docs/targets/codebuddy.md) requires explicit selection because its native agent name and tool limits can reject existing specs.
 
+[Kimi Code CLI](@/docs/targets/kimi.md) requires explicit selection because its native agent tool lists cannot preserve scoped shell restrictions.
+
 [Grok Build](@/docs/targets/grok.md) requires explicit selection because its native rules must remain visible to Git.
 
 [Qwen Code](@/docs/targets/qwen.md) has a dedicated native target. Its reference lists project paths, global support, and import coverage.
