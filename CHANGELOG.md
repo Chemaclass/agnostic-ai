@@ -7,6 +7,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Global import keeps existing MCP specs when native server names differ only by case.
+- Refresh audited vendor sources, update Trae context names, and use installed Amp tool names in its settings guide.
+
 - Target audit facts include compact capability declarations and output defaults from sibling adapter files.
 - Landing examples show the selected source's output, with labeled excerpts for shared files and the current Codex command format.
 - The “Why agnostic-ai?” guide explains when to use the tool, with shorter examples and verified connection formats.
