@@ -78,7 +78,7 @@ The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers impo
 
 ## What you can share
 
-Each tool supports a different set of spec kinds. The [capability matrix](https://agnostic-ai.org/docs/targets/#capability-matrix) shows which tools get what, and the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths. Supported tools include Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and Pi.
+Each tool supports a different set of spec kinds. The [capability matrix](https://agnostic-ai.org/docs/targets/#capability-matrix) shows which tools get what, and the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths. Supported tools include Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, Pi, and [Mistral Vibe](https://agnostic-ai.org/docs/targets/vibe/).
 
 - **Rules, agents, skills, and commands**: instructions in one [spec format](https://agnostic-ai.org/docs/spec-format/).
 - **Hooks**: checks and observers that run before or after a tool acts. See [hooks](https://agnostic-ai.org/docs/spec-format/hooks/).
