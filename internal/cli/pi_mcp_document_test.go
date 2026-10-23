@@ -8,7 +8,7 @@ import (
 )
 
 func TestSyncGlobal_PiRejectsNonObjectMCPWithoutWrites(t *testing.T) {
-	for _, document := range []string{"null", "[]", "\"text\"", "42", "true"} {
+	for _, document := range []string{"null", "[]", "\"text\"", "42", "true", piBOM + "null", piBOM + "[]"} {
 		t.Run(document, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			t.Setenv("PI_CODING_AGENT_DIR", "")

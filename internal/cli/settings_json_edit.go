@@ -59,7 +59,11 @@ func editJSONRootKeeping(path string, data []byte, fallback string, order []stri
 
 // jsonRootOpen is the offset of the top-level object's opening brace.
 func jsonRootOpen(text string) (int, error) {
-	i := skipJSONSpace(text, 0)
+	start := 0
+	if strings.HasPrefix(text, "\xef\xbb\xbf") {
+		start = 3
+	}
+	i := skipJSONSpace(text, start)
 	if i >= len(text) || text[i] != '{' {
 		return 0, fmt.Errorf("expected a JSON object")
 	}

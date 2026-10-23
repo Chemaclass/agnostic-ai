@@ -104,6 +104,7 @@ func importPiSettings(path, dst string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", path, err)
 	}
+	data, _ = adapters.StripJSONC(data)
 	var native map[string]any
 	if err := json.Unmarshal(data, &native); err != nil {
 		return 0, fmt.Errorf("parse %s: %w", path, err)
