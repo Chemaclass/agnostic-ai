@@ -85,6 +85,10 @@ x-qwen:
 
 Qwen combines this native exclusion list across trusted settings scopes. Project and global sync merge entries individually, so removing a source exclusion keeps user entries and other MCP settings.
 
+## Protected paths
+
+Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so it prints a [protected-path coverage note](@/docs/spec-format/settings.md#protected-paths).
+
 ## Limits and trust
 
 - Portable agent effort and agent permission mode have no equivalent mapping. Use explicit native approval fields under `x-qwen` when needed. Portable lists of agent MCP server names cannot replace Qwen's record of server definitions.
@@ -101,7 +105,6 @@ Qwen combines this native exclusion list across trusted settings scopes. Project
 
 | Key | Default |
 |---|---|
-| `outputs.qwen.file` | `QWEN.md` |
 | `outputs.qwen.rules-file` | unset, uses instruction files |
 | `outputs.qwen.agents-dir` | `.qwen/agents` |
 | `outputs.qwen.skills-dir` | `.qwen/skills` |
@@ -111,7 +114,7 @@ Qwen combines this native exclusion list across trusted settings scopes. Project
 | `outputs.qwen.hooks-file` | `.qwen/settings.json` |
 | `outputs.qwen.ignore-file` | `.qwenignore` |
 
-Changing a path does not change where Qwen looks for it. Keep overrides aligned with your native configuration.
+Root instructions use the shared [entry-point configuration](@/docs/configuration.md#outputs). Changing a path does not change where Qwen looks for it. Keep overrides aligned with your native configuration.
 
 ## Import
 
