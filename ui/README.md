@@ -117,7 +117,7 @@ real server output with `OVERVIEW_FIXTURE` (a path relative to `ui/`).
 | `E2E_BASE_URL`       | The client to test; default `http://127.0.0.1:4310`, the Go server |
 | `E2E_MOCK=1`         | Append `?mock=1` so the client reads the bundled fixture |
 | `E2E_PREVIEW=1`      | Build and start `vite preview` on 4173 before the tests |
-| `E2E_SCREENSHOT_DIR` | Where screenshots go; default `docs/internal/assets/metaprogramming/authority/` |
+| `E2E_SCREENSHOT_DIR` | Where screenshots go; default `ui/test-results/screenshots/`, which git ignores |
 | `E2E_CHROMIUM_PATH`  | A Chromium binary, only if the default launch cannot find one |
 
 ```sh

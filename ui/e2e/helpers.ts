@@ -2,7 +2,7 @@
 //
 //   E2E_BASE_URL        the running client (default http://127.0.0.1:4310, the Go server)
 //   E2E_MOCK=1          append ?mock=1 so the client reads its bundled fixture
-//   E2E_SCREENSHOT_DIR  where screenshots go (default docs/internal/assets/metaprogramming/authority)
+//   E2E_SCREENSHOT_DIR  where screenshots go (default ui/test-results/screenshots, ignored by git)
 
 import type { Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 export const MOCK = process.env.E2E_MOCK === '1'
-export const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR ?? resolve(here, '../../docs/internal/assets/metaprogramming/authority')
+export const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR ?? resolve(here, '../test-results/screenshots')
 
 /** A relative app URL, so a base URL with a path prefix keeps working. */
 export function appUrl(query = ''): string {
