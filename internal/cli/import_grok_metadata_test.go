@@ -67,6 +67,50 @@ func TestImportGrok_RejectsRetainedSkillCredentialsBeforeWritingSource(t *testin
 	}
 }
 
+func TestImportGrok_RejectsMalformedSkillHeadersBeforeWritingSource(t *testing.T) {
+	for _, scope := range []string{"", "backend"} {
+		t.Run(scope, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [grok]\n")
+			path := filepath.Join(scope, ".grok/skills/review/SKILL.md")
+			body := "---\nname: review\ndescription: Review changes\napi_key: synthetic-private-value\nextra: [\n---\nReview the patch.\n"
+			writeFile(t, path, body)
+			output, err := runCLI(t, "import", "grok")
+			if err == nil {
+				t.Error("malformed skill metadata imported")
+			} else if text := output + err.Error(); strings.Contains(text, "synthetic-private-value") || !strings.Contains(text, path) || !strings.Contains(text, "invalid Grok skill frontmatter") {
+				t.Error("import error must identify the native path without metadata values")
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/skills", scope, "review/SKILL.md")); !os.IsNotExist(err) {
+				t.Error("malformed skill source was written")
+			}
+			if got := readFile(t, path); got != body {
+				t.Error("native skill changed")
+			}
+		})
+	}
+}
+
+func TestImportGrok_SkillMarkdownBodyDoesNotBecomeMetadata(t *testing.T) {
+	for _, tc := range []struct{ name, header, body string }{
+		{"no header", "", "# Review\n\nExample: api_key: synthetic-private-value\n"},
+		{"valid header", "---\nname: review\ndescription: Review changes\n---\n", "Example: api_key: synthetic-private-value\n"},
+		{"body divider", "", "# Review\n\n---\n\nExample: extra: [\n"},
+		{"indented header", " \n---\nname: review\ndescription: Review changes\n---\n", "Review changes.\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := importGrokSkillName([]byte(tc.header + tc.body))
+			if err != nil {
+				t.Errorf("ordinary skill body rejected: %v", err)
+			}
+			if !strings.HasSuffix(string(got), tc.body) {
+				t.Error("skill body changed")
+			}
+		})
+	}
+}
+
 func TestImportGrok_SafeInlineMetadataSurvivesFreshOutput(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)

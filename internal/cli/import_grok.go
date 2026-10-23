@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
@@ -111,8 +112,12 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 }
 
 func importGrokSkillName(data []byte) ([]byte, error) {
-	mapping, rest, ok := frontmatterNode(data)
+	document := strings.TrimLeftFunc(string(data), unicode.IsSpace)
+	mapping, rest, ok := frontmatterNode([]byte(document))
 	if !ok {
+		if strings.HasPrefix(document, "---") {
+			return nil, fmt.Errorf("invalid Grok skill frontmatter")
+		}
 		return data, nil
 	}
 	var meta map[string]any
