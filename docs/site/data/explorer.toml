@@ -6,6 +6,10 @@
   body = "---\nname: release\ndescription: Cut a release and verify it.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
 
 [[files]]
+  path = ".agents/skills/review/SKILL.md"
+  body = "---\nname: review\ndescription: Review a change against main.\n---\n\nThis skill is a command. Run it only when the user calls it by name, and treat the text they type after the name as its arguments.\n\nReview the current branch against main and report bugs with file and line references.\n"
+
+[[files]]
   path = ".agnostic-ai/AGNOSTIC_AI.md"
   body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
 
@@ -79,7 +83,18 @@
 
 [[files]]
   path = ".claude/settings.json"
-  body = "{\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"~/.claude/statusline.sh\"\n  },\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(pnpm test:*)\"\n    ],\n    \"ask\": [\n      \"Bash(git push:*)\"\n    ],\n    \"deny\": [\n      \"Read(.env)\"\n    ]\n  },\n  \"model\": \"claude-opus-5-5\",\n  \"effortLevel\": \"xhigh\",\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|MultiEdit|Write|NotebookEdit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \".claude/hooks/format.sh\"\n          }\n        ]\n      }\n    ]\n  },\n  \"env\": {\n    \"AGNOSTIC_AI_TARGET\": \"claude\"\n  }\n}\n"
+  part = "json:hooks,env"
+  body = "{\n  \"env\": {\n    \"AGNOSTIC_AI_TARGET\": \"claude\"\n  },\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".claude/hooks/format.sh\",\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"Edit|MultiEdit|Write|NotebookEdit\"\n      }\n    ]\n  }\n}\n"
+
+[[files]]
+  path = ".claude/settings.json"
+  part = "json:permissions,model,effortLevel"
+  body = "{\n  \"effortLevel\": \"xhigh\",\n  \"model\": \"claude-opus-5-5\",\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(pnpm test:*)\"\n    ],\n    \"ask\": [\n      \"Bash(git push:*)\"\n    ],\n    \"deny\": [\n      \"Read(.env)\"\n    ]\n  }\n}\n"
+
+[[files]]
+  path = ".claude/settings.json"
+  part = "json:statusLine"
+  body = "{\n  \"statusLine\": {\n    \"command\": \"~/.claude/statusline.sh\",\n    \"type\": \"command\"\n  }\n}\n"
 
 [[files]]
   path = ".claude/skills/release/SKILL.md"
@@ -91,7 +106,18 @@
 
 [[files]]
   path = ".codex/config.toml"
-  body = "model = \"gpt-6-sol\"\nmodel_reasoning_effort = \"high\"\n\n[tui]\nnotification_condition = \"always\"\n\n[mcp_servers.github]\nurl = \"https://api.githubcopilot.com/mcp/\"\nbearer_token_env_var = \"GITHUB_TOKEN\"\n"
+  part = "toml:mcp_servers"
+  body = "[mcp_servers]\n  [mcp_servers.github]\n    bearer_token_env_var = \"GITHUB_TOKEN\"\n    url = \"https://api.githubcopilot.com/mcp/\"\n"
+
+[[files]]
+  path = ".codex/config.toml"
+  part = "toml:model,model_reasoning_effort"
+  body = "model = \"gpt-6-sol\"\nmodel_reasoning_effort = \"high\"\n"
+
+[[files]]
+  path = ".codex/config.toml"
+  part = "toml:tui"
+  body = "[tui]\n  notification_condition = \"always\"\n"
 
 [[files]]
   path = ".codex/hooks.json"
@@ -115,7 +141,18 @@
 
 [[files]]
   path = ".gemini/settings.json"
-  body = "{\n  \"hooks\": {\n    \"AfterTool\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".gemini/hooks/format.sh\",\n            \"env\": {\n              \"AGNOSTIC_AI_TARGET\": \"gemini\"\n            },\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"^(write_file|replace)$\"\n      }\n    ]\n  },\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  },\n  \"model\": {\n    \"name\": \"gemini-3.1-pro-preview\"\n  }\n}\n"
+  part = "json:hooks"
+  body = "{\n  \"hooks\": {\n    \"AfterTool\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \".gemini/hooks/format.sh\",\n            \"env\": {\n              \"AGNOSTIC_AI_TARGET\": \"gemini\"\n            },\n            \"type\": \"command\"\n          }\n        ],\n        \"matcher\": \"^(write_file|replace)$\"\n      }\n    ]\n  }\n}\n"
+
+[[files]]
+  path = ".gemini/settings.json"
+  part = "json:mcpServers"
+  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
+
+[[files]]
+  path = ".gemini/settings.json"
+  part = "json:model"
+  body = "{\n  \"model\": {\n    \"name\": \"gemini-3.1-pro-preview\"\n  }\n}\n"
 
 [[files]]
   path = ".gemini/skills/release/SKILL.md"
@@ -127,12 +164,18 @@
 
 [[files]]
   path = "AGENTS.md"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n### my-style\n\nAnswer in short sentences.\n"
+  part = "instructions"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
 
 [[files]]
   path = "AGENTS.md"
-  part = "instructions"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
+  part = "rule:my-style"
+  body = "### my-style\n\nAnswer in short sentences.\n"
+
+[[files]]
+  path = "AGENTS.md"
+  part = "rule:testing"
+  body = "### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n"
 
 [[files]]
   path = "CLAUDE.md"
@@ -141,9 +184,15 @@
 
 [[files]]
   path = "GEMINI.md"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n\n## Rules\n\n### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n\n### my-style\n\nAnswer in short sentences.\n"
+  part = "instructions"
+  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
 
 [[files]]
   path = "GEMINI.md"
-  part = "instructions"
-  body = "# Billing API\n\n- Run `pnpm test` before every commit.\n- Never edit `prisma/migrations/` by hand.\n"
+  part = "rule:my-style"
+  body = "### my-style\n\nAnswer in short sentences.\n"
+
+[[files]]
+  path = "GEMINI.md"
+  part = "rule:testing"
+  body = "### testing\n\nApplies to: `**/*.test.ts`\n\nOne behavior per test. Mock HTTP with `msw`.\n"

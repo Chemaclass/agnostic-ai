@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- Landing examples show the selected source's output, with labeled excerpts for shared files and the current Codex command format.
+
 ## v0.87.0 - 2026-10-22
 
 ### General
