@@ -87,9 +87,10 @@ After sync, `.pi/mcp.json` contains the server with `enabled: false`. Replace th
 
 ## Config keys
 
+For the shared root instruction file, see [entry-point files](@/docs/configuration.md#entry-point-files).
+
 | Key | Default |
 |---|---|
-| `outputs.pi.file` | `AGENTS.md` |
 | `outputs.pi.rules-file` | unset, uses instruction files |
 | `outputs.pi.skills-dir` | `.pi/skills` |
 | `outputs.pi.commands-dir` | `.pi/prompts` |
@@ -108,3 +109,7 @@ agnostic-ai sync --check -t pi
 ```
 
 Import reads root and scoped instructions, skill folders and resources, direct prompt templates, `.pi/mcp.json`, and `.pi/settings.json`. Native MCP `enabled` is inverted back to portable `disabled`. Project control-only overrides import with `targets: [pi]`. Model and thinking level become portable settings; `defaultProvider` stays under `x-pi`. Use `agnostic-ai import --global pi` for supported user-level files.
+
+## Protected paths
+
+Not enforced. A settings spec with a `protected` block produces a coverage note. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
