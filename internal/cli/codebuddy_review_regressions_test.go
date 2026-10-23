@@ -22,6 +22,8 @@ func TestCodebuddy_ImportRejectsNestedCredentialsBeforeWritingSpecs(t *testing.T
 		"settings-array":              {".codebuddy/settings.json", `{"gateway":[{"password":12345}]}`, "gateway[0].password"},
 		"agent-argument":              {".codebuddy/agents/reviewer.md", "---\nname: reviewer\ndescription: Review\nmcpServers:\n  - docs:\n      type: stdio\n      command: docs-server\n      args: ['--password', 'credential-fixture-123']\n---\nReview.\n", "mcpServers[0].docs.args"},
 		"agent-reference-default":     {".codebuddy/agents/reviewer.md", "---\nname: reviewer\ndescription: Review\nmcpServers:\n  - docs:\n      type: stdio\n      command: docs-server\n      env:\n        API_TOKEN: '${TOKEN:-credential-fixture-123}'\n---\nReview.\n", "mcpServers[0].docs.env.API_TOKEN"},
+		"agent-hook-mixed-key":        {".codebuddy/agents/reviewer.md", "---\nname: reviewer\ndescription: Review\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo check\n          env:\n            1: harmless\n            API_TOKEN: credential-fixture-123\n---\nReview.\n", "hooks.PreToolUse[0].hooks[0].env"},
+		"skill-hook-mixed-key":        {".codebuddy/skills/review/SKILL.md", "---\nname: review\ndescription: Review\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo check\n          env:\n            1: harmless\n            API_TOKEN: credential-fixture-123\n---\nReview.\n", "hooks.PreToolUse[0].hooks[0].env"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -31,18 +33,20 @@ func TestCodebuddy_ImportRejectsNestedCredentialsBeforeWritingSpecs(t *testing.T
 			writeFile(t, c.path, c.body)
 			out, err := runRoot(t, "import", "codebuddy")
 			if err == nil {
-				t.Fatal("credential import succeeded")
-			}
-			if !strings.Contains(err.Error(), c.field) {
+				t.Error("credential import succeeded")
+			} else if !strings.Contains(err.Error(), c.field) {
 				t.Errorf("diagnostic lacks field path: %v", err)
 			}
-			if strings.Contains(out+err.Error(), "credential-fixture-123") {
+			if strings.Contains(out, "credential-fixture-123") || err != nil && strings.Contains(err.Error(), "credential-fixture-123") {
 				t.Fatal("diagnostic exposed a literal")
 			}
-			for _, p := range []string{".agnostic-ai/settings/codebuddy.yaml", ".agnostic-ai/agents/reviewer.md"} {
+			for _, p := range []string{".agnostic-ai/settings/codebuddy.yaml", ".agnostic-ai/agents/reviewer.md", ".agnostic-ai/skills/review/SKILL.md"} {
 				if _, err := os.Stat(filepath.Join(root, p)); !os.IsNotExist(err) {
 					t.Errorf("source was written: %s", p)
 				}
+			}
+			if got := readFile(t, c.path); got != c.body {
+				t.Error("native input changed")
 			}
 		})
 	}

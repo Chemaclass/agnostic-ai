@@ -78,8 +78,38 @@ func codebuddyInlineMCPField(value any, path string) string {
 }
 
 func guardCodebuddyValues(path string, value any, inlineMCP bool) error {
+	if field := codebuddyNonStringKeyPath(value, ""); field != "" {
+		return fmt.Errorf("%s: codebuddy: %s has non-string YAML keys; quote the keys before importing", path, field)
+	}
 	if field := codebuddyPrivateField(value, "", false, inlineMCP); field != "" {
 		return fmt.Errorf("%s: codebuddy: %s contains a credential or an environment reference this native field cannot resolve; keep it outside imported specs", path, field)
 	}
 	return nil
+}
+
+func codebuddyNonStringKeyPath(value any, path string) string {
+	switch value := value.(type) {
+	case map[any]any:
+		if path == "" {
+			return "configuration"
+		}
+		return path
+	case map[string]any:
+		for _, key := range codebuddyMapKeys(value) {
+			next := key
+			if path != "" {
+				next = path + "." + key
+			}
+			if field := codebuddyNonStringKeyPath(value[key], next); field != "" {
+				return field
+			}
+		}
+	case []any:
+		for i, item := range value {
+			if field := codebuddyNonStringKeyPath(item, path+"["+strconv.Itoa(i)+"]"); field != "" {
+				return field
+			}
+		}
+	}
+	return ""
 }
