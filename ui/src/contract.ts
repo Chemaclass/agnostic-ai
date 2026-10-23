@@ -573,5 +573,7 @@ export const API = {
   impact: '/api/views/authority/impact',
   schema: '/api/views/authority/schema',
   overview: '/api/views/overview',
+  editBuiltin: '/api/edit/builtin',
+  editValue: '/api/edit/value',
   health: '/api/health',
 } as const

@@ -98,3 +98,31 @@ export async function loadOverview(source: DataSource, signal?: AbortSignal): Pr
     }
   }
 }
+
+/** An edit the server refused, with the validation problems it found. */
+export class EditError extends Error {
+  readonly problems: string[]
+  constructor(message: string, problems: string[] = []) {
+    super(message)
+    this.name = 'EditError'
+    this.problems = problems
+  }
+}
+
+/** POSTs one toggle edit; the server validates it and restores the file when it fails. */
+export async function postEdit(path: string, body: unknown): Promise<void> {
+  let res: Response
+  try {
+    res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
+  } catch {
+    throw new EditError('Could not reach the server to save the change.')
+  }
+  if (res.ok) return
+  let reply: { error?: string; problems?: string[] } = {}
+  try {
+    reply = (await res.json()) as typeof reply
+  } catch {
+    // Not JSON; fall back to the status.
+  }
+  throw new EditError(reply.error ?? `The server answered ${res.status}.`, reply.problems ?? [])
+}

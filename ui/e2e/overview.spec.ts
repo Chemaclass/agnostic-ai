@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { MOCK, openApp, saveScreenshot } from './helpers'
+
+const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
   test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {
@@ -28,7 +31,9 @@ test.describe('overview', () => {
     await expect(stages.nth(0)).toHaveText('Session start')
     await expect(stages.nth(6)).toHaveText('Session end')
     if (MOCK) await expect(page.locator('.stage-empty')).toHaveCount(7)
-    await expect(page.locator('.stage').first().locator('.stage-tools .chip').first()).toBeVisible()
+    const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
+    await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
+    await expect(avatar.locator('img')).toBeVisible()
     await saveScreenshot(page, '02-lifecycle.png')
   })
 
@@ -89,6 +94,35 @@ test.describe('overview', () => {
     await page.emulateMedia({ colorScheme: 'dark' })
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  })
+
+  test('switches a built-in through the server, and shows why a refused edit was undone', async ({ page }) => {
+    let memory = false
+    let refuse = false
+    const posted: unknown[] = []
+    await page.route('**/api/views/overview', async (route) => {
+      const view = structuredClone(fixture)
+      for (const it of view.sections.find((s: { id: string }) => s.id === 'settings').items) if (it.name === 'memory') it.enabled = memory
+      await route.fulfill({ json: view })
+    })
+    await page.route('**/api/edit/builtin', async (route) => {
+      posted.push(route.request().postDataJSON())
+      if (refuse) return route.fulfill({ status: 422, json: { error: 'the edit did not validate, so the file was restored', problems: ['agnostic-ai.yaml: builtins: memory clashes with skill memory'] } })
+      memory = !memory
+      return route.fulfill({ json: { ok: true } })
+    })
+    await page.goto('./?view=settings')
+    const toggle = page.getByRole('switch', { name: 'memory built-in' })
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(posted).toEqual([{ name: 'memory', enabled: true }])
+
+    refuse = true
+    await toggle.click()
+    await expect(page.getByRole('alert')).toContainText('the file was restored')
+    await expect(page.getByRole('alert')).toContainText('memory clashes with skill memory')
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {

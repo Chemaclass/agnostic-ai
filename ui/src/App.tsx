@@ -67,7 +67,9 @@ export default function App() {
 
   const source = useMemo(() => resolveDataSource(state, import.meta.env.VITE_DEFAULT_SOURCE), [state.mock, state.source])
   const sourceKey = JSON.stringify(source)
-  const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source])
+  const [reloads, setReloads] = useState(0)
+  const reload = useCallback(() => setReloads((n) => n + 1), [])
+  const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
@@ -87,8 +89,9 @@ export default function App() {
       source,
       navigate,
       href: (patch) => serializeUrlState(nextState(state, patch)) || window.location.pathname,
+      reload,
     }),
-    [state, source, navigate],
+    [state, source, navigate, reload],
   )
 
   // Move focus to the page heading after a navigation, for keyboard and

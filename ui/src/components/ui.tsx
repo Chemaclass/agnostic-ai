@@ -1,6 +1,9 @@
 // Small presentational pieces shared by every screen.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import claudeIcon from '../assets/tools/claude.svg'
+import codexIcon from '../assets/tools/codex.svg'
+import cursorIcon from '../assets/tools/cursor.svg'
 
 export type Tone = 'permitted' | 'approval' | 'blocked' | 'info' | 'neutral' | 'accent'
 
@@ -21,6 +24,39 @@ export function Switch({ on, label }: { on: boolean; label?: string }) {
       </span>
       <span className="switch-text">{label ?? (on ? 'On' : 'Off')}</span>
     </span>
+  )
+}
+
+const TOOL_ICONS: Record<string, string> = { claude: claudeIcon, codex: codexIcon, cursor: cursorIcon }
+
+/** A coding tool's logo in a circle, or its initial when there is none; label is its tooltip. */
+export function ToolAvatar({ target, label }: { target: string; label: string }) {
+  const icon = TOOL_ICONS[target]
+  return (
+    <span className="tool-avatar" role="img" aria-label={label} title={label}>
+      {icon ? <img src={icon} alt="" width={18} height={18} /> : <span aria-hidden="true">{target.charAt(0).toUpperCase()}</span>}
+    </span>
+  )
+}
+
+/** An on/off switch that changes a setting; pending while the change saves. */
+export function Toggle({ on, label, disabled, pending, onToggle }: { on: boolean; label: string; disabled?: boolean; pending?: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      aria-busy={pending || undefined}
+      className={`switch switch-control${on ? ' is-on' : ''}${pending ? ' is-pending' : ''}`}
+      disabled={disabled || pending}
+      onClick={onToggle}
+    >
+      <span className="switch-track" aria-hidden="true">
+        <span className="switch-thumb" />
+      </span>
+      <span className="switch-text">{on ? 'On' : 'Off'}</span>
+    </button>
   )
 }
 

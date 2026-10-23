@@ -2,11 +2,13 @@
 // with each check finding on the item it names, and which coding tools
 // support each kind.
 
-import type { ItemFinding, OverviewView, Section, SectionItem, SettingField, Stage, ToolListing, Value } from '../contract'
-import { PageHeader } from './app-context'
+import { useState } from 'react'
+import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
+import { EditError, postEdit } from '../api'
+import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import type { Remote } from './Shell'
-import { Badge, Chip, Code, Icon, Switch } from './ui'
+import { Badge, Chip, Code, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
 export function SectionPage({ sectionId, overview }: { sectionId: string; overview: Remote<OverviewView> }) {
   const data = overview.loaded?.data
@@ -84,7 +86,7 @@ function SettingsFields({ title, fields, files }: { title: string; fields: Setti
             ) : (
               f.set.map((src) => (
                 <div key={src.spec} className="field-source">
-                  <Values values={src.values} />
+                  <Values values={src.values} file={src.path} />
                   <p className="muted field-from">
                     from <Code>{src.path}</Code>
                   </p>
@@ -122,10 +124,7 @@ function Lifecycle({ stages, hooks, count }: { stages: Stage[]; hooks: SectionIt
                 {st.targets.length > 0 && (
                   <p className="stage-tools">
                     {st.targets.map((t) => (
-                      <Chip key={t.target} title={`${t.label} calls this ${t.event}`}>
-                        <span>{t.label}</span>
-                        <code>{t.event}</code>
-                      </Chip>
+                      <ToolAvatar key={t.target} target={t.target} label={`${t.label} - ${t.event}`} />
                     ))}
                   </p>
                 )}
@@ -170,7 +169,9 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             {item.description && <span className="muted"> · {item.description}</span>}
           </div>
           <div className="item-meta">
-            {item.enabled !== undefined && <Switch on={item.enabled} />}
+            {item.enabled !== undefined && (
+              <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
+            )}
             {item.enabled === undefined && <Code>{item.path}</Code>}
             {item.enabled === undefined && <Chip title="Layer the item comes from">{item.layer}</Chip>}
             {item.scope && <Chip>{item.scope}</Chip>}
@@ -180,7 +181,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
               </a>
             )}
           </div>
-          {!hideValues && item.values.length > 0 && <Values values={item.values} />}
+          {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
           {item.tools && <Tools listing={item.tools} />}
           {item.findings.length > 0 && <Findings findings={item.findings} />}
         </li>
@@ -227,8 +228,50 @@ function cursorUrl(path: string): string {
   return `cursor://file${encodeURI(path.startsWith('/') ? path : `/${path}`)}`
 }
 
+/**
+ * A switch that saves its setting through the server. The server
+ * validates the edit and restores the file when it fails; the reason
+ * shows under the switch. Snapshots and the mock have no server, so the
+ * switch only shows the value there.
+ */
+function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean) => Promise<void> }) {
+  const app = useApp()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<EditError | undefined>()
+  if (app.source.kind !== 'api') return <Switch on={on} />
+  const toggle = async () => {
+    setPending(true)
+    setError(undefined)
+    try {
+      await save(!on)
+      app.reload()
+    } catch (err) {
+      setError(err instanceof EditError ? err : new EditError(String(err)))
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <span className="edit-switch">
+      <Toggle on={on} label={label} pending={pending} onToggle={toggle} />
+      {error && (
+        <span className="edit-error" role="alert">
+          {error.message}
+          {error.problems.length > 0 && (
+            <ul>
+              {error.problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+        </span>
+      )}
+    </span>
+  )
+}
+
 /** Each setting as its kind reads best: chips for a list, a switch for a boolean, text otherwise. */
-function Values({ values }: { values: Value[] }) {
+function Values({ values, file }: { values: Value[]; file?: string }) {
   return (
     <dl className="values">
       {values.map((v) => (
@@ -242,7 +285,11 @@ function Values({ values }: { values: Value[] }) {
                 {(v.list ?? []).length ? (v.list ?? []).map((entry, i) => <Chip key={`${i}-${entry}`}>{entry}</Chip>) : <span className="muted">Empty</span>}
               </span>
             ) : v.type === 'bool' ? (
-              <Switch on={v.value === 'true'} />
+              file ? (
+                <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { path: file, key: v.key, value: on })} />
+              ) : (
+                <Switch on={v.value === 'true'} />
+              )
             ) : (
               <span className="value-text">{v.value}</span>
             )}

@@ -12,7 +12,10 @@ Agnostic AI configuration.
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
 Values render by type: a list as chips, a boolean as a switch, anything
-else as text. A Markdown or YAML item has an edit icon that opens
+else as text. Against a running server, built-in and boolean switches
+save: the server edits the file, validates the configuration, and undoes
+the edit with the reasons when it fails. Lifecycle shows each tool that
+runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
 it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
 its file, and the header shows whether each coding tool's generated files
 are in sync with what `sync` would write.

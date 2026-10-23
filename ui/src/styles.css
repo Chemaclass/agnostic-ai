@@ -940,6 +940,43 @@ input:hover {
   background: var(--permitted);
 }
 
+.switch-control {
+  padding: 4px;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.switch-control:hover .switch-track {
+  border-color: var(--accent);
+}
+
+.switch-control.is-pending {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.edit-switch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.edit-error {
+  max-width: 420px;
+  color: var(--blocked);
+  font-size: 13px;
+  text-align: right;
+}
+
+.edit-error ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  text-align: left;
+}
+
 .stages {
   list-style: none;
   margin: 0;
@@ -979,8 +1016,22 @@ input:hover {
   margin-top: 4px;
 }
 
-.stage-tools .chip {
-  gap: 6px;
+.tool-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: #141a28;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: default;
+}
+
+.tool-avatar img {
+  display: block;
 }
 
 .stage-empty {
