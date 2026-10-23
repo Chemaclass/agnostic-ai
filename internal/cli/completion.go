@@ -1,8 +1,9 @@
 package cli
 
 import (
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func registerTargetCompletion(cmd *cobra.Command) {
