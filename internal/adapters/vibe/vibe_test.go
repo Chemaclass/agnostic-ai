@@ -17,6 +17,15 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+func TestSkillMarkdown_UsesNameWithoutMetadata(t *testing.T) {
+	got := (Adapter{}).SkillMarkdown(spec.Entry{Kind: spec.KindSkill, Name: "read-notes", Body: "Read the notes."})
+	for _, want := range []string{"name: read-notes", "description: read-notes", "Read the notes."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("skill lacks %q: %s", want, got)
+		}
+	}
+}
+
 func TestEmit_NativeSixKinds(t *testing.T) {
 	testutil.TempCwd(t)
 	b := kitSinkBundle()

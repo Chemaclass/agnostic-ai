@@ -78,10 +78,11 @@ func validateSkill(s spec.Entry) error {
 }
 func (Adapter) SkillMarkdown(s spec.Entry) string {
 	meta := emit.ResolveMeta(s.Meta, target)
-	if d, _ := meta["description"].(string); d == "" {
-		meta["description"] = s.Name
+	description, _ := meta["description"].(string)
+	if description == "" {
+		description = s.Name
 	}
-	out := map[string]any{"name": s.Name, "description": meta["description"]}
+	out := map[string]any{"name": s.Name, "description": description}
 	for _, key := range []string{"license", "compatibility", "metadata", "allowed-tools", "user-invocable", "disable-model-invocation"} {
 		if value, ok := meta[key]; ok {
 			out[key] = value
