@@ -28,14 +28,14 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 }
 
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
-	cases := []struct{ name, can, tools, codebuddyError string }{
-		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping"},
+	cases := []struct{ name, can, tools, codebuddyError, vibeError string }{
+		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", ""},
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping"},
-		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping"},
-		{"empty", "can: []", "tools: []", "empty tools list inherits all tools"},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", ""},
+		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping", ""},
+		{"empty", "can: []", "tools: []", "empty tools list inherits all tools", "no supported allowed tools"},
 		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", ""},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "", ""},
 	}
 	for _, target := range adapters.Names() {
 		t.Run(target, func(t *testing.T) {
@@ -43,10 +43,17 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					neutral, neutralErr := syncedAgentTree(t, target, tc.can)
 					legacy, legacyErr := syncedAgentTree(t, target, tc.tools)
-					if target == "codebuddy" && tc.codebuddyError != "" {
+					expectedError := ""
+					switch target {
+					case "codebuddy":
+						expectedError = tc.codebuddyError
+					case "vibe":
+						expectedError = tc.vibeError
+					}
+					if expectedError != "" {
 						for _, err := range []error{neutralErr, legacyErr} {
-							if err == nil || !strings.Contains(err.Error(), tc.codebuddyError) {
-								t.Errorf("expected equivalent rejection containing %q, got %v", tc.codebuddyError, err)
+							if err == nil || !strings.Contains(err.Error(), expectedError) {
+								t.Errorf("expected equivalent rejection containing %q, got %v", expectedError, err)
 							}
 						}
 						for _, tree := range []map[string]string{neutral, legacy} {

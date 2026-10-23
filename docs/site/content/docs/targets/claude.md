@@ -30,6 +30,8 @@ set-up-this-tool = "@/docs/targets/claude.md#first-rule"
 
 Write a project rule once under `.agnostic-ai/`. Sync gives Claude Code its native `.claude/rules/` file and gives other selected tools their own format. Skills, agents, hooks, MCP servers, and settings also have native outputs.
 
+Using this provider through Composer? Follow the [Composer setup guide](@/docs/composer.md).
+
 ## First rule
 
 Install the client using the [official setup guide](https://code.claude.com/docs/en/quickstart), then open your project in it.

@@ -24,7 +24,7 @@ var importSourceNames = []string{
 	"codebuddy",
 	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
 	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "goose", "junie", "kilo", "kiro",
-	"opencode", "openhands", "pi", "qoder", "trae", "warp", "windsurf", "zed",
+	"opencode", "openhands", "pi", "qoder", "trae", "vibe", "warp", "windsurf", "zed",
 }
 
 // importSources lists every source the import command accepts, used in
@@ -96,6 +96,30 @@ func newImportCmd() *cobra.Command {
 			}
 			if diff && !dryRun {
 				return errs.Coded(errs.CodeFlagConflict, "--diff requires --dry-run")
+			}
+			if slices.Contains(args, "vibe") || slices.Contains(args, "all") {
+				cfg, err := config.Load(".")
+				if err != nil {
+					return fmt.Errorf("load config: %w", err)
+				}
+				if err := validateVibeMCPImport(".", cfg); err != nil {
+					return err
+				}
+				hooks := cfg.Outputs["vibe"].HooksFile
+				if hooks == "" {
+					hooks = ".vibe/hooks.toml"
+				}
+				doc, err := readVibeTOML(hooks)
+				if err != nil {
+					return err
+				}
+				records, err := nativeTOMLRecords(hooks, "hooks", doc["hooks"])
+				if err != nil {
+					return err
+				}
+				if err := validateImportedVibeHookNames(hooks, records); err != nil {
+					return err
+				}
 			}
 			if diff {
 				return previewImport(args, overwrite)
@@ -225,6 +249,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromTrae(root, src)
 	case "junie":
 		return importFromJunie(root, src)
+	case "vibe":
+		return importFromVibe(root, src, cfg)
 	case "qoder":
 		return importFromQoder(root, src)
 	case "goose":

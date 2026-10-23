@@ -127,6 +127,25 @@ var globalTargets = map[string]globalTarget{
 		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: []string{globalPathHome + ".codebuddy/mcp.json", globalPathHome + ".codebuddy.json"}, private: true},
 		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
 	},
+	"vibe": {
+		rootEnv:      "VIBE_HOME",
+		root:         globalPathHome + ".vibe",
+		instructions: globalPathHome + ".vibe/AGENTS.md",
+		agents:       globalPathHome + ".vibe/agents",
+		skills:       globalPathHome + ".vibe/skills",
+		hooks:        globalPathHome + ".vibe/hooks.toml",
+		hooksFormat:  "vibe-toml",
+		hookFoldArgs: true,
+		mcp:          globalMCPFile{path: globalPathHome + ".vibe/config.toml", format: "toml-array", key: "mcp_servers", private: true},
+		settings: globalSettingsFile{
+			path: globalPathHome + ".vibe/config.toml", format: "toml", model: "active_model", private: true,
+			reserved: map[string]string{
+				"mcp_servers":     "sync --global writes MCP entries from specs",
+				"trusted_folders": "trust remains with the user",
+				"default_agent":   "select the primary agent in Vibe",
+			},
+		},
+	},
 	"pi": {
 		rootEnv: "PI_CODING_AGENT_DIR", root: globalPathHome + ".pi/agent",
 		instructions: globalPathHome + ".pi/agent/AGENTS.md",

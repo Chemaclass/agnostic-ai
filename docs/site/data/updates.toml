@@ -124,3 +124,7 @@ label = "CodeBuddy Code"
 [[targets]]
 id = "pi"
 label = "Pi"
+
+[[targets]]
+id = "vibe"
+label = "Mistral Vibe"

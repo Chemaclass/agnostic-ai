@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Target audit facts include compact capability declarations and output defaults from sibling adapter files.
 - Landing examples show the selected source's output, with labeled excerpts for shared files and the current Codex command format.
 - The “Why agnostic-ai?” guide explains when to use the tool, with shorter examples and verified connection formats.
 
@@ -42,6 +43,14 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Antigravity
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+
+#### Mistral Vibe
+
+- Sync and import native instructions, subagents, skills, model settings, MCP servers, and hooks in projects and user configuration.
+
+### Site
+
+- Composer users can set up shared instructions, rules, and skills for its Claude Code and Codex providers.
 
 ## v0.87.0 - 2026-10-22
 

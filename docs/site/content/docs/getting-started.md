@@ -177,6 +177,8 @@ Run `agnostic-ai sync --plan`, review the changes, then run `agnostic-ai sync` a
 
 ## Next steps
 
+Using Composer? [Set up its Claude Code and Codex providers](@/docs/composer.md) from the same sources.
+
 Add more only when a task needs it:
 
 - Repeat a task with several steps: write a [skill](@/docs/spec-format/skills.md), such as a release checklist.

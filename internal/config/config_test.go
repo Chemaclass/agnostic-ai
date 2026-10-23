@@ -108,7 +108,7 @@ func TestDefaultTargets(t *testing.T) {
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
-		"qoder", "openhands", "factory", "kilo", "pi", "codebuddy",
+		"qoder", "openhands", "factory", "kilo", "codebuddy", "pi", "vibe",
 	}
 	targets := DefaultTargets()
 	if len(targets) != len(want) {

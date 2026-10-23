@@ -35,6 +35,7 @@ var entryPointPaths = map[string]string{
 	"codebuddy":   "CODEBUDDY.md",
 	"claude":      "CLAUDE.md",
 	"codex":       "AGENTS.md",
+	"vibe":        "AGENTS.md",
 	"amp":         "AGENTS.md",
 	"warp":        "AGENTS.md",
 	"cline":       "AGENTS.md",

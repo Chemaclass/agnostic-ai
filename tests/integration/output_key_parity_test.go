@@ -75,6 +75,7 @@ var documentedNoOpKeys = map[string]string{
 // Devin's project permission policy out of a settings spec.
 var probeKinds = map[string]string{
 	"codebuddy.conf-file": "settings",
+	"vibe.conf-file":      "settings",
 	"windsurf.conf-file":  "settings",
 	"factory.conf-file":   "settings",
 	"pi.conf-file":        "settings",
