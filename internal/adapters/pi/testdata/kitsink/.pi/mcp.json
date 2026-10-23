@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "local": {
+      "args": [
+        "server"
+      ],
+      "command": "npx",
+      "cwd": "tools",
+      "enabled": false
+    },
+    "remote": {
+      "enabled": true,
+      "exposure": "direct",
+      "headers": {
+        "Authorization": "${TOKEN}"
+      },
+      "type": "http",
+      "url": "https://example.com/mcp"
+    }
+  }
+}

@@ -347,7 +347,10 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 				rendered[name] = values[name]
 			}
 		} else {
-			rendered, _ = adapters.UserMCPServers(target, staged.MCPs)
+			rendered, _, err = adapters.CheckedUserMCPServers(target, staged.MCPs)
+			if err != nil {
+				return fmt.Errorf("render %s user MCP servers: %w", target, err)
+			}
 		}
 		var kept []spec.Entry
 		for _, m := range staged.MCPs {
@@ -449,6 +452,9 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if target == "antigravity" {
 			server = normalizeAntigravityMCPEntry(server)
 			servers[name] = server
+		}
+		if target == "pi" {
+			normalizePiMCPEntry(server)
 		}
 		if target == "warp" {
 			server = normalizeWarpMCPEntry(server)

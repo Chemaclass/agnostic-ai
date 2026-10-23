@@ -12,6 +12,7 @@ import (
 
 // goldenTargets lists every built-in adapter covered by snapshot golden tests.
 var goldenTargets = []string{
+	"pi",
 	"aider",
 	"amp",
 	"antigravity",

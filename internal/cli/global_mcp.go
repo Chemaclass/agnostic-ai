@@ -91,7 +91,10 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 		tables, _ := adapters.UserMCPServerTables(target, mcps)
 		return mergeGlobalMCPTables(path, f.key, base, tables, sources, previous)
 	}
-	servers, _ := adapters.UserMCPServers(target, mcps)
+	servers, _, err := adapters.CheckedUserMCPServers(target, mcps)
+	if err != nil {
+		return globalSettingsMerge{}, fmt.Errorf("render %s user MCP servers: %w", target, err)
+	}
 	current := map[string]any{}
 	if data := base; data != nil || fileExists(path) {
 		if data == nil {
@@ -225,6 +228,14 @@ func canonicalMCPServer(target string, v any) any {
 		return v
 	}
 	out := maps.Clone(server)
+	if target == "pi" {
+		if out["enabled"] == true {
+			delete(out, "enabled")
+		}
+		if out["type"] == "streamable-http" {
+			out["type"] = "http"
+		}
+	}
 	if target == "antigravity" {
 		if disabled, ok := out["disabled"].(bool); ok && !disabled {
 			delete(out, "disabled")

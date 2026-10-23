@@ -1,0 +1,8 @@
+name: pi-local
+targets: [pi]
+command: native-server
+args: [--stdio]
+cwd: tools
+disabled: true
+x-pi:
+  exposure: direct

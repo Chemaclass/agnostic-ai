@@ -13,6 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -117,6 +118,15 @@ type globalTarget struct {
 // config.yaml Continue itself rewrites), and jules (nothing documented
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
+	"pi": {
+		rootEnv: "PI_CODING_AGENT_DIR", root: globalPathHome + ".pi/agent",
+		instructions: globalPathHome + ".pi/agent/AGENTS.md",
+		skills:       globalPathHome + ".pi/agent/skills",
+		mcp:          globalMCPFile{path: globalPathHome + ".pi/agent/mcp.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{path: globalPathHome + ".pi/agent/settings.json", format: "json", model: "defaultModel", effort: "defaultThinkingLevel", effortLevel: pi.Adapter{}.SettingsEffortLevels,
+			reserved: map[string]string{"defaultProjectTrust": "Pi project trust stays with the user"},
+		},
+	},
 	"claude": {
 		rootEnv:      "CLAUDE_CONFIG_DIR",
 		root:         globalPathHome + ".claude",
