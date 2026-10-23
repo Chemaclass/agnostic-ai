@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -255,5 +256,55 @@ func TestEmit_AgentRestrictionsNeverRestoreAllTools(t *testing.T) {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("restriction missing %s: %s", want, got)
 		}
+	}
+}
+
+func TestEmit_AgentReadAliasesKeepTheSameBridgeRestrictions(t *testing.T) {
+	var first string
+	for _, entry := range []spec.Entry{
+		{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"can": []any{"read"}}},
+		{Kind: spec.KindAgent, Name: "reviewer", CapabilityField: "can", Meta: map[string]any{"tools": []any{"Read"}}},
+		{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"tools": []any{"Read"}}},
+	} {
+		testutil.TempCwd(t)
+		if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), visibleConfig(), false); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(".grok/agents/reviewer.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if first == "" {
+			first = string(data)
+		}
+		if string(data) != first || !strings.Contains(string(data), "disallowedTools:\n  - search_tool\n  - use_tool") {
+			t.Error("equivalent read aliases must emit the same MCP bridge restrictions")
+		}
+	}
+}
+
+func TestAgentMeta_PreservesExplicitNativeBridgeChoices(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		meta  map[string]any
+		tools []string
+		deny  []string
+	}{
+		{"one bridge", map[string]any{"tools": []any{"Read", "search_tool"}}, []string{"Read", "search_tool"}, []string{"use_tool"}},
+		{"native override", map[string]any{"can": []any{"read"}, "x-grok": map[string]any{"tools": []any{"Read", "search_tool", "use_tool"}, "disallowedTools": []any{"grep"}}}, []string{"Read", "search_tool", "use_tool"}, []string{"grep"}},
+		{"native only", map[string]any{"x-grok": map[string]any{"tools": []any{"Read"}}}, []string{"Read"}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			meta, err := agentMeta(spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: tc.meta})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := stringList(meta["disallowedTools"]); !slices.Equal(got, tc.deny) {
+				t.Errorf("explicit native bridge choice changed: got %v, want %v", got, tc.deny)
+			}
+			if got := stringList(meta["tools"]); !slices.Equal(got, tc.tools) {
+				t.Errorf("explicit native tools changed: got %v, want %v", got, tc.tools)
+			}
+		})
 	}
 }

@@ -29,6 +29,7 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 	cases := []struct{ name, can, tools, codebuddyError, grokError, vibeError string }{
+		{"read-only", "can: [read]", "tools: [Read]", "", "", ""},
 		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", "would restore all tools", ""},
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
 			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", "would restore all tools", ""},
@@ -76,7 +77,7 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 					if neutralErr != nil || legacyErr != nil {
 						t.Fatalf("expected both forms to sync: can=%v; tools=%v", neutralErr, legacyErr)
 					}
-					if target == "codebuddy" && !strings.Contains(neutral[filepath.Join(".codebuddy", "agents", "reviewer.md")], "mcp__github__get_issue") {
+					if target == "codebuddy" && tc.name == "exact-tools" && !strings.Contains(neutral[filepath.Join(".codebuddy", "agents", "reviewer.md")], "mcp__github__get_issue") {
 						t.Error("verified native agent tools were not emitted")
 					}
 					for rel, want := range legacy {
