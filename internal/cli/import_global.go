@@ -293,7 +293,8 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			return fmt.Errorf("create staging directory: %w", err)
 		}
 		var native map[string]any
-		if g.mcp.format == "toml-array" {
+		switch g.mcp.format {
+		case "toml-array":
 			var err error
 			homeRecords, err := adapters.UserMCPArrayRecords(target, have)
 			if err != nil {
@@ -303,7 +304,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			if err != nil {
 				return err
 			}
-		} else if g.mcp.format == "toml" {
+		case "toml":
 			_, servers, err := readCodexConfigTOMLFile(path)
 			if err != nil {
 				return err
@@ -327,7 +328,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			if native, err = tomlTableValues(path, g.mcp.key, data); err != nil {
 				return err
 			}
-		} else {
+		default:
 			var servers map[string]any
 			var err error
 			var orders mcpSpecOrderHints
@@ -365,7 +366,8 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			return err
 		}
 		rendered := map[string]any{}
-		if g.mcp.format == "toml-array" {
+		switch g.mcp.format {
+		case "toml-array":
 			records, err := adapters.UserMCPArrayRecords(target, staged.MCPs)
 			if err != nil {
 				return err
@@ -374,7 +376,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				name, _ := r["name"].(string)
 				rendered[name] = r
 			}
-		} else if g.mcp.format == "toml" {
+		case "toml":
 			tables, _ := adapters.UserMCPServerTables(target, staged.MCPs)
 			for name, table := range tables {
 				values, err := tomlTableValues(path, g.mcp.key, []byte(table))
@@ -383,7 +385,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				}
 				rendered[name] = values[name]
 			}
-		} else {
+		default:
 			rendered, _, err = adapters.CheckedUserMCPServers(target, staged.MCPs)
 			if err != nil {
 				return fmt.Errorf("render %s user MCP servers: %w", target, err)
