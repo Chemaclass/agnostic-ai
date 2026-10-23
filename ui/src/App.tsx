@@ -10,14 +10,20 @@ import { ErrorPanel } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
-function initialTheme(): 'dark' | 'light' {
-  let stored: string | null = null
+// The theme follows the system until the person picks one with the
+// toggle; only that choice is stored.
+const THEME_KEY = 'agnostic-ai.theme-choice'
+
+function storedTheme(): 'dark' | 'light' | undefined {
   try {
-    stored = window.localStorage.getItem('agnostic-ai.theme')
+    const stored = window.localStorage.getItem(THEME_KEY)
+    return stored === 'light' || stored === 'dark' ? stored : undefined
   } catch {
-    // Storage may be unavailable; fall through to the OS preference.
+    return undefined
   }
-  if (stored === 'light' || stored === 'dark') return stored
+}
+
+function systemTheme(): 'dark' | 'light' {
   return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
@@ -97,13 +103,26 @@ export default function App() {
     document.getElementById('page-title')?.focus({ preventScroll: true })
   }, [state.view])
 
-  const [theme, setTheme] = useState<'dark' | 'light'>(initialTheme)
+  const [choice, setChoice] = useState<'dark' | 'light' | undefined>(storedTheme)
+  const [system, setSystem] = useState<'dark' | 'light'>(systemTheme)
+  useEffect(() => {
+    const query = window.matchMedia?.('(prefers-color-scheme: light)')
+    if (!query) return
+    const onChange = () => setSystem(query.matches ? 'light' : 'dark')
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+  const theme = choice ?? system
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+  }, [theme])
+  const toggleTheme = useCallback(() => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setChoice(next)
     try {
-      window.localStorage.setItem('agnostic-ai.theme', theme)
+      window.localStorage.setItem(THEME_KEY, next)
     } catch {
-      // Storage may be unavailable; the theme still applies for this visit.
+      // Storage may be unavailable; the choice still applies for this visit.
     }
   }, [theme])
 
@@ -120,7 +139,7 @@ export default function App() {
           inspectorOpen={inspectorOpen}
           onToggleInspector={() => setInspectorOpen((open) => !open)}
           theme={theme}
-          onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          onToggleTheme={toggleTheme}
         />
         <div className="shell">
           <Nav overview={overview} />

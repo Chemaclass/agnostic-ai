@@ -1,13 +1,12 @@
-// The frame around every page: the header with the project chip, each
-// coding tool's sync state, and the JSON and theme toggles, and the
-// harness navigation with each section's finding count.
+// The frame around every page: the header with the project chip and the
+// JSON and theme toggles, and the harness navigation.
 
 import { useEffect, useRef } from 'react'
-import type { OverviewView, SyncState, TargetSupport } from '../contract'
+import type { OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
-import { Chip, Icon, type Tone } from './ui'
+import { Icon } from './ui'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -21,35 +20,6 @@ const DEFAULT_SECTION_LABELS: Record<string, string> = {
   tools: 'Tools',
   lifecycle: 'Lifecycle',
   settings: 'Settings',
-}
-
-const SYNC_WORDING: Record<SyncState, string> = {
-  'in-sync': 'in sync',
-  drifted: 'out of sync',
-  'not-checked': 'not checked',
-}
-
-const SYNC_TONE: Record<SyncState, Tone> = {
-  'in-sync': 'permitted',
-  drifted: 'approval',
-  'not-checked': 'neutral',
-}
-
-// SyncChips states, per coding tool, whether its generated files match
-// what sync would write. A drifted tool names the differing files.
-function SyncChips({ targets }: { targets: TargetSupport[] }) {
-  return (
-    <>
-      {targets.map((t) => {
-        const files = t.sync.files.map((f) => `${f.path} (${f.state})`).join('\n')
-        return (
-          <Chip key={t.target} tone={SYNC_TONE[t.sync.state]} title={files ? `Differs from what sync would write:\n${files}` : undefined}>
-            {t.label} · {SYNC_WORDING[t.sync.state]}
-          </Chip>
-        )
-      })}
-    </>
-  )
 }
 
 export function Header({
@@ -83,7 +53,6 @@ export function Header({
             {snapshot.project.name}
           </span>
         )}
-        {overview.loaded && <SyncChips targets={overview.loaded.data.targets} />}
         {app.source.kind === 'static' && (
           <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
             Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
@@ -98,8 +67,14 @@ export function Header({
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
       </button>
-      <button type="button" className="button button-quiet" aria-pressed={theme === 'light'} onClick={onToggleTheme}>
-        Light theme
+      <button
+        type="button"
+        className="button button-quiet button-icon"
+        aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        onClick={onToggleTheme}
+      >
+        <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
       </button>
     </header>
   )
@@ -122,26 +97,12 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
     ? [...sections].sort((a, b) => a.order - b.order).map((s) => ({ id: s.id as ViewId, label: s.label }))
     : SECTION_VIEWS.map((id) => ({ id: id as ViewId, label: DEFAULT_SECTION_LABELS[id] }))
 
-  // Each section shows how many check findings it holds.
-  const findingCount = (id: string) => {
-    const section = sections?.find((s) => s.id === id)
-    if (!section) return 0
-    return section.findings.length + section.items.reduce((n, it) => n + it.findings.length, 0)
-  }
-
   const item = (id: ViewId, label: string) => {
-    const findings = findingCount(id)
     return (
       <li key={id}>
         <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined}>
           <Icon name={id} />
           <span className="nav-text">{label}</span>
-          {findings > 0 && (
-            <span className="nav-count">
-              {findings}
-              <span className="sr-only"> {findings === 1 ? 'finding' : 'findings'}</span>
-            </span>
-          )}
         </AppLink>
       </li>
     )

@@ -90,6 +90,8 @@ const ICON_PATHS: Record<string, ReactNode> = {
   lifecycle: <path d="M19 12a7 7 0 1 1-2.05-4.95 M19 4v4h-4" />,
   settings: <path d="M4 7h10 M18 7h2 M4 17h4 M12 17h8 M14 5v4 M10 15v4" />,
   warning: <path d="M12 4 21 20H3Z M12 10v4 M12 17h.01" />,
+  sun: <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4" />,
+  moon: <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />,
   arrow: <path d="M7 17 17 7 M9 7h8v8" />,
 }
 

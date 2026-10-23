@@ -144,8 +144,7 @@ html {
 
 table,
 .kind-count,
-.disclosure-count,
-.nav-count {
+.disclosure-count {
   font-variant-numeric: tabular-nums;
 }
 
@@ -325,17 +324,6 @@ input:hover {
   color: var(--accent-strong);
 }
 
-.nav-count {
-  margin-left: auto;
-  min-width: 24px;
-  text-align: center;
-  padding: 0 7px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 12px;
-  font-weight: 800;
-}
 
 .icon {
   flex: none;
@@ -594,6 +582,12 @@ input:hover {
 
 .button-quiet {
   background: transparent;
+}
+
+.button-icon {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
 }
 
 .button:disabled {

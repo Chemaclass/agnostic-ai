@@ -203,11 +203,6 @@ function Tools({ listing }: { listing: ToolListing }) {
           ))}
         </span>
       )}
-      {listing.state === 'listed' && (
-        <p className="muted tool-state">
-          {listing.tools.length} tool{listing.tools.length === 1 ? '' : 's'} · listed {when}
-        </p>
-      )}
       {listing.state === 'stale' && (
         <p className="tool-state is-warning">
           The spec changed after these were listed ({when}). Run <Code>{listing.command}</Code> to list them again.

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { MOCK, openApp, saveScreenshot } from './helpers'
 
 test.describe('overview', () => {
-  test('opens on Context with five sections and the sync state of each tool', async ({ page }) => {
+  test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {
     await openApp(page)
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
     await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
@@ -10,7 +10,11 @@ test.describe('overview', () => {
     const nav = page.getByRole('navigation', { name: 'Harness' })
     await expect(nav.getByRole('link')).toHaveCount(5)
     for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
-    if (MOCK) await expect(page.locator('.topbar .chip', { hasText: 'out of sync' })).toHaveCount(3)
+    await expect(page.locator('.topbar .chip', { hasText: 'sync' })).toHaveCount(0)
+    const theme = page.getByRole('button', { name: /^Switch to (light|dark) theme$/ })
+    const before = await theme.getAttribute('aria-label')
+    await theme.click()
+    await expect(theme).not.toHaveAttribute('aria-label', before ?? '')
     await expect(page.getByRole('combobox')).toHaveCount(0)
     const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Open in Cursor/ })
     await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
@@ -72,6 +76,18 @@ test.describe('overview', () => {
     await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
     expect(await page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().top)).toBe(0)
     expect(await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)).toBe(navTop)
+  })
+
+  test('follows the system colour scheme until the person picks a theme', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await openApp(page)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await page.getByRole('button', { name: 'Switch to light theme' }).click()
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
