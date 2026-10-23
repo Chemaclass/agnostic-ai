@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -267,6 +268,9 @@ func (bd *builder) ruleOn(target string, d *declaration) effective {
 		installs:   true,
 		carrier:    permissionFiles[target],
 	}
+	if w.rule.redacted {
+		out.native = []string{preview.Redacted}
+	}
 	form := classifyRule(w.rule.raw)
 	switch {
 	case len(t.Widening) > 0:
@@ -359,7 +363,7 @@ func (bd *builder) narrowedOn(target string, s *subjectInfo, action string, d *d
 	}
 	var first effective
 	for i, c := range d.narrow {
-		eff := bd.narrowOn(target, s, action, c, d.capability)
+		eff := bd.narrowOn(target, s, action, c, d.capability, d.shown)
 		eff.cause = c.grant.Note
 		if eff.effect == EffectUnavailable {
 			return eff
@@ -375,12 +379,12 @@ func (bd *builder) narrowedOn(target string, s *subjectInfo, action string, d *d
 // where the adapter translates agent tools for the capability, and, for
 // readonly and mcpServers, where agents.md says the tool's agent file
 // carries that field.
-func (bd *builder) narrowOn(target string, s *subjectInfo, action string, c candidate, capability string) effective {
+func (bd *builder) narrowOn(target string, s *subjectInfo, action string, c candidate, capability, shown string) effective {
 	label := TargetLabel(target)
 	t := bd.translateAgent(target, capability, *s.entry)
 	unavailable := func(native []string, note string) effective {
 		if !t.Supported {
-			return unexpressed(ResolutionAgentScope, note+", but the adapter translates no agent tool for "+capability+", so this view does not claim the narrowing holds")
+			return unexpressed(ResolutionAgentScope, note+", but the adapter translates no agent tool for "+shown+", so this view does not claim the narrowing holds")
 		}
 		return effective{effect: EffectUnavailable, resolution: ResolutionAgentScope, status: statusNative, native: native, installs: true, agentFile: true, note: note}
 	}
@@ -408,7 +412,7 @@ func (bd *builder) narrowOn(target string, s *subjectInfo, action string, c cand
 	case t.Supported:
 		return unavailable(nil, "the agent file's tool list leaves this out")
 	case bd.translateAgent(target, capRead, *s.entry).Supported:
-		return unexpressed(ResolutionAgentScope, label+" has no native tool for "+capability+", so leaving it out of the tool list does not close it")
+		return unexpressed(ResolutionAgentScope, label+" has no native tool for "+shown+", so leaving it out of the tool list does not close it")
 	}
 	return unexpressed(ResolutionAgentScope, "this tool reads no per-agent tool list")
 }

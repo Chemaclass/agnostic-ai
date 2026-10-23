@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -62,7 +63,7 @@ func parseSubjects(agents []spec.Entry, source func(spec.Entry) *Source) []*subj
 func agentSubject(e spec.Entry, src *Source) *subjectInfo {
 	s := &subjectInfo{entry: &e, subject: Subject{
 		SubjectSummary: SubjectSummary{
-			ID:          e.Name,
+			ID:          displayID(e.Name),
 			Label:       e.Name,
 			Description: e.Description(),
 			Kind:        SubjectAgent,
@@ -78,10 +79,11 @@ func agentSubject(e spec.Entry, src *Source) *subjectInfo {
 		}
 		list := toolEntries(value)
 		s.listed = true
-		s.subject.ToolScope = ToolScope{Mode: "listed", Field: field, Declared: list, Capabilities: make([]string, 0, len(list))}
+		s.subject.ToolScope = ToolScope{Mode: "listed", Field: field, Declared: make([]string, 0, len(list)), Capabilities: make([]string, 0, len(list))}
 		for _, raw := range list {
 			s.caps = append(s.caps, parseCapability(raw))
-			s.subject.ToolScope.Capabilities = append(s.subject.ToolScope.Capabilities, neutralEntry(raw))
+			s.subject.ToolScope.Declared = append(s.subject.ToolScope.Declared, preview.RedactRule(raw))
+			s.subject.ToolScope.Capabilities = append(s.subject.ToolScope.Capabilities, preview.RedactRule(neutralEntry(raw)))
 		}
 		break
 	}

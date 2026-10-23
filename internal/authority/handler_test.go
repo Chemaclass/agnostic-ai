@@ -146,11 +146,11 @@ func TestHandler_SchemaAndHealth(t *testing.T) {
 }
 
 func TestHandler_AllowsLocalDevelopmentOriginsOnly(t *testing.T) {
-	srv := demoServer(t, HandlerOptions{})
+	srv := demoServer(t, HandlerOptions{AllowedOrigins: []string{"http://localhost:5173"}})
 	for origin, allowed := range map[string]bool{
 		"http://localhost:5173":     true,
-		"http://127.0.0.1:4173":     true,
-		"http://localhost":          true,
+		"http://127.0.0.1:4173":     false,
+		"http://localhost":          false,
 		"https://evil.example":      false,
 		"http://localhost.evil.com": false,
 	} {

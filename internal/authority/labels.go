@@ -1,8 +1,12 @@
 package authority
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // targetLabels names each coding tool the way people know it.
@@ -30,6 +34,13 @@ var targetLabels = map[string]string{
 	"crush":       "Crush",
 	"amp":         "Amp",
 	"goose":       "Goose",
+	"ellipsis":    "Ellipsis",
+	"pi":          "Pi coding agent",
+	"qwen":        "Qwen Code (Alibaba)",
+	"grok":        "Grok Build",
+	"vibe":        "Mistral Vibe",
+	"kimi":        "Kimi Code CLI",
+	"codebuddy":   "CodeBuddy Code (Tencent)",
 	"jules":       "Jules",
 	"openhands":   "OpenHands",
 }
@@ -84,6 +95,9 @@ const anyToolAction = "*"
 // humanizeTool turns an MCP tool name into a label, such as
 // create_pull_request into "Create pull request".
 func humanizeTool(name string) string {
+	if preview.RedactText(name) != name {
+		return preview.Redacted
+	}
 	var b strings.Builder
 	prevLower := false
 	for _, r := range name {
@@ -110,6 +124,9 @@ func humanizeTool(name string) string {
 // single dashes. Wildcards keep a readable trace so `src/**` and `src/*`
 // stay apart.
 func slug(text string) string {
+	if shown := preview.RedactText(text); shown != text {
+		return "redacted-" + opaqueID(text)[:16]
+	}
 	text = strings.NewReplacer("**", " all ", "*", " any ", "?", " one ").Replace(text)
 	var b strings.Builder
 	dash := false
@@ -212,4 +229,8 @@ func supportedActions() []SupportedAction {
 			Status:      "unsupported",
 		},
 	}
+}
+
+func opaqueID(text string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(text)))
 }

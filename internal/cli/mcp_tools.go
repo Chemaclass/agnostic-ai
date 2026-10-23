@@ -2,11 +2,9 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -17,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -103,7 +102,9 @@ func mcpToolsScope(dir string, global bool) (string, []spec.Entry, error) {
 	return root, b.MCPs, nil
 }
 
-// listMCPTools asks every server at once, each within timeout.
+const mcpProbeWorkers = 4
+
+// listMCPTools limits active connections and bounds each whole probe.
 func listMCPTools(ctx context.Context, root string, entries []spec.Entry, timeout time.Duration, client string) mcpprobe.Cache {
 	if ctx == nil {
 		ctx = context.Background()
@@ -111,27 +112,37 @@ func listMCPTools(ctx context.Context, root string, entries []spec.Entry, timeou
 	cache := mcpprobe.Cache{Version: mcpprobe.CacheVersion, Root: root, Servers: map[string]mcpprobe.ServerResult{}}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	for _, e := range entries {
+	jobs := make(chan spec.Entry)
+	for range min(mcpProbeWorkers, len(entries)) {
 		wg.Add(1)
-		go func(e spec.Entry) {
+		go func() {
 			defer wg.Done()
-			res := mcpprobe.ServerResult{Spec: mcpprobe.SpecFingerprint(e.Meta), ListedAt: time.Now().UTC(), Tools: []mcpprobe.Tool{}}
-			server, err := mcpServer(e, root)
-			if err == nil {
+			for e := range jobs {
+				res := mcpprobe.ServerResult{Spec: mcpprobe.SpecFingerprint(e.Meta), ListedAt: time.Now().UTC(), Tools: []mcpprobe.Tool{}}
 				c, cancel := context.WithTimeout(ctx, timeout)
-				res.Tools, err = mcpprobe.ListTools(c, server, client)
+				server, err := mcpServerContext(c, e, root)
+				if err == nil {
+					res.Tools, err = mcpprobe.ListTools(c, server, client)
+				}
 				cancel()
+				if err != nil {
+					res.Error = preview.RedactText(err.Error(), server.SensitiveValues...)
+					res.Tools = []mcpprobe.Tool{}
+				}
+				if res.Tools == nil {
+					res.Tools = []mcpprobe.Tool{}
+				}
+				slices.SortFunc(res.Tools, func(a, b mcpprobe.Tool) int { return strings.Compare(a.Name, b.Name) })
+				mu.Lock()
+				cache.Servers[e.Name] = res
+				mu.Unlock()
 			}
-			if err != nil {
-				res.Error = err.Error()
-				res.Tools = []mcpprobe.Tool{}
-			}
-			slices.SortFunc(res.Tools, func(a, b mcpprobe.Tool) int { return strings.Compare(a.Name, b.Name) })
-			mu.Lock()
-			cache.Servers[e.Name] = res
-			mu.Unlock()
-		}(e)
+		}()
 	}
+	for _, e := range entries {
+		jobs <- e
+	}
+	close(jobs)
 	wg.Wait()
 	return cache
 }
@@ -139,11 +150,19 @@ func listMCPTools(ctx context.Context, root string, entries []spec.Entry, timeou
 // mcpServer turns a spec into a server to probe, resolving ${NAME}
 // references from the environment and running headersHelper.
 func mcpServer(e spec.Entry, root string) (mcpprobe.Server, error) {
+	return mcpServerContext(context.Background(), e, root)
+}
+
+func mcpServerContext(ctx context.Context, e spec.Entry, root string) (mcpprobe.Server, error) {
+	if err := ctx.Err(); err != nil {
+		return mcpprobe.Server{}, err
+	}
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		return mcpprobe.Server{}, errors.New("disabled in its spec")
 	}
 	str := func(key string) string { s, _ := e.Meta[key].(string); return s }
 	var problems []string
+	s := mcpprobe.Server{Env: map[string]string{}, Headers: map[string]string{}}
 	resolve := func(field, key, value string) string {
 		if e.MarkedLiteral(field, key) {
 			return value
@@ -152,15 +171,25 @@ func mcpServer(e spec.Entry, root string) (mcpprobe.Server, error) {
 		if err != nil {
 			problems = append(problems, err.Error())
 		}
+		for _, token := range spec.EnvRefTokens(value) {
+			if preview.CredentialKey(token.Name) {
+				resolved, _ := resolveEnvRefs(token.Text, root)
+				s.SensitiveValues = append(s.SensitiveValues, resolved)
+			}
+		}
 		return out
 	}
-	s := mcpprobe.Server{
-		Type:    str("type"),
-		Command: resolve("command", "", str("command")),
-		Cwd:     str("cwd"),
-		URL:     resolve("url", "", str("url")),
-		Env:     map[string]string{},
-		Headers: map[string]string{},
+	s.Type = str("type")
+	if s.Type != "" && s.Type != "stdio" && s.Type != "http" {
+		return s, fmt.Errorf("%w: %s", mcpprobe.ErrUnsupported, s.Type)
+	}
+	s.Command = resolve("command", "", str("command"))
+	s.Cwd = resolve("cwd", "", str("cwd"))
+	s.URL = resolve("url", "", str("url"))
+	if s.Cwd == "" {
+		s.Cwd = root
+	} else if !filepath.IsAbs(s.Cwd) {
+		s.Cwd = filepath.Join(root, s.Cwd)
 	}
 	if args, ok := e.Meta["args"].([]any); ok {
 		for _, a := range args {
@@ -177,12 +206,13 @@ func mcpServer(e spec.Entry, root string) (mcpprobe.Server, error) {
 			}
 		}
 	}
+	helper := resolve("headersHelper", "", str("headersHelper"))
 	if len(problems) > 0 {
 		slices.Sort(problems)
 		return s, errors.New(strings.Join(slices.Compact(problems), "; "))
 	}
-	if helper := str("headersHelper"); helper != "" {
-		headers, err := runHeadersHelper(helper)
+	if helper != "" {
+		headers, err := mcpprobe.Headers(ctx, helper, s.Cwd)
 		if err != nil {
 			return s, err
 		}
@@ -205,11 +235,11 @@ func resolveEnvRefs(value, root string) (string, error) {
 		}
 		v, ok := os.LookupEnv(t.Name)
 		switch {
+		case t.Name == "workspaceFolder":
+			v = root
 		case ok:
 		case t.HasDefault:
 			v = t.Default
-		case t.Name == "workspaceFolder":
-			v = root
 		default:
 			missing = append(missing, t.Name)
 			continue
@@ -220,22 +250,6 @@ func resolveEnvRefs(value, root string) (string, error) {
 		return out, fmt.Errorf("%s is not set", strings.Join(missing, ", "))
 	}
 	return out, nil
-}
-
-// runHeadersHelper runs a headersHelper command, as Claude Code does,
-// and reads the JSON object of headers it prints.
-func runHeadersHelper(helper string) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "sh", "-c", helper).Output()
-	if err != nil {
-		return nil, fmt.Errorf("headersHelper failed: %w", err)
-	}
-	var headers map[string]string
-	if err := json.Unmarshal(out, &headers); err != nil {
-		return nil, errors.New("headersHelper did not print a JSON object of headers")
-	}
-	return headers, nil
 }
 
 func printMCPTools(cmd *cobra.Command, c mcpprobe.Cache) {

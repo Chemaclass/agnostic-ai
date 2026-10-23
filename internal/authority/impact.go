@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -53,12 +54,12 @@ func Impact(cfg *config.Config, b spec.Bundle, opts Options, p Proposal) (*Impac
 	}
 	if p.Revision != "" && p.Revision != res.BaseRevision {
 		res.Problems = append(res.Problems, fmt.Sprintf("The proposal was made against revision %s, but the configuration is now at %s; reload the view and propose again.", p.Revision, res.BaseRevision))
-		return res, nil
+		return redactImpact(res), nil
 	}
 	after, diff, problems := applyProposal(cfg, b, opts, paths, p.Changes)
 	if len(problems) > 0 {
 		res.Problems = problems
-		return res, nil
+		return redactImpact(res), nil
 	}
 	res.Valid = true
 	res.Diff = diff
@@ -95,7 +96,7 @@ func Impact(cfg *config.Config, b spec.Bundle, opts Options, p Proposal) (*Impac
 		}
 	}
 	res.Summary.Changed = len(res.Changes)
-	return res, nil
+	return redactImpact(res), nil
 }
 
 func buildWith(cfg *config.Config, b spec.Bundle, opts Options, extra []spec.Entry) (*View, error) {
@@ -251,10 +252,10 @@ func applyProposal(cfg *config.Config, b spec.Bundle, opts Options, p paths, cha
 	for _, t := range order {
 		before := ""
 		if t.before != nil {
-			before = renderSpecYAML(*t.before)
+			before = shownSpecYAML(*t.before)
 		}
 		e := after.Settings[t.index]
-		diff = append(diff, FileDiff{Path: p.display(e), Before: before, After: renderSpecYAML(e)})
+		diff = append(diff, FileDiff{Path: p.display(e), Before: before, After: shownSpecYAML(e)})
 	}
 	return after, diff, nil
 }
@@ -422,4 +423,29 @@ func proposedCarriers(installed map[string]InstalledState) map[string]InstalledS
 		out[target] = st
 	}
 	return out
+}
+
+func shownSpecYAML(e spec.Entry) string {
+	e = cloneEntry(e)
+	perms, _ := e.Meta["permissions"].(map[string]any)
+	for _, list := range spec.PermissionLists {
+		rules, _ := perms[list].([]any)
+		for i, item := range rules {
+			if rule, ok := item.(string); ok {
+				rules[i] = preview.RedactRule(rule)
+			}
+		}
+	}
+	return preview.Display("settings.yaml", renderSpecYAML(e)).Text
+}
+
+func redactImpact(res *ImpactResult) *ImpactResult {
+	redactDisplay(res)
+	for i, problem := range res.Problems {
+		res.Problems[i] = preview.RedactText(problem)
+	}
+	for i := range res.Changes {
+		res.Changes[i].Reason = preview.RedactText(res.Changes[i].Reason)
+	}
+	return res
 }

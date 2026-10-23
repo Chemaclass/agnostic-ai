@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -48,7 +49,7 @@ type NotFoundError struct {
 }
 
 func (e *NotFoundError) Error() string {
-	return fmt.Sprintf("unknown %s %q; valid %ss: %s", e.Kind, e.ID, e.Kind, strings.Join(e.Valid, ", "))
+	return preview.RedactText(fmt.Sprintf("unknown %s %q; valid %ss: %s", e.Kind, e.ID, e.Kind, strings.Join(e.Valid, ", ")))
 }
 
 // builder resolves one view: one subject on one harness.
@@ -156,7 +157,7 @@ func findSubject(subjects []*subjectInfo, id string) (*subjectInfo, error) {
 	}
 	ids := make([]string, 0, len(subjects))
 	for _, s := range subjects {
-		if s.id() == id {
+		if s.id() == id || s.entry != nil && s.entry.Name == id {
 			return s, nil
 		}
 		ids = append(ids, s.id())
@@ -182,7 +183,8 @@ func parseRules(settings []spec.Entry, p paths, li *lineIndex) []ruleRef {
 				if lines != nil {
 					src.Line = lines[i]
 				}
-				out = append(out, ruleRef{list: list, raw: rule, caps: parseCapability(rule), entry: e, source: src})
+				shown := preview.RedactRule(rule)
+				out = append(out, ruleRef{list: list, raw: rule, shown: shown, redacted: shown != rule, caps: parseCapability(rule), entry: e, source: src})
 			}
 		}
 	}
@@ -274,7 +276,7 @@ func (bd *builder) view() *View {
 	if secrets == nil {
 		secrets = []Secret{}
 	}
-	return &View{
+	v := &View{
 		SchemaVersion:    SchemaVersion,
 		Snapshot:         NewSnapshot(bd.cfg, bd.b, bd.opts),
 		Harness:          bd.harness(),
@@ -289,6 +291,8 @@ func (bd *builder) view() *View {
 		SupportedActions: supportedActions(),
 		Explanations:     explanations(),
 	}
+	redactDisplay(v)
+	return v
 }
 
 // operation resolves one action on one resource for the subject, on

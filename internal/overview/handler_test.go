@@ -13,7 +13,7 @@ import (
 
 func serve(t *testing.T, h http.Handler, method, path, origin string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequest(method, "http://localhost:5173"+path, nil)
 	if origin != "" {
 		req.Header.Set("Origin", origin)
 	}
@@ -63,16 +63,16 @@ func TestNewHandler_ServesTheOverviewWithLocalCORS(t *testing.T) {
 
 func TestNewHandler_GivesOtherOriginsNoCORSHeader(t *testing.T) {
 	h := NewHandler(testInputs)
-	for _, origin := range []string{"http://example.com", "https://localhost:5173", "http://localhost.example.com", "http://127.0.0.2:80", "null", ""} {
+	for _, origin := range []string{"http://example.com", "https://localhost:5173", "http://localhost.example.com", "http://127.0.0.2:80", "null"} {
 		rec := serve(t, h, http.MethodGet, OverviewPath, origin)
-		if rec.Code != http.StatusOK {
+		if rec.Code != http.StatusForbidden {
 			t.Errorf("%q status = %d", origin, rec.Code)
 		}
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
 			t.Errorf("%q allow origin = %q, want none", origin, got)
 		}
 	}
-	if got := serve(t, h, http.MethodGet, OverviewPath, "http://localhost").Header().Get("Access-Control-Allow-Origin"); got != "http://localhost" {
+	if got := serve(t, h, http.MethodGet, OverviewPath, "http://localhost:5173").Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
 		t.Errorf("portless localhost allow origin = %q", got)
 	}
 }
@@ -83,11 +83,11 @@ func TestNewHandler_AnswersPreflightWithoutLoading(t *testing.T) {
 		loads++
 		return testInputs()
 	})
-	rec := serve(t, h, http.MethodOptions, OverviewPath, "http://localhost:3000")
+	rec := serve(t, h, http.MethodOptions, OverviewPath, "http://localhost:5173")
 	if rec.Code != http.StatusNoContent || loads != 0 {
 		t.Errorf("preflight status = %d, loads = %d", rec.Code, loads)
 	}
-	if rec.Header().Get("Access-Control-Allow-Methods") == "" || rec.Header().Get("Access-Control-Allow-Origin") != "http://localhost:3000" {
+	if rec.Header().Get("Access-Control-Allow-Methods") == "" || rec.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
 		t.Errorf("preflight headers = %v", rec.Header())
 	}
 }

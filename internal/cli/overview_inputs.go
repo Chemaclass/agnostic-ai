@@ -21,6 +21,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -64,6 +65,9 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 	out.findings = append(out.findings, drift...)
 	out.compared, out.skipped = compared, skipped
 	out.findings = append(out.findings, overviewDoctorFindings(root, cfg, b)...)
+	for i := range out.findings {
+		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
+	}
 	return out
 }
 
@@ -84,7 +88,7 @@ func overviewScopeLintFindings(scope checkScope, configPath string, display func
 			Source:      overview.SourceLint,
 			Severity:    lintError.String(),
 			Path:        display(configPath),
-			Message:     "Lint stopped before it finished: " + err.Error(),
+			Message:     servedFindingMessage("Lint stopped before it finished: " + err.Error()),
 			Explanation: "The overview shows no lint findings until lint runs to the end.",
 		}}
 	}
@@ -94,7 +98,7 @@ func overviewScopeLintFindings(scope checkScope, configPath string, display func
 			Source:   overview.SourceLint,
 			Code:     f.Code,
 			Severity: f.Severity.String(),
-			Message:  f.Message,
+			Message:  servedFindingMessage(f.Message),
 			Path:     display(f.Path),
 		}
 		if code, ok := lintCodes[f.Code]; ok {
@@ -433,3 +437,5 @@ func newOverviewHandler(root string) http.Handler {
 		return overviewInputs(root)
 	})
 }
+
+func servedFindingMessage(message string) string { return preview.RedactText(message) }

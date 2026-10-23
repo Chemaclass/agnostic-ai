@@ -112,9 +112,9 @@ func TestRedactURL_KeepsReferencesAndHidesWrittenCredentials(t *testing.T) {
 	for in, want := range map[string]string{
 		"https://api.githubcopilot.com/mcp/":         "https://api.githubcopilot.com/mcp/",
 		"https://${HOST}/mcp?key=${KEY}":             "https://${HOST}/mcp?key=${KEY}",
-		"https://u:pw@db.example/x?token=t1&mode=a":  "https://[redacted]@db.example/x?token=[redacted]&mode=[redacted]",
+		"https://u:pw@db.example/x?token=t1&mode=a":  "https://<redacted>@db.example/x?token=<redacted>&mode=<redacted>",
 		"https://${USER}:${PASS}@db.example/x":       "https://${USER}:${PASS}@db.example/x",
-		"https://example.com/mcp#access_token=a.b.c": "https://example.com/mcp#access_token=[redacted]",
+		"https://example.com/mcp#access_token=a.b.c": "https://example.com/mcp#access_token=<redacted>",
 	} {
 		if got := redactURL(in); got != want {
 			t.Errorf("redactURL(%q) = %q, want %q", in, got, want)

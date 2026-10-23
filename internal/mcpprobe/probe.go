@@ -14,10 +14,12 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
-	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // ProtocolVersion is the MCP revision the probe announces.
@@ -30,13 +32,14 @@ const maxPages = 20
 // Server is one MCP server to ask, with every reference already resolved.
 type Server struct {
 	// Type is "stdio" (the default), "http", "sse", or "ws".
-	Type    string
-	Command string
-	Args    []string
-	Env     map[string]string
-	Cwd     string
-	URL     string
-	Headers map[string]string
+	Type            string
+	Command         string
+	Args            []string
+	Env             map[string]string
+	Cwd             string
+	URL             string
+	Headers         map[string]string
+	SensitiveValues []string
 }
 
 // Tool is one tool a server lists.
@@ -50,7 +53,42 @@ type Tool struct {
 var ErrUnsupported = errors.New("transport not supported")
 
 // ListTools asks s for its tools. The context bounds the whole exchange.
-func ListTools(ctx context.Context, s Server, client string) ([]Tool, error) {
+func ListTools(ctx context.Context, s Server, client string) (tools []Tool, err error) {
+	defer func() {
+		values := append([]string(nil), s.SensitiveValues...)
+		for _, fields := range []map[string]string{s.Env, s.Headers} {
+			for key, value := range fields {
+				if !preview.CredentialKey(key) {
+					continue
+				}
+				values = append(values, value)
+				if strings.EqualFold(key, "Authorization") {
+					if _, token, ok := strings.Cut(value, " "); ok {
+						values = append(values, token)
+					}
+				}
+			}
+		}
+		if address, parseErr := url.Parse(s.URL); parseErr == nil {
+			if address.User != nil {
+				password, _ := address.User.Password()
+				values = append(values, address.User.Username(), password)
+			}
+			for key, items := range address.Query() {
+				if preview.CredentialParam(key) {
+					values = append(values, items...)
+				}
+			}
+		}
+		if err != nil {
+			err = &probeError{cause: err, text: preview.RedactText(err.Error(), values...)}
+		}
+		for i := range tools {
+			tools[i].Name = preview.RedactText(tools[i].Name, values...)
+			tools[i].Title = preview.RedactText(tools[i].Title, values...)
+			tools[i].Description = preview.RedactText(tools[i].Description, values...)
+		}
+	}()
 	switch s.Type {
 	case "", "stdio":
 		if s.Command == "" {
@@ -65,6 +103,14 @@ func ListTools(ctx context.Context, s Server, client string) ([]Tool, error) {
 	}
 	return nil, fmt.Errorf("%w: %s", ErrUnsupported, s.Type)
 }
+
+type probeError struct {
+	cause error
+	text  string
+}
+
+func (e *probeError) Error() string { return e.text }
+func (e *probeError) Unwrap() error { return e.cause }
 
 type rpcRequest struct {
 	JSONRPC string `json:"jsonrpc"`
@@ -131,7 +177,7 @@ func handshake(ctx context.Context, x exchange, client string) ([]Tool, error) {
 		}
 		cursor = res.NextCursor
 	}
-	return tools, nil
+	return nil, errors.New("tools/list exceeded the pagination limit")
 }
 
 func resultOf(resp rpcResponse) (json.RawMessage, error) {
@@ -156,7 +202,7 @@ type stdioExchange struct {
 	out *bufio.Scanner
 }
 
-func listStdio(ctx context.Context, s Server, client string) ([]Tool, error) {
+func listStdio(ctx context.Context, s Server, client string) (tools []Tool, err error) {
 	cmd := exec.CommandContext(ctx, s.Command, s.Args...)
 	cmd.Dir = s.Cwd
 	cmd.Env = os.Environ()
@@ -164,23 +210,30 @@ func listStdio(ctx context.Context, s Server, client string) ([]Tool, error) {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 	cmd.Stderr = io.Discard
-	cmd.WaitDelay = 2 * time.Second
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open MCP input pipe: %w", err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, err
+		_ = stdin.Close()
+		return nil, fmt.Errorf("open MCP output pipe: %w", err)
 	}
-	if err := cmd.Start(); err != nil {
+	cleanup, err := startProcess(ctx, cmd)
+	if err != nil {
+		_ = stdin.Close()
+		_ = stdout.Close()
 		return nil, fmt.Errorf("start %s: %w", s.Command, err)
 	}
-	defer func() {
+	stop := context.AfterFunc(ctx, func() {
 		_ = stdin.Close()
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+		_ = stdout.Close()
+	})
+	defer func() {
+		stop()
+		_ = stdin.Close()
+		_ = stdout.Close()
+		err = errors.Join(err, cleanup())
 		_ = cmd.Wait()
 	}()
 	scanner := bufio.NewScanner(stdout)
@@ -198,7 +251,13 @@ func (x *stdioExchange) send(msg rpcRequest) error {
 }
 
 func (x *stdioExchange) call(ctx context.Context, id int, method string, params any) (json.RawMessage, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := x.send(rpcRequest{JSONRPC: "2.0", ID: id, Method: method, Params: params}); err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, err
 	}
 	// Lines that are not the reply, such as log notifications or a
@@ -219,7 +278,10 @@ func (x *stdioExchange) call(ctx context.Context, id int, method string, params 
 	return nil, errors.New("the server closed its output before replying")
 }
 
-func (x *stdioExchange) notify(_ context.Context, method string) error {
+func (x *stdioExchange) notify(ctx context.Context, method string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return x.send(rpcRequest{JSONRPC: "2.0", Method: method})
 }
 

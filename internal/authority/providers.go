@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -186,7 +187,7 @@ func transport(e spec.Entry) *Transport {
 	if u, ok := e.Meta["url"].(string); ok && u != "" {
 		t.Endpoint = redactURL(u)
 	} else if c, ok := e.Meta["command"].(string); ok {
-		t.Endpoint = c
+		t.Endpoint = preview.RedactText(c)
 	}
 	return t
 }
@@ -194,60 +195,4 @@ func transport(e spec.Entry) *Transport {
 // redactURL keeps a URL's scheme, host, and path, and replaces any user
 // information or query and fragment value that is not only `${NAME}`
 // references, since such text may be a credential.
-func redactURL(raw string) string {
-	const redacted = "[redacted]"
-	rest, fragment, hasFragment := strings.Cut(raw, "#")
-	rest, query, hasQuery := strings.Cut(rest, "?")
-	if scheme, after, ok := strings.Cut(rest, "://"); ok {
-		authority, path := after, ""
-		if i := strings.Index(after, "/"); i >= 0 {
-			authority, path = after[:i], after[i:]
-		}
-		if at := strings.LastIndex(authority, "@"); at >= 0 && !onlyRefs(authority[:at]) {
-			authority = redacted + authority[at:]
-		}
-		rest = scheme + "://" + authority + path
-	}
-	out := rest
-	if hasQuery {
-		out += "?" + redactPairs(query, "&")
-	}
-	if hasFragment {
-		out += "#" + redactPairs(fragment, "&")
-	}
-	return out
-}
-
-func redactPairs(text, sep string) string {
-	parts := strings.Split(text, sep)
-	for i, part := range parts {
-		key, value, ok := strings.Cut(part, "=")
-		if !ok {
-			if part != "" && !onlyRefs(part) {
-				parts[i] = "[redacted]"
-			}
-			continue
-		}
-		if value != "" && !onlyRefs(value) {
-			parts[i] = key + "=[redacted]"
-		}
-	}
-	return strings.Join(parts, sep)
-}
-
-// onlyRefs reports whether text is `${NAME}` references and nothing
-// else, apart from the colon between a user and a password.
-func onlyRefs(text string) bool {
-	tokens := spec.EnvRefTokens(text)
-	if len(tokens) == 0 {
-		return false
-	}
-	rest := text
-	for _, t := range tokens {
-		if !t.Known() {
-			return false
-		}
-		rest = strings.Replace(rest, t.Text, "", 1)
-	}
-	return strings.Trim(rest, ": ") == ""
-}
+func redactURL(raw string) string { return preview.RedactURL(raw) }

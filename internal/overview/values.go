@@ -109,7 +109,7 @@ func safeValue(key, value string) string {
 	if preview.CredentialKey(last) || secretShape.MatchString(value) {
 		return redacted
 	}
-	return value
+	return preview.RedactText(value)
 }
 
 // configValues are the keys the loaded configuration sets.

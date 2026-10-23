@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,11 +21,85 @@ import (
 // server: it answers initialize and two pages of tools/list, with a log
 // notification and a stray line in between.
 func TestMain(m *testing.M) {
+	if os.Getenv("MCPPROBE_FAKE_SERVER") == "hold-output" {
+		time.Sleep(5 * time.Second)
+		return
+	}
+	if os.Getenv("MCPPROBE_FAKE_SERVER") == "descendant" {
+		child := exec.Command(os.Args[0])
+		child.Env = append(os.Environ(), "MCPPROBE_FAKE_SERVER=hold-output")
+		child.Stdout = os.Stdout
+		if child.Start() != nil {
+			os.Exit(2)
+		}
+		if path := os.Getenv("MCPPROBE_CHILD_PID"); path != "" {
+			if os.WriteFile(path, []byte(strconv.Itoa(child.Process.Pid)), 0o600) != nil {
+				_ = child.Process.Kill()
+				os.Exit(2)
+			}
+		}
+		_ = child.Wait()
+		return
+	}
 	if os.Getenv("MCPPROBE_FAKE_SERVER") == "1" {
 		fakeStdioServer()
 		return
 	}
 	os.Exit(m.Run())
+}
+
+func TestListTools_StdioCancellationClosesDescendantHeldOutput(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pidFile := filepath.Join(t.TempDir(), "child.pid")
+	done := make(chan error, 1)
+	go func() {
+		_, err := ListTools(c, Server{Command: exe, Env: map[string]string{"MCPPROBE_FAKE_SERVER": "descendant", "MCPPROBE_CHILD_PID": pidFile}}, "test")
+		done <- err
+	}()
+	var pid int
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if data, err := os.ReadFile(pidFile); err == nil {
+			pid, _ = strconv.Atoi(string(data))
+			if pid != 0 {
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if pid == 0 {
+		t.Fatal("fake server did not record its child PID")
+	}
+	child, err := os.FindProcess(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = child.Kill(); _ = child.Release() }()
+	start := time.Now()
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("error = %v, want context canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("canceled listing did not return")
+	}
+	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
+		t.Errorf("cancellation took %s with a descendant holding stdout", elapsed)
+	}
+	deadline = time.Now().Add(time.Second)
+	for processRunning(t, pid) && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if processRunning(t, pid) {
+		t.Errorf("owned descendant %d is still running after cancellation", pid)
+	}
 }
 
 func fakeStdioServer() {

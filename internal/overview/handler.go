@@ -3,8 +3,9 @@ package overview
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
-	"strconv"
+
+	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // OverviewPath is the path NewHandler serves.
@@ -12,11 +13,9 @@ const OverviewPath = "/api/views/overview"
 
 // NewHandler serves the overview at OverviewPath as JSON. It calls load on every request, so each response
 // reflects the project as it is now. A failure answers with a JSON
-// object holding "error". Pages served from http://localhost or
-// http://127.0.0.1, on any port, may read the responses.
+// object holding "error". Requests share the local API origin boundary.
 func NewHandler(load func() (Inputs, error)) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		allowLocalOrigin(w.Header(), r.Header.Get("Origin"))
+	return authority.CORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != OverviewPath {
 			writeJSON(w, http.StatusNotFound, errorBody{Error: "no view at " + r.URL.Path})
 			return
@@ -35,11 +34,11 @@ func NewHandler(load func() (Inputs, error)) http.Handler {
 		}
 		in, err := load()
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorBody{Error: err.Error()})
+			writeJSON(w, http.StatusInternalServerError, errorBody{Error: preview.RedactText(err.Error())})
 			return
 		}
 		writeJSON(w, http.StatusOK, Build(in))
-	})
+	}))
 }
 
 type errorBody struct {
@@ -56,31 +55,4 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_, _ = w.Write(append(data, '\n'))
-}
-
-// allowLocalOrigin lets a page from a local origin read the response.
-// Any other origin gets no CORS header, so a browser keeps its pages
-// from reading the views.
-func allowLocalOrigin(h http.Header, origin string) {
-	h.Add("Vary", "Origin")
-	if localOrigin(origin) {
-		h.Set("Access-Control-Allow-Origin", origin)
-	}
-}
-
-// localOrigin reports whether origin is http://localhost or
-// http://127.0.0.1, with or without a port.
-func localOrigin(origin string) bool {
-	u, err := url.Parse(origin)
-	if err != nil || u.Scheme != "http" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
-		return false
-	}
-	if host := u.Hostname(); host != "localhost" && host != "127.0.0.1" {
-		return false
-	}
-	if port := u.Port(); port != "" {
-		n, err := strconv.Atoi(port)
-		return err == nil && n > 0 && n <= 65535
-	}
-	return u.Host == u.Hostname()
 }

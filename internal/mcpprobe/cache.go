@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // CacheVersion is the shape of the cache file.
-const CacheVersion = 1
+const CacheVersion = 2
 
 // Cache is what the last `agnostic-ai mcp tools` run found, per server,
 // for one configuration root. The overview reads it and never connects.
@@ -37,7 +39,11 @@ type ServerResult struct {
 func CachePath(root string) (string, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve MCP cache root %s: %w", root, err)
+	}
+	abs, err = config.ResolveSourceAlias(abs)
+	if err != nil {
+		return "", fmt.Errorf("resolve MCP cache root %s: %w", root, err)
 	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
@@ -74,17 +80,28 @@ func SaveCache(root string, c Cache) error {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return fmt.Errorf("%s: %w", filepath.Dir(path), err)
 	}
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("encode MCP tools cache: %w", err)
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
-		return err
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".mcp-tools-*")
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
 	}
-	return os.Rename(tmp, path)
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	if _, err := tmp.Write(append(data, '\n')); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
 }
 
 // SpecFingerprint names a server spec's fields, so a change to any of

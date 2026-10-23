@@ -97,8 +97,8 @@ func TestEditHandler_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
 	if strings.Contains(string(data), "memory") {
 		t.Errorf("a refused request edited the config:\n%s", data)
 	}
-	if rec := postEdit(t, h, editBuiltinPath, body, func(r *http.Request) { r.Header.Set("Origin", "http://localhost:5173") }); rec.Code != http.StatusOK {
-		t.Errorf("a local dev page = %d, want 200", rec.Code)
+	if rec := postEdit(t, h, editBuiltinPath, body, func(r *http.Request) { r.Header.Set("Origin", "http://127.0.0.1:4310") }); rec.Code != http.StatusOK {
+		t.Errorf("a same-origin page = %d, want 200", rec.Code)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -45,6 +46,9 @@ type shellPattern struct {
 	// whole command when exact.
 	prefix string
 	exact  bool
+	// redacted marks a pattern that holds a credential, so the view
+	// never shows its text.
+	redacted bool
 }
 
 // parseCapability reads one rule or tool-list entry. An entry that does
@@ -107,13 +111,14 @@ func parseNeutral(c string) capability {
 // exact command.
 func parseShellPattern(text string) shellPattern {
 	p := strings.TrimSpace(text)
+	redacted := preview.CredentialInRule(capShell + "(" + text + ")")
 	if rest, ok := strings.CutSuffix(p, ":*"); ok && !strings.Contains(rest, "*") {
-		return shellPattern{text: text, prefix: strings.TrimSpace(rest)}
+		return shellPattern{text: text, prefix: strings.TrimSpace(rest), redacted: redacted}
 	}
 	if rest, ok := strings.CutSuffix(p, "*"); ok && !strings.Contains(rest, "*") {
-		return shellPattern{text: text, prefix: strings.TrimSpace(rest)}
+		return shellPattern{text: text, prefix: strings.TrimSpace(rest), redacted: redacted}
 	}
-	return shellPattern{text: text, prefix: p, exact: true}
+	return shellPattern{text: text, prefix: p, exact: true, redacted: redacted}
 }
 
 // normalizePattern drops a leading `./` or a single leading `/`, which

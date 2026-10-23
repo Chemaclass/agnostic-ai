@@ -7,19 +7,20 @@ import (
 	"fmt"
 	"io"
 	"mime"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // Edit endpoints serve mounts. They are the only API calls that write.
@@ -33,8 +34,11 @@ const (
 // file when the edit introduced a problem. root is the project root, or
 // the global source root with global set.
 type editHandler struct {
-	root   string
-	global bool
+	root      string
+	global    bool
+	mu        sync.Mutex
+	validate  func() ([]string, error)
+	baselines map[string]editBaseline
 }
 
 func newEditHandler(root string, global bool) http.Handler {
@@ -44,6 +48,16 @@ func newEditHandler(root string, global bool) http.Handler {
 type editError struct {
 	Error    string   `json:"error"`
 	Problems []string `json:"problems,omitempty"`
+}
+
+func (e editError) MarshalJSON() ([]byte, error) {
+	type response editError
+	e.Error = preview.RedactText(e.Error)
+	e.Problems = slices.Clone(e.Problems)
+	for i, problem := range e.Problems {
+		e.Problems[i] = preview.RedactText(problem)
+	}
+	return json.Marshal(response(e))
 }
 
 func writeEditJSON(w http.ResponseWriter, status int, v any) {
@@ -69,30 +83,33 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case editBuiltinPath:
 		var req struct {
 			Name    string `json:"name"`
-			Enabled bool   `json:"enabled"`
+			Enabled *bool  `json:"enabled"`
 		}
 		if err := json.Unmarshal(body, &req); err != nil || !slices.Contains(builtins.Names(), req.Name) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("name must be one of %s", strings.Join(builtins.Names(), ", "))})
 			return
 		}
+		if req.Enabled == nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
+			return
+		}
 		file = h.builtinsFile()
-		edit = func(data []byte) ([]byte, error) { return setBuiltin(data, req.Name, req.Enabled) }
+		edit = func(data []byte) ([]byte, error) { return setBuiltin(data, req.Name, *req.Enabled) }
 	case editValuePath:
 		var req struct {
 			Path  string `json:"path"`
 			Key   string `json:"key"`
-			Value bool   `json:"value"`
+			Value *bool  `json:"value"`
 		}
-		if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path and key are required"})
+		if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" || req.Value == nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean value are required"})
 			return
 		}
-		file, err = h.settingsFile(req.Path)
+		file, edit, err = h.settingsEdit(req.Path, req.Key, *req.Value)
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}
-		edit = func(data []byte) ([]byte, error) { return setBool(data, req.Key, req.Value) }
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
@@ -104,10 +121,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeEditJSON(w, http.StatusOK, map[string]any{"ok": true, "file": overviewDisplay(h.root, file)})
 }
 
-// editRequestGuard refuses any request a page on another site could send: it
-// must be a POST with a JSON body, to a loopback Host, from a local
-// Origin when one is given. A JSON body needs a CORS preflight, which
-// serve answers only for local origins.
+// Origin checks also honor origins explicitly allowed by the outer server.
 func editRequestGuard(r *http.Request) (int, string) {
 	if r.Method != http.MethodPost {
 		return http.StatusMethodNotAllowed, "use POST"
@@ -115,18 +129,11 @@ func editRequestGuard(r *http.Request) (int, string) {
 	if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mediaType != "application/json" {
 		return http.StatusUnsupportedMediaType, "send Content-Type: application/json"
 	}
-	host := r.Host
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
-	}
-	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
-		return http.StatusMisdirectedRequest, "edits are served on loopback only"
-	}
-	if origin := r.Header.Get("Origin"); origin != "" {
-		u, err := url.Parse(origin)
-		if err != nil || u.Scheme != "http" || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
-			return http.StatusForbidden, "edits are accepted from local pages only"
+	if !authority.RequestAllowed(r) {
+		if r.Header.Get("Origin") == "" && r.Header.Get("Sec-Fetch-Site") != "cross-site" {
+			return http.StatusMisdirectedRequest, "edits are served on loopback only"
 		}
+		return http.StatusForbidden, "edits are accepted from the server origin only"
 	}
 	return 0, ""
 }
@@ -151,65 +158,37 @@ func (h *editHandler) builtinsFile() string {
 	return shared
 }
 
-// settingsFile resolves a settings spec path the overview showed to the
-// file on disk, refusing anything that is not a loaded settings spec.
-func (h *editHandler) settingsFile(shown string) (string, error) {
+// Only a boolean present in the loaded settings can gain a local override.
+func (h *editHandler) settingsEdit(shown, key string, value bool) (string, func([]byte) ([]byte, error), error) {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	for _, e := range scope.bundle.Settings {
-		if overview.SpecPath(h.root, e) == shown && e.Layer != "builtin" {
-			return e.Path, nil
+		if overview.SpecPath(h.root, e) != shown || e.Layer == "builtin" {
+			continue
 		}
-	}
-	return "", fmt.Errorf("%s is not a settings spec of this configuration", shown)
-}
-
-// applyValidated edits file, then validates the configuration. When the
-// edit fails to load, or adds a validation problem, the original bytes go
-// back and the problems are returned.
-func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, error)) ([]string, error) {
-	before, beforeErr := h.validationProblems()
-	original, err := os.ReadFile(file)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	existed := err == nil
-	edited, err := edit(original)
-	if err != nil {
-		return nil, err
-	}
-	mode := os.FileMode(0o644)
-	if info, err := os.Stat(file); err == nil {
-		mode = info.Mode().Perm()
-	}
-	if err := writeFileAtomic(file, edited, mode); err != nil {
-		return nil, err
-	}
-	after, afterErr := h.validationProblems()
-	var added []string
-	if afterErr != nil && beforeErr == nil {
-		added = append(added, afterErr.Error())
-	}
-	for _, p := range after {
-		if !slices.Contains(before, p) {
-			added = append(added, p)
+		var current any = e.Meta
+		for _, part := range strings.Split(key, ".") {
+			m, ok := current.(map[string]any)
+			if !ok {
+				return "", nil, fmt.Errorf("%s is not a boolean", key)
+			}
+			current = m[part]
 		}
+		if _, ok := current.(bool); !ok {
+			return "", nil, fmt.Errorf("%s is not a boolean", key)
+		}
+		return e.Path, func(data []byte) ([]byte, error) { return setBoolOverride(data, key, value) }, nil
 	}
-	if len(added) == 0 {
-		return nil, nil
-	}
-	if existed {
-		_ = writeFileAtomic(file, original, mode)
-	} else {
-		_ = os.Remove(file)
-	}
-	return added, errors.New("the edit did not validate, so the file was restored")
+	return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
 }
 
 // validationProblems runs what validate runs and names each issue.
 func (h *editHandler) validationProblems() ([]string, error) {
+	if h.validate != nil {
+		return h.validate()
+	}
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
 		return nil, err
@@ -226,17 +205,6 @@ func overviewDisplay(root, path string) string {
 		return filepath.ToSlash(rel)
 	}
 	return filepath.ToSlash(path)
-}
-
-func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp := path + ".agnostic-ai-edit"
-	if err := os.WriteFile(tmp, data, mode); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
 }
 
 // yamlDocument parses data into a document whose root is a mapping; an
@@ -286,62 +254,4 @@ func yamlHasKey(data []byte, key string) bool {
 	}
 	_, v := yamlMapValue(m, key)
 	return v != nil
-}
-
-// setBuiltin adds name to, or removes it from, the builtins list,
-// keeping every other key and comment. An emptied list is removed.
-func setBuiltin(data []byte, name string, enabled bool) ([]byte, error) {
-	doc, m, err := yamlDocument(data)
-	if err != nil {
-		return nil, err
-	}
-	at, list := yamlMapValue(m, "builtins")
-	if list != nil && list.Kind != yaml.SequenceNode {
-		return nil, errors.New("builtins is not a list")
-	}
-	has := func() int {
-		if list == nil {
-			return -1
-		}
-		return slices.IndexFunc(list.Content, func(n *yaml.Node) bool { return n.Value == name })
-	}
-	switch {
-	case enabled && has() < 0:
-		if list == nil {
-			list = &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-			m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "builtins"}, list)
-		}
-		list.Content = append(list.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: name})
-	case !enabled && has() >= 0:
-		list.Content = slices.Delete(list.Content, has(), has()+1)
-		if len(list.Content) == 0 {
-			m.Content = slices.Delete(m.Content, at, at+2)
-		}
-	default:
-		return data, nil
-	}
-	return encodeYAML(doc)
-}
-
-// setBool sets the boolean at a dotted key, which must exist and hold a
-// boolean, keeping every other key and comment.
-func setBool(data []byte, key string, value bool) ([]byte, error) {
-	doc, node, err := yamlDocument(data)
-	if err != nil {
-		return nil, err
-	}
-	for _, part := range strings.Split(key, ".") {
-		if node.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf("%s is not a field of the file", key)
-		}
-		_, node = yamlMapValue(node, part)
-		if node == nil {
-			return nil, fmt.Errorf("%s is not a field of the file", key)
-		}
-	}
-	if node.Kind != yaml.ScalarNode || node.ShortTag() != "!!bool" {
-		return nil, fmt.Errorf("%s is not a boolean", key)
-	}
-	node.Value = fmt.Sprint(value)
-	return encodeYAML(doc)
 }

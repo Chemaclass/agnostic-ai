@@ -182,7 +182,7 @@ func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) 
 	h := newOverviewHandler(".")
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, overview.OverviewPath, nil))
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+overview.OverviewPath, nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
 	}

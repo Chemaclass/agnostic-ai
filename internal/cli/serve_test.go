@@ -17,7 +17,7 @@ func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}))
+	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, AllowedOrigins: []string{"http://localhost:5173"}}))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/api/health")

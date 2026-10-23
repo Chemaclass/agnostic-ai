@@ -3,6 +3,8 @@ package authority
 import (
 	"slices"
 	"strconv"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 // resourceKind is the provider family a resource belongs to.
@@ -150,12 +152,21 @@ func shellResources(d discovery, ids map[string]bool, domains []string) []*resou
 			Basis:         "rule-pattern",
 			LabelResolved: true,
 		}
-		if p.exact {
+		switch {
+		case p.redacted:
+			r.res.ID = "shell-redacted_" + opaqueID(strconv.FormatBool(p.exact)+"\x00"+p.prefix)
+			r.res.Label = preview.Redacted
+			if !p.exact {
+				r.res.Label += " …"
+			}
+			r.res.Description = "A command rule that holds a credential; the command is not shown."
+			r.res.Identity = Identity{Pattern: preview.Redacted}
+		case p.exact:
 			r.res.ID = uniqueID(ids, "shell-"+slug(p.prefix)+"-exact")
 			r.res.Label = p.prefix
 			r.res.Description = "Exactly this command."
 			r.res.Identity = Identity{Pattern: p.prefix}
-		} else {
+		default:
 			r.res.ID = uniqueID(ids, "shell-"+slug(p.prefix))
 			r.res.Label = p.prefix + " …"
 			r.res.Description = "Commands that start with \"" + p.prefix + "\"."
@@ -265,11 +276,20 @@ func mcpActions(m *mcpInfo, d discovery) []actionInfo {
 
 // operationID names an operation on a resource.
 func operationID(resourceID, action string) string {
-	return resourceID + ":" + action
+	return resourceID + ":" + displayID(action)
 }
 
-// capabilityName spells the capability an operation needs, for notes
-// and agent-scope translation.
+// shownCapability is capabilityName as the view shows it: a command
+// pattern that holds a credential reads as shell(<redacted>).
+func shownCapability(r *resourceInfo, action string) string {
+	if r.kind == kindShell && r.shell != nil && r.shell.redacted {
+		return capShell + "(" + preview.Redacted + ")"
+	}
+	return capabilityName(r, action)
+}
+
+// capabilityName spells the capability an operation needs, for
+// agent-scope translation.
 func capabilityName(r *resourceInfo, action string) string {
 	switch r.kind {
 	case kindFiles:

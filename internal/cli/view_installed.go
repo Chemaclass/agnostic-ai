@@ -26,14 +26,14 @@ var installedMu sync.Mutex
 // not-generated, and anything else is in-sync. root is the project root;
 // the bundle's paths must read from it as sync reads them.
 func installedState(target string, cfg *config.Config, b spec.Bundle, root string) (authority.InstalledState, error) {
-	adapter, err := adapters.Resolve(target)
-	if err != nil {
-		return authority.InstalledState{}, err
+	adapter, ok := adapters.Get(target)
+	if !ok {
+		return authority.InstalledState{}, fmt.Errorf("installed state for %s: only built-in adapters can be compared", target)
 	}
 	installedMu.Lock()
 	defer installedMu.Unlock()
 	var state authority.InstalledState
-	err = inDir(root, func() error {
+	err := inDir(root, func() error {
 		adapters.SetWarner(io.Discard)
 		defer adapters.SetWarner(os.Stderr)
 		defer adapters.SkipNotes()()

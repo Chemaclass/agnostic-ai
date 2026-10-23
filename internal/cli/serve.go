@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -32,6 +34,7 @@ func newServeCmd() *cobra.Command {
 	var (
 		addr, dir, uiDir          string
 		open, global, noInstalled bool
+		allowedOrigins            []string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -51,6 +54,16 @@ func newServeCmd() *cobra.Command {
   agnostic-ai serve --global`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateServeAddr(addr); err != nil {
+				return err
+			}
+			for i, origin := range allowedOrigins {
+				parsed, err := authority.ParseOrigin(origin)
+				if err != nil {
+					return fmt.Errorf("--allow-origin: %w", err)
+				}
+				allowedOrigins[i] = parsed
+			}
 			if global && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
 			}
@@ -69,7 +82,7 @@ func newServeCmd() *cobra.Command {
 				return err
 			}
 			defer src.close()
-			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global}
+			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, AllowedOrigins: allowedOrigins}
 			if !global && !noInstalled {
 				opts.Installed = func(target string, cfg *config.Config, b spec.Bundle) (authority.InstalledState, error) {
 					return installedState(target, cfg, b, src.root)
@@ -95,6 +108,7 @@ func newServeCmd() *cobra.Command {
 			return serveUntilInterrupted(cmd.Context(), ln, newServeMux(src.load, opts))
 		},
 	}
+	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
 	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Address to listen on.")
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
 	cmd.Flags().StringVar(&uiDir, "ui", "", "Directory of the built client to serve, such as ui/dist.")
@@ -125,7 +139,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 	}
 	mux.Handle(editBuiltinPath, edits)
 	mux.Handle(editValuePath, edits)
-	return authority.CORS(serializeAPI(mux))
+	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
 }
 
 // serializeAPI runs one API request at a time. Rendering adapters in
@@ -150,7 +164,7 @@ func serveUntilInterrupted(ctx context.Context, ln net.Listener, handler http.Ha
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(ln) }()
 	select {
@@ -181,4 +195,32 @@ func openBrowser(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
+}
+
+func validateServeAddr(addr string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("listen address %s: %w", addr, err)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsLoopback() {
+		return fmt.Errorf("listen address %s must use an explicit loopback IP", addr)
+	}
+	return nil
+}
+
+// Read bodies before serializing work that touches process-wide adapter state.
+func bufferAPIBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.Body != nil && r.Body != http.NoBody {
+			data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+			if err != nil {
+				http.Error(w, "request body is invalid or exceeds the limit", http.StatusBadRequest)
+				return
+			}
+			_ = r.Body.Close()
+			r.Body = io.NopCloser(bytes.NewReader(data))
+		}
+		next.ServeHTTP(w, r)
+	})
 }
