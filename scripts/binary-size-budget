@@ -370,4 +370,8 @@
 # (20471968): Pi native project output, import, global sync and ordered
 # MCP exposure ownership. Same Linux amd64 release flags, no added
 # headroom or dependencies.
-20537504
+# #2421 measured 20680864 on Go 1.27.3, up 143360 from main 865d4027
+# (20537504): CodeBuddy native outputs, import, scoped instruction policy,
+# global configuration and credential checks. Same Linux amd64 release
+# flags, no added headroom or dependencies.
+20680864
