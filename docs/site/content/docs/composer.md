@@ -12,7 +12,7 @@ group = "Workflows"
 
 [Composer](https://getcomposer.dev/) runs coding sessions through Claude Code or Codex. Select both providers in agnostic-ai to share project instructions, a standing rule, and a reusable skill. Composer passes the project directory to the selected provider, which loads its native files.
 
-This guide follows [Composer CLI 0.1.12 source](https://github.com/atemaguer/composer/tree/cli-v0.1.12), not unreleased main. Release downloads were unavailable during verification, so the commands below need checking with your installed build; an authenticated Composer session was not tested. Provider versions are installed separately and affect loading and feature support.
+Verified against [Composer CLI 0.1.12 source](https://github.com/atemaguer/composer/tree/cli-v0.1.12). Release downloads were unavailable, so packaged runtime behavior and authenticated sessions were not tested.
 
 ## Prepare the project
 
@@ -81,11 +81,16 @@ For more fields, use the [rules](@/docs/spec-format/rules.md) and [skills](@/doc
 ```bash
 agnostic-ai lint
 agnostic-ai sync --plan
+```
+
+Review the plan, then generate and check:
+
+```bash
 agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-Review the plan before writing. Inspect the outputs for the note, rule, and skill:
+Inspect the outputs for the note, rule, and skill:
 
 | Provider | Files to inspect |
 |---|---|
@@ -110,5 +115,3 @@ Check for a `fix:` or `docs:` subject, the skill's three steps, and the inspecte
 Composer's [run command](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/apps/cli/src/index.ts#L552) defaults to Full access in 0.1.12. Its runtime permission mode can override provider configuration. Keep `--permission-mode default` for these checks. A noninteractive run stops if approval is required; use `composer tui` and review the provider and permission mode there to answer approvals.
 
 Composer's [skill catalog](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/packages/composer-runtime/src/capabilities.ts#L24) scans global provider skill folders and the Codex plugin cache, not project skill folders. [Selecting a skill in the TUI](https://github.com/atemaguer/composer/blob/c4f04d94839a666f21548616b220fa8eb17a503f/apps/cli/src/tui/components/dialogs/DialogActions.tsx#L87) displays a notice rather than invoking it. Ask the active provider to use the generated project skill, as above.
-
-For directory-specific instructions, check each provider's discovery rules: [Claude Code](@/docs/targets/claude.md#loading-and-limits) and [Codex](@/docs/targets/codex.md#loading-and-limits). Codex needs a new session started inside the relevant subtree to load its nested `AGENTS.md`.
