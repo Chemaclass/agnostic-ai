@@ -70,8 +70,9 @@ var junieAgentsDirs = []string{".junie/agents", ".agents"}
 //   - `.junie/commands/<name>.md` files reconstruct command specs
 //     natively (#605).
 //   - a hand-authored `.aiignore` reconstructs an ignore spec (#754).
+//   - `.junie/mcp/mcp.json` reconstructs MCP servers, including timeout in milliseconds.
 func importFromJunie(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings); err != nil {
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Settings, src.MCPs); err != nil {
 		return err
 	}
 	c, err := importJunieRulesAndAgents(root, src)
@@ -98,7 +99,11 @@ func importFromJunie(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d ignores, %d settings (from junie)\n", c.rules, c.agents, c.skills, commands, ignores, settings)
+	mcps, err := importJSONMCPMap("junie", filepath.Join(root, ".junie/mcp/mcp.json"), "mcpServers", importSourcePath(root, src.MCPs))
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d ignores, %d settings, %d MCP servers (from junie)\n", c.rules, c.agents, c.skills, commands, ignores, settings, mcps)
 	printImportNextSteps(root, "junie")
 	return nil
 }

@@ -126,6 +126,8 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "session-start",
 			Meta: map[string]any{"event": "SessionStart", "command": "echo session"},
 		},
+		{Kind: spec.KindHook, Name: "before-model", Meta: map[string]any{"event": "PreModelRequest", "command": "echo before"}},
+		{Kind: spec.KindHook, Name: "after-model", Meta: map[string]any{"event": "PostModelRequest", "command": "echo after"}},
 		{
 			Kind: spec.KindHook, Name: "scan-patch",
 			Meta: map[string]any{

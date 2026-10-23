@@ -16,7 +16,7 @@ func TestFindClaudeSyntax_ReportsEachShapeWithItsBodyLine(t *testing.T) {
 		{Syntax: ClaudeShell, Line: 4},
 		{Syntax: ClaudeArguments, Line: 6},
 		{Syntax: ClaudePositional, Line: 7},
-		{Syntax: ClaudeShell, Line: 9},
+		{Syntax: ClaudeShell, Line: 9, ShellBlock: true},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v\nwant %+v", got, want)

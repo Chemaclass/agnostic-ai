@@ -109,13 +109,13 @@ Claude Code replaces some syntax in a skill body before the model reads it ([ski
 - `$ARGUMENTS` becomes the text typed after the skill name.
 - `$0`, `$1`, ... and `$ARGUMENTS[N]` become one argument each.
 
-No other tool documents this syntax for skills, so each one reads it as plain text. Sync copies the body as written. It prints one note per tool and syntax, naming each line:
+Other targets do not expand this syntax in project skills. Kilo also supports inline shell placeholders in trusted user skills; see [Kilo shell commands](@/docs/targets/kilo.md#shell-commands-in-global-skills). Sync copies the body as written. It prints one note per tool and syntax, naming each line:
 
 ```
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` prints the same notes for the skills it writes to user-level directories. It reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` checks the user-level destination. Kilo inline shell placeholders in documented trusted user directories pass this check; argument placeholders and Claude dynamic code blocks still raise notes. It reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
 
 Put the Claude line in a fence and give other tools their own text:
 

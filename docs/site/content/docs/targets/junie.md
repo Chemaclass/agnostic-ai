@@ -88,7 +88,7 @@ Bundled files are copied as they are, and a flat file never loads as a skill. Ju
 
 ### MCP
 
-`.junie/mcp/mcp.json` in the standard `mcpServers` schema (`command`/`args`/`env` local, `url`/`headers` remote). Those are the only [documented keys](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html), so `disabled` and `description` are dropped with a sync note. Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+`.junie/mcp/mcp.json` in the standard `mcpServers` schema (`command`/`args`/`env` local, `url`/`headers` remote). The per-server `timeout` is also preserved in milliseconds for local and remote servers. `x-junie.timeout` overrides the portable value. Junie defaults to 60000 ms and documents a range of 1000 through 3600000 ms ([request timeout](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html#request-timeout)). `disabled` and `description` are dropped with a sync note. Junie enables imported servers by default. Disable one with `/mcp`, then **→ Disable**. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 ### Settings
 
@@ -142,6 +142,7 @@ Older versions wrote rules and agents to `.junie/rules/`, which `.junie/AGENTS.m
 - Commands from `.junie/commands/<name>.md`.
 - Skills, with bundled files, from `.junie/skills/<name>/SKILL.md`, then `.agents/skills/` for names not already found.
 - The default `model` in `.junie/config.json`, restored to `settings/junie.yaml`.
+- MCP servers from `.junie/mcp/mcp.json`, including request timeouts.
 
 Older layouts still import:
 

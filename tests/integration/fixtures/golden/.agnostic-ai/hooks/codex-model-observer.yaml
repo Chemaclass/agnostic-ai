@@ -1,0 +1,4 @@
+name: codex-model-observer
+targets: [codex]
+event: PreModelRequest
+command: echo observe
