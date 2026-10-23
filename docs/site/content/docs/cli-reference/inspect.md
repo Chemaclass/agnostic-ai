@@ -314,7 +314,7 @@ agnostic-ai view overview --json
 
 ## serve
 
-Host the views as a local JSON API, and the built web client when `--ui` names its directory. The project loads on every request, so an edited spec shows on the next refresh. The API proposes changes and reports their impact, but never writes.
+Host the views as a local JSON API, and the built web client when `--ui` names its directory. The project loads on every request, so an edited spec shows on the next refresh. The overview's switches are its only writes: a built-in in the config file, or a boolean in a settings spec. Each edit keeps comments, is validated as `validate` does, and is undone when it adds a problem. A write must be a JSON `POST` to a loopback host from a local page, so another website cannot send one. Generated files are not synced.
 
 ```bash
 agnostic-ai serve --ui ui/dist --open
@@ -330,7 +330,7 @@ agnostic-ai serve --global
 | `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, and `GET /api/health`.
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health`.
 
 ## mcp tools
 

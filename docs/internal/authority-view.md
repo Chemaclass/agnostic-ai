@@ -89,6 +89,10 @@ Read-only check results are shown on what they concern, never as a separate list
 | GET | `/api/views/authority/schema` | the schema version and endpoint list |
 | GET | `/api/views/overview` | `overview.View` |
 | GET | `/api/health` | `{ok, revision}` |
+| POST | `/api/edit/builtin` | switches a built-in in the config file in effect; `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
+| POST | `/api/edit/value` | sets a boolean at a dotted key in a settings spec; same replies |
+
+The two edit endpoints are the server's only writes. They keep the file's comments, run the checks `validate` runs before and after, restore the original bytes when the edit adds a problem or stops the configuration loading, and refuse anything but a JSON `POST` to a loopback host from a local origin.
 
 `serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration from any directory. Its overview runs `lint --global` and compares the files `sync --global` would write with disk, as `sync --global --check` does; the doctor checks read a project and are skipped, and the evidence note says so.
 

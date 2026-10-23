@@ -38,7 +38,9 @@ func newServeCmd() *cobra.Command {
 		Short: "Serve the Authority view and its JSON API on a local port.",
 		Long: "Serves the Authority view API under /api, and the built client from --ui when " +
 			"given. Specs load on every request, so an edited spec shows on the next refresh. " +
-			"Read-only: the API proposes changes but never writes them. Stops on Ctrl-C.",
+			"The only writes are the overview's toggles: a built-in in the config file, or a " +
+			"boolean in a settings spec, each validated afterwards and undone when it adds a " +
+			"problem. Generated files are not synced. Stops on Ctrl-C.",
 		Example: `  # API only, on the default port
   agnostic-ai serve
 
@@ -117,6 +119,12 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 		views = newGlobalOverviewHandler()
 	}
 	mux.Handle(overview.OverviewPath, views)
+	edits := newEditHandler(".", false)
+	if opts.Global {
+		edits = newEditHandler(opts.Root, true)
+	}
+	mux.Handle(editBuiltinPath, edits)
+	mux.Handle(editValuePath, edits)
 	return authority.CORS(serializeAPI(mux))
 }
 
