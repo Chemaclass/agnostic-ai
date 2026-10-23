@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -322,7 +323,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintDuplicateKeys(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintAgentDescriptions(entries, targets)...)
-	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
+	findings = append(findings, lintMCPMissingRequiredField(b.MCPs, targets...)...)
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
 	findings = append(findings, lintMCPToolRefs(targets, support, b.MCPs)...)
 	findings = append(findings, lintMCPLiterals(b.MCPs)...)
@@ -498,25 +499,6 @@ func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
 	return out
 }
 
-// lintMCPMissingRequiredField flags an MCP spec with no `command:` on a
-// stdio server, and none with no `url:` on a remote one (LINT008, error).
-// `type` defaults to stdio, matching the spec format and every adapter.
-//
-// The check lives here rather than in the adapters because the entry is
-// dead on every target, so the user should hear it once instead of per
-// target. The two ways it dies split the fleet roughly in half. trae,
-// antigravity and windsurf decline the entry and, before this rule, said
-// nothing; claude, codex, cursor, gemini, copilot, amp, augment, factory,
-// junie, kiro, opencode and warp write a server object carrying neither
-// field, which no vendor schema accepts. Only continue reported it, and
-// only because its loader throws on the entry and would lose the whole
-// file (#739).
-//
-// Error rather than warn, for LINT006's reason: `validate` and `sync`
-// both pass on such a spec, so nothing else tells the user the server
-// will never start. `x-<target>` cannot rescue it either. Both field
-// names are on every adapter's reserved list, so an override that sets
-// one is dropped before it reaches the file.
 // lintMCPNonJSONValues flags an MCP spec value JSON cannot hold, such as
 // a YAML .nan (LINT027, error). Sync fails on it; validate reports it too.
 func lintMCPNonJSONValues(mcps []spec.Entry) []lintFinding {
@@ -529,13 +511,21 @@ func lintMCPNonJSONValues(mcps []spec.Entry) []lintFinding {
 	return out
 }
 
-func lintMCPMissingRequiredField(mcps []spec.Entry) []lintFinding {
+func lintMCPMissingRequiredField(mcps []spec.Entry, targets ...string) []lintFinding {
+	if len(targets) == 0 {
+		for _, target := range allTargets {
+			targets = append(targets, target.Name)
+		}
+	}
 	var out []lintFinding
 	for _, e := range mcps {
 		// Every MCP builder drops a nameless entry before it reads the
 		// transport, so there is no missing field to report. A spec
 		// loaded from a file always has one, derived from the filename.
 		if e.Name == "" {
+			continue
+		}
+		if pi.IsControlOnlyMCP(e) && onlyPiMCP(e, targets) {
 			continue
 		}
 		transport, _ := e.Meta["type"].(string)
@@ -562,6 +552,20 @@ func lintMCPMissingRequiredField(mcps []spec.Entry) []lintFinding {
 		})
 	}
 	return out
+}
+
+func onlyPiMCP(entry spec.Entry, targets []string) bool {
+	reachesPi := false
+	for _, target := range targets {
+		if !entry.EmitsTo(target) {
+			continue
+		}
+		if target != "pi" {
+			return false
+		}
+		reachesPi = true
+	}
+	return reachesPi
 }
 
 // remoteMCPTransports is the set of transports the spec format documents

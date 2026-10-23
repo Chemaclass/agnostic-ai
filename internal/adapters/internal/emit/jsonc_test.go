@@ -145,3 +145,26 @@ func TestStripJSONC_ReportsComments(t *testing.T) {
 		})
 	}
 }
+
+func TestStripJSONC_LeadingBOMKeepsOriginalByteOffsets(t *testing.T) {
+	before := []byte("\xef\xbb\xbf{\"text\":\"\xef\xbb\xbf\", // note\n\"n\":1}")
+	original := append([]byte(nil), before...)
+	stripped, comments := StripJSONC(before)
+	if !comments || len(stripped) != len(before) || !strings.HasPrefix(string(stripped), "   {") {
+		t.Errorf("BOM normalization changed offsets: %q", stripped)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(stripped, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["text"] != "\xef\xbb\xbf" {
+		t.Errorf("BOM inside a value changed: %v", doc)
+	}
+	if string(before) != string(original) {
+		t.Error("native input bytes changed")
+	}
+	misplaced, _ := StripJSONC([]byte(" \xef\xbb\xbf{}"))
+	if json.Valid(misplaced) {
+		t.Error("non-leading BOM was silently removed")
+	}
+}

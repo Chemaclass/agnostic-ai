@@ -34,6 +34,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/warp"
@@ -891,6 +892,7 @@ var registry = map[string]Adapter{
 	"goose":       goose.New(),
 	"augment":     augment.New(),
 	"qoder":       qoder.New(),
+	"pi":          pi.New(),
 	"openhands":   openhands.New(),
 	"factory":     factory.New(),
 	"kilo":        kilo.New(),

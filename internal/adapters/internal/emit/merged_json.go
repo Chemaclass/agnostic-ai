@@ -274,7 +274,7 @@ func (s *Session) writeMerged(path, content string, keys []MergedKey, released [
 // withValueSums fills in the sum of each whole value content holds.
 func withValueSums(content string, keys []MergedKey) []MergedKey {
 	doc := NewOrderedJSON()
-	if err := json.Unmarshal([]byte(content), doc); err != nil {
+	if err := json.Unmarshal(bytes.TrimPrefix([]byte(content), []byte("\xef\xbb\xbf")), doc); err != nil {
 		return keys
 	}
 	out := make([]MergedKey, 0, len(keys))
