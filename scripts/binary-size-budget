@@ -383,4 +383,7 @@
 # #2420 measured 21106848 on Go 1.27.3, up 86016 from parent fb3ce289
 # (21020832): maintained Kimi Code native output, import, and private global ownership.
 # Same Linux amd64 release flags, no added headroom or dependencies.
-21106848
+# #2421 final integration measured 21254304 on Go 1.27.3, up 151552
+# from measured parent 2468d58d (21102752): native codebuddy support.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+21254304
