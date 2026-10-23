@@ -241,6 +241,10 @@ qoder	docs	https://docs.qoder.com/extensions/subagent.md	200	markdown-mirror	c50
 qoder	docs	https://docs.qoder.com/user-guide/chat/model-context-protocol.md	200	markdown-mirror	2bb118fa58debed920eb46a0e4efefe19702f6f9dda7f37a294ff50d3f0992cf	2026-09-25
 qoder	docs	https://docs.qoder.com/user-guide/commands.md	200	markdown-mirror	4dc0b6b7f45bebbc0004c542da409a78c76179d0c77a0d8532e53f42f61fc0bf	2026-09-25
 qoder	docs	https://docs.qoder.com/user-guide/rules.md	200	markdown-mirror	4df775be049af460957dc18aa8978673cff96f28db6755c7e234fab723e29fc7	2026-09-25
+qwen	changelog	https://github.com/QwenLM/qwen-code/releases	200	github-api	4149d2b98311ac909de8b8a79579d18b108cddf59775d7930ec6b55c015a503e	2026-10-23
+qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts	200	raw-github	21bcd472463f36f7a7083df19c446e0d9a59c66c6e41c48422c05ebfaf7e8ad8	2026-10-23
+qwen	code	https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts	200	raw-github	458fdd1292ce1494b442b3afe05566ccf4b28868f4d6bf19ead81c358ba3a0aa	2026-10-23
+qwen	docs	https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/	200	html	896679184a89587306f8a1e06418309ca52731d18b6d77e2e02b2f961b694470	2026-10-23
 trae	changelog	https://docs.trae.ai/ide/changelog	200	router-data	07ac3a777370be42deb98939d7caa1c52f2628d63c911867ac88366e045a7f97	2026-10-22
 trae	changelog	https://www.trae.ai/api/changelog	200	json	c26036a4521271c6084eac100541d4b88214b6f0094ed1725b6df35757641d71	2026-10-19
 trae	docs	https://docs.trae.ai/ide/add-mcp-servers	200	router-data	81b32910df2a843e78c3da12613544216eaa160bb7ef44058ef13b45cd905a6d	2026-10-09

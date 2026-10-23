@@ -372,7 +372,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## qwen
 
-- docs: https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/ · /en/users/features/sub-agents/ · /en/users/features/skills/ · /en/users/features/commands/ · /en/users/features/mcp/ · /en/users/features/hooks/ · /en/users/configuration/qwen-ignore/
+- docs: https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/ · https://qwenlm.github.io/qwen-code-docs/en/users/configuration/qwen-ignore/
 - changelog: https://github.com/QwenLM/qwen-code/releases
 - code: https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts (added 2026-10-23; released native paths) · https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts (added 2026-10-23; released event names and timeout contract)
 - watch: QWEN_HOME versus QWEN_RUNTIME_DIR; project and scoped QWEN.md discovery; Markdown commands and legacy TOML removal; native agent tools, approvalMode, record-valued mcpServers, and effort implementation; settings permission lists; MCP httpUrl versus url; hook events, seconds, and project trust; user ignore support.
