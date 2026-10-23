@@ -221,7 +221,7 @@ func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, e
 		body = strings.TrimSpace(rest[end+4:])
 	} else {
 		if kind == "agent" || fallback == "" {
-			return nil, fmt.Errorf("Kimi %s requires YAML frontmatter", kind)
+			return nil, fmt.Errorf("kimi %s requires YAML frontmatter", kind)
 		}
 		m = map[string]any{}
 	}
@@ -253,13 +253,13 @@ func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, e
 		name = fallback
 	}
 	if err := spec.ValidateName(spec.KindAgent, name); err != nil {
-		return nil, fmt.Errorf("Kimi %s: %w", kind, err)
+		return nil, fmt.Errorf("kimi %s: %w", kind, err)
 	}
 	description, _ := m["description"].(string)
 	description = strings.TrimSpace(description)
 	if description == "" {
 		if kind == "agent" || fallback == "" {
-			return nil, fmt.Errorf("Kimi %s %s requires a nonempty description", kind, name)
+			return nil, fmt.Errorf("kimi %s %s requires a nonempty description", kind, name)
 		}
 		description = "No description provided."
 		for _, line := range strings.Split(body, "\n") {

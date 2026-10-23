@@ -29,9 +29,6 @@ func decodeTOMLDocument(path string, data []byte) (map[string]any, error) {
 	}
 	return doc, nil
 }
-func scanTOMLArray(path string, data []byte, parent string) (map[string]tomlArrayRecord, bool, error) {
-	return scanTOMLArrayWithIdentity(path, data, parent, nil, nil, false)
-}
 func scanTOMLArrayWithIdentity(path string, data []byte, parent string, want map[string]map[string]any, previous map[string]any, unnamed bool) (map[string]tomlArrayRecord, bool, error) {
 	doc, err := decodeTOMLDocument(path, data)
 	if err != nil {
