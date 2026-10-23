@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -174,6 +175,88 @@ func TestEmit_ManagedIgnoreCanReleaseRules(t *testing.T) {
 	}
 	if string(data) != before {
 		t.Fatal("adapter changed ignore policy")
+	}
+}
+
+func TestEmit_VisibilityAcceptsAliasedWorkingDirectory(t *testing.T) {
+	root := testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git: %v %s", err, out)
+	}
+	alias := filepath.Join(t.TempDir(), "project")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	testutil.Chdir(t, alias)
+	t.Setenv("PWD", alias)
+	layout, err := gitquery.LayoutAt(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	abs, err := filepath.Abs("backend/.grok/rules/database.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Git root %s; output %s", layout.Toplevel, abs)
+	if err := os.WriteFile(".gitignore", []byte("# >>> agnostic-ai (managed) >>>\n/.grok/\n# <<< agnostic-ai (managed) <<<\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := New().Emit(emit.NewSession(), kitSinkBundle(), visibleConfig(), false); err != nil {
+		t.Fatalf("aliased worktree refused: %v", err)
+	}
+	for _, path := range []string{".grok/rules/style.md", "backend/.grok/rules/database.md"} {
+		if data, err := os.ReadFile(path); err != nil || len(data) == 0 {
+			t.Errorf("%s: no emitted rule: %v", path, err)
+		}
+	}
+}
+
+func TestVisibility_RejectsOutputsOutsideTheWorktree(t *testing.T) {
+	testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git: %v %s", err, out)
+	}
+	outside := t.TempDir()
+	rules := []spec.Entry{{Kind: spec.KindRule, Name: "policy", Body: "Keep it local."}}
+	for _, dir := range []string{outside, "linked"} {
+		if dir == "linked" {
+			if err := os.Symlink(outside, dir); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+		}
+		err := validateRulesVisible(rules, visibleConfig(), emit.RulesDirOpts{Dir: dir})
+		if err == nil || !strings.Contains(err.Error(), "must stay inside the Git worktree") {
+			t.Errorf("outside output %s was not refused: %v", dir, err)
+		}
+		if _, err := os.Stat(filepath.Join(outside, "policy.md")); !os.IsNotExist(err) {
+			t.Error("outside rule was written")
+		}
+	}
+}
+
+func TestVisibility_RejectsIgnoredLexicalPathThroughInsideLink(t *testing.T) {
+	root := testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git: %v %s", err, out)
+	}
+	if err := os.MkdirAll("visible", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("visible", ".grok"); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.WriteFile(".gitignore", []byte("/.grok/\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	rules := []spec.Entry{{Kind: spec.KindRule, Name: "policy", Body: "Keep it local."}}
+	for _, dir := range []string{".grok/rules", filepath.Join(root, ".grok/rules")} {
+		err := validateRulesVisible(rules, visibleConfig(), emit.RulesDirOpts{Dir: dir})
+		if err == nil || !strings.Contains(err.Error(), "rejects ignored output") {
+			t.Errorf("ignored native .grok path %s was not refused: %v", dir, err)
+		}
+	}
+	if _, err := os.Stat("visible/rules/policy.md"); !os.IsNotExist(err) {
+		t.Error("ignored rule was written through the link")
 	}
 }
 func TestEmit_CustomPathsMoveEverySurface(t *testing.T) {
