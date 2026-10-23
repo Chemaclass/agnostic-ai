@@ -129,6 +129,7 @@ effort:
 | claude | `~/.claude/settings.json` | `model`, `effortLevel`, `permissions.defaultMode`, `permissions.allow`, `ask`, `deny` |
 | copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
+| vibe | `~/.vibe/config.toml` | `active_model` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
 Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
@@ -201,6 +202,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 |---|---|---|
 | claude | `~/.claude.json` (`$CLAUDE_CONFIG_DIR/.claude.json` when set) | top-level `mcpServers.<name>` |
 | codex | `~/.codex/config.toml` | `[mcp_servers.<name>]` table |
+| vibe | `~/.vibe/config.toml` | `[[mcp_servers]]`, keyed by `name` |
 | cursor | `~/.cursor/mcp.json` | `mcpServers.<name>` |
 | copilot | `~/.copilot/mcp-config.json` | `mcpServers.<name>`, with `tools: ["*"]` when the spec sets none |
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
@@ -229,6 +231,7 @@ A dash means global sync writes nothing for that kind.
 | **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` | `~/.cursor/agents/<name>.md` | - |
 | **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` | `~/.codex/agents/<name>.toml` | - |
 | **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | `~/.gemini/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
+| **vibe** | `~/.vibe/AGENTS.md` | inlined | `~/.vibe/hooks.toml` | `~/.vibe/skills/<name>/` | `~/.vibe/agents/<name>.toml` | - |
 | **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` | `~/.qoder/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
 | **copilot** | `~/.copilot/copilot-instructions.md` | inlined | `~/.copilot/hooks/agnostic-ai.json` | `~/.copilot/skills/<name>/` | `~/.copilot/agents/<name>.agent.md` | - |
 | **cline** | `~/.agents/AGENTS.md` | inlined | `~/.cline/hooks/<event>` | `~/.cline/skills/<name>/` | `~/.cline/agents/<name>.yml` | - |

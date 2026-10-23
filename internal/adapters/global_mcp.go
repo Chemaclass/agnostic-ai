@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"runtime"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -69,4 +71,65 @@ func EscapeMCPLiterals(target string, server map[string]any) {
 // the spec's `${NAME}`, in place.
 func ReadMCPEnvRefs(target string, server map[string]any) {
 	emit.ReadMCPEnvRefs(target, server)
+}
+
+// UserMCPArrayRenderer emits native TOML array records with their native identity.
+type UserMCPArrayRenderer interface {
+	UserMCPArrayRecords([]spec.Entry) ([]map[string]any, error)
+}
+
+func UserMCPArrayRecords(target string, mcps []spec.Entry) ([]map[string]any, error) {
+	a, err := Resolve(target)
+	if err != nil {
+		return nil, err
+	}
+	r, ok := a.(UserMCPArrayRenderer)
+	if !ok {
+		return nil, nil
+	}
+	return r.UserMCPArrayRecords(userMCPs(a, mcps))
+}
+
+// UserHookArrayRenderer emits native hook records after script relocation.
+type UserHookArrayRenderer interface {
+	UserHookRecords([]spec.Entry, string) ([]map[string]any, error)
+}
+
+func UserHookArrayRecords(target string, hooks []spec.Entry, scriptsDir string) ([]map[string]any, error) {
+	return UserHookArrayRecordsForPlatform(target, hooks, scriptsDir, runtime.GOOS)
+}
+
+type userHookPlatformRenderer interface {
+	UserHookRecordsForPlatform([]spec.Entry, string, string) ([]map[string]any, error)
+}
+
+func UserHookArrayRecordsForPlatform(target string, hooks []spec.Entry, scriptsDir, platform string) ([]map[string]any, error) {
+	a, err := Resolve(target)
+	if err != nil {
+		return nil, err
+	}
+	r, ok := a.(UserHookArrayRenderer)
+	if !ok {
+		return nil, nil
+	}
+	selected := TargetHooks(target, (spec.Bundle{Hooks: hooks}).For(target).Hooks)
+	if native, ok := a.(userHookPlatformRenderer); ok {
+		return native.UserHookRecordsForPlatform(selected, scriptsDir, platform)
+	}
+	return r.UserHookRecords(selected, scriptsDir)
+}
+
+type userArrayCanonicalizer interface {
+	CanonicalUserArrayRecord(string, map[string]any) any
+}
+
+func CanonicalUserArrayRecord(target, parent string, record map[string]any) any {
+	a, err := Resolve(target)
+	if err != nil {
+		return record
+	}
+	if c, ok := a.(userArrayCanonicalizer); ok {
+		return c.CanonicalUserArrayRecord(parent, record)
+	}
+	return record
 }

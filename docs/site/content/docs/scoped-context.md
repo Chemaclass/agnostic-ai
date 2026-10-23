@@ -125,6 +125,7 @@ Mappings were checked against vendor documentation on 2026-09-09. Tests verify t
 | Target | Scoped file or condition | Vendor reference |
 |---|---|---|
 | Claude | `.claude/rules/<scope>/<name>.md`, `paths` | [Memory](https://code.claude.com/docs/en/memory) |
+| Mistral Vibe | `<scope>/AGENTS.md` | [Project context](https://docs.mistral.ai/vibe/code/cli/configuration-reference) |
 | Codex | `<scope>/AGENTS.md` | [Instructions](https://developers.openai.com/codex/guides/agents-md) |
 | Gemini | `<scope>/GEMINI.md` | [Context](https://geminicli.com/docs/cli/gemini-md/) |
 | Cursor | `.cursor/rules/<scope>/<name>.mdc`, conditional `globs`; shared nested `AGENTS.md` when compatible peers use it | [Rules](https://cursor.com/docs/context/rules) |

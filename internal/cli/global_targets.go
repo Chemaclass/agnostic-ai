@@ -117,6 +117,25 @@ type globalTarget struct {
 // config.yaml Continue itself rewrites), and jules (nothing documented
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
+	"vibe": {
+		rootEnv:      "VIBE_HOME",
+		root:         globalPathHome + ".vibe",
+		instructions: globalPathHome + ".vibe/AGENTS.md",
+		agents:       globalPathHome + ".vibe/agents",
+		skills:       globalPathHome + ".vibe/skills",
+		hooks:        globalPathHome + ".vibe/hooks.toml",
+		hooksFormat:  "vibe-toml",
+		hookFoldArgs: true,
+		mcp:          globalMCPFile{path: globalPathHome + ".vibe/config.toml", format: "toml-array", key: "mcp_servers", private: true},
+		settings: globalSettingsFile{
+			path: globalPathHome + ".vibe/config.toml", format: "toml", model: "active_model",
+			reserved: map[string]string{
+				"mcp_servers":     "sync --global writes MCP entries from specs",
+				"trusted_folders": "trust remains with the user",
+				"default_agent":   "select the primary agent in Vibe",
+			},
+		},
+	},
 	"claude": {
 		rootEnv:      "CLAUDE_CONFIG_DIR",
 		root:         globalPathHome + ".claude",

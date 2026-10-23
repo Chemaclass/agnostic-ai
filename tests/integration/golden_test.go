@@ -38,6 +38,7 @@ var goldenTargets = []string{
 	"factory",
 	"kilo",
 	"ellipsis",
+ "vibe",
 }
 
 // TestGolden runs a sync against a shared fixture for each built-in target

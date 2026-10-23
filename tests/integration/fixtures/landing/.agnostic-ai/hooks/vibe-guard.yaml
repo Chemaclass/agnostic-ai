@@ -1,0 +1,6 @@
+name: vibe-guard
+target: vibe
+event: pre_tool
+matcher: re:bash|process_start
+command: "echo '{}'"
+timeout: 10

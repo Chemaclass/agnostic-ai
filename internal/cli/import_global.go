@@ -44,6 +44,9 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 			return err
 		}
 	}
+	if err := validateGlobalTOMLHookNames(home, targets); err != nil {
+		return err
+	}
 	stage, err := os.MkdirTemp("", "agnostic-ai-import-global-*")
 	if err != nil {
 		return fmt.Errorf("create staging directory: %w", err)
@@ -76,7 +79,10 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err := stageGlobalPermissions(home, stage, targets, bundle.Settings, state, warn); err != nil {
 		return err
 	}
-	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, warn); err != nil {
+	if err := stageGlobalTOMLArrays(home, stage, targets, bundle, state, warn); err != nil {
+		return err
+	}
+	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, state, warn); err != nil {
 		return err
 	}
 	if err := stageGlobalHookFiles(home, stage, targets, bundle.Hooks, warn); err != nil {
@@ -258,7 +264,7 @@ func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry
 // entry, since sync would then report it as a conflict. A name two
 // targets define differently keeps the first target's server and
 // warns, since one spec reaches both.
-func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, warn io.Writer) error {
+func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, state globalState, warn io.Writer) error {
 	dst := filepath.Join(stage, "mcps")
 	// first holds, per lowercased server name, the target that supplied
 	// it and its entry; names differing only in case share one file on
@@ -287,7 +293,13 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 			return fmt.Errorf("create staging directory: %w", err)
 		}
 		var native map[string]any
-		if g.mcp.format == "toml" {
+		if g.mcp.format == "toml-array" {
+			var err error
+			native, err = stageGlobalMCPArray(path, g.mcp.key, target, dir, covered, state.MCP[target], skip)
+			if err != nil {
+				return err
+			}
+		} else if g.mcp.format == "toml" {
 			_, servers, err := readCodexConfigTOMLFile(path)
 			if err != nil {
 				return err
@@ -337,7 +349,16 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 			return err
 		}
 		rendered := map[string]any{}
-		if g.mcp.format == "toml" {
+		if g.mcp.format == "toml-array" {
+			records, err := adapters.UserMCPArrayRecords(target, staged.MCPs)
+			if err != nil {
+				return err
+			}
+			for _, r := range records {
+				name, _ := r["name"].(string)
+				rendered[name] = r
+			}
+		} else if g.mcp.format == "toml" {
 			tables, _ := adapters.UserMCPServerTables(target, staged.MCPs)
 			for name, table := range tables {
 				values, err := tomlTableValues(path, g.mcp.key, []byte(table))
@@ -352,6 +373,11 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 		var kept []spec.Entry
 		for _, m := range staged.MCPs {
 			same := sameSetting(rendered[m.Name], native[m.Name])
+			if g.mcp.format == "toml-array" {
+				a, _ := rendered[m.Name].(map[string]any)
+				b, _ := native[m.Name].(map[string]any)
+				same = sameSetting(adapters.CanonicalUserArrayRecord(target, g.mcp.key, a), adapters.CanonicalUserArrayRecord(target, g.mcp.key, b))
+			}
 			if g.mcp.format == "json" {
 				same = sameMCPServer(target, rendered[m.Name], native[m.Name])
 			}
