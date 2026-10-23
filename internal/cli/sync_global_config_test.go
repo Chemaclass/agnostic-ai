@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -317,6 +318,25 @@ func TestSyncGlobal_TargetFlagBypassesHomeConfig(t *testing.T) {
 }
 
 func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
+	checkHookAdvice := func(out, marker string) {
+		t.Helper()
+		_, advice, ok := strings.Cut(out, marker)
+		if !ok {
+			t.Errorf("missing global hook advice in:\n%s", out)
+			return
+		}
+		names := strings.Split(strings.SplitN(advice, "\n", 2)[0], ", ")
+		for _, target := range []string{"claude", "grok"} {
+			if !slices.Contains(names, target) {
+				t.Errorf("global hook advice omits %s: %v", target, names)
+			}
+		}
+		for _, target := range []string{"windsurf", "zed"} {
+			if slices.Contains(names, target) {
+				t.Errorf("global hook advice lists project-only hooks for %s", target)
+			}
+		}
+	}
 	_, source := globalAgentTestHome(t)
 	hook := filepath.Join(source, "hooks", "start.yaml")
 	mustWriteGlobalTest(t, hook, "name: start\nevent: SessionStart\ncommand: echo hi\n")
@@ -328,18 +348,16 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 	if err == nil {
 		t.Fatalf("validate --global must reject hooks no configured target writes:\n%s", out)
 	}
-	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks. Enable one of: augment, claude, cline, codex, copilot, cursor, gemini, kiro, qoder") {
+	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks.") {
 		t.Errorf("expected the hook orphan with the global hook targets, got:\n%s", out)
 	}
+	checkHookAdvice(out, "Enable one of: ")
 
 	out, _, _ = runGlobalCheck("lint")
-	for _, want := range []string{
-		hook + ": hook spec not consumed by any enabled target; targets that support hooks: augment, claude, cline, codex, copilot, cursor, gemini, kiro, qoder",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("expected %q, got:\n%s", want, out)
-		}
+	if !strings.Contains(out, hook+": hook spec not consumed by any enabled target;") {
+		t.Errorf("expected the global hook orphan finding, got:\n%s", out)
 	}
+	checkHookAdvice(out, "targets that support hooks: ")
 	if strings.Contains(out, agent) {
 		t.Errorf("windsurf writes global agents, so the agent is not dead:\n%s", out)
 	}

@@ -26,6 +26,10 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	if err != nil {
 		return nil
 	}
+	root, err := config.ResolveSourceAlias(layout.Toplevel)
+	if err != nil {
+		return fmt.Errorf("%s: %w", layout.Toplevel, err)
+	}
 	scratch, err := os.MkdirTemp("", "agnostic-ai-grok-ignore-")
 	if err != nil {
 		return fmt.Errorf("grok: create ignore check: %w", err)
@@ -35,12 +39,12 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	if managedIgnore == "" {
 		managedIgnore = ".gitignore"
 	}
-	managedIgnore, err = filepath.Abs(managedIgnore)
+	managedIgnore, err = resolveVisibilityPath(managedIgnore)
 	if err != nil {
 		return fmt.Errorf("grok managed ignore path: %w", err)
 	}
 
-	rootIgnore := filepath.Join(layout.Toplevel, ".gitignore")
+	rootIgnore := filepath.Join(root, ".gitignore")
 	data, err := os.ReadFile(rootIgnore)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("%s: %w", rootIgnore, err)
@@ -67,11 +71,11 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	}
 	for _, rule := range rules {
 		path := filepath.Join(emit.RulesDirectoryEntryDir(opts, rule), rule.Name+".md")
-		abs, err := filepath.Abs(path)
+		abs, err := resolveVisibilityPath(path)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		rel, err := filepath.Rel(layout.Toplevel, abs)
+		rel, err := filepath.Rel(root, abs)
 		if err != nil || emit.ScopeEscapesRoot(rel) {
 			return fmt.Errorf("%s: grok rule must stay inside the Git worktree", path)
 		}
@@ -87,6 +91,30 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 	}
 	return nil
 }
+
+func resolveVisibilityPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	for ancestor := abs; ; ancestor = filepath.Dir(ancestor) {
+		resolved, err := config.ResolveSourceAlias(ancestor)
+		if err == nil {
+			tail, err := filepath.Rel(ancestor, abs)
+			if err != nil {
+				return "", err
+			}
+			return filepath.Join(resolved, tail), nil
+		}
+		if info, statErr := os.Lstat(ancestor); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			return "", err
+		}
+		if !os.IsNotExist(err) || filepath.Dir(ancestor) == ancestor {
+			return "", err
+		}
+	}
+}
+
 func withoutManagedIgnore(data []byte) []byte {
 	var out []string
 	managed := false
