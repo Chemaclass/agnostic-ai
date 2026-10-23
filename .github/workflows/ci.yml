@@ -287,6 +287,10 @@ jobs:
       - name: Test OpenCode browser permissions
         run: GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$'
 
+      - name: Test browser TOML capture
+        timeout-minutes: 2
+        run: GOOS=js GOARCH=wasm go test -timeout=30s -count=1 -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/internal/emit -run '^TestMergeTOMLFileBrowserCapturesWithoutFilesystem$'
+
   schema:
     name: Schema drift
     runs-on: ubuntu-latest
