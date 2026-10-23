@@ -133,6 +133,12 @@ func importOpencodeAgents(root, dstDir string) (int, error) {
 		if err != nil {
 			return nil, err
 		}
+		for _, key := range []string{"permissions", "request", "system", "disabled"} {
+			data, err = importScopedAgentValue(data, "opencode", key, key, key, nil, nil)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return importScopedTargetKeys(data, dst, "opencode")
 	})
 }

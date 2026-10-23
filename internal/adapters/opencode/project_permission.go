@@ -119,7 +119,7 @@ func (p *agentProject) actionKey(key string) string {
 			return "shell"
 		case "task":
 			return "subagent"
-		case "write", "patch":
+		case "write", "patch", "apply_patch":
 			return "edit"
 		}
 	}

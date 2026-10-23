@@ -17,7 +17,7 @@ import (
 // agentFrontmatterKeys names the frontmatter keys OpenCode reads from a
 // markdown agent definition. Anything else in the spec is dropped so
 // internal-only fields (globs, tools, ...) do not leak.
-var agentFrontmatterKeys = []string{"description", "mode", "model", "temperature", "permission"}
+var agentFrontmatterKeys = []string{"description", "mode", "model", "temperature", "permission", "permissions", "request", "system", "disabled"}
 
 // agentToolsUntranslatedReason explains, in the flushed coverage note,
 // why some names in an agent's `tools` or `can` list did not reach its
@@ -28,7 +28,8 @@ const agentToolsUntranslatedReason = "tool name(s) outside OpenCode's permission
 // at `<agentsDir>/<name>.md`. OpenCode discovers project subagents from
 // `.opencode/agents/` (plural; the singular dir is legacy) with
 // frontmatter `description`, `mode` (primary|subagent|all), `model`,
-// `temperature`, and `permission`, followed by the system-prompt body.
+// `temperature`, and `permission`, or native V2 fields and `permissions`,
+// followed by the system-prompt body.
 // Native permission maps retain source order for last-match evaluation.
 // Names in a `tools` list with no OpenCode key fold into one coverage
 // note per sync.
@@ -96,9 +97,15 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, project *ag
 // frontmatter plus arbitrary x-opencode passthrough, then the body.
 // A `tools` list becomes the `permission` map; an `x-opencode.permission`
 // map wins for the keys it names, and a scalar one wins outright.
+// V2-only fields select ordered native permissions instead of the legacy map.
 func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped bool, err error) {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := pickKeys(meta, agentFrontmatterKeys)
+	for _, key := range agentV2Keys {
+		if value, present := meta[key]; present {
+			front[key] = value
+		}
+	}
 	var translated map[string]any
 	translated, unmapped = agentPermission(emit.StringSlice(meta["tools"]), project)
 	native := front[permissionKey]
@@ -129,6 +136,9 @@ func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped b
 		keys = append(keys, "steps")
 	}
 	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, append(slices.Clone(agentFrontmatterKeys), "steps", "maxTurns")...)
+	if err := agentV2Permissions(front, &keys); err != nil {
+		return "", unmapped, err
+	}
 	var sb strings.Builder
 	sb.WriteString(emit.FrontmatterOrdered(front, keys))
 	sb.WriteString("\n")
