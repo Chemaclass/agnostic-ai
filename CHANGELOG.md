@@ -16,7 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### CodeBuddy Code
 
-- Sync and import native rules, agents, skills, commands, hooks, settings, and opt-in project MCP servers. Preserve manual-only agents, scoped skill tools, MCP descriptions and working directories, and existing user MCP files.
+- Sync and import native CodeBuddy configuration through explicit `targets: [codebuddy]` selection, preserving existing default sync.
 
 #### Codex
 

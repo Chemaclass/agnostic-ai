@@ -10,6 +10,27 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+func TestCodebuddy_DefaultSyncPreservesExistingNumericAgentNames(t *testing.T) {
+	root := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\n")
+	writeFile(t, ".agnostic-ai/agents/review2.md", "---\nname: review2\ndescription: Review changes\n---\nRead the complete patch.\n")
+
+	if out, err := runRoot(t, "sync"); err != nil {
+		t.Fatalf("default sync rejects an existing agent: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(root, ".claude/agents/review2.md")); !strings.Contains(got, "Read the complete patch.") {
+		t.Error("default sync lost the existing agent")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".codebuddy")); !os.IsNotExist(err) {
+		t.Error("default sync wrote CodeBuddy output")
+	}
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codebuddy]\n")
+	if out, err := runRoot(t, "sync"); err == nil || !strings.Contains(out+err.Error(), "lowercase letters and hyphens") {
+		t.Error("explicit CodeBuddy sync must enforce its native agent name limit")
+	}
+}
+
 func TestCodebuddy_ImportToFreshOutputs(t *testing.T) {
 	root := testutil.TempCwd(t)
 	silence(t)

@@ -677,13 +677,14 @@ func warnLegacyOnce(path string) {
 // working directory, and this repo always writes CLAUDE.md for claude. The
 // dedup reasoning above is about writers contending for one path, so it is
 // unchanged by that reader.
+// CodeBuddy is explicit because its native agent names and tool limits reject existing specs.
 func DefaultTargets() []string {
 	return []string{
 		"claude", "codex", "gemini", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
-		"qoder", "openhands", "factory", "kilo", "codebuddy", "pi", "vibe",
+		"qoder", "openhands", "factory", "kilo", "pi", "vibe",
 	}
 }
 

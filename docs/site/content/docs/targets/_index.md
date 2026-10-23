@@ -26,6 +26,8 @@ Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-sta
 
 {{ <capability_matrix /> }}
 
+[CodeBuddy Code](@/docs/targets/codebuddy.md) requires explicit selection because its native agent name and tool limits can reject existing specs.
+
 [Mistral Vibe](@/docs/targets/vibe.md) supports project and user instructions, subagents, skills, model settings, MCP servers, and native hooks.
 
 [Pi](@/docs/targets/pi.md) has a dedicated native target. Its reference lists project paths, global support, and import coverage.
