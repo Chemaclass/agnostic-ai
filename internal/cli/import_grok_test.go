@@ -172,15 +172,20 @@ func TestImportGrok_NestedHookScriptReconstructsFromSources(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 }
-func TestImportGrok_HookCredentialBecomesReference(t *testing.T) {
+func TestImportGrok_HookCredentialEnvIsRejectedWithoutSourceWrite(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [grok]\n")
 	writeFile(t, filepath.Join(dir, ".grok/hooks/guard.json"), `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo safe","env":{"API_TOKEN":"private-token-value"}}]}]}}`)
-	execCLI(t, "import", "grok")
-	got := readFile(t, filepath.Join(dir, ".agnostic-ai/hooks/guard.yaml"))
-	if strings.Contains(got, "private-token-value") || !strings.Contains(got, "${") {
-		t.Fatalf("credential not filtered %s", got)
+	output, err := runCLI(t, "import", "grok")
+	if err == nil {
+		t.Fatal("literal credential env imported")
+	}
+	if text := output + err.Error(); strings.Contains(text, "private-token-value") || !strings.Contains(text, ".grok/hooks/guard.json") || !strings.Contains(text, "hook env values are literal") {
+		t.Fatal("credential error must identify path and native correction without exposing values")
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/hooks/guard.yaml")); !os.IsNotExist(err) {
+		t.Fatal("unsafe hook source written")
 	}
 }
 func TestImportGrok_EmptyNativePermissionListNeverClaimsUserRules(t *testing.T) {

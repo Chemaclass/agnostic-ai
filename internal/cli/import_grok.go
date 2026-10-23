@@ -26,8 +26,9 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 	for _, kind := range []struct {
 		native, dst string
 		fields      specFields
+		agents      bool
 	}{
-		{paths["RULES_DIR"], src.Rules, allSpecFields}, {paths["AGENTS_DIR"], src.Agents, allSpecFields}, {paths["COMMANDS_DIR"], src.Commands, allSpecFields}} {
+		{paths["RULES_DIR"], src.Rules, allSpecFields, false}, {paths["AGENTS_DIR"], src.Agents, allSpecFields, true}, {paths["COMMANDS_DIR"], src.Commands, allSpecFields, false}} {
 		dirs, err := findScopedSkillDirs(root, kind.native)
 		if err != nil {
 			return err
@@ -36,7 +37,12 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 			if err := importMkdirAll(filepath.Join(importSourcePath(root, kind.dst), dir.scope), 0755); err != nil {
 				return err
 			}
-			if _, err := importFlatMarkdownFilesWith(dir.path, filepath.Join(importSourcePath(root, kind.dst), dir.scope), kind.fields, func(data []byte) ([]byte, error) { return []byte(header.Strip(string(data))), nil }); err != nil {
+			if _, err := importFlatMarkdownFilesWith(dir.path, filepath.Join(importSourcePath(root, kind.dst), dir.scope), kind.fields, func(data []byte) ([]byte, error) {
+				if kind.agents {
+					return importGrokAgentMetadata(data)
+				}
+				return []byte(header.Strip(string(data))), nil
+			}); err != nil {
 				return err
 			}
 		}
@@ -44,24 +50,35 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 	if _, err := importScopedSkillFoldersWith(root, []string{paths["SKILLS_DIR"]}, importSourcePath(root, src.Skills), &allSpecFields); err != nil {
 		return err
 	}
-	servers, permissions, err := readGrokConfig(filepath.Join(root, paths["MCP_FILE"]))
+	configPath := filepath.Join(root, paths["MCP_FILE"])
+	nativeConfig, err := readGrokConfigDocument(configPath)
 	if err != nil {
 		return err
 	}
+	servers, _ := nativeConfig["mcp_servers"].(map[string]any)
 	if _, err := writeMCPYAMLs("grok", grokMCPDocs(servers), importSourcePath(root, src.MCPs)); err != nil {
 		return err
 	}
 	if path := cfg.Outputs["grok"].ConfFile; path != "" && path != paths["MCP_FILE"] {
-		_, separate, err := readGrokConfig(filepath.Join(root, path))
+		configPath = filepath.Join(root, path)
+		separate, err := readGrokConfigDocument(configPath)
 		if err != nil {
 			return err
 		}
-		permissions = separate
+		nativeConfig = separate
 	}
+	settings := map[string]any{}
+	permissions, _ := nativeConfig["permission"].(map[string]any)
 	if len(permissions) > 0 {
-		raw, err := yaml.Marshal(map[string]any{"permissions": permissions})
+		settings["permissions"] = permissions
+	}
+	if plugins, present := nativeConfig["plugins"]; present {
+		settings["x-grok"] = map[string]any{"plugins": plugins}
+	}
+	if len(settings) > 0 {
+		raw, err := yaml.Marshal(settings)
 		if err != nil {
-			return fmt.Errorf("grok permissions: %w", err)
+			return fmt.Errorf("%s: encode Grok settings: %w", configPath, err)
 		}
 		if err := importWriteFile(filepath.Join(importSourcePath(root, src.Settings), "grok.yaml"), raw, 0644); err != nil {
 			return err
@@ -92,17 +109,24 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 	printImportNextSteps(root, "grok")
 	return nil
 }
-func readGrokConfig(path string) (map[string]any, map[string]any, error) {
+func readGrokConfigDocument(path string) (map[string]any, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil, nil, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: %w", path, err)
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	var doc map[string]any
 	if _, err := toml.Decode(string(data), &doc); err != nil {
-		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse %s: invalid Grok settings", path)
+	}
+	return doc, nil
+}
+func readGrokConfig(path string) (map[string]any, map[string]any, error) {
+	doc, err := readGrokConfigDocument(path)
+	if err != nil {
+		return nil, nil, err
 	}
 	servers, _ := doc["mcp_servers"].(map[string]any)
 	permissions, _ := doc["permission"].(map[string]any)
@@ -146,34 +170,12 @@ func importGrokHookFile(path, dst string, scriptDirs ...string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	for _, ref := range referenceMCPLiterals(probe) {
-		if ref.leftOut {
-			return 0, fmt.Errorf("%s: hook command contains a credential; use an environment reference before importing", path)
-		}
+	if err := validateGrokHookCredentials(probe); err != nil {
+		return 0, fmt.Errorf("%s: %w", path, err)
 	}
 	hooks, ok := doc["hooks"].(map[string]any)
 	if !ok || len(hooks) == 0 {
 		return 0, nil
-	}
-	for _, raw := range hooks {
-		groups, _ := raw.([]any)
-		for _, rawGroup := range groups {
-			group, _ := rawGroup.(map[string]any)
-			handlers, _ := group["hooks"].([]any)
-			for _, rawHandler := range handlers {
-				handler, _ := rawHandler.(map[string]any)
-				env, _ := handler["env"].(map[string]any)
-				sanitized := maps.Clone(env)
-				referenceMCPLiterals(map[string]any{name: map[string]any{"env": sanitized}})
-				for key, value := range env {
-					if text, ok := value.(string); ok && grokHookCredentialValue(key, text) {
-						if replacement, ok := sanitized[key].(string); ok {
-							env[key] = replacement
-						}
-					}
-				}
-			}
-		}
 	}
 	if len(scriptDirs) > 0 {
 		for _, raw := range hooks {

@@ -51,21 +51,10 @@ func stageGlobalHookFiles(home, stage string, targets []string, have []spec.Entr
 				if err != nil {
 					return err
 				}
-				secret := grokHookHasCredential(probe)
-				if secret {
-					if _, err := fmt.Fprintf(warn, "warning: %s: skipped hook file; handler environment holds a credential; use an environment reference\n", path); err != nil {
+				if err := validateGrokHookCredentials(probe); err != nil {
+					if _, err := fmt.Fprintf(warn, "warning: %s: skipped hook file; %s\n", path, err); err != nil {
 						return err
 					}
-					continue
-				}
-				if err := withoutMCPCredentials(target, probe, func(_, _, reason string) error {
-					secret = true
-					_, err := fmt.Fprintf(warn, "warning: %s: skipped hook file; handler environment holds a credential; use an environment reference\n", path)
-					return err
-				}); err != nil {
-					return err
-				}
-				if secret {
 					continue
 				}
 				if _, err := importGrokHookFile(path, filepath.Join(stage, "hooks")); err != nil {

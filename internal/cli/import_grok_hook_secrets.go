@@ -17,9 +17,12 @@ func grokHookEnvironment(path string) (map[string]any, error) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	hooks, _ := doc["hooks"].(map[string]any)
+	return grokHookEntries(hooks), nil
+}
+func grokHookEntries(hooks map[string]any) map[string]any {
 	probe := map[string]any{}
 	index := 0
-	hooks, _ := doc["hooks"].(map[string]any)
 	for _, raw := range hooks {
 		groups, _ := raw.([]any)
 		for _, rawGroup := range groups {
@@ -28,18 +31,17 @@ func grokHookEnvironment(path string) (map[string]any, error) {
 			for _, rawHandler := range handlers {
 				handler, _ := rawHandler.(map[string]any)
 				entry := map[string]any{}
-				if command, ok := handler["command"].(string); ok {
-					entry["command"] = command
-				}
-				if env, ok := handler["env"].(map[string]any); ok {
-					entry["env"] = env
+				for _, field := range []string{"command", "url", "env", "headers"} {
+					if value, ok := handler[field]; ok {
+						entry[field] = value
+					}
 				}
 				probe[fmt.Sprint(index)] = entry
 				index++
 			}
 		}
 	}
-	return probe, nil
+	return probe
 }
 func validateGlobalGrokImport(home string, targets []string) error {
 	for _, target := range targets {
@@ -85,16 +87,4 @@ func validateGlobalGrokImport(home string, targets []string) error {
 func grokHookCredentialValue(key, value string) bool {
 	stripped, _ := spec.StripEnvRefDefaults(value)
 	return mcpCredentialKey(key) && value != "" && (!mcpRefOnly(value) || stripped != value) || mcpCredentialSetting(key, value)
-}
-func grokHookHasCredential(probe map[string]any) bool {
-	for _, raw := range probe {
-		server, _ := raw.(map[string]any)
-		env, _ := server["env"].(map[string]any)
-		for key, raw := range env {
-			if value, ok := raw.(string); ok && grokHookCredentialValue(key, value) {
-				return true
-			}
-		}
-	}
-	return false
 }

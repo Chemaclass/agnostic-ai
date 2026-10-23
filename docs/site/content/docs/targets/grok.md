@@ -68,7 +68,9 @@ Hooks use native PascalCase `event` and optional `matcher`, command text, safely
 
 ## Import
 
-Run `agnostic-ai import grok` before the first sync of a native project. It reads root and scoped rule, agent, skill, and command directories, resources, native hook JSON files, MCP tables, and compact permission lists. Native hook groups are retained under `x-grok.hooks`, preserving each file's groups and handler fields. Unsupported hook handler types fail instead of being silently discarded. Imported MCP credentials become environment references through the shared credential filter.
+Run `agnostic-ai import grok` before the first sync of a native project. It reads root and scoped rule, agent, skill, and command directories, resources, native hook JSON files, MCP tables, compact permission lists, and plugins. Plugins are retained under `x-grok.plugins` from the configured settings destination. Native hook groups are retained under `x-grok.hooks`, preserving each file's groups and handler fields. Unsupported hook handler types fail instead of being silently discarded. Imported standalone MCP credentials become environment references through the shared credential filter.
+
+Inline agent MCP and hook metadata keep their native form. Import refuses literal credentials there, and in standalone hooks, before writing the source file. Hook `env` values are passed through literally, so putting `${TOKEN}` there does not read the process environment. Inherit credentials from the process and reference them in hook `command` or `url`, where Grok expands variables. Import errors identify the native path without printing credential values.
 
 Import uses the configured output directories. Importing emitted files into fresh source directories, syncing again, linting, and running `sync --check` are covered by the adapter tests.
 

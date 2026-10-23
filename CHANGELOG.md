@@ -16,6 +16,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Grok Build
 
 - Add the explicit `grok` target with native project import and safe global sync. Set `gitignore.commit: [grok:instructions]`.
+- Native import preserves project plugins and rejects credentials in inline agent metadata and hooks before writing sources.
 
 #### Codex
 
