@@ -21,6 +21,9 @@ import (
 // TestTargetVarPaths_MatchRealEmission keeps this honest: every entry
 // here must be where the adapter actually writes that kind.
 var TargetVarPaths = map[string]map[string]string{
+	"pi": {
+		VarSkillsDir: ".pi/skills", VarCommandsDir: ".pi/prompts", VarMCPFile: ".pi/mcp.json",
+	},
 	"claude": {
 		VarSkillsDir: ".claude/skills", VarAgentsDir: ".claude/agents",
 		VarCommandsDir: ".claude/commands", VarRulesDir: ".claude/rules",
@@ -119,10 +122,10 @@ var TargetVarPaths = map[string]map[string]string{
 
 // dirRelativeVars maps each *_DIR variable to its sub-directory under
 // the target's output dir, for the targets that honor
-// `outputs.<target>.dir`. Claude is the only one today: its directories
-// move with a bare `dir` override, so a spec body that names
-// `{{rules_dir}}` must name the moved path, not the default (#849).
+// `outputs.<target>.dir`, so spec variables follow the adapter's
+// relocated output paths.
 var dirRelativeVars = map[string]map[string]string{
+	"pi": {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
 	"claude": {
 		VarSkillsDir: "skills", VarAgentsDir: "agents",
 		VarCommandsDir: "commands", VarRulesDir: "rules",

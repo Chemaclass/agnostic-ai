@@ -737,6 +737,13 @@ func loadGlobalState(path string) (globalState, error) {
 	if err := json.Unmarshal(data, &state); err != nil || state.Version < 1 || state.Version > globalStateVersion {
 		return globalState{}, fmt.Errorf("parse %s: corrupt global ownership state", path)
 	}
+	if len(state.MCP["pi"]) > 0 {
+		ordered, err := piMCPMap(path, data, "mcp", "pi")
+		if err != nil {
+			return globalState{}, err
+		}
+		state.MCP["pi"] = ordered
+	}
 	if state.Hooks == nil {
 		state.Hooks = map[string]map[string][]any{}
 	}

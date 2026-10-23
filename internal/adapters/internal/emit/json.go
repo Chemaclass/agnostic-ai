@@ -40,6 +40,9 @@ func MarshalJSONIndentWith(v any, indent string) ([]byte, error) {
 	if n := len(out); n > 0 && out[n-1] == '\n' {
 		out = out[:n-1]
 	}
+	if doc, ok := v.(*OrderedJSON); ok && doc.leadingBOM {
+		out = append([]byte("\xef\xbb\xbf"), out...)
+	}
 	return out, nil
 }
 
@@ -82,8 +85,9 @@ func DetectJSONIndent(data []byte) string {
 // order (alpha-sorted by `encoding/json`), but the top-level key the
 // user authored stays where they put it.
 type OrderedJSON struct {
-	keys []string
-	vals map[string]json.RawMessage
+	leadingBOM bool
+	keys       []string
+	vals       map[string]json.RawMessage
 }
 
 // NewOrderedJSON returns an empty OrderedJSON ready for Set / Get.

@@ -111,9 +111,21 @@ func (s *Session) mergeJSONEntries(path string, doc *OrderedJSON, key string, en
 	return merged, claimed, nil
 }
 
+type orderSensitiveJSON struct{ value any }
+
+func OrderSensitiveJSON(value any) any { return orderSensitiveJSON{value: value} }
+
+func (v orderSensitiveJSON) MarshalJSON() ([]byte, error) { return MarshalJSONIndent(v.value) }
+
 func sameJSONValue(raw json.RawMessage, value any) bool {
 	encoded, err := json.Marshal(value)
-	return err == nil && jsonValueSum(raw) == jsonValueSum(encoded)
+	if err != nil || jsonValueSum(raw) != jsonValueSum(encoded) {
+		return false
+	}
+	if _, sensitive := value.(orderSensitiveJSON); sensitive {
+		return jsonOrderSum(raw) == jsonOrderSum(encoded)
+	}
+	return true
 }
 
 // DropRetiredMergedParents removes unchanged retired parents before current values merge into them.

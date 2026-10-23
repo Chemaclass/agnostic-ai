@@ -118,5 +118,9 @@ id = "ellipsis"
 label = "Ellipsis"
 
 [[targets]]
+id = "pi"
+label = "Pi"
+
+[[targets]]
 id = "vibe"
 label = "Mistral Vibe"

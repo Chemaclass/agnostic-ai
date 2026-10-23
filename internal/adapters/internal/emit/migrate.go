@@ -445,6 +445,7 @@ func (s *Session) readExistingJSON(path string, dryRun bool) (*OrderedJSON, erro
 	if err := json.Unmarshal(stripped, doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w (agnostic-ai will not overwrite a file it cannot read; fix it or move it aside)", path, err)
 	}
+	doc.leadingBOM = bytes.HasPrefix(data, []byte("\xef\xbb\xbf"))
 	if hadComments && !s.IsCapturing() {
 		_, _ = fmt.Fprintf(Warner,
 			"%s: comments are not preserved across a sync; every key is kept, the comments are dropped\n", path)

@@ -115,6 +115,7 @@ func StripGeneratedAppendices(body string) string {
 // gets the rules appendix, independent of what entrypoint.go does with
 // the root AGENTS.md junie also happens to share with codex et al.
 var inlineRulesTargets = map[string]bool{
+	"pi":        true,
 	"codex":     true,
 	"vibe":      true,
 	"amp":       true,

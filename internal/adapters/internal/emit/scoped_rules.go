@@ -16,7 +16,7 @@ import (
 // Other verified hosts use their existing rule renderer after normalization.
 func scopeDocument(target string) string {
 	switch target {
-	case "vibe", "codex", "amp", "warp", "opencode", "goose", "augment", "factory", "kilo":
+	case "vibe", "codex", "amp", "warp", "opencode", "goose", "augment", "factory", "kilo", "pi":
 		return "AGENTS.md"
 	case "gemini":
 		return "GEMINI.md"

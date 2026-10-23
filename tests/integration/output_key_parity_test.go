@@ -77,6 +77,7 @@ var probeKinds = map[string]string{
 	"vibe.conf-file":     "settings",
 	"windsurf.conf-file": "settings",
 	"factory.conf-file":  "settings",
+	"pi.conf-file":       "settings",
 }
 
 // probeCompanions are entries a probe needs beside its own to write

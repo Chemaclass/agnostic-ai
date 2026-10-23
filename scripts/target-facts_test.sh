@@ -53,10 +53,21 @@ function test_batches_covers_every_target_exactly_once() {
 }
 
 function test_batches_spreads_the_remainder_evenly() {
-  # 26 targets over 4 groups is 7/7/6/6, never 6/6/7/7 or a 4-wide gap.
-  local sizes
-  sizes=$(batches 4 | sed 's/^[0-9]*: //' | awk '{ print NF }' | tr '\n' ' ')
-  assert_equals "7 7 6 6 " "$sizes"
+  local sizes total size previous largest=0 smallest sum=0
+  total=$(list_targets | wc -l | tr -d ' ')
+  previous=$total
+  smallest=$total
+  sizes=$(batches 4 | sed 's/^[0-9]*: //' | awk '{ print NF }')
+  for size in $sizes; do
+    assert_equals 1 "$((size > 0))"
+    assert_equals 1 "$((size <= previous))"
+    if ((size > largest)); then largest=$size; fi
+    if ((size < smallest)); then smallest=$size; fi
+    sum=$((sum + size))
+    previous=$size
+  done
+  assert_equals "$total" "$sum"
+  assert_equals 1 "$((largest - smallest <= 1))"
 }
 
 function test_batches_clamps_a_count_above_the_target_total() {

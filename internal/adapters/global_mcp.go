@@ -13,6 +13,10 @@ type UserMCPRenderer interface {
 	UserMCPServers(mcps []spec.Entry) map[string]any
 }
 
+type CheckedUserMCPRenderer interface {
+	CheckedUserMCPServers(mcps []spec.Entry) (map[string]any, error)
+}
+
 // UserMCPTableRenderer is implemented by a target whose user MCP servers
 // are TOML tables.
 type UserMCPTableRenderer interface {
@@ -22,15 +26,24 @@ type UserMCPTableRenderer interface {
 // UserMCPServers renders the MCP specs that emit to target as its user
 // `mcpServers` map. ok is false when target has no such renderer.
 func UserMCPServers(target string, mcps []spec.Entry) (map[string]any, bool) {
+	servers, ok, err := CheckedUserMCPServers(target, mcps)
+	return servers, ok && err == nil
+}
+
+func CheckedUserMCPServers(target string, mcps []spec.Entry) (map[string]any, bool, error) {
 	a, err := Resolve(target)
 	if err != nil {
-		return nil, false
+		return nil, false, err
+	}
+	if r, ok := a.(CheckedUserMCPRenderer); ok {
+		servers, err := r.CheckedUserMCPServers(userMCPs(a, mcps))
+		return servers, true, err
 	}
 	r, ok := a.(UserMCPRenderer)
 	if !ok {
-		return nil, false
+		return nil, false, nil
 	}
-	return r.UserMCPServers(userMCPs(a, mcps)), true
+	return r.UserMCPServers(userMCPs(a, mcps)), true, nil
 }
 
 // UserMCPServerTables renders the MCP specs that emit to target as TOML

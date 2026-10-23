@@ -241,6 +241,12 @@ opt_in_anchor = "first-review"
 opt_in = { settings = "x-ellipsis" }
 
 [[targets]]
+id = "pi"
+name = "Pi"
+href = "@/docs/targets/pi.md"
+statuses = ["no", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
+
+[[targets]]
 id = "vibe"
 name = "Mistral Vibe"
 href = "@/docs/targets/vibe.md"

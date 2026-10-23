@@ -47,6 +47,7 @@ var entryPointPaths = map[string]string{
 	"goose":       "AGENTS.md",
 	"augment":     "AGENTS.md",
 	"qoder":       "AGENTS.md",
+	"pi":          "AGENTS.md",
 	"openhands":   "AGENTS.md",
 	"factory":     "AGENTS.md",
 	"kilo":        "AGENTS.md",

@@ -12,6 +12,7 @@ import (
 
 // goldenTargets lists every built-in adapter covered by snapshot golden tests.
 var goldenTargets = []string{
+	"pi",
 	"aider",
 	"amp",
 	"antigravity",
@@ -38,7 +39,7 @@ var goldenTargets = []string{
 	"factory",
 	"kilo",
 	"ellipsis",
- "vibe",
+	"vibe",
 }
 
 // TestGolden runs a sync against a shared fixture for each built-in target
