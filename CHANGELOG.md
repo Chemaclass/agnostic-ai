@@ -42,6 +42,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
 
+#### Qwen Code
+
+- Sync and import Qwen Code instructions, agents, skills, commands, MCP, hooks, settings, and ignore files.
+- Import refuses credentials in retained native metadata and keeps supported settings references.
+
 #### Mistral Vibe
 
 - Sync and import native instructions, subagents, skills, model settings, MCP servers, and hooks in projects and user configuration.
