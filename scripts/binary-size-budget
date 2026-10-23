@@ -380,6 +380,8 @@
 # #2423 measured 21020832 on Go 1.27.3, up 180224 from parent 403eea57
 # (20840608): explicit Grok native output, import, and private global ownership.
 # Same Linux amd64 release flags, no added headroom or dependencies.
+# Final grok Windows hook integration measured 21024928 bytes.
+# Go 1.27.3, Linux amd64 release flags; no added headroom or dependencies.
 # #2420 measured 21106848 on Go 1.27.3, up 86016 from parent fb3ce289
 # (21020832): maintained Kimi Code native output, import, and private global ownership.
 # Same Linux amd64 release flags, no added headroom or dependencies.
