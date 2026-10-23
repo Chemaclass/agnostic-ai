@@ -38,6 +38,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Qwen Code
 
 - Sync and import Qwen Code instructions, agents, skills, commands, MCP, hooks, settings, and ignore files.
+- Import refuses credentials in retained native metadata and keeps supported settings references.
 
 ## v0.87.0 - 2026-10-22
 

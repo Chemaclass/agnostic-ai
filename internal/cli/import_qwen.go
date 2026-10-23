@@ -31,6 +31,10 @@ func importFromQwen(root string, src config.Sources) error {
 		return err
 	}
 	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".qwen/agents"), importSourcePath(root, src.Agents), allSpecFields, func(data []byte, dst string) ([]byte, error) {
+		native, _ := splitMdcFrontmatter([]byte(header.Strip(string(data))))
+		if err := guardQwenValues(dst, native, false); err != nil {
+			return nil, err
+		}
 		data, err := importScopedTargetKeys(data, dst, "qwen")
 		if err != nil {
 			return nil, err
@@ -75,6 +79,10 @@ func scopeQwenAgentFields(data []byte) ([]byte, error) {
 	return scopeQwenFields(data, "name", "description", "model", "color", "maxTurns", "can")
 }
 func scopeQwenSkillFields(data []byte) ([]byte, error) {
+	native, _ := splitMdcFrontmatter([]byte(header.Strip(string(data))))
+	if err := guardQwenValues("qwen skill frontmatter", native, false); err != nil {
+		return nil, err
+	}
 	return scopeQwenFields(data, "name", "description", "license")
 }
 func scopeQwenFields(data []byte, keep ...string) ([]byte, error) {
@@ -117,6 +125,11 @@ func importQwenSettings(root string, src config.Sources) (int, int, int, error) 
 	var native map[string]any
 	if err := json.Unmarshal(data, &native); err != nil {
 		return 0, 0, 0, fmt.Errorf("parse %s: %w", path, err)
+	}
+	retained := maps.Clone(native)
+	delete(retained, "mcpServers")
+	if err := guardQwenValues(path, retained, true); err != nil {
+		return 0, 0, 0, err
 	}
 	mcps := 0
 	if servers, ok := native["mcpServers"].(map[string]any); ok {
