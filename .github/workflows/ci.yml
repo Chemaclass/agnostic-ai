@@ -284,6 +284,9 @@ jobs:
       - name: Test WASM playground
         run: GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/agnostic-ai-wasm
 
+      - name: Test OpenCode browser permissions
+        run: GOOS=js GOARCH=wasm go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$'
+
   schema:
     name: Schema drift
     runs-on: ubuntu-latest

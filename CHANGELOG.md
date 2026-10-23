@@ -15,6 +15,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### OpenCode
+
+- Native V2 agent fields preserve generated tool restrictions and ordered rules through sync and import.
+
 #### Codex
 
 - Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
