@@ -47,7 +47,7 @@ Record confirmed, rejected, and unresolved candidates with an evidence path. Lin
 ```sh
 scripts/audit-metrics.sh record "$run" finding '{"id":"codex-hooks","outcome":"confirmed","lead":{"file":"triage.tsv","line":2},"evidence":"codex-hooks.md"}'
 scripts/audit-metrics.sh record "$run" finding '{"id":"cursor-candidate","outcome":"rejected","evidence":"cursor-candidate.md"}'
-scripts/audit-metrics.sh record "$run" limit 'One vendor page remained unreadable after recovery'
+scripts/audit-metrics.sh record "$run" limit '"One vendor page remained unreadable after recovery"'
 scripts/audit-metrics.sh finish "$run"
 scripts/audit-metrics.sh report "$run"
 ```
