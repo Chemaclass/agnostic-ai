@@ -1,7 +1,7 @@
 +++
 title = "Use Composer with Claude Code and Codex"
 description = "Keep one set of project instructions, rules, and skills for Composer's Claude and Codex providers."
-weight = 75
+weight = 72
 
 [extra]
 nav_title = "Composer providers"
