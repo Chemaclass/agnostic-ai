@@ -4,6 +4,8 @@
 
 `scripts/jev-triage.sh` is an optional first pass that decides which changed pages `/target-audit` should review. It asks TypeSafe's Jev, a model that returns structured answers instead of prose, which changed vendor pages probably break a claim agnostic-ai makes, and which pages are safe to skip. The audit works the same without it.
 
+Use `scripts/jev-triage.sh --lexical <run> <pending-deep-target>...` when every pending deep target is in `builtin-deep:`. Those targets need full review regardless of Jev scores. Other runs use the API mode when available. Limit either mode to pending deep targets so resumed and unchanged coverage does not consume triage work. This changes triage cost, not the required evidence or review coverage.
+
 ## What it does
 
 The script reads a `scripts/docfetch.sh` run directory. For each changed page with a `.delta`, it sends one request to Jev with the page's changed text and every claim `scripts/target-facts.sh` prints for that target. Each claim is a Choice question (a selection from named answers) (`supports`, `contradicts`, `says_nothing`). One Noul question (a numeric score) per page asks whether the change documents a configuration feature for a project, which is the only check that can catch a new tool configuration feature that none of our current claims covers.
@@ -13,7 +15,7 @@ It writes two TSV files into the run directory:
 - `triage.tsv`: one row per possible problem, most likely difference from vendor documentation first. A Jev row is kept only when its verdict is `contradicts` or its `p_contradicts` reaches 0.4, or, for the question about configuration features, when its Noul reaches 0.5.
 - `triage-pages.tsv`: one status per changed page. `clear` means Jev answered every question for the page, kept no row, its score for configuration features stayed under 0.1, and no path we write moved on it (`mentions:` label). The others are `lead`, `judged` (no lead, but a `mentions:` page or a score for configuration features of 0.1 or more), `unjudged` (a request was capped or failed), and `lexical` (Jev did not run).
 
-The skill reviews targets with a possible problem from Jev first and passes the rows to reviewers as questions. When every changed row for a target is `clear`, the target gets a Clean row marked "fast path by Jev" without a reviewer. Each run still reviews one randomly chosen target from that group. If that review finds a problem, skipping reviews is disabled until a saved test case for the problem passes.
+The skill reviews targets with a possible problem from Jev first and passes the rows to reviewers as questions. A target can take a "fast path by Jev" only when every changed row is `clear`, it is absent from `builtin-deep:`, and a manual delta check finds no built-in hook or skill behavior changes. Each run still reviews one randomly chosen target from that group. If that review finds a problem, skipping reviews is disabled until a saved test case for the problem passes.
 
 ## Per-run metrics
 
