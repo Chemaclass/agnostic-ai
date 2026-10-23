@@ -7,7 +7,7 @@ import { AppContext, type AppApi } from './components/app-context'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel } from './components/Banner'
-import { Footer, Header, Nav, type Remote } from './components/Shell'
+import { Header, Nav, type Remote } from './components/Shell'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
 function initialTheme(): 'dark' | 'light' {
@@ -93,7 +93,7 @@ export default function App() {
       firstPlace.current = false
       return
     }
-    window.scrollTo({ top: 0 })
+    document.getElementById('main')?.scrollTo({ top: 0 })
     document.getElementById('page-title')?.focus({ preventScroll: true })
   }, [state.view])
 
@@ -115,15 +115,22 @@ export default function App() {
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <Header overview={overview} inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
+        <Header
+          overview={overview}
+          inspectorOpen={inspectorOpen}
+          onToggleInspector={() => setInspectorOpen((open) => !open)}
+          theme={theme}
+          onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+        />
         <div className="shell">
           <Nav overview={overview} />
           <main id="main" className="main" tabIndex={-1}>
-            {sourceError && <ErrorPanel error={sourceError} />}
-            <SectionPage sectionId={state.view} overview={overview} />
+            <div className="page">
+              {sourceError && <ErrorPanel error={sourceError} />}
+              <SectionPage sectionId={state.view} overview={overview} />
+            </div>
           </main>
         </div>
-        <Footer overview={overview} theme={theme} onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} />
         {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
       </div>
     </AppContext.Provider>

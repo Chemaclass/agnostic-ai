@@ -47,6 +47,7 @@ function normalizeSection(raw: unknown): Section {
       return {
         ...(item as unknown as Section['items'][number]),
         findings: arr(item.findings),
+        ...(item.tools ? { tools: { ...(obj(item.tools) as unknown as NonNullable<Section['items'][number]['tools']>), tools: arr(obj(item.tools).tools) } } : {}),
         values: arr<Loose>(item.values).map((v) => ({ ...(v as unknown as Section['items'][number]['values'][number]), ...(v.list ? { list: arr(v.list) } : {}) })),
       }
     }),

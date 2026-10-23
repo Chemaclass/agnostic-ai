@@ -53,6 +53,27 @@ test.describe('overview', () => {
     await saveScreenshot(page, '04-authority.png')
   })
 
+  test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
+    await openApp(page, '?view=tools')
+    await expect(page.getByRole('heading', { level: 1, name: 'Tools' })).toBeVisible()
+    const servers = page.locator('.item-row', { has: page.locator('.tool-listing') })
+    await expect(servers.first()).toBeVisible()
+    if (MOCK) await expect(servers.first().locator('.tool-state')).toContainText('agnostic-ai mcp tools')
+  })
+
+  test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 500 })
+    await openApp(page, '?view=lifecycle')
+    await expect(page.locator('.footer')).toHaveCount(0)
+    const main = page.locator('#main')
+    expect(await main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    expect(await page.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight + 1)).toBe(true)
+    const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
+    await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
+    expect(await page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().top)).toBe(0)
+    expect(await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)).toBe(navTop)
+  })
+
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await openApp(page)

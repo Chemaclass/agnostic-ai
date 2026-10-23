@@ -7,7 +7,7 @@ Agnostic AI configuration.
 | --- | --- |
 | Context | The instructions file, rules, agents, and skills |
 | Authority | The permission files, each rule as a chip |
-| Tools | MCP servers |
+| Tools | MCP servers, each with the tools `agnostic-ai mcp tools` last listed |
 | Lifecycle | Every point in a session a hook can run at, with the coding tools that run it and the hooks configured there |
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 

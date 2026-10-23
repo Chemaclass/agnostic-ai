@@ -2,7 +2,7 @@
   "schemaVersion": "overview/v1",
   "snapshot": {
     "revision": "fc5bb098abb3",
-    "generatedAt": "2026-10-23T07:46:16Z",
+    "generatedAt": "2026-10-23T11:27:29Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -441,6 +441,11 @@
           "path": ".agnostic-ai/mcps/analytics-db.yaml",
           "layer": "project",
           "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
           "findings": []
         },
         {
@@ -451,6 +456,11 @@
           "path": ".agnostic-ai/mcps/github.yaml",
           "layer": "project",
           "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
           "findings": []
         },
         {
@@ -461,6 +471,11 @@
           "path": ".agnostic-ai/mcps/railway.yaml",
           "layer": "project",
           "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
           "findings": []
         },
         {
@@ -471,6 +486,11 @@
           "path": ".agnostic-ai/mcps/workspace-files.yaml",
           "layer": "project",
           "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
           "findings": []
         }
       ],

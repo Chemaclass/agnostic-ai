@@ -484,7 +484,18 @@ export interface SectionItem {
   values: Value[]
   /** For a built-in: whether the config turns it on. */
   enabled?: boolean
+  /** For an MCP server: the tools `agnostic-ai mcp tools` last listed. */
+  tools?: ToolListing
   findings: ItemFinding[]
+}
+
+export interface ToolListing {
+  state: 'listed' | 'stale' | 'failed' | 'not-listed'
+  listedAt?: string
+  error?: string
+  tools: { name: string; title?: string; description?: string }[]
+  /** Refreshes the listing. */
+  command: string
 }
 
 /** One setting: a list renders as chips, a bool as a switch, text as text. */

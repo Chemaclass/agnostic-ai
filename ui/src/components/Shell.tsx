@@ -1,11 +1,10 @@
-// The frame around every page: the header with the project chip and
-// each coding tool's sync state, the harness navigation with each
-// section's finding count, and the footer with the snapshot revision.
+// The frame around every page: the header with the project chip, each
+// coding tool's sync state, and the JSON and theme toggles, and the
+// harness navigation with each section's finding count.
 
 import { useEffect, useRef } from 'react'
 import type { OverviewView, SyncState, TargetSupport } from '../contract'
 import type { Loaded } from '../api'
-import { formatTime } from '../model/format'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { Chip, Icon, type Tone } from './ui'
@@ -53,7 +52,19 @@ function SyncChips({ targets }: { targets: TargetSupport[] }) {
   )
 }
 
-export function Header({ overview, inspectorOpen, onToggleInspector }: { overview: Remote<OverviewView>; inspectorOpen: boolean; onToggleInspector: () => void }) {
+export function Header({
+  overview,
+  inspectorOpen,
+  onToggleInspector,
+  theme,
+  onToggleTheme,
+}: {
+  overview: Remote<OverviewView>
+  inspectorOpen: boolean
+  onToggleInspector: () => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
+}) {
   const app = useApp()
   const snapshot = overview.loaded?.data.snapshot
 
@@ -86,6 +97,9 @@ export function Header({ overview, inspectorOpen, onToggleInspector }: { overvie
       </div>
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
+      </button>
+      <button type="button" className="button button-quiet" aria-pressed={theme === 'light'} onClick={onToggleTheme}>
+        Light theme
       </button>
     </header>
   )
@@ -137,24 +151,5 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
     <nav className="sidenav" aria-label="Harness" ref={navRef}>
       <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
     </nav>
-  )
-}
-
-export function Footer({ overview, theme, onToggleTheme }: { overview: Remote<OverviewView>; theme: 'dark' | 'light'; onToggleTheme: () => void }) {
-  const snapshot = overview.loaded?.data.snapshot
-  return (
-    <footer className="footer">
-      <p className="footer-facts">
-        {snapshot?.revision && (
-          <span>
-            Revision <code className="code">{snapshot.revision}</code>
-          </span>
-        )}
-        {snapshot?.generatedAt && <span>Built {formatTime(snapshot.generatedAt)}</span>}
-      </p>
-      <button type="button" className="button button-quiet" aria-pressed={theme === 'light'} onClick={onToggleTheme}>
-        Light theme
-      </button>
-    </footer>
   )
 }

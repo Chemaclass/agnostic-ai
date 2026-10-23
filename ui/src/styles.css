@@ -149,12 +149,6 @@ table,
   font-variant-numeric: tabular-nums;
 }
 
-/* In-page jumps land below the sticky header. */
-h1[id],
-h2[id],
-section[id] {
-  scroll-margin-top: 88px;
-}
 
 .sr-only {
   position: absolute;
@@ -215,15 +209,18 @@ kbd {
 
 /* Layout ---------------------------------------------------------------- */
 
+/* The app fills the viewport: the header and the navigation stay put,
+   and only the content area scrolls. */
 .app {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
-  position: sticky;
-  top: 0;
+  flex: none;
   z-index: 30;
   display: flex;
   align-items: center;
@@ -287,19 +284,16 @@ input:hover {
 
 .shell {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: var(--nav-width) minmax(0, 1fr);
 }
 
 .sidenav {
-  position: sticky;
-  top: var(--topbar-height);
-  align-self: start;
-  max-height: calc(100vh - var(--topbar-height));
+  min-height: 0;
   overflow: auto;
   padding: 20px 12px;
   border-right: 1px solid var(--line);
-  min-height: calc(100vh - var(--topbar-height));
 }
 
 .nav-list {
@@ -349,7 +343,11 @@ input:hover {
 
 .main {
   min-width: 0;
-  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.page {
   max-width: 1240px;
   padding: 28px 32px 56px;
   display: flex;
@@ -361,27 +359,6 @@ input:hover {
   outline: none;
 }
 
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px 18px;
-  padding: 12px 24px;
-  border-top: 1px solid var(--line);
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.footer-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-}
-
-.runtime-note {
-  color: var(--text);
-}
 
 /* Page furniture ---------------------------------------------------------- */
 
@@ -1067,6 +1044,25 @@ input:hover {
   font-size: 12px;
 }
 
+.tool-listing {
+  flex-basis: 100%;
+  display: grid;
+  gap: 6px;
+}
+
+.tool-listing .value-chips .chip {
+  font-family: var(--font-mono);
+  border-radius: var(--radius-sm);
+}
+
+.tool-state {
+  font-size: 13px;
+}
+
+.tool-state.is-warning {
+  color: var(--approval);
+}
+
 /* Tables ---------------------------------------------------------------- */
 
 .table-wrap {
@@ -1213,7 +1209,7 @@ input:hover {
 /* Responsive ------------------------------------------------------------- */
 
 @media (max-width: 1100px) {
-  .main {
+  .page {
     padding: 24px 24px 48px;
   }
 
@@ -1229,13 +1225,11 @@ input:hover {
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   /* The navigation collapses to one scrolling row under the header. */
   .sidenav {
-    position: static;
-    min-height: 0;
-    max-height: none;
     padding: 8px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -1289,17 +1283,13 @@ input:hover {
     width: 100%;
   }
 
-  .main {
+  .page {
     padding: 18px 16px 40px;
     gap: 18px;
   }
 
   .page-subtitle {
     font-size: 16px;
-  }
-
-  .footer {
-    padding: 12px 16px;
   }
 
   .inspector {

@@ -2,7 +2,7 @@
 // with each check finding on the item it names, and which coding tools
 // support each kind.
 
-import type { ItemFinding, OverviewView, Section, SectionItem, SettingField, Stage, Value } from '../contract'
+import type { ItemFinding, OverviewView, Section, SectionItem, SettingField, Stage, ToolListing, Value } from '../contract'
 import { PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
 import type { Remote } from './Shell'
@@ -181,10 +181,49 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             )}
           </div>
           {!hideValues && item.values.length > 0 && <Values values={item.values} />}
+          {item.tools && <Tools listing={item.tools} />}
           {item.findings.length > 0 && <Findings findings={item.findings} />}
         </li>
       ))}
     </ul>
+  )
+}
+
+/** An MCP server's tools, from the cache `agnostic-ai mcp tools` fills. */
+function Tools({ listing }: { listing: ToolListing }) {
+  const when = listing.listedAt ? new Date(listing.listedAt).toLocaleString() : ''
+  return (
+    <div className="tool-listing">
+      {listing.tools.length > 0 && (
+        <span className="value-chips">
+          {listing.tools.map((t) => (
+            <Chip key={t.name} title={t.description || t.title}>
+              {t.name}
+            </Chip>
+          ))}
+        </span>
+      )}
+      {listing.state === 'listed' && (
+        <p className="muted tool-state">
+          {listing.tools.length} tool{listing.tools.length === 1 ? '' : 's'} · listed {when}
+        </p>
+      )}
+      {listing.state === 'stale' && (
+        <p className="tool-state is-warning">
+          The spec changed after these were listed ({when}). Run <Code>{listing.command}</Code> to list them again.
+        </p>
+      )}
+      {listing.state === 'failed' && (
+        <p className="tool-state is-warning">
+          Could not list the tools: {listing.error}. Run <Code>{listing.command}</Code> to try again.
+        </p>
+      )}
+      {listing.state === 'not-listed' && (
+        <p className="muted tool-state">
+          Tools not listed yet. Run <Code>{listing.command}</Code> to list them.
+        </p>
+      )}
+    </div>
   )
 }
 
