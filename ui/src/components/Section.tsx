@@ -1,7 +1,3 @@
-// Overview page for a harness section: what it holds, item by item,
-// with each check finding on the item it names, and which coding tools
-// support each kind.
-
 import { useState } from 'react'
 import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
@@ -58,7 +54,7 @@ export function SectionContents({ section }: { section: Section }) {
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
-              {k.label} <span className="muted kind-count">{k.count}</span>
+              {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
             </h2>
             {items.length === 0 ? <p className="muted">None configured.</p> : <GroupedItems items={items} />}
           </section>

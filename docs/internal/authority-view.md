@@ -52,7 +52,7 @@ Tool lists are not queried. An MCP tool appears as an operation when a rule or t
 
 ## Secrets
 
-A secret is a credential the configuration references by name through `${NAME}`. Four rights are reported separately: `discover` (the name is in the configuration), `readValue` (reported `unknown` with the reason, since a shell or file rule may reach it another way), `use` (allowed when the provider is available to the subject), and `manage` (unknown; rotation happens in the provider). No value appears in any payload, log, or diff.
+A secret is a credential the configuration references by name through `${NAME}`. Four rights are reported separately: `discover` (the name is in the configuration), `readValue` (reported `unknown` with the reason, since a shell or file rule may reach it another way), `use` (allowed when the provider is available to the subject), and `manage` (unknown; rotation happens in the provider). Display fields redact credential-named values, recognized tokens, and resolved secret values. Matching retains private original rules; public identifiers remain distinct after redaction.
 
 ## Snapshot and revision
 
@@ -92,9 +92,11 @@ Read-only check results are shown on what they concern, never as a separate list
 | POST | `/api/edit/builtin` | switches a built-in in the config file in effect; `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
 | POST | `/api/edit/value` | sets a boolean at a dotted key in a settings spec; same replies |
 
-The two edit endpoints are the server's only writes. They keep the file's comments, run the checks `validate` runs before and after, restore the original bytes when the edit adds a problem or stops the configuration loading, and refuse anything but a JSON `POST` to a loopback host from a local origin.
+The two edit endpoints are the server's only writes. They require explicit boolean values in JSON, edit owned YAML spans, preserve unrelated bytes and file modes, and run the validation checks before and after. File snapshots detect concurrent changes before replacement and rollback. A failed restoration is reported without claiming the file was restored. Inherited booleans become explicit local overrides; an empty local builtin list keeps shared builtins disabled.
 
-`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration from any directory. Its overview runs `lint --global` and compares the files `sync --global` would write with disk, as `sync --global --check` does; the doctor checks read a project and are skipped, and the evidence note says so.
+`serve` binds to an explicit loopback IP and reloads the configuration on every request. One shared Host/Origin guard protects every route. Other browser origins require an exact `--allow-origin`; no-Origin CLI requests remain allowed, while cross-site browser requests are refused. Bodies are bounded and read before the adapter serialization lock. Header, read, write and idle deadlines limit stalled clients.
+
+Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--global` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
 
 ## Uncertainty codes
 

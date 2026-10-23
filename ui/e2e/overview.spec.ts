@@ -10,7 +10,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
     await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
     for (const kind of ['Instructions', 'Rules', 'Agents', 'Skills']) await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()
-    const nav = page.getByRole('navigation', { name: 'Harness' })
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
     await expect(nav.getByRole('link')).toHaveCount(5)
     for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
     await expect(page.locator('.topbar .chip', { hasText: 'sync' })).toHaveCount(0)
@@ -96,7 +96,7 @@ test.describe('overview', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   })
 
-  test('switches a built-in through the server, and shows why a refused edit was undone', async ({ page }) => {
+  test('renders accepted and refused edit responses', async ({ page }) => {
     let memory = false
     let refuse = false
     const posted: unknown[] = []

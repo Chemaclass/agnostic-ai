@@ -1,7 +1,6 @@
-# Agnostic AI harness UI
+# Local configuration UI
 
-The web client for the harness overview: one page per section of an
-Agnostic AI configuration.
+Inspect project or user configuration in a local browser.
 
 | Section | Shows |
 | --- | --- |
@@ -17,33 +16,33 @@ save: the server edits the file, validates the configuration, and undoes
 the edit with the reasons when it fails. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
 it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
-its file, and the header shows whether each coding tool's generated files
-are in sync with what `sync` would write.
+its file. The JSON overview also reports whether generated files match
+what `sync` would write.
 
-The server owns the truth; the client owns presentation. `src/contract.ts`
-mirrors the Go types in `internal/overview/types.go` (and, for the API it
-still serves, `internal/authority/types.go`); change it only together
-with them.
+`src/contract.ts` mirrors the Go types in `internal/overview/types.go`
+and `internal/authority/types.go`. Update them together.
 
 ## Run it against the server
 
 From the repository root, serve a project or the user-level configuration:
 
 ```sh
-go run ./cmd/agnostic-ai serve --dir internal/authority/testdata/demo-project
-go run ./cmd/agnostic-ai serve --global
+go run ./cmd/agnostic-ai serve --dir internal/authority/testdata/demo-project --allow-origin http://127.0.0.1:5173
+# Or serve user configuration with the same development origin:
+go run ./cmd/agnostic-ai serve --global --allow-origin http://127.0.0.1:5173
 ```
 
 Then, in `ui/`:
 
 ```sh
-npm install
-npm run dev
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
 
-Open the address Vite prints (http://127.0.0.1:5173 by default). The dev
-server and `npm run preview` both forward `/api` to the Go server on
-`http://127.0.0.1:4310`.
+Open `http://127.0.0.1:5173`. Vite forwards `/api` to
+`http://127.0.0.1:4310`, preserving the original Host header. Set
+`AGNOSTIC_AI_API_URL` to use another backend address. Other browser
+origins need an exact `--allow-origin` on the Go server.
 
 The server can also host the built client itself, on the same port as
 the API:
@@ -103,6 +102,7 @@ The build uses relative asset paths, so `dist/` runs from any directory.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test`      | Model tests with Vitest |
 | `npm run e2e`       | End-to-end tests with Playwright |
+| `npm run e2e:live`  | Real Go server, temporary sources, and browser edits |
 
 ## Tests
 
@@ -110,7 +110,14 @@ The build uses relative asset paths, so `dist/` runs from any directory.
 parsing, and the fixture's conformance to the contract. Point them at
 real server output with `OVERVIEW_FIXTURE` (a path relative to `ui/`).
 
-**End-to-end tests** (`e2e/*.spec.ts`) drive the built client:
+**Fixture browser tests** exercise rendering, themes, keyboard controls,
+and accepted/refused edit responses. The edit responses are mocked.
+
+**Live browser tests** (`e2e/live.spec.ts`) start the built Go server
+against temporary project and user sources. They use real API requests,
+reload persisted edits, enforce browser boundaries, list tools from a
+local fake MCP server, and exercise the Vite proxy. They do not read or
+change the user's configuration.
 
 | Variable             | Meaning |
 | -------------------- | ------- |
@@ -119,17 +126,21 @@ real server output with `OVERVIEW_FIXTURE` (a path relative to `ui/`).
 | `E2E_PREVIEW=1`      | Build and start `vite preview` on 4173 before the tests |
 | `E2E_SCREENSHOT_DIR` | Where screenshots go; default `ui/test-results/screenshots/`, which git ignores |
 | `E2E_CHROMIUM_PATH`  | A Chromium binary, only if the default launch cannot find one |
+| `AGNOSTIC_E2E_BIN` | Built CLI for live tests; default is the repository's `agnostic-ai` executable |
 
 ```sh
 # Against the bundled fixture, with Playwright starting the preview server
 E2E_PREVIEW=1 E2E_MOCK=1 npm run e2e
 
-# Against the real server, started with --ui ui/dist
-E2E_BASE_URL=http://127.0.0.1:4310 npm run e2e
+# From the repository root, build the real server and client:
+go build ./cmd/agnostic-ai
+(cd ui && npm run build && npm run e2e:live)
 ```
 
-`@playwright/test` is pinned to 1.56.1 to match the preinstalled
-Chromium build; do not run `playwright install`.
+Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install
+the browser matching the pinned Playwright version with
+`npx playwright install chromium` from `ui/`. CI installs it with its
+system dependencies before running both suites.
 
 ## Source layout
 

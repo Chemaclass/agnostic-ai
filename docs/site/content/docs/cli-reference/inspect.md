@@ -314,7 +314,9 @@ agnostic-ai view overview --json
 
 ## serve
 
-Host the views as a local JSON API, and the built web client when `--ui` names its directory. The project loads on every request, so an edited spec shows on the next refresh. The overview's switches are its only writes: a built-in in the config file, or a boolean in a settings spec. Each edit keeps comments, is validated as `validate` does, and is undone when it adds a problem. A write must be a JSON `POST` to a loopback host from a local page, so another website cannot send one. Generated files are not synced.
+Host the views as a local JSON API, and the built web client when `--ui` names its directory. The configuration loads on every request. The switches change builtin choices or boolean settings without syncing generated files. Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
+
+The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
 
 ```bash
 agnostic-ai serve --ui ui/dist --open
@@ -323,7 +325,8 @@ agnostic-ai serve --global
 
 | Flag | Description |
 |------|-------------|
-| `--addr` | Address to listen on. Default `127.0.0.1:4310`. |
+| `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
+| `--allow-origin` | Additional exact browser origin, such as `http://127.0.0.1:5173` for Vite. |
 | `--dir` | Project directory to read. Default: the current directory. |
 | `--ui` | Directory of the built client to serve, such as `ui/dist`. |
 | `--open` | Open the served URL in a browser. |
@@ -341,12 +344,16 @@ agnostic-ai mcp tools
 agnostic-ai mcp tools --global
 ```
 
-Stdio servers start with their `command`, `args`, and `env`; `http` servers are called with their `headers` and `headersHelper`. `${NAME}` references resolve from the environment, and an unset one is reported without connecting. `sse` and `ws` servers are not probed. The cache lives in the user cache directory, outside any repository, keyed by the configuration root. The overview marks a server's tools stale when its spec changed after they were listed.
+Stdio servers start with their `command`, `args`, and `env`; HTTP servers use their headers and optional `headersHelper`. Relative and omitted working directories use the selected configuration root. `${NAME}` references resolve from the environment; `${workspaceFolder}` means that root. An unset reference is reported without connecting. SSE, WebSocket, and disabled servers are not probed.
+
+Up to four servers are checked at once. Each server's timeout includes its header helper. Cancellation closes its pipes and stops its owned processes. Errors and tool descriptions are redacted before display or caching.
+
+The cache lives in the native user cache directory, outside the repository. Directory aliases share a listing. Changed specs mark their listing stale. Refresh older listings with `mcp tools` before they appear in the overview.
 
 | Flag | Description |
 |------|-------------|
 | `--dir` | Project directory to read. Default: the current directory. |
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
 | `--json` | Print the cached result as JSON. |
-| `--timeout` | How long to wait for each server. Default `20s`. |
+| `--timeout` | Maximum probe time per server, including its header helper. Default `20s`. Process cleanup is bounded separately. |
 

@@ -1,6 +1,3 @@
-// The frame around every page: the header with the project chip and the
-// JSON and theme toggles, and the harness navigation.
-
 import { useEffect, useRef } from 'react'
 import type { OverviewView } from '../contract'
 import type { Loaded } from '../api'
@@ -44,7 +41,7 @@ export function Header({
         <span className="logo" aria-hidden="true">
           A
         </span>
-        <span className="brand-name">Agnostic AI</span>
+        <span className="brand-name">agnostic-ai</span>
       </div>
       <div className="topbar-chips">
         {snapshot?.project.name && (
@@ -109,7 +106,7 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   }
 
   return (
-    <nav className="sidenav" aria-label="Harness" ref={navRef}>
+    <nav className="sidenav" aria-label="Configuration sections" ref={navRef}>
       <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
     </nav>
   )
