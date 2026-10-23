@@ -23,7 +23,7 @@ type projectPermission struct {
 // merge would put them.
 func readProjectPermission(sess *emit.Session, path string, dryRun bool) (*agentProject, error) {
 	data, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !emit.IsAbsent(err) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	onDisk, err := permissionOf(string(data), path)
