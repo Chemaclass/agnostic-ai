@@ -180,8 +180,10 @@ An adapter follows the vendor's configuration format at the time it is written. 
   `scripts/docfetch.sh <target>` once and commit the new rows it adds to
   `scripts/target-audit/sources.lock`.
 - `scripts/target-facts.sh <target>` prints what the repo currently
-  claims (capabilities, default paths, package doc, the
-  `targets/_index.md` rows and the target's page). Compare that output with the vendor documentation.
+  claims: capabilities, default paths, package comments and target guidance.
+  Capabilities can use compact or multiline declarations. Output defaults
+  include constants and inline calls across non-test files in the adapter package.
+  Compare that output with the vendor documentation.
 
 The `target-audit` skill runs that comparison across every registered
 target in parallel and files an issue for each confirmed difference. Run it after
