@@ -377,4 +377,7 @@
 # #2417 measured 20836512 on Go 1.27.3, up 110592 from main c0c0581b
 # (20725920): Qwen native output, import, global ownership, and credential guards.
 # Same Linux amd64 release flags, no added headroom or dependencies.
-20836512
+# #2430 measured 20840608 on Go 1.27.3, up 4096 from parent 57ba0286
+# (20836512): native V2 agent restriction preservation and browser permission replay.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+20840608
