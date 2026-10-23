@@ -240,6 +240,12 @@ statuses = ["no", "no", "no", "no", "native", "no", "opt-in", "native", "native"
 opt_in_anchor = "first-review"
 opt_in = { settings = "x-ellipsis" }
 
+[[targets]]
+id = "qwen"
+name = "Qwen Code"
+href = "@/docs/targets/qwen.md"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
+
 # Native tool names from the adapter capability tables.
 
 [tool_translations.augment]

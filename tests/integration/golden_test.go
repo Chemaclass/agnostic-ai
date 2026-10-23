@@ -23,6 +23,7 @@ var goldenTargets = []string{
 	"crush",
 	"cursor",
 	"gemini",
+	"qwen",
 	"junie",
 	"kiro",
 	"opencode",

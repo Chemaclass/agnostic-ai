@@ -120,6 +120,7 @@ var inlineRulesTargets = map[string]bool{
 	"warp":      true,
 	"zed":       true,
 	"gemini":    true,
+	"qwen":      true,
 	"aider":     true,
 	"opencode":  true,
 	"crush":     true,

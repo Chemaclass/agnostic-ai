@@ -35,6 +35,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/qwen"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/warp"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
@@ -872,6 +873,7 @@ var registry = map[string]Adapter{
 	"claude":      claude.New(),
 	"codex":       codex.New(),
 	"gemini":      gemini.New(),
+	"qwen":        qwen.New(),
 	"cursor":      cursor.New(),
 	"copilot":     copilot.New(),
 	"aider":       aider.New(),

@@ -227,8 +227,8 @@ func neutralHookFilename(path string, quote byte, literal bool) (int, string) {
 func hookSourceCommands(hook spec.Entry, target string) ([]string, bool) {
 	meta := ResolveMeta(hook.Meta, target)
 	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
-	if target == "gemini" {
-		if native, ok := hook.Meta["x-gemini"].(map[string]any); ok {
+	if target == "gemini" || target == "qwen" {
+		if native, ok := hook.Meta["x-"+target].(map[string]any); ok {
 			if handlers, exists := native["hooks"]; exists {
 				var commands []string
 				for _, handler := range HookCommandEntries(handlers) {

@@ -22,7 +22,7 @@ var rulesDirImporters = map[string]string{}
 // failed with an error that named antigravity as supported (#905).
 var importSourceNames = []string{
 	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
-	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "goose", "junie", "kilo", "kiro",
+	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "qwen", "goose", "junie", "kilo", "kiro",
 	"opencode", "openhands", "qoder", "trae", "warp", "windsurf", "zed",
 }
 
@@ -194,6 +194,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromAmp(root, src)
 	case "warp":
 		return importFromWarp(root, src)
+	case "qwen":
+		return importFromQwen(root, src)
 	case "gemini":
 		return importFromGemini(root, src)
 	case "copilot":

@@ -67,6 +67,7 @@ desktop.ini
 /.claude/
 /.cursor/
 /.gemini/
+/.qwen/
 /.clinerules/
 /.cline/
 /.devin/
@@ -104,6 +105,8 @@ desktop.ini
 # hierarchically; Gemini emits GEMINI.md hierarchically too.
 **/AGENTS.md
 **/GEMINI.md
+**/QWEN.md
+!docs/site/content/docs/targets/qwen.md
 AGENT.md
 WARP.md
 .rules
@@ -116,6 +119,7 @@ WARP.md
 /.cursorignore
 /.devinignore
 /.geminiignore
+/.qwenignore
 /.kilocodeignore
 /.kiroignore
 /.windsurfignore

@@ -13,6 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/qwen"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -170,6 +171,13 @@ var globalTargets = map[string]globalTarget{
 			path: globalPathHome + ".codex/config.toml", format: "toml",
 			model: "model", effort: "model_reasoning_effort", effortLevel: codex.Adapter{}.SettingsEffortLevels,
 		},
+	},
+	"qwen": {
+		rootEnv: "QWEN_HOME", root: globalPathHome + ".qwen",
+		instructions: globalPathHome + ".qwen/QWEN.md", agents: globalPathHome + ".qwen/agents", skills: globalPathHome + ".qwen/skills",
+		hooks: globalPathHome + ".qwen/settings.json", hooksFormat: "claude", hookTarget: hookTargetHandlerEnv, hookFoldArgs: true, hookTimeout: qwen.HookTimeout,
+		mcp:      globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",

@@ -369,3 +369,16 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: a second file path or a file kind other than `code_review`, a new top-level block, a reviewer key beside `claude_code`, `codex` and `gemini`, `output` defaults, and the 64-reviewer limit. Unknown fields fail the vendor's sync, so a new required field is a finding.
 - decision: one reviewer, with scoped reviews as conditional prompt sections, because the vendor's per-reviewer `paths` filter needs several reviewers (#2187). Revisit after a real pull request trial.
 - decision: reviewer, model, filters, posting, and budget come from `x-ellipsis` on a settings spec, copied as written; the prompt comes only from review specs.
+
+## qwen
+
+- docs: https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/ · /en/users/features/sub-agents/ · /en/users/features/skills/ · /en/users/features/commands/ · /en/users/features/mcp/ · /en/users/features/hooks/ · /en/users/configuration/qwen-ignore/
+- changelog: https://github.com/QwenLM/qwen-code/releases
+- code: https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts (added 2026-10-23; released native paths) · https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts (added 2026-10-23; released event names and timeout contract)
+- watch: QWEN_HOME versus QWEN_RUNTIME_DIR; project and scoped QWEN.md discovery; Markdown commands and legacy TOML removal; native agent tools, approvalMode, record-valued mcpServers, and effort implementation; settings permission lists; MCP httpUrl versus url; hook events, seconds, and project trust; user ignore support.
+- trap: the releases feed includes the separate TypeScript SDK. Compare CLI v-tags when choosing a CLI baseline; releases/latest can select the SDK.
+- decision: portable agent effort and permissionMode are unsupported. Explicit native agent approval fields belong under x-qwen.
+- decision: HTTP uses httpUrl, SSE uses url, MCP timeout is milliseconds, and command hook timeout is seconds.
+- decision: global commands and ignore files are outside the current global target table. Project command support does not imply global command sync.
+- trap: `hooks.enabled`, `hooks.disabled` and `hooks.notifications` are skipped metadata in the released registry. Top-level `disableAllHooks` is the active control.
+- decision: native skill `model` round-trips under x-qwen and is applied as modelOverride. Shared skill model is not promoted.

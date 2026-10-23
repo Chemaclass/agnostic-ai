@@ -104,7 +104,7 @@ func TestDefaultTargets(t *testing.T) {
 	// unique default output, so the default set keeps to targets with a
 	// native surface of their own.
 	want := []string{
-		"claude", "codex", "gemini", "cursor",
+		"claude", "codex", "gemini", "qwen", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",

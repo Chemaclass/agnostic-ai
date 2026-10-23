@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"path"
@@ -180,4 +181,76 @@ func writeScopedRuleWithDescription(dstDir, name, globs, description, body strin
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+func importHierarchicalInstructionRules(root, dstDir string, src config.Sources, filename string) (int, error) {
+	files, err := findHierarchicalMainFiles(root, filename, src)
+	if err != nil {
+		return 0, err
+	}
+	if len(files) == 0 {
+		return 0, nil
+	}
+	wholeFileNames := wholeFileRuleNames(root, files)
+	used := map[string]int{}
+	count := 0
+	for _, f := range files {
+		data, err := readEntryFile(root, f.path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", f.path, err)
+		}
+		text, ok := hierarchicalRulesText(f, string(data))
+		if !ok {
+			continue
+		}
+		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(string(data), adapters.RulesStartMarker) {
+			if err := writeScopedRuleWithDescription(dstDir, dedupSlug(used, name), f.globs, desc, body); err != nil {
+				return count, err
+			}
+			count++
+			continue
+		}
+		sections := hierarchicalRuleSections(string(data), text)
+		if len(sections) == 0 {
+			body := strings.TrimSpace(text)
+			if body == "" {
+				continue
+			}
+			name := dedupSlug(used, wholeFileNames[f.globs])
+			if err := writeScopedRule(dstDir, name, f.globs, body); err != nil {
+				return count, err
+			}
+			count++
+			continue
+		}
+		if preamble := sectionsPreamble(text); preamble != "" {
+			name := dedupSlug(used, wholeFileNames[f.globs])
+			if err := writeScopedRule(dstDir, name, f.globs, preamble); err != nil {
+				return count, err
+			}
+			count++
+		}
+		for _, s := range sections {
+			name := dedupSlug(used, sectionRuleName(wholeFileNames, f.globs, s.slug))
+			if err := writeScopedRule(dstDir, name, f.globs, s.body); err != nil {
+				return count, err
+			}
+			count++
+		}
+	}
+	return count, nil
+}
+
+func hierarchicalRuleSections(raw, text string) []h2Section {
+	if !strings.Contains(raw, adapters.RulesStartMarker) {
+		return nil
+	}
+	var sections []h2Section
+	for _, c := range generatedBlockRules(text) {
+		sections = append(sections, h2Section(c))
+	}
+	return sections
 }
