@@ -356,4 +356,3 @@ The cache lives in the native user cache directory, outside the repository. Dire
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
 | `--json` | Print the cached result as JSON. |
 | `--timeout` | Maximum probe time per server, including its header helper. Default `20s`. Process cleanup is bounded separately. |
-
