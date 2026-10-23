@@ -1120,6 +1120,49 @@
     paths = []
 
 [[targets]]
+  id = "grok"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".grok/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".grok/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".grok/rules/grok.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".grok/hooks/guard.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".grok/config.toml"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".grok/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".grok/config.toml"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
   id = "qwen"
 
   [[targets.kinds]]

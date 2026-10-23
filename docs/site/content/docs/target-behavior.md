@@ -115,3 +115,5 @@ List only the tools you use in `agnostic-ai.yaml`. A `-t` list replaces that lis
 ## New targets
 
 To request a target, [open an issue](https://github.com/Chemaclass/agnostic-ai/issues). To implement one, follow [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md).
+
+Grok uses native `.grok/rules` files rather than adding another `AGENTS.md` copy. Its ignored-file discovery constraint and explicit setup are documented in [Grok Build](@/docs/targets/grok.md#first-rule).

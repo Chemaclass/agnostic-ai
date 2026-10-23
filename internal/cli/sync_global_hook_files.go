@@ -7,14 +7,19 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func addGlobalHookFiles(home, source, target string, g globalTarget, hooks []spec.Entry, onUnsupported string, add func(string, []byte, fs.FileMode) error) error {
+	if target == "grok" {
+		return addGlobalGrokHookFiles(home, source, g, hooks, add)
+	}
 	if target == "cline" {
 		return addGlobalClineHookFiles(home, source, g, hooks, onUnsupported, add)
 	}
@@ -129,6 +134,64 @@ func addGlobalClineHookFiles(home, source string, g globalTarget, hooks []spec.E
 	}
 	for _, file := range cline.GlobalHookFiles(hooks, filepath.ToSlash(scriptsDir)) {
 		if err := add(filepath.Join(dir, file.Path), file.Body, file.Mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addGlobalGrokHookFiles(home, source string, g globalTarget, hooks []spec.Entry, add func(string, []byte, fs.FileMode) error) error {
+	for _, hook := range hooks {
+		if err := spec.ValidateName(spec.KindHook, hook.Name); err != nil {
+			return fmt.Errorf("grok hook %s: %w", hook.Name, err)
+		}
+		if _, err := grok.HookFile(hook); err != nil {
+			return err
+		}
+	}
+	dir, scriptsDir := g.path(home, g.hooksDir), g.path(home, g.hookScriptsDir)
+	for _, hook := range hooks {
+		prepared := hook
+		prepared.Meta = maps.Clone(hook.Meta)
+		var commands []string
+		for _, command := range grok.NativeHookCommands(hook) {
+			scripts, err := adapters.NeutralHookScripts(command, "grok", filepath.Join(source, "scripts"), scriptsDir, len(stringSliceFromAny(hook.Meta["args"])) > 0)
+			if err != nil {
+				return err
+			}
+			for _, script := range scripts {
+				if err := add(script.Path, script.Body, script.Mode); err != nil {
+					return err
+				}
+			}
+			rewritten := adapters.RewriteGlobalHookPath(command, "grok", filepath.ToSlash(scriptsDir), hook.Meta)
+			if runtime.GOOS == "windows" {
+				if err := grok.ValidateWindowsScriptRewrite(command, rewritten, filepath.ToSlash(scriptsDir)); err != nil {
+					return fmt.Errorf("grok hook %s: %w", hook.Name, err)
+				}
+			}
+			commands = append(commands, rewritten)
+		}
+		if len(commands) > 0 {
+			prepared.Meta["command"] = commands
+		}
+		raw, err := grok.HookFile(prepared, filepath.ToSlash(scriptsDir))
+		if err != nil {
+			return err
+		}
+		if len(raw) == 0 {
+			continue
+		}
+		path := filepath.Join(dir, hook.Name+".json")
+		if existing, err := os.ReadFile(path); err == nil {
+			var have, want any
+			if json.Unmarshal(existing, &have) == nil && json.Unmarshal(raw, &want) == nil && sameSetting(have, want) {
+				raw = existing
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		if err := add(path, raw, 0644); err != nil {
 			return err
 		}
 	}

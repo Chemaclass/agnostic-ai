@@ -165,6 +165,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// The nine events docs.factory.com/harness/hooks' own Event
 	// reference table lists for Droid CLI's `.factory/hooks.json`
 	// (verified 2026-09-11; #629).
+	"grok": setOf("SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionDenied", "Stop", "StopFailure", "StopCancelled", "Notification", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact"),
 	"factory": setOf(
 		"PreToolUse", "PostToolUse",
 		"UserPromptSubmit", "Notification",
@@ -281,13 +282,13 @@ var matcherAcceptingEvents = setOf(
 // validator: if a project has hook specs but no enabled target maps
 // to a hook surface, the specs are dead weight.
 var targetsSupportingKind = kindSupport{
-	spec.KindAgent:       setOf("qwen", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder", "goose", "openhands"),
-	spec.KindSkill:       setOf("qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
-	spec.KindRule:        setOf("qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
-	spec.KindHook:        setOf("qwen", "vibe", "claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode", "cline", "kilo"),
-	spec.KindMCP:         setOf("qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment", "ellipsis"),
-	spec.KindCommand:     setOf("qwen", "pi", "claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kiro", "kilo", "qoder", "augment", "factory"),
-	spec.KindSettings:    setOf("qwen", "pi", "vibe", "claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor", "ellipsis"),
+	spec.KindAgent:       setOf("grok", "qwen", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder", "goose", "openhands"),
+	spec.KindSkill:       setOf("grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
+	spec.KindRule:        setOf("grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
+	spec.KindHook:        setOf("grok", "qwen", "vibe", "claude", "codex", "gemini", "cursor", "zed", "kiro", "openhands", "windsurf", "qoder", "augment", "crush", "copilot", "factory", "trae", "antigravity", "goose", "opencode", "cline", "kilo"),
+	spec.KindMCP:         setOf("grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment", "ellipsis"),
+	spec.KindCommand:     setOf("grok", "qwen", "pi", "claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kiro", "kilo", "qoder", "augment", "factory"),
+	spec.KindSettings:    setOf("grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor", "ellipsis"),
 	spec.KindReview:      setOf("cursor", "goose", "codex", "ellipsis"),
 	spec.KindEnvironment: setOf("cursor", "openhands", "amp", "claude", "codex", "ellipsis"),
 	spec.KindIgnore:      setOf("qwen", "cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),

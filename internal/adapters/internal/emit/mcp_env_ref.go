@@ -40,6 +40,7 @@ var mcpEnvRefTargets = map[string]mcpEnvRefForms{
 	"crush": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true, reading: spec.EnvRefReading{Unbraced: true}},
 	// url, args: expand_mcp_variables in https://github.com/OpenHands/software-agent-sdk/blob/35410b3af87e672b0264ba711755053c9d517bef/openhands-sdk/openhands/sdk/skills/utils.py
 	"openhands": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true},
+	"grok":      {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true},
 	"factory":   {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	"kiro":      {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	// https://geminicli.com/docs/reference/configuration: every string value in settings.json, defaults included

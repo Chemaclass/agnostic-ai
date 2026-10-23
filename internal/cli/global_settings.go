@@ -235,7 +235,7 @@ func flattenSettings(block map[string]any, format string) (map[string]any, []str
 				dotted = append(dotted, path)
 				continue
 			}
-			if nested, ok := value.(map[string]any); ok && format == "json" && len(nested) > 0 {
+			if nested, ok := value.(map[string]any); ok && (format == "json" || format == grokTOMLFormat) && len(nested) > 0 {
 				walk(path+".", nested)
 				continue
 			}
@@ -317,6 +317,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		}
 	}
 	m := globalSettingsMerge{owned: map[string]any{}}
+	if format == grokTOMLFormat {
+		if value, ok := previous[grokModelsContainer]; ok {
+			m.owned[grokModelsContainer] = value
+		}
+	}
 	set := map[string]any{}
 	var remove []string
 	wanted := map[string]bool{}
@@ -344,6 +349,9 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		m.owned[s.key] = s.value
 	}
 	for _, key := range slices.Sorted(maps.Keys(previous)) {
+		if key == grokModelsContainer {
+			continue
+		}
 		if wanted[key] {
 			continue
 		}
@@ -351,6 +359,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		if have, ok := settingsLookup(current, key, format); ok && equal(have, previous[key]) {
 			m.changes = append(m.changes, "remove "+key)
 			remove = append(remove, key)
+		}
+	}
+	if format == grokTOMLFormat {
+		if _, ownsModel := m.owned["models.default"]; !ownsModel {
+			delete(m.owned, grokModelsContainer)
 		}
 	}
 	if len(set) == 0 && len(remove) == 0 {
@@ -361,6 +374,22 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		if _, ok := set[s.key]; ok {
 			order = append(order, s.key)
 		}
+	}
+	if format == grokTOMLFormat {
+		var container any
+		m.data, container, err = editGrokTOML(path, data, order, set, remove, previous)
+		if container != nil {
+			if _, ownsModel := m.owned["models.default"]; ownsModel {
+				m.owned[grokModelsContainer] = container
+			}
+		}
+		if err != nil {
+			return m, err
+		}
+		if _, err := toml.Decode(string(m.data), new(map[string]any)); err != nil {
+			return m, fmt.Errorf("parse %s after Grok settings edit: %w", path, err)
+		}
+		return m, nil
 	}
 	if format == "toml" {
 		if m.data, err = editTOMLRoot(path, data, order, set, remove); err != nil {
@@ -452,7 +481,7 @@ func settingsValues(path, format string, data []byte) (map[string]any, error) {
 	if len(strings.TrimSpace(string(data))) == 0 {
 		return out, nil
 	}
-	if format == "toml" {
+	if format == "toml" || format == grokTOMLFormat {
 		if _, err := toml.Decode(string(data), &out); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}

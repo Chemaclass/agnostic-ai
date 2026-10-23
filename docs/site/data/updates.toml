@@ -118,6 +118,10 @@ id = "ellipsis"
 label = "Ellipsis"
 
 [[targets]]
+id = "grok"
+label = "Grok Build"
+
+[[targets]]
 id = "qwen"
 label = "Qwen Code"
 

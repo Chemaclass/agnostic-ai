@@ -22,6 +22,47 @@ func stageGlobalHookFiles(home, stage string, targets []string, have []spec.Entr
 			}
 			continue
 		}
+		if target == "grok" {
+			dir := g.path(home, g.hooksDir)
+			files, err := os.ReadDir(dir)
+			if os.IsNotExist(err) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("%s: %w", dir, err)
+			}
+			for _, file := range files {
+				if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+					continue
+				}
+				name := strings.TrimSuffix(file.Name(), ".json")
+				covered := false
+				for _, h := range have {
+					if h.Name == name && h.EmitsTo(target) {
+						covered = true
+						break
+					}
+				}
+				if covered {
+					continue
+				}
+				path := filepath.Join(dir, file.Name())
+				probe, err := grokHookEnvironment(path)
+				if err != nil {
+					return err
+				}
+				if err := validateGrokHookCredentials(probe); err != nil {
+					if _, err := fmt.Fprintf(warn, "warning: %s: skipped hook file; %s\n", path, err); err != nil {
+						return err
+					}
+					continue
+				}
+				if _, err := importGrokHookFile(path, filepath.Join(stage, "hooks")); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		if g.hooksDir == "" {
 			continue
 		}

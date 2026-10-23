@@ -353,3 +353,11 @@ func TestDeepMerge_NestedMaps(t *testing.T) {
 		t.Errorf("new top-level key should be added: %v", dst["c"])
 	}
 }
+
+func TestDefaultTargets_GrokNeedsExplicitInstructionPolicy(t *testing.T) {
+	for _, target := range DefaultTargets() {
+		if target == "grok" {
+			t.Fatal("Grok skips ignored instructions and must be selected explicitly")
+		}
+	}
+}

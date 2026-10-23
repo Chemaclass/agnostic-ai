@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"path/filepath"
 	"slices"
@@ -92,6 +93,32 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
+		if target == "grok" {
+			patterns, err := scopePatterns(r, scope)
+			if err != nil {
+				return out, nil, fmt.Errorf("%s: grok scope: %w", r.Path, err)
+			}
+			if len(patterns) == 0 {
+				out.Rules = append(out.Rules, original)
+				continue
+			}
+			directories, err := scopeDirectories(patterns)
+			if err != nil {
+				if err := unsupportedScope(cfg, target, r, err.Error()); err != nil {
+					return out, nil, err
+				}
+				continue
+			}
+			for _, directory := range directories {
+				copy := original
+				copy.Meta = maps.Clone(original.Meta)
+				delete(copy.Meta, "globs")
+				delete(copy.Meta, "paths")
+				copy.Scope = directory
+				out.Rules = append(out.Rules, copy)
+			}
+			continue
+		}
 		if scope == "" {
 			directories, reason := codexGlobDirectories(cfg, target, r)
 			if err := reportCodexGlobFallback(cfg, target, r, reason); err != nil {
@@ -131,6 +158,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
+
 		doc := scopeDocument(target)
 		if doc == "" && !hasScopeFilters(target) {
 			if err := unsupportedScope(cfg, target, r, "no verified native directory or file-scoped instructions"); err != nil {

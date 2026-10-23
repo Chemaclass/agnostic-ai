@@ -10,7 +10,7 @@ func registerTargetCompletion(cmd *cobra.Command) {
 	completeTargets := func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		cfg, err := config.Load(".")
 		if err != nil {
-			return config.DefaultTargets(), cobra.ShellCompDirectiveNoFileComp
+			return allTargetNames(), cobra.ShellCompDirectiveNoFileComp
 		}
 		return cfg.Targets, cobra.ShellCompDirectiveNoFileComp
 	}

@@ -54,6 +54,7 @@ var allTargets = []targetChoice{
 	{Name: "kilo", Desc: "Kilo Code"},
 	{Name: "jules", Desc: "Jules (Google, cloud)"},
 	{Name: "goose", Desc: "Goose (Block)"},
+	{Name: "grok", Desc: "Grok Build (explicit instructions policy)"},
 	{Name: "augment", Desc: "Augment Code"},
 	{Name: "ellipsis", Desc: "Ellipsis (code review, environment)"},
 }
@@ -234,6 +235,7 @@ var targetMarkers = map[string][]string{
 	"pi":          {".pi"},
 	"openhands":   {".openhands"},
 	"factory":     {".factory"},
+	"grok":        {".grok"},
 	"kilo":        {".kilo", "kilo.jsonc", ".kilocode", ".kilocodeignore"},
 	"goose":       {".goosehints", ".agents/plugins", ".agents/REVIEW.md"},
 	"augment":     {".augment", ".augment-guidelines", ".augmentignore"},

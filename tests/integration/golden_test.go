@@ -34,6 +34,7 @@ var goldenTargets = []string{
 	"zed",
 	"jules",
 	"goose",
+	"grok",
 	"augment",
 	"qoder",
 	"openhands",
@@ -93,6 +94,9 @@ func runGolden(t *testing.T, target string) {
 	// configured, a shared AGENTS.md would carry codex's rules block and
 	// the rule files that block replaces would drop out (#1224).
 	config := "version: 1\ntargets: [" + target + "]\n"
+	if target == "grok" {
+		config += "gitignore:\n  enabled: true\n  commit: [grok:instructions]\n"
+	}
 	if target == "zed" {
 		config += "outputs:\n  zed:\n    tasks-file: .zed/tasks.json\n"
 	}

@@ -241,6 +241,12 @@ opt_in_anchor = "first-review"
 opt_in = { settings = "x-ellipsis" }
 
 [[targets]]
+id = "grok"
+name = "Grok Build"
+href = "@/docs/targets/grok.md"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
+
+[[targets]]
 id = "qwen"
 name = "Qwen Code"
 href = "@/docs/targets/qwen.md"
@@ -283,6 +289,14 @@ edit = ["replace"]
 delete = []
 shell = ["run_shell_command"]
 web = ["web_fetch", "google_web_search"]
+
+[tool_translations.grok]
+read = ["Read"]
+write = ["Write"]
+edit = ["Edit"]
+delete = []
+shell = ["Bash"]
+web = ["WebFetch", "WebSearch"]
 
 [tool_translations.kilo]
 read = ["read"]
