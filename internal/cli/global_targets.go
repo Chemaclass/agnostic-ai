@@ -128,7 +128,7 @@ var globalTargets = map[string]globalTarget{
 		hookFoldArgs: true,
 		mcp:          globalMCPFile{path: globalPathHome + ".vibe/config.toml", format: "toml-array", key: "mcp_servers", private: true},
 		settings: globalSettingsFile{
-			path: globalPathHome + ".vibe/config.toml", format: "toml", model: "active_model",
+			path: globalPathHome + ".vibe/config.toml", format: "toml", model: "active_model", private: true,
 			reserved: map[string]string{
 				"mcp_servers":     "sync --global writes MCP entries from specs",
 				"trusted_folders": "trust remains with the user",

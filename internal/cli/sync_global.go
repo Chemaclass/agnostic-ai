@@ -1250,7 +1250,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules); err != nil {
 					return nil, next, err
 				}
-				if err := placeEdit(moved, m, 0o644); err != nil {
+				if err := placeEdit(moved, m, g.settings.fileMode()); err != nil {
 					return nil, next, err
 				}
 				previous = nil
@@ -1278,7 +1278,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				next.Settings[target] = m.owned
 				next.SettingsPaths[target] = path
 			}
-			mode := fs.FileMode(0o644)
+			mode := g.settings.fileMode()
 			if g.mcp.private && path == g.mcpPath(home) {
 				mode = 0o600
 			}
