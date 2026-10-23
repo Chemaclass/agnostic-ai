@@ -45,6 +45,67 @@ func TestKitSink_HooksPreserveArgumentsOnWindows(t *testing.T) {
 	}
 }
 
+func TestWindowsScriptRewrite_RequiresNativeQuoting(t *testing.T) {
+	for _, tc := range []struct {
+		name, command, dir string
+		reject             bool
+	}{
+		{"short name", ".agnostic-ai/scripts/guard.ps1", "C:/Users/RUNNER~1/hooks", false},
+		{"spaces", ".agnostic-ai/scripts/guard.ps1", "C:/User Hooks", true},
+		{"explicit invocation", `& ".agnostic-ai/scripts/guard.ps1"`, "C:/User Hooks", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			after := emit.RewriteGlobalHookPath(tc.command, "grok", tc.dir)
+			err := ValidateWindowsScriptRewrite(tc.command, after, tc.dir)
+			if (err != nil) != tc.reject {
+				t.Errorf("rewrite %q: rejection = %v, want %v", after, err, tc.reject)
+			}
+			if err != nil && !strings.Contains(err.Error(), "native wrapper") {
+				t.Errorf("missing native correction: %v", err)
+			}
+		})
+	}
+}
+
+func TestHookFile_RewritesAbsolutePortableDestinationOnce(t *testing.T) {
+	dir := filepath.ToSlash(filepath.Join(t.TempDir(), ".grok", "hook-scripts"))
+	for _, command := range []string{".agnostic-ai/scripts/guard.sh", ".grok/hook-scripts/guard.sh", dir + "/guard.sh"} {
+		data, err := HookFile(spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": command}}, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), `"command": "`+dir+`/guard.sh"`) {
+			t.Errorf("portable destination was not rewritten once: %s", data)
+		}
+	}
+}
+
+func TestHookFile_RelocatesEveryControlledScriptReference(t *testing.T) {
+	for _, tc := range []struct{ dir, command, want string }{
+		{"native/hooks", ".agnostic-ai/scripts/a.sh && .grok/hook-scripts/b.sh", "native/hooks/a.sh && native/hooks/b.sh"},
+		{"/tmp/user/.grok/hook-scripts", "sh /tmp/user/.grok/hook-scripts/a.sh && sh .grok/hook-scripts/b.sh", "sh /tmp/user/.grok/hook-scripts/a.sh && sh /tmp/user/.grok/hook-scripts/b.sh"},
+		{"native/hooks", `.agnostic-ai/scripts/a.sh && sh ".grok/hook-scripts/b.sh" && /explicit/.grok/hook-scripts/c.sh`, `native/hooks/a.sh && sh "native/hooks/b.sh" && /explicit/.grok/hook-scripts/c.sh`},
+	} {
+		data, err := HookFile(spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": tc.command}}, tc.dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Hooks map[string][]struct{ Hooks []struct{ Command string } }
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		groups := doc.Hooks["PreToolUse"]
+		if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+			t.Fatalf("expected one native command: %s", data)
+		}
+		if got := groups[0].Hooks[0].Command; got != tc.want {
+			t.Errorf("command = %q, want %q", got, tc.want)
+		}
+	}
+}
+
 func TestHookFile_KeepsTheNativeArgumentPolicy(t *testing.T) {
 	for _, tc := range []struct {
 		name, command string
