@@ -193,6 +193,8 @@ outputs:
 
 `outputs.qwen.conf-file` overrides `.qwen/settings.json`. See [Qwen Code](@/docs/targets/qwen.md) for all output paths and limits.
 
+`outputs.pi.conf-file` overrides `.pi/settings.json`. See [Pi](@/docs/targets/pi.md) for all output paths and limits.
+
 `outputs.kiro.commands-dir` overrides `.kiro/prompts/` for project commands. See [Kiro commands](@/docs/targets/kiro.md#commands).
 
 Two Codex keys change how rules and permissions are written:

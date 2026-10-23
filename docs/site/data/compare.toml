@@ -1161,3 +1161,45 @@
   [[targets.kinds]]
     id = "ignore"
     paths = [".qwenignore"]
+[[targets]]
+  id = "pi"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".pi/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".pi/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".pi/prompts/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".pi/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []

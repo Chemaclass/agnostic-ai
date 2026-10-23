@@ -312,7 +312,15 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 				return err
 			}
 		} else {
-			servers, err := readJSONMapAt(path, g.mcp.key)
+			var servers map[string]any
+			var err error
+			var orders mcpSpecOrderHints
+			var piNative map[string]any
+			if target == "pi" {
+				servers, orders, piNative, err = readPiMCPMap(path)
+			} else {
+				servers, err = readJSONMapAt(path, g.mcp.key)
+			}
 			if err != nil {
 				return err
 			}
@@ -322,13 +330,17 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 					delete(servers, name)
 					continue
 				}
-				native[name] = jsonRoundTrip(server)
+				if target == "pi" {
+					native[name] = piNative[name]
+				} else {
+					native[name] = jsonRoundTrip(server)
+				}
 			}
 			normalizeImportedMCP(target, servers)
 			if err := withoutMCPCredentials(target, servers, skip); err != nil {
 				return err
 			}
-			if _, err := writeMCPSpecs(servers, dir); err != nil {
+			if _, err := writeMCPSpecs(servers, dir, orders); err != nil {
 				return err
 			}
 		}
@@ -347,7 +359,10 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 				rendered[name] = values[name]
 			}
 		} else {
-			rendered, _ = adapters.UserMCPServers(target, staged.MCPs)
+			rendered, _, err = adapters.CheckedUserMCPServers(target, staged.MCPs)
+			if err != nil {
+				return fmt.Errorf("render %s user MCP servers: %w", target, err)
+			}
 		}
 		var kept []spec.Entry
 		for _, m := range staged.MCPs {
@@ -449,6 +464,9 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if target == "antigravity" {
 			server = normalizeAntigravityMCPEntry(server)
 			servers[name] = server
+		}
+		if target == "pi" {
+			normalizePiMCPEntry(server)
 		}
 		if target == "warp" {
 			server = normalizeWarpMCPEntry(server)

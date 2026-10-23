@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "pi-local": {
+      "args": [
+        "--stdio"
+      ],
+      "command": "native-server",
+      "cwd": "tools",
+      "enabled": false,
+      "exposure": "direct",
+      "toolExposure": {
+        "write_*": "hidden",
+        "*": "direct"
+      }
+    },
+    "pi-remote": {
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer ${PI_TOKEN}"
+      },
+      "timeout": 45,
+      "type": "http",
+      "url": "https://example.test/mcp"
+    }
+  }
+}

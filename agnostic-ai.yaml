@@ -28,6 +28,8 @@ targets:
   - codex
   - gemini
   - qwen
+
+  - pi
   - cursor
   - copilot
   - aider

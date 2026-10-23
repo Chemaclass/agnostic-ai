@@ -120,3 +120,7 @@ label = "Ellipsis"
 [[targets]]
 id = "qwen"
 label = "Qwen Code"
+
+[[targets]]
+id = "pi"
+label = "Pi"

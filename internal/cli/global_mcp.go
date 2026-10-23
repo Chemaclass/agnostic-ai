@@ -91,20 +91,49 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 		tables, _ := adapters.UserMCPServerTables(target, mcps)
 		return mergeGlobalMCPTables(path, f.key, base, tables, sources, previous)
 	}
-	servers, _ := adapters.UserMCPServers(target, mcps)
+	servers, _, err := adapters.CheckedUserMCPServers(target, mcps)
+	if err != nil {
+		return globalSettingsMerge{}, fmt.Errorf("render %s user MCP servers: %w", target, err)
+	}
 	current := map[string]any{}
-	if data := base; data != nil || fileExists(path) {
+	var comparison []globalSettingsComparison
+	if target == "pi" {
+		data := base
 		if data == nil {
-			var err error
-			if data, err = os.ReadFile(path); err != nil {
+			read, err := os.ReadFile(path)
+			if err != nil && !os.IsNotExist(err) {
 				return globalSettingsMerge{}, fmt.Errorf("read %s: %w", path, err)
 			}
+			data = read
+		}
+		if data == nil {
+			data = []byte{}
 		}
 		values, err := settingsValues(path, "json", data)
 		if err != nil {
 			return globalSettingsMerge{}, err
 		}
-		current, _ = values[f.key].(map[string]any)
+		current, err = piMCPMap(path, data, f.key)
+		if err != nil {
+			return globalSettingsMerge{}, err
+		}
+		values[f.key] = current
+		comparison = []globalSettingsComparison{{current: values, equal: func(a, b any) bool { return sameMCPServer("pi", a, b) }}}
+		base = data
+	} else {
+		if data := base; data != nil || fileExists(path) {
+			if data == nil {
+				var err error
+				if data, err = os.ReadFile(path); err != nil {
+					return globalSettingsMerge{}, fmt.Errorf("read %s: %w", path, err)
+				}
+			}
+			values, err := settingsValues(path, "json", data)
+			if err != nil {
+				return globalSettingsMerge{}, err
+			}
+			current, _ = values[f.key].(map[string]any)
+		}
 	}
 	var want []globalSetting
 	for _, name := range slices.Sorted(maps.Keys(servers)) {
@@ -119,7 +148,7 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 		}
 		want = append(want, globalSetting{target: target, key: f.key + "." + name, value: value, field: "mcp", source: sources[name]})
 	}
-	return mergeGlobalSettings(path, "json", base, want, previous)
+	return mergeGlobalSettingsKeeping(path, "json", base, want, previous, nil, comparison...)
 }
 
 // mergeGlobalMCPTables is mergeGlobalMCP for TOML tables under parent.
@@ -220,11 +249,32 @@ func sameMCPServer(target string, a, b any) bool {
 }
 
 func canonicalMCPServer(target string, v any) any {
+	var exposure any
+	if target == "pi" {
+		if server, ok := v.(map[string]any); ok {
+			exposure = canonicalPiToolExposure(server["toolExposure"])
+		}
+	}
 	server, ok := jsonRoundTrip(v).(map[string]any)
 	if !ok {
 		return v
 	}
 	out := maps.Clone(server)
+	if target == "pi" {
+		delete(out, "toolExposure")
+		if out["exposure"] == "codemode" || out["exposure"] == "codemode-deferred" {
+			delete(out, "exposure")
+		}
+		if exposure != nil {
+			out["toolExposure"] = exposure
+		}
+		if out["enabled"] == true {
+			delete(out, "enabled")
+		}
+		if out["type"] == "streamable-http" {
+			out["type"] = "http"
+		}
+	}
 	if target == "antigravity" {
 		if disabled, ok := out["disabled"].(bool); ok && !disabled {
 			delete(out, "disabled")
