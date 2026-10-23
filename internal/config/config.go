@@ -677,13 +677,14 @@ func warnLegacyOnce(path string) {
 // working directory, and this repo always writes CLAUDE.md for claude. The
 // dedup reasoning above is about writers contending for one path, so it is
 // unchanged by that reader.
+// Kimi needs explicit selection because its native tool lists cannot preserve scoped restrictions.
 func DefaultTargets() []string {
 	return []string{
 		"claude", "codex", "gemini", "qwen", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
-		"qoder", "openhands", "factory", "kilo", "pi", "vibe", "kimi",
+		"qoder", "openhands", "factory", "kilo", "pi", "vibe",
 	}
 }
 
