@@ -1161,6 +1161,7 @@
   [[targets.kinds]]
     id = "ignore"
     paths = [".qwenignore"]
+
 [[targets]]
   id = "pi"
 
