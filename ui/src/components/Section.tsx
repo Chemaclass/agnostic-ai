@@ -3,6 +3,7 @@ import { API, type ItemFinding, type OverviewView, type Section, type SectionIte
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
+import { cursorUrl } from '../model/editor'
 import type { Remote } from './Shell'
 import { Badge, Chip, Code, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -217,11 +218,6 @@ function Tools({ listing }: { listing: ToolListing }) {
       )}
     </div>
   )
-}
-
-/** A link Cursor opens: cursor://file/<absolute path>. */
-function cursorUrl(path: string): string {
-  return `cursor://file${encodeURI(path.startsWith('/') ? path : `/${path}`)}`
 }
 
 /**
