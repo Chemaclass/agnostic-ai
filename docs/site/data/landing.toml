@@ -126,7 +126,7 @@ note = "Node 18 or newer, on any OS."
 [explorer]
 title = "Share more when you need it."
 muted_title = "Explore the source files."
-body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your targets. Pick an entry to see a source file and the native files `sync` writes from it, each in its own tool's format."
+body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your targets. Pick an entry to see its source and what `sync` writes for each tool. Excerpts show the relevant part of a shared file."
 tree_label = "Entries in .agnostic-ai"
 root = ".agnostic-ai/"
 outputs_label = "sync"
@@ -168,10 +168,10 @@ id = "commands"
 name = "commands/"
 hint = "slash prompts"
 file = "commands/review.md"
-summary = "Saved prompts you run by name, such as `/review`."
+summary = "Saved prompts you run by name, such as `/review`. Codex receives a skill you invoke yourself."
 outputs = [
   { tool = "Claude Code", path = ".claude/commands/review.md" },
-  { tool = "Codex", note = "Codex reads custom prompts only from `~/.codex/prompts`, so sync writes no project file and prints a note. Write the workflow as a skill to reach Codex." },
+  { tool = "Codex", path = ".agents/skills/review/SKILL.md" },
   { tool = "Gemini CLI", path = ".gemini/commands/review.toml" },
 ]
 href = "@/docs/spec-format/commands.md"
@@ -185,9 +185,9 @@ hint = "tool events"
 file = "hooks/format.yaml"
 summary = "Commands that run on tool events. Write `on: after-edit` once, and sync writes the event and edit tool names each tool uses."
 outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json" },
+  { tool = "Claude Code", path = ".claude/settings.json", part = "json:hooks,env" },
   { tool = "Codex", path = ".codex/hooks.json" },
-  { tool = "Gemini CLI", path = ".gemini/settings.json" },
+  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:hooks" },
 ]
 href = "@/docs/spec-format/hooks.md"
 anchor = "hooks"
@@ -201,8 +201,8 @@ file = "local/rules/my-style.md"
 summary = "Your own specs on this machine, ignored by Git. Sync layers them over the shared specs."
 outputs = [
   { tool = "Claude Code", path = ".claude/rules/my-style.md" },
-  { tool = "Codex", path = "AGENTS.md" },
-  { tool = "Gemini CLI", path = "GEMINI.md" },
+  { tool = "Codex", path = "AGENTS.md", part = "rule:my-style" },
+  { tool = "Gemini CLI", path = "GEMINI.md", part = "rule:my-style" },
 ]
 href = "@/docs/local-overrides.md"
 docs_label = "Local overrides"
@@ -215,8 +215,8 @@ file = "mcps/github.yaml"
 summary = "MCP server connections, one YAML file per server. Secrets stay in environment variables."
 outputs = [
   { tool = "Claude Code", path = ".mcp.json" },
-  { tool = "Codex", path = ".codex/config.toml" },
-  { tool = "Gemini CLI", path = ".gemini/settings.json" },
+  { tool = "Codex", path = ".codex/config.toml", part = "toml:mcp_servers" },
+  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:mcpServers" },
 ]
 href = "@/docs/spec-format/mcps.md"
 anchor = "mcp-servers"
@@ -229,8 +229,8 @@ hint = "native keys"
 files = ["overlays/claude.settings.json", "overlays/codex.config.toml"]
 summary = "Native keys no spec covers, one file per tool: the Claude Code status line, Codex notification settings. Sync merges each into that tool's own file."
 outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json" },
-  { tool = "Codex", path = ".codex/config.toml" },
+  { tool = "Claude Code", path = ".claude/settings.json", part = "json:statusLine" },
+  { tool = "Codex", path = ".codex/config.toml", part = "toml:tui" },
   { tool = "Gemini CLI", note = "Gemini CLI has no overlay file. Put its native keys under `x-gemini` in a `settings/` spec, and sync merges them into `.gemini/settings.json`." },
 ]
 href = "@/docs/targets/claude.md"
@@ -245,8 +245,8 @@ file = "rules/testing.md"
 summary = "Conventions, always on or tied to file patterns and folders."
 outputs = [
   { tool = "Claude Code", path = ".claude/rules/testing.md" },
-  { tool = "Codex", path = "AGENTS.md" },
-  { tool = "Gemini CLI", path = "GEMINI.md" },
+  { tool = "Codex", path = "AGENTS.md", part = "rule:testing" },
+  { tool = "Gemini CLI", path = "GEMINI.md", part = "rule:testing" },
 ]
 href = "@/docs/spec-format/skills.md"
 anchor = "rules"
@@ -274,9 +274,9 @@ hint = "permissions"
 files = ["settings/model.yaml", "settings/permissions.yaml"]
 summary = "The default model and effort per tool, and permissions."
 outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json" },
-  { tool = "Codex", path = ".codex/config.toml" },
-  { tool = "Gemini CLI", path = ".gemini/settings.json" },
+  { tool = "Claude Code", path = ".claude/settings.json", part = "json:permissions,model,effortLevel" },
+  { tool = "Codex", path = ".codex/config.toml", part = "toml:model,model_reasoning_effort" },
+  { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:model" },
 ]
 reach = "Codex and Gemini CLI have no portable permission list, so sync prints a note instead of guessing. Sync writes no effort for Gemini CLI; set its thinking level under `x-gemini`."
 href = "@/docs/spec-format/settings.md"

@@ -167,7 +167,7 @@
                 {% for output in entry.outputs %}
                 <div class="explorer-output-panel" role="tabpanel" id="output-panel-{{ entry.id }}-{{ loop.index }}" aria-labelledby="output-tab-{{ entry.id }}-{{ loop.index }}" tabindex="0" data-output-panel{% if loop.index0 != output_selected %} hidden{% endif %}>
                   {% if output.note %}<p class="explorer-output-note">{{ output.note | markdown(inline=true) | safe }}</p>{% else %}{% set output_part = output.part | default(value="") %}
-                  <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ output.path }}</div>
+                  <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ output.path }}{% if output_part %} (excerpt){% endif %}</div>
                   <pre><code>{% for file in explorer_files.files %}{% if file.path == output.path and file.part | default(value="") == output_part %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>{% endif %}
                 </div>
                 {% endfor %}
