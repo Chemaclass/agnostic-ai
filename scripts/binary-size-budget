@@ -374,4 +374,7 @@
 # (20537504): Vibe native output and import, with reversible global TOML
 # array ownership for MCP servers and hooks. Same Linux amd64 release
 # flags, no added headroom or dependencies.
-20725920
+# #2430 measured 20734112 on Go 1.27.3, up 8192 from main c0c0581b
+# (20725920): preserve ordered OpenCode V2 agent restrictions and native
+# import fields. Same Linux amd64 release flags, no added headroom or deps.
+20734112
