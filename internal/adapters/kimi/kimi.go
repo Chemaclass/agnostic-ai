@@ -30,11 +30,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	for _, s := range b.Skills {
-		if s.Scope != "" {
-			return fmt.Errorf("kimi: skill %s: skills must be at the project root", s.Name)
-		}
-		if !nativeName.MatchString(s.Name) {
-			return fmt.Errorf("kimi: skill %s requires a lowercase kebab-case name", s.Name)
+		if err := validateSkill(s); err != nil {
+			return err
 		}
 		folder := filepath.Join(emit.OutputSkillsDir(cfg, target, ".kimi-code/skills"), s.Name)
 		if err := sess.WriteFile(filepath.Join(folder, "SKILL.md"), emit.WithHeader((Adapter{}).SkillMarkdown(s), emit.FormatMarkdown), dryRun); err != nil {
@@ -117,3 +114,18 @@ func (Adapter) NativeArtifacts(cfg *config.Config) []emit.NativeArtifact {
 	}
 	return out
 }
+
+func validateSkill(s spec.Entry) error {
+	if s.Scope != "" {
+		return fmt.Errorf("kimi: skill %s: skills must be at the project root", s.Name)
+	}
+	if err := spec.ValidateName(spec.KindSkill, s.Name); err != nil {
+		return fmt.Errorf("kimi: skill %s: %w", s.Name, err)
+	}
+	meta := emit.ResolveMeta(s.Meta, target)
+	if value, ok := meta["type"]; ok && value != "prompt" && value != "inline" && value != "flow" {
+		return fmt.Errorf("kimi: skill %s type must be prompt, inline or flow", s.Name)
+	}
+	return nil
+}
+func (Adapter) SkillSidecars(s spec.Entry) (map[string]string, error) { return nil, validateSkill(s) }

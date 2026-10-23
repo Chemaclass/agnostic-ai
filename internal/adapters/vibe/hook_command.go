@@ -2,6 +2,7 @@ package vibe
 
 import (
 	"fmt"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 )
 

@@ -18,7 +18,7 @@ import (
 
 func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 	o := cfg.Outputs["kimi"]
-	agents, skills, mcp, main := ".kimi-code/agents", ".kimi-code/skills", ".kimi-code/mcp.json", ".kimi-code/AGENTS.md"
+	agents, skills, mcp, main := ".kimi-code/agents", ".kimi-code/skills", ".kimi-code/mcp.json", adapters.EntryPointPath(cfg, "kimi")
 	if o.AgentsDir != "" {
 		agents = o.AgentsDir
 	}
@@ -38,8 +38,16 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 		return err
 	}
 	fields := fieldsOf("name", "description", "disable-model-invocation", "x-kimi")
-	transform := func(data []byte) ([]byte, error) { return normalizeKimiMarkdown("skill", data, "") }
 	seen := map[string]bool{}
+	transform := func(data []byte) ([]byte, error) {
+		out, err := normalizeKimiMarkdown("skill", data, "")
+		if err == nil {
+			_, _, meta := claudeFrontmatter(string(out))
+			name, _ := meta["name"].(string)
+			seen[name] = true
+		}
+		return out, err
+	}
 	if _, err := importSkillFoldersWith(root, filepath.Join(root, skills), importSourcePath(root, src.Skills), skillFolderImportOpts{Fields: &fields, TransformSkill: transform, SkipNames: seen}); err != nil {
 		return err
 	}
@@ -67,6 +75,12 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
+		_, _, meta := claudeFrontmatter(string(data))
+		semanticName, _ := meta["name"].(string)
+		if seen[semanticName] {
+			continue
+		}
+		seen[semanticName] = true
 		if err := importWriteSpecMarkdown(filepath.Join(importSourcePath(root, src.Skills), name+".md"), data, 0o644, fields); err != nil {
 			return err
 		}
@@ -121,7 +135,11 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 			}
 		}
 	}
-	if _, err := mirrorMainFile(root, main); err != nil {
+	if data, err := readKimiInstructions(root, filepath.Join(root, main)); err == nil {
+		if _, err := mirrorBody(root, main, header.Strip(adapters.StripGeneratedAppendices(string(data)))); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 	tree := importTreeFor(root)
@@ -140,11 +158,15 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 		if path != root && (strings.HasPrefix(d.Name(), ".") || d.Name() == "vendor" || tree.skipsDir(rel)) {
 			return fs.SkipDir
 		}
-		native := filepath.Join(path, ".kimi-code", "AGENTS.md")
+		doc := ".kimi-code/AGENTS.md"
+		if filepath.Clean(main) == "AGENTS.md" {
+			doc = "AGENTS.md"
+		}
+		native := filepath.Join(path, filepath.FromSlash(doc))
 		if path == root {
 			native = filepath.Join(root, main)
 		}
-		data, err := readEntryFile(root, native)
+		data, err := readKimiInstructions(root, native)
 		if os.IsNotExist(err) {
 			return nil
 		}
@@ -192,7 +214,7 @@ func writeKimiRule(dst, name, body, scope string) error {
 	return importWriteSpecMarkdown(filepath.Join(dst, name+".md"), data, 0o644, allSpecFields)
 }
 func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, error) {
-	clean := header.Strip(string(data))
+	clean := strings.ReplaceAll(header.Strip(string(data)), "\r\n", "\n")
 	rest, end, m := claudeFrontmatter(clean)
 	body := clean
 	if m != nil {
@@ -206,7 +228,27 @@ func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, e
 	if err := guardKimiCredentials("Kimi "+kind+" metadata", m); err != nil {
 		return nil, err
 	}
+	if kind == "skill" {
+		raw := maps.Clone(m)
+		if node, _, ok := frontmatterNode([]byte(clean)); ok {
+			for i := 0; i+1 < len(node.Content); i += 2 {
+				key := node.Content[i].Value
+				normalized := key
+				switch key {
+				case "disable-model-invocation", "disable_model_invocation":
+					normalized = "disableModelInvocation"
+				case "when-to-use", "when_to_use":
+					normalized = "whenToUse"
+				}
+				if normalized != key {
+					delete(m, key)
+				}
+				m[normalized] = raw[key]
+			}
+		}
+	}
 	name, _ := m["name"].(string)
+	name = strings.TrimSpace(name)
 	if name == "" {
 		name = fallback
 	}
@@ -214,6 +256,7 @@ func normalizeKimiMarkdown(kind string, data []byte, fallback string) ([]byte, e
 		return nil, fmt.Errorf("Kimi %s: %w", kind, err)
 	}
 	description, _ := m["description"].(string)
+	description = strings.TrimSpace(description)
 	if description == "" {
 		if kind == "agent" || fallback == "" {
 			return nil, fmt.Errorf("Kimi %s %s requires a nonempty description", kind, name)
@@ -258,11 +301,19 @@ func importKimiAgents(root, dir, dst string) error {
 	if !dirExists(dir) {
 		return nil
 	}
+	seen := map[string]bool{}
 	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
 		if d.IsDir() {
+			rel, err := filepath.Rel(dir, path)
+			if err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+			if rel != "." && strings.Count(filepath.ToSlash(rel), "/")+1 > 8 {
+				return fs.SkipDir
+			}
 			return nil
 		}
 		if filepath.Ext(path) != ".md" {
@@ -281,6 +332,10 @@ func importKimiAgents(root, dir, dst string) error {
 		}
 		_, _, m := claudeFrontmatter(string(out))
 		name, _ := m["name"].(string)
+		if seen[name] {
+			return nil
+		}
+		seen[name] = true
 		return importWriteSpecMarkdown(filepath.Join(dst, name+".md"), out, 0o644, fieldsOf("name", "description", "tools", "x-kimi"))
 	})
 }
@@ -336,7 +391,7 @@ func importKimiHooks(records []map[string]any, dst string) error {
 		if err := kimi.ValidateHookRecord(r); err != nil {
 			return fmt.Errorf("import Kimi hook: %w", err)
 		}
-		name := "kimi-" + globalSum(kimiRecordJSON(r))[:12]
+		name := kimiHookIdentity(r)
 		meta := maps.Clone(r)
 		meta["name"] = name
 		meta["target"] = "kimi"
@@ -351,3 +406,19 @@ func importKimiHooks(records []map[string]any, dst string) error {
 }
 
 func kimiRecordJSON(r map[string]any) []byte { data, _ := json.Marshal(r); return data }
+
+func readKimiInstructions(root, path string) ([]byte, error) {
+	data, err := readEntryFile(root, path)
+	if err != nil {
+		return nil, err
+	}
+	body := string(data)
+	start, end := strings.Index(body, globalStart), strings.Index(body, globalEnd)
+	if (start >= 0) != (end >= 0) || start >= 0 && end < start {
+		return nil, fmt.Errorf("%s: corrupt agnostic-ai global instruction block", path)
+	}
+	if start >= 0 {
+		body = body[:start] + body[end+len(globalEnd):]
+	}
+	return []byte(strings.TrimSpace(body)), nil
+}

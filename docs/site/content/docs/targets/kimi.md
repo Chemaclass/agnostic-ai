@@ -52,7 +52,7 @@ agnostic-ai sync --check
 
 `KIMI_CODE_HOME` relocates all user paths together. Sync never changes the older `~/.kimi` data directory or runs Kimi's migration.
 
-Kimi-specific instructions and ordinary `AGENTS.md` instructions are additive. Kimi loads instructions from the Git root through the working directory. The uppercase plain filename wins over `agents.md` in one directory. The adapter uses the branded path so another target can own the shared root file. See [shared entry points](@/docs/configuration.md#entry-point-files) for instruction content and path overrides.
+Kimi-specific instructions and ordinary `AGENTS.md` instructions are additive. Kimi loads instructions from the Git root through the working directory. The uppercase plain filename wins over `agents.md` in one directory. Kimi-only projects use the branded path. When a configured peer already emits the plain `AGENTS.md`, Kimi shares that file and its scoped instruction files so common text is delivered once. Target-specific rules must be compatible with every reader of a shared file. See [shared entry points](@/docs/configuration.md#entry-point-files) for instruction content and path overrides.
 
 Agents and skills are discovered from the nearest Git root, including linked Git worktrees. Kimi's branded MCP file is relative to the session working directory. When launching from a subdirectory, explicitly choose a repository-root MCP mirror if required.
 
@@ -102,7 +102,7 @@ agnostic-ai sync -t kimi
 KIMI_CODE_HOME="$PWD/kimi-profile" kimi
 ```
 
-This selects the entire separate data root, including its agents, skills, connections, and credentials. It is not a project settings layer. Configure that root's native model/provider settings yourself. To place the other generated resources there too, set their output paths explicitly. No legacy `--config-file` flag is used.
+This selects the entire separate data root, including its agents, skills, connections, and credentials. It is not a project settings layer. Configure that root's native model/provider settings yourself. To place the other generated resources there too, set their output paths explicitly.
 
 In this export, `model` writes `default_model`, `effort` writes `[thinking].effort`, and native tables pass through `x-kimi`, including `permission` and `secondary_model`. Portable permission and protected-path fields are unsupported.
 

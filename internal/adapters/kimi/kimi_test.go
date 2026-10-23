@@ -54,6 +54,9 @@ func TestEmit_PreservesNativeRestrictions(t *testing.T) {
 	if tools, ok := doc.Servers["docs"]["enabledTools"].([]any); !ok || len(tools) != 0 {
 		t.Errorf("empty restriction lost: %s", data)
 	}
+	if _, err := os.Stat(".mcp.json"); !os.IsNotExist(err) {
+		t.Errorf("unexpected root MCP file: %v", err)
+	}
 	if _, err := os.Stat(".kimi-code/config.toml"); !os.IsNotExist(err) {
 		t.Errorf("unexpected default config: %v", err)
 	}
@@ -147,5 +150,14 @@ func TestNativeHooks_WindowsCommandIsReversible(t *testing.T) {
 	}
 	if got := DeclaredHookCommand(cmd); !strings.Contains(got, "check-windows") || !strings.Contains(got, "two words") {
 		t.Errorf("Windows command changed: %s", got)
+	}
+}
+
+func TestAgents_NativeCapabilityTranslation(t *testing.T) {
+	for _, tc := range []struct{ portable, native string }{{"WebFetch", "FetchURL"}, {"FetchURL", "FetchURL"}, {"mcp__docs", "mcp__docs__*"}, {"mcp__docs__lookup", "mcp__docs__lookup"}, {"Grep", "Grep"}} {
+		got, ok := (Adapter{}).TranslateAgentCapability(tc.portable)
+		if !ok || len(got) != 1 || got[0] != tc.native {
+			t.Errorf("%s translated to %v (%v), want %s", tc.portable, got, ok, tc.native)
+		}
 	}
 }

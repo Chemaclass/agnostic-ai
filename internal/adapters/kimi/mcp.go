@@ -14,6 +14,15 @@ func (Adapter) PrepareMCPReferences(mcps []spec.Entry) []spec.Entry {
 	out := make([]spec.Entry, 0, len(mcps))
 	for _, e := range mcps {
 		m := emit.ResolveMeta(e.Meta, target)
+		for _, key := range []string{"env", "headers"} {
+			if values, ok := m[key].(map[string]string); ok {
+				normalized := make(map[string]any, len(values))
+				for k, v := range values {
+					normalized[k] = v
+				}
+				m[key] = normalized
+			}
+		}
 		if headers, ok := m["headers"].(map[string]any); ok {
 			headers = maps.Clone(headers)
 			for key, v := range headers {

@@ -211,7 +211,7 @@ func ScopeDocumentReaders(cfg *config.Config, target, doc string) []string {
 		return readers
 	}
 	for _, t := range cfg.Targets {
-		reads := scopeDocument(t) == doc || doc == "AGENTS.md" && (t == "cursor" || t == "copilot" || t == "windsurf")
+		reads := configuredScopeDocument(cfg, t) == doc || doc == "AGENTS.md" && (t == "cursor" || t == "copilot" || t == "windsurf")
 		if reads && !slices.Contains(readers, t) {
 			readers = append(readers, t)
 		}

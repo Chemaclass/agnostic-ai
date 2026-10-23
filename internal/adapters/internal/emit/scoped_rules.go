@@ -32,7 +32,7 @@ func scopeDocument(target string) string {
 // Bugbot review file. Every other scoped output lives in a tool directory.
 func ScopedDocuments(cfg *config.Config, target string) []string {
 	var docs []string
-	if doc := scopeDocument(target); doc != "" {
+	if doc := configuredScopeDocument(cfg, target); doc != "" {
 		docs = append(docs, doc)
 	}
 	if target == "goose" && filepath.Base(OutputRulesFile(cfg, target, "")) == ".goosehints" {
@@ -131,7 +131,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
-		doc := scopeDocument(target)
+		doc := configuredScopeDocument(cfg, target)
 		if doc == "" && !hasScopeFilters(target) {
 			if err := unsupportedScope(cfg, target, r, "no verified native directory or file-scoped instructions"); err != nil {
 				return out, nil, err
@@ -156,7 +156,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		// when its configured peers already require one for this same directory.
 		if _, err := scopeDirectories(patterns); target == "cursor" && err == nil {
 			for _, peer := range cfg.Targets {
-				if scopeDocument(peer) == "AGENTS.md" && r.EmitsTo(peer) {
+				if configuredScopeDocument(cfg, peer) == "AGENTS.md" && r.EmitsTo(peer) {
 					doc = "AGENTS.md"
 					break
 				}
@@ -547,7 +547,7 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 				if target == "kiro" {
 					return fmt.Errorf("%s: scoped AGENTS.md conflicts with kiro, which includes nested AGENTS.md globally; use separate worktrees or remove an incompatible target", path)
 				}
-				if scopeDocument(target) != "AGENTS.md" && target != "cursor" && target != "copilot" && target != "windsurf" {
+				if configuredScopeDocument(cfg, target) != "AGENTS.md" && target != "cursor" && target != "copilot" && target != "windsurf" {
 					continue
 				}
 				var expected []spec.Entry
@@ -648,8 +648,15 @@ func noteScopedDocumentVars(cfg *config.Config, target, path string, rules []spe
 const SharedRefReason = "the reference renders as a plain phrase: the target documents no invocation form, or reads the spec from a file other tools share"
 
 func scopeDocumentName(target, path string) string {
-	if target == "kimi" {
+	if target == "kimi" && filepath.Base(filepath.Dir(path)) == ".kimi-code" {
 		return ".kimi-code/AGENTS.md"
 	}
 	return filepath.Base(path)
+}
+
+func configuredScopeDocument(cfg *config.Config, target string) string {
+	if target == "kimi" && filepath.Clean(EntryPointPath(cfg, target)) == "AGENTS.md" {
+		return "AGENTS.md"
+	}
+	return scopeDocument(target)
 }

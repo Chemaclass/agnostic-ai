@@ -88,6 +88,17 @@ func EntryPointPath(cfg *config.Config, target string) string {
 			return o.File
 		}
 	}
+	if target == "kimi" && cfg != nil {
+		for _, peer := range cfg.Targets {
+			if peer == target {
+				continue
+			}
+			path := EntryPointPath(cfg, peer)
+			if filepath.Clean(path) == "AGENTS.md" && !cfg.IsUnmanaged(path) {
+				return path
+			}
+		}
+	}
 	return entryPointPaths[target]
 }
 
