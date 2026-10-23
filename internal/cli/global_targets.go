@@ -120,7 +120,6 @@ type globalTarget struct {
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
 	"codebuddy": {
-		root:         globalPathHome + ".codebuddy",
 		instructions: globalPathHome + ".codebuddy/CODEBUDDY.md",
 		agents:       globalPathHome + ".codebuddy/agents",
 		skills:       globalPathHome + ".codebuddy/skills",

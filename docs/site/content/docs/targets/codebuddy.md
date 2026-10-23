@@ -75,9 +75,13 @@ At user scope, sync and import use the preferred MCP file when it exists, otherw
 
 ## Fields and limits
 
+Agent names use lowercase letters and hyphens. Scoped tool patterns, server-only MCP names, and empty agent tool lists have no verified restrictive exposure mapping, so they fail sync. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
+
 Agents accept `name`, `description`, `tools`, `disallowedTools`, `model`, `effort`, `skills`, `mcpServers`, `permissionMode`, `maxTurns`, `background`, `initialPrompt`, and `memory`. Native additions belong under `x-codebuddy`. Portable tool names map only to verified native tools; a restriction with no mapping fails instead of granting broader access. Native agent memory adds `Read`, `Write`, and `Edit` even to a restrictive tools list. Sync reports that widening through `on-unsupported`; `error` rejects it before writing.
 
 Skills retain allowed tools, invocation controls, and native `context`, `agent`, `model`, and `hooks`. CodeBuddy applies agent, model, and hook overrides only with `context: fork`. Bundled files are copied unchanged. Commands retain description, argument hint, model, allowed tools, invocation control, and their body placeholders. Global commands are not managed by agnostic-ai, although CodeBuddy itself has a user command directory.
+
+MCP permission rules accept `mcp__server`, `mcp__server__*`, and exact `mcp__server__tool`. The all-server `mcp__*` form works in `ask` and `deny` only. Partial-segment wildcards are rejected. These permission forms follow the [native permission grammar](https://www.codebuddy.ai/docs/cli/permissions#mcp-tools).
 
 Settings map `model` to `model`, `effort` to `reasoningEffort`, permission lists to `permissions.allow/ask/deny`, and `permissions.default-mode` to `permissions.defaultMode`. Effort accepts `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. Session retention maps to `cleanupPeriodDays` at user scope. Project `autoMode` and `permissions.defaultMode: auto` are rejected because CodeBuddy ignores them there.
 

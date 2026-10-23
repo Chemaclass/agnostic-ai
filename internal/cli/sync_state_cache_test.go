@@ -220,7 +220,7 @@ func TestCapturePhases_ReuseLoadedLedgerForActualCallbacks(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			writeBenchProject(t, dir, 1)
-			const orphan = ".trae/agents/agent-0000.md"
+			orphan := filepath.ToSlash(filepath.Join(".trae", "agents", fixtureAgentName(0)+".md"))
 			mustWriteFile(t, orphan, "old native agent\n")
 			ledger := func(value string) string {
 				return `{"output_sums":{"probe":"` + value + `"},"orphans":["` + orphan + `"]}`
@@ -429,7 +429,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			}
 			cfg.Targets = []string{"trae"}
 			cfg.Outputs = map[string]config.Output{"trae": {AgentsDir: "native-agents"}}
-			if err := os.MkdirAll("native-agents/agent-0000.md", 0755); err != nil {
+			if err := os.MkdirAll(filepath.Join("native-agents", fixtureAgentName(0)+".md"), 0755); err != nil {
 				t.Fatal(err)
 			}
 			if mode == "status" {
@@ -437,7 +437,7 @@ func TestCapturePhases_ReleaseOnCaptureAndNativeReadErrors(t *testing.T) {
 			} else {
 				_, err = collectLoadedDrift(cfg, b, nil, nil, "")
 			}
-			if err == nil || !strings.Contains(filepath.ToSlash(err.Error()), "read native-agents/agent-0000.md") {
+			if err == nil || !strings.Contains(filepath.ToSlash(err.Error()), "read native-agents/"+fixtureAgentName(0)+".md") {
 				t.Errorf("native comparison failure=%v", err)
 			}
 			mustWriteFile(t, stateFilePath("."), `{"output_sums":{"probe":"last"}}`)
