@@ -2,6 +2,7 @@ package overview
 
 import (
 	"encoding/json"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -104,6 +105,10 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 				t.Errorf("%s %s = %d, want %d", id, label, got[label], n)
 			}
 		}
+		if id == SectionSettings {
+			// Built-ins lists all five shipped built-ins and counts the enabled one.
+			total += 4
+		}
 		if len(s.Items) != total {
 			t.Errorf("%s items = %d, want %d: %+v", id, len(s.Items), total, s.Items)
 		}
@@ -143,21 +148,103 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 	}
 
 	settings := sectionByID(t, v, SectionSettings)
+	var on []string
 	for _, item := range settings.Items {
 		switch item.Kind {
 		case "builtin":
-			if item.Name != "memory" || item.Path != "builtin:memory" || item.Description == "" {
+			if item.Enabled == nil || item.Description == "" || item.Path != "builtin:"+item.Name {
 				t.Errorf("built-in item = %+v", item)
 			}
+			if item.Enabled != nil && *item.Enabled {
+				on = append(on, item.Name)
+			}
 		case "config":
-			if item.Path != "agnostic-ai.yaml" || item.Description != "Sets targets claude; requires >=0.86.0; model tiers deep." {
-				t.Errorf("config item = %+v", item)
+			want := []Value{
+				{Key: "targets", Type: ValueList, List: []string{"claude"}},
+				{Key: "requires", Type: ValueText, Value: ">=0.86.0"},
+				{Key: "builtins", Type: ValueList, List: []string{"memory"}},
+				{Key: "models.deep", Type: ValueList, List: []string{}},
+			}
+			if item.Path != "agnostic-ai.yaml" || !reflect.DeepEqual(item.Values, want) {
+				t.Errorf("config values = %+v, want %+v", item.Values, want)
 			}
 		case "settings":
-			if item.Name != "tiers" || item.Description != "Sets the model and the effort." {
-				t.Errorf("other settings item = %+v, want only the model and effort spec", item)
+			want := []Value{{Key: "effort", Type: ValueText, Value: "high"}, {Key: "model", Type: ValueText, Value: "example-model"}}
+			if item.Name != "tiers" || !reflect.DeepEqual(item.Values, want) {
+				t.Errorf("other settings item = %+v, want the model and effort spec with its values", item)
 			}
 		}
+	}
+	if !slices.Equal(on, []string{"memory"}) {
+		t.Errorf("enabled built-ins = %v, want memory only", on)
+	}
+}
+
+func TestBuild_TypesEachValueAndRedactsCredentials(t *testing.T) {
+	e := entry(spec.KindSettings, "native", ".agnostic-ai/settings/native.yaml", map[string]any{
+		"name":        "native",
+		"description": "Native keys.",
+		"x-claude": map[string]any{
+			"attribution": map[string]any{"commit": ""},
+			"autoMode":    map[string]any{"allow": []any{"$defaults"}},
+			"verbose":     true,
+		},
+		"env": map[string]any{"API_TOKEN": "plain-looking", "REF": "${API_TOKEN}"},
+		"permissions": map[string]any{"allow": []any{
+			"shell(ls)",
+			"shell(curl -H 'Authorization: Bearer abcdefghijklmnop1234567890')",
+			"shell(cp /private/tmp/claude-501/-Users-someone-Products-app/6837a0a0-6f58-448f-98a5-dd67b1da1e44/scratchpad/kw-build/package.json out.json)",
+			"shell(export KEY=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789)",
+		}},
+	})
+	got := specValues(e.Meta)
+	want := []Value{
+		{Key: "env.API_TOKEN", Type: ValueText, Value: "<redacted>"},
+		{Key: "env.REF", Type: ValueText, Value: "${API_TOKEN}"},
+		{Key: "permissions.allow", Type: ValueList, List: []string{
+			"shell(ls)",
+			"<redacted>",
+			"shell(cp /private/tmp/claude-501/-Users-someone-Products-app/6837a0a0-6f58-448f-98a5-dd67b1da1e44/scratchpad/kw-build/package.json out.json)",
+			"<redacted>",
+		}},
+		{Key: "x-claude.attribution.commit", Type: ValueText, Value: `""`},
+		{Key: "x-claude.autoMode.allow", Type: ValueList, List: []string{"$defaults"}},
+		{Key: "x-claude.verbose", Type: ValueBool, Value: "true"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("values =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+func TestBuild_ListsEveryLifecycleStageWithTheToolsThatRunIt(t *testing.T) {
+	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude", "windsurf"}}})
+	stages := sectionByID(t, v, SectionLifecycle).Stages
+	var ids []string
+	for _, st := range stages {
+		ids = append(ids, st.ID)
+		if st.Label == "" || st.Description == "" {
+			t.Errorf("stage %s lacks a label or description", st.ID)
+		}
+	}
+	if !slices.Equal(ids, spec.PortableHookEvents) {
+		t.Fatalf("stages = %v, want every portable event in session order", ids)
+	}
+	tools := func(id string) []string {
+		var out []string
+		for _, st := range stages {
+			if st.ID == id {
+				for _, tg := range st.Targets {
+					out = append(out, tg.Target+"="+tg.Event)
+				}
+			}
+		}
+		return out
+	}
+	if got := tools("session-start"); !slices.Equal(got, []string{"claude=SessionStart"}) {
+		t.Errorf("session-start tools = %v, want only Claude Code: Windsurf has no session-start event", got)
+	}
+	if got := tools("before-tool"); len(got) != 2 {
+		t.Errorf("before-tool tools = %v, want both", got)
 	}
 }
 
@@ -194,7 +281,7 @@ func TestBuild_GroupsHooksByLifecyclePoint(t *testing.T) {
 	for _, it := range sectionByID(t, v, SectionLifecycle).Items {
 		got = append(got, it.Group+":"+it.Name)
 	}
-	want := []string{"Session start:greet", "Before a tool runs:guard", "Stop:summary", "PreToolUse:native"}
+	want := []string{"session-start:greet", "before-tool:guard", "stop:summary", "native:PreToolUse:native"}
 	if !slices.Equal(got, want) {
 		t.Errorf("hooks = %v, want %v: session order, then native events", got, want)
 	}

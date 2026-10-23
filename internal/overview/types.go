@@ -47,6 +47,27 @@ type Section struct {
 	// Findings are the check results in this section that name no
 	// configured item, such as a native file doctor reads.
 	Findings []ItemFinding `json:"findings"`
+	// Stages are the points in a session a hook can run at, in session
+	// order, each listed even when no hook runs there. Only Lifecycle has
+	// them; a hook item's Group is the ID of its stage.
+	Stages []Stage `json:"stages,omitempty"`
+}
+
+// Stage is one point in a session a hook can run at.
+type Stage struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	// Targets are the configured coding tools that run a hook here, each
+	// with its own name for the event. A native stage lists none.
+	Targets []StageTarget `json:"targets"`
+}
+
+// StageTarget is one coding tool's name for a lifecycle stage.
+type StageTarget struct {
+	Target string `json:"target"`
+	Label  string `json:"label"`
+	Event  string `json:"event"`
 }
 
 // KindCount counts the items of one kind in a section.
@@ -78,8 +99,31 @@ type SectionItem struct {
 	// Group places the item within its kind; for a hook it is the
 	// lifecycle point it runs at.
 	Group string `json:"group,omitempty"`
+	// Values are what the item sets, key by key: a settings spec's
+	// fields or the config's keys. A value that names or looks like a
+	// credential is shown as <redacted>.
+	Values []Value `json:"values"`
+	// Enabled is set for a built-in: whether the config turns it on.
+	Enabled *bool `json:"enabled,omitempty"`
 	// Findings are the check results that name this item's file.
 	Findings []ItemFinding `json:"findings"`
+}
+
+// Value types, which tell a client how to render a value.
+const (
+	ValueText = "text"
+	ValueBool = "bool"
+	ValueList = "list"
+)
+
+// Value is one setting an item makes: a dotted key with a single value
+// or a list of values. Type is ValueList for a list, ValueBool for a
+// boolean ("true" or "false"), and ValueText for anything else.
+type Value struct {
+	Key   string   `json:"key"`
+	Type  string   `json:"type"`
+	Value string   `json:"value,omitempty"`
+	List  []string `json:"list,omitempty"`
 }
 
 // ItemFinding is one check result shown where it applies.

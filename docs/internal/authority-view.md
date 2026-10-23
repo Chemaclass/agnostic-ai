@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Architecture](architecture.md)
 
-The Authority view answers one question for one subject on one coding tool: which exact action on which exact target is permitted, with what conditions, and why. It is one versioned JSON document that the `view authority` command prints and `serve` hosts, and that the client under [`ui/`](../../ui/README.md) renders. The server owns normalization, precedence, provenance, and impact analysis; the client owns rendering, selection, and motion.
+The Authority view answers one question for one subject on one coding tool: which exact action on which exact target is permitted, with what conditions, and why. It is one versioned JSON document that the `view authority` command prints and `serve` hosts. The client under [`ui/`](../../ui/README.md) renders the overview below, not this view. The server owns normalization, precedence, provenance, and impact analysis; the client owns rendering, selection, and motion.
 
 The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
 
@@ -71,10 +71,12 @@ Applying is listed under `supportedActions` as unsupported. Editing the spec and
 | Section | Question | Items |
 |---|---|---|
 | Context | What is the agent told? | Instructions (`AGNOSTIC_AI.md`), rules, agents, skills; commands, review instructions, and ignore files only when present |
-| Authority | What may the agent do? | Settings specs with permission rules or protected paths; the deep view resolves them |
+| Authority | What may the agent do? | Settings specs with permission rules or protected paths |
 | Tools | What can the agent use? | MCP servers; environments only when present |
-| Lifecycle | What runs around the agent, and when? | Hooks, each with `group` set to its lifecycle point: the portable `on` event in session order, then native events |
-| Settings | How is the harness configured? | Enabled built-ins, the config files read, and every other settings spec |
+| Lifecycle | What runs around the agent, and when? | Hooks, each with `group` set to its stage; `stages` lists every portable event in session order, with the configured tools that run it and their event names, even when no hook runs there, then one stage per native event a hook names |
+| Settings | How is the harness configured? | Every shipped built-in with `enabled`, the config files read, and every other settings spec |
+
+Settings specs and config files carry `values`: one entry per dotted key, typed `list`, `bool`, or `text`, so a client can render chips, a switch, or text. A value whose key names a credential, or that looks like a known token format or a 32-character key run, shows as `<redacted>`; a `${VAR}` reference shows as written.
 
 Read-only check results are shown on what they concern, never as a separate list. A lint or doctor finding sits on every item whose file it names, or whose skill folder holds that file; one that names no configured item sits on the section it states, else on Settings. Drift, from the capture-and-compare path `sync --check` uses, sets each target's `sync` state: `in-sync`, `drifted` with the files that differ, or `not-checked`.
 
@@ -109,4 +111,4 @@ Read-only check results are shown on what they concern, never as a separate list
 
 ## Illustrative data
 
-[`internal/authority/testdata/demo-project`](../../internal/authority/testdata/demo-project) is an illustrative project with three agents, allow, ask, and deny lists, protected paths, MCP servers, and secret references. Every name in it is an example. The client's fixtures under `ui/src/fixtures/` are generated from it.
+[`internal/authority/testdata/demo-project`](../../internal/authority/testdata/demo-project) is an illustrative project with three agents, allow, ask, and deny lists, protected paths, MCP servers, and secret references. Every name in it is an example. The client's fixture `ui/src/fixtures/overview.mock.json` is generated from it.

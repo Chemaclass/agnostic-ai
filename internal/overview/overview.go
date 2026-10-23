@@ -8,6 +8,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -149,43 +150,66 @@ func hasField(e spec.Entry, key string) bool {
 	return ok
 }
 
-// lifecycleOrder is the order of the portable hook events in a session.
-var lifecycleOrder = []string{"session-start", "prompt-submit", "before-tool", "after-tool", "after-edit", "stop", "session-end"}
-
-var lifecycleLabels = map[string]string{
-	"session-start": "Session start",
-	"prompt-submit": "Prompt submit",
-	"before-tool":   "Before a tool runs",
-	"after-tool":    "After a tool runs",
-	"after-edit":    "After a file edit",
-	"stop":          "Stop",
-	"session-end":   "Session end",
+// lifecycleStages are the portable hook events, in session order, with
+// what a hook at each does.
+var lifecycleStages = []struct{ id, label, description string }{
+	{"session-start", "Session start", "When a session opens: load context or check the environment."},
+	{"prompt-submit", "Prompt submit", "Before the agent reads a prompt; exit 2 blocks the prompt."},
+	{"before-tool", "Before a tool runs", "Before each tool call; exit 2 blocks the call. Guards live here."},
+	{"after-tool", "After a tool runs", "After each tool call: check, log, or react to the result."},
+	{"after-edit", "After a file edit", "After the agent edits a file: format or lint it."},
+	{"stop", "Stop", "When the agent finishes; exit 2 keeps it working."},
+	{"session-end", "Session end", "When a session closes: save state or clean up."},
 }
 
-// hookEvent is the lifecycle point a hook runs at: its portable `on`
-// event by its label, or the native `event` as the tool names it.
+// nativeStagePrefix marks a stage named by one tool's own event.
+const nativeStagePrefix = "native:"
+
+// hookEvent is the stage a hook runs at: its portable `on` event, or
+// its native `event` as the tool names it.
 func hookEvent(e spec.Entry) string {
 	if on, ok := e.Meta["on"].(string); ok && on != "" {
-		if label, known := lifecycleLabels[on]; known {
-			return label
-		}
 		return on
 	}
 	if event, ok := e.Meta["event"].(string); ok && event != "" {
-		return event
+		return nativeStagePrefix + event
 	}
-	return "No event"
+	return nativeStagePrefix + "none"
 }
 
 // groupRank orders hook groups by their place in a session; native
 // event names follow, alphabetically.
 func groupRank(group string) int {
-	for i, on := range lifecycleOrder {
-		if lifecycleLabels[on] == group {
+	for i, st := range lifecycleStages {
+		if st.id == group {
 			return i
 		}
 	}
-	return len(lifecycleOrder)
+	return len(lifecycleStages)
+}
+
+// buildStages lists every portable stage with the configured targets
+// that run it, then one stage per native event a hook names.
+func buildStages(items []SectionItem, targets []string, labels labeler) []Stage {
+	stages := make([]Stage, 0, len(lifecycleStages))
+	for _, st := range lifecycleStages {
+		stage := Stage{ID: st.id, Label: st.label, Description: st.description, Targets: []StageTarget{}}
+		for _, t := range targets {
+			if event, ok := spec.PortableHookEvent(t, st.id); ok {
+				stage.Targets = append(stage.Targets, StageTarget{Target: t, Label: labels.of(t), Event: event})
+			}
+		}
+		stages = append(stages, stage)
+	}
+	seen := map[string]bool{}
+	for _, it := range items {
+		if strings.HasPrefix(it.Group, nativeStagePrefix) && !seen[it.Group] {
+			seen[it.Group] = true
+			name := strings.TrimPrefix(it.Group, nativeStagePrefix)
+			stages = append(stages, Stage{ID: it.Group, Label: name, Description: "A tool's own event name: it runs only on the tool that defines " + name + ".", Targets: []StageTarget{}})
+		}
+	}
+	return stages
 }
 
 // Build arranges the inputs into the overview: the sections and the
@@ -306,12 +330,27 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			}
 			for i := range items {
 				items[i].Findings = []ItemFinding{}
+				if items[i].Values == nil {
+					items[i].Values = []Value{}
+				}
 			}
 			s.Items = append(s.Items, items...)
-			s.Kinds = append(s.Kinds, KindCount{Kind: r.id(), Label: r.title(), Count: len(items)})
+			count := len(items)
+			if r.special == kindBuiltin {
+				count = 0
+				for _, it := range items {
+					if it.Enabled != nil && *it.Enabled {
+						count++
+					}
+				}
+			}
+			s.Kinds = append(s.Kinds, KindCount{Kind: r.id(), Label: r.title(), Count: count})
 			if r.special == "" {
 				s.Support = append(s.Support, kindSupport(r.kind, r.title(), targets, caps))
 			}
+		}
+		if def.id == SectionLifecycle {
+			s.Stages = buildStages(s.Items, targets, newLabeler())
 		}
 		sections = append(sections, s)
 	}
@@ -325,7 +364,7 @@ func specItems(in Inputs, r row, section string) []SectionItem {
 	}
 	items := make([]SectionItem, 0, len(entries))
 	for _, e := range entries {
-		item := sectionItem(in.Snapshot.Project.Root, e, section)
+		item := sectionItem(in.Snapshot.Project.Root, e)
 		if r.group != nil {
 			item.Group = r.group(e)
 		}
@@ -370,62 +409,48 @@ var builtinDescriptions = map[string]string{
 	"caveman":      "Terse replies to cut output tokens.",
 }
 
+// builtinItems lists every built-in agnostic-ai ships, each marked on
+// when the config enables it.
 func builtinItems(cfg *config.Config) []SectionItem {
-	if cfg == nil {
-		return []SectionItem{}
+	var enabled []string
+	if cfg != nil {
+		enabled = cfg.Builtins
 	}
-	items := make([]SectionItem, 0, len(cfg.Builtins))
-	for _, name := range cfg.Builtins {
+	names := builtins.Names()
+	for _, name := range enabled {
+		if !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	items := make([]SectionItem, 0, len(names))
+	for _, name := range names {
 		description := builtinDescriptions[name]
 		if description == "" {
 			description = "Built-in feature."
 		}
-		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: name, Description: description, Path: "builtin:" + name, Layer: builtinLayer})
+		on := slices.Contains(enabled, name)
+		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: name, Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on})
 	}
 	return items
 }
 
-// configItems lists the config files read, each described by what the
+// configItems lists the config files read, each with the keys the
 // loaded configuration sets.
 func configItems(cfg *config.Config, files []string) []SectionItem {
-	var facts []string
-	if cfg != nil {
-		if len(cfg.Targets) > 0 {
-			facts = append(facts, "targets "+strings.Join(cfg.Targets, ", "))
-		}
-		if cfg.Requires != "" {
-			facts = append(facts, "requires "+cfg.Requires)
-		}
-		if len(cfg.Models) > 0 {
-			tiers := make([]string, 0, len(cfg.Models))
-			for name := range cfg.Models {
-				tiers = append(tiers, name)
-			}
-			slices.Sort(tiers)
-			facts = append(facts, "model tiers "+strings.Join(tiers, ", "))
-		}
-	}
-	description := "Sets no targets, version requirement, or model tiers."
-	if len(facts) > 0 {
-		description = "Sets " + strings.Join(facts, "; ") + "."
-	}
 	items := make([]SectionItem, 0, len(files))
 	for _, f := range files {
 		layer := "config"
 		if strings.HasPrefix(filepath.ToSlash(f), "local/") {
 			layer = "local"
 		}
-		items = append(items, SectionItem{Kind: kindConfig, Name: filepath.Base(f), Label: filepath.ToSlash(f), Description: description, Path: filepath.ToSlash(f), Layer: layer})
+		items = append(items, SectionItem{Kind: kindConfig, Name: filepath.Base(f), Label: filepath.ToSlash(f), Path: filepath.ToSlash(f), Layer: layer, Values: configValues(cfg)})
 	}
 	return items
 }
 
-func sectionItem(root string, e spec.Entry, section string) SectionItem {
+func sectionItem(root string, e spec.Entry) SectionItem {
 	description := e.Description()
-	if description == "" && e.Kind == spec.KindSettings {
-		description = settingsSummary(e, section)
-	}
-	return SectionItem{
+	item := SectionItem{
 		Kind:        string(e.Kind),
 		Name:        e.Name,
 		Label:       e.Name,
@@ -434,31 +459,10 @@ func sectionItem(root string, e spec.Entry, section string) SectionItem {
 		Layer:       e.Layer,
 		Scope:       e.EffectiveScope(),
 	}
-}
-
-// settingsSummary describes a settings spec that has no description by
-// the fields that place it in section.
-func settingsSummary(e spec.Entry, section string) string {
-	var fields []string
-	if section == SectionAuthority {
-		if hasField(e, "permissions") {
-			fields = append(fields, "permission rules")
-		}
-		if hasField(e, "protected") {
-			fields = append(fields, "protected paths")
-		}
-	} else {
-		if hasField(e, "model") {
-			fields = append(fields, "the model")
-		}
-		if hasField(e, "effort") {
-			fields = append(fields, "the effort")
-		}
+	if e.Kind == spec.KindSettings {
+		item.Values = settingsValues(e)
 	}
-	if len(fields) == 0 {
-		return "Sets target-specific settings."
-	}
-	return "Sets " + strings.Join(fields, " and ") + "."
+	return item
 }
 
 func entriesOf(b spec.Bundle, kind spec.Kind) []spec.Entry {
