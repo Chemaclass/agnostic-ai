@@ -84,6 +84,11 @@ func ReportClaudeSkillSyntax(target string, skills []spec.Entry, mode string) er
 	return emit.ReportClaudeBodySyntax(target, spec.KindSkill, (spec.Bundle{Skills: skills}).For(target).Skills, mode)
 }
 
+// ReportGlobalSkillSyntax checks syntax against the resolved user skill destination.
+func ReportGlobalSkillSyntax(target string, skills []spec.Entry, mode, home, dir string) error {
+	return emit.ReportGlobalSkillSyntax(target, (spec.Bundle{Skills: skills}).For(target).Skills, mode, home, dir)
+}
+
 // RenderSkillSidecars returns target's extra per-skill files, keyed by
 // path relative to the skill folder, or nil when it writes none.
 func RenderSkillSidecars(target string, skill spec.Entry) (map[string]string, error) {

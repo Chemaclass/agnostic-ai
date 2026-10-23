@@ -48,6 +48,8 @@ Hooks go to `.codex/hooks.json`, grouped by event and matcher. [Trust handlers w
 
 Command hooks keep `timeout`, `statusMessage`, `commandWindows`, `additionalContextLimit` (including zero), and `async`. MCP-tool hooks use `type: mcp_tool`, required `server` and `tool`, optional `input`, `timeout`, and `statusMessage`. See the [native hooks reference](https://learn.chatgpt.com/docs/hooks) for event names and payloads.
 
+`PreModelRequest` and `PostModelRequest` are observer events in Codex 0.164.0. Their output is logged; it cannot block or change a model request. Omit `matcher`, since these events supply no matcher input ([released source](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/hooks/src/events/model_request.rs)).
+
 Sync prefixes shell commands with `export AGNOSTIC_AI_TARGET=codex; `. This requires a POSIX session shell on macOS and Linux. On Windows it uses `commandWindows`, or copies the declared command without that prefix. `args` fold into POSIX-quoted shell arguments; supply `commandWindows` when Windows quoting differs.
 
 `Edit` and `Write` aliases report the tool as `apply_patch`. Edited paths live inside `tool_input.command`, not `tool_input.file_path`. Use [`agnostic-ai hook paths`](@/docs/spec-format/hook-reference.md#edited-paths). Sync detects inline reads of the missing field, but does not inspect your scripts.

@@ -1,6 +1,7 @@
 package junie
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -677,5 +678,38 @@ func TestEmit_EntryPointNamesTheLocalFileOnAMissingInlineImport(t *testing.T) {
 	err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false)
 	if err == nil || !strings.Contains(err.Error(), emit.ProjectLocalEntryPointPath) || !strings.Contains(err.Error(), "docs/missing.md") {
 		t.Errorf("want an error naming the local file and the missing import, got %v", err)
+	}
+}
+
+func TestEmit_MCPTimeoutUsesJunieOverrideWithoutClaudeFields(t *testing.T) {
+	testutil.TempCwd(t)
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "stdio", Meta: map[string]any{"command": "server", "timeout": 900000, "alwaysLoad": true}},
+		{Kind: spec.KindMCP, Name: "http", Meta: map[string]any{"type": "http", "url": "https://example.test/mcp", "timeout": 60000, "x-junie": map[string]any{"timeout": 120000}, "headersHelper": "secret-helper", "oauth": map[string]any{"clientId": "claude-only"}}},
+		{Kind: spec.KindMCP, Name: "sse", Meta: map[string]any{"type": "sse", "url": "https://example.test/sse", "x-junie": map[string]any{"timeout": 240000}}},
+		{Kind: spec.KindMCP, Name: "default", Meta: map[string]any{"command": "server"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	body := readFile(t, ".junie/mcp/mcp.json")
+	var got struct {
+		Servers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatal(err)
+	}
+	for name, timeout := range map[string]float64{"stdio": 900000, "http": 120000, "sse": 240000} {
+		if got.Servers[name]["timeout"] != timeout {
+			t.Errorf("%s timeout = %v, want %v", name, got.Servers[name]["timeout"], timeout)
+		}
+	}
+	if _, set := got.Servers["default"]["timeout"]; set {
+		t.Error("default server gained a timeout")
+	}
+	for _, key := range []string{"alwaysLoad", "headersHelper", "oauth"} {
+		if strings.Contains(body, key) {
+			t.Errorf("Claude field %s reached Junie: %s", key, body)
+		}
 	}
 }
