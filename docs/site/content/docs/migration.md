@@ -38,7 +38,7 @@ Check scripts called by hooks and settings, and inspect MCP connection variables
 ## Generate and check {#3-generate}
 
 ```bash
-agnostic-ai sync --dry-run
+agnostic-ai sync --dry-run --backup
 agnostic-ai sync --backup
 agnostic-ai sync --check
 ```

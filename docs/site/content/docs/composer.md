@@ -78,15 +78,17 @@ For more fields, use the [rules](@/docs/spec-format/rules.md) and [skills](@/doc
 
 ## Generate and inspect
 
+The first sync can replace imported files after you reconcile their instructions. Use `--backup` to keep the originals as `.bak` files.
+
 ```bash
 agnostic-ai lint
-agnostic-ai sync --plan
+agnostic-ai sync --plan --backup
 ```
 
 Review the plan, then generate and check:
 
 ```bash
-agnostic-ai sync
+agnostic-ai sync --backup
 agnostic-ai sync --check
 ```
 
