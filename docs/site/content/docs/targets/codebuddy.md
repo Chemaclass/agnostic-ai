@@ -55,7 +55,7 @@ agnostic-ai lint
 
 Import reads root and scoped instructions, modular rules, agents, skill folders and resources, commands, settings, command hooks, and root MCP files. Native fields stay under `x-codebuddy` when they have no portable equivalent. Top-level environment and credential settings stay in the native file. Nested credentials and inline agent MCP literals fail import with a field-only diagnostic; use native environment references in supported MCP fields. Native MCP import reads `.mcp.json` before deprecated `mcp.json`. Configure the opt-in below before syncing imported project servers.
 
-Instruction frontmatter keeps its native `enabled`, `alwaysApply`, and `paths` values. `enabled: false` and `alwaysApply: false` without paths stay inactive. Import uses the source-only `x-codebuddy.instruction-file` hint, either `CODEBUDDY.md` or `.codebuddy/CODEBUDDY.md`, with validated `scope` to restore the original location. This hint is omitted from native output. If both root alternatives exist, select one with `outputs.codebuddy.file` before import.
+Instruction frontmatter keeps its native `enabled`, `alwaysApply`, and `paths` values. `enabled: false` and `alwaysApply: false` without paths stay inactive. Import uses the source-only `x-codebuddy.instruction-file` hint, either `CODEBUDDY.md` or `.codebuddy/CODEBUDDY.md`, with validated `scope` to restore the original location. This hint is omitted from native output. If both root alternatives exist, select one with the [entry-point file configuration](@/docs/configuration.md#entry-point-files) before import.
 
 A controlled root file cannot share its instruction policy with effective shared or local instructions, root rules, or the target overview. Sync reports that conflict before writing. Scoped native files likewise reject mixed activation policies for one path.
 
@@ -91,9 +91,10 @@ Not enforced. CodeBuddy's `protected` paths have no registered enforcement mappi
 
 ## Config keys
 
+For the shared root instruction file, see [entry-point files](@/docs/configuration.md#entry-point-files).
+
 | Output key | Default |
 |---|---|
-| `file` under `outputs.codebuddy` | `CODEBUDDY.md` |
 | `dir` under `outputs.codebuddy` | `.codebuddy` |
 | `outputs.codebuddy.rules-dir` | `.codebuddy/rules` |
 | `outputs.codebuddy.agents-dir` | `.codebuddy/agents` |

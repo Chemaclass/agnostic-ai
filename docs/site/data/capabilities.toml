@@ -245,6 +245,7 @@ id = "codebuddy"
 name = "CodeBuddy Code"
 href = "@/docs/targets/codebuddy.md"
 statuses = ["native", "native", "native", "native", "opt-in", "native", "native", "no", "no", "no"]
+opt_in = { mcp = "outputs.codebuddy.root-mcp-file" }
 
 [[targets]]
 id = "pi"

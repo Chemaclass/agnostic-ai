@@ -1150,6 +1150,18 @@
     id = "settings"
     paths = [".codebuddy/settings.json"]
 
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
 [[targets]]
   id = "pi"
 
