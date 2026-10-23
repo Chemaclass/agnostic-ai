@@ -37,6 +37,7 @@ Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction 
 | `.github/copilot-instructions.md` | Copilot |
 | `.rules` | Zed |
 | `.agents/AGENTS.md` | Antigravity |
+| `.kimi-code/AGENTS.md` | Kimi Code CLI |
 
 Tools that share a path get one write. Junie also has its preferred `.junie/AGENTS.md`. Claude can import identical shared instructions from `AGENTS.md`. Cursor and Continue get rule files, not a root instruction file. Each [target page](@/docs/targets/_index.md) explains how that tool finds its files.
 
@@ -117,3 +118,5 @@ List only the tools you use in `agnostic-ai.yaml`. A `-t` list replaces that lis
 To request a target, [open an issue](https://github.com/Chemaclass/agnostic-ai/issues). To implement one, follow [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md).
 
 Grok uses native `.grok/rules` files rather than adding another `AGENTS.md` copy. Its ignored-file discovery constraint and explicit setup are documented in [Grok Build](@/docs/targets/grok.md#first-rule).
+
+Kimi Code CLI discovers branded project instructions, agents, skills, and MCP configuration. Its settings and hooks belong to one selected user data root. See [Kimi Code](@/docs/targets/kimi.md#selected-profile) for explicit profile exports.

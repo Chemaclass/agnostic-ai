@@ -29,6 +29,7 @@ var TargetVarPaths = map[string]map[string]string{
 		VarCommandsDir: ".claude/commands", VarRulesDir: ".claude/rules",
 		VarMCPFile: ".mcp.json",
 	},
+	"kimi": {VarSkillsDir: ".kimi-code/skills", VarAgentsDir: ".kimi-code/agents", VarMCPFile: ".kimi-code/mcp.json"},
 	"vibe": {VarSkillsDir: ".vibe/skills", VarAgentsDir: ".vibe/agents", VarMCPFile: ".vibe/config.toml"},
 	"codex": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".codex/agents",
@@ -213,7 +214,7 @@ func ScopeDocumentReaders(cfg *config.Config, target, doc string) []string {
 		return readers
 	}
 	for _, t := range cfg.Targets {
-		reads := scopeDocument(t) == doc || doc == "AGENTS.md" && (t == "cursor" || t == "copilot" || t == "windsurf")
+		reads := configuredScopeDocument(cfg, t) == doc || doc == "AGENTS.md" && (t == "cursor" || t == "copilot" || t == "windsurf")
 		if reads && !slices.Contains(readers, t) {
 			readers = append(readers, t)
 		}

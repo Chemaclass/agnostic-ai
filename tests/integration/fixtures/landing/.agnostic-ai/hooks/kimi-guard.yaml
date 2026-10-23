@@ -1,0 +1,6 @@
+name: kimi-guard
+target: kimi
+event: PreToolUse
+matcher: Bash
+command: check
+timeout: 10

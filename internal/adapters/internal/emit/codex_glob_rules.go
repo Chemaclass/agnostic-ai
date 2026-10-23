@@ -17,7 +17,7 @@ func codexGlobDirectories(cfg *config.Config, target string, r spec.Entry) ([]st
 		return nil, ""
 	}
 	if target != "codex" && target != "cursor" &&
-		(scopeDocument(target) != "AGENTS.md" || EntryPointPath(cfg, target) != EntryPointPath(cfg, "codex")) {
+		(configuredScopeDocument(cfg, target) != "AGENTS.md" || EntryPointPath(cfg, target) != EntryPointPath(cfg, "codex")) {
 		return nil, ""
 	}
 	if scope, err := spec.RuleScope(r); err != nil || scope != "" {
@@ -49,14 +49,14 @@ func codexGlobDirectories(cfg *config.Config, target string, r spec.Entry) ([]st
 		}
 	}
 	for _, reader := range append([]string{"codex", target}, cfg.Targets...) {
-		if reader != "codex" && reader != "cursor" && scopeDocument(reader) != "AGENTS.md" && EntryPointPath(cfg, reader) != EntryPointPath(cfg, "codex") {
+		if reader != "codex" && reader != "cursor" && configuredScopeDocument(cfg, reader) != "AGENTS.md" && EntryPointPath(cfg, reader) != EntryPointPath(cfg, "codex") {
 			continue
 		}
 		o := cfg.Outputs[reader]
 		if o.File != "" || o.RulesFile != "" || o.RulesDir != "" || o.ProvenanceHeader != nil && !*o.ProvenanceHeader {
 			return nil, fmt.Sprintf("%s output overrides do not support automatic nested instructions", reader)
 		}
-		if InlinesRulesIntoEntryPoint(reader) && scopeDocument(reader) != "AGENTS.md" {
+		if InlinesRulesIntoEntryPoint(reader) && configuredScopeDocument(cfg, reader) != "AGENTS.md" {
 			return nil, fmt.Sprintf("%s shares the root instructions but has no verified nested instructions", reader)
 		}
 	}

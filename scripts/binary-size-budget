@@ -382,4 +382,12 @@
 # Same Linux amd64 release flags, no added headroom or dependencies.
 # Final grok Windows hook integration measured 21024928 bytes.
 # Go 1.27.3, Linux amd64 release flags; no added headroom or dependencies.
-21024928
+# #2420 measured 21106848 on Go 1.27.3, up 86016 from parent fb3ce289
+# (21020832): maintained Kimi Code native output, import, and private global ownership.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2420 final integration measured 21102752 on Go 1.27.3, up 81920
+# from measured parent 9a47b2a8 (21020832): native kimi-code support.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2420 final opt-in integration measured 21110944 on Go 1.27.3.
+# Native Kimi Code support, same Linux amd64 release flags; no headroom or deps.
+21110944

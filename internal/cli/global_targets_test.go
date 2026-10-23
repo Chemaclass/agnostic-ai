@@ -44,7 +44,7 @@ func TestGlobalTargets_TableInvariants(t *testing.T) {
 		if g.instructions != "" && g.rules != "" {
 			t.Errorf("%s: rules dir is only for a target with no instructions file", name)
 		}
-		if g.hooks != "" && g.hooksFormat != "claude" && g.hooksFormat != "cursor" && g.hooksFormat != "augment" && g.hooksFormat != "copilot" && g.hooksFormat != "vibe-toml" {
+		if g.hooks != "" && g.hooksFormat != "claude" && g.hooksFormat != "cursor" && g.hooksFormat != "augment" && g.hooksFormat != "copilot" && g.hooksFormat != "vibe-toml" && g.hooksFormat != "kimi-toml" {
 			t.Errorf("%s: hooks file %q has no native schema", name, g.hooks)
 		}
 		if g.hooksFormat != "" && g.hooks == "" {

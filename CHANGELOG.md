@@ -16,6 +16,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Kimi Code CLI
+
+- Keep Kimi opt-in so existing scoped agent tool lists still sync with the default targets.
+- Sync and import native instructions, agents, skills, and MCP connections; manage user hooks and selected settings.
+- Import refuses literal credentials in project and user hooks, including generated command wrappers.
+
 #### Grok Build
 
 - Windows short-name hook paths stay literal; shared paths needing shell-specific quoting require a native wrapper command.

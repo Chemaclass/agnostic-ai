@@ -127,6 +127,19 @@ var globalTargets = map[string]globalTarget{
 		mcp:      globalMCPFile{path: globalPathHome + ".grok/config.toml", format: "toml", key: "mcp_servers", private: true, validate: grok.ValidateMCPs},
 		settings: globalSettingsFile{path: globalPathHome + ".grok/config.toml", format: grokTOMLFormat, private: true, model: "models.default", reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
 	},
+	"kimi": {
+		rootEnv: "KIMI_CODE_HOME", root: globalPathHome + ".kimi-code",
+		instructions: globalPathHome + ".kimi-code/AGENTS.md",
+		agents:       globalPathHome + ".kimi-code/agents",
+		skills:       globalPathHome + ".kimi-code/skills",
+		hooks:        globalPathHome + ".kimi-code/config.toml",
+		hooksFormat:  "kimi-toml", hookFoldArgs: true,
+		mcp: globalMCPFile{path: globalPathHome + ".kimi-code/mcp.json", format: "json", key: "mcpServers", private: true},
+		settings: globalSettingsFile{
+			path: globalPathHome + ".kimi-code/config.toml", format: "toml", model: "default_model", private: true,
+			allowed: map[string]string{"default_model": "string", "default_plan_mode": "bool", "telemetry": "bool"},
+		},
+	},
 	"vibe": {
 		rootEnv:      "VIBE_HOME",
 		root:         globalPathHome + ".vibe",

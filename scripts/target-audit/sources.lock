@@ -186,6 +186,13 @@ kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daa
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	a39c9bec020c83e5fe7f955f728ca6c20b9bb4e9ab09f5c36f0b1f28b3387aa6	2026-10-13
 kilo	schema	https://app.kilo.ai/config.json	200	schema-keys	a07bf5d82c09edd3f5beb4cb2b29bfdcb7c5917ac69bbc71860296e1d2189004	2026-10-21
+kimi	changelog	https://github.com/MoonshotAI/kimi-code/releases	200	github-api	8adafcea01c77f030d6cdd2e39a1bec27046f99d3e09274cafddef376a5719dc	2026-10-23
+kimi	code	https://github.com/MoonshotAI/kimi-code/tree/684bae9ea6a437f3bae98bba1dcb797a917d500b/packages/agent-core-v2/src	200	html	8ecef41835aeb80531b9b62c3b4eac02efa9ebdd00af9ec604dbc75292ab344b	2026-10-23
+kimi	docs	https://moonshotai.github.io/kimi-code/en/configuration/config-files	200	html	4979c556983ea99cd1442183f7240a03836e987209fbd2afbe21837aac9efe08	2026-10-23
+kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/agents	200	html	edd9e9e3fde948ebbb062a825babf745ea51a957bf917f56ad018d6e30c35762	2026-10-23
+kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/hooks	200	html	50076cbb59e2699198da8e3c31ba4a7db5b6ff54be30845ac6bcea1b14b99f9d	2026-10-23
+kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/mcp	200	html	aa526502e99b9bc75e423e04c26088dbb65deb49f9bd07b0595c4522454c0be7	2026-10-23
+kimi	docs	https://moonshotai.github.io/kimi-code/en/customization/skills	200	html	3c1b4d1c1904955603ec96202937cd10e508fa9927918cfb992bff48e45cc4c6	2026-10-23
 kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	e06bf6f9032a105886fa33988faae5c8c2a8038d6452a7ab1c3151caf816dfbb	2026-10-20
 kiro	docs	https://kiro.dev/docs/cli/chat/manage-prompts.md	200	markdown-mirror	c1709a715b4d13a98012d3ed57a23d5bcdeca460502ce93d48f2ae9973e9de0e	2026-10-04
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	d4f5b2ff9c5a81212b43324dbbc5596e5406decb2125b058e5bd5f029ebae59c	2026-10-10

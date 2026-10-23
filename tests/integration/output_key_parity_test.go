@@ -74,6 +74,7 @@ var documentedNoOpKeys = map[string]string{
 // `conf-file` carries Aider's model settings out of a rule sync, but
 // Devin's project permission policy out of a settings spec.
 var probeKinds = map[string]string{
+	"kimi.conf-file":     "settings",
 	"vibe.conf-file":     "settings",
 	"windsurf.conf-file": "settings",
 	"factory.conf-file":  "settings",
@@ -108,6 +109,7 @@ func probeKind(target, key, fallback string) string {
 // overrideValues holds the value to probe with where a target
 // validates the shape of the path it accepts.
 var overrideValues = map[string]string{
+	"kimi.conf-file":            "custom/config.toml",
 	"goose.hooks-file":          "custom/hooks/hooks.json",
 	"ellipsis.environment-file": ".ellipsis/environments/moved.yaml",
 }

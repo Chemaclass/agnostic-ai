@@ -44,6 +44,12 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					neutral, neutralErr := syncedAgentTree(t, target, tc.can)
 					legacy, legacyErr := syncedAgentTree(t, target, tc.tools)
+					if target == "kimi" && (tc.name == "scoped-shell" || tc.name == "multiline") {
+						if neutralErr == nil || legacyErr == nil {
+							t.Fatalf("Kimi scoped restrictions must reject both aliases: can=%v tools=%v", neutralErr, legacyErr)
+						}
+						return
+					}
 					expectedError := ""
 					switch target {
 					case "grok":

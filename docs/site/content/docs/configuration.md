@@ -175,6 +175,8 @@ Sync skips missing directories. Paths follow the [path rules](#path-semantics). 
 
 [Mistral Vibe](@/docs/targets/vibe.md) uses `targets: [vibe]`. Its model and MCP servers share `.vibe/config.toml`; hooks use `.vibe/hooks.toml`.
 
+[Kimi Code CLI](@/docs/targets/kimi.md) uses `targets: [kimi]` and branded `.kimi-code/` project files. Settings and hooks require global sync or an explicit `conf-file` profile.
+
 ## `outputs`
 
 `outputs.<target>.*` overrides where one target writes. An unknown field fails with AAI-004. Each target page lists its keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude-reference.md#claude-settings) and [Codex](@/docs/targets/codex-reference.md#codex-config) also accept settings blocks.

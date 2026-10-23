@@ -1290,3 +1290,46 @@
   [[targets.kinds]]
     id = "ignore"
     paths = []
+
+[[targets]]
+  id = "kimi"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".kimi-code/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".kimi-code/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".kimi-code/AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".kimi-code/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
