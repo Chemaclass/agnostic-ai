@@ -21,7 +21,7 @@ var settingsFields = map[string][]fieldDef{
 		{key: "permissions.allow", label: "Allowed without asking", description: "Rules the agent runs without a prompt."},
 		{key: "permissions.ask", label: "Ask first", description: "Rules that prompt before running."},
 		{key: "permissions.deny", label: "Always blocked", description: "Rules the agent may never run."},
-		{key: "permissions.default-mode", label: "Default permission mode", description: "Claude Code's starting mode: default, manual, acceptEdits, plan, auto, dontAsk, or bypassPermissions."},
+		{key: "permissions.default-mode", label: "Default permission mode", description: "The permission mode a session starts in. Only Claude Code applies it today, so it takes Claude Code's mode names: default, manual, acceptEdits, plan, auto, dontAsk, or bypassPermissions. Other tools get a sync note."},
 		{key: "protected", label: "Protected paths", description: "Files agents must not edit without asking: paths, a decision (ask or deny), and a reason."},
 	},
 	SectionSettings: {
