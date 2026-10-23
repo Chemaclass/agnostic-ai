@@ -362,7 +362,7 @@ func canonicalMCPServer(target string, v any) any {
 	_, hasCommand := out["command"]
 	_, hasURL := out["url"]
 	switch kind, _ := out["type"].(string); {
-	case target == "gemini":
+	case target == "gemini" || target == "qwen":
 		// httpUrl is streamable HTTP; url is SSE unless type says http.
 		if url, ok := out["httpUrl"]; ok {
 			delete(out, "httpUrl")

@@ -32,6 +32,7 @@ type globalSettingsFile struct {
 	// permissionLists marks a file whose permissions.allow, ask, and
 	// deny lists sync merges rule by rule from the settings specs.
 	permissionLists bool
+	itemLists       []string
 	retention       string
 	effortLevel     func() []string
 	// reserved are keys an x-<target> block may not set: surfaces sync

@@ -44,6 +44,7 @@ var mcpEnvRefTargets = map[string]mcpEnvRefForms{
 	"factory":   {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	"kiro":      {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	// https://geminicli.com/docs/reference/configuration: every string value in settings.json, defaults included
+	"qwen":   {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, reading: spec.EnvRefReading{Unbraced: true}},
 	"gemini": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true, reading: spec.EnvRefReading{Unbraced: true, Percent: true}},
 	// url: https://ampcode.com/docs/customize/mcp
 	"amp": {headers: spec.EnvRefDollar, url: spec.EnvRefDollar},

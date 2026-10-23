@@ -31,6 +31,7 @@ func TestEntryPointPath_MatchesVendorReadPath(t *testing.T) {
 		"claude": "CLAUDE.md",
 		// geminicli.com/docs
 		"gemini": "GEMINI.md",
+		"qwen":   "QWEN.md",
 		// aider.chat/docs/usage/conventions.html
 		"aider": "CONVENTIONS.md",
 		// docs.github.com/en/copilot: repository custom instructions

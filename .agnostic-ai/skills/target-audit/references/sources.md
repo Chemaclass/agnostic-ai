@@ -378,6 +378,20 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: Gitignored project rule discovery, project config scope, native agent tool names and effort values, skill invocation fields, hook shell and exit semantics, MCP transport and enabled fields, GROK_HOME paths, model table ownership.
 - trap: project rules must be visible to Git. Keep this target explicit and require gitignore.commit instructions, without changing a user's ignore or trust policy.
 
+## qwen
+
+- docs: https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/ · https://qwenlm.github.io/qwen-code-docs/en/users/configuration/qwen-ignore/
+- changelog: https://github.com/QwenLM/qwen-code/releases
+- code: https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts (added 2026-10-23; released native paths) · https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts (added 2026-10-23; released event names and timeout contract)
+- watch: QWEN_HOME versus QWEN_RUNTIME_DIR; project and scoped QWEN.md discovery; Markdown commands and legacy TOML removal; native agent tools, approvalMode, record-valued mcpServers, and effort implementation; settings permission lists; MCP httpUrl versus url; hook events, seconds, and project trust; user ignore support.
+- trap: the releases feed includes the separate TypeScript SDK. Compare CLI v-tags when choosing a CLI baseline; releases/latest can select the SDK.
+- decision: portable agent effort and permissionMode are unsupported. Explicit native agent approval fields belong under x-qwen.
+- decision: HTTP uses httpUrl, SSE uses url, MCP timeout is milliseconds, and command hook timeout is seconds.
+- decision: global commands and ignore files are outside the current global target table. Project command support does not imply global command sync.
+- trap: `hooks.enabled`, `hooks.disabled` and `hooks.notifications` are skipped metadata in the released registry. Top-level `disableAllHooks` is the active control.
+- decision: native skill `model` round-trips under x-qwen and is applied as modelOverride. Shared skill model is not promoted.
+- trap: `isMcpServerDisabled` checks `mcp.excluded` and extension preferences, not a settings server's `disabled` field, despite manager comments mentioning it. Portable disabled servers are omitted.
+
 ## vibe
 
 - docs: https://docs.mistral.ai/vibe/code/cli/configuration-reference · https://docs.mistral.ai/vibe/code/cli/agents · https://docs.mistral.ai/vibe/code/cli/skills · https://docs.mistral.ai/vibe/code/cli/hooks

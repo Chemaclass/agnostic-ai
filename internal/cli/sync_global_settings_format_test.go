@@ -264,6 +264,7 @@ func TestSyncGlobal_HookIntoEmptyObjectIsIndentedLikeACreatedFile(t *testing.T) 
 	for _, target := range []struct{ name, file string }{
 		{"claude", ".claude/settings.json"},
 		{"codex", ".codex/hooks.json"},
+		{"qwen", ".qwen/settings.json"},
 		{"gemini", ".gemini/settings.json"},
 		{"cursor", ".cursor/hooks.json"},
 	} {
@@ -351,6 +352,7 @@ func TestSyncGlobal_HooksWriteStopsWhenFileChangedAfterRead(t *testing.T) {
 	for _, target := range []struct{ name, file string }{
 		{"claude", ".claude/settings.json"},
 		{"codex", ".codex/hooks.json"},
+		{"qwen", ".qwen/settings.json"},
 		{"cursor", ".cursor/hooks.json"},
 	} {
 		t.Run(target.name, func(t *testing.T) {

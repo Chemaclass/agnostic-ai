@@ -1120,6 +1120,49 @@
     paths = []
 
 [[targets]]
+  id = "qwen"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".qwen/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".qwen/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["QWEN.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".qwen/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".qwen/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".qwen/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".qwen/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".qwenignore"]
+
+[[targets]]
   id = "pi"
 
   [[targets.kinds]]

@@ -12,6 +12,8 @@ group = "Reference"
 
 Use `validate` for invalid spec formats, `lint` for spec quality, and `sync --check` for generated files that differ from the sources. `doctor` combines project checks with local setup checks. `verify` runs your own tasks to check the AI tool's behavior.
 
+`validate` and `lint` skip built-in hooks whose target selectors match no selected tool. User-authored hooks still receive the usual checks.
+
 For coding agents and scripts, inspect errors before choosing a repair. `doctor` is read-only by default; `doctor --fix` changes files.
 
 ## validate

@@ -180,14 +180,25 @@ const decisionWrapperShebang = "#!/usr/bin/env bash\n"
 // writes the target's reply: $aai_out names the file holding the
 // command's stdout, and $aai_msg is its stderr as the body of a JSON
 // string.
-func DecisionWrapper(reply string) string {
+func DecisionWrapper(reply string) string { return decisionWrapper(reply, true, false) }
+
+func decisionWrapper(reply string, replayStderr, postTool bool) string {
+	extraState, extraOptions := "", ""
+	if postTool {
+		extraState = "aai_post_tool=\n"
+		extraOptions = "  --after-tool) aai_post_tool=1 ;;\n"
+	}
+	stderrReplay := ""
+	if replayStderr {
+		stderrReplay = "cat \"$aai_err\" >&2\n"
+	}
 	body := `aai_decision=
 aai_prompt=
-while :; do
+` + extraState + `while :; do
   case $1 in
   --decision) aai_decision=1 ;;
   --prompt) aai_prompt=1 ;;
-  *) break ;;
+` + extraOptions + `  *) break ;;
   esac
   shift
 done
@@ -197,8 +208,7 @@ trap 'rm -f "$aai_out" "$aai_err"' EXIT
 ` + HookJSONEscape + hookStdoutDecision + `bash -c "$1" >"$aai_out" 2>"$aai_err"
 aai_status=$?
 [ -z "$aai_decision" ] || aai_decide
-cat "$aai_err" >&2
-aai_msg=$(aai_json <"$aai_err") || aai_msg=
+` + stderrReplay + `aai_msg=$(aai_json <"$aai_err") || aai_msg=
 aai_msg=${aai_msg:-blocked by a hook that exited 2}
 case $aai_status in
 ` + reply + "esac\n"
@@ -275,11 +285,27 @@ const geminiReply = `2)
   exit "$aai_status" ;;
 `
 
+// Qwen reads stderr at exit 2, including structured decisions.
+const qwenReply = `2)
+  if [ -n "$aai_post_tool" ]; then
+    printf '{"continue":false,"stopReason":"%s"}\n' "$aai_msg" >&2
+  else
+    printf '{"decision":"deny","reason":"%s"}\n' "$aai_msg" >&2
+  fi
+  exit 2 ;;
+*)
+  cat "$aai_err" >&2
+  cat "$aai_out"
+  exit "$aai_status" ;;
+`
+
 // PortableHookWrapper renders the wrapper script for target.
 func PortableHookWrapper(target string) string {
 	switch target {
 	case "gemini":
 		return DecisionWrapper(geminiReply)
+	case "qwen":
+		return decisionWrapper(qwenReply, false, true)
 	case "cursor":
 		return DecisionWrapper(cursorReply)
 	case "copilot":

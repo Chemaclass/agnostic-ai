@@ -9,6 +9,7 @@ var hookSiblingPrefixes = []string{
 	".claude/hooks/",
 	".codex/hooks/",
 	".gemini/hooks/",
+	".qwen/hooks/",
 }
 
 // RewriteHookPath translates the project root and sibling hook directories.

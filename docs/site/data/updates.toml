@@ -122,6 +122,10 @@ id = "grok"
 label = "Grok Build"
 
 [[targets]]
+id = "qwen"
+label = "Qwen Code"
+
+[[targets]]
 id = "pi"
 label = "Pi"
 
