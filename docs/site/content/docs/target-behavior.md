@@ -83,7 +83,7 @@ Each [spec reference](@/docs/spec-format/_index.md) has the details. [`on-unsupp
 
 ### Shared skills and agent discovery
 
-Many targets share `.agents/skills/`. Sync writes byte-identical folders once. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
+Many targets share `.agents/skills/`. Sync writes byte-identical folders once. Crush and Goose share neutral skill frontmatter; Crush commands remain skipped at that shared path because their user-only flag cannot be kept. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
 
 **Devin discovers `.agents/agents/` profiles written for Goose, OpenHands, and Antigravity.** Those profiles can lack Devin's `allowed-tools`, which defaults to all tools. A `.devin/agents/` profile with the same name can also appear. Check the profiles Devin finds for duplicate names and tool limits: `targets:` controls which adapter writes a file, not which tools read it. Sync reports which targets write shared profiles. See [Windsurf / Devin](@/docs/targets/windsurf.md).
 

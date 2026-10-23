@@ -49,6 +49,7 @@ targets: [claude, codex, cursor]
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists for targets other than Claude Code, inheritance, and merging with project specs are unsupported.
+- Kilo inline shell placeholders pass the syntax check at documented trusted user destinations. See [Kilo shell commands](@/docs/targets/kilo.md#shell-commands-in-global-skills) for approval, scope, and the kill switch.
 - Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hook-reference.md#portable-events).
 - Copilot user hooks write `~/.copilot/hooks/agnostic-ai.json`; `COPILOT_HOME` moves the native home. `import --global copilot` adopts matching handlers from neighboring user JSON files without adding a second copy. See [Copilot hooks](@/docs/targets/copilot.md#hooks) for conflict recovery.

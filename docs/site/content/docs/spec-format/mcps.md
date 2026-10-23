@@ -59,7 +59,7 @@ A server needs `command` (stdio) or `url` (remote). Only `agnostic-ai lint` repo
 | `url` | http/sse/ws only | none | Endpoint URL. It can hold a [reference](#references-in-url-and-args). |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
 | `cwd` | no | empty | Working directory for a stdio server, where the tool supports it. |
-| `timeout` | no | empty | Milliseconds on most tools. |
+| `timeout` | no | empty | Milliseconds on most tools, including [Junie](@/docs/targets/junie.md#mcp). |
 | `oauth` | no | empty | OAuth settings. The format differs by tool. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for tools with MCP roots. |

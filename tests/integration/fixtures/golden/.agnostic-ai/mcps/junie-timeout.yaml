@@ -1,0 +1,7 @@
+name: junie-timeout
+targets: [junie]
+type: http
+url: https://example.test/mcp
+timeout: 60000
+x-junie:
+  timeout: 900000

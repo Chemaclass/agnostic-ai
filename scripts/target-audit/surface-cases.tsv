@@ -71,3 +71,14 @@ claude-sandbox-nested-user-namespaces	claude	Added `sandbox.allowNestedUserNames
 gemini-telemetry-export-headers	gemini	support custom OTLP headers in telemetry configuration	yes	signal:cap-gemini-telemetry-export-headers
 amp-project-remote-mcp-tool-approval	amp	You can set policies on your personal servers. Workspace admins can set them on workspace servers, and project managers on project servers.	yes	signal:cap-project-remote-mcp-tool-approval
 kiro-ide-steering-file-references	kiro	Kiro IDE and CLI V3 also support one line, an inclusive line range, or a one-level folder listing:	yes	signal:cap-kiro-steering-file-references
+codex-model-request-observers	codex	#[serde(rename = "PreModelRequest", default)] pub pre_model_request: Vec<MatcherGroup>, #[serde(rename = "PostModelRequest", default)] pub post_model_request: Vec<MatcherGroup>,	yes	signal:cap-model-request-lifecycle-observers
+windsurf-fail-closed-command-hooks	windsurf	`fail_closed: true` blocks the action a hook guards when the hook itself fails to run, instead of going ahead without it.	yes	signal:cap-fail-closed-hook-policy
+windsurf-posttooluse-result-replacement	windsurf	`PostToolUse` hooks can replace a tool result before the model reads it with `hookSpecificOutput.updatedToolOutput`, for example to redact content a tool returned.	yes	signal:cap-hook-result-and-turn-control
+amp-plugin-removable-confirmation-fields	amp	Set `removable: true` on an image or attachment field to let the user remove it before confirming	yes	signal:cap-inprocess-agent-session-extensions
+amp-orb-https-git-hosts	amp	Bitbucket, GitLab, and other HTTPS Git hosts are supported in orbs.	no	signal:cap-orb-environment-lifecycle
+junie-mcp-timeout-milliseconds	junie	set the optional timeout field on that server in milliseconds	yes	signal:cap-mcp-request-timeouts
+antigravity-mcp-timeout-seconds	antigravity	A positive value, in seconds, replaces both limits.	yes	signal:cap-mcp-request-timeouts
+antigravity-mcp-enabled-tools	antigravity	When set, all other tools on the server are hidden.	yes	signal:cap-mcp-server-tool-allowlists
+kiro-v3-workspace-customization-trust	kiro	Kiro CLI asks you to trust a folder before it loads that folder's hooks, agents, MCP servers, steering, workflows, or language server configuration.	no	signal:cap-project-config-trust-gates
+kiro-workflow-explicit-start	kiro	turning the feature on no longer kicks off a workflow by itself, so one runs only when you ask for it.	no	signal:cap-kiro-workflow-recipes
+windsurf-hook-stop-turn-reply	windsurf	A hook can end the agent's turn from any event with `stop: "<reason>"` in its output (Claude-format hooks: `continue: false` / `stopReason`).	yes	signal:cap-hook-result-and-turn-control

@@ -49,6 +49,28 @@
           }
         ]
       }
+    ],
+    "PreModelRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=codex; echo before",
+            "commandWindows": "echo before"
+          }
+        ]
+      }
+    ],
+    "PostModelRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=codex; echo after",
+            "commandWindows": "echo after"
+          }
+        ]
+      }
     ]
   }
 }

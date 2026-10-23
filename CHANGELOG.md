@@ -11,6 +11,30 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Codex
+
+- Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
+
+#### Junie
+
+- MCP request timeouts survive sync and native project import in milliseconds.
+
+#### Crush
+
+- Skills shared with Goose sync without collisions; commands stay skipped until Crush has its own skill folder.
+
+#### Goose
+
+- Skills shared with Crush keep neutral invocation fields and sync without collisions.
+
+#### Kilo
+
+- Global sync accepts inline shell placeholders in trusted user skills while checking argument placeholders and Claude code blocks.
+
+#### Antigravity
+
+- Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+
 #### Mistral Vibe
 
 - Sync and import native instructions, subagents, skills, model settings, MCP servers, and hooks in projects and user configuration.
