@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "docs": {
+      "bearerTokenEnvVar": "DOCS_TOKEN",
+      "enabled": false,
+      "enabledTools": [],
+      "transport": "sse",
+      "url": "https://example.com/mcp"
+    },
+    "local": {
+      "args": [
+        "server.js"
+      ],
+      "command": "node",
+      "transport": "stdio"
+    }
+  }
+}

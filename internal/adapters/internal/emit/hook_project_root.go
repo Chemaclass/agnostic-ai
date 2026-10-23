@@ -15,9 +15,11 @@ const gitHookRoot = "$(git rev-parse --show-toplevel)"
 var nativeHookRoots = map[string]string{
 	"codebuddy": "CODEBUDDY_PROJECT_DIR",
 	"claude":    claudeProjectDir,
+	"grok":      claudeProjectDir,
 	"cursor":    claudeProjectDir,
 	"trae":      claudeProjectDir,
 	"gemini":    "GEMINI_PROJECT_DIR",
+	"qwen":      "QWEN_PROJECT_DIR",
 	"qoder":     "QODER_PROJECT_DIR",
 	"factory":   "FACTORY_PROJECT_DIR",
 }
@@ -171,8 +173,8 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 	}
 	for _, hook := range hooks {
 		metadata := []map[string]any{ResolveMeta(hook.Meta, target)}
-		if target == "gemini" && !global {
-			native, _ := hook.Meta["x-gemini"].(map[string]any)
+		if (target == "gemini" || target == "qwen") && !global {
+			native, _ := hook.Meta["x-"+target].(map[string]any)
 			if raw, exists := native["hooks"]; exists {
 				metadata = HookCommandEntries(raw)
 			}

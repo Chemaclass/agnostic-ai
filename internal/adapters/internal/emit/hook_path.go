@@ -10,6 +10,7 @@ var hookSiblingPrefixes = []string{
 	".claude/hooks/",
 	".codex/hooks/",
 	".gemini/hooks/",
+	".qwen/hooks/",
 }
 
 // RewriteHookPath translates the project root and sibling hook directories.
@@ -37,6 +38,8 @@ func RewriteHookDirectories(cmd, target string, literal ...bool) string {
 
 func HookScriptsDir(target string) string {
 	switch target {
+	case "kimi":
+		return ".kimi-code/hooks"
 	case "goose":
 		return ".agents/plugins/agnostic-ai/hooks"
 	case "copilot":
@@ -45,6 +48,8 @@ func HookScriptsDir(target string) string {
 		return ".agents/hooks"
 	case "windsurf":
 		return ".devin/hooks"
+	case "grok":
+		return ".grok/hook-scripts"
 	case "kiro":
 		return ".kiro/scripts"
 	case "cline":

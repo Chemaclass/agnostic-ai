@@ -14,7 +14,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/qwen"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -127,6 +129,26 @@ var globalTargets = map[string]globalTarget{
 		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: []string{globalPathHome + ".codebuddy/mcp.json", globalPathHome + ".codebuddy.json"}, private: true},
 		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
 	},
+	"grok": {
+		rootEnv: "GROK_HOME", root: globalPathHome + ".grok",
+		instructions: globalPathHome + ".grok/AGENTS.md", skills: globalPathHome + ".grok/skills", agents: globalPathHome + ".grok/agents",
+		hooksDir: globalPathHome + ".grok/hooks", hookScriptsDir: globalPathHome + ".grok/hook-scripts",
+		mcp:      globalMCPFile{path: globalPathHome + ".grok/config.toml", format: "toml", key: "mcp_servers", private: true, validate: grok.ValidateMCPs},
+		settings: globalSettingsFile{path: globalPathHome + ".grok/config.toml", format: grokTOMLFormat, private: true, model: "models.default", reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
+	},
+	"kimi": {
+		rootEnv: "KIMI_CODE_HOME", root: globalPathHome + ".kimi-code",
+		instructions: globalPathHome + ".kimi-code/AGENTS.md",
+		agents:       globalPathHome + ".kimi-code/agents",
+		skills:       globalPathHome + ".kimi-code/skills",
+		hooks:        globalPathHome + ".kimi-code/config.toml",
+		hooksFormat:  "kimi-toml", hookFoldArgs: true,
+		mcp: globalMCPFile{path: globalPathHome + ".kimi-code/mcp.json", format: "json", key: "mcpServers", private: true},
+		settings: globalSettingsFile{
+			path: globalPathHome + ".kimi-code/config.toml", format: "toml", model: "default_model", private: true,
+			allowed: map[string]string{"default_model": "string", "default_plan_mode": "bool", "telemetry": "bool"},
+		},
+	},
 	"vibe": {
 		rootEnv:      "VIBE_HOME",
 		root:         globalPathHome + ".vibe",
@@ -208,6 +230,13 @@ var globalTargets = map[string]globalTarget{
 			path: globalPathHome + ".codex/config.toml", format: "toml",
 			model: "model", effort: "model_reasoning_effort", effortLevel: codex.Adapter{}.SettingsEffortLevels,
 		},
+	},
+	"qwen": {
+		rootEnv: "QWEN_HOME", root: globalPathHome + ".qwen",
+		instructions: globalPathHome + ".qwen/QWEN.md", agents: globalPathHome + ".qwen/agents", skills: globalPathHome + ".qwen/skills",
+		hooks: globalPathHome + ".qwen/settings.json", hooksFormat: "claude", hookTarget: hookTargetHandlerEnv, hookFoldArgs: true, hookTimeout: qwen.HookTimeout,
+		mcp:      globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, itemLists: []string{"mcp.excluded"}, reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",

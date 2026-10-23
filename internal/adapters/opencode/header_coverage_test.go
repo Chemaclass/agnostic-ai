@@ -102,7 +102,9 @@ func kitSinkBundle() spec.Bundle {
 				"permission\x00read": {"secrets/public/*", "secrets/*"},
 			},
 		},
-		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
+		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body", Meta: map[string]any{
+			"tools": []any{"Read"}, "x-opencode": map[string]any{"disabled": false},
+		}},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindCommand, Name: "deploy", Path: "commands/deploy.md", Meta: map[string]any{"description": "Ship the build"}, Body: "deploy command body"},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Meta: map[string]any{"disable-model-invocation": true}, Body: "uno skill body"},

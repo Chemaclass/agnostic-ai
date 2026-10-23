@@ -276,6 +276,9 @@ func syncCompareSample(t *testing.T, fixture, target, kindDir string) map[string
 		}
 	}
 	config := fmt.Sprintf("version: 1\ntargets:\n  - %s\n", target)
+	if target == "grok" {
+		config += "gitignore:\n  enabled: true\n  commit: [grok:instructions]\n"
+	}
 	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

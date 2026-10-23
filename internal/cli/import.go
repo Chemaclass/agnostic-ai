@@ -23,8 +23,8 @@ var rulesDirImporters = map[string]string{}
 var importSourceNames = []string{
 	"codebuddy",
 	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
-	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "goose", "junie", "kilo", "kiro",
-	"opencode", "openhands", "pi", "qoder", "trae", "vibe", "warp", "windsurf", "zed",
+	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "qwen", "goose", "grok", "junie", "kilo", "kiro",
+	"kimi", "opencode", "openhands", "pi", "qoder", "trae", "vibe", "warp", "windsurf", "zed",
 }
 
 // importSources lists every source the import command accepts, used in
@@ -223,6 +223,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromAmp(root, src)
 	case "warp":
 		return importFromWarp(root, src)
+	case "qwen":
+		return importFromQwen(root, src)
 	case "gemini":
 		return importFromGemini(root, src)
 	case "copilot":
@@ -249,6 +251,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromTrae(root, src)
 	case "junie":
 		return importFromJunie(root, src)
+	case "kimi":
+		return importFromKimi(root, src, cfg)
 	case "vibe":
 		return importFromVibe(root, src, cfg)
 	case "qoder":
@@ -259,6 +263,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromOpenhands(root, src)
 	case "factory":
 		return importFromFactory(root, src)
+	case "grok":
+		return importFromGrok(root, src, cfg)
 	case "ellipsis":
 		return importFromEllipsis(root, src, cfg)
 	}

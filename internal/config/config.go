@@ -680,11 +680,11 @@ func warnLegacyOnce(path string) {
 // CodeBuddy is explicit because its native agent names and tool limits reject existing specs.
 func DefaultTargets() []string {
 	return []string{
-		"claude", "codex", "gemini", "cursor",
+		"claude", "codex", "gemini", "qwen", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
-		"qoder", "openhands", "factory", "kilo", "pi", "vibe",
+		"qoder", "openhands", "factory", "kilo", "pi", "vibe", "kimi",
 	}
 }
 

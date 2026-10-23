@@ -248,6 +248,18 @@ statuses = ["native", "native", "native", "native", "opt-in", "native", "native"
 opt_in = { mcp = "outputs.codebuddy.root-mcp-file" }
 
 [[targets]]
+id = "grok"
+name = "Grok Build"
+href = "@/docs/targets/grok.md"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
+
+[[targets]]
+id = "qwen"
+name = "Qwen Code"
+href = "@/docs/targets/qwen.md"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
+
+[[targets]]
 id = "pi"
 name = "Pi"
 href = "@/docs/targets/pi.md"
@@ -258,6 +270,14 @@ id = "vibe"
 name = "Mistral Vibe"
 href = "@/docs/targets/vibe.md"
 statuses = ["native", "native", "native", "native", "native", "mapped", "native", "no", "no", "no"]
+
+[[targets]]
+id = "kimi"
+name = "Kimi Code CLI"
+href = "@/docs/targets/kimi.md"
+statuses = ["native", "native", "native", "opt-in", "native", "no", "opt-in", "no", "no", "no"]
+opt_in_anchor = "selected-profile"
+opt_in = { hook = "conf-file", settings = "conf-file" }
 
 # Native tool names from the adapter capability tables.
 
@@ -293,6 +313,14 @@ delete = []
 shell = ["run_shell_command"]
 web = ["web_fetch", "google_web_search"]
 
+[tool_translations.grok]
+read = ["Read"]
+write = ["Write"]
+edit = ["Edit"]
+delete = []
+shell = ["Bash"]
+web = ["WebFetch", "WebSearch"]
+
 [tool_translations.kilo]
 read = ["read"]
 write = ["edit"]
@@ -300,6 +328,14 @@ edit = ["edit"]
 delete = []
 shell = ["bash"]
 web = ["webfetch", "websearch"]
+
+[tool_translations.kimi]
+read = ["Read"]
+write = ["Write"]
+edit = ["Edit"]
+delete = []
+shell = ["Bash"]
+web = ["FetchURL", "WebSearch"]
 
 [tool_translations.kiro]
 read = ["read"]
@@ -316,6 +352,14 @@ edit = ["edit"]
 delete = []
 shell = ["bash"]
 web = ["webfetch", "websearch"]
+
+[tool_translations.qwen]
+read = ["read_file"]
+write = ["write_file"]
+edit = ["edit"]
+delete = []
+shell = ["run_shell_command"]
+web = ["web_fetch", "web_search"]
 
 [tool_translations.vibe]
 read = ["read_file"]

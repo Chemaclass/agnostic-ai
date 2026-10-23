@@ -204,7 +204,7 @@ func importCodebuddyInstructions(root, main, dir string, explicit bool, src conf
 			}
 			continue
 		}
-		sections := geminiRuleSections(string(data), text)
+		sections := hierarchicalRuleSections(string(data), text)
 		if len(sections) == 0 {
 			if err := writeScopedRule(importSourcePath(root, src.Rules), dedupSlug(used, names[f.globs]), f.globs, strings.TrimSpace(text)); err != nil {
 				return err

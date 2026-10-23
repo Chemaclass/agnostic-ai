@@ -28,14 +28,14 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 }
 
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
-	cases := []struct{ name, can, tools, codebuddyError, vibeError string }{
-		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", ""},
+	cases := []struct{ name, can, tools, codebuddyError, grokError, vibeError string }{
+		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", "would restore all tools", ""},
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", ""},
-		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping", ""},
-		{"empty", "can: []", "tools: []", "empty tools list inherits all tools", "no supported allowed tools"},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", "would restore all tools", ""},
+		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping", "would restore all tools", ""},
+		{"empty", "can: []", "tools: []", "empty tools list inherits all tools", "empty tools would inherit all tools", "no supported allowed tools"},
 		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "", ""},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "", "would restore all tools", ""},
 	}
 	for _, target := range adapters.Names() {
 		t.Run(target, func(t *testing.T) {
@@ -43,10 +43,18 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					neutral, neutralErr := syncedAgentTree(t, target, tc.can)
 					legacy, legacyErr := syncedAgentTree(t, target, tc.tools)
+					if target == "kimi" && (tc.name == "scoped-shell" || tc.name == "multiline") {
+						if neutralErr == nil || legacyErr == nil {
+							t.Fatalf("Kimi scoped restrictions must reject both aliases: can=%v tools=%v", neutralErr, legacyErr)
+						}
+						return
+					}
 					expectedError := ""
 					switch target {
 					case "codebuddy":
 						expectedError = tc.codebuddyError
+					case "grok":
+						expectedError = tc.grokError
 					case "vibe":
 						expectedError = tc.vibeError
 					}

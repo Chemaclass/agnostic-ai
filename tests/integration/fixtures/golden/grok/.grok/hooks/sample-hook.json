@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "echo edited",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "grok"
+            },
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit"
+      }
+    ]
+  }
+}

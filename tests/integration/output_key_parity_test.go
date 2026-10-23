@@ -75,10 +75,13 @@ var documentedNoOpKeys = map[string]string{
 // Devin's project permission policy out of a settings spec.
 var probeKinds = map[string]string{
 	"codebuddy.conf-file": "settings",
+	"kimi.conf-file":      "settings",
 	"vibe.conf-file":      "settings",
 	"windsurf.conf-file":  "settings",
 	"factory.conf-file":   "settings",
-	"pi.conf-file":        "settings",
+	"qwen.conf-file":      "settings",
+
+	"pi.conf-file": "settings",
 }
 
 // probeCompanions are entries a probe needs beside its own to write
@@ -107,6 +110,7 @@ func probeKind(target, key, fallback string) string {
 // overrideValues holds the value to probe with where a target
 // validates the shape of the path it accepts.
 var overrideValues = map[string]string{
+	"kimi.conf-file":            "custom/config.toml",
 	"goose.hooks-file":          "custom/hooks/hooks.json",
 	"ellipsis.environment-file": ".ellipsis/environments/moved.yaml",
 }

@@ -103,17 +103,19 @@ func (s checkScope) migrationScope() migrationScope {
 // at user level.
 func loadCheckScope(global bool) (checkScope, error) {
 	scope, err := loadSpecScope(global, nil)
-	if err != nil || !global {
+	if err != nil {
 		return scope, err
 	}
-	targets, err := loadGlobalTargets(scope.source, io.Discard)
-	if err != nil {
-		return checkScope{}, err
+	if global {
+		targets, err := loadGlobalTargets(scope.source, io.Discard)
+		if err != nil {
+			return checkScope{}, err
+		}
+		if targets == nil {
+			targets = globalTargetNames()
+		}
+		scope.targets, scope.hookTargets = targets, globalHookTargets(targets)
 	}
-	if targets == nil {
-		targets = globalTargetNames()
-	}
-	scope.targets, scope.hookTargets = targets, globalHookTargets(targets)
 	scope.bundle.Hooks = slices.DeleteFunc(slices.Clone(scope.bundle.Hooks), func(hook spec.Entry) bool {
 		return hook.Layer == layerNameBuiltin && !slices.ContainsFunc(scope.hookTargets, hook.EmitsTo)
 	})

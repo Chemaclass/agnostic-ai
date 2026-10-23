@@ -14,6 +14,11 @@ type mcpLaunchViewer interface {
 // rewriteMCPRefs writes mcps' references in a's own form, checking only
 // the url and args a's MCP writer emits.
 func rewriteMCPRefs(a Adapter, mcps []spec.Entry) []spec.Entry {
+	if rewriter, ok := a.(interface {
+		RewriteMCPReferences([]spec.Entry) []spec.Entry
+	}); ok {
+		return rewriter.RewriteMCPReferences(mcps)
+	}
 	var view emit.MCPLaunchView
 	if v, ok := a.(mcpLaunchViewer); ok {
 		view = v.MCPLaunchView()

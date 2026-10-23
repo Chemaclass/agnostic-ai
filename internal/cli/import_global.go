@@ -44,6 +44,9 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 			return err
 		}
 	}
+	if err := validateGlobalGrokImport(home, targets); err != nil {
+		return err
+	}
 	if err := validateGlobalTOMLNames(home, targets); err != nil {
 		return err
 	}
@@ -276,7 +279,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 	first := map[string]supplied{}
 	covered := map[string]bool{}
 	for _, m := range have {
-		covered[m.Name] = true
+		covered[strings.ToLower(spec.MCPFileName(m.Name))] = true
 	}
 	skip := func(target, name, reason string) error {
 		_, err := fmt.Fprintf(warn, "warning: %s: skipped MCP server %s: %s\n", target, name, reason)
@@ -310,11 +313,23 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				return err
 			}
 			for name := range servers {
-				if covered[name] {
+				if covered[strings.ToLower(spec.MCPFileName(name))] {
 					delete(servers, name)
 				}
 			}
 			docs := codexMCPDocs(servers)
+			if target == "grok" {
+				native, _, err := readGrokConfig(path)
+				if err != nil {
+					return err
+				}
+				docs = grokMCPDocs(native)
+				for name := range docs {
+					if covered[strings.ToLower(spec.MCPFileName(name))] {
+						delete(docs, name)
+					}
+				}
+			}
 			if err := withoutMCPCredentials(target, docs, skip); err != nil {
 				return err
 			}
@@ -345,7 +360,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			}
 			native = map[string]any{}
 			for name, server := range servers {
-				if covered[name] {
+				if covered[strings.ToLower(spec.MCPFileName(name))] {
 					delete(servers, name)
 					continue
 				}
@@ -401,7 +416,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 				b, _ := native[m.Name].(map[string]any)
 				same = sameSetting(adapters.CanonicalUserArrayRecord(target, g.mcp.key, a), adapters.CanonicalUserArrayRecord(target, g.mcp.key, b))
 			}
-			if g.mcp.format == "json" {
+			if g.mcp.format == "json" || target == "grok" {
 				same = sameMCPServer(target, rendered[m.Name], native[m.Name])
 			}
 			if same {
@@ -416,7 +431,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			}
 		}
 		for _, m := range kept {
-			key := strings.ToLower(m.Name)
+			key := strings.ToLower(spec.MCPFileName(m.Name))
 			if prior, ok := first[key]; ok {
 				if prior.name != m.Name || !sameSetting(canonicalMCPServer(prior.target, prior.server), canonicalMCPServer(target, native[m.Name])) {
 					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s's %s; kept %s's\n", target, path, m.Name, prior.target, prior.name, prior.target); err != nil {
@@ -505,13 +520,16 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if target == "pi" {
 			normalizePiMCPEntry(server)
 		}
+		if target == "kimi" {
+			normalizeKimiMCP(server)
+		}
 		if target == "warp" {
 			server = normalizeWarpMCPEntry(server)
 			servers[name] = server
 		}
 		// Gemini's httpUrl becomes url first, so the literal escaping
 		// below sees it.
-		if target == "gemini" {
+		if target == "gemini" || target == "qwen" {
 			normalizeGeminiTransport(server)
 		}
 		adapters.EscapeMCPLiterals(target, server)

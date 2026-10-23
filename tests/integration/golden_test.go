@@ -26,6 +26,7 @@ var goldenTargets = []string{
 	"crush",
 	"cursor",
 	"gemini",
+	"qwen",
 	"junie",
 	"kiro",
 	"opencode",
@@ -35,6 +36,7 @@ var goldenTargets = []string{
 	"zed",
 	"jules",
 	"goose",
+	"grok",
 	"augment",
 	"qoder",
 	"openhands",
@@ -42,6 +44,7 @@ var goldenTargets = []string{
 	"kilo",
 	"ellipsis",
 	"vibe",
+	"kimi",
 }
 
 // TestGolden runs a sync against a shared fixture for each built-in target
@@ -96,6 +99,12 @@ func runGolden(t *testing.T, target string) {
 	config := "version: 1\ntargets: [" + target + "]\n"
 	if target == "codebuddy" {
 		config += "outputs:\n  codebuddy:\n    root-mcp-file: .mcp.json\n"
+	}
+	if target == "grok" {
+		config += "gitignore:\n  enabled: true\n  commit: [grok:instructions]\n"
+	}
+	if target == "kimi" {
+		config += "outputs:\n  kimi:\n    conf-file: kimi-profile/config.toml\n"
 	}
 	if target == "zed" {
 		config += "outputs:\n  zed:\n    tasks-file: .zed/tasks.json\n"

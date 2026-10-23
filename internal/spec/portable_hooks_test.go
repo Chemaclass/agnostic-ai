@@ -89,7 +89,7 @@ func TestNativeHook_LeavesNativeHooksAlone(t *testing.T) {
 
 func TestNativeHook_WrapsAStdoutDecisionOnEveryTargetThatRunsIt(t *testing.T) {
 	h := portableHook(map[string]any{"on": "before-tool", "match": "shell", "decision": "stdout"})
-	for _, target := range []string{"claude", "codex", "gemini", "factory", "qoder", "openhands", "goose", "crush", "windsurf", "cline", "copilot", "cursor"} {
+	for _, target := range []string{"claude", "codex", "gemini", "qwen", "factory", "qoder", "openhands", "goose", "crush", "windsurf", "cline", "copilot", "cursor"} {
 		native, reason := h.NativeHook(target)
 		if reason != "" || !native.WrapsCommand(target) || native.WrapperOptions(target)[0] != "--decision" {
 			t.Errorf("%s: %q wraps=%v options=%v", target, reason, native.WrapsCommand(target), native.WrapperOptions(target))
@@ -258,6 +258,7 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		"codebuddy": {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^Bash$", "^(Edit|Write)$", "^Read$", "^(WebFetch|WebSearch)$", "^mcp__s__.*$"},
 		"claude":    {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|MultiEdit|Write|NotebookEdit", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
 		"codex":     {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|Write", "-", "-", "mcp__s__.*"},
+		"qwen":      {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^run_shell_command$", "^(write_file|edit)$", "^read_file$", "^(web_fetch|web_search)$", "mcp__s__.*"},
 		"gemini":    {"SessionStart BeforeAgent BeforeTool AfterTool AfterTool AfterAgent SessionEnd", "^run_shell_command$", "^(write_file|replace)$", "^(read_file|read_many_files)$", "^(web_fetch|google_web_search)$", "-"},
 		"factory":   {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^Execute$", "^(Create|Edit|ApplyPatch)$", "^Read$", "^(FetchUrl|WebSearch)$", "-"},
 		"kiro":      {"- - PreToolUse - - - -", "^(execute_bash|execute_pwsh)$", "^(fs_write|fs_append|str_replace|delete_file)$", "^(read_file|list_directory|file_search|grep_search|code|tool_search|introspect)$", "^(web_fetch|remote_web_search)$", "@s/*"},

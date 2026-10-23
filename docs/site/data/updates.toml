@@ -122,9 +122,21 @@ id = "codebuddy"
 label = "CodeBuddy Code"
 
 [[targets]]
+id = "grok"
+label = "Grok Build"
+
+[[targets]]
+id = "qwen"
+label = "Qwen Code"
+
+[[targets]]
 id = "pi"
 label = "Pi"
 
 [[targets]]
 id = "vibe"
 label = "Mistral Vibe"
+
+[[targets]]
+id = "kimi"
+label = "Kimi Code CLI"

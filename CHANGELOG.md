@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Global import keeps existing MCP specs when native server names differ only by case.
+- Project checks skip built-in hooks that do not target the selected tools.
 - Refresh audited vendor sources, update Trae context names, and use installed Amp tool names in its settings guide.
 
 - Target audit facts include compact capability declarations and output defaults from sibling adapter files.
@@ -17,6 +19,21 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### CodeBuddy Code
 
 - Sync and import native CodeBuddy configuration through explicit `targets: [codebuddy]` selection, preserving existing default sync.
+
+#### Kimi Code CLI
+
+- Sync and import native instructions, agents, skills, and MCP connections; manage user hooks and selected settings.
+- Import refuses literal credentials in project and user hooks, including generated command wrappers.
+
+#### Grok Build
+
+- Add the explicit `grok` target with native project import and safe global sync. Set `gitignore.commit: [grok:instructions]`.
+- Native import preserves project plugins and rejects credentials in inline agent metadata and hooks before writing sources.
+- Skill and command names are checked against Grok's native limit before project or global files change.
+
+#### OpenCode
+
+- Native V2 agent fields preserve generated tool restrictions and ordered rules through sync and import.
 
 #### Codex
 
@@ -45,6 +62,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Antigravity
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+
+#### Qwen Code
+
+- Sync and import Qwen Code instructions, agents, skills, commands, MCP, hooks, settings, and ignore files.
+- Import refuses credentials in retained native metadata and keeps supported settings references.
 
 #### Mistral Vibe
 

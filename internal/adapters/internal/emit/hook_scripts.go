@@ -102,10 +102,10 @@ func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outp
 		for _, command := range commands {
 			references = append(references, sourceCommand{command, literal})
 		}
-		if target == "codex" || target == "vibe" {
+		if target == "codex" || target == "vibe" || target == "kimi" {
 			if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
 				windowsLiteral := false
-				if target == "vibe" {
+				if target == "vibe" || target == "kimi" {
 					windowsLiteral = literal
 				}
 				references = append(references, sourceCommand{windows, windowsLiteral})
@@ -231,8 +231,8 @@ func neutralHookFilename(path string, quote byte, literal bool) (int, string) {
 func hookSourceCommands(hook spec.Entry, target string) ([]string, bool) {
 	meta := ResolveMeta(hook.Meta, target)
 	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
-	if target == "gemini" {
-		if native, ok := hook.Meta["x-gemini"].(map[string]any); ok {
+	if target == "gemini" || target == "qwen" {
+		if native, ok := hook.Meta["x-"+target].(map[string]any); ok {
 			if handlers, exists := native["hooks"]; exists {
 				var commands []string
 				for _, handler := range HookCommandEntries(handlers) {

@@ -31,6 +31,9 @@ func (s *Session) WriteMergedYAML(path, content string, keys []MergedKey, releas
 
 // ReleaseMerged releases a merged file by its format: YAML or JSON.
 func (s *Session) ReleaseMerged(path string, keys []MergedKey, created, force, dryRun bool) (MergedRelease, []MergedKey, error) {
+	if isTOMLPath(path) {
+		return s.ReleaseMergedTOML(path, keys, created, force, dryRun)
+	}
 	if IsYAMLPath(path) {
 		return s.ReleaseMergedYAML(path, keys, created, force, dryRun)
 	}
@@ -43,6 +46,10 @@ func ParsesMerged(path string) bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
+	}
+	if isTOMLPath(path) {
+		_, err := parseTOMLMap(path, data)
+		return err == nil
 	}
 	if IsYAMLPath(path) {
 		_, err := parseYAMLMapping(string(data))

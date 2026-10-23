@@ -377,6 +377,28 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: CLI project and global discovery, first-existing MCP filenames, explicit transport types, conditional rule activation, native tools, project auto-mode limits, hooks and frontmatter approval.
 - fact: npm package `@tencent-ai/codebuddy-code` 2.173.0 is the released CLI. IDE configuration is a separate product surface.
 
+## grok
+
+- docs: https://docs.x.ai/build/features/project-rules · https://docs.x.ai/build/features/subagents · https://docs.x.ai/build/features/skills-plugins-marketplaces · https://docs.x.ai/build/features/mcp-servers · https://docs.x.ai/build/features/hooks · https://docs.x.ai/build/settings
+- changelog: https://x.ai/changelog/build
+- code: https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8 (source contract pin, independent of the stable binary version)
+- watch: Gitignored project rule discovery, project config scope, native agent tool names and effort values, skill invocation fields, hook shell and exit semantics, MCP transport and enabled fields, GROK_HOME paths, model table ownership.
+- trap: project rules must be visible to Git. Keep this target explicit and require gitignore.commit instructions, without changing a user's ignore or trust policy.
+
+## qwen
+
+- docs: https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/ · https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/ · https://qwenlm.github.io/qwen-code-docs/en/users/configuration/qwen-ignore/
+- changelog: https://github.com/QwenLM/qwen-code/releases
+- code: https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/config/storage.ts (added 2026-10-23; released native paths) · https://github.com/QwenLM/qwen-code/blob/v0.26.0/packages/core/src/hooks/types.ts (added 2026-10-23; released event names and timeout contract)
+- watch: QWEN_HOME versus QWEN_RUNTIME_DIR; project and scoped QWEN.md discovery; Markdown commands and legacy TOML removal; native agent tools, approvalMode, record-valued mcpServers, and effort implementation; settings permission lists; MCP httpUrl versus url; hook events, seconds, and project trust; user ignore support.
+- trap: the releases feed includes the separate TypeScript SDK. Compare CLI v-tags when choosing a CLI baseline; releases/latest can select the SDK.
+- decision: portable agent effort and permissionMode are unsupported. Explicit native agent approval fields belong under x-qwen.
+- decision: HTTP uses httpUrl, SSE uses url, MCP timeout is milliseconds, and command hook timeout is seconds.
+- decision: global commands and ignore files are outside the current global target table. Project command support does not imply global command sync.
+- trap: `hooks.enabled`, `hooks.disabled` and `hooks.notifications` are skipped metadata in the released registry. Top-level `disableAllHooks` is the active control.
+- decision: native skill `model` round-trips under x-qwen and is applied as modelOverride. Shared skill model is not promoted.
+- trap: `isMcpServerDisabled` checks `mcp.excluded` and extension preferences, not a settings server's `disabled` field, despite manager comments mentioning it. Portable disabled servers are omitted.
+
 ## vibe
 
 - docs: https://docs.mistral.ai/vibe/code/cli/configuration-reference · https://docs.mistral.ai/vibe/code/cli/agents · https://docs.mistral.ai/vibe/code/cli/skills · https://docs.mistral.ai/vibe/code/cli/hooks
@@ -395,3 +417,10 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: instructions load without project trust; project settings, MCP, skills, and prompt templates require Pi's trust choice. Sync does not grant trust or set defaultProjectTrust.
 - decision: portable disabled becomes native enabled with the opposite value. SSE is unsupported; allowed-tools is skill metadata, not an enforced permission limit.
 - decision: commands sync only at project scope. Global instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.
+
+## kimi
+
+- docs: https://moonshotai.github.io/kimi-code/en/configuration/config-files · https://moonshotai.github.io/kimi-code/en/customization/agents · https://moonshotai.github.io/kimi-code/en/customization/skills · https://moonshotai.github.io/kimi-code/en/customization/mcp · https://moonshotai.github.io/kimi-code/en/customization/hooks
+- changelog: https://github.com/MoonshotAI/kimi-code/releases
+- code: https://github.com/MoonshotAI/kimi-code/tree/684bae9ea6a437f3bae98bba1dcb797a917d500b/packages/agent-core-v2/src
+- watch: branded instruction discovery, Markdown agent policy and skill headers, disabled MCP layers and bearer env fields, KIMI_CODE_HOME and selected TOML settings/hooks

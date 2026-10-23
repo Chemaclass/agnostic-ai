@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "'echo ok' 'a b'",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "grok"
+            },
+            "timeout": 7,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ]
+  }
+}

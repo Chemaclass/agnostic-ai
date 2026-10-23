@@ -1163,6 +1163,92 @@
     paths = []
 
 [[targets]]
+  id = "grok"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".grok/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".grok/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".grok/rules/grok.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".grok/hooks/guard.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".grok/config.toml"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".grok/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".grok/config.toml"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "qwen"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".qwen/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".qwen/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["QWEN.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".qwen/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".qwen/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".qwen/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".qwen/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".qwenignore"]
+
+[[targets]]
   id = "pi"
 
   [[targets.kinds]]
@@ -1235,6 +1321,49 @@
   [[targets.kinds]]
     id = "settings"
     paths = [".vibe/config.toml"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "kimi"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".kimi-code/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".kimi-code/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".kimi-code/AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".kimi-code/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
 
   [[targets.kinds]]
     id = "review"

@@ -17,12 +17,16 @@ import (
 // Other verified hosts use their existing rule renderer after normalization.
 func scopeDocument(target string) string {
 	switch target {
+	case "kimi":
+		return ".kimi-code/AGENTS.md"
 	case "vibe", "codex", "amp", "warp", "opencode", "goose", "augment", "factory", "kilo", "pi":
 		return "AGENTS.md"
 	case "gemini":
 		return "GEMINI.md"
 	case "codebuddy":
 		return "CODEBUDDY.md"
+	case "qwen":
+		return "QWEN.md"
 	default:
 		return ""
 	}
@@ -33,7 +37,7 @@ func scopeDocument(target string) string {
 // Bugbot review file. Every other scoped output lives in a tool directory.
 func ScopedDocuments(cfg *config.Config, target string) []string {
 	var docs []string
-	if doc := scopeDocument(target); doc != "" {
+	if doc := configuredScopeDocument(cfg, target); doc != "" {
 		docs = append(docs, doc)
 	}
 	if target == "goose" && filepath.Base(OutputRulesFile(cfg, target, "")) == ".goosehints" {
@@ -118,6 +122,32 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
+		if target == "grok" {
+			patterns, err := scopePatterns(r, scope)
+			if err != nil {
+				return out, nil, fmt.Errorf("%s: grok scope: %w", r.Path, err)
+			}
+			if len(patterns) == 0 {
+				out.Rules = append(out.Rules, original)
+				continue
+			}
+			directories, err := scopeDirectories(patterns)
+			if err != nil {
+				if err := unsupportedScope(cfg, target, r, err.Error()); err != nil {
+					return out, nil, err
+				}
+				continue
+			}
+			for _, directory := range directories {
+				copy := original
+				copy.Meta = maps.Clone(original.Meta)
+				delete(copy.Meta, "globs")
+				delete(copy.Meta, "paths")
+				copy.Scope = directory
+				out.Rules = append(out.Rules, copy)
+			}
+			continue
+		}
 		if scope == "" {
 			directories, reason := codexGlobDirectories(cfg, target, r)
 			if err := reportCodexGlobFallback(cfg, target, r, reason); err != nil {
@@ -157,7 +187,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
-		doc := scopeDocument(target)
+		doc := configuredScopeDocument(cfg, target)
 		if doc == "" && !hasScopeFilters(target) {
 			if err := unsupportedScope(cfg, target, r, "no verified native directory or file-scoped instructions"); err != nil {
 				return out, nil, err
@@ -182,7 +212,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		// when its configured peers already require one for this same directory.
 		if _, err := scopeDirectories(patterns); target == "cursor" && err == nil {
 			for _, peer := range cfg.Targets {
-				if scopeDocument(peer) == "AGENTS.md" && r.EmitsTo(peer) {
+				if configuredScopeDocument(cfg, peer) == "AGENTS.md" && r.EmitsTo(peer) {
 					doc = "AGENTS.md"
 					break
 				}
@@ -500,7 +530,7 @@ func scopedDocument(cfg *config.Config, target, path string, rules []spec.Entry,
 	// A scope document can have other readers, so no single tool's
 	// invocation phrase fits it, and a path variable expands only where
 	// they all agree.
-	vals, _ := SharedVars(cfg, ScopeDocumentReaders(cfg, target, filepath.Base(path)))
+	vals, _ := SharedVars(cfg, ScopeDocumentReaders(cfg, target, scopeDocumentName(target, path)))
 	rules = slices.Clone(rules)
 	for i := range rules {
 		rules[i].Body, _ = ExpandVars(rules[i].Body, vals)
@@ -585,7 +615,7 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 	sort.Strings(paths)
 	for _, path := range paths {
 		file := files[path]
-		if filepath.Base(path) == "AGENTS.md" {
+		if filepath.Base(path) == "AGENTS.md" && filepath.Base(filepath.Dir(path)) != ".kimi-code" {
 			if _, exists := files[filepath.Join(filepath.Dir(path), ".goosehints")]; exists {
 				return fmt.Errorf("%s: shared AGENTS.md and .goosehints would duplicate scoped context; remove the legacy Goose rules-file override", path)
 			}
@@ -594,7 +624,7 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 				if target == "kiro" {
 					return fmt.Errorf("%s: scoped AGENTS.md conflicts with kiro, which includes nested AGENTS.md globally; use separate worktrees or remove an incompatible target", path)
 				}
-				if scopeDocument(target) != "AGENTS.md" && target != "cursor" && target != "copilot" && target != "windsurf" {
+				if configuredScopeDocument(cfg, target) != "AGENTS.md" && target != "cursor" && target != "copilot" && target != "windsurf" {
 					continue
 				}
 				var expected []spec.Entry
@@ -682,7 +712,7 @@ func noteSharedDocumentRefs(target string, grouped map[string][]spec.Entry) {
 // noteScopedDocumentVars notes the path variables the scope document at
 // path keeps verbatim in rules, because its readers disagree on them.
 func noteScopedDocumentVars(cfg *config.Config, target, path string, rules []spec.Entry) {
-	readers := ScopeDocumentReaders(cfg, target, filepath.Base(path))
+	readers := ScopeDocumentReaders(cfg, target, scopeDocumentName(target, path))
 	vals, contested := SharedVars(cfg, readers)
 	bodies := make([]string, len(rules))
 	for i, r := range rules {
@@ -693,3 +723,17 @@ func noteScopedDocumentVars(cfg *config.Config, target, path string, rules []spe
 
 // SharedRefReason explains a reference that renders the neutral phrase.
 const SharedRefReason = "the reference renders as a plain phrase: the target documents no invocation form, or reads the spec from a file other tools share"
+
+func scopeDocumentName(target, path string) string {
+	if target == "kimi" && filepath.Base(filepath.Dir(path)) == ".kimi-code" {
+		return ".kimi-code/AGENTS.md"
+	}
+	return filepath.Base(path)
+}
+
+func configuredScopeDocument(cfg *config.Config, target string) string {
+	if target == "kimi" && filepath.Clean(EntryPointPath(cfg, target)) == "AGENTS.md" {
+		return "AGENTS.md"
+	}
+	return scopeDocument(target)
+}

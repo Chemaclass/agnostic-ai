@@ -31,11 +31,13 @@ var TargetVarPaths = map[string]map[string]string{
 		VarCommandsDir: ".claude/commands", VarRulesDir: ".claude/rules",
 		VarMCPFile: ".mcp.json",
 	},
+	"kimi": {VarSkillsDir: ".kimi-code/skills", VarAgentsDir: ".kimi-code/agents", VarMCPFile: ".kimi-code/mcp.json"},
 	"vibe": {VarSkillsDir: ".vibe/skills", VarAgentsDir: ".vibe/agents", VarMCPFile: ".vibe/config.toml"},
 	"codex": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".codex/agents",
 		VarMCPFile: ".codex/config.toml",
 	},
+	"qwen": {VarSkillsDir: ".qwen/skills", VarAgentsDir: ".qwen/agents", VarCommandsDir: ".qwen/commands", VarMCPFile: ".qwen/settings.json"},
 	"gemini": {
 		VarSkillsDir: ".gemini/skills", VarCommandsDir: ".gemini/commands",
 		VarMCPFile: ".gemini/settings.json",
@@ -105,6 +107,7 @@ var TargetVarPaths = map[string]map[string]string{
 	"openhands": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".agents/agents",
 	},
+	"grok": {VarSkillsDir: ".grok/skills", VarAgentsDir: ".grok/agents", VarCommandsDir: ".grok/commands", VarRulesDir: ".grok/rules", VarMCPFile: ".grok/config.toml"},
 	"factory": {
 		VarAgentsDir: ".factory/droids", VarCommandsDir: ".factory/commands",
 		VarMCPFile: ".factory/mcp.json",
@@ -128,8 +131,8 @@ var TargetVarPaths = map[string]map[string]string{
 // relocated output paths.
 var dirRelativeVars = map[string]map[string]string{
 	"codebuddy": {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules"},
-
-	"pi": {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
+	"grok":      {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules", VarMCPFile: "config.toml"},
+	"pi":        {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
 	"claude": {
 		VarSkillsDir: "skills", VarAgentsDir: "agents",
 		VarCommandsDir: "commands", VarRulesDir: "rules",
@@ -214,7 +217,7 @@ func ScopeDocumentReaders(cfg *config.Config, target, doc string) []string {
 		return readers
 	}
 	for _, t := range cfg.Targets {
-		reads := scopeDocument(t) == doc || doc == "AGENTS.md" && (t == "cursor" || t == "copilot" || t == "windsurf")
+		reads := configuredScopeDocument(cfg, t) == doc || doc == "AGENTS.md" && (t == "cursor" || t == "copilot" || t == "windsurf")
 		if reads && !slices.Contains(readers, t) {
 			readers = append(readers, t)
 		}
