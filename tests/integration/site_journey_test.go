@@ -25,7 +25,7 @@ func TestSiteDocs_BeginnerJourneyAndMovedTopics(t *testing.T) {
 	guide = strings.ReplaceAll(guide, "&#x2F;", "/")
 	memory := readBuiltFile(t, filepath.Join(outputDir, "docs", "memory", "index.html"))
 
-	for _, text := range []string{"Understand the setup", "/docs/why-agnostic-ai/", "Set up your project"} {
+	for _, text := range []string{"Why agnostic-ai?", "/docs/why-agnostic-ai/", "Set up your project"} {
 		if !strings.Contains(index, text) {
 			t.Errorf("documentation entry has no beginner route %q", text)
 		}
