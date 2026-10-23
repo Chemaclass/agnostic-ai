@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Project checks skip built-in hooks that do not target the selected tools.
 - Refresh audited vendor sources, update Trae context names, and use installed Amp tool names in its settings guide.
 
 - Target audit facts include compact capability declarations and output defaults from sibling adapter files.
@@ -45,6 +46,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Antigravity
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+
+#### Qwen Code
+
+- Sync and import Qwen Code instructions, agents, skills, commands, MCP, hooks, settings, and ignore files.
+- Import refuses credentials in retained native metadata and keeps supported settings references.
 
 #### Mistral Vibe
 

@@ -34,6 +34,7 @@ var TargetVarPaths = map[string]map[string]string{
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".codex/agents",
 		VarMCPFile: ".codex/config.toml",
 	},
+	"qwen": {VarSkillsDir: ".qwen/skills", VarAgentsDir: ".qwen/agents", VarCommandsDir: ".qwen/commands", VarMCPFile: ".qwen/settings.json"},
 	"gemini": {
 		VarSkillsDir: ".gemini/skills", VarCommandsDir: ".gemini/commands",
 		VarMCPFile: ".gemini/settings.json",

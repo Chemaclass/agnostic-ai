@@ -76,6 +76,12 @@ var portableHookTargets = map[string]nativeHookNames{
 		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write", "any": ""},
 		mcp:    "mcp__%s__.*",
 	},
+	"qwen": {
+		events:  sharedHookEvents,
+		wrapped: map[string]string{"before-tool": "", "prompt-submit": "", "after-tool": "--after-tool", "after-edit": "--after-tool", "stop": ""},
+		tools:   map[string]string{"shell": "^run_shell_command$", "edit": "^(write_file|edit)$", "read": "^read_file$", "web": "^(web_fetch|web_search)$", "any": ""},
+		mcp:     "mcp__%s__.*",
+	},
 	"gemini": {
 		events: map[string]string{
 			"session-start": "SessionStart", "prompt-submit": "BeforeAgent", "before-tool": "BeforeTool",

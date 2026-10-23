@@ -75,7 +75,7 @@ func hasSessionRetention(settings []spec.Entry, target string) bool {
 
 func mergeGlobalRetention(path, format string, base []byte, want []globalSetting, previous map[string]any, original *globalRetentionOriginal, key, target string, portable bool, warn io.Writer) (globalSettingsMerge, *globalRetentionOriginal, error) {
 	if key == "" && original == nil {
-		m, err := mergeGlobalSettings(path, format, base, want, previous)
+		m, err := mergeGlobalSettingsWithLists(path, format, base, want, previous, nil, globalTargets[target].settings.itemLists)
 		return m, nil, err
 	}
 	data := base
@@ -144,7 +144,7 @@ func mergeGlobalRetention(path, format string, base []byte, want []globalSetting
 	if original != nil && !active {
 		keep = original.EmptyParents
 	}
-	m, err := mergeGlobalSettingsKeeping(path, format, base, modifiedWant, previous, keep)
+	m, err := mergeGlobalSettingsWithLists(path, format, base, modifiedWant, previous, keep, globalTargets[target].settings.itemLists)
 	if err != nil {
 		return m, nil, err
 	}

@@ -20,6 +20,8 @@ func scopeDocument(target string) string {
 		return "AGENTS.md"
 	case "gemini":
 		return "GEMINI.md"
+	case "qwen":
+		return "QWEN.md"
 	default:
 		return ""
 	}

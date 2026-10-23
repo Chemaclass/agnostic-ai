@@ -40,7 +40,7 @@ func runIsolated(m *testing.M) (code int, err error) {
 			return 1, err
 		}
 	}
-	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
+	for _, key := range []string{"CODEX_HOME", "QWEN_HOME", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_DISABLE_AUTO_MEMORY"} {
 		if err := os.Unsetenv(key); err != nil {
 			return 1, err
 		}
