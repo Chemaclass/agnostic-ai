@@ -21,6 +21,9 @@ func piMCPMap(path string, data []byte, keys ...string) (map[string]any, error) 
 		return map[string]any{}, nil
 	}
 	data, _ = adapters.StripJSONC(data)
+	if !strings.HasPrefix(strings.TrimSpace(string(data)), "{") {
+		return nil, fmt.Errorf("parse %s: expected an MCP document object", path)
+	}
 	for _, key := range keys {
 		object := adapters.NewOrderedJSON()
 		if err := json.Unmarshal(data, object); err != nil {
