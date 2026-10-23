@@ -179,7 +179,7 @@ func TestQwen_GlobalNativeMCPExclusionsPreserveUserSettings(t *testing.T) {
 	if got := readGlobalTest(t, settings); got != original {
 		t.Errorf("removal changed original bytes:\n%s", got)
 	}
-	if info, err := os.Stat(settings); err != nil || info.Mode().Perm() != 0o600 {
+	if info, err := os.Stat(settings); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Errorf("private mode lost: %v, %v", info, err)
 	}
 }
