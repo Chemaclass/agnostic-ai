@@ -19,7 +19,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "review", Body: "Review changes.", Meta: map[string]any{"description": "Review the patch", "x-pi": map[string]any{"disable-model-invocation": true}}},
 		{Kind: spec.KindCommand, Name: "check", Body: "Check $ARGUMENTS and $1.", Meta: map[string]any{"description": "Check a patch", "argument-hint": "<path>"}},
 		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "npx", "args": []any{"server"}, "cwd": "tools", "disabled": true}},
-		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.com/mcp", "headers": map[string]any{"Authorization": "${TOKEN}"}, "disabled": false, "x-pi": map[string]any{"exposure": "direct"}}},
+		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.com/mcp", "headers": map[string]any{"Authorization": "${TOKEN}"}, "disabled": false, "x-pi": map[string]any{"exposure": "direct", "toolExposure": map[string]any{"write_*": "hidden", "*": "direct"}}}, NestedKeys: map[string][]string{"x-pi\x00toolExposure": {"write_*", "*"}}},
 		{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": "model-a", "effort": "high", "x-pi": map[string]any{"defaultProvider": "provider-a"}}},
 	})
 }

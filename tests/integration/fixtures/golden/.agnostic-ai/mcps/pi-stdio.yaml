@@ -6,3 +6,6 @@ cwd: tools
 disabled: true
 x-pi:
   exposure: direct
+  toolExposure:
+    write_*: hidden
+    "*": direct

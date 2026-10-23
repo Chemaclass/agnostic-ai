@@ -38,7 +38,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if len(servers) > 0 {
-		if err := sess.MergeJSONFileNested(emit.OutputMCPFile(cfg, target, emit.OutputSubDir(cfg, target, "mcp.json", ".pi/mcp.json")), map[string]any{"mcpServers": servers}, []string{"mcpServers"}, dryRun); err != nil {
+		projectServers := make(map[string]any, len(servers))
+		for name, server := range servers {
+			projectServers[name] = emit.OrderSensitiveJSON(server)
+		}
+		if err := sess.MergeJSONFileNested(emit.OutputMCPFile(cfg, target, emit.OutputSubDir(cfg, target, "mcp.json", ".pi/mcp.json")), map[string]any{"mcpServers": projectServers}, []string{"mcpServers"}, dryRun); err != nil {
 			return err
 		}
 	}

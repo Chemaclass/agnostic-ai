@@ -7,7 +7,11 @@
       "command": "native-server",
       "cwd": "tools",
       "enabled": false,
-      "exposure": "direct"
+      "exposure": "direct",
+      "toolExposure": {
+        "write_*": "hidden",
+        "*": "direct"
+      }
     },
     "pi-remote": {
       "enabled": true,

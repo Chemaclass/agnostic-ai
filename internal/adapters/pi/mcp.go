@@ -43,6 +43,37 @@ func mcpServer(entry spec.Entry) (map[string]any, error) {
 			out[key] = value
 		}
 	}
+	if value, present := meta["toolExposure"]; present {
+		tools, ok := value.(map[string]any)
+		if !ok || !ValidToolExposure(tools) {
+			return nil, fmt.Errorf("pi: MCP %s: toolExposure must map tool names or patterns to native exposure values", entry.Name)
+		}
+		order := entry.KeyOrder("toolExposure")
+		if custom, ok := entry.Meta["x-pi"].(map[string]any); ok {
+			if _, present := custom["toolExposure"]; present {
+				order = entry.KeyOrder("x-pi", "toolExposure")
+			}
+		}
+		wildcardCount, orderedWildcards := 0, map[string]bool{}
+		for key := range tools {
+			if strings.Contains(key, "*") {
+				wildcardCount++
+			}
+		}
+		for _, key := range order {
+			if _, exists := tools[key]; exists && strings.Contains(key, "*") {
+				orderedWildcards[key] = true
+			}
+		}
+		if wildcardCount > 1 && len(orderedWildcards) != wildcardCount {
+			return nil, fmt.Errorf("pi: MCP %s: toolExposure with multiple wildcard patterns needs complete source key order", entry.Name)
+		}
+		ordered, err := emit.OrderedObject(tools, order)
+		if err != nil {
+			return nil, fmt.Errorf("pi: MCP %s toolExposure: %w", entry.Name, err)
+		}
+		out["toolExposure"] = ordered
+	}
 	if kind != "" {
 		out["type"] = kind
 	}

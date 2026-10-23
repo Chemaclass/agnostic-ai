@@ -312,7 +312,15 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 				return err
 			}
 		} else {
-			servers, err := readJSONMapAt(path, g.mcp.key)
+			var servers map[string]any
+			var err error
+			var orders mcpSpecOrderHints
+			var piNative map[string]any
+			if target == "pi" {
+				servers, orders, piNative, err = readPiMCPMap(path)
+			} else {
+				servers, err = readJSONMapAt(path, g.mcp.key)
+			}
 			if err != nil {
 				return err
 			}
@@ -322,13 +330,17 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 					delete(servers, name)
 					continue
 				}
-				native[name] = jsonRoundTrip(server)
+				if target == "pi" {
+					native[name] = piNative[name]
+				} else {
+					native[name] = jsonRoundTrip(server)
+				}
 			}
 			normalizeImportedMCP(target, servers)
 			if err := withoutMCPCredentials(target, servers, skip); err != nil {
 				return err
 			}
-			if _, err := writeMCPSpecs(servers, dir); err != nil {
+			if _, err := writeMCPSpecs(servers, dir, orders); err != nil {
 				return err
 			}
 		}

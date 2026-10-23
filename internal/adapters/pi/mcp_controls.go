@@ -28,15 +28,19 @@ func IsControlOnlyMCP(entry spec.Entry) bool {
 			}
 		case "toolExposure":
 			tools, ok := value.(map[string]any)
-			if !ok {
+			if !ok || !ValidToolExposure(tools) {
 				return false
 			}
-			for name, exposure := range tools {
-				if name == "" || !validExposure(exposure) {
-					return false
-				}
-			}
 		default:
+			return false
+		}
+	}
+	return true
+}
+
+func ValidToolExposure(tools map[string]any) bool {
+	for name, exposure := range tools {
+		if name == "" || !validExposure(exposure) {
 			return false
 		}
 	}

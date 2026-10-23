@@ -35,7 +35,7 @@ func importFromPi(root string, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	servers, err := readJSONMapAt(native["MCP servers"], "mcpServers")
+	servers, orders, _, err := readPiMCPMap(native["MCP servers"])
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func importFromPi(root string, cfg *config.Config) error {
 			normalizePiMCPEntry(server)
 		}
 	}
-	mcps, err := writeMCPYAMLs("pi", servers, importSourcePath(root, src.MCPs))
+	mcps, err := writeMCPYAMLs("pi", servers, importSourcePath(root, src.MCPs), orders)
 	if err != nil {
 		return err
 	}
