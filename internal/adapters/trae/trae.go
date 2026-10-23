@@ -146,7 +146,7 @@
 // `.trae/` folder and opens this file in the editor"
 // (docs.trae.ai/ide/ignore-files, target-audit 2026-09-11). It
 // supplements `.gitignore`, which Trae already honors by default, and
-// governs codebase indexing plus `#Workspace` / `#Folder` context
+// governs codebase indexing plus `@Folder` context
 // ("any ignored files or folders will not be included as context").
 // Unlike every other ignore target, it does not apply on save: "The
 // `.ignore` file will take effect after re-indexing is complete", so a

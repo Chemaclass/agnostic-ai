@@ -32,6 +32,7 @@ Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction 
 | `AGENTS.md` | Codex, Amp, Warp, Cline, Windsurf, Junie, Kiro, Crush, Trae, Jules, Goose, Augment, Qoder, OpenHands, Factory, Kilo, OpenCode, Mistral Vibe |
 | `CLAUDE.md` | Claude Code |
 | `GEMINI.md` | Gemini CLI |
+| `QWEN.md` | [Qwen Code](@/docs/targets/qwen.md) |
 | `CONVENTIONS.md` | Aider |
 | `.github/copilot-instructions.md` | Copilot |
 | `.rules` | Zed |
@@ -115,5 +116,7 @@ List only the tools you use in `agnostic-ai.yaml`. A `-t` list replaces that lis
 ## New targets
 
 To request a target, [open an issue](https://github.com/Chemaclass/agnostic-ai/issues). To implement one, follow [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md).
+
+Grok uses native `.grok/rules` files rather than adding another `AGENTS.md` copy. Its ignored-file discovery constraint and explicit setup are documented in [Grok Build](@/docs/targets/grok.md#first-rule).
 
 Kimi Code CLI discovers branded project instructions, agents, skills, and MCP configuration. Its settings and hooks belong to one selected user data root. See [Kimi Code](@/docs/targets/kimi.md#selected-profile) for explicit profile exports.

@@ -104,7 +104,7 @@ func TestDefaultTargets(t *testing.T) {
 	// unique default output, so the default set keeps to targets with a
 	// native surface of their own.
 	want := []string{
-		"claude", "codex", "gemini", "cursor",
+		"claude", "codex", "gemini", "qwen", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"zed", "opencode", "antigravity",
 		"junie", "kiro", "crush", "trae",
@@ -351,5 +351,13 @@ func TestDeepMerge_NestedMaps(t *testing.T) {
 	}
 	if dst["c"] != "new" {
 		t.Errorf("new top-level key should be added: %v", dst["c"])
+	}
+}
+
+func TestDefaultTargets_GrokNeedsExplicitInstructionPolicy(t *testing.T) {
+	for _, target := range DefaultTargets() {
+		if target == "grok" {
+			t.Fatal("Grok skips ignored instructions and must be selected explicitly")
+		}
 	}
 }

@@ -10,9 +10,9 @@ import (
 
 func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 	expected := []string{
-		"claude", "codex", "gemini", "cursor",
+		"claude", "codex", "gemini", "qwen", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
-		"amp", "zed", "warp", "opencode", "pi", "vibe", "kimi",
+		"amp", "zed", "warp", "opencode", "pi", "grok", "vibe", "kimi",
 	}
 	for _, name := range expected {
 		a, ok := Get(name)

@@ -19,8 +19,9 @@ import (
 // globalMCPFile is the user file a target reads MCP servers from, and
 // the map or table that holds them.
 type globalMCPFile struct {
-	path   string
-	format string
+	validate func([]spec.Entry) error
+	path     string
+	format   string
 	// key is the JSON map (mcpServers) or TOML parent table
 	// (mcp_servers) holding one entry per server name.
 	key string
@@ -89,6 +90,33 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 	}
 	if f.format == "toml" {
 		tables, _ := adapters.UserMCPServerTables(target, mcps)
+		if target == "grok" {
+			data := base
+			if data == nil {
+				var err error
+				data, err = os.ReadFile(path)
+				if err != nil && !os.IsNotExist(err) {
+					return globalSettingsMerge{}, fmt.Errorf("%s: %w", path, err)
+				}
+			}
+			current, err := tomlTableValues(path, f.key, data)
+			if err != nil {
+				return globalSettingsMerge{}, err
+			}
+			for name, table := range tables {
+				desired, err := tomlTableValues(path, f.key, []byte(table))
+				if err != nil {
+					return globalSettingsMerge{}, err
+				}
+				if have, present := current[name]; present && sameMCPServer(target, have, desired[name]) {
+					var native strings.Builder
+					if err := toml.NewEncoder(&native).Encode(map[string]any{f.key: map[string]any{name: have}}); err != nil {
+						return globalSettingsMerge{}, fmt.Errorf("%s: render native MCP %s: %w", path, name, err)
+					}
+					tables[name] = native.String()
+				}
+			}
+		}
 		return mergeGlobalMCPTables(path, f.key, base, tables, sources, previous)
 	}
 	servers, _, err := adapters.CheckedUserMCPServers(target, mcps)
@@ -336,10 +364,32 @@ func canonicalMCPServer(target string, v any) any {
 	if target == "openhands" {
 		return canonicalOpenHandsServer(out)
 	}
+	if target == "grok" {
+		if enabled, ok := out["enabled"].(bool); ok && enabled {
+			delete(out, "enabled")
+		}
+		if url, ok := out["url"].(string); ok {
+			kind, _ := out["type"].(string)
+			if kind == "" {
+				kind = "http"
+				if strings.HasSuffix(url, "/sse") {
+					kind = "sse"
+				}
+			}
+			if kind == "streamable-http" {
+				kind = "http"
+			}
+			out["type"] = kind
+		}
+		if out["command"] != nil {
+			delete(out, "type")
+		}
+		return out
+	}
 	_, hasCommand := out["command"]
 	_, hasURL := out["url"]
 	switch kind, _ := out["type"].(string); {
-	case target == "gemini":
+	case target == "gemini" || target == "qwen":
 		// httpUrl is streamable HTTP; url is SSE unless type says http.
 		if url, ok := out["httpUrl"]; ok {
 			delete(out, "httpUrl")

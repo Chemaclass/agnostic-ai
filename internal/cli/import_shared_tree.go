@@ -76,6 +76,10 @@ func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir strin
 // importScopedSkillFoldersWith is importScopedSkillFoldersFrom with the
 // target's own SKILL.md field set.
 func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir string, fields *specFields) (int, error) {
+	return importScopedSkillFoldersTransformed(root, nativeDirs, dstDir, fields, nil)
+}
+
+func importScopedSkillFoldersTransformed(root string, nativeDirs []string, dstDir string, fields *specFields, transform func([]byte) ([]byte, error)) (int, error) {
 	var dirs []scopedSkillDir
 	for _, nativeDir := range nativeDirs {
 		found, err := findScopedSkillDirs(root, nativeDir)
@@ -96,7 +100,7 @@ func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir strin
 			root,
 			dir.path,
 			filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
-			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders, Scope: dir.scope},
+			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders, Scope: dir.scope, TransformSkill: transform},
 		)
 		if err != nil {
 			return count, err

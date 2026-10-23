@@ -35,6 +35,7 @@ var TargetVarPaths = map[string]map[string]string{
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".codex/agents",
 		VarMCPFile: ".codex/config.toml",
 	},
+	"qwen": {VarSkillsDir: ".qwen/skills", VarAgentsDir: ".qwen/agents", VarCommandsDir: ".qwen/commands", VarMCPFile: ".qwen/settings.json"},
 	"gemini": {
 		VarSkillsDir: ".gemini/skills", VarCommandsDir: ".gemini/commands",
 		VarMCPFile: ".gemini/settings.json",
@@ -104,6 +105,7 @@ var TargetVarPaths = map[string]map[string]string{
 	"openhands": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".agents/agents",
 	},
+	"grok": {VarSkillsDir: ".grok/skills", VarAgentsDir: ".grok/agents", VarCommandsDir: ".grok/commands", VarRulesDir: ".grok/rules", VarMCPFile: ".grok/config.toml"},
 	"factory": {
 		VarAgentsDir: ".factory/droids", VarCommandsDir: ".factory/commands",
 		VarMCPFile: ".factory/mcp.json",
@@ -126,7 +128,8 @@ var TargetVarPaths = map[string]map[string]string{
 // `outputs.<target>.dir`, so spec variables follow the adapter's
 // relocated output paths.
 var dirRelativeVars = map[string]map[string]string{
-	"pi": {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
+	"grok": {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules", VarMCPFile: "config.toml"},
+	"pi":   {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
 	"claude": {
 		VarSkillsDir: "skills", VarAgentsDir: "agents",
 		VarCommandsDir: "commands", VarRulesDir: "rules",

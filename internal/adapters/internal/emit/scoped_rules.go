@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"path/filepath"
 	"slices"
@@ -22,6 +23,8 @@ func scopeDocument(target string) string {
 		return "AGENTS.md"
 	case "gemini":
 		return "GEMINI.md"
+	case "qwen":
+		return "QWEN.md"
 	default:
 		return ""
 	}
@@ -89,6 +92,32 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		if len(nativeTargets) > 0 && !portableGlobs && !portablePaths {
 			if err := unsupportedScope(cfg, target, r, "target-native selectors for "+strings.Join(nativeTargets, ", ")+" have no portable selector for "+target); err != nil {
 				return out, nil, err
+			}
+			continue
+		}
+		if target == "grok" {
+			patterns, err := scopePatterns(r, scope)
+			if err != nil {
+				return out, nil, fmt.Errorf("%s: grok scope: %w", r.Path, err)
+			}
+			if len(patterns) == 0 {
+				out.Rules = append(out.Rules, original)
+				continue
+			}
+			directories, err := scopeDirectories(patterns)
+			if err != nil {
+				if err := unsupportedScope(cfg, target, r, err.Error()); err != nil {
+					return out, nil, err
+				}
+				continue
+			}
+			for _, directory := range directories {
+				copy := original
+				copy.Meta = maps.Clone(original.Meta)
+				delete(copy.Meta, "globs")
+				delete(copy.Meta, "paths")
+				copy.Scope = directory
+				out.Rules = append(out.Rules, copy)
 			}
 			continue
 		}

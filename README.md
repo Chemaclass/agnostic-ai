@@ -48,6 +48,7 @@ Open the generated files and follow any instruction-file references to find your
 
 Next steps:
 
+- [Check your specs](https://agnostic-ai.org/docs/cli-reference/check/): `validate` and `lint` check the built-in hooks selected tools receive.
 - [Set up your project](https://agnostic-ai.org/docs/getting-started/): share one note and update your tools together.
 - [Installation](https://agnostic-ai.org/docs/installation/): other ways to install.
 - [Migration](https://agnostic-ai.org/docs/migration/): review an existing setup before you sync.
@@ -78,12 +79,12 @@ The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers impo
 
 ## What you can share
 
-Each tool supports a different set of spec kinds. The [capability matrix](https://agnostic-ai.org/docs/targets/#capability-matrix) shows which tools get what, and the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths. Supported tools include Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, Pi, [Kimi Code CLI](https://agnostic-ai.org/docs/targets/kimi/), and [Mistral Vibe](https://agnostic-ai.org/docs/targets/vibe/).
+Each tool supports a different set of spec kinds. The [capability matrix](https://agnostic-ai.org/docs/targets/#capability-matrix) shows which tools get what, and the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths. Supported tools include Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, Pi, Qwen Code, [Kimi Code CLI](https://agnostic-ai.org/docs/targets/kimi/), [Mistral Vibe](https://agnostic-ai.org/docs/targets/vibe/), and [Grok Build](https://agnostic-ai.org/docs/targets/grok/) (explicit selection with readable instructions).
 
 - **Rules, agents, skills, and commands**: instructions in one [spec format](https://agnostic-ai.org/docs/spec-format/).
 - **Hooks**: checks and observers that run before or after a tool acts. See [hooks](https://agnostic-ai.org/docs/spec-format/hooks/).
 - **MCP servers**: connections to outside services, with credentials read from environment variables. See [MCP servers](https://agnostic-ai.org/docs/spec-format/mcps/).
-- **Capabilities**: what an agent may read, run, or call, mapped to each tool's own names. See [capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities). [OpenCode agents](https://agnostic-ai.org/docs/targets/opencode/) with a `can` or `tools` list keep project permission limits from `opencode.json`, including native V2 rules, and keep their rule order through import and sync.
+- **Capabilities**: what an agent may read, run, or call, mapped to each tool's own names. See [capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities). [OpenCode agents](https://agnostic-ai.org/docs/targets/opencode/) with a `can` or `tools` list keep project permission limits from `opencode.json`, including V2 project and agent rules, through import and sync.
 - **Model roles**: name a model choice once for every tool. See [models](https://agnostic-ai.org/docs/configuration/#models).
 - **Code review guidance**: instructions for review bots. See [reviews](https://agnostic-ai.org/docs/spec-format/reviews/).
 - **Shared memory**: one project memory that every tool reads and writes. See [shared memory](https://agnostic-ai.org/docs/memory/).
