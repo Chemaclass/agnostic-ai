@@ -67,19 +67,19 @@ outputs:
     root-mcp-file: .mcp.json
 ```
 
-Each server has an explicit `type`: `stdio`, `http`, or `sse`. Stdio servers use `command`, `args`, and `env`; remote servers use `url` and `headers`. Environment references stay unexpanded. `x-codebuddy.defer_loading` and `x-codebuddy.tools` keep native loading controls.
+Sync writes an explicit `type`: `stdio`, `http`, or `sse`. Import accepts native JSONC and infers omitted or empty types from `command` (stdio) or `url` (http). Stdio servers retain `command`, `args`, `env`, and `cwd`; remote servers retain `url` and `headers`. Both retain `description`. Native `cwd` strings stay unchanged; CodeBuddy expands uppercase `${NAME}` and `${NAME:-default}` references there. Environment references stay unexpanded by sync. `x-codebuddy.defer_loading` and `x-codebuddy.tools` keep native loading controls.
 
-The native server schema has no `disabled` or `cwd` fields. Sync rejects those behavior-changing fields rather than enabling a disabled server or starting it elsewhere. `description` is reported and left out. Sync never approves project servers. CodeBuddy asks the user before their first connection.
+Sync rejects disabled servers and remote-server `cwd` rather than silently ignoring them. Sync never approves project servers. CodeBuddy asks the user before their first connection.
 
-At user scope, sync and import use the preferred MCP file when it exists, otherwise an existing deprecated `~/.codebuddy/mcp.json`. New output uses the preferred file. The global `projects` map and unmanaged servers stay intact.
+At user scope, sync and import use the first existing file: `~/.codebuddy/.mcp.json`, deprecated `~/.codebuddy/mcp.json`, then legacy `~/.codebuddy.json`. New output uses the preferred file. Comments, account state, the global `projects` map, and unmanaged servers stay intact.
 
 ## Fields and limits
 
 Agent names use lowercase letters and hyphens. Scoped tool patterns, server-only MCP names, and empty agent tool lists have no verified restrictive exposure mapping, so they fail sync. Keep scoped shell and file policies in permission rules. Use per-spec target filters when an agent requires a policy CodeBuddy cannot represent; `x-codebuddy.tools` supplies an explicit native exposure list.
 
-Agents accept `name`, `description`, `tools`, `disallowedTools`, `model`, `effort`, `skills`, `mcpServers`, `permissionMode`, `maxTurns`, `background`, `initialPrompt`, and `memory`. Native additions belong under `x-codebuddy`. Portable tool names map only to verified native tools; a restriction with no mapping fails instead of granting broader access. Native agent memory adds `Read`, `Write`, and `Edit` even to a restrictive tools list. Sync reports that widening through `on-unsupported`; `error` rejects it before writing.
+Agents accept `name`, `description`, `tools`, `disallowedTools`, `model`, `effort`, `skills`, `mcpServers`, `permissionMode`, `maxTurns`, `background`, `initialPrompt`, `memory`, and `disable-model-invocation`. The last field keeps a manual-only agent out of model selection. Native additions belong under `x-codebuddy`. Portable tool names map only to verified native tools; a restriction with no mapping fails instead of granting broader access. Native agent memory adds `Read`, `Write`, and `Edit` even to a restrictive tools list. Sync reports that widening through `on-unsupported`; `error` rejects it before writing.
 
-Skills retain allowed tools, invocation controls, and native `context`, `agent`, `model`, and `hooks`. CodeBuddy applies agent, model, and hook overrides only with `context: fork`. Bundled files are copied unchanged. Commands retain description, argument hint, model, allowed tools, invocation control, and their body placeholders. Global commands are not managed by agnostic-ai, although CodeBuddy itself has a user command directory.
+Skills retain native scoped allowed-tool strings such as `Bash(git:*)` and `Edit(src/**/*.ts)`, invocation controls, and native `context`, `agent`, `model`, and `hooks`. CodeBuddy applies agent, model, and hook overrides only with `context: fork`. Bundled files are copied unchanged. Commands retain description, argument hint, model, allowed tools, invocation control, and their body placeholders. Global commands are not managed by agnostic-ai, although CodeBuddy itself has a user command directory.
 
 MCP permission rules accept `mcp__server`, `mcp__server__*`, and exact `mcp__server__tool`. The all-server `mcp__*` form works in `ask` and `deny` only. Partial-segment wildcards are rejected. These permission forms follow the [native permission grammar](https://www.codebuddy.ai/docs/cli/permissions#mcp-tools).
 

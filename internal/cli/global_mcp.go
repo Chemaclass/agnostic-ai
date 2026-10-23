@@ -21,7 +21,7 @@ import (
 // the map or table that holds them.
 type globalMCPFile struct {
 	path   string
-	legacy string
+	legacy []string
 	format string
 	// key is the JSON map (mcpServers) or TOML parent table
 	// (mcp_servers) holding one entry per server name.
@@ -52,12 +52,10 @@ func (g globalTarget) mcpPath(home string) string {
 		}
 	}
 	preferred := g.path(home, g.mcp.path)
-	if g.mcp.legacy != "" {
-		if _, err := os.Lstat(preferred); os.IsNotExist(err) {
-			legacy := g.path(home, g.mcp.legacy)
-			if _, err := os.Lstat(legacy); err == nil {
-				return legacy
-			}
+	for _, candidate := range append([]string{g.mcp.path}, g.mcp.legacy...) {
+		path := g.path(home, candidate)
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			return path
 		}
 	}
 	return preferred
@@ -313,6 +311,9 @@ func canonicalMCPServer(target string, v any) any {
 		return canonicalOpenHandsServer(out)
 	}
 	if target == "codebuddy" {
+		if kind, err := codebuddy.MCPType(out); err == nil {
+			out["type"] = kind
+		}
 		return out
 	}
 	_, hasCommand := out["command"]

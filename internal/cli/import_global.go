@@ -318,6 +318,8 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 			var piNative map[string]any
 			if target == "pi" {
 				servers, orders, piNative, err = readPiMCPMap(path)
+			} else if target == "codebuddy" {
+				servers, err = readCodebuddyMCPMap(path)
 			} else {
 				servers, err = readJSONMapAt(path, g.mcp.key)
 			}

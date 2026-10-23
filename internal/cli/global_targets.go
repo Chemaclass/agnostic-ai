@@ -124,7 +124,7 @@ var globalTargets = map[string]globalTarget{
 		agents:       globalPathHome + ".codebuddy/agents",
 		skills:       globalPathHome + ".codebuddy/skills",
 		hooks:        globalPathHome + ".codebuddy/settings.json", hooksFormat: "claude", hookFoldArgs: true,
-		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: globalPathHome + ".codebuddy/mcp.json", private: true},
+		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: []string{globalPathHome + ".codebuddy/mcp.json", globalPathHome + ".codebuddy.json"}, private: true},
 		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
 	},
 	"pi": {

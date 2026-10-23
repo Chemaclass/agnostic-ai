@@ -144,7 +144,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 		a = emit.WithValidAgentLimits(a, target, emit.AgentMaxTurns, emit.AgentBackground)
 		m := emit.ResolveMeta(a.Meta, target)
-		meta := selected(m, "description", "model", "tools", "disallowedTools", "skills", "mcpServers", "effort", "permissionMode", "maxTurns", "background", "initialPrompt", "memory", "hooks")
+		meta := selected(m, "description", "model", "tools", "disallowedTools", "skills", "mcpServers", "effort", "permissionMode", "maxTurns", "background", "initialPrompt", "memory", "hooks", "disable-model-invocation")
 		if mode, ok := meta["permissionMode"].(string); ok && !slices.Contains([]string{"default", "acceptEdits", "bypassPermissions", "plan", "ignore"}, mode) {
 			return fmt.Errorf("%s: codebuddy: unsupported agent permissionMode %q", a.Path, mode)
 		}
@@ -227,11 +227,19 @@ func (Adapter) ValidateSkillTools(skills []spec.Entry) error {
 				return fmt.Errorf("%s: codebuddy: empty allowed-tools has no verified restriction", s.Path)
 			}
 			for _, tool := range tools {
-				if _, ok := (Adapter{}).TranslateAgentCapability(tool); !ok {
+				if !validSkillTool(tool) {
 					return fmt.Errorf("%s: codebuddy: allowed tool %q has no verified native mapping; set x-codebuddy.allowed-tools explicitly", s.Path, tool)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func validSkillTool(tool string) bool {
+	if _, ok := (Adapter{}).TranslateAgentCapability(tool); ok {
+		return true
+	}
+	name, pattern, scoped := strings.Cut(tool, "(")
+	return scoped && slices.Contains([]string{"Bash", "Edit"}, name) && strings.HasSuffix(pattern, ")") && strings.TrimSpace(strings.TrimSuffix(pattern, ")")) != "" && !strings.ContainsAny(pattern, "\r\n\x00")
 }

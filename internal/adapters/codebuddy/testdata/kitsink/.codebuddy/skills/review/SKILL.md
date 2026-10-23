@@ -1,6 +1,6 @@
 ---
 agent: reviewer
-allowed-tools: Read
+allowed-tools: Read, Bash(git:*), Edit(src/**/*.go)
 context: fork
 description: Review a diff
 disable-model-invocation: true

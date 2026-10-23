@@ -1,6 +1,7 @@
 ---
 background: true
 description: Review changes
+disable-model-invocation: true
 disallowedTools:
   - Bash
 effort: high

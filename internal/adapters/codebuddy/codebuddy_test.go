@@ -64,6 +64,35 @@ func TestEmit_MCPRequiresRootOptIn(t *testing.T) {
 		}
 	}
 }
+
+func TestEmit_NativeMCPFields(t *testing.T) {
+	for _, tc := range []struct {
+		name, field, value string
+		meta               map[string]any
+	}{
+		{"stdio-cwd", "cwd", "backend", map[string]any{"command": "docs-server", "cwd": "backend"}},
+		{"stdio-description", "description", "Local documentation", map[string]any{"command": "docs-server", "description": "Local documentation"}},
+		{"http-description", "description", "Remote documentation", map[string]any{"url": "https://example.com/mcp", "description": "Remote documentation"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			bundle := spec.Bundle{MCPs: []spec.Entry{{Kind: spec.KindMCP, Name: "docs", Meta: tc.meta}}}
+			cfg := &config.Config{Outputs: map[string]config.Output{"codebuddy": {RootMCPFile: ".mcp.json"}}}
+			if err := New().Emit(emit.NewSession(), bundle, cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Servers map[string]map[string]any `json:"mcpServers"`
+			}
+			if err := json.Unmarshal([]byte(read(t, ".mcp.json")), &doc); err != nil {
+				t.Fatal(err)
+			}
+			if got := doc.Servers["docs"][tc.field]; got != tc.value {
+				t.Errorf("native %s = %v, want %s", tc.field, got, tc.value)
+			}
+		})
+	}
+}
 func TestEmit_PreservesSettingsAndNativeHookEntries(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	if err := os.MkdirAll(".codebuddy", 0755); err != nil {

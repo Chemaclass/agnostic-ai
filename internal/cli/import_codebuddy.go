@@ -83,18 +83,9 @@ func importFromCodebuddy(root string, cfg *config.Config) error {
 			mcp = "mcp.json"
 		}
 	}
-	servers, err := readJSONMapAt(filepath.Join(root, mcp), "mcpServers")
+	servers, err := readCodebuddyMCPMap(filepath.Join(root, mcp))
 	if err != nil {
 		return err
-	}
-	for name, raw := range servers {
-		server, ok := raw.(map[string]any)
-		if !ok {
-			return fmt.Errorf("%s: codebuddy: MCP %q must be an object", mcp, name)
-		}
-		if kind, _ := server["type"].(string); kind != "stdio" && kind != "http" && kind != "sse" {
-			return fmt.Errorf("%s: codebuddy: MCP %q requires explicit type stdio, http, or sse", mcp, name)
-		}
 	}
 	normalizeCodebuddyMCP(servers)
 	if _, err := writeMCPYAMLs("codebuddy", servers, importSourcePath(root, src.MCPs)); err != nil {

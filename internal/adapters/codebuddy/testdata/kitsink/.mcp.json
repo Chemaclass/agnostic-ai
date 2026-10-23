@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "docs": {
+      "description": "Remote documentation",
       "headers": {
         "Authorization": "Bearer ${DOCS_TOKEN}"
       },
@@ -16,7 +17,9 @@
         "server.js"
       ],
       "command": "node",
+      "cwd": "backend",
       "defer_loading": true,
+      "description": "Local documentation",
       "env": {
         "MODE": "test"
       },
