@@ -40,6 +40,7 @@ var goldenTargets = []string{
 	"kilo",
 	"ellipsis",
 	"vibe",
+	"kimi",
 }
 
 // TestGolden runs a sync against a shared fixture for each built-in target
@@ -92,6 +93,9 @@ func runGolden(t *testing.T, target string) {
 	// configured, a shared AGENTS.md would carry codex's rules block and
 	// the rule files that block replaces would drop out (#1224).
 	config := "version: 1\ntargets: [" + target + "]\n"
+	if target == "kimi" {
+		config += "outputs:\n  kimi:\n    conf-file: kimi-profile/config.toml\n"
+	}
 	if target == "zed" {
 		config += "outputs:\n  zed:\n    tasks-file: .zed/tasks.json\n"
 	}

@@ -12,6 +12,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Kimi Code CLI
+
+- Sync and import native instructions, agents, skills, and MCP connections; manage user hooks and selected settings.
+
 #### Codex
 
 - Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.

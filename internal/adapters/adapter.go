@@ -31,6 +31,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/jules"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/junie"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kimi"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
@@ -894,6 +895,7 @@ var registry = map[string]Adapter{
 	"augment":     augment.New(),
 	"qoder":       qoder.New(),
 	"vibe":        vibe.New(),
+	"kimi":        kimi.New(),
 	"pi":          pi.New(),
 	"openhands":   openhands.New(),
 	"factory":     factory.New(),

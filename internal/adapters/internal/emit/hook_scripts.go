@@ -102,10 +102,10 @@ func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outp
 		for _, command := range commands {
 			references = append(references, sourceCommand{command, literal})
 		}
-		if target == "codex" || target == "vibe" {
+		if target == "codex" || target == "vibe" || target == "kimi" {
 			if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
 				windowsLiteral := false
-				if target == "vibe" {
+				if target == "vibe" || target == "kimi" {
 					windowsLiteral = literal
 				}
 				references = append(references, sourceCommand{windows, windowsLiteral})

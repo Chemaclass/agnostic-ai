@@ -29,6 +29,9 @@ import (
 // hooks.json) carries no marker and is partially merge-managed, so it is
 // covered by the drift section instead, not flagged here.
 var unmanagedConfigGlobs = []struct{ glob, target string }{
+	{".kimi-code/AGENTS.md", "kimi"},
+	{".kimi-code/agents/*.md", "kimi"},
+	{".kimi-code/skills/*/SKILL.md", "kimi"},
 	{"CLAUDE.md", "claude"},
 	{"AGENTS.md", "codex"},
 	{"GEMINI.md", "gemini"},

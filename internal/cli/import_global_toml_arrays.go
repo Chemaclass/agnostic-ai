@@ -15,6 +15,31 @@ import (
 func stageGlobalTOMLArrays(home, stage string, targets []string, b spec.Bundle, state globalState, warn io.Writer) error {
 	for _, target := range targets {
 		g := globalTargets[target]
+		if target == "kimi" {
+			path := g.path(home, g.hooks)
+			doc, err := readVibeTOML(path)
+			if err != nil {
+				return err
+			}
+			records, err := nativeTOMLRecords(path, "hooks", doc["hooks"])
+			if err != nil {
+				return err
+			}
+			previous, err := kimiHookPrevious(path, state.Hooks[target]["records"])
+			if err != nil {
+				return err
+			}
+			var user []map[string]any
+			for id, r := range kimiHookRecordsByID(records) {
+				if !sameSetting(r, previous[id]) {
+					user = append(user, r)
+				}
+			}
+			if err := importKimiHooks(user, filepath.Join(stage, "hooks")); err != nil {
+				return err
+			}
+			continue
+		}
 
 		if g.hooksFormat == "vibe-toml" {
 			path := g.path(home, g.hooks)

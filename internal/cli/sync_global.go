@@ -1034,7 +1034,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 		}
 		for _, hook := range hooks {
-			if target == "copilot" || g.hooksFormat == "vibe-toml" {
+			if target == "copilot" || strings.HasSuffix(g.hooksFormat, "-toml") {
 				hook.Meta = adapters.ResolveMeta(hook.Meta, target)
 			}
 			if event, _ := hook.Meta["event"].(string); event == "" {
@@ -1049,10 +1049,10 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			for _, command := range globalHookCommands(hook.Meta["command"]) {
 				commands = append(commands, sourceCommand{command, literal})
 			}
-			if target == "codex" || target == "copilot" || target == "vibe" {
+			if target == "codex" || target == "copilot" || target == "vibe" || target == "kimi" {
 				if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
 					windowsLiteral := false
-					if target == "vibe" {
+					if target == "vibe" || target == "kimi" {
 						windowsLiteral = literal
 					}
 					commands = append(commands, sourceCommand{windows, windowsLiteral})
@@ -1315,7 +1315,26 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 					base = snapshot.data
 				}
 				key := path + "\x00" + parent
-				current, _, err := scanTOMLArray(path, base, parent)
+				unnamed := target == "kimi" && parent == "hooks"
+				if unnamed {
+					doc, err := decodeTOMLDocument(path, base)
+					if err != nil {
+						return globalSettingsMerge{}, err
+					}
+					records, err := nativeTOMLRecords(path, parent, doc[parent])
+					if err != nil {
+						return globalSettingsMerge{}, err
+					}
+					for id, desired := range want {
+						for _, have := range records {
+							if sameSetting(adapters.CanonicalUserArrayRecord(target, parent, have), adapters.CanonicalUserArrayRecord(target, parent, desired)) {
+								want[id] = have
+								break
+							}
+						}
+					}
+				}
+				current, _, err := scanTOMLArrayWithIdentity(path, base, parent, want, previous, unnamed)
 				if err != nil {
 					return globalSettingsMerge{}, err
 				}
@@ -1330,11 +1349,11 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 						want[id] = have.value
 					}
 				}
-				rebased, err := rebaseTOMLArrayLayouts(path, parent, snapshot.data, base, next.TOMLArrays[key], want, previous, false)
+				rebased, err := rebaseTOMLArrayLayouts(path, parent, snapshot.data, base, next.TOMLArrays[key], want, previous, unnamed)
 				if err != nil {
 					return globalSettingsMerge{}, err
 				}
-				m, layouts, err := mergeTOMLArray(path, base, parent, want, previous, rebased)
+				m, layouts, err := mergeTOMLArrayRecords(path, base, parent, want, previous, rebased, unnamed)
 				if err != nil {
 					return m, err
 				}
@@ -1392,6 +1411,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if strings.HasSuffix(g.hooksFormat, "-toml") {
 				path := g.path(home, g.hooks)
 				previous, err := namedTOMLAnyRecords(path, old.Hooks[target]["records"])
+				if target == "kimi" {
+					previous, err = kimiHookPrevious(path, old.Hooks[target]["records"])
+				}
 				if err != nil {
 					return nil, next, err
 				}
@@ -1406,6 +1428,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 					return nil, next, err
 				}
 				want, err := namedTOMLRecords(path, records)
+				if target == "kimi" {
+					want, err = kimiHookRecordsByID(records), nil
+				}
 				if err != nil {
 					return nil, next, err
 				}

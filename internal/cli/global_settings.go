@@ -37,6 +37,7 @@ type globalSettingsFile struct {
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
+	allowed  map[string]string
 }
 
 // accepts reports whether the effort key takes value. A nil level list
@@ -185,6 +186,22 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 		}
 		for _, key := range slices.Sorted(maps.Keys(flat)) {
 			value := flat[key]
+			if f.allowed != nil && f.allowed[key] == "" {
+				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "sync --global owns only default_model, default_plan_mode and telemetry; use an explicit profile for native tables")
+				continue
+			}
+			if f.allowed[key] == "string" {
+				if text, ok := value.(string); !ok || strings.TrimSpace(text) == "" {
+					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a nonempty string")
+					continue
+				}
+			}
+			if f.allowed[key] == "bool" {
+				if _, ok := value.(bool); !ok {
+					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "native field requires a boolean")
+					continue
+				}
+			}
 			if list, ok := strings.CutPrefix(key, "permissions."); ok && f.permissionLists && slices.Contains(spec.PermissionLists, list) {
 				// The rule lists merge rule by rule with the portable ones.
 				continue

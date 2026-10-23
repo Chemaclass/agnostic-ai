@@ -131,9 +131,10 @@ effort:
 | copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
 | vibe | `~/.vibe/config.toml` | `active_model` |
+| kimi | `~/.kimi-code/config.toml` | `default_model`, `default_plan_mode`, `telemetry` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
-Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
+Targets not in the table raise a coverage note for `model` and `effort`, and so does `effort` on Gemini and Kimi Code. Augment has no default model or effort key but takes `x-augment` keys, such as `shell`.
 
 Accepted `effort` values:
 
@@ -204,6 +205,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | claude | `~/.claude.json` (`$CLAUDE_CONFIG_DIR/.claude.json` when set) | top-level `mcpServers.<name>` |
 | codex | `~/.codex/config.toml` | `[mcp_servers.<name>]` table |
 | vibe | `~/.vibe/config.toml` | `[[mcp_servers]]`, keyed by `name` |
+| kimi | `~/.kimi-code/mcp.json` | `mcpServers.<name>`, retaining disabled servers |
 | cursor | `~/.cursor/mcp.json` | `mcpServers.<name>` |
 | copilot | `~/.copilot/mcp-config.json` | `mcpServers.<name>`, with `tools: ["*"]` when the spec sets none |
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
@@ -232,6 +234,7 @@ A dash means global sync writes nothing for that kind.
 | **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` | `~/.cursor/agents/<name>.md` | - |
 | **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` | `~/.codex/agents/<name>.toml` | - |
 | **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | `~/.gemini/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
+| **kimi** | `~/.kimi-code/AGENTS.md` | inlined | `~/.kimi-code/config.toml` | `~/.kimi-code/skills/<name>/` | `~/.kimi-code/agents/<name>.md` | - |
 | **vibe** | `~/.vibe/AGENTS.md` | inlined | `~/.vibe/hooks.toml` | `~/.vibe/skills/<name>/` | `~/.vibe/agents/<name>.toml` | - |
 | **qoder** | `~/.qoder/AGENTS.md` | inlined | `~/.qoder/settings.json` | `~/.qoder/skills/<name>/` | `~/.qoder/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
 | **copilot** | `~/.copilot/copilot-instructions.md` | inlined | `~/.copilot/hooks/agnostic-ai.json` | `~/.copilot/skills/<name>/` | `~/.copilot/agents/<name>.agent.md` | - |
@@ -262,7 +265,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 ### Native discovery and shared paths
 
 - **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae needs **Settings > Beta > Subagents > Enable Subagents Directory**.
-- **Configuration roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, and `JUNIE_HOME` replace the matching `~/.<tool>/` folder. `GEMINI_CLI_HOME` is the parent of `.gemini/`. Everything under that folder moves together. Paths outside it, such as `~/.agents/skills/`, stay put. Use absolute paths.
+- **Configuration roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, and `JUNIE_HOME`, and `KIMI_CODE_HOME` replace the matching `~/.<tool>/` folder. `GEMINI_CLI_HOME` is the parent of `.gemini/`. Everything under that folder moves together. Paths outside it, such as `~/.agents/skills/`, stay put. Use absolute paths.
 - **Shared paths** are written once: `~/.agents/skills/` (codex, windsurf, amp, zed, warp, goose, openhands), `~/.agents/agents/` (goose, openhands), `~/.agents/AGENTS.md` (cline, warp), `~/.gemini/GEMINI.md` (gemini, antigravity). If two tools would write different content to one path, the run stops before writing and names the path.
 - **Copilot agent effort**: Copilot agent profiles have no effort key. A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`. Sync stops when the file has comments, since a rewrite drops them. Rerun with `--backup` to rewrite it and keep `settings.json.bak`. A hand-set `effortLevel` with a different value stops the run. Other effort values raise a coverage note.
 - **Cursor** does not load the home-level `AGENTS.md`. Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows) that passes the instructions to Cursor. It needs neither agnostic-ai, Python, nor jq, and it adds context without enforcing policy. Existing `sessionStart` entries stay.

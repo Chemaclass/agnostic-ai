@@ -118,6 +118,19 @@ type globalTarget struct {
 // config.yaml Continue itself rewrites), and jules (nothing documented
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
+	"kimi": {
+		rootEnv: "KIMI_CODE_HOME", root: globalPathHome + ".kimi-code",
+		instructions: globalPathHome + ".kimi-code/AGENTS.md",
+		agents:       globalPathHome + ".kimi-code/agents",
+		skills:       globalPathHome + ".kimi-code/skills",
+		hooks:        globalPathHome + ".kimi-code/config.toml",
+		hooksFormat:  "kimi-toml", hookFoldArgs: true,
+		mcp: globalMCPFile{path: globalPathHome + ".kimi-code/mcp.json", format: "json", key: "mcpServers", private: true},
+		settings: globalSettingsFile{
+			path: globalPathHome + ".kimi-code/config.toml", format: "toml", model: "default_model", private: true,
+			allowed: map[string]string{"default_model": "string", "default_plan_mode": "bool", "telemetry": "bool"},
+		},
+	},
 	"vibe": {
 		rootEnv:      "VIBE_HOME",
 		root:         globalPathHome + ".vibe",

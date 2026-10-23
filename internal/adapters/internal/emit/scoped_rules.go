@@ -16,6 +16,8 @@ import (
 // Other verified hosts use their existing rule renderer after normalization.
 func scopeDocument(target string) string {
 	switch target {
+	case "kimi":
+		return ".kimi-code/AGENTS.md"
 	case "vibe", "codex", "amp", "warp", "opencode", "goose", "augment", "factory", "kilo", "pi":
 		return "AGENTS.md"
 	case "gemini":
@@ -457,7 +459,7 @@ func scopedDocument(cfg *config.Config, target, path string, rules []spec.Entry,
 	// A scope document can have other readers, so no single tool's
 	// invocation phrase fits it, and a path variable expands only where
 	// they all agree.
-	vals, _ := SharedVars(cfg, ScopeDocumentReaders(cfg, target, filepath.Base(path)))
+	vals, _ := SharedVars(cfg, ScopeDocumentReaders(cfg, target, scopeDocumentName(target, path)))
 	rules = slices.Clone(rules)
 	for i := range rules {
 		rules[i].Body, _ = ExpandVars(rules[i].Body, vals)
@@ -536,7 +538,7 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 	sort.Strings(paths)
 	for _, path := range paths {
 		file := files[path]
-		if filepath.Base(path) == "AGENTS.md" {
+		if filepath.Base(path) == "AGENTS.md" && filepath.Base(filepath.Dir(path)) != ".kimi-code" {
 			if _, exists := files[filepath.Join(filepath.Dir(path), ".goosehints")]; exists {
 				return fmt.Errorf("%s: shared AGENTS.md and .goosehints would duplicate scoped context; remove the legacy Goose rules-file override", path)
 			}
@@ -633,7 +635,7 @@ func noteSharedDocumentRefs(target string, grouped map[string][]spec.Entry) {
 // noteScopedDocumentVars notes the path variables the scope document at
 // path keeps verbatim in rules, because its readers disagree on them.
 func noteScopedDocumentVars(cfg *config.Config, target, path string, rules []spec.Entry) {
-	readers := ScopeDocumentReaders(cfg, target, filepath.Base(path))
+	readers := ScopeDocumentReaders(cfg, target, scopeDocumentName(target, path))
 	vals, contested := SharedVars(cfg, readers)
 	bodies := make([]string, len(rules))
 	for i, r := range rules {
@@ -644,3 +646,10 @@ func noteScopedDocumentVars(cfg *config.Config, target, path string, rules []spe
 
 // SharedRefReason explains a reference that renders the neutral phrase.
 const SharedRefReason = "the reference renders as a plain phrase: the target documents no invocation form, or reads the spec from a file other tools share"
+
+func scopeDocumentName(target, path string) string {
+	if target == "kimi" {
+		return ".kimi-code/AGENTS.md"
+	}
+	return filepath.Base(path)
+}

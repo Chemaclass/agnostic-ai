@@ -29,6 +29,7 @@ var TargetVarPaths = map[string]map[string]string{
 		VarCommandsDir: ".claude/commands", VarRulesDir: ".claude/rules",
 		VarMCPFile: ".mcp.json",
 	},
+	"kimi": {VarSkillsDir: ".kimi-code/skills", VarAgentsDir: ".kimi-code/agents", VarMCPFile: ".kimi-code/mcp.json"},
 	"vibe": {VarSkillsDir: ".vibe/skills", VarAgentsDir: ".vibe/agents", VarMCPFile: ".vibe/config.toml"},
 	"codex": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".codex/agents",

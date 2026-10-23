@@ -124,3 +124,7 @@ label = "Pi"
 [[targets]]
 id = "vibe"
 label = "Mistral Vibe"
+
+[[targets]]
+id = "kimi"
+label = "Kimi Code CLI"

@@ -260,6 +260,33 @@ func canonicalMCPServer(target string, v any) any {
 		return v
 	}
 	out := maps.Clone(server)
+	if target == "kimi" {
+		transport, _ := out["transport"].(string)
+		if transport == "" {
+			if _, ok := out["command"]; ok {
+				transport = "stdio"
+			} else if _, ok := out["url"]; ok {
+				transport = "http"
+			}
+		}
+		out["transport"] = transport
+		if out["enabled"] == true {
+			delete(out, "enabled")
+		}
+		for _, key := range []string{"args", "env", "headers", "disabledTools"} {
+			switch v := out[key].(type) {
+			case []any:
+				if len(v) == 0 {
+					delete(out, key)
+				}
+			case map[string]any:
+				if len(v) == 0 {
+					delete(out, key)
+				}
+			}
+		}
+		return out
+	}
 	if target == "vibe" {
 		canonical, _ := adapters.CanonicalUserArrayRecord(target, "mcp_servers", out).(map[string]any)
 		out = canonical

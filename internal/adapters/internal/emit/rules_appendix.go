@@ -118,6 +118,7 @@ var inlineRulesTargets = map[string]bool{
 	"pi":        true,
 	"codex":     true,
 	"vibe":      true,
+	"kimi":      true,
 	"amp":       true,
 	"warp":      true,
 	"zed":       true,

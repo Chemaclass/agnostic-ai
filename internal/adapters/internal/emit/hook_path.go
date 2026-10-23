@@ -36,6 +36,8 @@ func RewriteHookDirectories(cmd, target string, literal ...bool) string {
 
 func HookScriptsDir(target string) string {
 	switch target {
+	case "kimi":
+		return ".kimi-code/hooks"
 	case "goose":
 		return ".agents/plugins/agnostic-ai/hooks"
 	case "copilot":

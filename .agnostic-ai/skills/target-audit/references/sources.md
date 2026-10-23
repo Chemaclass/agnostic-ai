@@ -388,3 +388,10 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: instructions load without project trust; project settings, MCP, skills, and prompt templates require Pi's trust choice. Sync does not grant trust or set defaultProjectTrust.
 - decision: portable disabled becomes native enabled with the opposite value. SSE is unsupported; allowed-tools is skill metadata, not an enforced permission limit.
 - decision: commands sync only at project scope. Global instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.
+
+## kimi
+
+- docs: https://moonshotai.github.io/kimi-code/en/configuration/config-files · https://moonshotai.github.io/kimi-code/en/customization/agents · https://moonshotai.github.io/kimi-code/en/customization/skills · https://moonshotai.github.io/kimi-code/en/customization/mcp · https://moonshotai.github.io/kimi-code/en/customization/hooks
+- changelog: https://github.com/MoonshotAI/kimi-code/releases
+- code: https://github.com/MoonshotAI/kimi-code/tree/684bae9ea6a437f3bae98bba1dcb797a917d500b/packages/agent-core-v2/src
+- watch: branded instruction discovery, Markdown agent policy and skill headers, disabled MCP layers and bearer env fields, KIMI_CODE_HOME and selected TOML settings/hooks

@@ -252,6 +252,14 @@ name = "Mistral Vibe"
 href = "@/docs/targets/vibe.md"
 statuses = ["native", "native", "native", "native", "native", "mapped", "native", "no", "no", "no"]
 
+[[targets]]
+id = "kimi"
+name = "Kimi Code CLI"
+href = "@/docs/targets/kimi.md"
+statuses = ["native", "native", "native", "opt-in", "native", "no", "opt-in", "no", "no", "no"]
+opt_in_anchor = "selected-profile"
+opt_in = { hook = "conf-file", settings = "conf-file" }
+
 # Native tool names from the adapter capability tables.
 
 [tool_translations.augment]

@@ -500,6 +500,9 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if target == "pi" {
 			normalizePiMCPEntry(server)
 		}
+		if target == "kimi" {
+			normalizeKimiMCP(server)
+		}
 		if target == "warp" {
 			server = normalizeWarpMCPEntry(server)
 			servers[name] = server
