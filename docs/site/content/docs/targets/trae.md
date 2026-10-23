@@ -101,7 +101,7 @@ Sync always writes `description`, `globs`, and `alwaysApply` (Cursor's `.mdc` fi
 
 ### Ignore
 
-([ignore docs](https://docs.trae.ai/ide/ignore-files)): the file Trae's Settings > Indexing & Docs creates. It adds to `.gitignore`, which Trae already honors, and keeps paths out of indexing and `#Workspace` and `#Folder` context. Specs are joined. Override with `outputs.trae.ignore-file`. Run a Build under Settings > Indexing & Docs after a sync, because the change applies only after re-indexing.
+([ignore docs](https://docs.trae.ai/ide/ignore-files)): the file Trae's Settings > Indexing & Docs creates. It adds to `.gitignore`, which Trae already honors, and keeps paths out of indexing and `@Folder` context. Specs are joined. Override with `outputs.trae.ignore-file`. Run a Build under Settings > Indexing & Docs after a sync, because the change applies only after re-indexing.
 
 ## Shared memory
 
