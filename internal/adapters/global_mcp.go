@@ -133,3 +133,19 @@ func CanonicalUserArrayRecord(target, parent string, record map[string]any) any 
 	}
 	return record
 }
+
+type userMCPArrayIdentityValidator interface {
+	UserMCPArrayIdentities([]map[string]any) (map[string]string, error)
+}
+
+func UserMCPArrayIdentities(target string, records []map[string]any) (map[string]string, error) {
+	a, err := Resolve(target)
+	if err != nil {
+		return nil, err
+	}
+	validator, ok := a.(userMCPArrayIdentityValidator)
+	if !ok {
+		return nil, nil
+	}
+	return validator.UserMCPArrayIdentities(records)
+}

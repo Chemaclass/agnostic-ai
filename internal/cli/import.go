@@ -101,6 +101,9 @@ func newImportCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("load config: %w", err)
 				}
+				if err := validateVibeMCPImport(".", cfg); err != nil {
+					return err
+				}
 				hooks := cfg.Outputs["vibe"].HooksFile
 				if hooks == "" {
 					hooks = ".vibe/hooks.toml"

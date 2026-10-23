@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/vibe"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -67,7 +68,7 @@ func stageGlobalTOMLArrays(home, stage string, targets []string, b spec.Bundle, 
 	return nil
 }
 
-func stageGlobalMCPArray(path, key, target, dir string, have map[string]bool, previous map[string]any, skip func(string, string, string) error) (map[string]any, error) {
+func stageGlobalMCPArray(path, key, target, dir string, homeRecords []map[string]any, previous map[string]any, skip func(string, string, string) error) (map[string]any, error) {
 	doc, err := readVibeTOML(path)
 	if err != nil {
 		return nil, err
@@ -76,14 +77,44 @@ func stageGlobalMCPArray(path, key, target, dir string, have map[string]bool, pr
 	if err != nil {
 		return nil, err
 	}
-	if _, err := namedTOMLRecords(path, records); err != nil {
+	if err := validateImportedVibeMCPNames(path, records); err != nil {
+		return nil, err
+	}
+	homeIDs, err := adapters.UserMCPArrayIdentities(target, homeRecords)
+	if err != nil {
+		return nil, err
+	}
+	homeByName, err := namedTOMLRecords(path, homeRecords)
+	if err != nil {
+		return nil, err
+	}
+	current := map[string]tomlArrayRecord{}
+	for _, r := range records {
+		current[r["name"].(string)] = tomlArrayRecord{value: r}
+	}
+	if _, err := reconcileVibeMCPNames(path, nil, current, previous); err != nil {
 		return nil, err
 	}
 	var user []map[string]any
 	native := map[string]any{}
 	for _, r := range records {
 		name, _ := r["name"].(string)
-		if have[name] || sameSetting(r, previous[name]) {
+		if sameSetting(r, previous[name]) {
+			continue
+		}
+		ids, err := adapters.UserMCPArrayIdentities(target, []map[string]any{r})
+		if err != nil {
+			return nil, err
+		}
+		for id := range ids {
+			if sourceName, covered := homeIDs[id]; covered {
+				if !sameSetting(adapters.CanonicalUserArrayRecord(target, key, r), adapters.CanonicalUserArrayRecord(target, key, homeByName[sourceName])) {
+					return nil, fmt.Errorf("%s: MCP %q conflicts with existing home spec %q (native identity %q)", path, name, sourceName, id)
+				}
+				name = ""
+			}
+		}
+		if name == "" {
 			continue
 		}
 		user = append(user, r)
@@ -116,9 +147,23 @@ func stageGlobalMCPArray(path, key, target, dir string, have map[string]bool, pr
 	}
 	return native, nil
 }
-func validateGlobalTOMLHookNames(home string, targets []string) error {
+func validateGlobalTOMLNames(home string, targets []string) error {
 	for _, target := range targets {
 		g := globalTargets[target]
+		if target == "vibe" {
+			path := g.mcpPath(home)
+			doc, err := readVibeTOML(path)
+			if err != nil {
+				return err
+			}
+			records, err := nativeTOMLRecords(path, g.mcp.key, doc[g.mcp.key])
+			if err != nil {
+				return err
+			}
+			if err := validateImportedVibeMCPNames(path, records); err != nil {
+				return err
+			}
+		}
 		if g.hooksFormat != "vibe-toml" {
 			continue
 		}

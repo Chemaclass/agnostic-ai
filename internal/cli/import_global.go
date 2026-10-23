@@ -44,7 +44,7 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 			return err
 		}
 	}
-	if err := validateGlobalTOMLHookNames(home, targets); err != nil {
+	if err := validateGlobalTOMLNames(home, targets); err != nil {
 		return err
 	}
 	stage, err := os.MkdirTemp("", "agnostic-ai-import-global-*")
@@ -295,7 +295,11 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 		var native map[string]any
 		if g.mcp.format == "toml-array" {
 			var err error
-			native, err = stageGlobalMCPArray(path, g.mcp.key, target, dir, covered, state.MCP[target], skip)
+			homeRecords, err := adapters.UserMCPArrayRecords(target, have)
+			if err != nil {
+				return err
+			}
+			native, err = stageGlobalMCPArray(path, g.mcp.key, target, dir, homeRecords, state.MCP[target], skip)
 			if err != nil {
 				return err
 			}

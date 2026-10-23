@@ -30,6 +30,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	doc, servers, err := prepareConfig(b, cfg)
+	if err != nil {
+		return err
+	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", emit.SpecsWithPermissions(b.Settings), "use native x-vibe.tools permission tables")
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, emit.OutputAgentsDir(cfg, target, ".vibe/agents"), dryRun); err != nil {
 		return err
@@ -53,7 +57,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
-	if err := emitConfig(sess, b, cfg, dryRun); err != nil {
+	if err := emitConfig(sess, doc, servers, cfg, dryRun); err != nil {
 		return err
 	}
 	return emitHooks(sess, b.HooksFor(target), emit.OutputHooksFile(cfg, target, ".vibe/hooks.toml"), emit.HookScriptsDir(target), dryRun, runtime.GOOS)

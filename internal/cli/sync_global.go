@@ -1216,6 +1216,11 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 					return nil, next, err
 				}
 				initialTOML[path] = snapshot
+				if target == "vibe" && (path == g.mcpPath(home) || path == old.MCPPaths[target] || path == g.path(home, g.settings.path) || path == old.SettingsPaths[target]) {
+					if err := validateVibeMCPDocument(path, snapshot.data); err != nil {
+						return nil, next, err
+					}
+				}
 			}
 		}
 		want := globalSettingsFor(target, g, b.Settings)
@@ -1307,6 +1312,12 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				if err != nil {
 					return globalSettingsMerge{}, err
 				}
+				if target == "vibe" && parent == "mcp_servers" {
+					want, err = reconcileVibeMCPNames(path, want, current, previous)
+					if err != nil {
+						return globalSettingsMerge{}, err
+					}
+				}
 				for id, desired := range want {
 					if have, ok := current[id]; ok && sameSetting(adapters.CanonicalUserArrayRecord(target, parent, have.value), adapters.CanonicalUserArrayRecord(target, parent, desired)) {
 						want[id] = have.value
@@ -1319,6 +1330,15 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				m, layouts, err := mergeTOMLArray(path, base, parent, want, previous, rebased)
 				if err != nil {
 					return m, err
+				}
+				if target == "vibe" && parent == "mcp_servers" {
+					final := m.data
+					if final == nil {
+						final = base
+					}
+					if err := validateVibeMCPDocument(path, final); err != nil {
+						return m, err
+					}
 				}
 				if len(m.owned) > 0 && slices.Contains(old.Files, path) {
 					next.Files = append(next.Files, path)

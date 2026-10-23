@@ -30,7 +30,7 @@ func writeDocument(sess *emit.Session, path string, doc map[string]any, has bool
 	}
 	return sess.WriteFile(path, emit.WithHeader(body, emit.FormatTOML), dryRun)
 }
-func emitConfig(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func prepareConfig(b spec.Bundle, cfg *config.Config) (map[string]any, []map[string]any, error) {
 	doc := map[string]any{}
 	for _, s := range b.Settings {
 		if m := emit.SettingsModel([]spec.Entry{s}, target); m != "" {
@@ -40,14 +40,22 @@ func emitConfig(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bo
 	}
 	servers, err := (Adapter{}).UserMCPArrayRecords(b.MCPs)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	conf := emit.OutputConfFile(cfg, target, ".vibe/config.toml")
 	mcp := emit.OutputMCPFile(cfg, target, conf)
+	if conf == mcp && len(servers) > 0 {
+		doc["mcp_servers"] = servers
+	}
+	if err := validateConfigMCPNames(doc); err != nil {
+		return nil, nil, err
+	}
+	return doc, servers, nil
+}
+func emitConfig(sess *emit.Session, doc map[string]any, servers []map[string]any, cfg *config.Config, dryRun bool) error {
+	conf := emit.OutputConfFile(cfg, target, ".vibe/config.toml")
+	mcp := emit.OutputMCPFile(cfg, target, conf)
 	if conf == mcp {
-		if len(servers) > 0 {
-			doc["mcp_servers"] = servers
-		}
 		return writeDocument(sess, conf, doc, len(doc) > 0, dryRun)
 	}
 	if err := writeDocument(sess, conf, doc, len(doc) > 0, dryRun); err != nil {
@@ -55,14 +63,10 @@ func emitConfig(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bo
 	}
 	return writeDocument(sess, mcp, map[string]any{"mcp_servers": servers}, len(servers) > 0, dryRun)
 }
+
 func (Adapter) UserMCPArrayRecords(mcps []spec.Entry) ([]map[string]any, error) {
 	var records []map[string]any
-	seen := map[string]bool{}
 	for _, e := range mcps {
-		if seen[e.Name] {
-			return nil, fmt.Errorf("vibe: duplicate MCP name %q", e.Name)
-		}
-		seen[e.Name] = true
 		m := emit.ResolveMeta(e.Meta, target)
 		d := map[string]any{"name": e.Name}
 		transport, _ := m["type"].(string)
@@ -114,7 +118,8 @@ func (Adapter) UserMCPArrayRecords(mcps []spec.Entry) ([]map[string]any, error) 
 		}
 		records = append(records, d)
 	}
-	return records, nil
+	_, err := (Adapter{}).UserMCPArrayIdentities(records)
+	return records, err
 }
 
 func (Adapter) CanonicalUserArrayRecord(parent string, record map[string]any) any {
@@ -133,6 +138,9 @@ func (Adapter) CanonicalUserArrayRecord(parent string, record map[string]any) an
 	}
 	if parent != "mcp_servers" {
 		return doc
+	}
+	if name, ok := doc["name"].(string); ok {
+		doc["name"] = nativeMCPName(name)
 	}
 	if doc["transport"] == "http" {
 		doc["transport"] = "streamable-http"

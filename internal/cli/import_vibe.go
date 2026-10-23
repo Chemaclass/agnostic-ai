@@ -67,6 +67,9 @@ func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
 	if err := validateImportedVibeHookNames(hookPath, records); err != nil {
 		return err
 	}
+	if err := validateVibeMCPImport(root, cfg); err != nil {
+		return err
+	}
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs, src.Hooks, src.Settings); err != nil {
 		return err
 	}
@@ -181,7 +184,7 @@ func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
 	return captureHookScripts(root, "vibe")
 }
 func importVibeMCPRecords(records []map[string]any, dst string) error {
-	if _, err := namedTOMLRecords("vibe MCP import", records); err != nil {
+	if err := validateImportedVibeMCPNames("vibe MCP import", records); err != nil {
 		return err
 	}
 	if err := importMkdirAll(dst, 0o755); err != nil {
@@ -289,6 +292,47 @@ func validateImportedVibeHookNames(path string, records []map[string]any) error 
 		name, _ := record["name"].(string)
 		if err := spec.ValidateName(spec.KindHook, name); err != nil {
 			return fmt.Errorf("%s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func validateImportedVibeMCPNames(path string, records []map[string]any) error {
+	if _, err := adapters.UserMCPArrayIdentities("vibe", records); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	for _, record := range records {
+		name, _ := record["name"].(string)
+		if err := spec.ValidateName(spec.KindMCP, name); err != nil {
+			return fmt.Errorf("%s: MCP %q: %w", path, name, err)
+		}
+	}
+	return nil
+}
+func validateVibeMCPImport(root string, cfg *config.Config) error {
+	conf, mcp := ".vibe/config.toml", ""
+	if cfg != nil {
+		if cfg.Outputs["vibe"].ConfFile != "" {
+			conf = cfg.Outputs["vibe"].ConfFile
+		}
+		mcp = cfg.Outputs["vibe"].MCPFile
+	}
+	paths := []string{conf}
+	if mcp != "" && mcp != conf {
+		paths = append(paths, mcp)
+	}
+	for _, relative := range paths {
+		path := filepath.Join(root, relative)
+		doc, err := readVibeTOML(path)
+		if err != nil {
+			return err
+		}
+		records, err := nativeTOMLRecords(path, "mcp_servers", doc["mcp_servers"])
+		if err != nil {
+			return err
+		}
+		if err := validateImportedVibeMCPNames(path, records); err != nil {
+			return err
 		}
 	}
 	return nil

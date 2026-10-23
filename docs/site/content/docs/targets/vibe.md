@@ -64,6 +64,8 @@ Skills keep `user-invocable` and `disable-model-invocation`, plus bundled files.
 
 ## Connections, settings, and hooks
 
+MCP names keep their original spelling. Vibe compares case-sensitive identities formed by replacing each character outside ASCII letters, digits, `_`, and `-` with `_`, stripping edge underscores and hyphens, then taking 256 characters. Empty or colliding identities stop sync and import.
+
 MCP servers support stdio and streamable HTTP. HTTP headers use native static authentication under `[mcp_servers.auth]`. Preserve OAuth or environment-backed authentication with `x-vibe.auth`; for example, `type: static` and `api_key_env: DOCS_TOKEN`. Vibe reads that variable name at runtime. Arbitrary environment references in URLs, arguments, headers, and stdio environment values have no verified expansion and raise coverage notes. SSE and WebSocket servers are omitted with a note.
 
 `model` maps to `active_model`. Other native project settings pass through `x-vibe`. Portable reasoning effort and permission settings raise coverage notes; Vibe's reasoning setting belongs to each model.
