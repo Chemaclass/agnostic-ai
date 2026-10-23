@@ -33,7 +33,7 @@ agnostic-ai import claude codex --dry-run --diff
 agnostic-ai import claude codex
 ```
 
-Review the imported `.agnostic-ai/` sources against the original files. The last provider listed wins for a shared spec; merge any differing instructions before continuing. Skip this step in a fresh project. See [import coverage and conflicts](@/docs/migration.md#2-review).
+Review the imported `.agnostic-ai/` sources against the original files and resolve differences before syncing. Skip this step in a fresh project. See [how imports from several tools merge instructions](@/docs/migration.md#2-review).
 
 ## Write the shared sources
 

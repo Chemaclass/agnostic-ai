@@ -55,7 +55,7 @@ From now on, edit `.agnostic-ai/` sources and sync. Use [Daily use](@/docs/getti
 
 ## Review imports from several tools {#2-review}
 
-Preview several tools at once with `agnostic-ai import claude codex --dry-run --diff`. The last tool listed wins for a shared spec, so reorder the tools or merge the sources by hand before generating files.
+Preview several tools at once with `agnostic-ai import claude codex --dry-run --diff`. Imports can merge shared instructions and retain conflicting versions. Review the sources against the original files and resolve differences before generating files.
 
 <details>
 <summary>Re-import after editing a native tool file</summary>
