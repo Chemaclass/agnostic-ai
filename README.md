@@ -55,6 +55,8 @@ Next steps:
 - [Composer](https://agnostic-ai.org/docs/composer/): share instructions and skills with its Claude Code and Codex providers.
 - [Global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration): personal specs in `~/.agnostic-ai/`, written with `agnostic-ai sync --global`.
 
+[CodeBuddy Code](https://agnostic-ai.org/docs/targets/codebuddy/) supports native configuration through explicit `targets: [codebuddy]` selection. Its agent name and tool limits require that choice.
+
 ## Daily commands
 
 Run from the directory containing `agnostic-ai.yaml`:

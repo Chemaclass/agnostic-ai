@@ -32,6 +32,8 @@ type mcpEnvRefForms struct {
 // not narrowed to `${NAME}`: the default may be what lets the server
 // start, and Factory fails a connection on an unset variable.
 var mcpEnvRefTargets = map[string]mcpEnvRefForms{
+	"codebuddy": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true},
+
 	// Pi 1.4.0 mcp.md documents expansion in env and headers only.
 	"pi": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	// url, args: https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcp-json

@@ -651,6 +651,8 @@ Specs load from four layers, lowest first. A higher layer overrides a spec of th
 
 Only `project` uses custom `sources` paths. `$AGNOSTIC_AI_HOME` is not a project layer.
 
+[CodeBuddy Code](@/docs/targets/codebuddy.md) uses `outputs.codebuddy.root-mcp-file: .mcp.json` to opt into project MCP output. Its other native paths and output keys are listed on the target page.
+
 ## Global configuration
 
 `agnostic-ai sync --global` installs your own instructions, skills, hooks, settings, agents, and MCP servers for every project. It reads `~/.agnostic-ai/`, not the current project's specs. [Global configuration](@/docs/global-configuration.md) covers the source layout, target selection, ownership, and recovery.

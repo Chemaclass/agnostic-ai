@@ -11,6 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
@@ -35,6 +36,10 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 	h = emit.TargetHook(target, h)
 	var out []hookrun.Handler
 	switch target {
+	case "codebuddy":
+		for _, c := range codebuddy.HookCommands(cfg, h) {
+			out = append(out, hookrun.Handler{Command: c.Command, Timeout: time.Duration(c.Timeout) * time.Second})
+		}
 	case "claude":
 		for _, c := range claude.CommandHandlers(claude.GuardCursorCopies(cfg, []spec.Entry{h})[0]) {
 			out = append(out, hookrun.Handler{Command: c.Command, Args: c.Args, Shell: c.Shell, If: c.If, Timeout: time.Duration(c.Timeout) * time.Second, FailClosed: c.OnFailure == "block"})
@@ -211,6 +216,8 @@ func HookScriptSiblings(cfg *config.Config, target string, hooks []spec.Entry, h
 // event to on target, for the targets hookrun builds payloads for.
 func HookFile(cfg *config.Config, target, hook, event string) string {
 	switch target {
+	case "codebuddy":
+		return emit.OutputConfFile(cfg, target, emit.OutputSubDir(cfg, target, "settings.json", ".codebuddy/settings.json"))
 	case "claude":
 		return claude.SettingsFilePath(cfg)
 	case "codex":

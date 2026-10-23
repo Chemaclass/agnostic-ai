@@ -21,6 +21,8 @@ import (
 // TestTargetVarPaths_MatchRealEmission keeps this honest: every entry
 // here must be where the adapter actually writes that kind.
 var TargetVarPaths = map[string]map[string]string{
+	"codebuddy": {VarSkillsDir: ".codebuddy/skills", VarAgentsDir: ".codebuddy/agents", VarCommandsDir: ".codebuddy/commands", VarRulesDir: ".codebuddy/rules"},
+
 	"pi": {
 		VarSkillsDir: ".pi/skills", VarCommandsDir: ".pi/prompts", VarMCPFile: ".pi/mcp.json",
 	},
@@ -128,8 +130,9 @@ var TargetVarPaths = map[string]map[string]string{
 // `outputs.<target>.dir`, so spec variables follow the adapter's
 // relocated output paths.
 var dirRelativeVars = map[string]map[string]string{
-	"grok": {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules", VarMCPFile: "config.toml"},
-	"pi":   {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
+	"codebuddy": {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules"},
+	"grok":      {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules", VarMCPFile: "config.toml"},
+	"pi":        {VarSkillsDir: "skills", VarCommandsDir: "prompts", VarMCPFile: "mcp.json"},
 	"claude": {
 		VarSkillsDir: "skills", VarAgentsDir: "agents",
 		VarCommandsDir: "commands", VarRulesDir: "rules",

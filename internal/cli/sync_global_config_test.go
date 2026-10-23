@@ -326,7 +326,7 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 			return
 		}
 		names := strings.Split(strings.SplitN(advice, "\n", 2)[0], ", ")
-		for _, target := range []string{"claude", "grok"} {
+		for _, target := range []string{"claude", "codebuddy", "grok"} {
 			if !slices.Contains(names, target) {
 				t.Errorf("global hook advice omits %s: %v", target, names)
 			}

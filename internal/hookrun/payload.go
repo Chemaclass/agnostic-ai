@@ -17,7 +17,7 @@ import (
 
 // Targets lists the targets Build writes payloads for.
 func Targets() []string {
-	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush", "copilot", "factory", "qoder", "antigravity", "kiro", "windsurf", "cline"}
+	return []string{"codebuddy", "claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush", "copilot", "factory", "qoder", "antigravity", "kiro", "windsurf", "cline"}
 }
 
 // Supported reports whether Build writes payloads for target.
@@ -67,8 +67,9 @@ var subagentEvents = map[string]string{"claude": "SubagentStart"}
 var subagentTypes = []string{"general-purpose", "Explore", "Plan"}
 
 var vocabularies = map[string]vocabulary{
-	"claude": {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
-	"codex":  {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact", "fork"}},
+	"codebuddy": {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
+	"claude":    {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
+	"codex":     {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact", "fork"}},
 	// gemini-cli c6bccb7 packages/core/src/hooks/types.ts SessionStartSource.
 	"gemini": {"BeforeTool", "AfterTool", "BeforeAgent", []string{"startup", "resume", "clear"}},
 }
@@ -107,7 +108,7 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 		"hook_event_name": event,
 	}
 	switch target {
-	case "claude":
+	case "claude", "codebuddy":
 		doc["transcript_path"] = ""
 		doc["permission_mode"] = "default"
 	case "codex":
@@ -253,7 +254,7 @@ func toolCall(doc map[string]any, p *Payload, target string, post bool, matcher,
 		p.Fires, err = match(matcher, "Bash")
 		input = map[string]any{"command": in.Bash}
 		response = map[string]any{"stdout": "", "stderr": "", "interrupted": false}
-	case target == "claude":
+	case target == "claude" || target == "codebuddy":
 		p.Trigger, p.Fires, err = firstMatch(match, matcher, []string{"Write", "Edit", "MultiEdit"})
 		input = map[string]any{"file_path": file}
 		switch p.Trigger {

@@ -10,7 +10,7 @@ import (
 
 func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 	expected := []string{
-		"claude", "codex", "gemini", "qwen", "cursor",
+		"claude", "codex", "gemini", "qwen", "cursor", "codebuddy",
 		"copilot", "aider", "cline", "windsurf", "continue",
 		"amp", "zed", "warp", "opencode", "pi", "grok", "vibe", "kimi",
 	}

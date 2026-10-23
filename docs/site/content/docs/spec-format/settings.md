@@ -67,10 +67,11 @@ session-retention-days: 3650
 | Tool | User settings file | Native key |
 |------|--------------------|------------|
 | Claude Code | `~/.claude/settings.json` | `cleanupPeriodDays: 3650` |
+| CodeBuddy Code | `~/.codebuddy/settings.json` | `cleanupPeriodDays: 3650` |
 | Gemini CLI | `~/.gemini/settings.json` | `general.sessionRetention.maxAge: "3650d"` |
 | Qoder CLI | `~/.qoder/settings.json` | `general.sessionRetention.maxAge: "3650d"` |
 
-- An `x-claude.cleanupPeriodDays` value wins.
+- An `x-claude.cleanupPeriodDays` or `x-codebuddy.cleanupPeriodDays` value wins for its target.
 - An existing invalid Claude value, including `cleanupPeriodDays: 0`, can pause cleanup. Sync leaves it unchanged, even with `--backup`, and asks you to fix it by hand or set `x-claude.cleanupPeriodDays`.
 - If Gemini or Qoder has `general.sessionRetention.enabled: false`, sync leaves its age limit alone and prints a note. It never sets the cleanup switch or `maxCount`, and Gemini's existing `maxCount` can still remove younger sessions.
 - Other targets print a coverage note. Kilo's deletion switch and Factory's organization setting are outside this field.

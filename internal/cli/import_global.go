@@ -348,9 +348,12 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, sta
 			var err error
 			var orders mcpSpecOrderHints
 			var piNative map[string]any
-			if target == "pi" {
+			switch target {
+			case "pi":
 				servers, orders, piNative, err = readPiMCPMap(path)
-			} else {
+			case "codebuddy":
+				servers, err = readCodebuddyMCPMap(path)
+			default:
 				servers, err = readJSONMapAt(path, g.mcp.key)
 			}
 			if err != nil {
@@ -503,6 +506,9 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 // saved defaults are dropped. target's own environment references read
 // back as `${NAME}`.
 func normalizeImportedMCP(target string, servers map[string]any) {
+	if target == "codebuddy" {
+		normalizeCodebuddyMCP(servers)
+	}
 	for name, raw := range servers {
 		server, ok := raw.(map[string]any)
 		if !ok {

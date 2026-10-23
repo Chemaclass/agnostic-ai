@@ -6,6 +6,7 @@ import "strings"
 // rewriter recognizes. Anything outside this list is treated as user
 // content and left untouched.
 var hookSiblingPrefixes = []string{
+	".codebuddy/hooks/",
 	".claude/hooks/",
 	".codex/hooks/",
 	".gemini/hooks/",

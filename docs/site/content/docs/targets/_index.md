@@ -26,6 +26,8 @@ Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-sta
 
 {{ <capability_matrix /> }}
 
+[CodeBuddy Code](@/docs/targets/codebuddy.md) requires explicit selection because its native agent name and tool limits can reject existing specs.
+
 [Kimi Code CLI](@/docs/targets/kimi.md) requires explicit selection because its native agent tool lists cannot preserve scoped shell restrictions.
 
 [Grok Build](@/docs/targets/grok.md) requires explicit selection because its native rules must remain visible to Git.
@@ -46,6 +48,7 @@ To ask for full support, [open an issue](https://github.com/Chemaclass/agnostic-
 
 ## Related reference
 
+- [Use CodeBuddy Code](@/docs/targets/codebuddy.md)
 - [Compare two or three targets](@/docs/compare.md)
 - [Select project targets](@/docs/configuration.md#targets)
 - [Understand cross-target behavior](@/docs/target-behavior.md)

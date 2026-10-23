@@ -1120,6 +1120,49 @@
     paths = []
 
 [[targets]]
+  id = "codebuddy"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".codebuddy/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".codebuddy/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".codebuddy/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".codebuddy/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = []
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".codebuddy/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".codebuddy/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
   id = "grok"
 
   [[targets.kinds]]

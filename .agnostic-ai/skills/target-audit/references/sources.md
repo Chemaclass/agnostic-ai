@@ -370,6 +370,13 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: one reviewer, with scoped reviews as conditional prompt sections, because the vendor's per-reviewer `paths` filter needs several reviewers (#2187). Revisit after a real pull request trial.
 - decision: reviewer, model, filters, posting, and budget come from `x-ellipsis` on a settings spec, copied as written; the prompt comes only from review specs.
 
+## codebuddy
+
+- docs: https://www.codebuddy.ai/docs/cli/memory · /docs/cli/sub-agents · /docs/cli/skills · /docs/cli/slash-commands · /docs/cli/settings · /docs/cli/hooks · /docs/cli/mcp
+- changelog: https://www.codebuddy.ai/docs/cli/release-notes/README
+- watch: CLI project and global discovery, first-existing MCP filenames, explicit transport types, conditional rule activation, native tools, project auto-mode limits, hooks and frontmatter approval.
+- fact: npm package `@tencent-ai/codebuddy-code` 2.173.0 is the released CLI. IDE configuration is a separate product surface.
+
 ## grok
 
 - docs: https://docs.x.ai/build/features/project-rules · https://docs.x.ai/build/features/subagents · https://docs.x.ai/build/features/skills-plugins-marketplaces · https://docs.x.ai/build/features/mcp-servers · https://docs.x.ai/build/features/hooks · https://docs.x.ai/build/settings

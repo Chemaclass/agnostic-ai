@@ -16,6 +16,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### CodeBuddy Code
+
+- Sync and import native CodeBuddy configuration through explicit `targets: [codebuddy]` selection, preserving existing default sync.
+
 #### Kimi Code CLI
 
 - Keep Kimi opt-in so existing scoped agent tool lists still sync with the default targets.

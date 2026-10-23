@@ -28,15 +28,15 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 }
 
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
-	cases := []struct{ name, can, tools, grokError, vibeError string }{
-		{"read-only", "can: [read]", "tools: [Read]", "", ""},
-		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "would restore all tools", ""},
+	cases := []struct{ name, can, tools, codebuddyError, grokError, vibeError string }{
+		{"read-only", "can: [read]", "tools: [Read]", "", "", ""},
+		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "has no verified native mapping", "would restore all tools", ""},
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "would restore all tools", ""},
-		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "would restore all tools", ""},
-		{"empty", "can: []", "tools: []", "empty tools would inherit all tools", "no supported allowed tools"},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "has no verified native mapping", "would restore all tools", ""},
+		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "has no verified native mapping", "would restore all tools", ""},
+		{"empty", "can: []", "tools: []", "empty tools list inherits all tools", "empty tools would inherit all tools", "no supported allowed tools"},
 		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "would restore all tools", ""},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "", "would restore all tools", ""},
 	}
 	for _, target := range adapters.Names() {
 		t.Run(target, func(t *testing.T) {
@@ -52,6 +52,8 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 					}
 					expectedError := ""
 					switch target {
+					case "codebuddy":
+						expectedError = tc.codebuddyError
 					case "grok":
 						expectedError = tc.grokError
 					case "vibe":
@@ -75,7 +77,9 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 					if neutralErr != nil || legacyErr != nil {
 						t.Fatalf("expected both forms to sync: can=%v; tools=%v", neutralErr, legacyErr)
 					}
-
+					if target == "codebuddy" && tc.name == "exact-tools" && !strings.Contains(neutral[filepath.Join(".codebuddy", "agents", "reviewer.md")], "mcp__github__get_issue") {
+						t.Error("verified native agent tools were not emitted")
+					}
 					for rel, want := range legacy {
 						if got, ok := neutral[rel]; !ok || got != want {
 							t.Errorf("%s differs:\n%s\nwant:\n%s", rel, got, want)

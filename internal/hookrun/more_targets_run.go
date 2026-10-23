@@ -2,6 +2,7 @@ package hookrun
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 // CLI 600, Antigravity 30, Kiro 60, and Cline 120 from its source. Cursor's and Devin
 // CLI's are assumed.
 var otherDefaultTimeouts = map[string]time.Duration{
+	"codebuddy":   60 * time.Second,
 	"trae":        30 * time.Second,
 	"openhands":   60 * time.Second,
 	"goose":       30 * time.Second,
@@ -33,6 +35,18 @@ var otherDefaultTimeouts = map[string]time.Duration{
 // script itself on Unix, and by extension on Windows.
 func otherArgv(target, goos string, h Handler) ([]string, bool) {
 	switch target {
+	case "codebuddy":
+		if goos == "windows" {
+			if bash := gitBash(); bash != "" {
+				return []string{bash, "-c", h.Command}, true
+			}
+			return []string{"bash", "-c", h.Command}, true
+		}
+		shell := os.Getenv("SHELL")
+		if shell == "" {
+			shell = "/bin/sh"
+		}
+		return []string{shell, "-c", h.Command}, true
 	case "trae":
 		if goos == "windows" {
 			return []string{"powershell.exe", "-NoProfile", "-Command", h.Command}, true
@@ -83,6 +97,11 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideAugment(event, r)
 	case "cursor":
 		return decideCursor(event, h, r)
+	case "codebuddy":
+		if event == "PreCompact" && r.Exit == 2 && !r.TimedOut && r.StartErr == nil {
+			return Block
+		}
+		return Decide(target, event, r)
 	case "claude":
 		return decideClaude(event, h, r)
 	case "crush":

@@ -241,6 +241,13 @@ opt_in_anchor = "first-review"
 opt_in = { settings = "x-ellipsis" }
 
 [[targets]]
+id = "codebuddy"
+name = "CodeBuddy Code"
+href = "@/docs/targets/codebuddy.md"
+statuses = ["native", "native", "native", "native", "opt-in", "native", "native", "no", "no", "no"]
+opt_in = { mcp = "outputs.codebuddy.root-mcp-file" }
+
+[[targets]]
 id = "grok"
 name = "Grok Build"
 href = "@/docs/targets/grok.md"
@@ -281,6 +288,14 @@ edit = ["edit"]
 delete = []
 shell = ["terminal"]
 web = ["web-fetch", "web-search"]
+
+[tool_translations.codebuddy]
+read = ["Read"]
+write = ["Write"]
+edit = ["Edit"]
+delete = []
+shell = ["Bash"]
+web = ["WebFetch", "WebSearch"]
 
 [tool_translations.factory]
 read = ["Read"]

@@ -72,7 +72,7 @@ func WithoutUnsupportedDelete(b spec.Bundle, target, mode string) (spec.Bundle, 
 					source += "." + key
 				}
 				message := fmt.Sprintf("%s: %s: %s capability delete has no native tool or rule", target, e.Path, source)
-				if mode == OnUnsupportedError {
+				if mode == OnUnsupportedError || target == "codebuddy" {
 					return nil, fmt.Errorf("%s", message)
 				}
 				if mode != OnUnsupportedSilent {

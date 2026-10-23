@@ -74,11 +74,12 @@ var documentedNoOpKeys = map[string]string{
 // `conf-file` carries Aider's model settings out of a rule sync, but
 // Devin's project permission policy out of a settings spec.
 var probeKinds = map[string]string{
-	"kimi.conf-file":     "settings",
-	"vibe.conf-file":     "settings",
-	"windsurf.conf-file": "settings",
-	"factory.conf-file":  "settings",
-	"qwen.conf-file":     "settings",
+	"codebuddy.conf-file": "settings",
+	"kimi.conf-file":      "settings",
+	"vibe.conf-file":      "settings",
+	"windsurf.conf-file":  "settings",
+	"factory.conf-file":   "settings",
+	"qwen.conf-file":      "settings",
 
 	"pi.conf-file": "settings",
 }
@@ -224,6 +225,9 @@ func TestOutputKeys_DocumentedKeysMoveTheirOutput(t *testing.T) {
 			var owned config.SyncConfig
 			if entry.Kind == spec.KindRule {
 				owned.Unmanaged = []string{"AGENTS.md"}
+				if entry := adapters.EntryPointPath(nil, target); entry != "" && entry != "AGENTS.md" {
+					owned.Unmanaged = append(owned.Unmanaged, entry)
+				}
 			}
 			entries := append([]spec.Entry{entry}, probeCompanions[target+"."+key]...)
 			before := emittedPaths(t, target, &config.Config{Sync: owned}, entries...)

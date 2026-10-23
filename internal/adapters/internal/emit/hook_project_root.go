@@ -13,14 +13,15 @@ const claudeProjectDir = "CLAUDE_PROJECT_DIR"
 const gitHookRoot = "$(git rev-parse --show-toplevel)"
 
 var nativeHookRoots = map[string]string{
-	"claude":  claudeProjectDir,
-	"grok":    claudeProjectDir,
-	"cursor":  claudeProjectDir,
-	"trae":    claudeProjectDir,
-	"gemini":  "GEMINI_PROJECT_DIR",
-	"qwen":    "QWEN_PROJECT_DIR",
-	"qoder":   "QODER_PROJECT_DIR",
-	"factory": "FACTORY_PROJECT_DIR",
+	"codebuddy": "CODEBUDDY_PROJECT_DIR",
+	"claude":    claudeProjectDir,
+	"grok":      claudeProjectDir,
+	"cursor":    claudeProjectDir,
+	"trae":      claudeProjectDir,
+	"gemini":    "GEMINI_PROJECT_DIR",
+	"qwen":      "QWEN_PROJECT_DIR",
+	"qoder":     "QODER_PROJECT_DIR",
+	"factory":   "FACTORY_PROJECT_DIR",
 }
 
 type hookRootReference struct {

@@ -58,7 +58,7 @@ func globalRetentionSetting(target string, f globalSettingsFile, settings []spec
 			continue
 		}
 		var native any = days
-		if target != "claude" {
+		if target != "claude" && target != "codebuddy" {
 			native = strconv.FormatUint(days, 10) + "d"
 		}
 		out = []globalSetting{{target: target, key: f.retention, field: sessionRetentionField, source: entry.Path, value: native}}
@@ -90,7 +90,7 @@ func mergeGlobalRetention(path, format string, base []byte, want []globalSetting
 	if err != nil {
 		return globalSettingsMerge{}, nil, err
 	}
-	if target == "claude" && portable && slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key && setting.field == sessionRetentionField }) {
+	if (target == "claude" || target == "codebuddy") && portable && slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key && setting.field == sessionRetentionField }) {
 		if have, present := settingsLookup(values, key, format); present {
 			days, number := have.(float64)
 			if !number || days < 1 || math.Trunc(days) != days {
@@ -102,7 +102,7 @@ func mergeGlobalRetention(path, format string, base []byte, want []globalSetting
 			}
 		}
 	}
-	if enabled, present := settingsLookup(values, "general.sessionRetention.enabled", format); target != "claude" && present && enabled == false {
+	if enabled, present := settingsLookup(values, "general.sessionRetention.enabled", format); target != "claude" && target != "codebuddy" && present && enabled == false {
 		want = slices.DeleteFunc(slices.Clone(want), func(setting globalSetting) bool { return setting.field == sessionRetentionField })
 		if portable {
 			if have, present := settingsLookup(values, key, format); present && sameSetting(have, previous[key]) && !slices.ContainsFunc(want, func(setting globalSetting) bool { return setting.key == key }) {

@@ -48,7 +48,7 @@ targets: [claude, codex, cursor]
 `list --global` shows the specs in effect with their `builtin`, `global`, or `global-local` layer. `validate --global` and `lint --global` check before a sync writes. `migrate --global` rewrites old spec forms. Global layers never merge with project specs.
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
-- Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists for targets other than Claude Code, inheritance, and merging with project specs are unsupported.
+- Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists for targets other than Claude Code and CodeBuddy Code, inheritance, and merging with project specs are unsupported.
 - Kilo inline shell placeholders pass the syntax check at documented trusted user destinations. See [Kilo shell commands](@/docs/targets/kilo.md#shell-commands-in-global-skills) for approval, scope, and the kill switch.
 - Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter. See [skill invocation support](@/docs/spec-format/skills.md#disable-model-invocation-support-by-target) for `disable-model-invocation`, including OpenCode V2.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged; set those per target. See [portable hooks](@/docs/spec-format/hook-reference.md#portable-events).
@@ -128,6 +128,7 @@ effort:
 |---|---|---|
 | codex | `~/.codex/config.toml` | `model`, `model_reasoning_effort` |
 | claude | `~/.claude/settings.json` | `model`, `effortLevel`, `permissions.defaultMode`, `permissions.allow`, `ask`, `deny` |
+| codebuddy | `~/.codebuddy/settings.json` | `model`, `reasoningEffort`, `permissions.defaultMode`, `permissions.allow`, `ask`, `deny` |
 | copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
 | vibe | `~/.vibe/config.toml` | `active_model` |
@@ -138,6 +139,7 @@ Targets not in the table raise a coverage note for `model` and `effort`, and so 
 
 Accepted `effort` values:
 
+- CodeBuddy Code: see [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits).
 - Claude and Copilot: `low`, `medium`, `high`, `xhigh`.
 - Qoder: `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`.
 - Codex: any string.
@@ -164,9 +166,9 @@ Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-c
 
 Claude Code saves standing permission approvals to the project's `.claude/settings.local.json`, which global import does not read. See [Claude's settings scopes](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files).
 
-Any `permissions` field on a target other than Claude raises a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
+CodeBuddy Code also merges user permission lists and starting modes. See its [native limits](@/docs/targets/codebuddy.md#fields-and-limits). Any `permissions` field on a target other than Claude or CodeBuddy Code raises a coverage note. For Codex, set `x-codex.approval_policy` and `x-codex.sandbox_mode` instead. Claude's `auto` and `bypassPermissions` need user, managed, or session settings. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 
-`session-retention-days` in a home settings spec sets how many days your transcripts are kept. Global sync maps it to Claude Code, Gemini CLI, and Qoder CLI; project sync leaves it out. It is unset by default and does not turn on cleanup a tool has turned off. See [session retention](@/docs/spec-format/settings.md#session-retention) for the native keys, deletion warning, and restoration rules.
+`session-retention-days` in a home settings spec sets how many days your transcripts are kept. Global sync maps it to Claude Code, CodeBuddy Code, Gemini CLI, and Qoder CLI; project sync leaves it out. It is unset by default and does not turn on cleanup a tool has turned off. See [session retention](@/docs/spec-format/settings.md#session-retention) for the native keys, deletion warning, and restoration rules.
 
 Each item wins over the one before it:
 
@@ -204,6 +206,8 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 |---|---|---|
 | claude | `~/.claude.json` (`$CLAUDE_CONFIG_DIR/.claude.json` when set) | top-level `mcpServers.<name>` |
 | codex | `~/.codex/config.toml` | `[mcp_servers.<name>]` table |
+| codebuddy | `~/.codebuddy/.mcp.json` | `mcpServers.<name>`; [legacy precedence and native limits](@/docs/targets/codebuddy.md#enable-project-mcp-output) |
+
 | vibe | `~/.vibe/config.toml` | `[[mcp_servers]]`, keyed by `name` |
 | kimi | `~/.kimi-code/mcp.json` | `mcpServers.<name>`, retaining disabled servers |
 | cursor | `~/.cursor/mcp.json` | `mcpServers.<name>` |
@@ -231,6 +235,7 @@ A dash means global sync writes nothing for that kind.
 | Target | Instructions | Rules | Hooks | Skills | Agents | Session retention |
 |--------|--------------|-------|-------|--------|--------|-------------------|
 | **claude** | `~/.claude/CLAUDE.md` | inlined | `~/.claude/settings.json` | `~/.claude/skills/<name>/` | `~/.claude/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
+| **codebuddy** | `~/.codebuddy/CODEBUDDY.md` | inlined | `~/.codebuddy/settings.json` | `~/.codebuddy/skills/<name>/` | `~/.codebuddy/agents/<name>.md` | [days](@/docs/targets/codebuddy.md#fields-and-limits) |
 | **cursor** | `~/.cursor/AGENTS.md` (bridged) | inlined | `~/.cursor/hooks.json` | `~/.cursor/skills/<name>/` | `~/.cursor/agents/<name>.md` | - |
 | **codex** | `~/.codex/AGENTS.md` | inlined | `~/.codex/hooks.json` | `~/.agents/skills/<name>/` | `~/.codex/agents/<name>.toml` | - |
 | **gemini** | `~/.gemini/GEMINI.md` | inlined | `~/.gemini/settings.json` | `~/.gemini/skills/<name>/` | `~/.gemini/agents/<name>.md` | [days](@/docs/spec-format/settings.md#session-retention) |
@@ -280,7 +285,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - Jules documents nothing at user level.
 - Ellipsis reads only files in the repository.
 
-Hooks reach nine tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, and Cline SDK/CLI. The other tools have no user-level hook output:
+Hooks reach ten tools at user level: Claude Code, CodeBuddy Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, and Cline SDK/CLI. The other tools have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`.
 - Junie's hooks are Early Access.

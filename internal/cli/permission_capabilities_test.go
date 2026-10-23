@@ -31,6 +31,10 @@ func syncedSettingsTree(t *testing.T, permissions string) map[string]string {
 // Permission capabilities sync to every target exactly as the Claude
 // Code rules they stand for.
 func TestSync_PermissionCapabilitiesWriteTheSameFilesAsTheClaudeRules(t *testing.T) {
+	translation := adapters.TranslatePermissionCapability("codebuddy", "allow", "mcp:github", nil)
+	if !translation.Supported || len(translation.Native) != 1 || translation.Native[0] != "mcp__github" || len(translation.Widening) != 0 {
+		t.Fatalf("MCP permission explanation differs from native output: %+v", translation)
+	}
 	neutral := syncedSettingsTree(t, "  allow: [read, shell(go test *), edit(src/**), web, mcp:github]\n  ask: [shell(git push:*)]\n  deny: [shell(git push --force*), edit(.env), write]\n")
 	claude := syncedSettingsTree(t, "  allow: [Read, Bash(go test *), Edit(src/**), WebFetch, WebSearch, mcp__github]\n  ask: [Bash(git push:*)]\n  deny: [Bash(git push --force*), Edit(.env), Write]\n")
 	if len(neutral) == 0 {

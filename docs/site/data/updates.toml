@@ -118,6 +118,10 @@ id = "ellipsis"
 label = "Ellipsis"
 
 [[targets]]
+id = "codebuddy"
+label = "CodeBuddy Code"
+
+[[targets]]
 id = "grok"
 label = "Grok Build"
 

@@ -12,7 +12,7 @@ import (
 )
 
 func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
-	for _, target := range []string{"claude", "gemini", "qoder"} {
+	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		for _, before := range []string{"absent", "empty", "compact-empty", "formatted-empty", "different", "matching"} {
 			t.Run(target+"/"+before, func(t *testing.T) {
 				home, source := globalAgentTestHome(t)
@@ -23,7 +23,7 @@ func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 					if before == "matching" {
 						value = "3650"
 					}
-					if target == "claude" {
+					if target == "claude" || target == "codebuddy" {
 						original = "{\n\n  \"theme\": \"dark\", \"cleanupPeriodDays\": " + value + "\n}\n"
 					} else {
 						age := `"\u0033\u0030d"`
@@ -52,7 +52,7 @@ func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 					t.Fatal(err)
 				}
 				key, want := "cleanupPeriodDays", any(float64(3650))
-				if target != "claude" {
+				if target != "claude" && target != "codebuddy" {
 					key, want = "general.sessionRetention.maxAge", "3650d"
 				}
 				if got, present := settingsLookup(values, key, "json"); !present || !sameSetting(got, want) {
@@ -159,7 +159,7 @@ func TestSessionRetention_ProjectSyncLeavesNativeRetentionAlone(t *testing.T) {
 	if !strings.Contains(out, "session-retention-days") || !strings.Contains(out, "sync --global") {
 		t.Errorf("missing personal-scope note: %s", out)
 	}
-	for _, target := range []string{"claude", "gemini", "qoder"} {
+	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		path := filepath.Join("."+target, "settings.json")
 		data, err := os.ReadFile(path)
 		if err != nil && !os.IsNotExist(err) {
@@ -198,14 +198,14 @@ func TestSessionRetention_RestoresExistingEmptyContainers(t *testing.T) {
 }
 
 func TestSessionRetention_WarnsWhenRemovalShortensOwnedRetention(t *testing.T) {
-	for _, target := range []string{"claude", "gemini", "qoder"} {
+	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		for _, existing := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/existing=%t", target, existing), func(t *testing.T) {
 				home, source := globalAgentTestHome(t)
 				path := filepath.Join(home, "."+target, "settings.json")
 				if existing {
 					original := `{"cleanupPeriodDays":30}`
-					if target != "claude" {
+					if target != "claude" && target != "codebuddy" {
 						original = `{"general":{"sessionRetention":{"maxAge":"30d"}}}`
 					}
 					mustWriteGlobalTest(t, path, original)
@@ -241,7 +241,7 @@ func TestSessionRetention_RequiresANewOwnershipStateVersion(t *testing.T) {
 }
 
 func TestSessionRetention_RejectsEmptyNativeDocumentsBeforeWriting(t *testing.T) {
-	for _, target := range []string{"claude", "gemini", "qoder"} {
+	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		for _, original := range []string{"", " \t\n"} {
 			t.Run(target+fmt.Sprintf("/%q", original), func(t *testing.T) {
 				home, source := globalAgentTestHome(t)

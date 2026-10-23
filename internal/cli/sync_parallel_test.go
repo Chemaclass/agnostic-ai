@@ -50,8 +50,8 @@ func writeParallelFixture(t *testing.T, dir, extraConfig string) {
 	for i := 0; i < 6; i++ {
 		writeSpec(fmt.Sprintf("rules/rule-%d.md", i),
 			fmt.Sprintf("---\nname: rule-%d\ndescription: Rule %d.\nglobs: \"**/*.go\"\n---\nRule %d body. Keep it deterministic.\n", i, i, i))
-		writeSpec(fmt.Sprintf("agents/agent-%d.md", i),
-			fmt.Sprintf("---\nname: agent-%d\ndescription: Agent %d.\n---\nAgent %d body. Review then report.\n", i, i, i))
+		writeSpec(filepath.Join("agents", fixtureAgentName(i)+".md"),
+			fmt.Sprintf("---\nname: %s\ndescription: Agent %d.\n---\nAgent %d body. Review then report.\n", fixtureAgentName(i), i, i))
 		writeSpec(fmt.Sprintf("skills/skill-%d/SKILL.md", i),
 			fmt.Sprintf("---\nname: skill-%d\ndescription: Skill %d.\n---\n# skill-%d\n\nDeterministic skill body.\n", i, i, i))
 	}

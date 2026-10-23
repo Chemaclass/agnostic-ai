@@ -21,6 +21,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
@@ -282,6 +283,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	for _, rule := range bundle.Rules {
+		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
+			return fmt.Errorf("global rule %q is conditional for codebuddy; global rules must apply unconditionally", rule.Name)
+		}
 		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
@@ -1029,6 +1033,11 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := adapters.TargetHooks(target, b.HooksFor(target))
+		if target == "codebuddy" {
+			if err := codebuddy.ValidateHooks(hooks); err != nil {
+				return nil, next, err
+			}
+		}
 		adapters.NotePortableHookGaps(target, b.Hooks)
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)

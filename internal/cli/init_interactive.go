@@ -27,6 +27,7 @@ type targetChoice struct {
 // allTargets is the canonical target list, in display + emit order.
 // Single source of truth for renderConfig and the interactive prompt.
 var allTargets = []targetChoice{
+	{Name: "codebuddy", Desc: "CodeBuddy Code (Tencent)"},
 	{Name: "claude", Desc: "Claude Code (Anthropic)"},
 	{Name: "codex", Desc: "Codex CLI (OpenAI)"},
 	{Name: "gemini", Desc: "Gemini CLI (Google)"},
@@ -212,6 +213,7 @@ func stdinIsTerminal(in io.Reader) bool {
 // project carrying rules and nothing else stays undetected, and needs
 // an explicit `import goose`.
 var targetMarkers = map[string][]string{
+	"codebuddy":   {".codebuddy", "CODEBUDDY.md"},
 	"claude":      {".claude", "CLAUDE.md"},
 	"codex":       {".codex", ".agents/agents"},
 	"gemini":      {".gemini", "GEMINI.md"},

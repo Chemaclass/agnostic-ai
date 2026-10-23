@@ -375,7 +375,7 @@ func writeBenchProject(tb testing.TB, root string, n int) {
 	base := filepath.Join(root, config.SourceBaseDir)
 	for i := 0; i < n; i++ {
 		writeBenchFile(tb, filepath.Join(base, "rules", fmt.Sprintf("rule-%04d.md", i)), benchRule(i))
-		writeBenchFile(tb, filepath.Join(base, "agents", fmt.Sprintf("agent-%04d.md", i)), benchAgent(i))
+		writeBenchFile(tb, filepath.Join(base, "agents", fixtureAgentName(i)+".md"), benchAgent(i))
 		writeBenchFile(tb, filepath.Join(base, "skills", fmt.Sprintf("skill-%04d", i), "SKILL.md"), benchSkill(i))
 	}
 	for i := 0; i < benchFixedSpecs; i++ {
@@ -435,16 +435,27 @@ Prefer stdlib. Keep one idea per sentence. Fixtures stay byte-stable.
 `, i, i, i)
 }
 
+func fixtureAgentName(i int) string {
+	name := ""
+	for {
+		name = string(rune('a'+i%26)) + name
+		i = i/26 - 1
+		if i < 0 {
+			return "agent-" + name
+		}
+	}
+}
+
 func benchAgent(i int) string {
 	return fmt.Sprintf(`---
-name: agent-%04d
+name: %s
 description: Bench agent %d for deterministic fixtures.
 tools: [Read, Grep, Bash]
 model: sonnet
 ---
 
 Agent %d instructions. Review the diff. Report path:line problem then fix.
-`, i, i, i)
+`, fixtureAgentName(i), i, i)
 }
 
 func benchSkill(i int) string {

@@ -390,4 +390,11 @@
 # Same Linux amd64 release flags, no added headroom or dependencies.
 # #2420 final opt-in integration measured 21110944 on Go 1.27.3.
 # Native Kimi Code support, same Linux amd64 release flags; no headroom or deps.
-21110944
+# #2421 final integration measured 21254304 on Go 1.27.3, up 151552
+# from measured parent 2468d58d (21102752): native codebuddy support.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+# #2421 final opt-in integration measured 21258400 on Go 1.27.3.
+# Native CodeBuddy support, same Linux amd64 release flags; no headroom or deps.
+# Final codebuddy Windows hook integration measured 21262496 bytes.
+# Go 1.27.3, Linux amd64 release flags; no added headroom or dependencies.
+21262496

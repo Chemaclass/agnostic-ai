@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "docs": {
+      "description": "Remote documentation",
+      "headers": {
+        "Authorization": "Bearer ${DOCS_TOKEN}"
+      },
+      "type": "http",
+      "url": "https://docs.example.com/mcp"
+    },
+    "events": {
+      "type": "sse",
+      "url": "https://docs.example.com/sse"
+    },
+    "local": {
+      "args": [
+        "server.js"
+      ],
+      "command": "node",
+      "cwd": "backend",
+      "defer_loading": true,
+      "description": "Local documentation",
+      "env": {
+        "MODE": "test"
+      },
+      "type": "stdio"
+    }
+  }
+}

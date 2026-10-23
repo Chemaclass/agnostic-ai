@@ -24,7 +24,7 @@ func TestTargetVarPaths_MatchRealEmission(t *testing.T) {
 
 	// A rule the root AGENTS.md carries inline gets no rule file of its
 	// own (#1224). Owning that file keeps the probe rule in RULES_DIR.
-	cfg := &config.Config{Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md"}}}
+	cfg := &config.Config{Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md", "CODEBUDDY.md"}}}
 	for target, declared := range emit.TargetVarPaths {
 		adapter, err := Resolve(target)
 		if err != nil {
@@ -181,7 +181,7 @@ func TestTargetVarPaths_FollowPerKindDirOverride(t *testing.T) {
 			// See TestTargetVarPaths_MatchRealEmission for the unmanaged AGENTS.md.
 			cfg := &config.Config{
 				Outputs: map[string]config.Output{target: out},
-				Sync:    config.SyncConfig{Unmanaged: []string{"AGENTS.md"}},
+				Sync:    config.SyncConfig{Unmanaged: []string{"AGENTS.md", "CODEBUDDY.md"}},
 			}
 
 			if got := emit.VarsFor(cfg, target)[name]; got != moved {

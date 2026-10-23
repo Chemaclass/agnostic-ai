@@ -255,6 +255,7 @@ func TestPortableHookForm(t *testing.T) {
 func TestPortableHookTargets_TranslationTable(t *testing.T) {
 	type row struct{ events, shell, edit, read, web, mcp string }
 	want := map[string]row{
+		"codebuddy": {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^Bash$", "^(Edit|Write)$", "^Read$", "^(WebFetch|WebSearch)$", "^mcp__s__.*$"},
 		"claude":    {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|MultiEdit|Write|NotebookEdit", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
 		"codex":     {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|Write", "-", "-", "mcp__s__.*"},
 		"qwen":      {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^run_shell_command$", "^(write_file|edit)$", "^read_file$", "^(web_fetch|web_search)$", "mcp__s__.*"},
