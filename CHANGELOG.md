@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Project checks skip built-in hooks that do not target the selected tools.
 - Refresh audited vendor sources, update Trae context names, and use installed Amp tool names in its settings guide.
 
 - Target audit facts include compact capability declarations and output defaults from sibling adapter files.

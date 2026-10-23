@@ -81,6 +81,57 @@ func TestBuiltins_ProjectLoadsOnlyEnabledSpecs(t *testing.T) {
 	}
 }
 
+func TestBuiltins_ProjectChecksSkipInactiveMemoryHooks(t *testing.T) {
+	for _, target := range []string{"claude", "cline", "pi"} {
+		t.Run(target, func(t *testing.T) {
+			dir := builtinProject(t, "handoff, caveman, memory")
+			writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: ["+target+"]\nbuiltins: [handoff, caveman, memory]\n")
+
+			for _, args := range [][]string{{"validate"}, {"lint", "--strict"}} {
+				if out, err := runBuiltinCLI(t, args...); err != nil {
+					t.Errorf("%v with %s memory output: %v\n%s", args, target, err, out)
+				}
+			}
+		})
+	}
+}
+
+func TestBuiltins_ProjectChecksKeepInvalidUserHookEvents(t *testing.T) {
+	dir := builtinProject(t, "memory")
+	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "user.yaml"), "name: user\ntargets: [cline]\nevent: TaskStart\ncommand: echo user-hook\n")
+
+	out, err := runBuiltinCLI(t, "validate")
+	if err == nil || !strings.Contains(out, "unknown hook event \"TaskStart\"") || !strings.Contains(out, "user.yaml") {
+		t.Errorf("validate must still reject the user hook: %v\n%s", err, out)
+	}
+}
+
+func TestBuiltins_ProjectCheckScopePreservesSyncHooks(t *testing.T) {
+	dir := builtinProject(t, "memory")
+	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+
+	scope, err := loadCheckScope(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scope.bundle.Hooks) == 0 {
+		t.Error("check scope removed active Claude memory hooks")
+	}
+	for _, hook := range scope.bundle.Hooks {
+		if !hook.EmitsTo("claude") {
+			t.Errorf("inactive builtin hook reaches project checks: %s", hook.Name)
+		}
+	}
+	_, bundle, err := loadProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Hooks) <= len(scope.bundle.Hooks) {
+		t.Errorf("sync bundle lost inactive hooks: %d hooks, check scope %d", len(bundle.Hooks), len(scope.bundle.Hooks))
+	}
+}
+
 func TestBuiltins_ProjectOverridesWithoutLintFindings(t *testing.T) {
 	dir := builtinProject(t, "handoff")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "handoff.md"), "---\nname: handoff\ndescription: Project handoff\n---\nProject body.\n")
