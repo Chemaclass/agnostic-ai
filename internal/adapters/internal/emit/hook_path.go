@@ -63,13 +63,22 @@ func HasNeutralHookPath(command string) bool {
 }
 
 func RewriteNeutralHookPath(command, dir string, literal ...bool) string {
+	return rewriteNeutralHookPath(command, dir, false, literal...)
+}
+
+func RewriteGrokHookPath(command, dir string, literal ...bool) string {
+	return rewriteNeutralHookPath(command, dir, true, literal...)
+}
+
+func rewriteNeutralHookPath(command, dir string, directPath bool, literal ...bool) string {
 	const prefix = agnosticScriptsDir + "/"
 	var out strings.Builder
 	from := 0
 	for _, ref := range neutralHookReferences(command, len(literal) > 0 && literal[0]) {
 		out.WriteString(command[from:ref.start])
 		directory := strings.TrimRight(dir, "/")
-		if (len(literal) == 0 || !literal[0]) && strings.IndexFunc(directory, func(r rune) bool { return !isShellWordRune(r) }) >= 0 {
+		needsQuote := strings.IndexFunc(directory, func(r rune) bool { return !isShellWordRune(r) && !(directPath && r == '~') }) >= 0 || directPath && strings.HasPrefix(directory, "~")
+		if (len(literal) == 0 || !literal[0]) && needsQuote {
 			switch ref.quote {
 			case '"':
 				directory = strings.NewReplacer("\\", "\\\\", "$", "\\$", "`", "\\`", "\"", "\\\"").Replace(directory)
@@ -91,7 +100,11 @@ func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[s
 	meta := hookRootMeta(target, metadata)
 	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
 	command = stripNeutralHookRoots(command, literal)
-	command = RewriteNeutralHookPath(command, scriptsDir, literal)
+	if target == "grok" {
+		command = RewriteGrokHookPath(command, scriptsDir, literal)
+	} else {
+		command = RewriteNeutralHookPath(command, scriptsDir, literal)
+	}
 	return RewriteGlobalHookRoot(command, target, metadata...)
 }
 

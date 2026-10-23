@@ -68,6 +68,8 @@ Project settings write only `permissions.allow`, `permissions.ask`, and `permiss
 
 Hooks use native PascalCase `event` and optional `matcher`, command text, safely quoted `args`, timeout in seconds, and per-handler `env`. Sync adds `AGNOSTIC_AI_TARGET=grok` to generated handlers. Grok provides `CLAUDE_PROJECT_DIR` and `GROK_WORKSPACE_ROOT`. A matcher on `Stop` or `UserPromptSubmit` has no effect and produces a note. Hook errors fail open; native explicit denies block according to the event. Portable `on`/`match` hooks are not translated in this adapter. Use Grok-native events and its documented reply protocol. Project hook execution also requires Grok's hook trust approval.
 
+On Windows, shared script paths that need shell-specific quoting, such as paths with spaces, require an explicit native wrapper command. Sync refuses an automatic rewrite it cannot preserve. Existing native invocation commands keep their quoting.
+
 ## Import
 
 Run `agnostic-ai import grok` before the first sync of a native project. It reads root and scoped rule, agent, skill, and command directories, resources, native hook JSON files, MCP tables, compact permission lists, and plugins. Plugins are retained under `x-grok.plugins` from the configured settings destination. Native hook groups are retained under `x-grok.hooks`, preserving each file's groups and handler fields. Unsupported hook handler types fail instead of being silently discarded. Imported standalone MCP credentials become environment references through the shared credential filter.

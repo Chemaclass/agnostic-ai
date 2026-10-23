@@ -181,7 +181,7 @@ func TestImportGrok_HookCredentialEnvIsRejectedWithoutSourceWrite(t *testing.T) 
 	if err == nil {
 		t.Fatal("literal credential env imported")
 	}
-	if text := output + err.Error(); strings.Contains(text, "private-token-value") || !strings.Contains(text, ".grok/hooks/guard.json") || !strings.Contains(text, "hook env values are literal") {
+	if text := output + err.Error(); strings.Contains(text, "private-token-value") || !strings.Contains(text, filepath.Join(".grok", "hooks", "guard.json")) || !strings.Contains(text, "hook env values are literal") {
 		t.Fatal("credential error must identify path and native correction without exposing values")
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/hooks/guard.yaml")); !os.IsNotExist(err) {

@@ -45,6 +45,41 @@ func TestKitSink_HooksPreserveArgumentsOnWindows(t *testing.T) {
 	}
 }
 
+func TestWindowsScriptRewrite_RequiresNativeQuoting(t *testing.T) {
+	for _, tc := range []struct {
+		name, command, dir string
+		reject             bool
+	}{
+		{"short name", ".agnostic-ai/scripts/guard.ps1", "C:/Users/RUNNER~1/hooks", false},
+		{"spaces", ".agnostic-ai/scripts/guard.ps1", "C:/User Hooks", true},
+		{"explicit invocation", `& ".agnostic-ai/scripts/guard.ps1"`, "C:/User Hooks", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			after := emit.RewriteGlobalHookPath(tc.command, "grok", tc.dir)
+			err := ValidateWindowsScriptRewrite(tc.command, after, tc.dir)
+			if (err != nil) != tc.reject {
+				t.Errorf("rewrite %q: rejection = %v, want %v", after, err, tc.reject)
+			}
+			if err != nil && !strings.Contains(err.Error(), "native wrapper") {
+				t.Errorf("missing native correction: %v", err)
+			}
+		})
+	}
+}
+
+func TestHookFile_RewritesAbsolutePortableDestinationOnce(t *testing.T) {
+	dir := filepath.ToSlash(filepath.Join(t.TempDir(), ".grok", "hook-scripts"))
+	for _, command := range []string{".agnostic-ai/scripts/guard.sh", ".grok/hook-scripts/guard.sh", dir + "/guard.sh"} {
+		data, err := HookFile(spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": command}}, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), `"command": "`+dir+`/guard.sh"`) {
+			t.Errorf("portable destination was not rewritten once: %s", data)
+		}
+	}
+}
+
 func TestHookFile_KeepsTheNativeArgumentPolicy(t *testing.T) {
 	for _, tc := range []struct {
 		name, command string

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
@@ -163,7 +164,13 @@ func addGlobalGrokHookFiles(home, source string, g globalTarget, hooks []spec.En
 					return err
 				}
 			}
-			commands = append(commands, adapters.RewriteGlobalHookPath(command, "grok", filepath.ToSlash(scriptsDir), hook.Meta))
+			rewritten := adapters.RewriteGlobalHookPath(command, "grok", filepath.ToSlash(scriptsDir), hook.Meta)
+			if runtime.GOOS == "windows" {
+				if err := grok.ValidateWindowsScriptRewrite(command, rewritten, filepath.ToSlash(scriptsDir)); err != nil {
+					return fmt.Errorf("grok hook %s: %w", hook.Name, err)
+				}
+			}
+			commands = append(commands, rewritten)
 		}
 		if len(commands) > 0 {
 			prepared.Meta["command"] = commands
