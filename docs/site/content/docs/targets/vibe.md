@@ -29,8 +29,10 @@ cat > .agnostic-ai/hooks/guard.yaml <<'YAML'
 name: guard
 target: vibe
 event: pre_tool
-matcher: 're:bash|process_start'
-command: "printf '%s\n' '{\"decision\":\"deny\",\"reason\":\"Review this command first\"}'"
+x-vibe:
+  match: 're:bash|process_start'
+command: |
+  printf '%s\n' '{"decision":"deny","reason":"Review this command first"}'
 YAML
 agnostic-ai sync --dry-run
 agnostic-ai sync
