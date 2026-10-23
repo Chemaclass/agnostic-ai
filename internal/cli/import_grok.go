@@ -47,7 +47,7 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 			}
 		}
 	}
-	if _, err := importScopedSkillFoldersWith(root, []string{paths["SKILLS_DIR"]}, importSourcePath(root, src.Skills), &allSpecFields); err != nil {
+	if _, err := importScopedSkillFoldersTransformed(root, []string{paths["SKILLS_DIR"]}, importSourcePath(root, src.Skills), &allSpecFields, importGrokSkillName); err != nil {
 		return err
 	}
 	configPath := filepath.Join(root, paths["MCP_FILE"])
@@ -108,6 +108,18 @@ func importFromGrok(root string, src config.Sources, cfg *config.Config) error {
 	}
 	printImportNextSteps(root, "grok")
 	return nil
+}
+
+func importGrokSkillName(data []byte) ([]byte, error) {
+	mapping, rest, ok := frontmatterNode(data)
+	if !ok {
+		return data, nil
+	}
+	if name := mappingValue(mapping, "name"); name != nil {
+		setMappingNode(xTargetMapping(mapping, "x-grok"), "name", name)
+		removeMappingKey(mapping, "name")
+	}
+	return encodeFrontmatter(mapping, rest, "grok")
 }
 func readGrokConfigDocument(path string) (map[string]any, error) {
 	data, err := os.ReadFile(path)

@@ -14,6 +14,10 @@ type SkillRenderer interface {
 	SkillMarkdown(skill spec.Entry) string
 }
 
+type skillValidator interface {
+	ValidateSkill(skill spec.Entry) error
+}
+
 // SkillSidecarRenderer is implemented by adapters that write files
 // beside SKILL.md, such as Codex's agents/openai.yaml.
 type SkillSidecarRenderer interface {
@@ -29,6 +33,8 @@ type ManualOnlySkillReader interface {
 
 func PrepareSkillCapabilities(target string, skills []spec.Entry, mode string) ([]spec.Entry, error) {
 	normalized := spec.Bundle{}
+	adapter, _ := Get(target)
+	validator, _ := adapter.(skillValidator)
 	for _, skill := range skills {
 		if !skill.EmitsTo(target) {
 			continue
@@ -36,6 +42,11 @@ func PrepareSkillCapabilities(target string, skills []spec.Entry, mode string) (
 		native, problem := skill.NativeAllowedToolsFor(target)
 		if problem != "" {
 			return nil, fmt.Errorf("%s: %s", skill.Path, problem)
+		}
+		if validator != nil {
+			if err := validator.ValidateSkill(native); err != nil {
+				return nil, err
+			}
 		}
 		normalized.Skills = append(normalized.Skills, native)
 	}

@@ -60,9 +60,11 @@ Agents carry `name`, `description`, `model`, native `tools`, `disallowedTools`, 
 
 Skills keep `name`, `description`, `when-to-use`, `paths`, `allowed-tools`, `argument-hint`, `user-invocable`, `disable-model-invocation`, `metadata`, `license`, and `compatibility`. Bundled files are copied unchanged. `allowed-tools` describes use and does not enforce permission. `user-invocable: false` also hides a skill from model discovery. Skill model and effort overrides are not applied by the verified contract.
 
+Grok converts skill and command names to lowercase `a-z`, digits and hyphens, with a 64-character limit. Skills can fall back to their folder name. Sync rejects names with no valid native form before writing files.
+
 MCP servers become `[mcp_servers.<name>]`. Stdio keeps `command`, `args`, `env`, and `cwd`. Remote servers keep `url`, `headers`, and explicit HTTP or SSE transport. `disabled` becomes the inverse native `enabled`. Native `startup_timeout_sec` and `tool_timeout_sec` stay seconds. Environment references remain text for Grok to expand. Native extras under `x-grok` include the source-backed authentication and timeout fields. Portable `description` and `timeout` produce coverage notes because they have no exact native mapping.
 
-Project settings write only `permissions.allow`, `permissions.ask`, and `permissions.deny` to `[permission]`; `x-grok.permission` and `x-grok.plugins` carry native project configuration. Existing MCP servers and unrelated configuration keys are retained. Project model, effort, permission default mode, session retention, and automatic protected-path enforcement are unsupported. Put protected paths in a rule, or author explicit permission rules. Ignore, review, and environment specs have no native output.
+Project settings write only `permissions.allow`, `permissions.ask`, and `permissions.deny` to `[permission]`; `x-grok.permission` and `x-grok.plugins` carry native project configuration. Existing MCP servers and unrelated configuration keys are retained. Project model, effort, permission default mode, and session retention are unsupported. Ignore, review, and environment specs have no native output.
 
 Hooks use native PascalCase `event` and optional `matcher`, command text, safely quoted `args`, timeout in seconds, and per-handler `env`. Sync adds `AGNOSTIC_AI_TARGET=grok` to generated handlers. Grok provides `CLAUDE_PROJECT_DIR` and `GROK_WORKSPACE_ROOT`. A matcher on `Stop` or `UserPromptSubmit` has no effect and produces a note. Hook errors fail open; native explicit denies block according to the event. Portable `on`/`match` hooks are not translated in this adapter. Use Grok-native events and its documented reply protocol. Project hook execution also requires Grok's hook trust approval.
 
@@ -79,6 +81,10 @@ Import uses the configured output directories. Importing emitted files into fres
 `agnostic-ai sync --global --only grok` writes `$GROK_HOME/AGENTS.md`, `skills/`, `agents/`, `hooks/`, `hook-scripts/`, and `config.toml`. `GROK_HOME` defaults to `~/.grok` and must be absolute when set. Global commands and permission lists are not emitted. The portable global model maps to `[models].default`; global effort is unsupported.
 
 Global MCP servers and the default model share one planned config write. Sync owns individual servers and the model key, preserves other text and private file modes, checks for concurrent edits, and removes only unchanged owned values. `agnostic-ai import --global grok` reads the supported settings, MCP, and hook surfaces. Literal credentials are skipped by global import.
+
+## Protected paths
+
+Not enforced. Use an instruction rule or explicit permission rules. See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
 
 <details>
 <summary>Native evidence and runtime limits</summary>

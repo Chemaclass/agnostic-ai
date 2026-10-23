@@ -92,9 +92,13 @@ func validateBundle(b spec.Bundle) error {
 		}
 	}
 	for _, e := range b.Skills {
-		meta := emit.ResolveMeta(e.Meta, target)
-		if name, ok := meta["name"].(string); ok && name != e.Name {
-			return fmt.Errorf("grok skill %s: native name %q must match its directory", e.Name, name)
+		if err := (Adapter{}).ValidateSkill(e); err != nil {
+			return err
+		}
+	}
+	for _, e := range b.Commands {
+		if err := validateSkillIdentity(e, nil); err != nil {
+			return err
 		}
 	}
 
