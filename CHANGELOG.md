@@ -9,6 +9,28 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Landing examples show the selected source's output, with labeled excerpts for shared files and the current Codex command format.
 - The “Why agnostic-ai?” guide explains when to use the tool, with shorter examples and verified connection formats.
 
+### By tool
+
+#### Codex
+
+- Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
+
+#### Junie
+
+- MCP request timeouts survive sync and native project import in milliseconds.
+
+#### Crush
+
+- Skills shared with Goose sync without collisions; commands stay skipped until Crush has its own skill folder.
+
+#### Goose
+
+- Skills shared with Crush keep neutral invocation fields and sync without collisions.
+
+#### Kilo
+
+- Global sync accepts inline shell placeholders in trusted user skills while checking argument placeholders and Claude code blocks.
+
 ## v0.87.0 - 2026-10-22
 
 ### General

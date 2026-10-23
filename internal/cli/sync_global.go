@@ -961,7 +961,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			if err := adapters.NoteManualOnlySkillDrops(target, b.Skills, sharedGlobalSkillsDir(home, dir)); err != nil {
 				return nil, next, err
 			}
-			if err := adapters.ReportClaudeSkillSyntax(target, b.Skills, onUnsupported); err != nil {
+			if err := adapters.ReportGlobalSkillSyntax(target, b.Skills, onUnsupported, home, dir); err != nil {
 				return nil, next, err
 			}
 			addSkill := func(path string, data []byte, mode fs.FileMode) error {

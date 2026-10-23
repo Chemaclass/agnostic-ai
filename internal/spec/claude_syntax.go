@@ -31,6 +31,8 @@ type ClaudeSyntaxUse struct {
 	// Fenced is true inside a ::target fence, even a bare one that allows
 	// no target.
 	Fenced bool
+	// ShellBlock distinguishes Claude Code dynamic code blocks from inline shell placeholders.
+	ShellBlock bool
 }
 
 // ReachesTarget reports whether target reads the line after ::target
@@ -81,6 +83,7 @@ func FindClaudeSyntax(body string) []ClaudeSyntaxUse {
 				code = marker
 				if strings.TrimSpace(strings.TrimLeft(line, " ")[len(marker):]) == "!" {
 					add(ClaudeShell)
+					out[len(out)-1].ShellBlock = true
 				}
 			case strings.HasPrefix(marker, code):
 				code = ""

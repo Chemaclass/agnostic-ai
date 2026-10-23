@@ -18,6 +18,9 @@ func TestAcceptsHook(t *testing.T) {
 		meta map[string]any
 		want string
 	}{
+		{"before model observer", map[string]any{"event": "PreModelRequest"}, ""},
+		{"after model observer", map[string]any{"event": "PostModelRequest"}, ""},
+		{"model observer has no tool matcher", map[string]any{"event": "PreModelRequest", "matcher": "Bash"}, `does not match "Bash"`},
 		{"bash tool", map[string]any{"event": "PreToolUse", "matcher": "Bash"}, ""},
 		{"edit aliases", map[string]any{"event": "PostToolUse", "matcher": "Edit|Write"}, ""},
 		{"mcp tool", map[string]any{"event": "PreToolUse", "matcher": "mcp__fs__read"}, ""},
