@@ -28,6 +28,8 @@ Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-sta
 
 [Qwen Code](@/docs/targets/qwen.md) has a dedicated native target. Its reference lists project paths, global support, and import coverage.
 
+[Mistral Vibe](@/docs/targets/vibe.md) supports project and user instructions, subagents, skills, model settings, MCP servers, and native hooks.
+
 [Pi](@/docs/targets/pi.md) has a dedicated native target. Its reference lists project paths, global support, and import coverage.
 
 ## Tools without a target

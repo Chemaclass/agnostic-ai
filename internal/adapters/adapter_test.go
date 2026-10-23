@@ -12,7 +12,7 @@ func TestRegistry_HasAllExpectedTargets(t *testing.T) {
 	expected := []string{
 		"claude", "codex", "gemini", "qwen", "cursor",
 		"copilot", "aider", "cline", "windsurf", "continue",
-		"amp", "zed", "warp", "opencode", "pi",
+		"amp", "zed", "warp", "opencode", "pi", "vibe",
 	}
 	for _, name := range expected {
 		a, ok := Get(name)

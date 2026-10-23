@@ -74,6 +74,7 @@ var documentedNoOpKeys = map[string]string{
 // `conf-file` carries Aider's model settings out of a rule sync, but
 // Devin's project permission policy out of a settings spec.
 var probeKinds = map[string]string{
+	"vibe.conf-file":     "settings",
 	"windsurf.conf-file": "settings",
 	"factory.conf-file":  "settings",
 	"qwen.conf-file":     "settings",

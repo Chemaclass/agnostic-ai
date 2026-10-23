@@ -272,6 +272,12 @@ trae	docs	https://docs.trae.ai/ide/sandbox	200	router-data	b4196abdb4ed1d4853486
 trae	docs	https://docs.trae.ai/ide/skills	200	router-data	1f7d639113b15d97b097b81209ddebd31846e18f78f379bc10c5c783e7adb2a1	2026-10-09
 trae	docs	https://docs.trae.ai/ide/slash-commands	200	router-data	8d1bb24c1e5e6212c3b27e8c411e91a55281a4d410ced8c267a0386da8244a8b	2026-10-09
 trae	docs	https://docs.trae.ai/ide/subagents	200	router-data	d1850fced7391b2d68b9b8154d8b33c03fa502aff7b054665eafe0dccc668eba	2026-10-09
+vibe	changelog	https://github.com/mistralai/mistral-vibe/releases	200	github-api	131dd358ed6b5a7144c4faf9a0333a3d9966025b9715a30b6e09eed77ce6dd24	2026-10-23
+vibe	code	https://github.com/mistralai/mistral-vibe/tree/v3.0.2/vibe/core	200	html	0f9f362e55004e658c2f4ecee508d8d1809c8adf96b314280f3f02f7d56fbceb	2026-10-23
+vibe	docs	https://docs.mistral.ai/vibe/code/cli/agents	200	html	2f6a70741875155721f598a6b198bb6220915048af1a05a7e34c201776a364d3	2026-10-23
+vibe	docs	https://docs.mistral.ai/vibe/code/cli/configuration-reference	200	html	80ef85476ef799a4d04d4af64ea753cf4bceb3b4490136f7b89afd61878eb20b	2026-10-23
+vibe	docs	https://docs.mistral.ai/vibe/code/cli/hooks	200	html	13001541eed2a77ed2164ce0d1ed17e74a9055d445afe470d0f3ef4047424c14	2026-10-23
+vibe	docs	https://docs.mistral.ai/vibe/code/cli/skills	200	html	26ba008db7ca403efcd18b31b9986142a8d2f5dcdc6bf48036d6e318110def71	2026-10-23
 warp	changelog	https://docs.warp.dev/changelog.md	200	markdown-mirror	0f93b856e6d112f2360b7ae515e8c26949cdfff20d90f8157d66b0e5a8178ac2	2026-09-25
 warp	changelog	https://docs.warp.dev/changelog/2026.md	200	markdown-mirror	9117151b99ad5ac096ac7a794f3d1dd0a992ca6d26430f14f17374893a331990	2026-10-20
 warp	docs	https://docs.warp.dev/agents/capabilities/mcp.md	200	markdown-mirror	4c363a4f91755f7358af79c0e856f7a28c9cc1305a0a9b1006c8ba219ec5a0de	2026-10-23

@@ -252,6 +252,12 @@ name = "Pi"
 href = "@/docs/targets/pi.md"
 statuses = ["no", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
 
+[[targets]]
+id = "vibe"
+name = "Mistral Vibe"
+href = "@/docs/targets/vibe.md"
+statuses = ["native", "native", "native", "native", "native", "mapped", "native", "no", "no", "no"]
+
 # Native tool names from the adapter capability tables.
 
 [tool_translations.augment]
@@ -309,6 +315,14 @@ edit = ["edit"]
 delete = []
 shell = ["run_shell_command"]
 web = ["web_fetch", "web_search"]
+
+[tool_translations.vibe]
+read = ["read_file"]
+write = ["write_file"]
+edit = ["edit"]
+delete = []
+shell = ["bash"]
+web = []
 
 [tool_translations.windsurf]
 read = ["read"]

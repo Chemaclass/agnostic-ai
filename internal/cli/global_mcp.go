@@ -260,6 +260,19 @@ func canonicalMCPServer(target string, v any) any {
 		return v
 	}
 	out := maps.Clone(server)
+	if target == "vibe" {
+		canonical, _ := adapters.CanonicalUserArrayRecord(target, "mcp_servers", out).(map[string]any)
+		out = canonical
+		delete(out, "name")
+		if transport, ok := out["transport"].(string); ok {
+			delete(out, "transport")
+			if transport == "streamable-http" || transport == "http" {
+				out["type"] = "http"
+			} else {
+				out["type"] = transport
+			}
+		}
+	}
 	if target == "pi" {
 		delete(out, "toolExposure")
 		if out["exposure"] == "codemode" || out["exposure"] == "codemode-deferred" {

@@ -22,7 +22,7 @@ type unreadOverlay struct {
 
 // settingsPassThroughTargets lists the targets that write a settings
 // spec's `x-<target>` block into their own files.
-var settingsPassThroughTargets = setOf("amp", "augment", "copilot", "ellipsis", "factory", "gemini", "junie", "kilo", "opencode", "pi", "qoder", "qwen", "windsurf")
+var settingsPassThroughTargets = setOf("vibe", "amp", "augment", "copilot", "ellipsis", "factory", "gemini", "junie", "kilo", "opencode", "pi", "qoder", "qwen", "windsurf")
 
 func overlayKnown(rel string) bool {
 	for _, o := range adapters.KnownOverlays() {

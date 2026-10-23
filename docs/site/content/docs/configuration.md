@@ -173,6 +173,8 @@ Sync skips missing directories. Paths follow the [path rules](#path-semantics). 
 | `environments` | `environments` | `*.yaml` worktree and sandbox setup. |
 | `ignore` | `ignore` | `*.md` context exclusion patterns. |
 
+[Mistral Vibe](@/docs/targets/vibe.md) uses `targets: [vibe]`. Its model and MCP servers share `.vibe/config.toml`; hooks use `.vibe/hooks.toml`.
+
 ## `outputs`
 
 `outputs.<target>.*` overrides where one target writes. An unknown field fails with AAI-004. Each target page lists its keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude-reference.md#claude-settings) and [Codex](@/docs/targets/codex-reference.md#codex-config) also accept settings blocks.

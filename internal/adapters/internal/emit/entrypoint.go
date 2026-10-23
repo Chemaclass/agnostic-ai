@@ -34,6 +34,7 @@ const AgnosticEntryPointPath = ".agnostic-ai/AGNOSTIC_AI.md"
 var entryPointPaths = map[string]string{
 	"claude":      "CLAUDE.md",
 	"codex":       "AGENTS.md",
+	"vibe":        "AGENTS.md",
 	"amp":         "AGENTS.md",
 	"warp":        "AGENTS.md",
 	"cline":       "AGENTS.md",

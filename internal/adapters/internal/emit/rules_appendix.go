@@ -117,6 +117,7 @@ func StripGeneratedAppendices(body string) string {
 var inlineRulesTargets = map[string]bool{
 	"pi":        true,
 	"codex":     true,
+	"vibe":      true,
 	"amp":       true,
 	"warp":      true,
 	"zed":       true,

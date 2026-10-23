@@ -262,8 +262,9 @@ func scanTOMLLine(rest string, multi *string, depth *int) string {
 
 // tomlHeader is one table header line and the key path it names.
 type tomlHeader struct {
-	line int
-	key  []string
+	array bool
+	line  int
+	key   []string
 }
 
 // scanTOMLHeaders lists every table header, skipping brackets inside
@@ -281,7 +282,7 @@ func scanTOMLHeaders(lines []string) ([]tomlHeader, error) {
 				return nil, fmt.Errorf("line %d: %w", i+1, err)
 			}
 			if keys := md.Keys(); len(keys) > 0 {
-				out = append(out, tomlHeader{line: i, key: keys[len(keys)-1]})
+				out = append(out, tomlHeader{line: i, key: keys[len(keys)-1], array: strings.HasPrefix(trimmed, "[[")})
 			}
 			continue
 		}
