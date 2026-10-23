@@ -42,7 +42,7 @@ func nativeRuleSelectorKeys(target string) []string {
 	switch target {
 	case "continue":
 		return []string{"globs", "regex"}
-	case "claude", "cline", "openhands":
+	case "claude", "cline", "openhands", "codebuddy":
 		return []string{"paths"}
 	case "qoder":
 		return []string{"paths", "glob"}

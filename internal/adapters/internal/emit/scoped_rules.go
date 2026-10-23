@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"path/filepath"
 	"slices"
@@ -20,6 +21,8 @@ func scopeDocument(target string) string {
 		return "AGENTS.md"
 	case "gemini":
 		return "GEMINI.md"
+	case "codebuddy":
+		return "CODEBUDDY.md"
 	default:
 		return ""
 	}
@@ -72,6 +75,31 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		if err != nil {
 			return out, nil, err
 		}
+		if target == "codebuddy" {
+			if _, marked := r.Meta["instruction-file"]; marked {
+				out.Rules = append(out.Rules, original)
+				continue
+			}
+			if scope != "" && (r.Meta["enabled"] != nil || r.Meta["alwaysApply"] != nil || r.Meta["paths"] != nil) {
+				if _, paths := original.Meta["paths"]; paths || original.Meta["globs"] != nil {
+					patterns, err := targetScopePatterns(r, scope, target)
+					if err != nil || len(patterns) != 1 || patterns[0] != scope+"/**" {
+						return out, nil, fmt.Errorf("%s: codebuddy: scoped native activation cannot combine portable file selectors; use x-codebuddy.paths for native filters", r.Path)
+					}
+				}
+				original.Meta = maps.Clone(original.Meta)
+				native, _ := original.Meta["x-codebuddy"].(map[string]any)
+				native = maps.Clone(native)
+				if native == nil {
+					native = map[string]any{}
+				}
+				native["instruction-file"] = "CODEBUDDY.md"
+				original.Meta["x-codebuddy"] = native
+				out.Rules = append(out.Rules, original)
+				continue
+			}
+		}
+
 		nativeTargets := original.NativeRuleTargets()
 		if slices.Contains(nativeTargets, target) {
 			if scope != "" {
@@ -223,6 +251,21 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 		}
 		out.Rules = append(out.Rules, r)
+	}
+	if target == "codebuddy" {
+		for _, r := range out.Rules {
+			resolved := ResolveMeta(r.Meta, target)
+			if resolved["instruction-file"] == nil {
+				continue
+			}
+			scope, err := spec.RuleScope(r)
+			if err != nil {
+				return out, nil, err
+			}
+			if path := filepath.Join(scope, "CODEBUDDY.md"); scope != "" && len(grouped[path]) > 0 {
+				return out, nil, fmt.Errorf("%s: codebuddy: native activation conflicts with plain scoped instructions in %s; keep one instruction policy for this file", r.Path, path)
+			}
+		}
 	}
 	vals := VarsFor(cfg, target)
 	for i := range out.Rules {
@@ -506,6 +549,12 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 		}
 		resolved := r
 		resolved.Meta = ResolveMeta(r.Meta, target)
+		if target == "codebuddy" {
+			m := resolved.Meta
+			if m["instruction-file"] != nil || m["enabled"] == false || m["alwaysApply"] == false || m["paths"] != nil || m["globs"] != nil {
+				continue
+			}
+		}
 		scope, err := spec.RuleScope(resolved)
 		if err == nil && scope == "" {
 			if directories, _ := codexGlobDirectories(cfg, target, resolved); len(directories) > 0 {

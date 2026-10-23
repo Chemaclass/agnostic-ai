@@ -66,6 +66,7 @@ var sharedHookEvents = map[string]string{
 // names cover its CLI (run_commands, editor) and its VS Code extension
 // (execute_command, replace_in_file), which run the same script.
 var portableHookTargets = map[string]nativeHookNames{
+	"codebuddy": {events: sharedHookEvents, tools: map[string]string{"shell": "^Bash$", "edit": "^(Edit|Write)$", "read": "^Read$", "web": "^(WebFetch|WebSearch)$", "any": ""}, mcp: "^mcp__%s__.*$"},
 	"claude": {
 		events: sharedHookEvents,
 		tools:  map[string]string{"shell": "Bash", "edit": "Edit|MultiEdit|Write|NotebookEdit", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},

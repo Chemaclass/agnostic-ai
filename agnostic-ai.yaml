@@ -24,6 +24,7 @@ builtins: [handoff, memory]
 # coexist with no collision. Only divergent content at the same path
 # errors, which an `outputs.<target>.file` override would resolve.
 targets:
+  - codebuddy
   - claude
   - codex
   - gemini

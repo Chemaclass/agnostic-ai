@@ -10,6 +10,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+type skillRestrictionValidator interface{ ValidateSkillTools([]spec.Entry) error }
+
 type SkillRenderer interface {
 	SkillMarkdown(skill spec.Entry) string
 }
@@ -55,6 +57,11 @@ func RenderSkillMarkdown(target string, skill spec.Entry, shared bool) (string, 
 		adapter, err := Resolve(target)
 		if err != nil {
 			return "", err
+		}
+		if validator, ok := adapter.(skillRestrictionValidator); ok {
+			if err := validator.ValidateSkillTools([]spec.Entry{skill}); err != nil {
+				return "", err
+			}
 		}
 		skill.Body = skill.BodyFor(target)
 		if renderer, ok := adapter.(SkillRenderer); ok {

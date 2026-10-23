@@ -90,6 +90,7 @@ desktop.ini
 /.augment/
 /.vscode/mcp.json
 /CLAUDE.md
+/.codebuddy/
 /CONVENTIONS.md
 /.aider.conf.yml
 /.github/copilot-instructions.md
@@ -104,6 +105,8 @@ desktop.ini
 # hierarchically; Gemini emits GEMINI.md hierarchically too.
 **/AGENTS.md
 **/GEMINI.md
+**/CODEBUDDY.md
+!docs/site/content/docs/targets/codebuddy.md
 AGENT.md
 WARP.md
 .rules

@@ -21,6 +21,7 @@ var rulesDirImporters = map[string]string{}
 // disagree: when they were separate lists, `import antigravity codex`
 // failed with an error that named antigravity as supported (#905).
 var importSourceNames = []string{
+	"codebuddy",
 	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
 	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "goose", "junie", "kilo", "kiro",
 	"opencode", "openhands", "qoder", "trae", "warp", "windsurf", "zed",
@@ -176,6 +177,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 	switch source {
 	case "all":
 		return importAll(root, cfg)
+	case "codebuddy":
+		return importFromCodebuddy(root, cfg)
 	case "claude":
 		return importFromClaude(root, src, claudeLayoutFor(cfg))
 	case "codex":

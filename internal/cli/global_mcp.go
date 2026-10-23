@@ -13,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -20,6 +21,7 @@ import (
 // the map or table that holds them.
 type globalMCPFile struct {
 	path   string
+	legacy string
 	format string
 	// key is the JSON map (mcpServers) or TOML parent table
 	// (mcp_servers) holding one entry per server name.
@@ -49,7 +51,16 @@ func (g globalTarget) mcpPath(home string) string {
 			return filepath.Join(root, g.mcp.rootFile)
 		}
 	}
-	return g.path(home, g.mcp.path)
+	preferred := g.path(home, g.mcp.path)
+	if g.mcp.legacy != "" {
+		if _, err := os.Lstat(preferred); os.IsNotExist(err) {
+			legacy := g.path(home, g.mcp.legacy)
+			if _, err := os.Lstat(legacy); err == nil {
+				return legacy
+			}
+		}
+	}
+	return preferred
 }
 
 // warnUnsupportedGlobalMCP names the MCP specs a target in the run
@@ -83,6 +94,11 @@ func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entr
 // keys: an equal hand-written server is adopted, a different one is a
 // conflict, and a recorded server the specs dropped is removed.
 func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mcps []spec.Entry, previous map[string]any) (globalSettingsMerge, error) {
+	if target == "codebuddy" {
+		if err := codebuddy.ValidateMCP((spec.Bundle{MCPs: mcps}).For(target).MCPs); err != nil {
+			return globalSettingsMerge{}, err
+		}
+	}
 	sources := map[string]string{}
 	for _, m := range mcps {
 		sources[m.Name] = m.Path
@@ -245,6 +261,9 @@ func canonicalMCPServer(target string, v any) any {
 	}
 	if target == "openhands" {
 		return canonicalOpenHandsServer(out)
+	}
+	if target == "codebuddy" {
+		return out
 	}
 	_, hasCommand := out["command"]
 	_, hasURL := out["url"]

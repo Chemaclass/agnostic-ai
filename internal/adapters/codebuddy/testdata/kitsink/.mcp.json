@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "docs": {
+      "headers": {
+        "Authorization": "Bearer ${DOCS_TOKEN}"
+      },
+      "type": "http",
+      "url": "https://docs.example.com/mcp"
+    },
+    "events": {
+      "type": "sse",
+      "url": "https://docs.example.com/sse"
+    },
+    "local": {
+      "args": [
+        "server.js"
+      ],
+      "command": "node",
+      "defer_loading": true,
+      "env": {
+        "MODE": "test"
+      },
+      "type": "stdio"
+    }
+  }
+}

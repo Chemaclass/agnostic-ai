@@ -21,6 +21,7 @@ import (
 // TestTargetVarPaths_MatchRealEmission keeps this honest: every entry
 // here must be where the adapter actually writes that kind.
 var TargetVarPaths = map[string]map[string]string{
+	"codebuddy": {VarSkillsDir: ".codebuddy/skills", VarAgentsDir: ".codebuddy/agents", VarCommandsDir: ".codebuddy/commands", VarRulesDir: ".codebuddy/rules"},
 	"claude": {
 		VarSkillsDir: ".claude/skills", VarAgentsDir: ".claude/agents",
 		VarCommandsDir: ".claude/commands", VarRulesDir: ".claude/rules",
@@ -122,6 +123,7 @@ var TargetVarPaths = map[string]map[string]string{
 // move with a bare `dir` override, so a spec body that names
 // `{{rules_dir}}` must name the moved path, not the default (#849).
 var dirRelativeVars = map[string]map[string]string{
+	"codebuddy": {VarSkillsDir: "skills", VarAgentsDir: "agents", VarCommandsDir: "commands", VarRulesDir: "rules"},
 	"claude": {
 		VarSkillsDir: "skills", VarAgentsDir: "agents",
 		VarCommandsDir: "commands", VarRulesDir: "rules",

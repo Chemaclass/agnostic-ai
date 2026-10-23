@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // CheckScopePath checks the nearest existing ancestor without scanning a tree.
@@ -91,7 +93,22 @@ func CheckScopedDestination(path, content string, replaced map[string]bool) erro
 		if header.Has(string(data)) {
 			continue
 		}
-		if line, missing := lineMissingFrom(string(data), content); missing {
+		have, want := string(data), content
+		if filepath.Base(path) == "CODEBUDDY.md" {
+			before, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(header.Strip(have)))
+			if err != nil {
+				return fmt.Errorf("parse %s: %w", path, err)
+			}
+			after, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(header.Strip(want)))
+			if err != nil {
+				return fmt.Errorf("parse generated %s: %w", path, err)
+			}
+			if !reflect.DeepEqual(before.Meta, after.Meta) {
+				return fmt.Errorf("%s: native frontmatter differs from the imported specs; import this file before syncing", path)
+			}
+			have, want = before.Body, after.Body
+		}
+		if line, missing := lineMissingFrom(have, want); missing {
 			return fmt.Errorf("%s: %q is in no spec, so sync would drop it; the file changed after import or was never imported: move the text into .agnostic-ai/, or set the file aside with `mv %s %s.before-agnostic` and run `agnostic-ai sync`", p, line, filepath.ToSlash(p), filepath.ToSlash(p))
 		}
 	}

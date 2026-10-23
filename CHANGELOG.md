@@ -11,6 +11,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### CodeBuddy Code
+
+- Sync and import native rules, agents, skills, commands, hooks, settings, and opt-in project MCP servers.
+
 #### Codex
 
 - Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.

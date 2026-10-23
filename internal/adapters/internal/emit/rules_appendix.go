@@ -115,6 +115,7 @@ func StripGeneratedAppendices(body string) string {
 // gets the rules appendix, independent of what entrypoint.go does with
 // the root AGENTS.md junie also happens to share with codex et al.
 var inlineRulesTargets = map[string]bool{
+	"codebuddy": true,
 	"codex":     true,
 	"amp":       true,
 	"warp":      true,
@@ -162,11 +163,12 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 // root AGENTS.md through the same rules engine, and its docs do not
 // exempt AGENTS.md, so one file with every rule could be cut short.
 var entryPointFirstTargets = map[string]bool{
-	"cline":   true,
-	"kiro":    true,
-	"qoder":   true,
-	"kilo":    true,
-	"augment": true,
+	"codebuddy": true,
+	"cline":     true,
+	"kiro":      true,
+	"qoder":     true,
+	"kilo":      true,
+	"augment":   true,
 }
 
 // EntryPointRuleInliner returns the target whose rules block sync

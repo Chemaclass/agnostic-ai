@@ -17,6 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/continueai"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
@@ -869,6 +870,7 @@ func PortableHookWrapperScript(hooks []spec.Entry, target, dir string) (HookScri
 }
 
 var registry = map[string]Adapter{
+	"codebuddy":   codebuddy.New(),
 	"claude":      claude.New(),
 	"codex":       codex.New(),
 	"gemini":      gemini.New(),

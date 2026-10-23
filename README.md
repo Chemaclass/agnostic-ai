@@ -53,6 +53,8 @@ Next steps:
 - [Migration](https://agnostic-ai.org/docs/migration/): review an existing setup before you sync.
 - [Global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration): personal specs in `~/.agnostic-ai/`, written with `agnostic-ai sync --global`.
 
+[CodeBuddy Code](https://agnostic-ai.org/docs/targets/codebuddy/) has a native target for rules, agents, skills, commands, hooks, settings, and opt-in project MCP servers.
+
 ## Daily commands
 
 Run from the directory containing `agnostic-ai.yaml`:

@@ -32,6 +32,7 @@ const AgnosticEntryPointPath = ".agnostic-ai/AGNOSTIC_AI.md"
 // applying (#624). `.rules` is rank 1, so nothing agnostic-ai emits
 // can outrank it. See TestVendorLookupOrder_WinningFileCarriesRules.
 var entryPointPaths = map[string]string{
+	"codebuddy":   "CODEBUDDY.md",
 	"claude":      "CLAUDE.md",
 	"codex":       "AGENTS.md",
 	"amp":         "AGENTS.md",

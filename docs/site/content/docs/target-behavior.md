@@ -29,6 +29,7 @@ Sync copies `.agnostic-ai/AGNOSTIC_AI.md` into each selected tool's instruction 
 
 | Instruction file | Targets |
 |---|---|
+| `CODEBUDDY.md` | [CodeBuddy Code](@/docs/targets/codebuddy.md) |
 | `AGENTS.md` | Codex, Amp, Warp, Cline, Windsurf, Junie, Kiro, Crush, Trae, Jules, Goose, Augment, Qoder, OpenHands, Factory, Kilo, OpenCode |
 | `CLAUDE.md` | Claude Code |
 | `GEMINI.md` | Gemini CLI |

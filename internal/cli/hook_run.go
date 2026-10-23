@@ -688,6 +688,8 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 		return slices.ContainsFunc(sessionEnvKeys, func(k string) bool { return strings.EqualFold(k, key) })
 	})
 	switch target {
+	case "codebuddy":
+		env = append(env, "CODEBUDDY_PROJECT_DIR="+root)
 	case "claude":
 		env = append(env, adapters.HookTargetEnv+"=claude", claudeProjectDirEnv+"="+root)
 	case "gemini":

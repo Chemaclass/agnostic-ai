@@ -22,15 +22,17 @@ var claudeSyntaxOrder = []spec.ClaudeSyntax{spec.ClaudeShell, spec.ClaudeArgumen
 // show them expanding a ClaudeSyntax in that kind's file at project scope.
 var claudeSyntaxExpanders = map[spec.Kind]map[string][]spec.ClaudeSyntax{
 	spec.KindSkill: {
-		"claude": claudeSyntaxOrder,
+		"codebuddy": claudeSyntaxOrder,
+		"claude":    claudeSyntaxOrder,
 	},
 	spec.KindCommand: {
-		"claude":   claudeSyntaxOrder,
-		"opencode": claudeSyntaxOrder,
-		"codex":    {spec.ClaudeArguments, spec.ClaudePositional},
-		"factory":  {spec.ClaudeArguments},
-		"augment":  {spec.ClaudeArguments},
-		"kiro":     {spec.ClaudeArguments},
+		"codebuddy": claudeSyntaxOrder,
+		"claude":    claudeSyntaxOrder,
+		"opencode":  claudeSyntaxOrder,
+		"codex":     {spec.ClaudeArguments, spec.ClaudePositional},
+		"factory":   {spec.ClaudeArguments},
+		"augment":   {spec.ClaudeArguments},
+		"kiro":      {spec.ClaudeArguments},
 	},
 }
 

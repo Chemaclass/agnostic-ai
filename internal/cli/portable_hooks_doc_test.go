@@ -12,6 +12,7 @@ import (
 // portableHookDocNames are the hook reference's names for the targets the
 // portable form translates for, in the table's order.
 var portableHookDocNames = []struct{ target, name string }{
+	{"codebuddy", "CodeBuddy Code"},
 	{"claude", "Claude Code"}, {"codex", "Codex"}, {"gemini", "Gemini"}, {"factory", "Factory"},
 	{"qoder", "Qoder"}, {"openhands", "OpenHands"}, {"goose", "Goose"},
 	{"augment", "Augment"}, {"crush", "Crush"}, {"windsurf", "Windsurf"},

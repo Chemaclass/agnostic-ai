@@ -12,6 +12,7 @@ import (
 
 // goldenTargets lists every built-in adapter covered by snapshot golden tests.
 var goldenTargets = []string{
+	"codebuddy",
 	"aider",
 	"amp",
 	"antigravity",
@@ -90,6 +91,9 @@ func runGolden(t *testing.T, target string) {
 	// configured, a shared AGENTS.md would carry codex's rules block and
 	// the rule files that block replaces would drop out (#1224).
 	config := "version: 1\ntargets: [" + target + "]\n"
+	if target == "codebuddy" {
+		config += "outputs:\n  codebuddy:\n    root-mcp-file: .mcp.json\n"
+	}
 	if target == "zed" {
 		config += "outputs:\n  zed:\n    tasks-file: .zed/tasks.json\n"
 	}

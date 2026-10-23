@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -42,6 +43,23 @@ func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec
 // writeEntryPointFiles is writeAgnosticEntryPoints returning the files it
 // wrote, so the sync report can credit each file to the targets that read it.
 func writeEntryPointFiles(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) ([]entryPointFile, error) {
+	if slices.Contains(targets, "codebuddy") {
+		if source, err := codebuddy.RootInstructionSource(b.For("codebuddy").Rules); err != nil {
+			return nil, err
+		} else if source != "" {
+			preview := adapters.NewSession()
+			preview.StartCapture()
+			body, err := resolveAgnosticBody(preview, false)
+			preview.StopCapture()
+			if err != nil {
+				return nil, err
+			}
+			if _, err := renderEntryPointFiles(cfg, b, targets, body); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	body, err := resolveAgnosticBody(sess, dryRun)
 	if err != nil {
 		return nil, err
@@ -210,6 +228,21 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 				})
 			}
 			content = adapters.AppendTargetOverview(content, adapters.RenderTargetOverview(sections))
+		}
+		if slices.Contains(consumers[path], "codebuddy") {
+			source, err := codebuddy.RootInstructionSource(b.For("codebuddy").Rules)
+			if err != nil {
+				return nil, err
+			}
+			if source != "" {
+				if len(consumers[path]) != 1 {
+					return nil, fmt.Errorf("%s: codebuddy: native instructions in %s conflict with another reader of this path", path, source)
+				}
+				if strings.TrimSpace(content) != "" && !isEntryPointSeed(content) {
+					return nil, fmt.Errorf("%s: codebuddy: native instructions in %s conflict with shared, local, rule, memory, or overview content; keep one instruction policy for this file", path, source)
+				}
+				continue
+			}
 		}
 		// Mirror sess.WriteFile's trailing-newline normalization so Content
 		// equals the bytes on disk and the drift check never false-positives

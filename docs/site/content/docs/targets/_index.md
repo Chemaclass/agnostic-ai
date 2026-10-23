@@ -36,6 +36,7 @@ To ask for full support, [open an issue](https://github.com/Chemaclass/agnostic-
 
 ## Related reference
 
+- [Use CodeBuddy Code](@/docs/targets/codebuddy.md)
 - [Compare two or three targets](@/docs/compare.md)
 - [Select project targets](@/docs/configuration.md#targets)
 - [Understand cross-target behavior](@/docs/target-behavior.md)

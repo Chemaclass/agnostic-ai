@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "echo 'check changes'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ]
+  },
+  "model": "lite",
+  "nativeControl": true,
+  "permissions": {
+    "defaultMode": "plan",
+    "deny": [
+      "Bash(rm *)"
+    ]
+  },
+  "reasoningEffort": "high"
+}

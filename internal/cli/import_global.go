@@ -441,6 +441,9 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 // saved defaults are dropped. target's own environment references read
 // back as `${NAME}`.
 func normalizeImportedMCP(target string, servers map[string]any) {
+	if target == "codebuddy" {
+		normalizeCodebuddyMCP(servers)
+	}
 	for name, raw := range servers {
 		server, ok := raw.(map[string]any)
 		if !ok {

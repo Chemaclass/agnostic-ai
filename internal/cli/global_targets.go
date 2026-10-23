@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codebuddy"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
@@ -117,6 +118,15 @@ type globalTarget struct {
 // config.yaml Continue itself rewrites), and jules (nothing documented
 // at user scope at all).
 var globalTargets = map[string]globalTarget{
+	"codebuddy": {
+		root:         globalPathHome + ".codebuddy",
+		instructions: globalPathHome + ".codebuddy/CODEBUDDY.md",
+		agents:       globalPathHome + ".codebuddy/agents",
+		skills:       globalPathHome + ".codebuddy/skills",
+		hooks:        globalPathHome + ".codebuddy/settings.json", hooksFormat: "claude", hookFoldArgs: true,
+		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: globalPathHome + ".codebuddy/mcp.json", private: true},
+		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
+	},
 	"claude": {
 		rootEnv:      "CLAUDE_CONFIG_DIR",
 		root:         globalPathHome + ".claude",
