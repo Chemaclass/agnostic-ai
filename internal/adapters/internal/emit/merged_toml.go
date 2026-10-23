@@ -26,7 +26,7 @@ func (s *Session) MergeTOMLFile(path string, values []TOMLValue, dryRun bool) er
 	}
 	s.WatchPlannedFile(path)
 	data, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !IsAbsent(err) {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	doc, err := parseTOMLMap(path, data)
