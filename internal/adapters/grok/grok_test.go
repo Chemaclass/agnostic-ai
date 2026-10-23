@@ -67,6 +67,19 @@ func TestWindowsScriptRewrite_RequiresNativeQuoting(t *testing.T) {
 	}
 }
 
+func TestHookFile_RewritesAbsolutePortableDestinationOnce(t *testing.T) {
+	dir := filepath.ToSlash(filepath.Join(t.TempDir(), ".grok", "hook-scripts"))
+	for _, command := range []string{".agnostic-ai/scripts/guard.sh", ".grok/hook-scripts/guard.sh", dir + "/guard.sh"} {
+		data, err := HookFile(spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": command}}, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), `"command": "`+dir+`/guard.sh"`) {
+			t.Errorf("portable destination was not rewritten once: %s", data)
+		}
+	}
+}
+
 func TestHookFile_KeepsTheNativeArgumentPolicy(t *testing.T) {
 	for _, tc := range []struct {
 		name, command string

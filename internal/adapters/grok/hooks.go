@@ -104,7 +104,10 @@ func HookFile(e spec.Entry, scriptDirs ...string) ([]byte, error) {
 			return nil, fmt.Errorf("grok hook %s: args cannot be preserved in Windows PowerShell; use a native wrapper script", e.Name)
 		}
 		rewritten := emit.RewriteGrokHookPath(command, scriptDir, len(args) > 0)
-		rewritten = strings.ReplaceAll(emit.RewriteHookPath(rewritten, target, meta), emit.HookScriptsDir(target)+"/", scriptDir+"/")
+		if rewritten == command && !strings.Contains(command, scriptDir+"/") {
+			rewritten = strings.ReplaceAll(rewritten, emit.HookScriptsDir(target)+"/", scriptDir+"/")
+		}
+		rewritten = emit.RewriteHookPath(rewritten, target, meta)
 		if runtime.GOOS == "windows" {
 			if err := ValidateWindowsScriptRewrite(command, rewritten, scriptDir); err != nil {
 				return nil, fmt.Errorf("grok hook %s: %w", e.Name, err)
