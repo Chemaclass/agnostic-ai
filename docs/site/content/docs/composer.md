@@ -97,7 +97,7 @@ Inspect the outputs for the note, rule, and skill:
 | Claude Code | `CLAUDE.md`, `.claude/rules/commit-subjects.md`, `.claude/skills/change-summary/SKILL.md` |
 | Codex | `AGENTS.md`, `.agents/skills/change-summary/SKILL.md` |
 
-In this fresh two-provider example, `CLAUDE.md` imports `AGENTS.md` with `@AGENTS.md`; follow that reference to find the shared note. Codex's root `AGENTS.md` also contains the rule. Imported setups can keep full Claude text.
+Find the shared note in both `CLAUDE.md` and `AGENTS.md`. Codex's `AGENTS.md` also contains the rule; Claude Code gets it in `.claude/rules/commit-subjects.md`.
 
 For later changes, edit `.agnostic-ai/` and sync again. Home instructions and skills use [global configuration](@/docs/global-configuration.md). Additional settings, hooks, agents, and MCP servers keep their [Claude Code](@/docs/targets/claude-reference.md) or [Codex](@/docs/targets/codex-reference.md) mappings.
 
