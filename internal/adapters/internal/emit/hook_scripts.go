@@ -138,7 +138,10 @@ type neutralHookReference struct {
 }
 
 func neutralHookReferences(command string, literal bool) []neutralHookReference {
-	const prefix = agnosticScriptsDir + "/"
+	return hookPathReferences(command, agnosticScriptsDir+"/", literal)
+}
+
+func hookPathReferences(command, prefix string, literal bool) []neutralHookReference {
 	var refs []neutralHookReference
 	for from := 0; from < len(command); {
 		index := indexHookSegment(command[from:], prefix)

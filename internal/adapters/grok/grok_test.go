@@ -80,6 +80,32 @@ func TestHookFile_RewritesAbsolutePortableDestinationOnce(t *testing.T) {
 	}
 }
 
+func TestHookFile_RelocatesEveryControlledScriptReference(t *testing.T) {
+	for _, tc := range []struct{ dir, command, want string }{
+		{"native/hooks", ".agnostic-ai/scripts/a.sh && .grok/hook-scripts/b.sh", "native/hooks/a.sh && native/hooks/b.sh"},
+		{"/tmp/user/.grok/hook-scripts", "sh /tmp/user/.grok/hook-scripts/a.sh && sh .grok/hook-scripts/b.sh", "sh /tmp/user/.grok/hook-scripts/a.sh && sh /tmp/user/.grok/hook-scripts/b.sh"},
+		{"native/hooks", `.agnostic-ai/scripts/a.sh && sh ".grok/hook-scripts/b.sh" && /explicit/.grok/hook-scripts/c.sh`, `native/hooks/a.sh && sh "native/hooks/b.sh" && /explicit/.grok/hook-scripts/c.sh`},
+	} {
+		data, err := HookFile(spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": tc.command}}, tc.dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Hooks map[string][]struct{ Hooks []struct{ Command string } }
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		groups := doc.Hooks["PreToolUse"]
+		if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+			t.Fatalf("expected one native command: %s", data)
+		}
+		if got := groups[0].Hooks[0].Command; got != tc.want {
+			t.Errorf("command = %q, want %q", got, tc.want)
+		}
+	}
+}
+
 func TestHookFile_KeepsTheNativeArgumentPolicy(t *testing.T) {
 	for _, tc := range []struct {
 		name, command string
