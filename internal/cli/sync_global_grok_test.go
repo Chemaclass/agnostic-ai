@@ -96,6 +96,37 @@ func TestSyncGlobal_GrokNewConfigIsPrivateAndRemoved(t *testing.T) {
 		t.Errorf("created config remains: %v", err)
 	}
 }
+
+func TestSyncGlobal_GrokPlansPrivateConfig(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	t.Setenv("GROK_HOME", "")
+	bundle := spec.Bundle{
+		Settings: []spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "grok-code"}}},
+		MCPs:     []spec.Entry{{Kind: spec.KindMCP, Name: "docs", Meta: map[string]any{"command": "server"}}},
+	}
+	writes, _, err := buildGlobalWrites(home, source, []string{"grok"}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".grok", "config.toml")
+	count := 0
+	for _, write := range writes {
+		if write.path != path {
+			continue
+		}
+		count++
+		if write.mode != 0600 || write.planned == nil {
+			t.Error("combined config must plan a private write with an original snapshot")
+		}
+		if data := string(write.data); !strings.Contains(data, "grok-code") || !strings.Contains(data, "mcp_servers.docs") {
+			t.Error("combined config plan lost the model or server")
+		}
+	}
+	if count != 1 {
+		t.Errorf("combined config writes = %d, want 1", count)
+	}
+}
+
 func TestSyncGlobal_GrokCombinedConfigStopsOnConcurrentEdit(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	t.Setenv("GROK_HOME", "")

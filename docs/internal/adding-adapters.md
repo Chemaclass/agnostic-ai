@@ -66,9 +66,14 @@ var registry = map[string]Adapter{
 
 Add to default targets in `internal/config/config.go` (`DefaultTargets()`) and to the complete target list in `internal/cli/init_interactive.go` (`allTargets`). These two lists are separate; keep them in sync.
 
+- Add native per-kind defaults to `emit.TargetVarPaths` in `internal/adapters/internal/emit/var_tables.go`, plus `dirRelativeVars` when a `dir` override moves them. Use an empty entry when the target has no dedicated paths. `TestTargetVarPaths_CoverEveryRegisteredTarget` and the emission parity tests check this table.
+- If settings merge `x-<target>` fields, register the target in `settingsPassThroughTargets` in `internal/cli/unread_overlays.go`. `TestSettingsPassThroughTargets_MatchAdapters` checks this registration.
+
 ## 3. Document
 
-- Add a row to `docs/site/data/capabilities.toml` (the supported-features table, with `href` pointing at the new page) and write the per-target page at `docs/site/content/docs/targets/<target>.md`.
+- Add a row to `docs/site/data/capabilities.toml` above the generated tool-translations marker, with `href` pointing at the new page under `docs/site/content/docs/targets/`.
+- Add the target ID and label to `docs/site/data/updates.toml`; `TestTargetUpdates_MetadataUsesRegisteredTargetVocabulary` checks the archive filter vocabulary.
+- Give the target page a `## Protected paths` section matching its native enforcement. Start the first paragraph with `Not enforced.` when protection is advisory. `TestDocs_TargetPagesStateProtectedPathEnforcement` checks this contract.
 - Update `README.md` supported-target summary and `docs/site/content/docs/configuration.md`.
 - Add an `[Unreleased]` entry in `CHANGELOG.md`.
 - If config struct fields or tags change, run `go run ./cmd/schemagen`.
@@ -134,6 +139,8 @@ func TestEmit_WritesExpectedFile(t *testing.T) {
 
 Extend `internal/adapters/adapter_test.go` so the registry test sees the new name.
 
+Run `TestOutputKeys_DocumentedKeysMoveTheirOutput` in `tests/integration/output_key_parity_test.go` for documented output paths. Add a target-specific `probeKinds` entry when a shared field writes another kind, such as settings through `conf-file`. Shared root instruction files are emitted centrally: test those overrides through the CLI, or link to the shared entry-point documentation from the target page.
+
 ## 7. Unsupported kinds
 
 Leave unsupported types out of `caps.Supports`. `emit.ReportUnsupported` warns or returns an error according to the user's `on-unsupported` setting.
@@ -173,8 +180,10 @@ An adapter follows the vendor's configuration format at the time it is written. 
   `scripts/docfetch.sh <target>` once and commit the new rows it adds to
   `scripts/target-audit/sources.lock`.
 - `scripts/target-facts.sh <target>` prints what the repo currently
-  claims (capabilities, default paths, package doc, the
-  `targets/_index.md` rows and the target's page). Compare that output with the vendor documentation.
+  claims: capabilities, default paths, package comments and target guidance.
+  Capabilities can use compact or multiline declarations. Output defaults
+  include constants and inline calls across non-test files in the adapter package.
+  Compare that output with the vendor documentation.
 
 The `target-audit` skill runs that comparison across every registered
 target in parallel and files an issue for each confirmed difference. Run it after

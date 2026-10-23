@@ -15,8 +15,6 @@ import (
 	"strings"
 	"unicode"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -75,7 +73,7 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 // reference too: import cannot tell a token from a setting, and a spec
 // is a file meant to be committed (#1619). So does each credential in a
 // `url` or `args` URL.
-func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, error) {
+func writeMCPYAMLs(target string, servers map[string]any, dstDir string, orders ...mcpSpecOrderHints) (int, error) {
 	for _, raw := range servers {
 		if server, ok := raw.(map[string]any); ok {
 			if target == "factory" {
@@ -90,7 +88,7 @@ func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, e
 		}
 	}
 	refs := referenceMCPLiterals(servers)
-	count, err := writeMCPSpecs(servers, dstDir)
+	count, err := writeMCPSpecs(servers, dstDir, orders...)
 	if err != nil {
 		return count, err
 	}
@@ -108,7 +106,7 @@ func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, e
 // shape (`url` present → `type: http`) so re-emit picks the same
 // branch in adapter buildMCPEntry helpers and the round-trip
 // converges.
-func writeMCPSpecs(servers map[string]any, dstDir string) (int, error) {
+func writeMCPSpecs(servers map[string]any, dstDir string, orders ...mcpSpecOrderHints) (int, error) {
 	names := make([]string, 0, len(servers))
 	for k := range servers {
 		names = append(names, k)
@@ -130,7 +128,7 @@ func writeMCPSpecs(servers map[string]any, dstDir string) (int, error) {
 				doc["type"] = "http"
 			}
 		}
-		raw, err := yaml.Marshal(doc)
+		raw, err := marshalMCPSpec(doc, name, orders)
 		if err != nil {
 			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
 		}

@@ -246,6 +246,12 @@ name = "Grok Build"
 href = "@/docs/targets/grok.md"
 statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
 
+[[targets]]
+id = "pi"
+name = "Pi"
+href = "@/docs/targets/pi.md"
+statuses = ["no", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
+
 # Native tool names from the adapter capability tables.
 
 [tool_translations.augment]

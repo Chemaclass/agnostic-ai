@@ -36,6 +36,8 @@ set-up-this-tool = "@/docs/targets/codex.md#first-rule"
 
 Write project instructions and rules under `.agnostic-ai/`. Sync gives Codex `AGENTS.md`, native skill folders, and any configured agents, hooks, MCP servers, or settings. The same sources can also feed Claude Code.
 
+Using this provider through Composer? Follow the [Composer setup guide](@/docs/composer.md).
+
 ## First rule
 
 Install the client using the [official setup guide](https://learn.chatgpt.com/docs/codex/cli), then open your project in it.

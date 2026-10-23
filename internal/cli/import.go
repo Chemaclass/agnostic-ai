@@ -23,7 +23,7 @@ var rulesDirImporters = map[string]string{}
 var importSourceNames = []string{
 	"aider", "amp", "antigravity", "augment", "claude", "cline", "codex", "continue",
 	"copilot", "crush", "cursor", "ellipsis", "factory", "gemini", "goose", "grok", "junie", "kilo", "kiro",
-	"opencode", "openhands", "qoder", "trae", "warp", "windsurf", "zed",
+	"opencode", "openhands", "pi", "qoder", "trae", "warp", "windsurf", "zed",
 }
 
 // importSources lists every source the import command accepts, used in
@@ -190,6 +190,8 @@ func runImportSource(root, source string, cfg *config.Config) error {
 		return importFromCline(root, src)
 	case "aider":
 		return importFromAider(root, src)
+	case "pi":
+		return importFromPi(root, cfg)
 	case "amp":
 		return importFromAmp(root, src)
 	case "warp":

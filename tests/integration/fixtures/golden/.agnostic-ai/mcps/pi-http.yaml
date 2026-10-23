@@ -1,0 +1,9 @@
+name: pi-remote
+targets: [pi]
+type: http
+url: https://example.test/mcp
+headers:
+  Authorization: Bearer ${PI_TOKEN}
+disabled: false
+x-pi:
+  timeout: 45

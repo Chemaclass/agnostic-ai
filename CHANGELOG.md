@@ -7,7 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Global import keeps existing MCP specs when native server names differ only by case.
-
+- Target audit facts include compact capability declarations and output defaults from sibling adapter files.
 - Landing examples show the selected source's output, with labeled excerpts for shared files and the current Codex command format.
 - The “Why agnostic-ai?” guide explains when to use the tool, with shorter examples and verified connection formats.
 
@@ -22,6 +22,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Codex
 
 - Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
+
+#### Pi
+
+- Sync and import Pi instructions, skills, prompt commands, MCP servers, and model settings.
 
 #### Junie
 
@@ -42,6 +46,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Antigravity
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+
+### Site
+
+- Composer users can set up shared instructions, rules, and skills for its Claude Code and Codex providers.
 
 ## v0.87.0 - 2026-10-22
 

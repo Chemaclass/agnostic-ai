@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -124,6 +125,15 @@ var globalTargets = map[string]globalTarget{
 		hooksDir: globalPathHome + ".grok/hooks", hookScriptsDir: globalPathHome + ".grok/hook-scripts",
 		mcp:      globalMCPFile{path: globalPathHome + ".grok/config.toml", format: "toml", key: "mcp_servers", private: true, validate: grok.ValidateMCPs},
 		settings: globalSettingsFile{path: globalPathHome + ".grok/config.toml", format: grokTOMLFormat, private: true, model: "models.default", reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
+	},
+	"pi": {
+		rootEnv: "PI_CODING_AGENT_DIR", root: globalPathHome + ".pi/agent",
+		instructions: globalPathHome + ".pi/agent/AGENTS.md",
+		skills:       globalPathHome + ".pi/agent/skills",
+		mcp:          globalMCPFile{path: globalPathHome + ".pi/agent/mcp.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{path: globalPathHome + ".pi/agent/settings.json", format: "json", model: "defaultModel", effort: "defaultThinkingLevel", effortLevel: pi.Adapter{}.SettingsEffortLevels,
+			reserved: map[string]string{"defaultProjectTrust": "Pi project trust stays with the user"},
+		},
 	},
 	"claude": {
 		rootEnv:      "CLAUDE_CONFIG_DIR",

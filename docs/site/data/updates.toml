@@ -120,3 +120,7 @@ label = "Ellipsis"
 [[targets]]
 id = "grok"
 label = "Grok Build"
+
+[[targets]]
+id = "pi"
+label = "Pi"
