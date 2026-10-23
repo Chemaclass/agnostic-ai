@@ -89,7 +89,7 @@ Ignore files, review configuration, environments, plugins, credentials, sessions
 
 Not enforced. CodeBuddy's `protected` paths have no registered enforcement mapping in this adapter. Use native permission rules for the operations you want to deny.
 
-## Output keys
+## Config keys
 
 | Output key | Default |
 |---|---|
