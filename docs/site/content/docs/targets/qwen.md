@@ -59,7 +59,7 @@ Agents get YAML frontmatter and a prompt body. Portable tool names map to Qwen n
 
 Skills keep their bundled files. Set `x-qwen.model` on a skill to select its native model; the shared skill `model` field is not promoted. Commands use Markdown with optional `description` frontmatter. Qwen interprets `{{args}}`, `!{shell}`, and `@{path}` in command bodies; sync keeps that text as written. Nested command paths become colon-separated command names.
 
-MCP servers share `settings.json` under `mcpServers`. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `httpUrl`, and SSE uses `url`. MCP timeouts are milliseconds. Environment placeholders stay literal until Qwen resolves them. See the [native MCP reference](https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/).
+MCP servers share `settings.json` under `mcpServers`. Stdio uses `command`, `args`, `env`, and optional `cwd`; HTTP uses `httpUrl`, and SSE uses `url`. MCP timeouts are milliseconds. Servers marked `disabled: true` are omitted from this output because Qwen ignores that per-server field. A same-name server in existing or inherited configuration can still load; use native `mcp.excluded` to block it. Environment placeholders stay literal until Qwen resolves them. See the [native MCP reference](https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/).
 
 Hooks share `settings.json` under `hooks`. Portable `on`, `match`, and `decision: stdout` map to Qwen events, tool names, and blocking decisions. Hook timeouts are seconds. Sync quotes portable arguments into the shell command because Qwen has no separate `args` field. Portable hooks that exit 2 block pre-tool, prompt-submit, and stop events; after-tool and after-edit stop further execution. Session-start and session-end keep their native lifecycle behavior. Project import preserves native command, HTTP, and prompt handlers and their metadata.
 
@@ -74,6 +74,16 @@ url: https://mcp.example.com/mcp
 ```
 
 Replace the example URL with your server's endpoint. After sync, `.qwen/settings.json` contains `mcpServers.docs-search.httpUrl` with that URL.
+
+To exclude a server inherited from user or extension configuration, put this in a settings spec:
+
+```yaml
+x-qwen:
+  mcp:
+    excluded: [server-name]
+```
+
+Qwen combines this native exclusion list across trusted settings scopes. Sync keeps existing exclusion entries and other MCP settings.
 
 ## Limits and trust
 

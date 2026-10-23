@@ -382,3 +382,4 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: global commands and ignore files are outside the current global target table. Project command support does not imply global command sync.
 - trap: `hooks.enabled`, `hooks.disabled` and `hooks.notifications` are skipped metadata in the released registry. Top-level `disableAllHooks` is the active control.
 - decision: native skill `model` round-trips under x-qwen and is applied as modelOverride. Shared skill model is not promoted.
+- trap: `isMcpServerDisabled` checks `mcp.excluded` and extension preferences, not a settings server's `disabled` field, despite manager comments mentioning it. Portable disabled servers are omitted.

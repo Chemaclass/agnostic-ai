@@ -6,6 +6,7 @@ import (
 )
 
 func buildMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.DropMCPDisabled(target, mcps, "omitted from this output only; Qwen ignores per-server disabled; use x-qwen.mcp.excluded in settings to block inherited servers")
 	out := map[string]any{}
 	for _, e := range mcps {
 		if e.Name == "" {

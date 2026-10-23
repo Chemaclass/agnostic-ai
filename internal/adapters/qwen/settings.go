@@ -2,6 +2,7 @@ package qwen
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -52,8 +53,9 @@ func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun 
 		if len(keys) == 0 {
 			continue
 		}
+		mergeMCPExclusions(sess, keys, out, dryRun)
 		emit.MergeEntriesOf(keys, "mcpServers")
-		if err := sess.MergeJSONFileNested(out, keys, []string{"model", "permissions", "hooks"}, dryRun); err != nil {
+		if err := sess.MergeJSONFileNested(out, keys, []string{"model", "permissions", "hooks", "mcp"}, dryRun); err != nil {
 			return err
 		}
 	}
@@ -69,4 +71,38 @@ func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun 
 		}
 	}
 	return nil
+}
+
+func mergeMCPExclusions(sess *emit.Session, keys map[string]any, path string, dryRun bool) {
+	mcp, ok := keys["mcp"].(map[string]any)
+	if !ok {
+		return
+	}
+	mcp = maps.Clone(mcp)
+	keys["mcp"] = mcp
+	raw, held := mcp["excluded"]
+	if !held {
+		return
+	}
+	var planned []any
+	switch list := raw.(type) {
+	case []any:
+		planned = list
+	case []string:
+		for _, value := range list {
+			planned = append(planned, value)
+		}
+	default:
+		return
+	}
+	existing, _ := sess.ExistingJSONObject(path, "mcp", dryRun)["excluded"].([]any)
+	merged, claims := emit.MergeOwnedLists(path, []string{"mcp"}, map[string][]any{"excluded": existing}, map[string][]any{"excluded": planned})
+	switch {
+	case len(merged["excluded"]) == 0:
+		mcp["excluded"] = emit.RemoveJSONKey
+	case len(claims["excluded"]) == 0:
+		mcp["excluded"] = emit.CarriedJSONValue(merged["excluded"])
+	default:
+		mcp["excluded"] = emit.ClaimedJSONItems(merged["excluded"], claims["excluded"])
+	}
 }

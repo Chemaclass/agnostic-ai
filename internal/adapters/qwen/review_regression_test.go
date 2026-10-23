@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -158,6 +159,74 @@ func TestEmit_OrdinaryPortableHooksProduceNativeBlockingReplies(t *testing.T) {
 		}
 		if native.WrapsCommand(target) {
 			t.Errorf("%s cannot block and must retain its native lifecycle behavior", on)
+		}
+	}
+}
+
+func TestEmit_DisabledMCPDoesNotBecomeLive(t *testing.T) {
+	testutil.TempCwd(t)
+	bundle := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindMCP, Name: "disabled", Meta: map[string]any{"command": "must-not-start", "disabled": true}},
+		{Kind: spec.KindMCP, Name: "active", Meta: map[string]any{"command": "keep-active"}},
+	})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	servers := qwenSettings(t)["mcpServers"].(map[string]any)
+	if _, present := servers["disabled"]; present {
+		t.Errorf("Qwen ignores per-server disabled; this entry would start: %#v", servers["disabled"])
+	}
+	if servers["active"].(map[string]any)["command"] != "keep-active" {
+		t.Errorf("enabled peer lost: %#v", servers)
+	}
+}
+
+func TestEmit_NativeMCPExclusionsPreserveExistingRules(t *testing.T) {
+	testutil.TempCwd(t)
+	if err := os.MkdirAll(".qwen", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(defaultSettingsFile, []byte(`{"mcp":{"excluded":["user-block"],"toolIdleTimeoutMs":1234},"mcpServers":{"inherited":{"command":"external-server"}}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "native", Meta: map[string]any{"x-qwen": map[string]any{"mcp": map[string]any{"excluded": []any{"inherited"}}}}}})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	doc := qwenSettings(t)
+	mcp := doc["mcp"].(map[string]any)
+	if mcp["toolIdleTimeoutMs"] != float64(1234) {
+		t.Errorf("native MCP sibling lost: %#v", mcp)
+	}
+	excluded := mcp["excluded"].([]any)
+	if len(excluded) != 2 || excluded[0] != "user-block" || excluded[1] != "inherited" {
+		t.Errorf("existing exclusion lost: %#v", excluded)
+	}
+	if doc["mcpServers"].(map[string]any)["inherited"] == nil {
+		t.Errorf("unowned native server was removed: %#v", doc)
+	}
+	source := bundle.Settings[0].Meta["x-qwen"].(map[string]any)["mcp"].(map[string]any)["excluded"]
+	if !reflect.DeepEqual(source, []any{"inherited"}) {
+		t.Errorf("source exclusion metadata mutated: %#v", source)
+	}
+}
+
+func TestEmit_DisabledMCPCoverageExplainsScopeLimit(t *testing.T) {
+	testutil.TempCwd(t)
+	var notes strings.Builder
+	previous := emit.Warner
+	emit.Warner = &notes
+	t.Cleanup(func() { emit.Warner = previous })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindMCP, Name: "disabled", Meta: map[string]any{"command": "must-not-start", "disabled": true}}})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	for _, want := range []string{"omitted from this output only", "x-qwen.mcp.excluded"} {
+		if !strings.Contains(notes.String(), want) {
+			t.Errorf("disabled coverage lacks %q: %s", want, notes.String())
 		}
 	}
 }

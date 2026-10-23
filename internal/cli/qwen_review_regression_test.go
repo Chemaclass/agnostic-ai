@@ -99,3 +99,100 @@ func TestQwen_GlobalNativeSkillModelIsPreserved(t *testing.T) {
 		t.Errorf("preserved native model reported unsupported: %s\n%s", out, warnings)
 	}
 }
+
+func TestQwen_GlobalDisabledMCPIsRemovedWithoutDroppingEnabledPeer(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	disabled := filepath.Join(source, "mcps/disabled.yaml")
+	mustWriteGlobalTest(t, disabled, "name: disabled\ncommand: must-not-start\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps/active.yaml"), "name: active\ncommand: keep-active\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("initial sync: %v\n%s", err, warnings)
+	}
+	mustWriteGlobalTest(t, disabled, "name: disabled\ncommand: must-not-start\ndisabled: true\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("disable sync: %v\n%s", err, warnings)
+	}
+	servers := readGlobalJSON(t, filepath.Join(home, ".qwen/settings.json"))["mcpServers"].(map[string]any)
+	if _, present := servers["disabled"]; present {
+		t.Errorf("disabled server remains live: %#v", servers["disabled"])
+	}
+	if servers["active"].(map[string]any)["command"] != "keep-active" {
+		t.Errorf("enabled peer lost: %#v", servers)
+	}
+}
+
+func TestQwen_GlobalNativeMCPExclusionsPreserveUserSettings(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(home, ".qwen/settings.json")
+	mustWriteGlobalTest(t, settings, `{"mcp":{"toolIdleTimeoutMs":1234},"mcpServers":{"inherited":{"command":"external-server"}}}`)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings/exclude.yaml"), "x-qwen:\n  mcp:\n    excluded: [inherited]\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	doc := readGlobalJSON(t, settings)
+	mcp := doc["mcp"].(map[string]any)
+	if mcp["toolIdleTimeoutMs"] != float64(1234) || mcp["excluded"].([]any)[0] != "inherited" {
+		t.Errorf("native exclusion or sibling lost: %#v", mcp)
+	}
+	if doc["mcpServers"].(map[string]any)["inherited"] == nil {
+		t.Errorf("unowned native server was removed: %#v", doc)
+	}
+	if err := os.Remove(filepath.Join(source, "settings/exclude.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, settings); got != `{"mcp":{"toolIdleTimeoutMs":1234},"mcpServers":{"inherited":{"command":"external-server"}}}` {
+		t.Errorf("native exclusion removal changed user settings: %s", got)
+	}
+}
+
+func TestQwen_ProjectNativeMCPExclusionsReleaseOnlyOwnedEntries(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	settings := filepath.Join(dir, ".qwen/settings.json")
+	writeFile(t, settings, `{"mcp":{"excluded":["user-block"],"toolIdleTimeoutMs":1234}}`)
+	source := filepath.Join(dir, ".agnostic-ai/settings/exclude.yaml")
+	writeFile(t, source, "x-qwen:\n  mcp:\n    excluded: [inherited]\n")
+	for _, args := range [][]string{{"sync"}, {"sync", "--check"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.Remove(source); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, out)
+	}
+	mcp := readGlobalJSON(t, settings)["mcp"].(map[string]any)
+	excluded := mcp["excluded"].([]any)
+	if len(excluded) != 1 || excluded[0] != "user-block" || mcp["toolIdleTimeoutMs"] != float64(1234) {
+		t.Errorf("removing source changed user MCP settings: %#v", mcp)
+	}
+}
+
+func TestQwen_ProjectDisabledMCPIsRemovedWithoutDroppingEnabledPeer(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	disabled := filepath.Join(dir, ".agnostic-ai/mcps/disabled.yaml")
+	writeFile(t, disabled, "name: disabled\ncommand: must-not-start\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/mcps/active.yaml"), "name: active\ncommand: keep-active\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("initial sync: %v\n%s", err, out)
+	}
+	writeFile(t, disabled, "name: disabled\ncommand: must-not-start\ndisabled: true\n")
+	for _, args := range [][]string{{"sync"}, {"sync", "--check"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	servers := readGlobalJSON(t, filepath.Join(dir, ".qwen/settings.json"))["mcpServers"].(map[string]any)
+	if _, present := servers["disabled"]; present {
+		t.Errorf("disabled server remains live: %#v", servers["disabled"])
+	}
+	if servers["active"].(map[string]any)["command"] != "keep-active" {
+		t.Errorf("enabled peer lost: %#v", servers)
+	}
+}
