@@ -45,9 +45,11 @@ type globalSyncOptions struct {
 }
 
 type globalState struct {
-	Version int                 `json:"version"`
-	Files   []string            `json:"files"`
-	Agents  map[string][]string `json:"agents,omitempty"`
+	TOMLArrays map[string]map[string]tomlArrayLayout `json:"tomlArrays,omitempty"`
+	HookPaths  map[string]string                     `json:"hookPaths,omitempty"`
+	Version    int                                   `json:"version"`
+	Files      []string                              `json:"files"`
+	Agents     map[string][]string                   `json:"agents,omitempty"`
 	// Skills records the files each target placed under its skills
 	// directory. Several targets share ~/.agents/skills/, so a sync of
 	// one must keep what the others placed there.
@@ -776,6 +778,9 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
+	return buildGlobalWritesForPlatform(home, source, targets, intro, b, old, agentErr, warn, onUnsupported, runtime.GOOS)
+}
+func buildGlobalWritesForPlatform(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) ([]globalWrite, globalState, error) {
 	for _, target := range targets {
 		if validate := globalTargets[target].mcp.validate; validate != nil {
 			if err := validate(b.For(target).MCPs); err != nil {
@@ -783,7 +788,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 	}
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	if next.TOMLArrays == nil {
+		next.TOMLArrays = map[string]map[string]tomlArrayLayout{}
+	}
+	if next.HookPaths == nil {
+		next.HookPaths = map[string]string{}
+	}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -1030,7 +1041,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		for _, hook := range hooks {
-			if target == "copilot" {
+			if target == "copilot" || g.hooksFormat == "vibe-toml" {
 				hook.Meta = adapters.ResolveMeta(hook.Meta, target)
 			}
 			if event, _ := hook.Meta["event"].(string); event == "" {
@@ -1045,9 +1056,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			for _, command := range globalHookCommands(hook.Meta["command"]) {
 				commands = append(commands, sourceCommand{command, literal})
 			}
-			if target == "codex" || target == "copilot" {
+			if target == "codex" || target == "copilot" || target == "vibe" {
 				if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
-					commands = append(commands, sourceCommand{windows, false})
+					windowsLiteral := false
+					if target == "vibe" {
+						windowsLiteral = literal
+					}
+					commands = append(commands, sourceCommand{windows, windowsLiteral})
 				}
 			}
 			for _, command := range commands {
@@ -1072,6 +1087,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				return nil, next, err
 			}
 			hooks = append(append([]spec.Entry{}, hooks...), spec.Entry{Meta: map[string]any{"event": g.bridgeEvent, "command": command}})
+		}
+		if strings.HasSuffix(g.hooksFormat, "-toml") {
+			continue
 		}
 		merge, err := mergeGlobalHooks(path, g.hooksFormat, hookTarget, hooks, old.Hooks[target], next.Hooks[target], old.HookContainers[target], old.legacyHookContainers, warn)
 		if next.HookContainers == nil {
@@ -1121,21 +1139,21 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	// User settings and MCP servers merge last: a file may also hold
 	// hooks or agent efforts this run changed, so each edit starts from
 	// that planned content.
-	grokReads := map[string]*diskSnapshot{}
+	initialTOML := map[string]*diskSnapshot{}
 	if slices.Contains(targets, "grok") {
 		g := globalTargets["grok"]
 		for _, path := range []string{g.path(home, g.settings.path), g.mcpPath(home), old.SettingsPaths["grok"], old.MCPPaths["grok"]} {
 			if path == "" {
 				continue
 			}
-			if grokReads[path] != nil {
+			if initialTOML[path] != nil {
 				continue
 			}
 			snapshot, err := snapshotFile(path)
 			if err != nil {
 				return nil, next, err
 			}
-			grokReads[path] = snapshot
+			initialTOML[path] = snapshot
 		}
 	}
 	placeEdit := func(path string, m globalSettingsMerge, mode fs.FileMode) error {
@@ -1159,8 +1177,8 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		w := &writes[i]
 		if w.planned == nil {
-			snapshot, ok := grokReads[path]
-			if !ok {
+			snapshot := initialTOML[path]
+			if snapshot == nil {
 				var err error
 				snapshot, err = snapshotFile(path)
 				if err != nil {
@@ -1197,17 +1215,44 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if emptied[path] {
 			return []byte("{}\n")
 		}
-		if snapshot := grokReads[path]; snapshot != nil {
-			if snapshot.data == nil {
+		if initial, ok := initialTOML[path]; ok {
+			if initial.data == nil {
 				return []byte{}
 			}
-			return snapshot.data
+			return initial.data
 		}
 		return nil
 	}
 	for _, target := range targets {
 		current = target
 		g := globalTargets[target]
+		if g.mcp.format == "toml-array" || strings.HasSuffix(g.hooksFormat, "-toml") {
+			paths := []string{old.SettingsPaths[target], old.MCPPaths[target], old.HookPaths[target]}
+			if g.settings.path != "" {
+				paths = append(paths, g.path(home, g.settings.path))
+			}
+			if g.mcp.path != "" {
+				paths = append(paths, g.mcpPath(home))
+			}
+			if g.hooks != "" {
+				paths = append(paths, g.path(home, g.hooks))
+			}
+			for _, path := range paths {
+				if path == "" || initialTOML[path] != nil {
+					continue
+				}
+				snapshot, err := snapshotFile(path)
+				if err != nil {
+					return nil, next, err
+				}
+				initialTOML[path] = snapshot
+				if target == "vibe" && (path == g.mcpPath(home) || path == old.MCPPaths[target] || path == g.path(home, g.settings.path) || path == old.SettingsPaths[target]) {
+					if err := validateVibeMCPDocument(path, snapshot.data); err != nil {
+						return nil, next, err
+					}
+				}
+			}
+		}
 		want := globalSettingsFor(target, g, b.Settings)
 		var wantRules map[string][]string
 		if g.settings.permissionLists {
@@ -1263,11 +1308,145 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				next.Settings[target] = m.owned
 				next.SettingsPaths[target] = path
 			}
-			if err := placeEdit(path, m, g.settings.fileMode()); err != nil {
+			mode := g.settings.fileMode()
+			if g.mcp.private && path == g.mcpPath(home) {
+				mode = 0o600
+			}
+			if err := placeEdit(path, m, mode); err != nil {
 				return nil, next, err
 			}
 		}
-		if g.mcp.path != "" {
+
+		if g.mcp.format == "toml-array" || strings.HasSuffix(g.hooksFormat, "-toml") {
+			planArray := func(path, parent string, want map[string]map[string]any, previous map[string]any) (globalSettingsMerge, error) {
+				var snapshot *diskSnapshot
+				base := baseFor(path)
+				if i, ok := seen[path]; ok {
+					snapshot = writes[i].planned
+				}
+				if snapshot == nil {
+					snapshot = initialTOML[path]
+				}
+				if snapshot == nil {
+					var err error
+					snapshot, err = snapshotFile(path)
+					if err != nil {
+						return globalSettingsMerge{}, err
+					}
+				}
+				if base == nil {
+					base = snapshot.data
+				}
+				key := path + "\x00" + parent
+				current, _, err := scanTOMLArray(path, base, parent)
+				if err != nil {
+					return globalSettingsMerge{}, err
+				}
+				if target == "vibe" && parent == "mcp_servers" {
+					want, err = reconcileVibeMCPNames(path, want, current, previous)
+					if err != nil {
+						return globalSettingsMerge{}, err
+					}
+				}
+				for id, desired := range want {
+					if have, ok := current[id]; ok && sameSetting(adapters.CanonicalUserArrayRecord(target, parent, have.value), adapters.CanonicalUserArrayRecord(target, parent, desired)) {
+						want[id] = have.value
+					}
+				}
+				rebased, err := rebaseTOMLArrayLayouts(path, parent, snapshot.data, base, next.TOMLArrays[key], want, previous, false)
+				if err != nil {
+					return globalSettingsMerge{}, err
+				}
+				m, layouts, err := mergeTOMLArray(path, base, parent, want, previous, rebased)
+				if err != nil {
+					return m, err
+				}
+				if target == "vibe" && parent == "mcp_servers" {
+					final := m.data
+					if final == nil {
+						final = base
+					}
+					if err := validateVibeMCPDocument(path, final); err != nil {
+						return m, err
+					}
+				}
+				if len(m.owned) > 0 && slices.Contains(old.Files, path) {
+					next.Files = append(next.Files, path)
+				}
+				if len(layouts) > 0 {
+					next.TOMLArrays[key] = layouts
+				} else {
+					delete(next.TOMLArrays, key)
+				}
+				if err := placeEdit(path, m, 0o600); err != nil {
+					return m, err
+				}
+				if i, ok := seen[path]; ok {
+					writes[i].planned = snapshot
+				}
+				return m, nil
+			}
+			if g.mcp.format == "toml-array" {
+				path := g.mcpPath(home)
+				previous := old.MCP[target]
+				if moved := old.MCPPaths[target]; moved != "" && moved != path {
+					if _, err := planArray(moved, g.mcp.key, nil, previous); err != nil {
+						return nil, next, err
+					}
+					previous = nil
+				}
+				records, err := adapters.UserMCPArrayRecords(target, b.MCPs)
+				if err != nil {
+					return nil, next, err
+				}
+				want, err := namedTOMLRecords(path, records)
+				if err != nil {
+					return nil, next, err
+				}
+				m, err := planArray(path, g.mcp.key, want, previous)
+				if err != nil {
+					return nil, next, err
+				}
+				if len(m.owned) > 0 {
+					next.MCP[target] = m.owned
+					next.MCPPaths[target] = path
+				}
+			}
+			if strings.HasSuffix(g.hooksFormat, "-toml") {
+				path := g.path(home, g.hooks)
+				previous, err := namedTOMLAnyRecords(path, old.Hooks[target]["records"])
+				if err != nil {
+					return nil, next, err
+				}
+				if moved := old.HookPaths[target]; moved != "" && moved != path {
+					if _, err := planArray(moved, "hooks", nil, previous); err != nil {
+						return nil, next, err
+					}
+					previous = nil
+				}
+				records, err := adapters.UserHookArrayRecordsForPlatform(target, b.HooksFor(target), filepath.Join(filepath.Dir(path), "hooks"), platform)
+				if err != nil {
+					return nil, next, err
+				}
+				want, err := namedTOMLRecords(path, records)
+				if err != nil {
+					return nil, next, err
+				}
+				m, err := planArray(path, "hooks", want, previous)
+				if err != nil {
+					return nil, next, err
+				}
+				next.Hooks[target] = map[string][]any{}
+				delete(next.HookPaths, target)
+				for _, name := range slices.Sorted(maps.Keys(m.owned)) {
+					next.Hooks[target]["records"] = append(next.Hooks[target]["records"], m.owned[name])
+				}
+				if len(m.owned) > 0 {
+					next.HookPaths[target] = path
+				}
+			}
+		}
+		if g.mcp.path != "" && g.mcp.format != "toml-array" {
 			path := g.mcpPath(home)
 			previous := old.MCP[target]
 			if moved := old.MCPPaths[target]; moved != "" && moved != path {

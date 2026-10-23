@@ -10,51 +10,69 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// syncedAgentTree syncs one agent spec with frontmatter field to every
-// target and returns the files sync wrote, without the sources.
-func syncedAgentTree(t *testing.T, field string) map[string]string {
+func syncedAgentTree(t *testing.T, target, field string) (map[string]string, error) {
 	t.Helper()
 	dir := testutil.TempCwd(t)
 	silence(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(adapters.Names(), ", ")+"]\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+target+"]\n")
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Reviews a diff.\n"+field+"\n---\n\nReview the diff.\n")
-	mustSync(t)
+	_, err := runCLI(t, "sync", "--gitignore=off")
 	tree := snapshotTree(t, dir)
 	for rel := range tree {
-		if strings.HasPrefix(rel, ".agnostic-ai"+string(filepath.Separator)) {
+		if strings.HasPrefix(rel, ".agnostic-ai"+string(filepath.Separator)) || rel == "agnostic-ai.yaml" {
 			delete(tree, rel)
 		}
 	}
-	return tree
+	return tree, err
 }
 
-// An agent's can: syncs to every target exactly as the tools: it stands
-// for, so a spec can switch forms without a file changing.
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
-	cases := []struct{ can, tools string }{
-		{"can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]"},
-		{"can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]"},
-		{"can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'"},
-		{"can: []", "tools: []"},
+	cases := []struct{ name, can, tools, vibeError string }{
+		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", ""},
+		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", ""},
+		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", ""},
+		{"empty", "can: []", "tools: []", "no supported allowed tools"},
+		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", ""},
 	}
-	for _, tc := range cases {
-		t.Run(tc.can, func(t *testing.T) {
-			neutral := syncedAgentTree(t, tc.can)
-			claude := syncedAgentTree(t, tc.tools)
-			if len(neutral) == 0 {
-				t.Fatal("sync wrote nothing")
-			}
-			for rel, want := range claude {
-				if got, ok := neutral[rel]; !ok || got != want {
-					t.Errorf("%s differs:\n%s\nwant:\n%s", rel, got, want)
-				}
-			}
-			for rel := range neutral {
-				if _, ok := claude[rel]; !ok {
-					t.Errorf("can: wrote %s, which tools: does not", rel)
-				}
+	for _, target := range adapters.Names() {
+		t.Run(target, func(t *testing.T) {
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					neutral, neutralErr := syncedAgentTree(t, target, tc.can)
+					legacy, legacyErr := syncedAgentTree(t, target, tc.tools)
+					if target == "vibe" && tc.vibeError != "" {
+						for _, err := range []error{neutralErr, legacyErr} {
+							if err == nil || !strings.Contains(err.Error(), tc.vibeError) {
+								t.Errorf("expected equivalent rejection containing %q, got %v", tc.vibeError, err)
+							}
+						}
+						for _, tree := range []map[string]string{neutral, legacy} {
+							for path := range tree {
+								if path != ".gitignore" {
+									t.Errorf("rejected restriction wrote native output: %s", path)
+								}
+							}
+						}
+						return
+					}
+					if neutralErr != nil || legacyErr != nil {
+						t.Fatalf("expected both forms to sync: can=%v; tools=%v", neutralErr, legacyErr)
+					}
+
+					for rel, want := range legacy {
+						if got, ok := neutral[rel]; !ok || got != want {
+							t.Errorf("%s differs:\n%s\nwant:\n%s", rel, got, want)
+						}
+					}
+					for rel := range neutral {
+						if _, ok := legacy[rel]; !ok {
+							t.Errorf("can: wrote %s, which tools: does not", rel)
+						}
+					}
+				})
 			}
 		})
 	}

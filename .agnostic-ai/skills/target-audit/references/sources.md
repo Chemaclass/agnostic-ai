@@ -378,6 +378,15 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: Gitignored project rule discovery, project config scope, native agent tool names and effort values, skill invocation fields, hook shell and exit semantics, MCP transport and enabled fields, GROK_HOME paths, model table ownership.
 - trap: project rules must be visible to Git. Keep this target explicit and require gitignore.commit instructions, without changing a user's ignore or trust policy.
 
+## vibe
+
+- docs: https://docs.mistral.ai/vibe/code/cli/configuration-reference · https://docs.mistral.ai/vibe/code/cli/agents · https://docs.mistral.ai/vibe/code/cli/skills · https://docs.mistral.ai/vibe/code/cli/hooks
+- changelog: https://github.com/mistralai/mistral-vibe/releases
+- code: https://github.com/mistralai/mistral-vibe/tree/v3.0.2/vibe/core (release commit 36f7b3a4e10440e90f98080492530b8f4d46960d)
+- watch: VIBE_HOME, trusted project loading, AGENTS.md hierarchy, agent_type and enabled_tools, skill flags, config.toml mcp_servers arrays and auth, hooks.toml JSON decisions and Windows shell selection.
+- trap: empty enabled_tools enables every tool; skills allowed-tools does not enforce restrictions; hook exit 2 is a failure, not a denial.
+- decision: native hooks only (pre_tool, post_tool, post_agent); global TOML arrays are owned by native name and retain unrelated text.
+
 ## pi
 
 - docs: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/configuration.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/prompt-templates.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/security.md · https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/configuration.md (released discovery and trust baseline) · https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md (released transport and enabled contract)

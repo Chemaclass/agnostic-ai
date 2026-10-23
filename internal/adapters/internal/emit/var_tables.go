@@ -29,6 +29,7 @@ var TargetVarPaths = map[string]map[string]string{
 		VarCommandsDir: ".claude/commands", VarRulesDir: ".claude/rules",
 		VarMCPFile: ".mcp.json",
 	},
+	"vibe": {VarSkillsDir: ".vibe/skills", VarAgentsDir: ".vibe/agents", VarMCPFile: ".vibe/config.toml"},
 	"codex": {
 		VarSkillsDir: ".agents/skills", VarAgentsDir: ".codex/agents",
 		VarMCPFile: ".codex/config.toml",
@@ -168,6 +169,9 @@ func VarsFor(cfg *config.Config, target string) map[string]string {
 			}
 			out[name] = OutputRulesDir(cfg, target, fallback)
 		case VarMCPFile:
+			if target == "vibe" {
+				fallback = OutputConfFile(cfg, target, fallback)
+			}
 			out[name] = OutputMCPFile(cfg, target, fallback)
 		}
 	}

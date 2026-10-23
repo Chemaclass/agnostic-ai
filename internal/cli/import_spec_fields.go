@@ -42,6 +42,7 @@ func (f specFields) expresses(key string) bool {
 
 // Skill field sets match each target's native frontmatter.
 var (
+	vibeSkillFields      = fieldsOf("name", "description", "license", "compatibility", "metadata", "allowed-tools", "disable-model-invocation", "user-invocable")
 	defaultSkillFields   = fieldsOf("name", "description", "license")
 	opencodeSkillFields  = specFields{keys: fieldsOf("name", "description", "license", "disable-model-invocation", "metadata").keys, preserve: preserveOpencodeSkillPolicy}
 	copilotSkillFields   = fieldsOf("name", "description", "license", "argument-hint", "disable-model-invocation")

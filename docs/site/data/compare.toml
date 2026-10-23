@@ -1163,6 +1163,49 @@
     paths = []
 
 [[targets]]
+  id = "vibe"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".vibe/agents/test-writer.toml"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".vibe/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".vibe/hooks.toml"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".vibe/config.toml"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".vibe/skills/deploy/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".vibe/config.toml"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
   id = "grok"
 
   [[targets.kinds]]
