@@ -139,8 +139,7 @@ go build ./cmd/agnostic-ai
 
 Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install
 the browser matching the pinned Playwright version with
-`npx playwright install chromium` from `ui/`. CI installs it with its
-system dependencies before running both suites.
+`npx playwright install chromium` from `ui/`. CI installs the pinned browser before running both suites.
 
 ## Source layout
 

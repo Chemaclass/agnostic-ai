@@ -89,12 +89,21 @@ func (s editFileSnapshot) replace(path string, data []byte, modes ...os.FileMode
 		_ = f.Close()
 		return editFileSnapshot{}, fmt.Errorf("%s: %w", path, err)
 	}
+	identity, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return editFileSnapshot{}, fmt.Errorf("%s: inspect pending edit identity: %w", path, err)
+	}
 	if err := f.Close(); err != nil {
 		return editFileSnapshot{}, fmt.Errorf("%s: %w", path, err)
 	}
 	info, err := os.Lstat(f.Name())
 	if err != nil {
 		return editFileSnapshot{}, fmt.Errorf("%s: inspect pending edit: %w", path, err)
+	}
+	// Windows Lstat resolves identity lazily, so compare while the temp path exists.
+	if !os.SameFile(identity, info) {
+		return editFileSnapshot{}, fmt.Errorf("%s: pending edit changed before replacement", path)
 	}
 	if err := s.check(path); err != nil {
 		return editFileSnapshot{}, err

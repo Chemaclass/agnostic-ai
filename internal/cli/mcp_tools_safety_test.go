@@ -38,7 +38,7 @@ func TestMCPServer_ResolvesWorkingDirectoryFromSelectedRoot(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("MCP_TEST_SUBDIR", "nested")
 	t.Setenv("workspaceFolder", "ignored-environment-value")
-	for _, cwd := range []string{"", "nested", "${workspaceFolder}/nested", "${MCP_TEST_SUBDIR}"} {
+	for _, cwd := range []string{"", "nested", "${workspaceFolder}/nested", "${MCP_TEST_SUBDIR}", "nested/../nested", "${workspaceFolder}/nested/../nested", filepath.ToSlash(root) + "/nested"} {
 		t.Run(cwd, func(t *testing.T) {
 			server, err := mcpServer(spec.Entry{Meta: map[string]any{"command": "unused", "cwd": cwd}}, root)
 			if err != nil {

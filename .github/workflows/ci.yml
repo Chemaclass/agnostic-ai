@@ -555,7 +555,7 @@ jobs:
         run: go build -o agnostic-ai ./cmd/agnostic-ai
 
       - name: Install browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Fixture browser tests
         env:

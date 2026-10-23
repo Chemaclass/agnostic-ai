@@ -191,6 +191,9 @@ func mcpServerContext(ctx context.Context, e spec.Entry, root string) (mcpprobe.
 	} else if !filepath.IsAbs(s.Cwd) {
 		s.Cwd = filepath.Join(root, s.Cwd)
 	}
+	if s.Cwd != "" {
+		s.Cwd = filepath.Clean(s.Cwd)
+	}
 	if args, ok := e.Meta["args"].([]any); ok {
 		for _, a := range args {
 			if v, ok := a.(string); ok {
