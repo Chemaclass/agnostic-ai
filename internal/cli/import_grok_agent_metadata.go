@@ -3,6 +3,9 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -17,6 +20,9 @@ func importGrokAgentMetadata(data []byte) ([]byte, error) {
 	var meta map[string]any
 	if err := mapping.Decode(&meta); err != nil {
 		return nil, errors.New("invalid Grok agent frontmatter")
+	}
+	if err := validateGrokMetadataKeys(meta); err != nil {
+		return nil, err
 	}
 	if raw, present := meta["mcpServers"]; present {
 		refs, ok := raw.([]any)
@@ -80,6 +86,40 @@ func importGrokAgentMetadata(data []byte) ([]byte, error) {
 		}
 	}
 	return data, nil
+}
+
+func validateGrokMetadataKeys(value any) error {
+	if field := grokNonStringKeyPath(value, ""); field != "" {
+		return fmt.Errorf("%s has non-string YAML keys; quote the keys before importing", field)
+	}
+	return nil
+}
+
+func grokNonStringKeyPath(value any, path string) string {
+	switch value := value.(type) {
+	case map[any]any:
+		if path == "" {
+			return "metadata"
+		}
+		return path
+	case map[string]any:
+		for _, key := range slices.Sorted(maps.Keys(value)) {
+			next := key
+			if path != "" {
+				next = path + "." + key
+			}
+			if field := grokNonStringKeyPath(value[key], next); field != "" {
+				return field
+			}
+		}
+	case []any:
+		for i, item := range value {
+			if field := grokNonStringKeyPath(item, path+"["+strconv.Itoa(i)+"]"); field != "" {
+				return field
+			}
+		}
+	}
+	return ""
 }
 
 func validateGrokRetainedCredentials(entries map[string]any) error {

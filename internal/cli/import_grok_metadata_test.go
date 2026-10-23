@@ -16,6 +16,7 @@ func TestImportGrok_RejectsInlineAgentCredentialsBeforeWritingSource(t *testing.
 		{"ACP MCP env", "mcpServers:\n  - docs:\n      command: server\n      args: []\n      env: [{name: API_TOKEN, value: synthetic-private-value}]\n"},
 		{"MCP argument", "mcpServers:\n  - docs:\n      command: server\n      args: [--api-token, synthetic-private-value]\n"},
 		{"inline hook env", "hooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo safe\n          env: {API_TOKEN: synthetic-private-value}\n"},
+		{"mixed-key inline hook env", "hooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo safe\n          env: {1: harmless, API_TOKEN: synthetic-private-value}\n"},
 		{"inline hook URL", "hooks:\n  PreToolUse:\n    - hooks:\n        - type: http\n          url: https://example.test/hook?token=synthetic-private-value\n"},
 		{"malformed metadata", "mcpServers: [synthetic-private-value\n"},
 	} {
@@ -38,6 +39,31 @@ func TestImportGrok_RejectsInlineAgentCredentialsBeforeWritingSource(t *testing.
 				}
 			})
 		}
+	}
+}
+
+func TestImportGrok_RejectsRetainedSkillCredentialsBeforeWritingSource(t *testing.T) {
+	for _, scope := range []string{"", "backend"} {
+		t.Run(scope, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [grok]\n")
+			path := filepath.Join(scope, ".grok/skills/review/SKILL.md")
+			body := "---\nname: review\ndescription: Review\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo safe\n          env: {1: harmless, API_TOKEN: synthetic-private-value}\n---\nReview.\n"
+			writeFile(t, path, body)
+			output, err := runCLI(t, "import", "grok")
+			if err == nil {
+				t.Error("unsafe skill metadata imported")
+			} else if strings.Contains(output+err.Error(), "synthetic-private-value") || !strings.Contains(err.Error(), path) {
+				t.Error("import error must identify the native path without metadata values")
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/skills", scope, "review/SKILL.md")); !os.IsNotExist(err) {
+				t.Error("unsafe skill source was written")
+			}
+			if got := readFile(t, path); got != body {
+				t.Error("native skill changed")
+			}
+		})
 	}
 }
 

@@ -115,6 +115,16 @@ func importGrokSkillName(data []byte) ([]byte, error) {
 	if !ok {
 		return data, nil
 	}
+	var meta map[string]any
+	if err := mapping.Decode(&meta); err != nil {
+		return nil, fmt.Errorf("invalid Grok skill frontmatter")
+	}
+	if err := validateGrokMetadataKeys(meta); err != nil {
+		return nil, err
+	}
+	if err := validateGrokRetainedCredentials(map[string]any{"inline": meta}); err != nil {
+		return nil, err
+	}
 	if name := mappingValue(mapping, "name"); name != nil {
 		setMappingNode(xTargetMapping(mapping, "x-grok"), "name", name)
 		removeMappingKey(mapping, "name")
