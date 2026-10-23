@@ -75,7 +75,7 @@ func rewriteHookPathPrefix(command, prefix, dir string, directPath bool, literal
 	for _, ref := range hookPathReferences(command, prefix, len(literal) > 0 && literal[0]) {
 		out.WriteString(command[from:ref.start])
 		directory := strings.TrimRight(dir, "/")
-		needsQuote := strings.IndexFunc(directory, func(r rune) bool { return !isShellWordRune(r) && !(directPath && r == '~') }) >= 0 || directPath && strings.HasPrefix(directory, "~")
+		needsQuote := strings.IndexFunc(directory, func(r rune) bool { return !isShellWordRune(r) && (!directPath || r != '~') }) >= 0 || directPath && strings.HasPrefix(directory, "~")
 		if (len(literal) == 0 || !literal[0]) && needsQuote {
 			switch ref.quote {
 			case '"':
