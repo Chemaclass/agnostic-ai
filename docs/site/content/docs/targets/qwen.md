@@ -127,4 +127,4 @@ agnostic-ai sync --check -t qwen
 
 Import reads root and scoped instructions, agents, skill folders and resources, Markdown and legacy TOML commands, `.qwenignore`, and settings, hooks, and MCP servers in `.qwen/settings.json`. Native fields stay under `x-qwen`; HTTP `httpUrl` becomes portable `type: http`, while SSE `url` becomes `type: sse`. Imported legacy commands emit as Markdown.
 
-Import stops when retained agent, skill, hook, or settings metadata contains a credential. References such as `${TEAM_API_KEY}` stay literal in settings. References in inline agent or skill credential fields are rejected because those fields do not use the settings resolver.
+Import stops if an agent, skill, hook, or setting contains a credential. Settings can refer to environment variables with `$NAME` or `${NAME}`. Qwen does not expand those references in an agent's or skill's credential fields, so import rejects them there.
