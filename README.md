@@ -48,6 +48,7 @@ Open the generated files and follow any instruction-file references to find your
 
 Next steps:
 
+- [Check your specs](https://agnostic-ai.org/docs/cli-reference/check/): `validate` and `lint` check the built-in hooks selected tools receive.
 - [Set up your project](https://agnostic-ai.org/docs/getting-started/): share one note and update your tools together.
 - [Installation](https://agnostic-ai.org/docs/installation/): other ways to install.
 - [Migration](https://agnostic-ai.org/docs/migration/): review an existing setup before you sync.
