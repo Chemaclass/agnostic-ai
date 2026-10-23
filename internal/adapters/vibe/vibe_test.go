@@ -28,7 +28,7 @@ func TestEmit_NativeSixKinds(t *testing.T) {
 		".vibe/agents/reviewer.toml":  {`agent_type = "subagent"`, `enabled_tools = ["read_file"]`, "Review changes"},
 		".vibe/skills/check/SKILL.md": {"name: check", "disable-model-invocation: true", "Run checks"},
 		".vibe/config.toml":           {`active_model = "devstral"`, `[[mcp_servers]]`, `transport = "streamable-http"`, `[mcp_servers.auth]`},
-		".vibe/hooks.toml":            {`type = "pre_tool"`, `match = "bash"`, `AGNOSTIC_AI_TARGET`},
+		".vibe/hooks.toml":            {`type = "pre_tool"`, `match = "bash"`, `command =`},
 		"rules.md":                    {"Keep changes small"},
 	} {
 		data, err := os.ReadFile(path)
@@ -46,6 +46,18 @@ func TestEmit_NativeSixKinds(t *testing.T) {
 			}
 		}
 	}
+	data, err := os.ReadFile(".vibe/hooks.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hooks struct{ Hooks []struct{ Command string } }
+	if _, err := toml.Decode(string(data), &hooks); err != nil {
+		t.Fatal(err)
+	}
+	if len(hooks.Hooks) != 1 || DeclaredHookCommand(hooks.Hooks[0].Command) != "echo '{}'" {
+		t.Fatalf("native hook command or target wrapper changed: %s", data)
+	}
+
 }
 func TestEmit_UnknownAgentToolFailsClosed(t *testing.T) {
 	testutil.TempCwd(t)
@@ -78,6 +90,10 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 	}
 	dir := testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{Outputs: map[string]config.Output{"vibe": {RulesFile: "rules.md"}}}, false); err != nil {
+		t.Fatal(err)
+	}
+	// Fixed golden bytes use POSIX wrapping; Windows emission is checked separately.
+	if err := emitHooks(emit.NewSession(), kitSinkBundle().Hooks, ".vibe/hooks.toml", ".vibe/hooks", false, "linux"); err != nil {
 		t.Fatal(err)
 	}
 	testutil.AssertGoldenTree(t, dir, filepath.Join(cwd, "testdata", "kitsink"))

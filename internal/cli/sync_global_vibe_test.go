@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -40,7 +41,7 @@ func TestSyncGlobal_VibeComposesNativeArraysAndSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Fatal("private config mode widened")
 	}
 	for _, f := range []string{"settings/model.yaml", "mcps/docs.yaml", "hooks/guard.yaml"} {
@@ -81,7 +82,7 @@ func TestSyncGlobal_VibeDryRunNoopAndRootMoveProtectUserEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Errorf("created config mode = %v", info.Mode().Perm())
 	}
 	if _, _, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
