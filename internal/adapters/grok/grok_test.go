@@ -233,6 +233,32 @@ func TestVisibility_RejectsOutputsOutsideTheWorktree(t *testing.T) {
 		}
 	}
 }
+
+func TestVisibility_RejectsIgnoredLexicalPathThroughInsideLink(t *testing.T) {
+	root := testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git: %v %s", err, out)
+	}
+	if err := os.MkdirAll("visible", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("visible", ".grok"); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.WriteFile(".gitignore", []byte("/.grok/\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	rules := []spec.Entry{{Kind: spec.KindRule, Name: "policy", Body: "Keep it local."}}
+	for _, dir := range []string{".grok/rules", filepath.Join(root, ".grok/rules")} {
+		err := validateRulesVisible(rules, visibleConfig(), emit.RulesDirOpts{Dir: dir})
+		if err == nil || !strings.Contains(err.Error(), "rejects ignored output") {
+			t.Errorf("ignored native .grok path %s was not refused: %v", dir, err)
+		}
+	}
+	if _, err := os.Stat("visible/rules/policy.md"); !os.IsNotExist(err) {
+		t.Error("ignored rule was written through the link")
+	}
+}
 func TestEmit_CustomPathsMoveEverySurface(t *testing.T) {
 	testutil.TempCwd(t)
 	cfg := visibleConfig()

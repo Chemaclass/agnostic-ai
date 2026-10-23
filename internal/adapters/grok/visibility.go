@@ -79,7 +79,11 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 		if err != nil || emit.ScopeEscapesRoot(rel) {
 			return fmt.Errorf("%s: grok rule must stay inside the Git worktree", path)
 		}
-		cmd := exec.Command("git", "-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "--", filepath.ToSlash(rel))
+		nativeRel, err := lexicalVisibilityPath(path, root, layout.Prefix)
+		if err != nil || emit.ScopeEscapesRoot(nativeRel) {
+			return fmt.Errorf("%s: grok rule must stay inside the Git worktree", path)
+		}
+		cmd := exec.Command("git", "-C", scratch, "-c", "core.excludesFile=", "check-ignore", "--no-index", "--", filepath.ToSlash(nativeRel))
 		output, err := cmd.CombinedOutput()
 		if err == nil && len(output) > 0 {
 			return fmt.Errorf("%s: grok instruction visibility check rejects ignored output; remove the matching root or global ignore pattern, or re-include its parent directories and file, then sync again", path)
@@ -90,6 +94,22 @@ func validateRulesVisible(rules []spec.Entry, cfg *config.Config, opts emit.Rule
 		}
 	}
 	return nil
+}
+
+func lexicalVisibilityPath(path, root, prefix string) (string, error) {
+	if !filepath.IsAbs(path) {
+		return filepath.Join(filepath.FromSlash(prefix), path), nil
+	}
+	lexicalRoot := root
+	for ancestor := filepath.Dir(path); ; ancestor = filepath.Dir(ancestor) {
+		if resolved, err := config.ResolveSourceAlias(ancestor); err == nil && filepath.Clean(resolved) == root {
+			lexicalRoot = ancestor
+		}
+		if filepath.Dir(ancestor) == ancestor {
+			break
+		}
+	}
+	return filepath.Rel(lexicalRoot, path)
 }
 
 func resolveVisibilityPath(path string) (string, error) {
