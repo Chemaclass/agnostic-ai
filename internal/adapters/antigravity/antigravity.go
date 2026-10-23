@@ -113,10 +113,9 @@
 // keep their behavior.
 //
 // MCP servers land in `.agents/mcp_config.json`, a single `mcpServers`
-// object (antigravity.google/docs/mcp?tab=ide). Remote servers require the
-// `serverUrl` field: "Legacy fields like `url` or `httpUrl` are not
-// supported," so this adapter cannot reuse the shared
-// `emit.MCPSchemaServersMap` builder, which emits `url` (see mcp.go).
+// object (antigravity.google/docs/mcp?tab=ide). This adapter emits
+// `serverUrl` for remote servers; Antigravity also accepts `url` as an
+// alias, but not `httpUrl` (see mcp.go).
 // stdio servers carry `command`, `args`, `env`, and `cwd`; remote
 // servers add `headers`; both accept `disabled` under that literal
 // name, unlike codex and kilo which map it onto their own

@@ -80,7 +80,7 @@ The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers impo
 Each tool supports a different set of spec kinds. The [capability matrix](https://agnostic-ai.org/docs/targets/#capability-matrix) shows which tools get what, and the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths. Supported tools include Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and Pi.
 
 - **Rules, agents, skills, and commands**: instructions in one [spec format](https://agnostic-ai.org/docs/spec-format/).
-- **Hooks**: checks that run before or after a tool acts. See [hooks](https://agnostic-ai.org/docs/spec-format/hooks/).
+- **Hooks**: checks and observers that run before or after a tool acts. See [hooks](https://agnostic-ai.org/docs/spec-format/hooks/).
 - **MCP servers**: connections to outside services, with credentials read from environment variables. See [MCP servers](https://agnostic-ai.org/docs/spec-format/mcps/).
 - **Capabilities**: what an agent may read, run, or call, mapped to each tool's own names. See [capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities). [OpenCode agents](https://agnostic-ai.org/docs/targets/opencode/) with a `can` or `tools` list keep project permission limits from `opencode.json`, including native V2 rules, and keep their rule order through import and sync.
 - **Model roles**: name a model choice once for every tool. See [models](https://agnostic-ai.org/docs/configuration/#models).

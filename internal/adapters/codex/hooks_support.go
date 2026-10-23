@@ -10,9 +10,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// hookEvents are the events learn.chatgpt.com/docs/hooks lists.
+// hookEvents includes the model observers released in Codex 0.164.0.
 var hookEvents = []string{
 	"PreToolUse", "PostToolUse",
+	"PreModelRequest", "PostModelRequest",
 	"PermissionRequest",
 	"UserPromptSubmit",
 	"SessionStart", "SessionEnd", "Stop",

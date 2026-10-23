@@ -32,6 +32,17 @@
           }
         ]
       }
+    ],
+    "PreModelRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=codex; echo observe",
+            "commandWindows": "echo observe"
+          }
+        ]
+      }
     ]
   }
 }

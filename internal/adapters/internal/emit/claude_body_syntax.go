@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -18,8 +19,7 @@ const CommandSkillPreamble = "This skill is a command. Run it only when the user
 var claudeSyntaxOrder = []spec.ClaudeSyntax{spec.ClaudeShell, spec.ClaudeArguments, spec.ClaudePositional}
 
 // claudeSyntaxExpanders lists, per spec kind, the targets whose own docs
-// show them expanding a ClaudeSyntax in that kind's file. Every other
-// target reads it as plain text.
+// show them expanding a ClaudeSyntax in that kind's file at project scope.
 var claudeSyntaxExpanders = map[spec.Kind]map[string][]spec.ClaudeSyntax{
 	spec.KindSkill: {
 		"claude": claudeSyntaxOrder,
@@ -48,6 +48,21 @@ func ExpandsClaudeSyntax(target string, kind spec.Kind, syntax spec.ClaudeSyntax
 // in a command written as a skill only get the note, since its preamble
 // carries the arguments.
 func ReportClaudeBodySyntax(target string, kind spec.Kind, entries []spec.Entry, mode string) error {
+	return reportClaudeBodySyntax(target, kind, entries, mode, false)
+}
+
+// ReportGlobalSkillSyntax accounts for Kilo inline shell placeholders at trusted user paths.
+func ReportGlobalSkillSyntax(target string, entries []spec.Entry, mode, home, dir string) error {
+	trusted := false
+	if target == "kilo" && filepath.IsAbs(home) && filepath.IsAbs(dir) {
+		for _, root := range []string{".kilo", ".agents", ".claude"} {
+			trusted = trusted || filepath.Clean(dir) == filepath.Join(home, root, "skills")
+		}
+	}
+	return reportClaudeBodySyntax(target, spec.KindSkill, entries, mode, trusted)
+}
+
+func reportClaudeBodySyntax(target string, kind spec.Kind, entries []spec.Entry, mode string, inlineShell bool) error {
 	if mode == OnUnsupportedSilent {
 		return nil
 	}
@@ -58,7 +73,7 @@ func ReportClaudeBodySyntax(target string, kind spec.Kind, entries []spec.Entry,
 		var locations []string
 		count, failAt := 0, ""
 		for _, e := range entries {
-			lines := claudeSyntaxLines(e, target, syntax)
+			lines := claudeSyntaxLines(e, target, syntax, inlineShell)
 			if len(lines) == 0 {
 				continue
 			}
@@ -85,10 +100,13 @@ func argumentsCarried(e spec.Entry, kind spec.Kind, syntax spec.ClaudeSyntax) bo
 	return kind == spec.KindSkill && syntax != spec.ClaudeShell && strings.HasPrefix(e.Body, CommandSkillPreamble)
 }
 
-func claudeSyntaxLines(e spec.Entry, target string, syntax spec.ClaudeSyntax) []string {
+func claudeSyntaxLines(e spec.Entry, target string, syntax spec.ClaudeSyntax, inlineShell bool) []string {
 	var out []string
 	for _, use := range spec.FindClaudeSyntax(e.Body) {
 		if use.Syntax == syntax && use.ReachesTarget(target) {
+			if inlineShell && syntax == spec.ClaudeShell && !use.ShellBlock {
+				continue
+			}
 			out = append(out, e.BodyLocation(use.Line))
 		}
 	}

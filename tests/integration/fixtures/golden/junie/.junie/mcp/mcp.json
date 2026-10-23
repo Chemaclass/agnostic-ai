@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "junie-timeout": {
+      "timeout": 900000,
+      "type": "http",
+      "url": "https://example.test/mcp"
+    }
+  }
+}

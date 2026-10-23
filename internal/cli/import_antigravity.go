@@ -51,11 +51,10 @@ const antigravityMCPKey = "mcpServers"
 // remote's `headers`, and the shared `disabled` flag
 // (antigravity.google/docs/mcp?tab=ide). `serverUrl` is also a known field
 // but renames to the spec's generic `url` before writing, since
-// buildMCPServer reads `url`, not `serverUrl` (the vendor's own doc
-// states "Legacy fields like `url` or `httpUrl` are not supported" for
-// Antigravity itself, so the vendor name only ever exists in the raw
-// JSON). Any other documented field (`authProviderType`, `oauth`,
-// `disabledTools`, same page) or any field the vendor adds next is
+// buildMCPServer reads the spec's `url` and emits `serverUrl`. Antigravity
+// also accepts `url` as an alias, but not `httpUrl`. Any other documented
+// field (`authProviderType`, `oauth`, `disabledTools`, same page) or any
+// field the vendor adds next is
 // preserved under `x-antigravity` instead of dropped, the read side of
 // the emit.MergeCustomTargetMeta passthrough mcp.go's buildMCPServer
 // writes on the way out, so a sync -> import -> sync cycle converges in

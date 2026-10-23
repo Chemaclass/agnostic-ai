@@ -11,9 +11,33 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Codex
+
+- Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
+
 #### Pi
 
 - Sync and import Pi instructions, skills, prompt commands, MCP servers, and model settings.
+
+#### Junie
+
+- MCP request timeouts survive sync and native project import in milliseconds.
+
+#### Crush
+
+- Skills shared with Goose sync without collisions; commands stay skipped until Crush has its own skill folder.
+
+#### Goose
+
+- Skills shared with Crush keep neutral invocation fields and sync without collisions.
+
+#### Kilo
+
+- Global sync accepts inline shell placeholders in trusted user skills while checking argument placeholders and Claude code blocks.
+
+#### Antigravity
+
+- Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
 
 ## v0.87.0 - 2026-10-22
 

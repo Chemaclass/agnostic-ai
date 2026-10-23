@@ -44,6 +44,7 @@ type MCPOption func(*mcpOptions)
 type mcpOptions struct {
 	cursorExtras     bool
 	claudeExtras     bool
+	junieTimeout     bool
 	kiroExtras       bool
 	vscodeExtras     bool
 	factoryExtras    bool
@@ -90,6 +91,11 @@ func WithCopilotCLIMCPExtras() MCPOption {
 // (target-audit 2026-09-19, #895).
 func WithCursorMCPExtras() MCPOption {
 	return func(o *mcpOptions) { o.cursorExtras = true }
+}
+
+// WithJunieMCPTimeout preserves request timeouts in milliseconds.
+func WithJunieMCPTimeout() MCPOption {
+	return func(o *mcpOptions) { o.junieTimeout = true }
 }
 
 // WithClaudeMCPExtras keeps Claude-only fields out of other targets' MCP configs.
@@ -335,6 +341,11 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	}
 	if roots := BuildRoots(e.Meta); len(roots) > 0 {
 		out["roots"] = roots
+	}
+	if o.junieTimeout {
+		if timeout, ok := IntField(ResolveMeta(e.Meta, "junie"), "timeout"); ok {
+			out["timeout"] = timeout
+		}
 	}
 	if o.claudeExtras {
 		if timeout, ok := IntField(e.Meta, "timeout"); ok {

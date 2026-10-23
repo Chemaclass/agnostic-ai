@@ -256,10 +256,7 @@ func TestEmit_MCP_StdioWritesCwd(t *testing.T) {
 	}
 }
 
-// antigravity.google/docs/mcp documents `headers` for remote servers
-// (issue #556). The remote branch must keep using `serverUrl`, never
-// `url`: the vendor doc states legacy `url` / `httpUrl` "are not
-// supported."
+// Keep the emitted `serverUrl` spelling, though Antigravity also accepts `url`.
 func TestEmit_MCP_RemoteWritesHeadersAndKeepsServerURL(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
@@ -287,7 +284,7 @@ func TestEmit_MCP_RemoteWritesHeadersAndKeepsServerURL(t *testing.T) {
 		}
 	}
 	if strings.Contains(got, `"url":`) {
-		t.Errorf("remote servers must use serverUrl, not the unsupported url key, got:\n%s", got)
+		t.Errorf("remote server output must keep serverUrl, got:\n%s", got)
 	}
 }
 

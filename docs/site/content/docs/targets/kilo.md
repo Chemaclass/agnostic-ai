@@ -49,6 +49,12 @@ kilo.jsonc                         # instructions, mcp, and permission maps (mer
 <details>
 <summary>Field mappings, discovery, and compatibility</summary>
 
+### Shell commands in global skills
+
+`sync --global` writes skills to `~/.kilo/skills/`. Kilo supports inline `` !`command` `` placeholders there and in its trusted `~/.agents/skills/` and `~/.claude/skills/` directories ([shell commands in skills](https://kilo.ai/docs/customize/skills#shell-commands-in-skills)). Kilo requests approval when loading the skill; `KILO_DISABLE_SKILL_SHELL` disables execution. Project and remote skills do not execute these commands. An arbitrary output directory does not become trusted because its source is global.
+
+The sync check accepts only inline shell placeholders at those user paths. `$ARGUMENTS`, positional arguments, and Claude's ` ```! ` blocks remain unsupported. Placeholders inside ordinary code blocks are examples.
+
 ### Agents
 
 (`.kilo/agents/<name>.md`):

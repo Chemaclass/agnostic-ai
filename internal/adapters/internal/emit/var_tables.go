@@ -111,7 +111,7 @@ var TargetVarPaths = map[string]map[string]string{
 	// and have no per-kind directory to point at.
 	"aider": {},
 	"jules": {},
-	"goose": {VarAgentsDir: ".agents/agents"},
+	"goose": {VarAgentsDir: ".agents/agents", VarSkillsDir: ".agents/skills"},
 	// ellipsis writes one review file and no per-kind directory.
 	"ellipsis": {},
 }

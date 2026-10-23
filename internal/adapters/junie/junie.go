@@ -99,7 +99,7 @@
 //
 // MCP servers write to `.junie/mcp/mcp.json` using the standard
 // `mcpServers` map schema (the same shape Claude Code and Cursor use),
-// minus two keys no Junie page documents. The vendor's own structure
+// with per-server request timeout in milliseconds, minus two keys no Junie page documents. The vendor's own structure
 // block for that file carries `command`/`args`/`env` on a local server
 // and `url`/`headers` on a remote one, with no per-server `disabled`
 // or `description` anywhere
@@ -282,7 +282,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
 	mcps = emit.StripMCPDescription(target, mcps, mcpDescriptionNoOpReason)
 	return sess.WriteMCPFile(mcps, emit.MCPSchemaServersMap,
-		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+		emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun, emit.WithJunieMCPTimeout())
 }
 
 // emitEntryPoint writes .junie/AGENTS.md: the canonical pointer body
