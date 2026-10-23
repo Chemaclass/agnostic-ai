@@ -108,6 +108,9 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 // directly instead of writeGroupedHookSpec, which owns the claude-style
 // matcher-group collapse they have no groups to apply.
 func writeHookSpecFile(dstDir, name string, doc map[string]any) error {
+	if err := spec.ValidateName(spec.KindHook, name); err != nil {
+		return fmt.Errorf("import hook: %w", err)
+	}
 	raw, err := marshalImportedHook(doc)
 	if err != nil {
 		return fmt.Errorf("marshal hook %s: %w", name, err)

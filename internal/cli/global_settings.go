@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"reflect"
@@ -21,7 +22,8 @@ import (
 // into nested objects.
 type globalSettingsFile struct {
 	// path is the user settings file, in the globalTargets path form.
-	path string
+	path    string
+	private bool
 	// format is "json" or "toml".
 	format string
 	// Empty native keys have no mapping.
@@ -497,4 +499,11 @@ func lintGlobalSettingsFindings(settings []spec.Entry, targets []string) []lintF
 		out = append(out, lintFinding{Code: "LINT014", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
+}
+
+func (f globalSettingsFile) fileMode() fs.FileMode {
+	if f.private {
+		return 0600
+	}
+	return 0644
 }

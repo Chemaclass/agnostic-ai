@@ -147,23 +147,39 @@ doc_comment() {
   ' "$1"
 }
 
-# defaults <file> prints the `target`/`defaultX` const lines, trimmed.
+# defaults <file> prints constants and inline output defaults, trimmed.
 defaults() {
-  grep -E '^[[:space:]]*(target|default[A-Za-z]*)[[:space:]]*=' "$1" |
+  grep -E '^[[:space:]]*(const[[:space:]]+)?(target|default[A-Za-z]*)[[:space:]]*=|emit\.Output[^[:space:]]*\(.*"' "$1" |
     sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*\/\/.*$//' || true
 }
 
-# caps <file> prints the Supports line of the adapter's Capabilities value.
+defaults_for() {
+  local candidate
+  for candidate in "$ROOT/internal/adapters/$1/"*.go; do
+    case "$candidate" in *_test.go) continue ;; esac
+    defaults "$candidate"
+  done | awk '!seen[$0]++'
+}
+
+# caps <file> prints the Supports field of the adapter's Capabilities value.
 caps() {
   awk '
-    /^var caps = emit\.Capabilities\{/ { inside = 1; next }
-    inside && /^\}/ { exit }
-    inside && /Supports:/ {
+    /^var caps = emit\.Capabilities\{/ { inside = 1 }
+    inside && /Supports:/ { collecting = 1 }
+    collecting {
       line = $0
+      sub(/^.*Supports:/, "Supports:", line)
       sub(/^[[:space:]]*/, "", line)
+      gsub(/\[\]spec\.Kind/, "[]Kind", line)
       gsub(/spec\.Kind/, "", line)
-      print line
+      if (line ~ /\}/) {
+        sub(/\}.*/, "}", line)
+        print value line
+        exit
+      }
+      value = value line " "
     }
+    inside && /^\}/ { exit }
   ' "$1"
 }
 
@@ -596,7 +612,7 @@ dump_target() {
   caps "$src"
   echo
   echo "--- default output paths ---"
-  defaults "$src"
+  defaults_for "$pkg"
   echo
   echo "--- adapter package doc (what we claim the tool does) ---"
   doc_comment "$src"

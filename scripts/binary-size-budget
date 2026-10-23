@@ -370,4 +370,8 @@
 # (20471968): Pi native project output, import, global sync and ordered
 # MCP exposure ownership. Same Linux amd64 release flags, no added
 # headroom or dependencies.
-20537504
+# #2419 measured 20725920 on Go 1.27.3, up 188416 from main 2f0e27fd
+# (20537504): Vibe native output and import, with reversible global TOML
+# array ownership for MCP servers and hooks. Same Linux amd64 release
+# flags, no added headroom or dependencies.
+20725920

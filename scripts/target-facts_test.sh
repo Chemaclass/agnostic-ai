@@ -104,6 +104,34 @@ function test_caps_extracts_the_declared_spec_kinds() {
   assert_contains "Rule" "$(caps "$(src_for claude)")"
 }
 
+function test_caps_extracts_compact_declarations_without_other_fields() {
+  local out
+  out=$(caps "$(src_for pi)")
+  assert_contains 'Supports: []Kind{Rule, Skill, Command, MCP, Settings}' "$out"
+  assert_not_contains 'SkillFields' "$out"
+  assert_not_contains 'SettingsFields' "$out"
+}
+
+function test_caps_collects_a_multiline_supports_field() {
+  local fixture out
+  fixture=$(mktemp)
+  printf 'var caps = emit.Capabilities{\n Supports: []spec.Kind{\n  spec.KindRule,\n  spec.KindSkill,\n },\n SettingsFields: []string{"model"},\n}\n' >"$fixture"
+  out=$(caps "$fixture")
+  rm -f "$fixture"
+  assert_contains 'Rule' "$out"
+  assert_contains 'Skill' "$out"
+  assert_not_contains 'SettingsFields' "$out"
+}
+
+function test_dump_target_includes_defaults_from_sibling_source_files() {
+  local out
+  out=$(dump_target pi | sed -n '/^--- default output paths ---$/,/^--- adapter package doc/p')
+  assert_contains '.pi/skills' "$out"
+  assert_contains '.pi/prompts' "$out"
+  assert_contains '.pi/mcp.json' "$out"
+  assert_contains '.pi/settings.json' "$out"
+}
+
 function test_defaults_extracts_the_const_block_verbatim() {
   # gofmt aligns the `=` in a const block; the dump keeps that alignment
   # so a reader can match it against the source at a glance.
