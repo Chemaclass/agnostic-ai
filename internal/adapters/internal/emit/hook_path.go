@@ -61,18 +61,18 @@ func HasNeutralHookPath(command string) bool {
 }
 
 func RewriteNeutralHookPath(command, dir string, literal ...bool) string {
-	return rewriteNeutralHookPath(command, dir, false, literal...)
+	return rewriteHookPathPrefix(command, agnosticScriptsDir+"/", dir, false, literal...)
 }
 
 func RewriteGrokHookPath(command, dir string, literal ...bool) string {
-	return rewriteNeutralHookPath(command, dir, true, literal...)
+	command = rewriteHookPathPrefix(command, HookScriptsDir("grok")+"/", dir, true, literal...)
+	return rewriteHookPathPrefix(command, agnosticScriptsDir+"/", dir, true, literal...)
 }
 
-func rewriteNeutralHookPath(command, dir string, directPath bool, literal ...bool) string {
-	const prefix = agnosticScriptsDir + "/"
+func rewriteHookPathPrefix(command, prefix, dir string, directPath bool, literal ...bool) string {
 	var out strings.Builder
 	from := 0
-	for _, ref := range neutralHookReferences(command, len(literal) > 0 && literal[0]) {
+	for _, ref := range hookPathReferences(command, prefix, len(literal) > 0 && literal[0]) {
 		out.WriteString(command[from:ref.start])
 		directory := strings.TrimRight(dir, "/")
 		needsQuote := strings.IndexFunc(directory, func(r rune) bool { return !isShellWordRune(r) && !(directPath && r == '~') }) >= 0 || directPath && strings.HasPrefix(directory, "~")
@@ -99,6 +99,7 @@ func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[s
 	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
 	command = stripNeutralHookRoots(command, literal)
 	if target == "grok" {
+		command = stripHookPathRoots(command, HookScriptsDir(target)+"/", literal)
 		command = RewriteGrokHookPath(command, scriptsDir, literal)
 	} else {
 		command = RewriteNeutralHookPath(command, scriptsDir, literal)
@@ -111,9 +112,13 @@ func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
 }
 
 func stripNeutralHookRoots(command string, literal bool) string {
+	return stripHookPathRoots(command, agnosticScriptsDir+"/", literal)
+}
+
+func stripHookPathRoots(command, prefix string, literal bool) string {
 	var out strings.Builder
 	from := 0
-	for _, ref := range neutralHookReferences(command, literal) {
+	for _, ref := range hookPathReferences(command, prefix, literal) {
 		out.WriteString(command[from:ref.rootStart])
 		out.WriteString(command[ref.start:ref.end])
 		from = ref.end

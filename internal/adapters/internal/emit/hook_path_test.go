@@ -17,6 +17,9 @@ func TestRewriteGlobalHookPath_GrokKeepsNativeDirectPaths(t *testing.T) {
 	if got := RewriteGlobalHookPath(".agnostic-ai/scripts/guard.sh", "kiro", "C:/Users/RUNNER~1/hooks"); got != "'C:/Users/RUNNER~1/hooks'/guard.sh" {
 		t.Errorf("another target's quoting changed: %q", got)
 	}
+	if got := RewriteGlobalHookPath("$CLAUDE_PROJECT_DIR/.grok/hook-scripts/a.sh && .agnostic-ai/scripts/b.sh", "grok", "native/hooks"); got != "native/hooks/a.sh && native/hooks/b.sh" {
+		t.Errorf("controlled project roots were not removed per reference: %q", got)
+	}
 }
 
 func TestRewriteHookPath_TranslatesSiblingPrefix(t *testing.T) {
