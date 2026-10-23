@@ -374,4 +374,7 @@
 # (20537504): Vibe native output and import, with reversible global TOML
 # array ownership for MCP servers and hooks. Same Linux amd64 release
 # flags, no added headroom or dependencies.
-20725920
+# #2423 measured 20902048 on Go 1.27.3, up 176128 from main c0c0581b
+# (20725920): Grok native output, import, global ownership, and credential guards.
+# Same Linux amd64 release flags, no added headroom or dependencies.
+20902048
