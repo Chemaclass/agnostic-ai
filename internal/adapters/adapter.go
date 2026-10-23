@@ -875,7 +875,6 @@ func PortableHookWrapperScript(hooks []spec.Entry, target, dir string) (HookScri
 }
 
 var registry = map[string]Adapter{
-	"codebuddy":   codebuddy.New(),
 	"claude":      claude.New(),
 	"codex":       codex.New(),
 	"gemini":      gemini.New(),
@@ -907,6 +906,7 @@ var registry = map[string]Adapter{
 	"factory":     factory.New(),
 	"kilo":        kilo.New(),
 	"ellipsis":    ellipsis.New(),
+	"codebuddy":   codebuddy.New(),
 }
 
 // Get returns the adapter registered under name. Lookup is restricted to
