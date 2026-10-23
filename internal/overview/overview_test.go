@@ -2,6 +2,7 @@ package overview
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -245,6 +246,26 @@ func TestBuild_ListsEveryLifecycleStageWithTheToolsThatRunIt(t *testing.T) {
 	}
 	if got := tools("before-tool"); len(got) != 2 {
 		t.Errorf("before-tool tools = %v, want both", got)
+	}
+}
+
+func TestBuild_GivesMarkdownItemsAnAbsolutePathToOpen(t *testing.T) {
+	v := Build(fullInputs())
+	open := map[string]string{}
+	for _, s := range v.Sections {
+		for _, it := range s.Items {
+			open[it.Kind+":"+it.Name] = it.OpenPath
+		}
+	}
+	for _, key := range []string{"rule:testing", "skill:review", "agent:reviewer"} {
+		if p := open[key]; !filepath.IsAbs(filepath.FromSlash(p)) || !strings.HasSuffix(p, ".md") {
+			t.Errorf("%s open path = %q, want an absolute .md path", key, p)
+		}
+	}
+	for _, key := range []string{"settings:permissions", "mcp:github", "rule:shared-memory-policy", "config:agnostic-ai.yaml"} {
+		if p := open[key]; p != "" {
+			t.Errorf("%s open path = %q, want none: not Markdown, or a built-in", key, p)
+		}
 	}
 }
 

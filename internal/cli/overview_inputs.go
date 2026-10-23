@@ -336,10 +336,15 @@ func instructionDocuments(sources []instructionFile, root string) []overview.Doc
 		if err != nil {
 			continue
 		}
+		abs, err := filepath.Abs(src.path)
+		if err != nil {
+			abs = src.path
+		}
 		docs = append(docs, overview.Document{
-			Path:  globalOverviewPath(root, src.path),
-			Layer: src.layer,
-			Words: len(strings.Fields(header.Strip(string(data)))),
+			Path:    globalOverviewPath(root, src.path),
+			AbsPath: abs,
+			Layer:   src.layer,
+			Words:   len(strings.Fields(header.Strip(string(data)))),
 		})
 	}
 	return docs

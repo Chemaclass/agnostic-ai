@@ -2,7 +2,7 @@
   "schemaVersion": "overview/v1",
   "snapshot": {
     "revision": "fc5bb098abb3",
-    "generatedAt": "2026-10-23T07:28:19Z",
+    "generatedAt": "2026-10-23T07:34:34Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -119,6 +119,7 @@
           "label": "testing",
           "description": "Run the tests before presenting work.",
           "path": ".agnostic-ai/rules/testing.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/rules/testing.md",
           "layer": "project",
           "values": [],
           "findings": []
@@ -129,6 +130,7 @@
           "label": "coding-agent",
           "description": "Implements features and ships them to staging.",
           "path": ".agnostic-ai/agents/coding-agent.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/agents/coding-agent.md",
           "layer": "project",
           "values": [],
           "findings": []
@@ -139,6 +141,7 @@
           "label": "data-analyst",
           "description": "Answers questions from the reporting schema.",
           "path": ".agnostic-ai/agents/data-analyst.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/agents/data-analyst.md",
           "layer": "project",
           "values": [],
           "findings": []
@@ -149,6 +152,7 @@
           "label": "reviewer",
           "description": "Reviews pull requests without changing files.",
           "path": ".agnostic-ai/agents/reviewer.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/agents/reviewer.md",
           "layer": "project",
           "values": [],
           "findings": []

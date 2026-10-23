@@ -474,6 +474,8 @@ export interface SectionItem {
   label: string
   description: string
   path: string
+  /** Absolute path of a Markdown file, for opening it in an editor. */
+  openPath?: string
   layer: string
   scope?: string
   /** For a hook, the id of the lifecycle stage it runs at. */

@@ -94,8 +94,11 @@ type SectionItem struct {
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	Path        string `json:"path"`
-	Layer       string `json:"layer"`
-	Scope       string `json:"scope,omitempty"`
+	// OpenPath is the absolute path of a Markdown file, so a local client
+	// can open it in an editor. Empty for anything else.
+	OpenPath string `json:"openPath,omitempty"`
+	Layer    string `json:"layer"`
+	Scope    string `json:"scope,omitempty"`
 	// Group places the item within its kind; for a hook it is the
 	// lifecycle point it runs at.
 	Group string `json:"group,omitempty"`
@@ -204,7 +207,9 @@ type Finding struct {
 // Document is an instructions file the caller found, such as
 // AGNOSTIC_AI.md, with its path as the view shows it.
 type Document struct {
-	Path  string
-	Layer string
-	Words int
+	Path string
+	// AbsPath is where the file is on disk.
+	AbsPath string
+	Layer   string
+	Words   int
 }

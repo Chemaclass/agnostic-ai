@@ -135,6 +135,11 @@ function ItemList({ items }: { items: SectionItem[] }) {
             {item.enabled === undefined && <Code>{item.path}</Code>}
             {item.enabled === undefined && <Chip title="Layer the item comes from">{item.layer}</Chip>}
             {item.scope && <Chip>{item.scope}</Chip>}
+            {item.openPath && (
+              <a className="button button-quiet open-link" href={cursorUrl(item.openPath)}>
+                Open in Cursor<span className="sr-only"> {item.label}</span>
+              </a>
+            )}
           </div>
           {item.values.length > 0 && <Values values={item.values} />}
           {item.findings.length > 0 && <Findings findings={item.findings} />}
@@ -142,6 +147,11 @@ function ItemList({ items }: { items: SectionItem[] }) {
       ))}
     </ul>
   )
+}
+
+/** A link Cursor opens: cursor://file/<absolute path>. */
+function cursorUrl(path: string): string {
+  return `cursor://file${encodeURI(path.startsWith('/') ? path : `/${path}`)}`
 }
 
 /** Each setting as its kind reads best: chips for a list, a switch for a boolean, text otherwise. */

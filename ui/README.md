@@ -12,7 +12,8 @@ Agnostic AI configuration.
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
 Values render by type: a list as chips, a boolean as a switch, anything
-else as text. Each item carries the lint and doctor findings that name
+else as text. A Markdown item has an **Open in Cursor** link
+(`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
 its file, and the header shows whether each coding tool's generated files
 are in sync with what `sync` would write.
 
@@ -53,10 +54,11 @@ go run ./cmd/agnostic-ai serve --dir internal/authority/testdata/demo-project --
 
 **Mock data.** Add `?mock=1` to the URL. The client reads
 `src/fixtures/overview.mock.json`, the server's output for the demo
-project. Regenerate it after a contract change:
+project, with the checkout's absolute path replaced so no machine path is committed. Regenerate it after a contract change:
 
 ```sh
-go run ./cmd/agnostic-ai view overview --dir internal/authority/testdata/demo-project --json > ui/src/fixtures/overview.mock.json
+go run ./cmd/agnostic-ai view overview --dir internal/authority/testdata/demo-project --json \
+  | sed "s|$PWD/|/path/to/agnostic-ai/|g" > ui/src/fixtures/overview.mock.json
 ```
 
 **Static snapshot.** Add `?source=<directory or URL>`, for example

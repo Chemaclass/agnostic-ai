@@ -1016,6 +1016,13 @@ input:hover {
   font-size: 14px;
 }
 
+.open-link {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
 /* Tables ---------------------------------------------------------------- */
 
 .table-wrap {

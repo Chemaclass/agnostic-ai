@@ -394,6 +394,7 @@ func instructionItems(docs []Document) []SectionItem {
 			Label:       filepath.Base(d.Path),
 			Description: fmt.Sprintf("Loaded at the start of every session: %d words.", d.Words),
 			Path:        filepath.ToSlash(d.Path),
+			OpenPath:    markdownPath(d.AbsPath),
 			Layer:       d.Layer,
 		})
 	}
@@ -461,6 +462,9 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 	}
 	if e.Kind == spec.KindSettings {
 		item.Values = settingsValues(e)
+	}
+	if e.Layer != builtinLayer {
+		item.OpenPath = markdownPath(e.Path)
 	}
 	return item
 }
@@ -540,6 +544,20 @@ func targetsOf(cfg *config.Config) []string {
 		return nil
 	}
 	return cfg.Targets
+}
+
+// markdownPath is the absolute path of a Markdown file, resolved against
+// the working directory, which a server has changed into, or "" for any
+// other file.
+func markdownPath(path string) string {
+	if path == "" || !strings.EqualFold(filepath.Ext(path), ".md") {
+		return ""
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	return filepath.ToSlash(abs)
 }
 
 // SpecPath is the path a view shows for a spec: relative to root with

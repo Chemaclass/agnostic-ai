@@ -12,6 +12,8 @@ test.describe('overview', () => {
     for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
     if (MOCK) await expect(page.locator('.topbar .chip', { hasText: 'out of sync' })).toHaveCount(3)
     await expect(page.getByRole('combobox')).toHaveCount(0)
+    const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Open in Cursor/ })
+    await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
     await saveScreenshot(page, '01-context.png')
   })
 
