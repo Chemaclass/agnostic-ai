@@ -177,7 +177,7 @@ var globalTargets = map[string]globalTarget{
 		instructions: globalPathHome + ".qwen/QWEN.md", agents: globalPathHome + ".qwen/agents", skills: globalPathHome + ".qwen/skills",
 		hooks: globalPathHome + ".qwen/settings.json", hooksFormat: "claude", hookTarget: hookTargetHandlerEnv, hookFoldArgs: true, hookTimeout: qwen.HookTimeout,
 		mcp:      globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
-		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
+		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", permissionLists: true, itemLists: []string{"mcp.excluded"}, reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",

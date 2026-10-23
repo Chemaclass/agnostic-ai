@@ -83,7 +83,7 @@ x-qwen:
     excluded: [server-name]
 ```
 
-Qwen combines this native exclusion list across trusted settings scopes. Sync keeps existing exclusion entries and other MCP settings.
+Qwen combines this native exclusion list across trusted settings scopes. Project and global sync merge entries individually, so removing a source exclusion keeps user entries and other MCP settings.
 
 ## Limits and trust
 

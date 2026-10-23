@@ -2,13 +2,16 @@ package cli
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -124,27 +127,159 @@ func TestQwen_GlobalDisabledMCPIsRemovedWithoutDroppingEnabledPeer(t *testing.T)
 func TestQwen_GlobalNativeMCPExclusionsPreserveUserSettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	settings := filepath.Join(home, ".qwen/settings.json")
-	mustWriteGlobalTest(t, settings, `{"mcp":{"toolIdleTimeoutMs":1234},"mcpServers":{"inherited":{"command":"external-server"}}}`)
-	mustWriteGlobalTest(t, filepath.Join(source, "settings/exclude.yaml"), "x-qwen:\n  mcp:\n    excluded: [inherited]\n")
-	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
-		t.Fatalf("sync: %v\n%s", err, warnings)
+	original := "{\n  \"mcp\": {\n    \"excluded\": [\"user-block\"],\n    \"toolIdleTimeoutMs\": 1234\n  },\n  \"mcpServers\": {\"inherited\": {\"command\": \"external-server\"}}\n}\n"
+	mustWriteGlobalTest(t, settings, original)
+	if err := os.Chmod(settings, 0o600); err != nil {
+		t.Fatal(err)
 	}
-	doc := readGlobalJSON(t, settings)
-	mcp := doc["mcp"].(map[string]any)
-	if mcp["toolIdleTimeoutMs"] != float64(1234) || mcp["excluded"].([]any)[0] != "inherited" {
-		t.Errorf("native exclusion or sibling lost: %#v", mcp)
+	input := filepath.Join(source, "settings/exclude.yaml")
+	for _, name := range []string{"inherited", "replacement"} {
+		mustWriteGlobalTest(t, input, "model: custom-model\nx-qwen:\n  mcp:\n    excluded: ["+name+"]\n")
+		beforeCheck := readGlobalTest(t, settings)
+		if _, _, err := runGlobalAgentTest("--only", "qwen", "--check"); err == nil {
+			t.Error("check missed exclusion drift")
+		}
+		if got := readGlobalTest(t, settings); got != beforeCheck {
+			t.Errorf("check changed native bytes: %s", got)
+		}
+		for _, args := range [][]string{{"--only", "qwen"}, {"--only", "qwen", "--check"}} {
+			if _, warnings, err := runGlobalAgentTest(args...); err != nil {
+				t.Fatalf("%v: %v\n%s", args, err, warnings)
+			}
+		}
+		doc := readGlobalJSON(t, settings)
+		mcp := doc["mcp"].(map[string]any)
+		if !reflect.DeepEqual(mcp["excluded"], []any{"user-block", name}) || mcp["toolIdleTimeoutMs"] != float64(1234) {
+			t.Errorf("native exclusion or sibling lost: %#v", mcp)
+		}
+		if doc["mcpServers"].(map[string]any)["inherited"] == nil {
+			t.Errorf("unowned native server removed: %#v", doc)
+		}
+		var state globalState
+		if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(source, "state/global.json"))), &state); err != nil {
+			t.Fatal(err)
+		}
+		if !sameSetting(state.Settings["qwen"]["mcp.excluded"], []string{name}) {
+			t.Errorf("unrelated exclusion claimed: %#v", state.Settings["qwen"])
+		}
+		before := readGlobalTest(t, settings)
+		if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+			t.Fatalf("repeat: %v\n%s", err, warnings)
+		}
+		if got := readGlobalTest(t, settings); got != before {
+			t.Errorf("repeat changed native bytes: %s", got)
+		}
 	}
-	if doc["mcpServers"].(map[string]any)["inherited"] == nil {
-		t.Errorf("unowned native server was removed: %#v", doc)
-	}
-	if err := os.Remove(filepath.Join(source, "settings/exclude.yaml")); err != nil {
+	if err := os.Remove(input); err != nil {
 		t.Fatal(err)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, warnings)
 	}
-	if got := readGlobalTest(t, settings); got != `{"mcp":{"toolIdleTimeoutMs":1234},"mcpServers":{"inherited":{"command":"external-server"}}}` {
-		t.Errorf("native exclusion removal changed user settings: %s", got)
+	if got := readGlobalTest(t, settings); got != original {
+		t.Errorf("removal changed original bytes:\n%s", got)
+	}
+	if info, err := os.Stat(settings); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("private mode lost: %v, %v", info, err)
+	}
+}
+
+func TestQwen_GlobalNativeMCPExclusionsKeepUserAdditions(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(home, ".qwen/settings.json")
+	mustWriteGlobalTest(t, settings, `{"mcp":{"excluded":["user-block"]}}`)
+	input := filepath.Join(source, "settings/exclude.yaml")
+	mustWriteGlobalTest(t, input, "x-qwen:\n  mcp:\n    excluded: [inherited]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps/active.yaml"), "name: active\ncommand: keep-active\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks/guard.yaml"), "on: before-tool\ncommand: exit 2\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	synced := readGlobalTest(t, settings)
+	mustWriteGlobalTest(t, settings, strings.Replace(synced, `"user-block"`, `"user-block","user-added"`, 1))
+	if err := os.Remove(input); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"--only", "qwen"}, {"--only", "qwen", "--check"}} {
+		if _, warnings, err := runGlobalAgentTest(args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, warnings)
+		}
+	}
+	doc := readGlobalJSON(t, settings)
+	if got := doc["mcp"].(map[string]any)["excluded"]; !reflect.DeepEqual(got, []any{"user-block", "user-added"}) {
+		t.Errorf("user exclusion lost: %#v", got)
+	}
+	if doc["mcpServers"].(map[string]any)["active"].(map[string]any)["command"] != "keep-active" {
+		t.Errorf("managed MCP lost: %#v", doc)
+	}
+	if firstGlobalHandler(t, doc, "PreToolUse")["command"] == nil {
+		t.Errorf("managed hook lost: %#v", doc)
+	}
+}
+
+func TestQwen_GlobalNativeMCPExclusionsCreateAndRemoveFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(home, ".qwen/settings.json")
+	input := filepath.Join(source, "settings/exclude.yaml")
+	mustWriteGlobalTest(t, input, "x-qwen:\n  mcp:\n    excluded: [inherited]\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if got := readGlobalJSON(t, settings)["mcp"].(map[string]any)["excluded"]; !reflect.DeepEqual(got, []any{"inherited"}) {
+		t.Errorf("exclusion missing: %#v", got)
+	}
+	if err := os.Remove(input); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+		t.Fatalf("remove: %v\n%s", err, warnings)
+	}
+	if _, err := os.Stat(settings); !os.IsNotExist(err) {
+		t.Errorf("created settings file remains: %v", err)
+	}
+}
+
+func TestQwen_GlobalNativeMCPExclusionsShareOneGuardedSettingsWrite(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(home, ".qwen/settings.json")
+	original := `{"mcp":{"excluded":["user-block"]}}`
+	mustWriteGlobalTest(t, settings, original)
+	bundle := spec.Bundle{
+		Settings: []spec.Entry{{Kind: spec.KindSettings, Meta: map[string]any{"model": "custom-model", "x-qwen": map[string]any{"mcp": map[string]any{"excluded": []any{"inherited"}}}}}},
+		Hooks:    []spec.Entry{{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": "exit 2"}}},
+		MCPs:     []spec.Entry{{Kind: spec.KindMCP, Name: "active", Meta: map[string]any{"command": "keep-active"}}},
+	}
+	writes, _, err := buildGlobalWrites(home, source, []string{"qwen"}, nil, bundle, globalState{Version: globalStateVersion}, nil, io.Discard, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, write := range writes {
+		if write.path != settings {
+			continue
+		}
+		count++
+		if write.planned == nil || string(write.planned.data) != original {
+			t.Errorf("original snapshot missing: %+v", write.planned)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(write.data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		if doc["model"].(map[string]any)["name"] != "custom-model" || doc["mcpServers"] == nil || doc["hooks"] == nil || !reflect.DeepEqual(doc["mcp"].(map[string]any)["excluded"], []any{"user-block", "inherited"}) {
+			t.Errorf("planned settings lost a surface: %#v", doc)
+		}
+	}
+	if count != 1 {
+		t.Errorf("settings has %d writes, want one", count)
+	}
+	changed := `{"mcp":{"excluded":["user-block","new-block"]}}`
+	mustWriteGlobalTest(t, settings, changed)
+	if _, err := applyGlobalChanges(writes, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+		t.Errorf("stale write was accepted: %v", err)
+	}
+	if got := readGlobalTest(t, settings); got != changed {
+		t.Errorf("stale write lost user change: %s", got)
 	}
 }
 
