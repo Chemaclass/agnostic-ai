@@ -497,11 +497,7 @@ func TestImportFromAntigravity_ImportsMCPServers(t *testing.T) {
 	}
 }
 
-// Antigravity's own field name for a remote server is `serverUrl`, not
-// the generic spec's `url`: the vendor doc states the legacy `url` /
-// `httpUrl` names "are not supported." Import must rename it back to
-// `url` so a re-emit through buildMCPServer (which reads e.Meta["url"])
-// reaches the same JSON again.
+// Import normalizes emitted `serverUrl` to the spec's `url` for re-emission.
 func TestImportFromAntigravity_MCPRemoteRenamesServerURLToURL(t *testing.T) {
 	dir := t.TempDir()
 	config := `{

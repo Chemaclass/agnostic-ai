@@ -62,11 +62,8 @@ func buildMCPServers(mcps []spec.Entry) map[string]any {
 // transports carry `serverUrl` plus optional `headers`. Both transports
 // accept `disabled` as its own boolean, the vendor's documented name for
 // the field (unlike codex and kilo, which map the spec's `disabled` onto
-// their own `enabled: false`). The vendor is explicit that the shared
-// cross-tool `url` / `httpUrl` field names "are not supported," so this
-// builder is deliberately its own schema rather than a case added to the
-// shared emit.MCPSchemaServersMap, which still emits `url` for every
-// other `mcpServers`-rooted target.
+// their own `enabled: false`). This builder keeps emitting `serverUrl`;
+// Antigravity also accepts `url` as an alias, but not `httpUrl`.
 //
 // Three more documented fields (`authProviderType`, `oauth`,
 // `disabledTools`, same page) have no dedicated case here: rather than
