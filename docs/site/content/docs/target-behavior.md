@@ -102,6 +102,8 @@ Event names, tool matcher names, timeout units, and failure behavior differ by t
 
 For native stores, defaults, and importing facts, see [each tool's own memory](@/docs/memory.md#each-tools-own-memory). For scoped Claude agent stores, see [agent memory](@/docs/targets/claude-reference.md#agent-memory).
 
+[Pi](@/docs/targets/pi.md) reads ancestor `AGENTS.md` files at session startup. Its target page explains directory scope and project trust.
+
 ## Selecting targets
 
 List only the tools you use in `agnostic-ai.yaml`. A `-t` list replaces that list for one run. `init` offers the tools it detects, or Claude and Codex when it finds none. See [target selection](@/docs/configuration.md#targets).

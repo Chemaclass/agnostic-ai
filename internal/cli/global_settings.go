@@ -281,7 +281,12 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 	return mergeGlobalSettingsKeeping(path, format, base, want, previous, nil)
 }
 
-func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, keep map[string]string) (globalSettingsMerge, error) {
+type globalSettingsComparison struct {
+	current map[string]any
+	equal   func(any, any) bool
+}
+
+func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, keep map[string]string, comparison ...globalSettingsComparison) (globalSettingsMerge, error) {
 	data := base
 	absent := false
 	if data == nil {
@@ -297,9 +302,16 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 	if absent && len(want) == 0 {
 		return globalSettingsMerge{}, nil
 	}
-	current, err := settingsValues(path, format, data)
-	if err != nil {
-		return globalSettingsMerge{}, err
+	var current map[string]any
+	var err error
+	equal := sameSetting
+	if len(comparison) > 0 {
+		current, equal = comparison[0].current, comparison[0].equal
+	} else {
+		current, err = settingsValues(path, format, data)
+		if err != nil {
+			return globalSettingsMerge{}, err
+		}
 	}
 	m := globalSettingsMerge{owned: map[string]any{}}
 	set := map[string]any{}
@@ -313,11 +325,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		case !present:
 			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.key, s.value)))
 			set[s.key] = s.value
-		case sameSetting(have, s.value):
-			if !owned || !sameSetting(recorded, s.value) {
+		case equal(have, s.value):
+			if !owned || !equal(recorded, s.value) {
 				m.adopted = append(m.adopted, s.key)
 			}
-		case owned && sameSetting(have, recorded):
+		case owned && equal(have, recorded):
 			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.key, s.value)))
 			set[s.key] = s.value
 		default:
@@ -333,7 +345,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 			continue
 		}
 		// A value changed since sync wrote it is the user's now.
-		if have, ok := settingsLookup(current, key, format); ok && sameSetting(have, previous[key]) {
+		if have, ok := settingsLookup(current, key, format); ok && equal(have, previous[key]) {
 			m.changes = append(m.changes, "remove "+key)
 			remove = append(remove, key)
 		}

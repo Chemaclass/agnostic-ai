@@ -33,6 +33,7 @@ var claudeSyntaxExpanders = map[spec.Kind]map[string][]spec.ClaudeSyntax{
 		"factory":   {spec.ClaudeArguments},
 		"augment":   {spec.ClaudeArguments},
 		"kiro":      {spec.ClaudeArguments},
+		"pi":        {spec.ClaudeArguments, spec.ClaudePositional},
 	},
 }
 

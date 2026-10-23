@@ -319,3 +319,35 @@ func TestCollectLintFindings_ReportsMidWildcardAllow(t *testing.T) {
 		t.Error("expected collectLintFindings to report LINT009")
 	}
 }
+
+func TestLintMCPMissingRequiredField_PiControlsStayWithinTheirTarget(t *testing.T) {
+	cases := []struct {
+		name    string
+		meta    map[string]any
+		targets []string
+		want    int
+	}{
+		{"pi-only", map[string]any{"targets": []any{"pi"}, "x-pi": map[string]any{"enabled": false}}, []string{"pi", "codex"}, 0},
+		{"pi-project", map[string]any{"x-pi": map[string]any{"exposure": "hidden"}}, []string{"pi"}, 0},
+		{"shared", map[string]any{"x-pi": map[string]any{"enabled": false}}, []string{"pi", "codex"}, 1},
+		{"bad-enabled", map[string]any{"targets": []any{"pi"}, "x-pi": map[string]any{"enabled": "false"}}, []string{"pi"}, 1},
+		{"bad-exposure", map[string]any{"targets": []any{"pi"}, "x-pi": map[string]any{"exposure": "invalid"}}, []string{"pi"}, 1},
+		{"bad-tools", map[string]any{"targets": []any{"pi"}, "x-pi": map[string]any{"toolExposure": map[string]any{"read": "invalid"}}}, []string{"pi"}, 1},
+		{"other-target", map[string]any{"targets": []any{"codex"}, "x-pi": map[string]any{"enabled": false}}, []string{"pi", "codex"}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := spec.Entry{Kind: spec.KindMCP, Name: "server", Meta: tc.meta}
+			got := collectLintFindings(tc.targets, targetsSupportingKind, spec.NewBundle([]spec.Entry{entry}))
+			count := 0
+			for _, finding := range got {
+				if finding.Code == "LINT008" {
+					count++
+				}
+			}
+			if count != tc.want {
+				t.Errorf("LINT008 count=%d, want %d; findings=%v", count, tc.want, got)
+			}
+		})
+	}
+}

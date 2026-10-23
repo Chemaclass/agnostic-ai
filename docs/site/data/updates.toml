@@ -120,3 +120,7 @@ label = "Ellipsis"
 [[targets]]
 id = "codebuddy"
 label = "CodeBuddy Code"
+
+[[targets]]
+id = "pi"
+label = "Pi"

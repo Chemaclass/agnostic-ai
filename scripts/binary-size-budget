@@ -366,4 +366,8 @@
 # fields, import reads them back and lets the native file decide the
 # policy, and commands reach those tools as user-run skills. Same Linux
 # amd64 release flags; retain the 8 KB allowance. No new dependencies.
-20471968
+# #2418 measured 20537504 on Go 1.27.3, up 65536 from main 59e68498
+# (20471968): Pi native project output, import, global sync and ordered
+# MCP exposure ownership. Same Linux amd64 release flags, no added
+# headroom or dependencies.
+20537504

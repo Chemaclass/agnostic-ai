@@ -376,3 +376,13 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - changelog: https://www.codebuddy.ai/docs/cli/release-notes/README
 - watch: CLI project and global discovery, first-existing MCP filenames, explicit transport types, conditional rule activation, native tools, project auto-mode limits, hooks and frontmatter approval.
 - fact: npm package `@tencent-ai/codebuddy-code` 2.173.0 is the released CLI. IDE configuration is a separate product surface.
+
+## pi
+
+- docs: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/configuration.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/prompt-templates.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/security.md · https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/configuration.md (released discovery and trust baseline) · https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md (released transport and enabled contract)
+- changelog: https://github.com/earendil-works/pi/releases
+- watch: PI_CODING_AGENT_DIR; ancestor instruction discovery and first-readable filename order; project trust boundaries; skill duplicate precedence and allowed-tools enforcement; direct-child prompt discovery; MCP enabled inversion, transport support, and control-only overrides; model and thinking settings; native agents or hooks.
+- trap: badlogic/pi-mono redirects to earendil-works/pi. The current package is @earendil-works/pi-coding-agent; the old @mariozechner package is not the current behavior reference.
+- decision: instructions load without project trust; project settings, MCP, skills, and prompt templates require Pi's trust choice. Sync does not grant trust or set defaultProjectTrust.
+- decision: portable disabled becomes native enabled with the opposite value. SSE is unsupported; allowed-tools is skill metadata, not an enforced permission limit.
+- decision: commands sync only at project scope. Global instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.

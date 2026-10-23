@@ -21,9 +21,13 @@ package preview
 // Comments become spaces rather than being deleted so the byte offset
 // in a json.SyntaxError still points at the same place in the original
 // file, which keeps a parse error message usable. Newlines inside a
-// block comment are kept for the same reason.
+// block comment are kept for the same reason. A leading UTF-8 BOM
+// becomes three spaces to keep those offsets.
 func StripJSONC(data []byte) (stripped []byte, hadComments bool) {
 	out, hadComments := blankJSONCComments(data)
+	if len(out) >= 3 && out[0] == 0xef && out[1] == 0xbb && out[2] == 0xbf {
+		copy(out[:3], "   ")
+	}
 	return dropTrailingCommas(out), hadComments
 }
 

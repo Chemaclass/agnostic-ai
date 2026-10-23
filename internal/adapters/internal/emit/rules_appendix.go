@@ -116,6 +116,8 @@ func StripGeneratedAppendices(body string) string {
 // the root AGENTS.md junie also happens to share with codex et al.
 var inlineRulesTargets = map[string]bool{
 	"codebuddy": true,
+
+	"pi":        true,
 	"codex":     true,
 	"amp":       true,
 	"warp":      true,

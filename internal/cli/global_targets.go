@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -126,6 +127,15 @@ var globalTargets = map[string]globalTarget{
 		hooks:        globalPathHome + ".codebuddy/settings.json", hooksFormat: "claude", hookFoldArgs: true,
 		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: globalPathHome + ".codebuddy/mcp.json", private: true},
 		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
+	},
+	"pi": {
+		rootEnv: "PI_CODING_AGENT_DIR", root: globalPathHome + ".pi/agent",
+		instructions: globalPathHome + ".pi/agent/AGENTS.md",
+		skills:       globalPathHome + ".pi/agent/skills",
+		mcp:          globalMCPFile{path: globalPathHome + ".pi/agent/mcp.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{path: globalPathHome + ".pi/agent/settings.json", format: "json", model: "defaultModel", effort: "defaultThinkingLevel", effortLevel: pi.Adapter{}.SettingsEffortLevels,
+			reserved: map[string]string{"defaultProjectTrust": "Pi project trust stays with the user"},
+		},
 	},
 	"claude": {
 		rootEnv:      "CLAUDE_CONFIG_DIR",

@@ -19,6 +19,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
 
+#### Pi
+
+- Sync and import Pi instructions, skills, prompt commands, MCP servers, and model settings.
+
 #### Junie
 
 - MCP request timeouts survive sync and native project import in milliseconds.

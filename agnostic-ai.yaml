@@ -28,6 +28,7 @@ targets:
   - claude
   - codex
   - gemini
+  - pi
   - cursor
   - copilot
   - aider

@@ -246,6 +246,12 @@ name = "CodeBuddy Code"
 href = "@/docs/targets/codebuddy.md"
 statuses = ["native", "native", "native", "native", "opt-in", "native", "native", "no", "no", "no"]
 
+[[targets]]
+id = "pi"
+name = "Pi"
+href = "@/docs/targets/pi.md"
+statuses = ["no", "native", "native", "no", "native", "native", "native", "no", "no", "no"]
+
 # Native tool names from the adapter capability tables.
 
 [tool_translations.augment]
