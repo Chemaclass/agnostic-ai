@@ -2,7 +2,7 @@
   "schemaVersion": "overview/v1",
   "snapshot": {
     "revision": "fc5bb098abb3",
-    "generatedAt": "2026-10-23T07:34:34Z",
+    "generatedAt": "2026-10-23T07:46:16Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -304,7 +304,121 @@
           "unsupported": []
         }
       ],
-      "findings": []
+      "findings": [],
+      "fields": [
+        {
+          "key": "permissions.allow",
+          "label": "Allowed without asking",
+          "description": "Rules the agent runs without a prompt.",
+          "set": [
+            {
+              "spec": "permissions",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "values": [
+                {
+                  "key": "permissions.allow",
+                  "type": "list",
+                  "list": [
+                    "read",
+                    "edit(src/**)",
+                    "shell(go test:*)",
+                    "shell(git status)",
+                    "shell(git diff:*)",
+                    "mcp:github/get_pull_request",
+                    "mcp:github/list_pull_request_files",
+                    "mcp:github/create_pull_request",
+                    "mcp:railway/deploy",
+                    "mcp:railway/logs",
+                    "mcp:analytics-db/query"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "permissions.ask",
+          "label": "Ask first",
+          "description": "Rules that prompt before running.",
+          "set": [
+            {
+              "spec": "permissions",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "values": [
+                {
+                  "key": "permissions.ask",
+                  "type": "list",
+                  "list": [
+                    "shell(git push:*)",
+                    "mcp:railway/variables",
+                    "mcp:github/merge_pull_request"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "permissions.deny",
+          "label": "Always blocked",
+          "description": "Rules the agent may never run.",
+          "set": [
+            {
+              "spec": "permissions",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "values": [
+                {
+                  "key": "permissions.deny",
+                  "type": "list",
+                  "list": [
+                    "shell(rm:*)",
+                    "edit(.env)",
+                    "mcp:railway/delete",
+                    "mcp:analytics-db/execute"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "permissions.default-mode",
+          "label": "Default permission mode",
+          "description": "Claude Code's starting mode: default, manual, acceptEdits, plan, auto, dontAsk, or bypassPermissions.",
+          "set": []
+        },
+        {
+          "key": "protected",
+          "label": "Protected paths",
+          "description": "Files agents must not edit without asking: paths, a decision (ask or deny), and a reason.",
+          "set": [
+            {
+              "spec": "protected",
+              "path": ".agnostic-ai/settings/protected.yaml",
+              "values": [
+                {
+                  "key": "protected.decision",
+                  "type": "text",
+                  "value": "ask"
+                },
+                {
+                  "key": "protected.paths",
+                  "type": "list",
+                  "list": [
+                    ".github/**",
+                    "migrations/**"
+                  ]
+                },
+                {
+                  "key": "protected.reason",
+                  "type": "text",
+                  "value": "CI workflows and migrations change only after a human review."
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "tools",
@@ -658,7 +772,33 @@
           "unsupported": []
         }
       ],
-      "findings": []
+      "findings": [],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Default model",
+          "description": "The model each tool starts with: one value, a map per tool, or a model tier name.",
+          "set": []
+        },
+        {
+          "key": "effort",
+          "label": "Reasoning effort",
+          "description": "The default reasoning effort: one value, or a map per tool.",
+          "set": []
+        },
+        {
+          "key": "session-retention-days",
+          "label": "Session retention",
+          "description": "Days to keep session transcripts, at least 1. Only sync --global writes it.",
+          "set": []
+        },
+        {
+          "key": "x-",
+          "label": "Native keys",
+          "description": "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.",
+          "set": []
+        }
+      ]
     }
   ],
   "targets": [

@@ -2,7 +2,7 @@
 // with each check finding on the item it names, and which coding tools
 // support each kind.
 
-import type { ItemFinding, OverviewView, Section, SectionItem, Stage, Value } from '../contract'
+import type { ItemFinding, OverviewView, Section, SectionItem, SettingField, Stage, Value } from '../contract'
 import { PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
 import type { Remote } from './Shell'
@@ -51,6 +51,7 @@ export function SectionContents({ section }: { section: Section }) {
       {section.kinds.map((k) => {
         const items = section.items.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} />
+        if (k.kind === 'settings' && section.fields) return <SettingsFields key={k.kind} title={k.label} fields={section.fields} files={items} />
         const titleId = `${section.id}-${k.kind}`
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
@@ -62,6 +63,44 @@ export function SectionContents({ section }: { section: Section }) {
         )
       })}
     </>
+  )
+}
+
+/** Every field the section's settings can set, each with its value or "Not set", then the files that set them. */
+function SettingsFields({ title, fields, files }: { title: string; fields: SettingField[]; files: SectionItem[] }) {
+  const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
+  return (
+    <section className="block" aria-labelledby={id}>
+      <h2 id={id}>{title}</h2>
+      <ul className="fields">
+        {fields.map((f) => (
+          <li key={f.key} className={`field-row${f.set.length ? ' is-set' : ''}`}>
+            <div className="field-head">
+              <strong>{f.label}</strong> <code className="muted">{f.key === 'x-' ? 'x-<tool>' : f.key}</code>
+              <p className="muted">{f.description}</p>
+            </div>
+            {f.set.length === 0 ? (
+              <p className="muted field-unset">Not set</p>
+            ) : (
+              f.set.map((src) => (
+                <div key={src.spec} className="field-source">
+                  <Values values={src.values} />
+                  <p className="muted field-from">
+                    from <Code>{src.path}</Code>
+                  </p>
+                </div>
+              ))
+            )}
+          </li>
+        ))}
+      </ul>
+      {files.length > 0 && (
+        <>
+          <h3 className="item-group-title">Files</h3>
+          <ItemList items={files} hideValues />
+        </>
+      )}
+    </section>
   )
 }
 
@@ -121,7 +160,7 @@ function GroupedItems({ items }: { items: SectionItem[] }) {
   )
 }
 
-function ItemList({ items }: { items: SectionItem[] }) {
+function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: boolean }) {
   return (
     <ul className="item-list">
       {items.map((item) => (
@@ -141,7 +180,7 @@ function ItemList({ items }: { items: SectionItem[] }) {
               </a>
             )}
           </div>
-          {item.values.length > 0 && <Values values={item.values} />}
+          {!hideValues && item.values.length > 0 && <Values values={item.values} />}
           {item.findings.length > 0 && <Findings findings={item.findings} />}
         </li>
       ))}

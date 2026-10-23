@@ -55,6 +55,14 @@ function normalizeSection(raw: unknown): Section {
       return { ...(kind as unknown as Section['support'][number]), supported: arr(kind.supported), unsupported: arr(kind.unsupported) }
     }),
     findings: arr(s.findings),
+    ...(s.fields
+      ? {
+          fields: arr<Loose>(s.fields).map((f) => ({
+            ...(f as unknown as NonNullable<Section['fields']>[number]),
+            set: arr<Loose>(f.set).map((src) => ({ ...(src as unknown as NonNullable<Section['fields']>[number]['set'][number]), values: arr(src.values) })),
+          })),
+        }
+      : {}),
     ...(s.stages ? { stages: arr<Loose>(s.stages).map((st) => ({ ...(st as unknown as NonNullable<Section['stages']>[number]), targets: arr(st.targets) })) } : {}),
   }
 }

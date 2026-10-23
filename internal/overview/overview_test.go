@@ -269,6 +269,39 @@ func TestBuild_GivesMarkdownItemsAnAbsolutePathToOpen(t *testing.T) {
 	}
 }
 
+func TestBuild_ListsEverySettingsFieldWithTheSpecsThatSetIt(t *testing.T) {
+	v := Build(fullInputs())
+	keys := func(id string) map[string][]string {
+		out := map[string][]string{}
+		for _, f := range sectionByID(t, v, id).Fields {
+			out[f.Key] = []string{}
+			for _, src := range f.Set {
+				out[f.Key] = append(out[f.Key], src.Spec)
+			}
+		}
+		return out
+	}
+	authority := keys(SectionAuthority)
+	if !slices.Equal(authority["permissions.allow"], []string{"permissions"}) || !slices.Equal(authority["protected"], []string{"protected"}) {
+		t.Errorf("authority fields = %v", authority)
+	}
+	if got, ok := authority["permissions.deny"]; !ok || len(got) != 0 {
+		t.Errorf("permissions.deny = %v, want listed and unset", got)
+	}
+	settings := keys(SectionSettings)
+	if !slices.Equal(settings["model"], []string{"tiers"}) || !slices.Equal(settings["effort"], []string{"tiers"}) {
+		t.Errorf("settings fields = %v", settings)
+	}
+	for _, key := range []string{"session-retention-days", "x-"} {
+		if got, ok := settings[key]; !ok || len(got) != 0 {
+			t.Errorf("%s = %v, want listed and unset", key, got)
+		}
+	}
+	if len(sectionByID(t, v, SectionContext).Fields) != 0 {
+		t.Error("context lists settings fields")
+	}
+}
+
 func TestBuild_ShowsProjectOnlyKindsOnlyWhenPresent(t *testing.T) {
 	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}})
 	for id, want := range map[string][]string{

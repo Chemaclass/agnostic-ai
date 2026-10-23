@@ -352,6 +352,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 		if def.id == SectionLifecycle {
 			s.Stages = buildStages(s.Items, targets, newLabeler())
 		}
+		s.Fields = buildFields(def.id, s.Items, in.Bundle.Settings)
 		sections = append(sections, s)
 	}
 	return sections

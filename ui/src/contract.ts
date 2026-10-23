@@ -517,6 +517,16 @@ export interface Section {
   findings: ItemFinding[]
   /** Lifecycle only: every stage, in session order, even when empty. */
   stages?: Stage[]
+  /** Authority and Settings: every settings field, even when unset. */
+  fields?: SettingField[]
+}
+
+/** One field a settings spec can set, with what each spec sets it to. */
+export interface SettingField {
+  key: string
+  label: string
+  description: string
+  set: { spec: string; path: string; values: Value[] }[]
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'

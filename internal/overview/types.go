@@ -51,6 +51,27 @@ type Section struct {
 	// order, each listed even when no hook runs there. Only Lifecycle has
 	// them; a hook item's Group is the ID of its stage.
 	Stages []Stage `json:"stages,omitempty"`
+	// Fields are every settings field this section's specs can set, each
+	// listed even when no spec sets it. Authority and Settings have them.
+	Fields []SettingField `json:"fields,omitempty"`
+}
+
+// SettingField is one field a settings spec can set, with the value each
+// spec that sets it gives.
+type SettingField struct {
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	// Set lists each spec that sets the field, with its values under the
+	// field's key. Empty when nothing sets it.
+	Set []FieldSource `json:"set"`
+}
+
+// FieldSource is one spec's values for a field.
+type FieldSource struct {
+	Spec   string  `json:"spec"`
+	Path   string  `json:"path"`
+	Values []Value `json:"values"`
 }
 
 // Stage is one point in a session a hook can run at.
