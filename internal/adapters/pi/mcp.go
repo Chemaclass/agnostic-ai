@@ -10,7 +10,7 @@ import (
 
 func mcpServer(entry spec.Entry) (map[string]any, error) {
 	if entry.Name == "" || strings.IndexFunc(entry.Name, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-')
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' && r != '-'
 	}) >= 0 {
 		return nil, fmt.Errorf("pi: MCP %q: server names use only letters, digits, underscores, or hyphens", entry.Name)
 	}
