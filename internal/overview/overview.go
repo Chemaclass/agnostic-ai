@@ -669,6 +669,7 @@ var targetLabels = map[string]string{
 	"kiro":        "Kiro",
 	"opencode":    "OpenCode",
 	"openhands":   "OpenHands",
+	"pi":          "Pi",
 	"qoder":       "Qoder",
 	"trae":        "Trae",
 	"warp":        "Warp",
