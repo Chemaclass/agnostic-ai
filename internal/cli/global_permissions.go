@@ -113,9 +113,9 @@ func globalNativePermissionLists(path, field string, raw any) (map[string][]stri
 	return out, nil
 }
 
-// globalPermissionMerge is the planned change to the rule lists of one
+// globalListMerge is the planned change to the rule lists of one
 // user settings file.
-type globalPermissionMerge struct {
+type globalListMerge struct {
 	// data is the new content, nil when the lists need no change.
 	data []byte
 	// changes lists each rule added or removed, adopted each spec rule
@@ -130,8 +130,12 @@ type globalPermissionMerge struct {
 // recorded once the specs no longer name it. A rule sync never wrote
 // stays where it is, so a rule the tool itself added survives. A rule
 // already present is adopted, and sync owns it from then on.
-func mergeGlobalPermissionRules(path string, data []byte, want, previous map[string][]string) (globalPermissionMerge, error) {
-	m := globalPermissionMerge{owned: map[string][]string{}}
+func mergeGlobalPermissionRules(path string, data []byte, want, previous map[string][]string) (globalListMerge, error) {
+	return mergeGlobalStringLists(path, data, want, previous, spec.PermissionLists, "permissions.")
+}
+
+func mergeGlobalStringLists(path string, data []byte, want, previous map[string][]string, lists []string, prefix string) (globalListMerge, error) {
+	m := globalListMerge{owned: map[string][]string{}}
 	values, err := settingsValues(path, "json", data)
 	if err != nil {
 		return m, err
@@ -141,8 +145,8 @@ func mergeGlobalPermissionRules(path string, data []byte, want, previous map[str
 		out = []byte("{}\n")
 	}
 	changed := false
-	for _, list := range spec.PermissionLists {
-		key := "permissions." + list
+	for _, list := range lists {
+		key := prefix + list
 		if len(want[list]) == 0 && len(previous[list]) == 0 {
 			continue
 		}
@@ -185,8 +189,7 @@ func mergeGlobalPermissionRules(path string, data []byte, want, previous map[str
 			continue
 		}
 		changed = true
-		// A list the removals emptied goes, and its permissions object
-		// with it once that is empty too, which undoes creating them.
+		// Remove empty parent objects along with the emptied list.
 		if len(next) == 0 {
 			out, err = editJSONRoot(path, out, nil, nil, []string{key})
 		} else {

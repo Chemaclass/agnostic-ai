@@ -13,7 +13,6 @@ import (
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -83,79 +82,7 @@ func importFromGemini(root string, src config.Sources) error {
 // inherit `globs: <dir>/**`, mirroring the codex importer. Slug
 // collisions across files are deduplicated.
 func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
-	files, err := findHierarchicalMainFiles(root, geminiMainFile, src)
-	if err != nil {
-		return 0, err
-	}
-	if len(files) == 0 {
-		return 0, nil
-	}
-	wholeFileNames := wholeFileRuleNames(root, files)
-	used := map[string]int{}
-	count := 0
-	for _, f := range files {
-		data, err := readEntryFile(root, f.path)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return count, fmt.Errorf("read %s: %w", f.path, err)
-		}
-		text, ok := hierarchicalRulesText(f, string(data))
-		if !ok {
-			continue
-		}
-		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(string(data), adapters.RulesStartMarker) {
-			if err := writeScopedRuleWithDescription(dstDir, dedupSlug(used, name), f.globs, desc, body); err != nil {
-				return count, err
-			}
-			count++
-			continue
-		}
-		sections := geminiRuleSections(string(data), text)
-		if len(sections) == 0 {
-			body := strings.TrimSpace(text)
-			if body == "" {
-				continue
-			}
-			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeScopedRule(dstDir, name, f.globs, body); err != nil {
-				return count, err
-			}
-			count++
-			continue
-		}
-		if preamble := sectionsPreamble(text); preamble != "" {
-			name := dedupSlug(used, wholeFileNames[f.globs])
-			if err := writeScopedRule(dstDir, name, f.globs, preamble); err != nil {
-				return count, err
-			}
-			count++
-		}
-		for _, s := range sections {
-			name := dedupSlug(used, sectionRuleName(wholeFileNames, f.globs, s.slug))
-			if err := writeScopedRule(dstDir, name, f.globs, s.body); err != nil {
-				return count, err
-			}
-			count++
-		}
-	}
-	return count, nil
-}
-
-// geminiRuleSections splits text, the rule-bearing part of raw, into one
-// section per rule: each rule of the block sync appended, or each ##
-// section of a hand-written file.
-func geminiRuleSections(raw, text string) []h2Section {
-	if !strings.Contains(raw, adapters.RulesStartMarker) {
-		// A hand-written file imports whole: sync writes it back as it was.
-		return nil
-	}
-	var sections []h2Section
-	for _, c := range generatedBlockRules(text) {
-		sections = append(sections, h2Section(c))
-	}
-	return sections
+	return importHierarchicalInstructionRules(root, dstDir, src, geminiMainFile)
 }
 
 // importGeminiAgents reads Gemini's native subagent directory,

@@ -155,8 +155,9 @@ func RawEventLists(raw []byte) (map[string][]any, error) {
 // plus planned's, with only sync's entries claimed, and a list left empty
 // is removed. ok is false with no planned entries: the merge then leaves
 // the key alone, and releasing sync's claims takes out only its entries.
-func (s *Session) OwnedEventLists(path, key string, planned any, dryRun bool) (value any, ok bool, err error) {
-	children, ok, err := s.ownedLists(path, []string{key}, planned, dryRun)
+// fields names native sibling settings that are not event lists.
+func (s *Session) OwnedEventLists(path, key string, planned any, dryRun bool, fields ...string) (value any, ok bool, err error) {
+	children, ok, err := s.ownedLists(path, []string{key}, planned, dryRun, fields...)
 	if err != nil || !ok {
 		return nil, false, err
 	}
@@ -173,7 +174,7 @@ func (s *Session) OwnedRootLists(path string, planned any, dryRun bool) (keys ma
 	return children.values, true, nil
 }
 
-func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun bool) (orderedChildren, bool, error) {
+func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun bool, fields ...string) (orderedChildren, bool, error) {
 	onDisk := map[string][]any{}
 	existing := s.existingObject(path, keyPath, dryRun)
 	if existing != nil {
@@ -181,32 +182,45 @@ func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun 
 		if err != nil {
 			return orderedChildren{}, false, fmt.Errorf("%s: %w", path, err)
 		}
-		if onDisk, err = RawEventLists(raw); err != nil {
+		if onDisk, _, err = eventListsWithFields(raw, fields); err != nil {
 			// A value sync cannot read as lists stays as the user wrote it.
 			return orderedChildren{}, false, fmt.Errorf("%s: %s is not an object of lists: %w", path, strings.Join(keyPath, "."), err)
 		}
 	}
 	plannedLists := map[string][]any{}
+	plannedFields := map[string]any{}
 	if planned != nil && !isNilOrdered(planned) {
 		raw, err := MarshalJSONCompact(planned)
 		if err != nil {
 			return orderedChildren{}, false, fmt.Errorf("%s: %w", path, err)
 		}
-		if plannedLists, err = RawEventLists(raw); err != nil {
+		if plannedLists, plannedFields, err = eventListsWithFields(raw, fields); err != nil {
 			return orderedChildren{}, false, fmt.Errorf("%s: %w", path, err)
 		}
 	}
-	if len(plannedLists) == 0 {
+	if len(plannedLists) == 0 && len(plannedFields) == 0 {
 		// Releasing the claims takes out only sync's entries.
 		return orderedChildren{}, false, nil
 	}
 	merged, claims := MergeOwnedLists(path, keyPath, onDisk, plannedLists)
 	out := orderedChildren{values: map[string]any{}}
+	for field, value := range plannedFields {
+		out.values[field] = value
+	}
 	var diskOrder []string
 	if existing != nil {
 		diskOrder = existing.Keys()
 	}
 	for _, event := range append(diskOrder, keyOrder(planned)...) {
+		if slices.Contains(out.order, event) {
+			continue
+		}
+		if slices.Contains(fields, event) {
+			if _, planned := plannedFields[event]; planned {
+				out.order = append(out.order, event)
+			}
+			continue
+		}
 		if _, done := out.values[event]; done {
 			continue
 		}
@@ -461,4 +475,28 @@ func (s *Session) HoldsUnclaimedEntries(path, key string, dryRun bool) bool {
 		}
 	}
 	return false
+}
+
+func eventListsWithFields(raw []byte, fields []string) (map[string][]any, map[string]any, error) {
+	if len(fields) == 0 {
+		lists, err := RawEventLists(raw)
+		return lists, nil, err
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, nil, err
+	}
+	values := map[string]any{}
+	for _, field := range fields {
+		if value, ok := doc[field]; ok {
+			values[field] = value
+			delete(doc, field)
+		}
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return nil, nil, err
+	}
+	lists, err := RawEventLists(raw)
+	return lists, values, err
 }

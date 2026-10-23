@@ -27,6 +27,8 @@ targets:
   - claude
   - codex
   - gemini
+  - qwen
+
   - pi
   - cursor
   - copilot

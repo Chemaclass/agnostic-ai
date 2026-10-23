@@ -506,7 +506,7 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		}
 		// Gemini's httpUrl becomes url first, so the literal escaping
 		// below sees it.
-		if target == "gemini" {
+		if target == "gemini" || target == "qwen" {
 			normalizeGeminiTransport(server)
 		}
 		adapters.EscapeMCPLiterals(target, server)

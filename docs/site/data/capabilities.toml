@@ -241,6 +241,12 @@ opt_in_anchor = "first-review"
 opt_in = { settings = "x-ellipsis" }
 
 [[targets]]
+id = "qwen"
+name = "Qwen Code"
+href = "@/docs/targets/qwen.md"
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
+
+[[targets]]
 id = "pi"
 name = "Pi"
 href = "@/docs/targets/pi.md"
@@ -301,6 +307,14 @@ edit = ["edit"]
 delete = []
 shell = ["bash"]
 web = ["webfetch", "websearch"]
+
+[tool_translations.qwen]
+read = ["read_file"]
+write = ["write_file"]
+edit = ["edit"]
+delete = []
+shell = ["run_shell_command"]
+web = ["web_fetch", "web_search"]
 
 [tool_translations.vibe]
 read = ["read_file"]

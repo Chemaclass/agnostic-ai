@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "guard",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qwen"
+            },
+            "timeout": 7,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "local": {
+      "args": [
+        "--quiet"
+      ],
+      "command": "runner",
+      "env": {
+        "KEY": "${TOKEN}"
+      }
+    },
+    "remote": {
+      "httpUrl": "https://example.test/mcp"
+    }
+  },
+  "model": {
+    "name": "custom-model"
+  },
+  "permissions": {
+    "deny": [
+      "write"
+    ]
+  }
+}

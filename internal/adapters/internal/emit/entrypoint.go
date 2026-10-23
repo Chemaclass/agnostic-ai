@@ -53,6 +53,7 @@ var entryPointPaths = map[string]string{
 	"kilo":        "AGENTS.md",
 	"opencode":    "AGENTS.md",
 	"gemini":      "GEMINI.md",
+	"qwen":        "QWEN.md",
 	"aider":       "CONVENTIONS.md",
 	"zed":         ".rules",
 	"copilot":     ".github/copilot-instructions.md",

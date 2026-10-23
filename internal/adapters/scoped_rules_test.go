@@ -29,6 +29,7 @@ func TestScopedRules_ReachNativeContext(t *testing.T) {
 		{"openhands", ".agents/skills/payments/SKILL.md", "services/payments/**"},
 		{"codex", "services/payments/AGENTS.md", "payment convention"},
 		{"gemini", "services/payments/GEMINI.md", "payment convention"},
+		{"qwen", "services/payments/QWEN.md", "payment convention"},
 		{"amp", "services/payments/AGENTS.md", "payment convention"},
 		{"warp", "services/payments/AGENTS.md", "payment convention"},
 		{"opencode", "services/payments/AGENTS.md", "payment convention"},

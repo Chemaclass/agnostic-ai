@@ -22,6 +22,7 @@ var ignoreFileByTarget = map[string]string{
 	"crush":    ".crushignore",
 	"cursor":   ".cursorignore",
 	"gemini":   ".geminiignore",
+	"qwen":     ".qwenignore",
 	"junie":    ".aiignore",
 	"kiro":     ".kiroignore",
 	"kilo":     ".kilocodeignore",

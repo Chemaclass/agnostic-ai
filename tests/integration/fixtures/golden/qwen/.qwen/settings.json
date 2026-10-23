@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "echo edited",
+            "description": "A sample hook for golden snapshot tests.",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qwen"
+            },
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit"
+      }
+    ]
+  },
+  "model": {
+    "name": "example-model"
+  },
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Bash(go test:*)"
+    ],
+    "ask": [
+      "Write(.env*)"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(rm -rf /)",
+      "WebSearch",
+      "mcp__github__create_issue"
+    ]
+  }
+}
