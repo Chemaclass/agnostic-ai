@@ -72,7 +72,7 @@ Applying is listed under `supportedActions` as unsupported. Editing the spec and
 |---|---|---|
 | Context | What is the agent told? | Instructions (`AGNOSTIC_AI.md`), rules, agents, skills; commands, review instructions, and ignore files only when present |
 | Authority | What may the agent do? | Settings specs with permission rules or protected paths |
-| Tools | What can the agent use? | MCP servers; environments only when present |
+| Tools | What can the agent use? | MCP servers, each with `tools` from the cache `mcp tools` fills: `listed`, `stale` when the spec changed after the listing, `failed` with the reason, or `not-listed`; environments only when present |
 | Lifecycle | What runs around the agent, and when? | Hooks, each with `group` set to its stage; `stages` lists every portable event in session order, with the configured tools that run it and their event names, even when no hook runs there, then one stage per native event a hook names |
 | Settings | How is the harness configured? | Every shipped built-in with `enabled`, the config files read, and every other settings spec |
 

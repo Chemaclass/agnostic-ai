@@ -11,6 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -299,6 +300,39 @@ func TestBuild_ListsEverySettingsFieldWithTheSpecsThatSetIt(t *testing.T) {
 	}
 	if len(sectionByID(t, v, SectionContext).Fields) != 0 {
 		t.Error("context lists settings fields")
+	}
+}
+
+func TestBuild_ShowsEachMCPServersCachedTools(t *testing.T) {
+	mcp := func(name string, meta map[string]any) spec.Entry {
+		return entry(spec.KindMCP, name, ".agnostic-ai/mcps/"+name+".yaml", meta)
+	}
+	fresh := map[string]any{"name": "fresh", "command": "fresh-mcp"}
+	edited := map[string]any{"name": "edited", "command": "edited-mcp"}
+	in := Inputs{
+		Bundle: spec.Bundle{MCPs: []spec.Entry{mcp("fresh", fresh), mcp("edited", edited), mcp("broken", map[string]any{"name": "broken"}), mcp("never", map[string]any{"name": "never"})}},
+		MCPTools: mcpprobe.Cache{Servers: map[string]mcpprobe.ServerResult{
+			"fresh":  {Spec: mcpprobe.SpecFingerprint(fresh), Tools: []mcpprobe.Tool{{Name: "search", Description: "Find things."}}},
+			"edited": {Spec: mcpprobe.SpecFingerprint(map[string]any{"name": "edited", "command": "old-mcp"}), Tools: []mcpprobe.Tool{{Name: "old"}}},
+			"broken": {Error: "HTTP 401: the server needs authentication"},
+		}},
+		RefreshCommand: "agnostic-ai mcp tools --global",
+	}
+	got := map[string]*ToolListing{}
+	for _, it := range sectionByID(t, Build(in), SectionTools).Items {
+		got[it.Name] = it.Tools
+	}
+	if l := got["fresh"]; l == nil || l.State != ToolsListed || len(l.Tools) != 1 || l.Tools[0].Name != "search" || l.Command != "agnostic-ai mcp tools --global" {
+		t.Errorf("fresh = %+v", l)
+	}
+	if l := got["edited"]; l == nil || l.State != ToolsStale || len(l.Tools) != 1 {
+		t.Errorf("edited = %+v, want stale with the old listing", l)
+	}
+	if l := got["broken"]; l == nil || l.State != ToolsFailed || !strings.Contains(l.Error, "authentication") {
+		t.Errorf("broken = %+v", l)
+	}
+	if l := got["never"]; l == nil || l.State != ToolsNotListed || len(l.Tools) != 0 {
+		t.Errorf("never = %+v", l)
 	}
 }
 

@@ -129,6 +129,9 @@ type SectionItem struct {
 	Values []Value `json:"values"`
 	// Enabled is set for a built-in: whether the config turns it on.
 	Enabled *bool `json:"enabled,omitempty"`
+	// Tools is set for an MCP server: what `agnostic-ai mcp tools` last
+	// listed. The overview reads that cache and never connects.
+	Tools *ToolListing `json:"tools,omitempty"`
 	// Findings are the check results that name this item's file.
 	Findings []ItemFinding `json:"findings"`
 }
@@ -148,6 +151,33 @@ type Value struct {
 	Type  string   `json:"type"`
 	Value string   `json:"value,omitempty"`
 	List  []string `json:"list,omitempty"`
+}
+
+// Tool listing states.
+const (
+	ToolsListed    = "listed"
+	ToolsStale     = "stale"
+	ToolsFailed    = "failed"
+	ToolsNotListed = "not-listed"
+)
+
+// ToolListing is one MCP server's cached tools. State is listed, stale
+// when the spec changed after the listing, failed with Error, or
+// not-listed when the server was never asked.
+type ToolListing struct {
+	State    string     `json:"state"`
+	ListedAt string     `json:"listedAt,omitempty"`
+	Error    string     `json:"error,omitempty"`
+	Tools    []ToolInfo `json:"tools"`
+	// Command refreshes the listing.
+	Command string `json:"command"`
+}
+
+// ToolInfo is one tool a server offers.
+type ToolInfo struct {
+	Name        string `json:"name"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // ItemFinding is one check result shown where it applies.

@@ -10,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -30,6 +31,11 @@ type Inputs struct {
 	// Compared are the targets whose generated files the drift check
 	// compared with disk; drift findings name only these.
 	Compared []string
+	// MCPTools is the cached tool listing of the MCP servers.
+	MCPTools mcpprobe.Cache
+	// RefreshCommand lists the MCP servers' tools again for this
+	// configuration.
+	RefreshCommand string
 }
 
 // builtinLayer is the layer name the loader gives a built-in spec. Its
@@ -353,6 +359,9 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			s.Stages = buildStages(s.Items, targets, newLabeler())
 		}
 		s.Fields = buildFields(def.id, s.Items, in.Bundle.Settings)
+		if def.id == SectionTools {
+			attachTools(s.Items, in)
+		}
 		sections = append(sections, s)
 	}
 	return sections
@@ -545,6 +554,39 @@ func targetsOf(cfg *config.Config) []string {
 		return nil
 	}
 	return cfg.Targets
+}
+
+// attachTools gives each MCP server item its cached tool listing.
+func attachTools(items []SectionItem, in Inputs) {
+	meta := map[string]map[string]any{}
+	for _, e := range in.Bundle.MCPs {
+		meta[e.Name] = e.Meta
+	}
+	command := in.RefreshCommand
+	if command == "" {
+		command = "agnostic-ai mcp tools"
+	}
+	for i := range items {
+		if items[i].Kind != string(spec.KindMCP) {
+			continue
+		}
+		listing := &ToolListing{State: ToolsNotListed, Tools: []ToolInfo{}, Command: command}
+		if res, ok := in.MCPTools.Servers[items[i].Name]; ok {
+			listing.ListedAt = res.ListedAt.UTC().Format("2006-01-02T15:04:05Z")
+			for _, t := range res.Tools {
+				listing.Tools = append(listing.Tools, ToolInfo{Name: t.Name, Title: t.Title, Description: t.Description})
+			}
+			switch {
+			case res.Error != "":
+				listing.State, listing.Error = ToolsFailed, res.Error
+			case res.Spec != mcpprobe.SpecFingerprint(meta[items[i].Name]):
+				listing.State = ToolsStale
+			default:
+				listing.State = ToolsListed
+			}
+		}
+		items[i].Tools = listing
+	}
 }
 
 // markdownPath is the absolute path of a Markdown file, resolved against

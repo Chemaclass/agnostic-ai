@@ -10,6 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
@@ -50,12 +51,14 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		{path: filepath.Join(scope.source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
 	}, scope.source)
 	return overview.Inputs{
-		Cfg:          cfg,
-		Bundle:       scope.bundle,
-		Snapshot:     snapshot,
-		Instructions: instructions,
-		Findings:     checks.findings,
-		Compared:     checks.compared,
+		Cfg:            cfg,
+		Bundle:         scope.bundle,
+		Snapshot:       snapshot,
+		Instructions:   instructions,
+		Findings:       checks.findings,
+		Compared:       checks.compared,
+		MCPTools:       mcpprobe.LoadCache(scope.source),
+		RefreshCommand: "agnostic-ai mcp tools --global",
 	}, nil
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/mcpprobe"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -312,12 +313,14 @@ func overviewInputs(root string) (overview.Inputs, error) {
 		return overview.Inputs{}, err
 	}
 	return overview.Inputs{
-		Cfg:          cfg,
-		Bundle:       b,
-		Snapshot:     snapshot,
-		Instructions: instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, "."),
-		Findings:     checks.findings,
-		Compared:     checks.compared,
+		Cfg:            cfg,
+		Bundle:         b,
+		Snapshot:       snapshot,
+		Instructions:   instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, "."),
+		Findings:       checks.findings,
+		Compared:       checks.compared,
+		MCPTools:       mcpprobe.LoadCache("."),
+		RefreshCommand: "agnostic-ai mcp tools",
 	}, nil
 }
 

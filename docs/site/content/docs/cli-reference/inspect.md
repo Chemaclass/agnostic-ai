@@ -331,3 +331,22 @@ agnostic-ai serve --global
 | `--no-installed` | Skip comparing the generated files with disk. |
 
 Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, and `GET /api/health`.
+
+## mcp tools
+
+Connect to each configured MCP server and list its tools, then cache the result so `view overview` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
+
+```bash
+agnostic-ai mcp tools
+agnostic-ai mcp tools --global
+```
+
+Stdio servers start with their `command`, `args`, and `env`; `http` servers are called with their `headers` and `headersHelper`. `${NAME}` references resolve from the environment, and an unset one is reported without connecting. `sse` and `ws` servers are not probed. The cache lives in the user cache directory, outside any repository, keyed by the configuration root. The overview marks a server's tools stale when its spec changed after they were listed.
+
+| Flag | Description |
+|------|-------------|
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
+| `--json` | Print the cached result as JSON. |
+| `--timeout` | How long to wait for each server. Default `20s`. |
+
