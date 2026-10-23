@@ -39,6 +39,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
 
+### Site
+
+- Composer users can set up shared instructions, rules, and skills for its Claude Code and Codex providers.
+
 ## v0.87.0 - 2026-10-22
 
 ### General

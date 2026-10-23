@@ -51,6 +51,7 @@ Next steps:
 - [Set up your project](https://agnostic-ai.org/docs/getting-started/): share one note and update your tools together.
 - [Installation](https://agnostic-ai.org/docs/installation/): other ways to install.
 - [Migration](https://agnostic-ai.org/docs/migration/): review an existing setup before you sync.
+- [Composer](https://agnostic-ai.org/docs/composer/): share instructions and skills with its Claude Code and Codex providers.
 - [Global configuration](https://agnostic-ai.org/docs/configuration/#global-configuration): personal specs in `~/.agnostic-ai/`, written with `agnostic-ai sync --global`.
 
 ## Daily commands
