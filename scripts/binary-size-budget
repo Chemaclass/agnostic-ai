@@ -386,6 +386,8 @@
 # #2420 final integration measured 21102752 on Go 1.27.3, up 81920
 # from measured parent 9a47b2a8 (21020832): native kimi-code support.
 # Same Linux amd64 release flags, no added headroom or dependencies.
+# #2420 final opt-in integration measured 21110944 on Go 1.27.3.
+# Native Kimi Code support, same Linux amd64 release flags; no headroom or deps.
 # #2421 final integration measured 21254304 on Go 1.27.3, up 151552
 # from measured parent 2468d58d (21102752): native codebuddy support.
 # Same Linux amd64 release flags, no added headroom or dependencies.

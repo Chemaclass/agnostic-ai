@@ -65,25 +65,25 @@ func validateAgent(meta map[string]any) error {
 func ValidateHookRecord(record map[string]any) error {
 	for key := range record {
 		if !slices.Contains([]string{"event", "matcher", "command", "timeout"}, key) {
-			return fmt.Errorf("Kimi hook field %s is unsupported", key)
+			return fmt.Errorf("kimi hook field %s is unsupported", key)
 		}
 	}
 	event, _ := record["event"].(string)
 	if !slices.Contains(HookEvents(), event) {
-		return fmt.Errorf("Kimi hook event %q is unsupported", event)
+		return fmt.Errorf("kimi hook event %q is unsupported", event)
 	}
 	if command, ok := record["command"].(string); !ok || strings.TrimSpace(command) == "" {
-		return fmt.Errorf("Kimi hook requires a nonempty command")
+		return fmt.Errorf("kimi hook requires a nonempty command")
 	}
 	if matcher, ok := record["matcher"]; ok {
 		if _, valid := matcher.(string); !valid {
-			return fmt.Errorf("Kimi hook matcher must be a string")
+			return fmt.Errorf("kimi hook matcher must be a string")
 		}
 	}
 	if value, ok := record["timeout"]; ok {
 		n, valid := nativeInteger(value)
 		if !valid || n < 1 || n > 600 {
-			return fmt.Errorf("Kimi hook timeout must be an integer from 1 to 600 seconds")
+			return fmt.Errorf("kimi hook timeout must be an integer from 1 to 600 seconds")
 		}
 	}
 	return nil
