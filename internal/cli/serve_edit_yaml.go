@@ -53,8 +53,7 @@ func yamlScalarSpan(data []byte, node *yaml.Node) (int, int, error) {
 }
 
 func spliceEditYAML(data []byte, start, end int, text string) []byte {
-	out := make([]byte, 0, len(data)+len(text)-(end-start))
-	out = append(out, data[:start]...)
+	out := append([]byte(nil), data[:start]...)
 	out = append(out, text...)
 	out = append(out, data[end:]...)
 	return out
