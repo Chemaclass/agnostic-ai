@@ -2,6 +2,23 @@ package emit
 
 import "testing"
 
+func TestRewriteGlobalHookPath_GrokKeepsNativeDirectPaths(t *testing.T) {
+	for _, tc := range []struct{ name, dir, want string }{
+		{"short Windows name", "C:/Users/RUNNER~1/hooks", "C:/Users/RUNNER~1/hooks/guard.sh"},
+		{"leading tilde", "~/hooks", "'~/hooks'/guard.sh"},
+		{"POSIX spaces", "/tmp/user hooks", "'/tmp/user hooks'/guard.sh"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := RewriteGlobalHookPath("$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.sh", "grok", tc.dir); got != tc.want {
+				t.Errorf("command = %q, want %q", got, tc.want)
+			}
+		})
+	}
+	if got := RewriteGlobalHookPath(".agnostic-ai/scripts/guard.sh", "kiro", "C:/Users/RUNNER~1/hooks"); got != "'C:/Users/RUNNER~1/hooks'/guard.sh" {
+		t.Errorf("another target's quoting changed: %q", got)
+	}
+}
+
 func TestRewriteHookPath_TranslatesSiblingPrefix(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

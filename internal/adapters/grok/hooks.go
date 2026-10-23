@@ -59,11 +59,18 @@ func HookFile(e spec.Entry, scriptDirs ...string) ([]byte, error) {
 						return nil, fmt.Errorf("grok hook %s: only command handlers can be imported", e.Name)
 					}
 					if command, ok := handler["command"].(string); ok {
+						var rewritten string
 						if filepath.IsAbs(scriptDir) {
-							handler["command"] = emit.RewriteGlobalHookPath(command, target, scriptDir)
+							rewritten = emit.RewriteGlobalHookPath(command, target, scriptDir)
 						} else {
-							handler["command"] = emit.RewriteNeutralHookPath(command, scriptDir)
+							rewritten = emit.RewriteGrokHookPath(command, scriptDir)
 						}
+						if runtime.GOOS == "windows" {
+							if err := ValidateWindowsScriptRewrite(command, rewritten, scriptDir); err != nil {
+								return nil, fmt.Errorf("grok hook %s: %w", e.Name, err)
+							}
+						}
+						handler["command"] = rewritten
 					}
 				}
 			}
@@ -96,7 +103,17 @@ func HookFile(e spec.Entry, scriptDirs ...string) ([]byte, error) {
 		if runtime.GOOS == "windows" && !emit.PowerShellReadsFold(command, args) {
 			return nil, fmt.Errorf("grok hook %s: args cannot be preserved in Windows PowerShell; use a native wrapper script", e.Name)
 		}
-		handler := map[string]any{"type": "command", "command": emit.ExecFormCommand(strings.ReplaceAll(emit.RewriteHookPath(command, target, meta), emit.HookScriptsDir(target)+"/", scriptDir+"/"), args), "env": emit.WithHookTarget(emit.StringMap(meta["env"]), target)}
+		rewritten := emit.RewriteGrokHookPath(command, scriptDir, len(args) > 0)
+		rewritten = strings.ReplaceAll(emit.RewriteHookPath(rewritten, target, meta), emit.HookScriptsDir(target)+"/", scriptDir+"/")
+		if runtime.GOOS == "windows" {
+			if err := ValidateWindowsScriptRewrite(command, rewritten, scriptDir); err != nil {
+				return nil, fmt.Errorf("grok hook %s: %w", e.Name, err)
+			}
+			if !emit.PowerShellReadsFold(rewritten, args) {
+				return nil, fmt.Errorf("grok hook %s: rewritten script args require a native wrapper on Windows", e.Name)
+			}
+		}
+		handler := map[string]any{"type": "command", "command": emit.ExecFormCommand(rewritten, args), "env": emit.WithHookTarget(emit.StringMap(meta["env"]), target)}
 		if timeout, ok := meta["timeout"]; ok {
 			handler["timeout"] = timeout
 		}
@@ -118,6 +135,13 @@ func HookFile(e spec.Entry, scriptDirs ...string) ([]byte, error) {
 		return nil, fmt.Errorf("grok hook %s: %w", e.Name, err)
 	}
 	return append(data, '\n'), nil
+}
+
+func ValidateWindowsScriptRewrite(before, after, scriptDir string) error {
+	if before != after && strings.Contains(after, emit.ShellQuote(strings.TrimRight(scriptDir, "/"))+"/") {
+		return fmt.Errorf("shared script path requires shell-specific quoting; use a native wrapper command on Windows")
+	}
+	return nil
 }
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
 	dir := emit.OutputHooksDir(cfg, target, emit.OutputSubDir(cfg, target, "hooks", ".grok/hooks"))
