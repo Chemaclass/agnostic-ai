@@ -125,7 +125,7 @@ func importFromKimi(root string, src config.Sources, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		if err := importKimiHooks(records, importSourcePath(root, src.Hooks)); err != nil {
+		if err := importKimiHooks(o.ConfFile, records, importSourcePath(root, src.Hooks)); err != nil {
 			return err
 		}
 		delete(doc, "hooks")
@@ -380,25 +380,33 @@ func guardKimiCredentials(path string, doc map[string]any) error {
 	}
 	return nil
 }
-func importKimiHooks(records []map[string]any, dst string) error {
+func importKimiHooks(path string, records []map[string]any, dst string) error {
 	if len(records) == 0 {
 		return nil
+	}
+	imported := make([]map[string]any, 0, len(records))
+	for _, r := range records {
+		if err := guardKimiCredentials(path, r); err != nil {
+			return err
+		}
+		if err := kimi.ValidateHookRecord(r); err != nil {
+			return fmt.Errorf("%s: import Kimi hook: %w", path, err)
+		}
+		meta := maps.Clone(r)
+		meta["name"] = kimiHookIdentity(r)
+		meta["target"] = "kimi"
+		command := kimi.DeclaredHookCommand(meta["command"].(string))
+		meta["command"] = strings.ReplaceAll(command, ".kimi-code/hooks/", agnosticScriptsDir+"/")
+		if err := guardKimiCredentials(path, meta); err != nil {
+			return err
+		}
+		imported = append(imported, meta)
 	}
 	if err := importMkdirAll(dst, 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", dst, err)
 	}
-	for _, r := range records {
-		if err := kimi.ValidateHookRecord(r); err != nil {
-			return fmt.Errorf("import Kimi hook: %w", err)
-		}
-		name := kimiHookIdentity(r)
-		meta := maps.Clone(r)
-		meta["name"] = name
-		meta["target"] = "kimi"
-		if cmd, ok := meta["command"].(string); ok {
-			meta["command"] = strings.ReplaceAll(kimi.DeclaredHookCommand(cmd), ".kimi-code/hooks/", agnosticScriptsDir+"/")
-		}
-		if err := writeHookSpecFile(dst, name, meta); err != nil {
+	for _, meta := range imported {
+		if err := writeHookSpecFile(dst, meta["name"].(string), meta); err != nil {
 			return err
 		}
 	}

@@ -35,7 +35,7 @@ func stageGlobalTOMLArrays(home, stage string, targets []string, b spec.Bundle, 
 					user = append(user, r)
 				}
 			}
-			if err := importKimiHooks(user, filepath.Join(stage, "hooks")); err != nil {
+			if err := importKimiHooks(path, user, filepath.Join(stage, "hooks")); err != nil {
 				return err
 			}
 			continue

@@ -118,7 +118,7 @@ Not enforced. Sync reports portable protections as unsupported. Native permissio
 
 Run `agnostic-ai import kimi` before syncing handwritten native files. Import reads the branded instructions, Markdown agents, folder and flat skills, MCP file, and the explicitly configured TOML profile. It preserves safe native fields under `x-kimi`, including empty restrictions and disabled connections, and refuses literal credentials. Folder skills win over same-name flat skills. Native files linked outside the project are refused for agents and flat skills; resource folders follow the shared contained-folder importer.
 
-`agnostic-ai import kimi --global` imports the selected user's model, hooks, and MCP connections. Global sync records ownership so removing the corresponding specs restores user text and leaves unrelated hooks and tables intact.
+`agnostic-ai import kimi --global` imports the selected user's model, hooks, and MCP connections. Project and global hook imports check native records and commands inside generated wrappers for literal credentials before writing hook specs. Global sync records ownership so removing the corresponding specs restores user text and leaves unrelated hooks and tables intact.
 
 ## Sources
 

@@ -15,6 +15,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Kimi Code CLI
 
 - Sync and import native instructions, agents, skills, and MCP connections; manage user hooks and selected settings.
+- Import refuses literal credentials in project and user hooks, including generated command wrappers.
 
 #### Codex
 
