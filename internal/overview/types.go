@@ -1,13 +1,10 @@
-// Package overview builds the harness overview and its feed: one
-// versioned document with the six harness sections, the configured
-// items each holds, which coding tools support them, and a bounded feed
-// of evidence-backed cards derived from existing findings.
+// Package overview builds the harness overview: one versioned document
+// with the harness sections, the configured items each holds, which
+// coding tools support them, and what the read-only checks report.
 //
-// The feed is derived, never generated. A card exists only because a
-// read-only check (lint, doctor, drift, or the authority view's own
-// uncertainties) produced a finding with a source path. Deterministic
-// derivation does not make a card correct, so every card links to its
-// evidence and names the check that produced it.
+// A check result is shown on what it concerns: a lint or doctor finding
+// on the item whose file it names, or on its section when it names no
+// configured item, and drift on the target whose generated files differ.
 //
 // The JSON contract is mirrored in ui/src/contract.ts. Change both
 // together.
@@ -15,54 +12,44 @@ package overview
 
 import "github.com/chemaclass/agnostic-ai/internal/authority"
 
-// SchemaVersion names the shape of View and FeedView.
+// SchemaVersion names the shape of View.
 const SchemaVersion = "overview/v1"
 
-// View is the home page and every section overview in one document.
+// View is every section overview in one document.
 type View struct {
 	SchemaVersion string             `json:"schemaVersion"`
 	Snapshot      authority.Snapshot `json:"snapshot"`
 	Sections      []Section          `json:"sections"`
-	Feed          []Card             `json:"feed"`
 	Targets       []TargetSupport    `json:"targets"`
-	Explanations  map[string]string  `json:"explanations"`
-}
-
-// FeedView is the feed alone, for agents that only want the cards.
-type FeedView struct {
-	SchemaVersion string             `json:"schemaVersion"`
-	Snapshot      authority.Snapshot `json:"snapshot"`
-	Feed          []Card             `json:"feed"`
 }
 
 // Section ids, in harness order.
 const (
-	SectionContext      = "context"
-	SectionMemory       = "memory"
-	SectionControl      = "control"
-	SectionAuthority    = "authority"
-	SectionTools        = "tools"
-	SectionVerification = "verification"
+	SectionContext   = "context"
+	SectionAuthority = "authority"
+	SectionTools     = "tools"
+	SectionLifecycle = "lifecycle"
+	SectionSettings  = "settings"
 )
 
 // Section is one harness domain: what it holds and who supports it.
 type Section struct {
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	Question    string `json:"question"`
-	Description string `json:"description"`
-	Order       int    `json:"order"`
-	// Status is "deep-view" when a dedicated view exists (Authority) or
-	// "overview" when only this summary does.
-	Status   string        `json:"status"`
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Question string `json:"question"`
+	Order    int    `json:"order"`
+	// DeepView is the client route of a dedicated view (Authority), if
+	// one exists.
 	DeepView string        `json:"deepView,omitempty"`
 	Kinds    []KindCount   `json:"kinds"`
 	Items    []SectionItem `json:"items"`
 	Support  []KindSupport `json:"support"`
-	CardIDs  []string      `json:"cardIds"`
+	// Findings are the check results in this section that name no
+	// configured item, such as a native file doctor reads.
+	Findings []ItemFinding `json:"findings"`
 }
 
-// KindCount counts the specs of one kind in a section.
+// KindCount counts the items of one kind in a section.
 type KindCount struct {
 	Kind  string `json:"kind"`
 	Label string `json:"label"`
@@ -78,7 +65,8 @@ type KindSupport struct {
 	Unsupported []string `json:"unsupported"`
 }
 
-// SectionItem is one configured spec.
+// SectionItem is one configured thing: a spec, the instructions file,
+// a config file, or an enabled built-in.
 type SectionItem struct {
 	Kind        string `json:"kind"`
 	Name        string `json:"name"`
@@ -87,99 +75,92 @@ type SectionItem struct {
 	Path        string `json:"path"`
 	Layer       string `json:"layer"`
 	Scope       string `json:"scope,omitempty"`
+	// Group places the item within its kind; for a hook it is the
+	// lifecycle point it runs at.
+	Group string `json:"group,omitempty"`
+	// Findings are the check results that name this item's file.
+	Findings []ItemFinding `json:"findings"`
 }
 
-// Card kinds, sources, and action kinds.
-const (
-	CardDecision = "decision"
-	CardInsight  = "insight"
-
-	SourceAuthority = "authority"
-	SourceDrift     = "drift"
-	SourceDoctor    = "doctor"
-	SourceLint      = "lint"
-
-	ActionOpen        = "open"
-	ActionPropose     = "propose"
-	ActionCopyCommand = "copy-command"
-	ActionDismiss     = "dismiss"
-	ActionSnooze      = "snooze"
-)
-
-// Priorities rank cards by consequence, lowest number first.
-const (
-	PrioritySecurity = 1 // a rule widens access or a deny blocks nothing
-	PriorityDrift    = 2 // the tool runs on stale generated config
-	PriorityCoverage = 3 // a tool receives none of a declaration
-	PriorityHygiene  = 4 // lint and doctor findings
-	PriorityInfo     = 5 // uncertainties worth knowing
-)
-
-// Card is one feed item.
-type Card struct {
-	ID string `json:"id"`
-	// Fingerprint is stable across revisions for the same finding, so a
-	// client can keep a dismissal until the finding changes.
-	Fingerprint   string         `json:"fingerprint"`
-	Kind          string         `json:"kind"`
-	Priority      int            `json:"priority"`
-	PriorityLabel string         `json:"priorityLabel"`
-	Title         string         `json:"title"`
-	Consequence   string         `json:"consequence"`
-	SectionID     string         `json:"sectionId"`
-	DomainID      string         `json:"domainId,omitempty"`
-	Source        string         `json:"source"`
-	Code          string         `json:"code,omitempty"`
-	Evidence      []CardEvidence `json:"evidence"`
-	Actions       []CardAction   `json:"actions"`
-	Revision      string         `json:"revision"`
+// ItemFinding is one check result shown where it applies.
+type ItemFinding struct {
+	// Source is SourceLint or SourceDoctor.
+	Source   string `json:"source"`
+	Code     string `json:"code,omitempty"`
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Path     string `json:"path,omitempty"`
+	Line     int    `json:"line,omitempty"`
+	// Fix is the command or edit that resolves it, when known.
+	Fix string `json:"fix,omitempty"`
+	// Explanation says why it matters, when known.
+	Explanation string `json:"explanation,omitempty"`
 }
 
-// CardEvidence points at the source of a finding.
-type CardEvidence struct {
-	Path   string `json:"path"`
-	Line   int    `json:"line,omitempty"`
-	Detail string `json:"detail"`
-}
-
-// CardAction is one thing a reader can do with a card. Nothing here
-// runs a command or writes a file: "copy-command" hands over the exact
-// command, and "propose" hands over an authority.Proposal to validate.
-type CardAction struct {
-	ID       string              `json:"id"`
-	Kind     string              `json:"kind"`
-	Label    string              `json:"label"`
-	Href     string              `json:"href,omitempty"`
-	Command  string              `json:"command,omitempty"`
-	Proposal *authority.Proposal `json:"proposal,omitempty"`
-}
-
-// TargetSupport lists the spec kinds one configured target emits.
+// TargetSupport lists the spec kinds one configured target emits, and
+// whether its generated files match what sync would write.
 type TargetSupport struct {
-	Target string   `json:"target"`
-	Label  string   `json:"label"`
-	Kinds  []string `json:"kinds"`
+	Target string     `json:"target"`
+	Label  string     `json:"label"`
+	Kinds  []string   `json:"kinds"`
+	Sync   TargetSync `json:"sync"`
 }
+
+// Sync states of a target.
+const (
+	SyncInSync     = "in-sync"
+	SyncDrifted    = "drifted"
+	SyncNotChecked = "not-checked"
+)
+
+// TargetSync is the drift state of one target: in-sync when every file
+// sync would write matches disk, drifted with the files that differ, or
+// not-checked when the comparison did not run for it.
+type TargetSync struct {
+	State string     `json:"state"`
+	Files []SyncFile `json:"files"`
+}
+
+// SyncFile is one generated file that differs from what sync would
+// write: "stale" when it differs, "not generated" when it is missing.
+type SyncFile struct {
+	Path  string `json:"path"`
+	State string `json:"state"`
+}
+
+// Finding sources.
+const (
+	SourceLint   = "lint"
+	SourceDoctor = "doctor"
+	SourceDrift  = "drift"
+)
 
 // Finding is one read-only check result handed in by the caller. The
 // overview package cannot run lint, doctor, or drift itself; the CLI
 // collects them and passes them here.
 type Finding struct {
 	// Source is SourceLint, SourceDoctor, or SourceDrift.
-	Source   string `json:"source"`
-	Code     string `json:"code,omitempty"`
-	Severity string `json:"severity,omitempty"`
-	Message  string `json:"message"`
-	Path     string `json:"path,omitempty"`
-	Line     int    `json:"line,omitempty"`
-	Target   string `json:"target,omitempty"`
+	Source   string
+	Code     string
+	Severity string
+	Message  string
+	Path     string
+	Line     int
+	// Target names the coding tool a drift finding concerns.
+	Target string
 	// Fix is the command or edit that resolves the finding, when known.
-	Fix string `json:"fix,omitempty"`
-	// Explanation says why the finding matters, such as the cause
-	// `agnostic-ai explain <CODE>` prints for a lint code, when known.
-	// A card shows it as its consequence.
-	Explanation string `json:"explanation,omitempty"`
-	// Section is the harness section the finding belongs to, when the
-	// check knows it. Empty lets the overview place it by its path.
-	Section string `json:"section,omitempty"`
+	Fix string
+	// Explanation says why the finding matters, when known.
+	Explanation string
+	// Section is the harness section a finding that names no configured
+	// item belongs to, when the check knows it.
+	Section string
+}
+
+// Document is an instructions file the caller found, such as
+// AGNOSTIC_AI.md, with its path as the view shows it.
+type Document struct {
+	Path  string
+	Layer string
+	Words int
 }

@@ -4,8 +4,8 @@
 
 import type { Change, Proposal } from '../contract'
 
-export const SECTION_VIEWS = ['context', 'memory', 'control', 'authority', 'tools', 'verification'] as const
-export const VIEW_IDS = ['feed', ...SECTION_VIEWS, 'inspect'] as const
+export const SECTION_VIEWS = ['context', 'authority', 'tools', 'lifecycle', 'settings'] as const
+export const VIEW_IDS = SECTION_VIEWS
 export type ViewId = (typeof VIEW_IDS)[number]
 export type SectionViewId = (typeof SECTION_VIEWS)[number]
 export type AuthorityTab = 'resources' | 'circuit'
@@ -17,16 +17,14 @@ export interface UrlState {
   domain?: string
   resource?: string
   tab: AuthorityTab
-  /** Feed card to highlight. */
-  card?: string
-  /** A proposal draft carried from a feed card or shared as a link. */
+  /** A proposal draft shared as a link. */
   proposal?: Proposal
   mock: boolean
   /** Static snapshot directory or URL. */
   source?: string
 }
 
-export const DEFAULT_STATE: UrlState = { view: 'feed', tab: 'resources', mock: false }
+export const DEFAULT_STATE: UrlState = { view: 'context', tab: 'resources', mock: false }
 
 const MAX_PARAM = 200
 const MAX_PROPOSAL = 8000
@@ -87,13 +85,12 @@ export function parseUrlState(search: string): UrlState {
   }
   const source = params.get('source')?.trim()
   return {
-    view: isView(view) ? view : 'feed',
+    view: isView(view) ? view : DEFAULT_STATE.view,
     target: cleanId(params.get('target')),
     agentId: cleanId(params.get('agentId')),
     domain: cleanId(params.get('domain')),
     resource: cleanId(params.get('resource')),
     tab: params.get('tab') === 'circuit' ? 'circuit' : 'resources',
-    card: cleanId(params.get('card')),
     proposal,
     mock: params.get('mock') === '1' || params.get('mock') === 'true',
     source: source && source.length <= 2048 ? source : undefined,
@@ -103,13 +100,12 @@ export function parseUrlState(search: string): UrlState {
 /** Serializes in a fixed order and leaves defaults out, so links stay short and stable. */
 export function serializeUrlState(state: UrlState): string {
   const params = new URLSearchParams()
-  if (state.view !== 'feed') params.set('view', state.view)
+  if (state.view !== DEFAULT_STATE.view) params.set('view', state.view)
   if (state.target) params.set('target', state.target)
   if (state.agentId) params.set('agentId', state.agentId)
   if (state.domain) params.set('domain', state.domain)
   if (state.resource) params.set('resource', state.resource)
   if (state.tab !== 'resources') params.set('tab', state.tab)
-  if (state.card) params.set('card', state.card)
   if (state.proposal) params.set('proposal', JSON.stringify(state.proposal))
   if (state.source) params.set('source', state.source)
   else if (state.mock) params.set('mock', '1')
@@ -126,7 +122,6 @@ export function serializeUrlState(state: UrlState): string {
 export function nextState(state: UrlState, patch: Partial<UrlState>): UrlState {
   const next: UrlState = { ...state, ...patch }
   if (patch.view && patch.view !== state.view) {
-    if (!('card' in patch)) next.card = undefined
     if (patch.view !== 'authority') {
       if (!('domain' in patch)) next.domain = undefined
       if (!('resource' in patch)) next.resource = undefined
@@ -138,33 +133,6 @@ export function nextState(state: UrlState, patch: Partial<UrlState>): UrlState {
   const subjectChanged = ('agentId' in patch && patch.agentId !== state.agentId) || ('target' in patch && patch.target !== state.target)
   if (subjectChanged && !('proposal' in patch)) next.proposal = undefined
   return next
-}
-
-/**
- * Reads an in-app link such as a card's `href` ("?view=authority&…").
- * A bare query string is followed, and so is a link to this same page
- * (same origin and path) when `pageUrl` is given. Anything else returns
- * undefined, so data from a server or snapshot can never navigate the
- * page away.
- */
-export function parseInAppHref(href: string | undefined, current: UrlState, pageUrl?: string): UrlState | undefined {
-  if (!href) return undefined
-  const trimmed = href.trim()
-  let query: string | undefined
-  if (trimmed.startsWith('?')) query = trimmed
-  else if (trimmed.startsWith('/?')) query = trimmed.slice(1)
-  else if (pageUrl) {
-    try {
-      const page = new URL(pageUrl)
-      const target = new URL(trimmed, page)
-      if (target.origin === page.origin && target.pathname === page.pathname) query = target.search
-    } catch {
-      query = undefined
-    }
-  }
-  if (query === undefined) return undefined
-  const parsed = parseUrlState(query)
-  return { ...parsed, mock: current.mock, source: current.source }
 }
 
 export type DataSource =

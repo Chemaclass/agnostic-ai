@@ -194,14 +194,31 @@ test.describe('authority', () => {
     await expect(button).toBeFocused()
   })
 
-  test('shows a section overview for Control', async ({ page }) => {
-    await openApp(page, '?view=control')
-    await expect(page.getByRole('heading', { level: 1, name: 'Control' })).toBeVisible()
-    await expect(page.locator('.page-subtitle')).not.toBeEmpty()
+  test('shows a section overview for Context with the sync state of each tool', async ({ page }) => {
+    await openApp(page, '?view=context')
+    await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
+    await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
+    for (const kind of ['Instructions', 'Rules', 'Agents', 'Skills']) await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()
     await expect(page.locator('.callout')).toHaveCount(0)
     await expect(page.locator('.support-table')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Items' })).toBeVisible()
-    await saveScreenshot(page, '07-section-overview-control.png')
+    const nav = page.getByRole('navigation', { name: 'Harness' })
+    await expect(nav.getByRole('link')).toHaveCount(5)
+    for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+    if (MOCK) await expect(page.locator('.topbar .chip', { hasText: 'out of sync' })).toHaveCount(3)
+    await saveScreenshot(page, '07-section-overview-context.png')
+
+    await nav.getByRole('link', { name: 'Lifecycle' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: /^Hooks/ })).toBeVisible()
+  })
+
+  test('shows a check finding on the item it names', async ({ page }) => {
+    test.skip(!MOCK, 'The finding is specific to the demo project fixture.')
+    await openAuthority(page)
+    const permissions = page.locator('.item-row', { hasText: 'permissions.yaml' }).first()
+    await expect(permissions).toHaveClass(/has-findings/)
+    await expect(permissions.locator('.finding')).toContainText('LINT038')
+    await expect(permissions.locator('.finding')).toContainText('bare read now covers every file read')
   })
 
   test('stops circuit motion under reduced motion', async ({ page }) => {

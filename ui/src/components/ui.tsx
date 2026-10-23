@@ -190,19 +190,12 @@ export function OperationList({ operations }: { operations: Operation[] }) {
 }
 
 const ICON_PATHS: Record<string, ReactNode> = {
-  feed: (
-    <>
-      <rect x="4" y="5" width="16" height="5" rx="1.5" />
-      <rect x="4" y="14" width="16" height="5" rx="1.5" />
-    </>
-  ),
   context: <path d="M12 3 21 12 12 21 3 12Z M12 8 16 12 12 16 8 12Z" />,
-  memory: <path d="M5 4h14v16H5Z M5 8h14 M5 12h14 M5 16h14" />,
-  control: <path d="M19 12a7 7 0 1 1-2.05-4.95 M19 4v4h-4" />,
   authority: <path d="M12 3 21 12 12 21 3 12Z" />,
   tools: <path d="M9 9h6v6H9Z M9 9V6.5A2.5 2.5 0 1 0 6.5 9H9 M15 9V6.5A2.5 2.5 0 1 1 17.5 9H15 M9 15v2.5A2.5 2.5 0 1 1 6.5 15H9 M15 15v2.5a2.5 2.5 0 1 0 2.5-2.5H15" />,
-  verification: <path d="M5 12.5 10 17 19 7" />,
-  inspect: <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Z M15.5 15.5 20 20" />,
+  lifecycle: <path d="M19 12a7 7 0 1 1-2.05-4.95 M19 4v4h-4" />,
+  settings: <path d="M4 7h10 M18 7h2 M4 17h4 M12 17h8 M14 5v4 M10 15v4" />,
+  warning: <path d="M12 4 21 20H3Z M12 10v4 M12 17h.01" />,
   arrow: <path d="M7 17 17 7 M9 7h8v8" />,
 }
 

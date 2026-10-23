@@ -7,27 +7,17 @@ import (
 	"strconv"
 )
 
-// Paths NewHandler serves.
-const (
-	OverviewPath = "/api/views/overview"
-	FeedPath     = "/api/views/feed"
-)
+// OverviewPath is the path NewHandler serves.
+const OverviewPath = "/api/views/overview"
 
-// NewHandler serves the overview at OverviewPath and the feed at
-// FeedPath as JSON. It calls load on every request, so each response
+// NewHandler serves the overview at OverviewPath as JSON. It calls load on every request, so each response
 // reflects the project as it is now. A failure answers with a JSON
 // object holding "error". Pages served from http://localhost or
 // http://127.0.0.1, on any port, may read the responses.
 func NewHandler(load func() (Inputs, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowLocalOrigin(w.Header(), r.Header.Get("Origin"))
-		var render func(Inputs) any
-		switch r.URL.Path {
-		case OverviewPath:
-			render = func(in Inputs) any { return Build(in) }
-		case FeedPath:
-			render = func(in Inputs) any { return BuildFeed(in) }
-		default:
+		if r.URL.Path != OverviewPath {
 			writeJSON(w, http.StatusNotFound, errorBody{Error: "no view at " + r.URL.Path})
 			return
 		}
@@ -48,7 +38,7 @@ func NewHandler(load func() (Inputs, error)) http.Handler {
 			writeJSON(w, http.StatusInternalServerError, errorBody{Error: err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusOK, render(in))
+		writeJSON(w, http.StatusOK, Build(in))
 	})
 }
 

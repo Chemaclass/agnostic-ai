@@ -88,17 +88,17 @@ describe(`authority fixture (${AUTHORITY_FIXTURE})`, () => {
 describe(`overview fixture (${OVERVIEW_FIXTURE})`, () => {
   const overview = loadOverviewFixture()
 
-  it('declares the overview schema and the six sections in harness order', () => {
+  it('declares the overview schema and the five sections in harness order', () => {
     expect(overview.schemaVersion).toBe(OVERVIEW_SCHEMA_VERSION)
     const ordered = [...overview.sections].sort((a, b) => a.order - b.order).map((s) => s.id)
     expect(ordered).toEqual([...SECTION_VIEWS])
   })
 
-  it('points every section card id at a feed card, with unique fingerprints', () => {
-    const ids = new Set(overview.feed.map((c) => c.id))
-    for (const s of overview.sections) for (const id of s.cardIds) expect(ids, `${s.id} → ${id}`).toContain(id)
-    const fingerprints = overview.feed.map((c) => c.fingerprint)
-    expect(new Set(fingerprints).size).toBe(fingerprints.length)
-    for (const card of overview.feed) expect(card.evidence.length, card.id).toBeGreaterThan(0)
+  it('counts each kind as the items it lists, and gives every target a sync state', () => {
+    for (const s of overview.sections) {
+      for (const k of s.kinds) expect(s.items.filter((it) => it.kind === k.kind).length, `${s.id} ${k.kind}`).toBe(k.count)
+      for (const it of s.items) expect(Array.isArray(it.findings), `${s.id} ${it.name}`).toBe(true)
+    }
+    for (const t of overview.targets) expect(['in-sync', 'drifted', 'not-checked']).toContain(t.sync.state)
   })
 })

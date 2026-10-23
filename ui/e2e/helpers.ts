@@ -48,12 +48,6 @@ export async function saveScreenshot(page: Page, name: string, options: { fullPa
   await page.screenshot({ path: resolve(SCREENSHOT_DIR, name), animations: 'disabled', fullPage: options.fullPage === true })
 }
 
-/** Waits until the feed has loaded, whether it holds cards or says it is empty. */
-export async function waitForFeed(page: Page): Promise<number> {
-  await expect(page.locator('.feed-list, .empty').first()).toBeVisible()
-  return page.locator('.feed-card').count()
-}
-
 /** Reads the mock fixtures from disk, for stubs. */
 export function fixture(name: string): unknown {
   return JSON.parse(readFileSync(resolve(here, '../src/fixtures', name), 'utf8'))

@@ -1,5 +1,5 @@
 // Authority view contract, schema `authority/v1`, and the overview and
-// feed contract, schema `overview/v1`.
+// overview contract, schema `overview/v1`.
 //
 // This file mirrors internal/authority/types.go and
 // internal/overview/types.go field for field. The Go side is canonical:
@@ -438,20 +438,10 @@ export interface ImpactResult {
 }
 
 // ---------------------------------------------------------------------
-// Overview and feed, schema `overview/v1` (internal/overview/types.go).
+// Overview, schema `overview/v1` (internal/overview/types.go).
 // ---------------------------------------------------------------------
 
-export type SectionId =
-  | 'context'
-  | 'memory'
-  | 'control'
-  | 'authority'
-  | 'tools'
-  | 'verification'
-
-export type CardKind = 'decision' | 'insight'
-export type CardSource = 'authority' | 'drift' | 'doctor' | 'lint'
-export type CardActionKind = 'open' | 'propose' | 'copy-command' | 'dismiss' | 'snooze'
+export type SectionId = 'context' | 'authority' | 'tools' | 'lifecycle' | 'settings'
 
 export interface KindCount {
   kind: string
@@ -466,6 +456,18 @@ export interface KindSupport {
   unsupported: string[]
 }
 
+/** A read-only check result, shown on what it concerns. */
+export interface ItemFinding {
+  source: 'lint' | 'doctor'
+  code?: string
+  severity: string
+  message: string
+  path?: string
+  line?: number
+  fix?: string
+  explanation?: string
+}
+
 export interface SectionItem {
   kind: string
   name: string
@@ -474,73 +476,43 @@ export interface SectionItem {
   path: string
   layer: string
   scope?: string
+  /** For a hook, the lifecycle point it runs at. */
+  group?: string
+  findings: ItemFinding[]
 }
 
 export interface Section {
   id: SectionId
   label: string
   question: string
-  description: string
   order: number
-  status: 'deep-view' | 'overview'
   deepView?: string
   kinds: KindCount[]
   items: SectionItem[]
   support: KindSupport[]
-  cardIds: string[]
+  /** Findings that name no configured item. */
+  findings: ItemFinding[]
 }
 
-export interface CardEvidence {
-  path: string
-  line?: number
-  detail: string
-}
+export type SyncState = 'in-sync' | 'drifted' | 'not-checked'
 
-export interface CardAction {
-  id: string
-  kind: CardActionKind
-  label: string
-  href?: string
-  command?: string
-  proposal?: Proposal
-}
-
-export interface Card {
-  id: string
-  fingerprint: string
-  kind: CardKind
-  priority: number
-  priorityLabel: string
-  title: string
-  consequence: string
-  sectionId: SectionId
-  domainId?: DomainId
-  source: CardSource
-  code?: string
-  evidence: CardEvidence[]
-  actions: CardAction[]
-  revision: string
+export interface TargetSync {
+  state: SyncState
+  files: { path: string; state: string }[]
 }
 
 export interface TargetSupport {
   target: string
   label: string
   kinds: string[]
+  sync: TargetSync
 }
 
 export interface OverviewView {
   schemaVersion: string
   snapshot: Snapshot
   sections: Section[]
-  feed: Card[]
   targets: TargetSupport[]
-  explanations: Record<string, string>
-}
-
-export interface FeedView {
-  schemaVersion: string
-  snapshot: Snapshot
-  feed: Card[]
 }
 
 // HTTP API served by `agnostic-ai serve`.
@@ -549,13 +521,11 @@ export interface FeedView {
 //   POST /api/views/authority/impact                      → ImpactResult (body: Proposal)
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
-//   GET  /api/views/feed                                  → FeedView
 //   GET  /api/health                                      → { ok, revision }
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
   schema: '/api/views/authority/schema',
   overview: '/api/views/overview',
-  feed: '/api/views/feed',
   health: '/api/health',
 } as const

@@ -19,12 +19,12 @@ func newViewOverviewCmd() *cobra.Command {
 	var asJSON, global bool
 	cmd := &cobra.Command{
 		Use:   "overview",
-		Short: "Show the harness overview: what each section holds, which tools support it, and a feed of findings.",
-		Long: "Prints the six harness sections (context, memory, control, authority, " +
-			"tools, verification) with the specs each holds, then the feed: cards " +
-			"derived from what lint, the read-only doctor checks, and a comparison of " +
-			"generated files with disk report. Nothing is written. --json prints the " +
-			"overview/v1 document the UI reads.",
+		Short: "Show the harness overview: what each section holds, which tools support it, and what the checks report.",
+		Long: "Prints the harness sections (context, authority, tools, lifecycle, " +
+			"settings) with the items each holds, each item's lint and read-only " +
+			"doctor findings, and whether each target's generated files match what " +
+			"sync would write. Nothing is written. --json prints the overview/v1 " +
+			"document the UI reads.",
 		Example: `  # Summarize the project in the working directory
   agnostic-ai view overview
 
@@ -67,7 +67,7 @@ func loadOverviewInputs(dir string, global bool) (overview.Inputs, error) {
 		return overview.Inputs{}, err
 	}
 	defer leave()
-	return overviewInputs(".", nil)
+	return overviewInputs(".")
 }
 
 // overviewEnterDir changes into dir for the command and returns the
@@ -87,11 +87,12 @@ func overviewEnterDir(dir string) (leave func(), err error) {
 	return func() { _ = os.Chdir(origin) }, nil
 }
 
-// printOverview prints each section's counts, then the feed's titles.
+// printOverview prints each target's sync state, then each section's
+// counts and the findings on its items.
 func printOverview(cmd *cobra.Command, v *overview.View) {
 	cmd.Printf("Harness overview of %s (revision %s)\n", v.Snapshot.Project.Name, v.Snapshot.Revision)
-	if len(v.Snapshot.Targets) > 0 {
-		cmd.Printf("Targets: %s\n", strings.Join(v.Snapshot.Targets, ", "))
+	for _, t := range v.Targets {
+		cmd.Printf("  %s: %s\n", t.Label, syncWording(t.Sync))
 	}
 	for _, s := range v.Sections {
 		counts := make([]string, 0, len(s.Kinds))
@@ -99,14 +100,30 @@ func printOverview(cmd *cobra.Command, v *overview.View) {
 			counts = append(counts, fmt.Sprintf("%s %d", k.Label, k.Count))
 		}
 		cmd.Printf("\n%s — %s\n  %s\n", s.Label, s.Question, strings.Join(counts, " · "))
+		for _, it := range s.Items {
+			for _, f := range it.Findings {
+				cmd.Printf("  ! %s: %s\n", it.Label, findingLine(f))
+			}
+		}
+		for _, f := range s.Findings {
+			cmd.Printf("  ! %s\n", findingLine(f))
+		}
 	}
-	cmd.Println()
-	if len(v.Feed) == 0 {
-		cmd.Println("Feed: no findings.")
-		return
+}
+
+func syncWording(s overview.TargetSync) string {
+	switch s.State {
+	case overview.SyncInSync:
+		return "in sync"
+	case overview.SyncDrifted:
+		return fmt.Sprintf("out of sync (%d file(s))", len(s.Files))
 	}
-	cmd.Printf("Feed: %d card(s)\n", len(v.Feed))
-	for _, c := range v.Feed {
-		cmd.Printf("  %-11s %s\n", c.PriorityLabel, c.Title)
+	return "not checked"
+}
+
+func findingLine(f overview.ItemFinding) string {
+	if f.Code != "" {
+		return fmt.Sprintf("%s [%s] %s", f.Code, f.Severity, f.Message)
 	}
+	return fmt.Sprintf("[%s] %s", f.Severity, f.Message)
 }

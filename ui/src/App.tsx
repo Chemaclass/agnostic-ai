@@ -5,13 +5,10 @@ import type { AuthorityView, Change, ImpactResult, OverviewView } from './contra
 import { LoadError, loadAuthority, loadOverview, validateProposal, type Loaded } from './api'
 import { AppContext, type AppApi, type InspectorTab } from './components/app-context'
 import { AuthorityPage } from './components/Authority'
-import { FeedPage } from './components/Feed'
-import { InspectPage } from './components/Inspect'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel } from './components/Banner'
 import { Footer, Header, Nav, type Remote } from './components/Shell'
-import { loadDecisions, partitionFeed, pruneDecisions, saveDecisions, type FeedDecisions } from './model/feed'
 import { buildProposal } from './model/proposal'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
@@ -20,14 +17,6 @@ export interface ImpactState {
   key?: string
   result?: Loaded<ImpactResult>
   error?: Error
-}
-
-function safeStorage(): Storage | undefined {
-  try {
-    return window.localStorage
-  } catch {
-    return undefined
-  }
 }
 
 function initialTheme(): 'dark' | 'light' {
@@ -132,19 +121,6 @@ export default function App() {
     document.getElementById('page-title')?.focus({ preventScroll: true })
   }, [placeKey])
 
-  // Feed decisions live in this browser only.
-  const [decisions, setDecisions] = useState<FeedDecisions>(() => pruneDecisions(loadDecisions(safeStorage()), Date.now()))
-  const updateDecisions = useCallback((update: (prev: FeedDecisions) => FeedDecisions) => {
-    setDecisions((prev) => {
-      const next = update(prev)
-      saveDecisions(safeStorage(), next)
-      return next
-    })
-  }, [])
-  const [acted, setActed] = useState<Set<string>>(() => new Set())
-  const markActed = useCallback((id: string) => setActed((prev) => new Set(prev).add(id)), [])
-  const pendingCount = overview.loaded ? partitionFeed(overview.loaded.data.feed, decisions, Date.now(), acted).pending.length : undefined
-
   // Proposal validation. A result belongs to one exact proposal; editing
   // the draft drops it, so a stale validation is never shown.
   const [impact, setImpact] = useState<ImpactState>({ status: 'idle' })
@@ -186,14 +162,10 @@ export default function App() {
   const sourceError = source.kind === 'invalid' ? new LoadError(source.reason, `Received: ${source.value}`) : undefined
 
   let page: ReactNode
-  if (state.view === 'feed') {
-    page = <FeedPage overview={overview} authority={authority} decisions={decisions} updateDecisions={updateDecisions} acted={acted} markActed={markActed} />
-  } else if (state.view === 'authority') {
+  if (state.view === 'authority') {
     page = <AuthorityPage authority={authority} overview={overview} impact={currentImpact} onValidate={validate} />
-  } else if (state.view === 'inspect') {
-    page = <InspectPage authority={authority} overview={overview} />
   } else {
-    page = <SectionPage sectionId={state.view} overview={overview} authority={authority} decisions={decisions} />
+    page = <SectionPage sectionId={state.view} overview={overview} />
   }
 
   return (
@@ -204,7 +176,7 @@ export default function App() {
         </a>
         <Header authority={authority} overview={overview} inspectorOpen={inspector.open} onToggleInspector={() => (inspector.open ? setInspector((s) => ({ ...s, open: false })) : openInspector())} />
         <div className="shell">
-          <Nav overview={overview} pendingCount={pendingCount} />
+          <Nav overview={overview} />
           <main id="main" className="main" tabIndex={-1}>
             {sourceError && <ErrorPanel error={sourceError} />}
             {page}

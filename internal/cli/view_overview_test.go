@@ -38,18 +38,18 @@ func TestNewViewOverviewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &view); err != nil {
 		t.Fatalf("output is not an overview view: %v\n%s", err, out)
 	}
-	if view.SchemaVersion != overview.SchemaVersion || len(view.Sections) != 6 || view.Snapshot.Project.Name != filepath.Base(dir) {
+	if view.SchemaVersion != overview.SchemaVersion || len(view.Sections) != 5 || view.Snapshot.Project.Name != filepath.Base(dir) {
 		t.Errorf("view = %+v", view)
 	}
-	if len(view.Feed) == 0 || view.Feed[0].Code != "LINT038" {
-		t.Errorf("feed = %+v, want the LINT038 security card first", view.Feed)
+	if got := itemWithFinding(view, "LINT038"); got != "permissions" {
+		t.Errorf("LINT038 sits on %q, want the permissions settings item", got)
 	}
 	if after, _ := os.Getwd(); after != before {
 		t.Errorf("working directory moved from %s to %s", before, after)
 	}
 }
 
-func TestNewViewOverviewCmd_PrintsSectionCountsAndFeedTitles(t *testing.T) {
+func TestNewViewOverviewCmd_PrintsSectionCountsFindingsAndSyncState(t *testing.T) {
 	dir := t.TempDir()
 	writeBareReadProject(t, dir)
 
@@ -57,14 +57,14 @@ func TestNewViewOverviewCmd_PrintsSectionCountsAndFeedTitles(t *testing.T) {
 
 	for _, want := range []string{
 		"Harness overview of " + filepath.Base(dir),
-		"Targets: claude",
+		"Claude Code: out of sync",
 		"Context — What is the agent told?",
-		"Rules 0 · Skills 0 · Ignore files 0",
+		"Instructions 0 · Rules 0 · Agents 0 · Skills 0",
 		"Authority — What may the agent do?",
-		"Settings 1",
-		"Feed: ",
-		"Security    permissions.allow: bare read now covers every file read",
-		"Drift       Claude Code runs on stale generated configuration",
+		"Permissions 1",
+		"! permissions: LINT038",
+		"Lifecycle — What runs around the agent, and when?",
+		"Settings — How is the harness configured?",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)

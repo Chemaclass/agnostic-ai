@@ -42,16 +42,12 @@ type overviewChecks struct {
 	skipped  []string
 }
 
-// collectFindings runs the read-only checks the overview's feed reads:
-// every finding `lint` reports, drift between the files sync would write
-// and the files on disk, and the doctor checks that only read a few
-// local files. It writes nothing and reaches no network. root must be
-// the working directory, because the checks resolve generated paths
-// against it as every command does.
-func collectFindings(root string, cfg *config.Config, b spec.Bundle) []overview.Finding {
-	return runOverviewChecks(root, cfg, b).findings
-}
-
+// runOverviewChecks runs the read-only checks the overview shows on the
+// items they concern: every finding `lint` reports, drift between the
+// files sync would write and the files on disk, and the doctor checks
+// that only read a few local files. It writes nothing and reaches no
+// network. root must be the working directory, because the checks
+// resolve generated paths against it as every command does.
 func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewChecks {
 	overviewChecksMu.Lock()
 	defer overviewChecksMu.Unlock()
@@ -79,7 +75,7 @@ func overviewLintFindings(cfg *config.Config, b spec.Bundle) []overview.Finding 
 // overviewScopeLintFindings is what `lint` reports for scope, each with
 // the cause `explain` gives for its code and its path shown through
 // display. A lint run that stops early becomes one finding on
-// configPath, so the feed shows the gap instead of hiding it.
+// configPath, so the overview shows the gap instead of hiding it.
 func overviewScopeLintFindings(scope checkScope, configPath string, display func(string) string) []overview.Finding {
 	findings, err := lintScopeFindings(scope)
 	if err != nil {
@@ -88,7 +84,7 @@ func overviewScopeLintFindings(scope checkScope, configPath string, display func
 			Severity:    lintError.String(),
 			Path:        display(configPath),
 			Message:     "Lint stopped before it finished: " + err.Error(),
-			Explanation: "The feed holds no lint findings until lint runs to the end.",
+			Explanation: "The overview shows no lint findings until lint runs to the end.",
 		}}
 	}
 	out := make([]overview.Finding, 0, len(findings))
@@ -220,7 +216,7 @@ func overviewDoctorFindings(root string, cfg *config.Config, b spec.Bundle) []ov
 				Message:     fmt.Sprintf("Hook spec merges commands that %s runs with different settings; delete the spec, run agnostic-ai sync, then agnostic-ai import claude", settings),
 				Path:        filepath.ToSlash(p),
 				Explanation: "Sync adds a second hook group for these commands, so Claude Code runs each of them twice.",
-				Section:     overview.SectionControl,
+				Section:     overview.SectionLifecycle,
 			})
 		}
 	}
@@ -257,7 +253,7 @@ func overviewCodexTrustFindings(cfg *config.Config) []overview.Finding {
 			Message:     fmt.Sprintf("Codex %s hook %s is %s; open /hooks in Codex to %s it", f.Event, strconv.Quote(f.Hook), f.Status, action),
 			Path:        filepath.ToSlash(project),
 			Explanation: explanation,
-			Section:     overview.SectionControl,
+			Section:     overview.SectionLifecycle,
 		})
 	}
 	return out
@@ -291,7 +287,7 @@ func overviewHookScriptFindings(root string) []overview.Finding {
 			Message:     fmt.Sprintf("Hook script %s differs between %s; move the agreed body to %s/%s and delete the per-tool copies", basename, joinSorted(tools), agnosticScriptsDir, basename),
 			Path:        filepath.ToSlash(path),
 			Explanation: "The tools hold different bodies for one hook script, so the hook may not behave the same in every tool.",
-			Section:     overview.SectionControl,
+			Section:     overview.SectionLifecycle,
 		})
 	}
 	return out
@@ -301,9 +297,8 @@ func overviewHookScriptFindings(root string) []overview.Finding {
 // builds the snapshot the overview names. root must be the working
 // directory, because the checks compare generated paths relative to it;
 // a server changes into the project once, before it serves, and passes
-// ".". The Authority view, when given, is the session subject's view on
-// the first configured target.
-func overviewInputs(root string, authorityView *authority.View) (overview.Inputs, error) {
+// ".".
+func overviewInputs(root string) (overview.Inputs, error) {
 	if err := requireOverviewRoot(root); err != nil {
 		return overview.Inputs{}, err
 	}
@@ -316,31 +311,38 @@ func overviewInputs(root string, authorityView *authority.View) (overview.Inputs
 	if err != nil {
 		return overview.Inputs{}, err
 	}
-	if authorityView == nil {
-		authorityView = overviewAuthority(cfg, b)
-	}
-	return overview.Inputs{Cfg: cfg, Bundle: b, Snapshot: snapshot, Authority: authorityView, Findings: checks.findings}, nil
+	return overview.Inputs{
+		Cfg:          cfg,
+		Bundle:       b,
+		Snapshot:     snapshot,
+		Instructions: instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, "."),
+		Findings:     checks.findings,
+		Compared:     checks.compared,
+	}, nil
 }
 
-// overviewAuthority builds the session subject's Authority view on the
-// first configured target from the same loaded project, so the feed
-// carries the view's uncertainties and proposals and its revision
-// matches the overview's. A view that cannot be built leaves the feed
-// without those cards rather than failing the overview.
-func overviewAuthority(cfg *config.Config, b spec.Bundle) *authority.View {
-	if cfg == nil || len(cfg.Targets) == 0 {
-		return nil
+// instructionFile is one instructions file a configuration loads.
+type instructionFile struct {
+	path, layer string
+}
+
+// instructionDocuments describes each instructions file that exists, with
+// its path relative to root and its word count without the generated
+// header.
+func instructionDocuments(sources []instructionFile, root string) []overview.Document {
+	var docs []overview.Document
+	for _, src := range sources {
+		data, err := os.ReadFile(src.path)
+		if err != nil {
+			continue
+		}
+		docs = append(docs, overview.Document{
+			Path:  globalOverviewPath(root, src.path),
+			Layer: src.layer,
+			Words: len(strings.Fields(header.Strip(string(data)))),
+		})
 	}
-	target := cfg.Targets[0]
-	opts := authority.Options{Root: ".", Target: target, ConfigFiles: overviewConfigFiles()}
-	if state, err := installedState(target, cfg, b, "."); err == nil {
-		opts.Installed = map[string]authority.InstalledState{target: state}
-	}
-	v, err := authority.Build(cfg, b, opts)
-	if err != nil {
-		return nil
-	}
-	return v
+	return docs
 }
 
 // requireOverviewRoot refuses a root other than the working directory.
@@ -374,8 +376,7 @@ func overviewSnapshot(cfg *config.Config, b spec.Bundle, checks overviewChecks) 
 		return authority.Snapshot{}, fmt.Errorf("overview: working directory: %w", err)
 	}
 	// The Authority view builds the snapshot, so both views report the
-	// same revision for the same sources and a proposal a feed card
-	// carries passes the Authority revision check.
+	// same revision for the same sources.
 	snapshot := authority.NewSnapshot(cfg, b, authority.Options{Root: ".", ConfigFiles: overviewConfigFiles()})
 	snapshot.Evidence.Installed = "not-checked"
 	if len(checks.compared) > 0 {
@@ -416,11 +417,11 @@ func overviewEvidenceNote(checks overviewChecks) string {
 	return strings.Join(append(parts, "Runtime enforcement is not observed."), " ")
 }
 
-// newOverviewHandler serves the overview and the feed of the project in
+// newOverviewHandler serves the overview of the project in
 // the working directory, built afresh on every request. root must be
 // the working directory; see overviewInputs.
 func newOverviewHandler(root string) http.Handler {
 	return overview.NewHandler(func() (overview.Inputs, error) {
-		return overviewInputs(root, nil)
+		return overviewInputs(root)
 	})
 }

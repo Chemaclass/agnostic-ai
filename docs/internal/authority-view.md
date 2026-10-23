@@ -4,7 +4,7 @@
 
 The Authority view answers one question for one subject on one coding tool: which exact action on which exact target is permitted, with what conditions, and why. It is one versioned JSON document that the `view authority` command prints and `serve` hosts, and that the client under [`ui/`](../../ui/README.md) renders. The server owns normalization, precedence, provenance, and impact analysis; the client owns rendering, selection, and motion.
 
-The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview and feed), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
+The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
 
 ## Four states, kept apart
 
@@ -56,7 +56,7 @@ A secret is a credential the configuration references by name through `${NAME}`.
 
 ## Snapshot and revision
 
-`snapshot.revision` is a short hash over every input used in resolution: the config files and every loaded spec, in a fixed order. The overview view builds its snapshot through the same function, so a proposal a feed card carries passes the Authority revision check. `snapshot.evidence` states coverage per class: declared is always loaded, installed is checked or not, runtime is not observed.
+`snapshot.revision` is a short hash over every input used in resolution: the config files and every loaded spec, in a fixed order. The overview builds its snapshot through the same function, so both views report one revision for the same sources. `snapshot.evidence` states coverage per class: declared is always loaded, installed is checked or not, runtime is not observed.
 
 ## Proposal and impact
 
@@ -64,9 +64,19 @@ A secret is a credential the configuration references by name through `${NAME}`.
 
 Applying is listed under `supportedActions` as unsupported. Editing the spec and running `sync` is the only way to apply; an API apply needs revision checks, approval, and rollback first.
 
-## Overview and feed
+## Overview
 
-`GET /api/views/overview` returns the six harness sections (context, memory, control, authority, tools, verification) with their configured items, counts, and per-tool support from the adapters' capability declarations, plus a feed of cards. `GET /api/views/feed` returns the feed alone. A card exists only because a read-only check produced a finding with a path: lint and doctor findings with their codes, drift per target from the capture-and-compare path `sync --check` uses, and the Authority view's own uncertainties. Cards are ranked by consequence (security, drift, coverage, hygiene, information), capped at fifty, and carry a fingerprint so a client can keep a dismissal until the finding changes. A card's actions never run anything: `open`, `propose` (an authority proposal to validate), `copy-command`, `dismiss`, and `snooze`.
+`GET /api/views/overview` returns five harness sections with their configured items, counts, and per-tool support from the adapters' capability declarations:
+
+| Section | Question | Items |
+|---|---|---|
+| Context | What is the agent told? | Instructions (`AGNOSTIC_AI.md`), rules, agents, skills; commands, review instructions, and ignore files only when present |
+| Authority | What may the agent do? | Settings specs with permission rules or protected paths; the deep view resolves them |
+| Tools | What can the agent use? | MCP servers; environments only when present |
+| Lifecycle | What runs around the agent, and when? | Hooks, each with `group` set to its lifecycle point: the portable `on` event in session order, then native events |
+| Settings | How is the harness configured? | Enabled built-ins, the config files read, and every other settings spec |
+
+Read-only check results are shown on what they concern, never as a separate list. A lint or doctor finding sits on every item whose file it names, or whose skill folder holds that file; one that names no configured item sits on the section it states, else on Settings. Drift, from the capture-and-compare path `sync --check` uses, sets each target's `sync` state: `in-sync`, `drifted` with the files that differ, or `not-checked`.
 
 ## Endpoints
 
@@ -76,10 +86,9 @@ Applying is listed under `supportedActions` as unsupported. Editing the spec and
 | POST | `/api/views/authority/impact` | `ImpactResult` for the posted `Proposal` |
 | GET | `/api/views/authority/schema` | the schema version and endpoint list |
 | GET | `/api/views/overview` | `overview.View` |
-| GET | `/api/views/feed` | `overview.FeedView` |
 | GET | `/api/health` | `{ok, revision}` |
 
-`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration from any directory. Its overview and feed run `lint --global` and compare the files `sync --global` would write with disk, as `sync --global --check` does; the doctor checks read a project and are skipped, and the evidence note says so.
+`serve` reloads the project on every request, serializes API requests because rendering adapters swaps package-level warning state, allows cross-origin requests from `localhost` and `127.0.0.1` for a dev server, and serves the built client from `--ui` with a single-page fallback. `--global` reads the user-level configuration from any directory. Its overview runs `lint --global` and compares the files `sync --global` would write with disk, as `sync --global --check` does; the doctor checks read a project and are skipped, and the evidence note says so.
 
 ## Uncertainty codes
 

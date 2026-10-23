@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_STATE,
   nextState,
-  parseInAppHref,
   parseUrlState,
   resolveDataSource,
   serializeUrlState,
@@ -11,9 +10,11 @@ import {
 } from './url'
 
 describe('URL state parsing', () => {
-  it('defaults to the feed', () => {
-    expect(parseUrlState('')).toEqual({ ...DEFAULT_STATE, target: undefined, agentId: undefined, domain: undefined, resource: undefined, card: undefined, proposal: undefined, source: undefined })
-    expect(parseUrlState('?view=nonsense').view).toBe('feed')
+  it('defaults to the Context section', () => {
+    expect(parseUrlState('')).toEqual({ ...DEFAULT_STATE, target: undefined, agentId: undefined, domain: undefined, resource: undefined, proposal: undefined, source: undefined })
+    expect(parseUrlState('?view=nonsense').view).toBe('context')
+    expect(parseUrlState('?view=feed').view).toBe('context')
+    expect(parseUrlState('?view=lifecycle').view).toBe('lifecycle')
   })
 
   it('reads every navigable choice', () => {
@@ -53,29 +54,10 @@ describe('URL state parsing', () => {
   it('clears what a navigation invalidates and keeps the data source', () => {
     const at = parseUrlState('?view=authority&domain=cloud-deployment&resource=mcp-railway-scope&mock=1')
     expect(nextState(at, { domain: 'data-storage' })).toMatchObject({ domain: 'data-storage', resource: undefined, mock: true })
-    expect(nextState(at, { view: 'feed' })).toMatchObject({ view: 'feed', domain: undefined, resource: undefined, mock: true })
+    expect(nextState(at, { view: 'tools' })).toMatchObject({ view: 'tools', domain: undefined, resource: undefined, mock: true })
     const proposal = { agentId: 'coding-agent', changes: [] }
     expect(nextState({ ...at, proposal }, { target: 'codex' }).proposal).toBeUndefined()
     expect(nextState({ ...at, proposal }, { resource: 'x' }).proposal).toBe(proposal)
-  })
-
-  it('follows only in-app links from data', () => {
-    const current = parseUrlState('?source=./snap')
-    expect(parseInAppHref('?view=authority&domain=data-storage', current)).toMatchObject({ view: 'authority', domain: 'data-storage', source: './snap' })
-    expect(parseInAppHref('/?view=context', current)?.view).toBe('context')
-    expect(parseInAppHref('https://example.com/?view=feed', current)).toBeUndefined()
-    expect(parseInAppHref('javascript:alert(1)', current)).toBeUndefined()
-    expect(parseInAppHref(undefined, current)).toBeUndefined()
-  })
-
-  it('follows a link to this same page, never one to another origin or path', () => {
-    const current = parseUrlState('')
-    const page = 'http://127.0.0.1:4310/ui/?view=feed'
-    expect(parseInAppHref('/ui/?view=authority&domain=data-storage', current, page)).toMatchObject({ view: 'authority', domain: 'data-storage' })
-    expect(parseInAppHref('http://127.0.0.1:4310/ui/?view=tools', current, page)?.view).toBe('tools')
-    expect(parseInAppHref('/elsewhere/?view=tools', current, page)).toBeUndefined()
-    expect(parseInAppHref('http://example.com/ui/?view=tools', current, page)).toBeUndefined()
-    expect(parseInAppHref('javascript:alert(1)', current, page)).toBeUndefined()
   })
 })
 

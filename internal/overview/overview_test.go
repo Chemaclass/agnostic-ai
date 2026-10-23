@@ -61,9 +61,17 @@ func counts(s Section) map[string]int {
 	return out
 }
 
+func fullInputs() Inputs {
+	return Inputs{
+		Cfg:          &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}, Requires: ">=0.86.0", Models: map[string]config.ModelTier{"deep": {}}},
+		Bundle:       handcraftedBundle(),
+		Snapshot:     authority.Snapshot{Project: authority.Project{Root: "."}, ConfigFiles: []string{"agnostic-ai.yaml"}},
+		Instructions: []Document{{Path: ".agnostic-ai/AGNOSTIC_AI.md", Layer: "project", Words: 120}},
+	}
+}
+
 func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
-	cfg := &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}
-	v := Build(Inputs{Cfg: cfg, Bundle: handcraftedBundle()})
+	v := Build(fullInputs())
 
 	var ids []string
 	for i, s := range v.Sections {
@@ -72,17 +80,16 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 			t.Errorf("%s order = %d, want %d", s.ID, s.Order, i+1)
 		}
 	}
-	if want := []string{SectionContext, SectionMemory, SectionControl, SectionAuthority, SectionTools, SectionVerification}; !slices.Equal(ids, want) {
+	if want := []string{SectionContext, SectionAuthority, SectionTools, SectionLifecycle, SectionSettings}; !slices.Equal(ids, want) {
 		t.Fatalf("sections = %v, want %v", ids, want)
 	}
 
 	want := map[string]map[string]int{
-		SectionContext:      {"Rules": 3, "Skills": 1, "Ignore files": 1},
-		SectionMemory:       {"Shared memory": 1, "Session handoffs": 0},
-		SectionControl:      {"Agents": 1, "Hooks": 1, "Commands (human-invoked prompts)": 1, "Settings": 1},
-		SectionAuthority:    {"Settings": 2},
-		SectionTools:        {"MCP servers": 1, "Environments": 1},
-		SectionVerification: {"Review instructions": 1},
+		SectionContext:   {"Instructions": 1, "Rules": 3, "Agents": 1, "Skills": 1, "Commands": 1, "Review instructions": 1, "Ignore files": 1},
+		SectionAuthority: {"Permissions": 2},
+		SectionTools:     {"MCP servers": 1, "Environments": 1},
+		SectionLifecycle: {"Hooks": 1},
+		SectionSettings:  {"Built-ins": 1, "Config": 1, "Other settings": 1},
 	}
 	for id, wantCounts := range want {
 		s := sectionByID(t, v, id)
@@ -90,14 +97,12 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 		if len(got) != len(wantCounts) {
 			t.Errorf("%s kinds = %v, want %v", id, got, wantCounts)
 		}
+		total := 0
 		for label, n := range wantCounts {
+			total += n
 			if got[label] != n {
 				t.Errorf("%s %s = %d, want %d", id, label, got[label], n)
 			}
-		}
-		total := 0
-		for _, n := range wantCounts {
-			total += n
 		}
 		if len(s.Items) != total {
 			t.Errorf("%s items = %d, want %d: %+v", id, len(s.Items), total, s.Items)
@@ -105,37 +110,28 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 	}
 
 	context := sectionByID(t, v, SectionContext)
-	if context.Question != "What is the agent told?" || context.Status != "overview" || context.DeepView != "" {
+	if context.Question != "What is the agent told?" || context.DeepView != "" {
 		t.Errorf("context = %+v", context)
 	}
-	var plain, scoped, builtin SectionItem
+	byName := map[string]SectionItem{}
 	for _, item := range context.Items {
-		switch item.Name {
-		case "testing":
-			plain = item
-		case "api-style":
-			scoped = item
-		case "shared-memory-policy":
-			builtin = item
-		}
+		byName[item.Name] = item
 	}
-	if plain != (SectionItem{Kind: "rule", Name: "testing", Label: "testing", Description: "Run the tests before presenting work.", Path: ".agnostic-ai/rules/testing.md", Layer: "project"}) {
-		t.Errorf("testing item = %+v", plain)
+	if it := byName["AGNOSTIC_AI.md"]; it.Kind != "instructions" || it.Path != ".agnostic-ai/AGNOSTIC_AI.md" || !strings.Contains(it.Description, "120 words") {
+		t.Errorf("instructions item = %+v", it)
 	}
-	if scoped.Scope != "api" {
-		t.Errorf("scoped item = %+v", scoped)
+	if it := byName["testing"]; it.Kind != "rule" || it.Description != "Run the tests before presenting work." || it.Path != ".agnostic-ai/rules/testing.md" || it.Layer != "project" {
+		t.Errorf("testing item = %+v", it)
 	}
-	if builtin.Path != "builtin:shared-memory-policy" || builtin.Layer != "builtin" {
-		t.Errorf("builtin item = %+v, want a builtin: path with no cache path", builtin)
+	if byName["api-style"].Scope != "api" {
+		t.Errorf("scoped item = %+v", byName["api-style"])
 	}
-
-	memory := sectionByID(t, v, SectionMemory)
-	if len(memory.Items) != 1 || memory.Items[0].Label != "Shared memory" || memory.Items[0].Path != "builtin:memory" || memory.Items[0].Description == "" {
-		t.Errorf("memory items = %+v", memory.Items)
+	if it := byName["shared-memory-policy"]; it.Path != "builtin:shared-memory-policy" || it.Layer != "builtin" {
+		t.Errorf("builtin item = %+v, want a builtin: path with no cache path", it)
 	}
 
 	authoritySection := sectionByID(t, v, SectionAuthority)
-	if authoritySection.Status != "deep-view" || authoritySection.DeepView != "/authority" || authoritySection.Question != "What may the agent do?" {
+	if authoritySection.DeepView != "/authority" || authoritySection.Question != "What may the agent do?" {
 		t.Errorf("authority = %+v", authoritySection)
 	}
 	var names []string
@@ -145,11 +141,136 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 	if !slices.Equal(names, []string{"permissions", "protected"}) {
 		t.Errorf("authority items = %v, want the settings with permissions and protected paths", names)
 	}
-	control := sectionByID(t, v, SectionControl)
-	for _, item := range control.Items {
-		if item.Kind == "settings" && (item.Name != "tiers" || item.Description != "Sets the model and the effort.") {
-			t.Errorf("control settings item = %+v, want only the model and effort spec", item)
+
+	settings := sectionByID(t, v, SectionSettings)
+	for _, item := range settings.Items {
+		switch item.Kind {
+		case "builtin":
+			if item.Name != "memory" || item.Path != "builtin:memory" || item.Description == "" {
+				t.Errorf("built-in item = %+v", item)
+			}
+		case "config":
+			if item.Path != "agnostic-ai.yaml" || item.Description != "Sets targets claude; requires >=0.86.0; model tiers deep." {
+				t.Errorf("config item = %+v", item)
+			}
+		case "settings":
+			if item.Name != "tiers" || item.Description != "Sets the model and the effort." {
+				t.Errorf("other settings item = %+v, want only the model and effort spec", item)
+			}
 		}
+	}
+}
+
+func TestBuild_ShowsProjectOnlyKindsOnlyWhenPresent(t *testing.T) {
+	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}})
+	for id, want := range map[string][]string{
+		SectionContext:   {"Instructions", "Rules", "Agents", "Skills"},
+		SectionAuthority: {"Permissions"},
+		SectionTools:     {"MCP servers"},
+		SectionLifecycle: {"Hooks"},
+		SectionSettings:  {"Built-ins", "Config", "Other settings"},
+	} {
+		var labels []string
+		for _, k := range sectionByID(t, v, id).Kinds {
+			labels = append(labels, k.Label)
+		}
+		if !slices.Equal(labels, want) {
+			t.Errorf("%s kinds = %v, want %v", id, labels, want)
+		}
+	}
+}
+
+func TestBuild_GroupsHooksByLifecyclePoint(t *testing.T) {
+	hook := func(name string, meta map[string]any) spec.Entry {
+		return entry(spec.KindHook, name, ".agnostic-ai/hooks/"+name+".yaml", meta)
+	}
+	v := Build(Inputs{Bundle: spec.Bundle{Hooks: []spec.Entry{
+		hook("native", map[string]any{"event": "PreToolUse"}),
+		hook("summary", map[string]any{"on": "stop"}),
+		hook("guard", map[string]any{"on": "before-tool"}),
+		hook("greet", map[string]any{"on": "session-start"}),
+	}}})
+	var got []string
+	for _, it := range sectionByID(t, v, SectionLifecycle).Items {
+		got = append(got, it.Group+":"+it.Name)
+	}
+	want := []string{"Session start:greet", "Before a tool runs:guard", "Stop:summary", "PreToolUse:native"}
+	if !slices.Equal(got, want) {
+		t.Errorf("hooks = %v, want %v: session order, then native events", got, want)
+	}
+}
+
+func TestBuild_PlacesFindingsOnTheItemsTheyName(t *testing.T) {
+	in := fullInputs()
+	in.Findings = []Finding{
+		{Source: SourceLint, Code: "LINT038", Severity: "warn", Message: "bare read", Path: ".agnostic-ai/settings/permissions.yaml"},
+		{Source: SourceLint, Code: "LINT019", Severity: "warn", Message: "line 3", Path: ".agnostic-ai/skills/review/scripts/run.sh", Line: 3},
+		{Source: SourceLint, Code: "LINT011", Severity: "warn", Message: "budget", Path: ".agnostic-ai/AGNOSTIC_AI.md"},
+		{Source: SourceDoctor, Code: "codex-hook-trust", Severity: "error", Message: "untrusted", Path: ".codex/hooks.json", Section: SectionLifecycle},
+		{Source: SourceLint, Code: "LINT999", Severity: "error", Message: "somewhere else", Path: "elsewhere.txt"},
+		{Source: SourceDrift, Target: "claude", Path: "CLAUDE.md", Message: "stale"},
+	}
+	v := Build(in)
+	on := func(section, name string) []string {
+		var codes []string
+		for _, it := range sectionByID(t, v, section).Items {
+			if it.Name == name {
+				for _, f := range it.Findings {
+					codes = append(codes, f.Code)
+				}
+			}
+		}
+		return codes
+	}
+	for _, c := range []struct{ section, name, code string }{
+		{SectionAuthority, "permissions", "LINT038"},
+		{SectionContext, "review", "LINT019"},
+		{SectionContext, "AGNOSTIC_AI.md", "LINT011"},
+	} {
+		if got := on(c.section, c.name); !slices.Equal(got, []string{c.code}) {
+			t.Errorf("%s %s findings = %v, want %s", c.section, c.name, got, c.code)
+		}
+	}
+	sectionCodes := func(id string) []string {
+		var codes []string
+		for _, f := range sectionByID(t, v, id).Findings {
+			codes = append(codes, f.Code)
+		}
+		return codes
+	}
+	if got := sectionCodes(SectionLifecycle); !slices.Equal(got, []string{"codex-hook-trust"}) {
+		t.Errorf("lifecycle findings = %v, want the doctor finding that names no item", got)
+	}
+	if got := sectionCodes(SectionSettings); !slices.Equal(got, []string{"LINT999"}) {
+		t.Errorf("settings findings = %v, want the finding with no item and no section", got)
+	}
+	for _, s := range v.Sections {
+		for _, f := range s.Findings {
+			if f.Source == SourceDrift {
+				t.Errorf("drift placed as a finding in %s", s.ID)
+			}
+		}
+	}
+}
+
+func TestBuild_ReportsEachTargetsSyncState(t *testing.T) {
+	v := Build(Inputs{
+		Cfg:      &config.Config{Targets: []string{"claude", "codex", "cursor"}},
+		Compared: []string{"claude", "codex"},
+		Findings: []Finding{
+			{Source: SourceDrift, Target: "claude", Path: "CLAUDE.md", Message: "stale"},
+			{Source: SourceDrift, Target: "claude", Path: ".claude/settings.json", Message: "not generated"},
+		},
+	})
+	got := map[string]TargetSync{}
+	for _, ts := range v.Targets {
+		got[ts.Target] = ts.Sync
+	}
+	if c := got["claude"]; c.State != SyncDrifted || len(c.Files) != 2 || c.Files[0].Path != ".claude/settings.json" || c.Files[0].State != "not generated" {
+		t.Errorf("claude = %+v, want drifted with both files, sorted", c)
+	}
+	if got["codex"].State != SyncInSync || got["cursor"].State != SyncNotChecked {
+		t.Errorf("codex = %+v, cursor = %+v, want in-sync and not-checked", got["codex"], got["cursor"])
 	}
 }
 
@@ -194,11 +315,15 @@ func TestBuild_SupportUsesTheCapabilityMatrixForConfiguredTargets(t *testing.T) 
 	for _, ks := range context.Support {
 		kinds = append(kinds, ks.Kind)
 	}
-	if !slices.Equal(kinds, []string{"rule", "skill", "ignore"}) {
-		t.Errorf("context support kinds = %v", kinds)
+	if !slices.Equal(kinds, []string{"rule", "agent", "skill", "command", "review", "ignore"}) {
+		t.Errorf("context support kinds = %v, want only the spec kinds, not the instructions row", kinds)
 	}
-	if len(sectionByID(t, v, SectionMemory).Support) != 0 {
-		t.Errorf("memory support = %v, want none for built-in features", sectionByID(t, v, SectionMemory).Support)
+	var settingsKinds []string
+	for _, ks := range sectionByID(t, v, SectionSettings).Support {
+		settingsKinds = append(settingsKinds, ks.Kind)
+	}
+	if !slices.Equal(settingsKinds, []string{"settings"}) {
+		t.Errorf("settings support kinds = %v, want none for built-ins and config", settingsKinds)
 	}
 
 	if len(v.Targets) != len(targets) {
@@ -224,42 +349,10 @@ func TestBuild_SupportUsesTheCapabilityMatrixForConfiguredTargets(t *testing.T) 
 }
 
 func TestBuild_LabelsEveryBuiltInTarget(t *testing.T) {
-	labels := newLabeler(nil)
+	labels := newLabeler()
 	for _, name := range adapters.Names() {
 		if labels.of(name) == name {
 			t.Errorf("target %s has no label", name)
 		}
-	}
-}
-
-func TestBuild_PrefersTheAuthorityViewsTargetLabels(t *testing.T) {
-	view := &authority.View{Harness: authority.Harness{Target: "claude", Label: "Claude (local)", Available: []authority.HarnessOption{{Target: "cursor", Label: "Cursor IDE"}}}}
-	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude", "cursor"}}, Authority: view})
-	if v.Targets[0].Label != "Claude (local)" || v.Targets[1].Label != "Cursor IDE" {
-		t.Errorf("targets = %+v", v.Targets)
-	}
-}
-
-func TestBuild_SectionsListTheCardsFiledUnderThem(t *testing.T) {
-	in := Inputs{
-		Cfg:    &config.Config{Targets: []string{"claude"}},
-		Bundle: handcraftedBundle(),
-		Findings: []Finding{
-			{Source: SourceLint, Code: "LINT038", Message: "permissions.allow: bare read now covers every file read (claude: Read); use read(src/**) to name paths", Path: ".agnostic-ai/settings/permissions.yaml"},
-			{Source: SourceDrift, Target: "claude", Path: "CLAUDE.md", Message: "stale"},
-		},
-	}
-	v := Build(in)
-	if len(v.Feed) != 2 {
-		t.Fatalf("feed = %+v", v.Feed)
-	}
-	for _, c := range v.Feed {
-		s := sectionByID(t, v, c.SectionID)
-		if !slices.Contains(s.CardIDs, c.ID) {
-			t.Errorf("section %s card ids = %v, missing %s", s.ID, s.CardIDs, c.ID)
-		}
-	}
-	if got := sectionByID(t, v, SectionContext).CardIDs; len(got) != 0 {
-		t.Errorf("context card ids = %v, want none", got)
 	}
 }

@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -11,33 +12,36 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// Inputs is everything Build reads. The caller loads the project, runs
-// the read-only checks, and builds the snapshot; Build only arranges
-// what it is given, so the same inputs always give the same view.
+// Inputs is everything Build reads. The caller loads the configuration
+// and builds the snapshot; Build only arranges what it is given, so the
+// same inputs always give the same view.
 type Inputs struct {
 	Cfg    *config.Config
 	Bundle spec.Bundle
-	// Snapshot identifies the configuration the inputs came from. Build
-	// copies it into the view and stamps its revision on every card.
+	// Snapshot identifies the configuration the inputs came from.
 	Snapshot authority.Snapshot
-	// Authority is the session subject's Authority view on the first
-	// configured target, or nil when the caller did not build one.
-	Authority *authority.View
+	// Instructions are the always-on instruction files, such as
+	// AGNOSTIC_AI.md and its local layer, in load order.
+	Instructions []Document
 	// Findings are the lint, doctor, and drift results the caller
-	// collected.
+	// collected, with paths as the view shows them.
 	Findings []Finding
+	// Compared are the targets whose generated files the drift check
+	// compared with disk; drift findings name only these.
+	Compared []string
 }
-
-// Section statuses.
-const (
-	statusOverview = "overview"
-	statusDeepView = "deep-view"
-)
 
 // builtinLayer is the layer name the loader gives a built-in spec. Its
 // files live in a cache outside the project, so views name it by spec
 // instead of by path.
 const builtinLayer = "builtin"
+
+// Row kinds that are not spec kinds.
+const (
+	kindInstructions = "instructions"
+	kindBuiltin      = "builtin"
+	kindConfig       = "config"
+)
 
 // kindLabels names each spec kind as a section lists it.
 var kindLabels = map[spec.Kind]string{
@@ -54,21 +58,27 @@ var kindLabels = map[spec.Kind]string{
 }
 
 // row is one line of a section: a spec kind, optionally narrowed to the
-// specs the section reads, or a built-in feature from the config.
+// specs the section reads, or one of the rows that are not spec kinds.
 type row struct {
 	kind spec.Kind
+	// special names a row that is not a spec kind: instructions,
+	// built-ins, or config.
+	special string
 	// label replaces the kind's own label in this section.
 	label string
 	// keep narrows a kind that two sections split, such as settings.
 	keep func(spec.Entry) bool
-	// builtin names a config builtin this row counts instead of specs.
-	builtin     string
-	description string
+	// optional rows show only when they hold something: kinds a project
+	// can have and the user-level configuration cannot.
+	optional bool
+	// group places each item within the row, such as a hook's
+	// lifecycle point.
+	group func(spec.Entry) string
 }
 
 func (r row) id() string {
-	if r.builtin != "" {
-		return r.builtin
+	if r.special != "" {
+		return r.special
 	}
 	return string(r.kind)
 }
@@ -81,56 +91,43 @@ func (r row) title() string {
 }
 
 type sectionDef struct {
-	id, label, question, description string
-	status, deepView                 string
-	rows                             []row
+	id, label, question, deepView string
+	rows                          []row
 }
 
-// sectionDefs are the six harness sections in order.
+// sectionDefs are the harness sections in order.
 var sectionDefs = []sectionDef{
 	{
 		id: SectionContext, label: "Context", question: "What is the agent told?",
-		description: "Rules, skills, and ignore files that decide what each coding tool reads.",
-		status:      statusOverview,
-		rows:        []row{{kind: spec.KindRule}, {kind: spec.KindSkill}, {kind: spec.KindIgnore}},
-	},
-	{
-		id: SectionMemory, label: "Memory", question: "What survives a session?",
-		description: "Built-in shared memory and session handoffs that carry facts from one session to the next.",
-		status:      statusOverview,
 		rows: []row{
-			{builtin: "memory", label: "Shared memory", description: "Project memory every coding tool shares, recalled and curated through the shared-memory skill and its policy rule."},
-			{builtin: "handoff", label: "Session handoffs", description: "A handoff one session writes and the next resumes, in the same or another coding tool."},
-		},
-	},
-	{
-		id: SectionControl, label: "Control", question: "How is execution shaped?",
-		description: "Agents, hooks, commands a person invokes, and the model and effort settings that shape how work runs.",
-		status:      statusOverview,
-		rows: []row{
+			{special: kindInstructions, label: "Instructions"},
+			{kind: spec.KindRule},
 			{kind: spec.KindAgent},
-			{kind: spec.KindHook},
-			{kind: spec.KindCommand, label: "Commands (human-invoked prompts)"},
-			{kind: spec.KindSettings, keep: shapesExecution},
+			{kind: spec.KindSkill},
+			{kind: spec.KindCommand, optional: true},
+			{kind: spec.KindReview, optional: true},
+			{kind: spec.KindIgnore, optional: true},
 		},
 	},
 	{
-		id: SectionAuthority, label: "Authority", question: "What may the agent do?",
-		description: "Permission rules and protected paths that decide what an agent may do without asking.",
-		status:      statusDeepView, deepView: "/authority",
-		rows: []row{{kind: spec.KindSettings, keep: grantsAuthority}},
+		id: SectionAuthority, label: "Authority", question: "What may the agent do?", deepView: "/authority",
+		rows: []row{{kind: spec.KindSettings, label: "Permissions", keep: grantsAuthority}},
 	},
 	{
 		id: SectionTools, label: "Tools", question: "What can the agent use?",
-		description: "MCP servers and environments that give the agent systems to work with.",
-		status:      statusOverview,
-		rows:        []row{{kind: spec.KindMCP}, {kind: spec.KindEnvironment}},
+		rows: []row{{kind: spec.KindMCP}, {kind: spec.KindEnvironment, optional: true}},
 	},
 	{
-		id: SectionVerification, label: "Verification", question: "How is work checked?",
-		description: "Review instructions that tell a coding tool how to check work.",
-		status:      statusOverview,
-		rows:        []row{{kind: spec.KindReview}},
+		id: SectionLifecycle, label: "Lifecycle", question: "What runs around the agent, and when?",
+		rows: []row{{kind: spec.KindHook, group: hookEvent}},
+	},
+	{
+		id: SectionSettings, label: "Settings", question: "How is the harness configured?",
+		rows: []row{
+			{special: kindBuiltin, label: "Built-ins"},
+			{special: kindConfig, label: "Config"},
+			{kind: spec.KindSettings, label: "Other settings", keep: shapesExecution},
+		},
 	},
 }
 
@@ -140,12 +137,11 @@ func grantsAuthority(e spec.Entry) bool {
 	return hasField(e, "permissions") || hasField(e, "protected")
 }
 
-// shapesExecution keeps the settings specs that set a model or an
-// effort, and those that set none of the portable fields: their
-// target-specific keys shape how a tool runs, and no section would
-// list them otherwise.
+// shapesExecution keeps every settings spec that sets no permission
+// rules or protected paths: model, effort, retention, and the native
+// keys of each tool.
 func shapesExecution(e spec.Entry) bool {
-	return hasField(e, "model") || hasField(e, "effort") || !grantsAuthority(e)
+	return !grantsAuthority(e)
 }
 
 func hasField(e spec.Entry, key string) bool {
@@ -153,95 +149,275 @@ func hasField(e spec.Entry, key string) bool {
 	return ok
 }
 
-// Build arranges the inputs into the overview: the six sections, the
-// feed, the configured targets' support, and a glossary.
+// lifecycleOrder is the order of the portable hook events in a session.
+var lifecycleOrder = []string{"session-start", "prompt-submit", "before-tool", "after-tool", "after-edit", "stop", "session-end"}
+
+var lifecycleLabels = map[string]string{
+	"session-start": "Session start",
+	"prompt-submit": "Prompt submit",
+	"before-tool":   "Before a tool runs",
+	"after-tool":    "After a tool runs",
+	"after-edit":    "After a file edit",
+	"stop":          "Stop",
+	"session-end":   "Session end",
+}
+
+// hookEvent is the lifecycle point a hook runs at: its portable `on`
+// event by its label, or the native `event` as the tool names it.
+func hookEvent(e spec.Entry) string {
+	if on, ok := e.Meta["on"].(string); ok && on != "" {
+		if label, known := lifecycleLabels[on]; known {
+			return label
+		}
+		return on
+	}
+	if event, ok := e.Meta["event"].(string); ok && event != "" {
+		return event
+	}
+	return "No event"
+}
+
+// groupRank orders hook groups by their place in a session; native
+// event names follow, alphabetically.
+func groupRank(group string) int {
+	for i, on := range lifecycleOrder {
+		if lifecycleLabels[on] == group {
+			return i
+		}
+	}
+	return len(lifecycleOrder)
+}
+
+// Build arranges the inputs into the overview: the sections and the
+// configured targets' support.
 func Build(in Inputs) *View {
-	labels := newLabeler(in.Authority)
-	feed := buildFeed(in, labels)
 	caps := capabilities()
+	sections := buildSections(in, caps)
+	placeFindings(sections, in.Findings)
+	targets := targetSupport(targetsOf(in.Cfg), caps, newLabeler())
+	syncStates(targets, in.Findings, in.Compared)
 	return &View{
 		SchemaVersion: SchemaVersion,
 		Snapshot:      normalizedSnapshot(in.Snapshot),
-		Sections:      buildSections(in, feed, caps),
-		Feed:          feed,
-		Targets:       targetSupport(targetsOf(in.Cfg), caps, labels),
-		Explanations:  explanations(),
+		Sections:      sections,
+		Targets:       targets,
 	}
 }
 
-// BuildFeed returns the feed alone, for agents that only want the cards.
-func BuildFeed(in Inputs) *FeedView {
-	return &FeedView{
-		SchemaVersion: SchemaVersion,
-		Snapshot:      normalizedSnapshot(in.Snapshot),
-		Feed:          buildFeed(in, newLabeler(in.Authority)),
+// placeFindings puts each lint and doctor finding on every item whose
+// file it names, or inside whose skill folder it points. A finding that
+// names no configured item goes to the section it states, else to
+// Settings, which holds the configuration as a whole.
+func placeFindings(sections []Section, findings []Finding) {
+	for _, f := range findings {
+		if f.Source == SourceDrift {
+			continue
+		}
+		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, Fix: f.Fix, Explanation: f.Explanation}
+		placed := false
+		for si := range sections {
+			for ii := range sections[si].Items {
+				if names(sections[si].Items[ii], f.Path) {
+					sections[si].Items[ii].Findings = append(sections[si].Items[ii].Findings, item)
+					placed = true
+				}
+			}
+		}
+		if placed {
+			continue
+		}
+		section := f.Section
+		if !slices.ContainsFunc(sections, func(s Section) bool { return s.ID == section }) {
+			section = SectionSettings
+		}
+		for si := range sections {
+			if sections[si].ID == section {
+				sections[si].Findings = append(sections[si].Findings, item)
+			}
+		}
 	}
 }
 
-func buildSections(in Inputs, feed []Card, caps map[string][]spec.Kind) []Section {
+// names reports whether a finding at path concerns item: the same file,
+// or a file inside the folder of a skill.
+func names(item SectionItem, path string) bool {
+	if path == "" || item.Path == "" {
+		return false
+	}
+	if path == item.Path {
+		return true
+	}
+	if item.Kind == string(spec.KindSkill) {
+		return strings.HasPrefix(path, strings.TrimSuffix(item.Path, "/SKILL.md")+"/")
+	}
+	return false
+}
+
+// syncStates sets each target's drift state from the drift findings:
+// drifted with its files, in-sync when it was compared and nothing
+// differs, not-checked otherwise.
+func syncStates(targets []TargetSupport, findings []Finding, compared []string) {
+	for i := range targets {
+		t := &targets[i]
+		t.Sync = TargetSync{State: SyncNotChecked, Files: []SyncFile{}}
+		if !slices.Contains(compared, t.Target) {
+			continue
+		}
+		t.Sync.State = SyncInSync
+		for _, f := range findings {
+			if f.Source == SourceDrift && f.Target == t.Target {
+				t.Sync.State = SyncDrifted
+				t.Sync.Files = append(t.Sync.Files, SyncFile{Path: f.Path, State: f.Message})
+			}
+		}
+		slices.SortFunc(t.Sync.Files, func(a, b SyncFile) int { return strings.Compare(a.Path, b.Path) })
+	}
+}
+
+func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 	targets := targetsOf(in.Cfg)
-	var builtins []string
-	if in.Cfg != nil {
-		builtins = in.Cfg.Builtins
-	}
 	sections := make([]Section, 0, len(sectionDefs))
 	for i, def := range sectionDefs {
 		s := Section{
-			ID:          def.id,
-			Label:       def.label,
-			Question:    def.question,
-			Description: def.description,
-			Order:       i + 1,
-			Status:      def.status,
-			DeepView:    def.deepView,
-			Kinds:       []KindCount{},
-			Items:       []SectionItem{},
-			Support:     []KindSupport{},
-			CardIDs:     []string{},
+			ID:       def.id,
+			Label:    def.label,
+			Question: def.question,
+			Order:    i + 1,
+			DeepView: def.deepView,
+			Kinds:    []KindCount{},
+			Items:    []SectionItem{},
+			Support:  []KindSupport{},
+			Findings: []ItemFinding{},
 		}
 		for _, r := range def.rows {
-			if r.builtin != "" {
-				count := 0
-				if slices.Contains(builtins, r.builtin) {
-					count = 1
-					s.Items = append(s.Items, SectionItem{
-						Kind:        r.builtin,
-						Name:        r.builtin,
-						Label:       r.title(),
-						Description: r.description,
-						Path:        "builtin:" + r.builtin,
-						Layer:       builtinLayer,
-					})
-				}
-				s.Kinds = append(s.Kinds, KindCount{Kind: r.id(), Label: r.title(), Count: count})
+			var items []SectionItem
+			switch r.special {
+			case kindInstructions:
+				items = instructionItems(in.Instructions)
+			case kindBuiltin:
+				items = builtinItems(in.Cfg)
+			case kindConfig:
+				items = configItems(in.Cfg, in.Snapshot.ConfigFiles)
+			default:
+				items = specItems(in, r, def.id)
+			}
+			if r.optional && len(items) == 0 {
 				continue
 			}
-			entries := entriesOf(in.Bundle, r.kind)
-			if r.keep != nil {
-				entries = slices.DeleteFunc(slices.Clone(entries), func(e spec.Entry) bool { return !r.keep(e) })
+			for i := range items {
+				items[i].Findings = []ItemFinding{}
 			}
-			items := make([]SectionItem, 0, len(entries))
-			for _, e := range entries {
-				items = append(items, sectionItem(in.Snapshot.Project.Root, e, def.id))
-			}
-			slices.SortStableFunc(items, func(a, b SectionItem) int {
-				if c := strings.Compare(a.Name, b.Name); c != 0 {
-					return c
-				}
-				return strings.Compare(a.Path, b.Path)
-			})
 			s.Items = append(s.Items, items...)
 			s.Kinds = append(s.Kinds, KindCount{Kind: r.id(), Label: r.title(), Count: len(items)})
-			s.Support = append(s.Support, kindSupport(r.kind, r.title(), targets, caps))
-		}
-		for _, c := range feed {
-			if c.SectionID == def.id {
-				s.CardIDs = append(s.CardIDs, c.ID)
+			if r.special == "" {
+				s.Support = append(s.Support, kindSupport(r.kind, r.title(), targets, caps))
 			}
 		}
 		sections = append(sections, s)
 	}
 	return sections
+}
+
+func specItems(in Inputs, r row, section string) []SectionItem {
+	entries := entriesOf(in.Bundle, r.kind)
+	if r.keep != nil {
+		entries = slices.DeleteFunc(slices.Clone(entries), func(e spec.Entry) bool { return !r.keep(e) })
+	}
+	items := make([]SectionItem, 0, len(entries))
+	for _, e := range entries {
+		item := sectionItem(in.Snapshot.Project.Root, e, section)
+		if r.group != nil {
+			item.Group = r.group(e)
+		}
+		items = append(items, item)
+	}
+	slices.SortStableFunc(items, func(a, b SectionItem) int {
+		if a.Group != b.Group {
+			if ra, rb := groupRank(a.Group), groupRank(b.Group); ra != rb {
+				return ra - rb
+			}
+			return strings.Compare(a.Group, b.Group)
+		}
+		if c := strings.Compare(a.Name, b.Name); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Path, b.Path)
+	})
+	return items
+}
+
+func instructionItems(docs []Document) []SectionItem {
+	items := make([]SectionItem, 0, len(docs))
+	for _, d := range docs {
+		items = append(items, SectionItem{
+			Kind:        kindInstructions,
+			Name:        filepath.Base(d.Path),
+			Label:       filepath.Base(d.Path),
+			Description: fmt.Sprintf("Loaded at the start of every session: %d words.", d.Words),
+			Path:        filepath.ToSlash(d.Path),
+			Layer:       d.Layer,
+		})
+	}
+	return items
+}
+
+// builtinDescriptions says what each built-in feature does.
+var builtinDescriptions = map[string]string{
+	"memory":       "Shared memory every coding tool reads and saves facts to.",
+	"handoff":      "Saves a task so the next session, in this or another tool, can resume it.",
+	"handoff-hook": "Offers a saved handoff when a session starts.",
+	"rtk":          "Routes shell commands through rtk to cut output tokens.",
+	"caveman":      "Terse replies to cut output tokens.",
+}
+
+func builtinItems(cfg *config.Config) []SectionItem {
+	if cfg == nil {
+		return []SectionItem{}
+	}
+	items := make([]SectionItem, 0, len(cfg.Builtins))
+	for _, name := range cfg.Builtins {
+		description := builtinDescriptions[name]
+		if description == "" {
+			description = "Built-in feature."
+		}
+		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: name, Description: description, Path: "builtin:" + name, Layer: builtinLayer})
+	}
+	return items
+}
+
+// configItems lists the config files read, each described by what the
+// loaded configuration sets.
+func configItems(cfg *config.Config, files []string) []SectionItem {
+	var facts []string
+	if cfg != nil {
+		if len(cfg.Targets) > 0 {
+			facts = append(facts, "targets "+strings.Join(cfg.Targets, ", "))
+		}
+		if cfg.Requires != "" {
+			facts = append(facts, "requires "+cfg.Requires)
+		}
+		if len(cfg.Models) > 0 {
+			tiers := make([]string, 0, len(cfg.Models))
+			for name := range cfg.Models {
+				tiers = append(tiers, name)
+			}
+			slices.Sort(tiers)
+			facts = append(facts, "model tiers "+strings.Join(tiers, ", "))
+		}
+	}
+	description := "Sets no targets, version requirement, or model tiers."
+	if len(facts) > 0 {
+		description = "Sets " + strings.Join(facts, "; ") + "."
+	}
+	items := make([]SectionItem, 0, len(files))
+	for _, f := range files {
+		layer := "config"
+		if strings.HasPrefix(filepath.ToSlash(f), "local/") {
+			layer = "local"
+		}
+		items = append(items, SectionItem{Kind: kindConfig, Name: filepath.Base(f), Label: filepath.ToSlash(f), Description: description, Path: filepath.ToSlash(f), Layer: layer})
+	}
+	return items
 }
 
 func sectionItem(root string, e spec.Entry, section string) SectionItem {
@@ -403,18 +579,7 @@ func normalizedSnapshot(s authority.Snapshot) authority.Snapshot {
 	return s
 }
 
-func explanations() map[string]string {
-	return map[string]string{
-		"feed":        "The feed lists up to 50 cards, most consequential first, each derived from a finding a read-only check produced.",
-		"priority":    "Cards rank by consequence: security, then drift, coverage, hygiene, and information.",
-		"fingerprint": "A fingerprint names a finding across revisions, so a dismissal holds until the finding itself changes.",
-		"dismiss":     "Dismissals are kept in your browser in this version.",
-		"derived":     "Every card comes from a read-only check and links to its evidence; a deterministic check can still be wrong.",
-	}
-}
-
 // targetLabels names each built-in target as a person knows the tool.
-// A label the Authority view supplies takes precedence.
 var targetLabels = map[string]string{
 	"aider":       "Aider",
 	"amp":         "Amp",
@@ -446,20 +611,10 @@ var targetLabels = map[string]string{
 // labeler maps a target name to its human label.
 type labeler map[string]string
 
-func newLabeler(v *authority.View) labeler {
+func newLabeler() labeler {
 	l := make(labeler, len(targetLabels))
 	for name, label := range targetLabels {
 		l[name] = label
-	}
-	if v != nil {
-		for _, o := range v.Harness.Available {
-			if o.Target != "" && o.Label != "" {
-				l[o.Target] = o.Label
-			}
-		}
-		if v.Harness.Target != "" && v.Harness.Label != "" {
-			l[v.Harness.Target] = v.Harness.Label
-		}
 	}
 	return l
 }

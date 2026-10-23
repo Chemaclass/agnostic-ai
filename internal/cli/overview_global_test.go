@@ -60,13 +60,15 @@ func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 			items[s.ID] = append(items[s.ID], it.Kind+":"+it.Name)
 		}
 	}
-	for section, item := range map[string]string{
-		overview.SectionContext: "skill:review",
-		overview.SectionControl: "agent:helper",
-		overview.SectionTools:   "mcp:db",
+	for _, want := range []struct{ section, item string }{
+		{overview.SectionContext, "instructions:AGNOSTIC_AI.md"},
+		{overview.SectionContext, "skill:review"},
+		{overview.SectionContext, "agent:helper"},
+		{overview.SectionTools, "mcp:db"},
+		{overview.SectionSettings, "config:agnostic-ai.yaml"},
 	} {
-		if !slices.Contains(items[section], item) {
-			t.Errorf("%s lists %v, want %s", section, items[section], item)
+		if !slices.Contains(items[want.section], want.item) {
+			t.Errorf("%s lists %v, want %s", want.section, items[want.section], want.item)
 		}
 	}
 
@@ -82,8 +84,10 @@ func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 	if in.Snapshot.Evidence.Installed != "checked" || !strings.Contains(in.Snapshot.Evidence.Note, "doctor checks read a project") {
 		t.Errorf("evidence = %+v", in.Snapshot.Evidence)
 	}
-	if !slices.ContainsFunc(view.Feed, func(c overview.Card) bool { return c.Source == overview.SourceDrift }) {
-		t.Error("the feed has no drift card before the first sync")
+	for _, target := range view.Targets {
+		if target.Sync.State != overview.SyncDrifted {
+			t.Errorf("%s sync = %+v before the first sync, want drifted", target.Target, target.Sync)
+		}
 	}
 
 	root := NewRootCmd("test")
@@ -99,6 +103,11 @@ func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 	}
 	if drift := driftFindings(in.Findings); len(drift) > 0 {
 		t.Errorf("drift after sync --global: %+v", drift)
+	}
+	for _, target := range overview.Build(in).Targets {
+		if target.Sync.State != overview.SyncInSync {
+			t.Errorf("%s sync = %+v after sync --global, want in-sync", target.Target, target.Sync)
+		}
 	}
 
 	src, err := openAuthoritySource("", true)
@@ -118,7 +127,7 @@ func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 	}
 }
 
-func TestServeMux_GlobalServesOverviewAndFeed(t *testing.T) {
+func TestServeMux_GlobalServesTheOverview(t *testing.T) {
 	globalOverviewHome(t)
 	src, err := openAuthoritySource("", true)
 	if err != nil {
@@ -127,7 +136,7 @@ func TestServeMux_GlobalServesOverviewAndFeed(t *testing.T) {
 	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, Global: true}))
 	defer srv.Close()
 
-	for _, path := range []string{overview.OverviewPath, overview.FeedPath} {
+	for _, path := range []string{overview.OverviewPath} {
 		resp, err := http.Get(srv.URL + path)
 		if err != nil {
 			t.Fatal(err)

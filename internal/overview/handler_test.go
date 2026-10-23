@@ -28,10 +28,11 @@ func testInputs() (Inputs, error) {
 		Bundle:   handcraftedBundle(),
 		Snapshot: authority.Snapshot{Revision: "0123456789ab", Project: authority.Project{Name: "demo"}},
 		Findings: []Finding{{Source: SourceDrift, Target: "claude", Path: "CLAUDE.md", Message: "stale"}},
+		Compared: []string{"claude"},
 	}, nil
 }
 
-func TestNewHandler_ServesTheOverviewAndTheFeedWithLocalCORS(t *testing.T) {
+func TestNewHandler_ServesTheOverviewWithLocalCORS(t *testing.T) {
 	h := NewHandler(testInputs)
 
 	rec := serve(t, h, http.MethodGet, OverviewPath, "http://localhost:5173")
@@ -48,30 +49,22 @@ func TestNewHandler_ServesTheOverviewAndTheFeedWithLocalCORS(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
 		t.Fatalf("decode overview: %v", err)
 	}
-	if view.SchemaVersion != SchemaVersion || len(view.Sections) != 6 || len(view.Feed) != 1 || view.Snapshot.Revision != "0123456789ab" {
+	if view.SchemaVersion != SchemaVersion || len(view.Sections) != 5 || view.Snapshot.Revision != "0123456789ab" {
 		t.Errorf("overview = %+v", view)
 	}
+	if len(view.Targets) != 1 || view.Targets[0].Sync.State != SyncDrifted {
+		t.Errorf("targets = %+v, want claude drifted", view.Targets)
+	}
 
-	rec = serve(t, h, http.MethodGet, FeedPath, "http://127.0.0.1:8080")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("feed status = %d: %s", rec.Code, rec.Body)
-	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:8080" {
-		t.Errorf("allow origin = %q", got)
-	}
-	var feed FeedView
-	if err := json.Unmarshal(rec.Body.Bytes(), &feed); err != nil {
-		t.Fatalf("decode feed: %v", err)
-	}
-	if feed.SchemaVersion != SchemaVersion || len(feed.Feed) != 1 || feed.Feed[0].Revision != "0123456789ab" {
-		t.Errorf("feed = %+v", feed)
+	if rec := serve(t, h, http.MethodGet, "/api/views/feed", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("feed status = %d, want 404: the feed is gone", rec.Code)
 	}
 }
 
 func TestNewHandler_GivesOtherOriginsNoCORSHeader(t *testing.T) {
 	h := NewHandler(testInputs)
 	for _, origin := range []string{"http://example.com", "https://localhost:5173", "http://localhost.example.com", "http://127.0.0.2:80", "null", ""} {
-		rec := serve(t, h, http.MethodGet, FeedPath, origin)
+		rec := serve(t, h, http.MethodGet, OverviewPath, origin)
 		if rec.Code != http.StatusOK {
 			t.Errorf("%q status = %d", origin, rec.Code)
 		}
@@ -79,7 +72,7 @@ func TestNewHandler_GivesOtherOriginsNoCORSHeader(t *testing.T) {
 			t.Errorf("%q allow origin = %q, want none", origin, got)
 		}
 	}
-	if got := serve(t, h, http.MethodGet, FeedPath, "http://localhost").Header().Get("Access-Control-Allow-Origin"); got != "http://localhost" {
+	if got := serve(t, h, http.MethodGet, OverviewPath, "http://localhost").Header().Get("Access-Control-Allow-Origin"); got != "http://localhost" {
 		t.Errorf("portless localhost allow origin = %q", got)
 	}
 }
@@ -116,7 +109,7 @@ func TestNewHandler_ReportsFailuresAsJSONErrors(t *testing.T) {
 	}
 
 	h := NewHandler(testInputs)
-	rec = serve(t, h, http.MethodPost, FeedPath, "")
+	rec = serve(t, h, http.MethodPost, OverviewPath, "")
 	if rec.Code != http.StatusMethodNotAllowed || errorOf(t, rec) == "" || rec.Header().Get("Allow") == "" {
 		t.Errorf("post = %d %s", rec.Code, rec.Body)
 	}

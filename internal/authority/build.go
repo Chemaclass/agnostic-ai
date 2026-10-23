@@ -31,7 +31,7 @@ type Options struct {
 	// with disk. Nil means the caller did not compare.
 	Installed map[string]InstalledState
 	// ConfigFiles are the config files read, relative to Root. They name
-	// the snapshot's inputs and feed its revision.
+	// the snapshot's inputs and enter its revision.
 	ConfigFiles []string
 	// Global builds the view for the user-level configuration sync
 	// --global reads, with Root as the global source directory. sync

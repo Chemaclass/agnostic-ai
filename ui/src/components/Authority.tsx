@@ -13,6 +13,7 @@ import { ErrorPanel, Notice } from './Banner'
 import { Circuit, type ProposedMark } from './Circuit'
 import { ProposalPanel } from './Proposal'
 import { ResourceDetail } from './ResourceDetail'
+import { SectionContents } from './Section'
 import { SubjectControls, type Remote } from './Shell'
 import { Uncertainties } from './Uncertainties'
 
@@ -30,7 +31,7 @@ export function AuthorityPage({
   const app = useApp()
   const view = authority.loaded?.data
   const [draftOpen, setDraftOpen] = useState(false)
-  // A proposal carried in the URL on arrival, from a feed card or a shared
+  // A proposal carried in the URL on arrival, from a shared
   // link, takes focus once the view is ready, so its preview is in sight.
   const arrivedWithProposal = useRef(!!app.state.proposal?.changes.length)
   useEffect(() => {
@@ -135,6 +136,7 @@ export function AuthorityPage({
   )
 
   const subtitle = `${view.agent.label} on ${view.harness.label}`
+  const permissions = overview.loaded?.data.sections.find((s) => s.id === 'authority')
 
   if (resource && domain) {
     const provider = findProvider(view, resource.providerId)
@@ -206,6 +208,7 @@ export function AuthorityPage({
   return (
     <>
       <PageHeader title="Authority" subtitle={`${subtitle} · Which exact resources can it reach, and why?`} />
+      {permissions && <SectionContents section={permissions} />}
       <SubjectControls authority={authority} overview={overview} />
       {notices}
       <SubjectStrip view={view} />

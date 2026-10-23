@@ -1,27 +1,14 @@
-// Overview page for a harness section: what it holds, which coding
-// tools support each kind, and its cards.
+// Overview page for a harness section: what it holds, item by item,
+// with each check finding on the item it names, and which coding tools
+// support each kind.
 
-import type { AuthorityView, OverviewView } from '../contract'
-import type { FeedDecisions } from '../model/feed'
-import { cardKindLabel } from '../model/feed'
-import { plural } from '../model/format'
-import { AppLink, PageHeader } from './app-context'
+import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
+import { PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
-import { priorityTone } from './Feed'
 import type { Remote } from './Shell'
-import { Badge, Chip, Code } from './ui'
+import { Badge, Chip, Code, Icon } from './ui'
 
-export function SectionPage({
-  sectionId,
-  overview,
-  authority,
-  decisions,
-}: {
-  sectionId: string
-  overview: Remote<OverviewView>
-  authority: Remote<AuthorityView>
-  decisions: FeedDecisions
-}) {
+export function SectionPage({ sectionId, overview }: { sectionId: string; overview: Remote<OverviewView> }) {
   const data = overview.loaded?.data
   if (!data) {
     return (
@@ -40,128 +27,162 @@ export function SectionPage({
       </>
     )
   }
-
-  const toolLabel = (target: string) =>
-    data.targets.find((t) => t.target === target)?.label ?? authority.loaded?.data.harness.available.find((h) => h.target === target)?.label ?? target
-  const cards = section.cardIds.map((id) => data.feed.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => !!c)
-  const kindLabel = (kind: string) => section.kinds.find((k) => k.kind === kind)?.label ?? kind
+  const toolLabel = (target: string) => data.targets.find((t) => t.target === target)?.label ?? target
 
   return (
     <>
       <PageHeader title={section.label} subtitle={section.question} />
-
-      <section className="block" aria-labelledby="kinds-title">
-        <h2 id="kinds-title">What it holds</h2>
-        {section.kinds.length ? (
-          <ul className="kind-counts">
-            {section.kinds.map((k) => (
-              <li key={k.kind}>
-                <span className="kind-count">{k.count}</span>
-                <span>{k.label}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">This section declares no spec kinds.</p>
-        )}
-      </section>
-
-      <section className="block" aria-labelledby="items-title">
-        <h2 id="items-title">Items</h2>
-        {section.items.length ? (
-          <ul className="item-list">
-            {section.items.map((item) => (
-              <li key={`${item.kind}:${item.name}`} className="item-row">
-                <div className="item-main">
-                  <strong>{item.label}</strong>
-                  {item.description && <span className="muted"> · {item.description}</span>}
-                </div>
-                <div className="item-meta">
-                  <span className="muted">{kindLabel(item.kind)}</span>
-                  <Code>{item.path}</Code>
-                  <Chip title="Layer the spec comes from">{item.layer}</Chip>
-                  {item.scope && <Chip>{item.scope}</Chip>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">Nothing is configured in this section yet.</p>
-        )}
-      </section>
-
-      <section className="block" aria-labelledby="support-title">
-        <h2 id="support-title">Coding tool support</h2>
-        {section.support.length ? (
-          <div className="table-wrap">
-            <table className="table support-table">
-              <thead>
-                <tr>
-                  <th scope="col">Kind</th>
-                  <th scope="col">Supported on</th>
-                  <th scope="col">Not supported on</th>
-                </tr>
-              </thead>
-              <tbody>
-                {section.support.map((k) => (
-                  <tr key={k.kind}>
-                    <th scope="row">{k.label}</th>
-                    <td>
-                      {k.supported.length ? (
-                        <span className="tool-list">
-                          {k.supported.map((t) => (
-                            <Chip key={t} tone="permitted">
-                              {toolLabel(t)}
-                            </Chip>
-                          ))}
-                        </span>
-                      ) : (
-                        <span className="muted">No configured tool</span>
-                      )}
-                    </td>
-                    <td>
-                      {k.unsupported.length ? (
-                        <span className="tool-list">
-                          {k.unsupported.map((t) => (
-                            <Chip key={t}>{toolLabel(t)}</Chip>
-                          ))}
-                        </span>
-                      ) : (
-                        <span className="muted">Every configured tool supports it</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="muted">The adapters declare no support for this section's kinds.</p>
-        )}
-      </section>
-
-      <section className="block" aria-labelledby="cards-title">
-        <h2 id="cards-title">Feed cards for {section.label}</h2>
-        {cards.length ? (
-          <ul className="mini-cards">
-            {cards.map((card) => (
-              <li key={card.id} className="mini-card">
-                <div className="card-meta">
-                  <Badge tone={priorityTone(card.priority)}>{card.priorityLabel}</Badge>
-                  <span className="card-kind">{cardKindLabel(card.kind)}</span>
-                  {decisions.dismissed[card.fingerprint] && <span className="card-acted">Dismissed in this browser</span>}
-                </div>
-                <AppLink to={{ view: 'feed', card: card.id }} className="mini-card-title">
-                  {card.title}
-                </AppLink>
-                <p className="muted">{card.consequence}</p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">No card concerns this section. {plural(data.feed.length, 'card is', 'cards are')} in the feed overall.</p>
-        )}
-      </section>
+      <SectionContents section={section} />
+      <SupportTable section={section} toolLabel={toolLabel} />
     </>
+  )
+}
+
+/** The section's items, kind by kind, with their findings. */
+export function SectionContents({ section }: { section: Section }) {
+  return (
+    <>
+      {section.findings.length > 0 && (
+        <section className="block" aria-labelledby={`${section.id}-unplaced`}>
+          <h2 id={`${section.id}-unplaced`}>Findings outside the configured items</h2>
+          <Findings findings={section.findings} showPath />
+        </section>
+      )}
+      {section.kinds.map((k) => {
+        const items = section.items.filter((it) => it.kind === k.kind)
+        const titleId = `${section.id}-${k.kind}`
+        return (
+          <section className="block" aria-labelledby={titleId} key={k.kind}>
+            <h2 id={titleId}>
+              {k.label} <span className="muted kind-count">{k.count}</span>
+            </h2>
+            {items.length === 0 ? <p className="muted">None configured.</p> : <GroupedItems items={items} />}
+          </section>
+        )
+      })}
+    </>
+  )
+}
+
+function GroupedItems({ items }: { items: SectionItem[] }) {
+  if (!items.some((it) => it.group)) return <ItemList items={items} />
+  const groups: { name: string; items: SectionItem[] }[] = []
+  for (const it of items) {
+    const name = it.group ?? ''
+    const last = groups[groups.length - 1]
+    if (last && last.name === name) last.items.push(it)
+    else groups.push({ name, items: [it] })
+  }
+  return (
+    <div className="item-groups">
+      {groups.map((g) => (
+        <div key={g.name} className="item-group">
+          <h3 className="item-group-title">{g.name}</h3>
+          <ItemList items={g.items} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ItemList({ items }: { items: SectionItem[] }) {
+  return (
+    <ul className="item-list">
+      {items.map((item) => (
+        <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
+          <div className="item-main">
+            <strong>{item.label}</strong>
+            {item.description && <span className="muted"> · {item.description}</span>}
+          </div>
+          <div className="item-meta">
+            <Code>{item.path}</Code>
+            <Chip title="Layer the item comes from">{item.layer}</Chip>
+            {item.scope && <Chip>{item.scope}</Chip>}
+          </div>
+          {item.findings.length > 0 && <Findings findings={item.findings} />}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function Findings({ findings, showPath }: { findings: ItemFinding[]; showPath?: boolean }) {
+  return (
+    <ul className="findings">
+      {findings.map((f, i) => (
+        <li key={`${f.code ?? f.source}-${f.line ?? 0}-${i}`} className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
+          <Icon name="warning" className="finding-icon" />
+          <div className="finding-body">
+            <p>
+              <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>{' '}
+              {f.code && <Code>{f.code}</Code>} {f.line ? <span className="muted">Line {f.line}: </span> : null}
+              {f.message}
+            </p>
+            {showPath && f.path && (
+              <p className="muted">
+                <Code>{f.path}</Code>
+              </p>
+            )}
+            {f.explanation && <p className="muted">{f.explanation}</p>}
+            {f.fix && (
+              <p className="muted">
+                Fix: <Code>{f.fix}</Code>
+              </p>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (target: string) => string }) {
+  if (!section.support.length) return null
+  return (
+    <section className="block" aria-labelledby="support-title">
+      <h2 id="support-title">Coding tool support</h2>
+      <div className="table-wrap">
+        <table className="table support-table">
+          <thead>
+            <tr>
+              <th scope="col">Kind</th>
+              <th scope="col">Supported on</th>
+              <th scope="col">Not supported on</th>
+            </tr>
+          </thead>
+          <tbody>
+            {section.support.map((k) => (
+              <tr key={k.kind}>
+                <th scope="row">{k.label}</th>
+                <td>
+                  {k.supported.length ? (
+                    <span className="tool-list">
+                      {k.supported.map((t) => (
+                        <Chip key={t} tone="permitted">
+                          {toolLabel(t)}
+                        </Chip>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="muted">No configured tool</span>
+                  )}
+                </td>
+                <td>
+                  {k.unsupported.length ? (
+                    <span className="tool-list">
+                      {k.unsupported.map((t) => (
+                        <Chip key={t}>{toolLabel(t)}</Chip>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="muted">Every configured tool supports it</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }

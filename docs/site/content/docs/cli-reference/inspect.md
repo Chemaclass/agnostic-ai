@@ -310,7 +310,7 @@ agnostic-ai view overview --json
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-`view overview` prints the six harness sections with their configured items and per-tool support, and a feed of findings from `lint`, `doctor`, and drift, each with its evidence. With `--global` it reads the user-level configuration: the feed holds `lint --global` findings and drift against the files `sync --global` would write, and the doctor checks are skipped.
+`view overview` prints whether each target's generated files are in sync, then the five harness sections (context, authority, tools, lifecycle, settings) with their items, each with the `lint` and `doctor` findings that name it. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
 
 ## serve
 
@@ -327,7 +327,7 @@ agnostic-ai serve --global
 | `--dir` | Project directory to read. Default: the current directory. |
 | `--ui` | Directory of the built client to serve, such as `ui/dist`. |
 | `--open` | Open the served URL in a browser. |
-| `--global` | Serve the user-level configuration. Its feed holds `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
+| `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `GET /api/views/feed`, and `GET /api/health`.
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, and `GET /api/health`.

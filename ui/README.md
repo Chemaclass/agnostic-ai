@@ -1,10 +1,11 @@
 # Agnostic AI harness UI
 
-The web client for the harness views: the **feed** of evidence-backed
-decisions, an overview page for each harness section (Context, Memory,
-Control, Tools, Verification), and the **Authority** deep view, which
-answers which exact resources an agent can reach on a given coding tool,
-and why.
+The web client for the harness views: an overview page for each harness
+section (Context, Tools, Lifecycle, Settings) and the **Authority** deep
+view, which answers which exact resources an agent can reach on a given
+coding tool, and why. Each item shows the lint and doctor findings that
+name it, and the header shows whether each coding tool's generated files
+are in sync.
 
 The server owns the truth: names, effects, precedence, provenance, and
 impact analysis. The client owns presentation: selection, layout,
@@ -61,7 +62,7 @@ http(s). The header shows a **Static snapshot · revision …** chip. A view
 the snapshot does not hold falls back to `authority.json` with a notice
 naming what is shown instead. The proposal panel still shows the client
 preview, but "Validate on server" is disabled with the note *needs a
-running server*. Dismissals and snoozes keep working in this browser.
+running server*.
 
 To capture a snapshot from a running server:
 
@@ -95,23 +96,19 @@ screen.
 
 | Parameter  | Meaning |
 | ---------- | ------- |
-| `view`     | `feed` (default), `context`, `memory`, `control`, `authority`, `tools`, `verification`, `inspect` |
+| `view`     | `context` (default), `authority`, `tools`, `lifecycle`, `settings` |
 | `target`   | The coding tool to resolve effects for (from the view's `harness.available`) |
 | `agentId`  | The subject (from the view's `agents`) |
 | `domain`   | Authority: the selected capability domain |
 | `resource` | Authority: the selected resource |
 | `tab`      | Authority domain page: `resources` (default) or `circuit` |
-| `card`     | Feed: the card to highlight |
 | `proposal` | Authority: a proposal draft as JSON (`{ agentId, target, revision, changes }`) |
 | `mock`     | `1` to read the bundled fixtures |
 | `source`   | A static snapshot directory or URL |
 
 ## Keyboard
 
-On the feed: `j` and `k` move the highlight, `y` takes the highlighted
-card's first action, `n` dismisses it. On a touch screen, swipe the card
-right to accept or left to dismiss. `Esc` closes the JSON inspector and
-the proposal menu.
+`Esc` closes the JSON inspector and the proposal menu.
 
 ## Scripts
 
@@ -129,7 +126,7 @@ the proposal menu.
 **Model tests** (`src/model/*.test.ts`) cover the pure code: grouping
 resources by domain and provider, the resource status pill, effect
 wording, circuit layout determinism, URL state and data source parsing,
-the client proposal preview, and feed ranking and dismissal. They read
+and the client proposal preview. They read
 the mock fixtures by default; point them at real server output with
 `AUTHORITY_FIXTURE` and `OVERVIEW_FIXTURE` (paths relative to `ui/`):
 
@@ -166,15 +163,14 @@ E2E_BASE_URL=http://127.0.0.1:4310 npm run e2e
 
 `@playwright/test` is pinned to 1.56.1 to match the preinstalled
 Chromium build; do not run `playwright install`. The tests save
-screenshots at 1280×900 (and 390×844 for the phone feed) to the
-screenshot directory.
+screenshots at 1280×900 to the screenshot directory.
 
 ## Source layout
 
 - `src/contract.ts` the JSON contract, mirrored from Go
 - `src/api.ts` loading from the server, the mock fixtures, or a static snapshot
 - `src/model/` pure, tested logic: wording, grouping, status, circuit
-  layout, URL state, proposals, feed, diff, normalization
+  layout, URL state, proposals, diff, normalization
 - `src/components/` the screens
 - `src/styles.css` every colour as a token on `:root`, with a light theme
   under `[data-theme="light"]` and reduced-motion rules

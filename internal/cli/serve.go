@@ -105,19 +105,18 @@ func newServeCmd() *cobra.Command {
 // newServeMux routes the API and the client. More specific patterns win
 // over "/", so a view mounted here bypasses the authority handler.
 //
-// The overview and feed views run the read-only checks (lint, drift,
-// doctor) in the working directory, which serve has changed into for
-// the project. For --global they run the global lint and compare the
-// files sync --global would write with disk, from any directory.
+// The overview runs the read-only checks (lint, drift, doctor) in the
+// working directory, which serve has changed into for the project. For
+// --global it runs the global lint and compares the files sync --global
+// would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
-	feed := newOverviewHandler(".")
+	views := newOverviewHandler(".")
 	if opts.Global {
-		feed = newGlobalOverviewHandler()
+		views = newGlobalOverviewHandler()
 	}
-	mux.Handle(overview.OverviewPath, feed)
-	mux.Handle(overview.FeedPath, feed)
+	mux.Handle(overview.OverviewPath, views)
 	return authority.CORS(serializeAPI(mux))
 }
 

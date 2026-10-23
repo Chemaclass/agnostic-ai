@@ -6,7 +6,6 @@
 
 import type {
   AuthorityView,
-  Card,
   Domain,
   ImpactResult,
   Operation,
@@ -162,33 +161,20 @@ export function normalizeAuthorityView(raw: unknown): AuthorityView {
   }
 }
 
-function normalizeCard(raw: unknown): Card {
-  const c = obj(raw)
-  return {
-    ...(c as unknown as Card),
-    evidence: arr(c.evidence),
-    actions: arr(c.actions).map((a) => {
-      const action = obj(a)
-      const proposal = action.proposal ? obj(action.proposal) : undefined
-      return {
-        ...(action as unknown as Card['actions'][number]),
-        ...(proposal ? { proposal: { ...(proposal as unknown as object), changes: arr(proposal.changes) } } : {}),
-      } as Card['actions'][number]
-    }),
-  }
-}
-
 function normalizeSection(raw: unknown): Section {
   const s = obj(raw)
   return {
     ...(s as unknown as Section),
     kinds: arr(s.kinds),
-    items: arr(s.items),
+    items: arr(s.items).map((i) => {
+      const item = obj(i)
+      return { ...(item as unknown as Section['items'][number]), findings: arr(item.findings) }
+    }),
     support: arr(s.support).map((k) => {
       const kind = obj(k)
       return { ...(kind as unknown as Section['support'][number]), supported: arr(kind.supported), unsupported: arr(kind.unsupported) }
     }),
-    cardIds: arr(s.cardIds),
+    findings: arr(s.findings),
   }
 }
 
@@ -199,12 +185,15 @@ export function normalizeOverviewView(raw: unknown): OverviewView {
     schemaVersion: String(v.schemaVersion ?? ''),
     snapshot: normalizeSnapshot(v.snapshot),
     sections: arr(v.sections).map(normalizeSection),
-    feed: arr(v.feed).map(normalizeCard),
     targets: arr(v.targets).map((t) => {
       const target = obj(t)
-      return { ...(target as unknown as OverviewView['targets'][number]), kinds: arr(target.kinds) }
+      const sync = obj(target.sync)
+      return {
+        ...(target as unknown as OverviewView['targets'][number]),
+        kinds: arr(target.kinds),
+        sync: { state: sync.state === 'in-sync' || sync.state === 'drifted' ? sync.state : 'not-checked', files: arr(sync.files) },
+      }
     }),
-    explanations: rec(v.explanations),
   }
 }
 

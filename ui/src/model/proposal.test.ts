@@ -12,7 +12,7 @@ import {
   ruleForOperation,
   ruleMatchesOperation,
 } from './proposal'
-import { loadAuthorityFixture, loadOverviewFixture, usingMockAuthority, usingMockOverview } from './testing'
+import { loadAuthorityFixture, usingMockAuthority } from './testing'
 
 describe('rule grammar', () => {
   it('parses the neutral rule forms', () => {
@@ -127,14 +127,6 @@ describe('client proposal preview', () => {
       expect(removed.changes).toEqual([])
       expect(removed.unmatched).toEqual([])
       expect(previewProposal(view, [{ op: 'add', list: 'allow', rule: 'shell(rm:*)' }]).changes).toEqual([])
-    })
-
-    it.runIf(usingMockOverview)("previews the feed card's own proposal", () => {
-      const card = loadOverviewFixture().feed.find((c) => c.actions.some((a) => a.kind === 'propose'))!
-      const proposal = card.actions.find((a) => a.kind === 'propose')!.proposal!
-      const preview = previewProposal(view, proposal.changes)
-      expect(preview.unmatched).toEqual([])
-      expect(preview.changes).toEqual([expect.objectContaining({ operationId: deploy.id, effectiveAfter: 'ask', direction: 'narrowed' })])
     })
   })
 })

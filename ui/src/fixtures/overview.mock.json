@@ -1,10 +1,10 @@
 {
   "schemaVersion": "overview/v1",
   "snapshot": {
-    "revision": "4d1c9a7e0b52",
-    "generatedAt": "2026-10-17T09:30:00Z",
+    "revision": "fc5bb098abb3",
+    "generatedAt": "2026-10-23T07:07:53Z",
     "project": {
-      "root": "/workspace/demo-project",
+      "root": ".",
       "name": "demo-project"
     },
     "targets": [
@@ -35,6 +35,12 @@
         "layer": "project"
       },
       {
+        "kind": "rule",
+        "name": "testing",
+        "path": ".agnostic-ai/rules/testing.md",
+        "layer": "project"
+      },
+      {
         "kind": "mcp",
         "name": "analytics-db",
         "path": ".agnostic-ai/mcps/analytics-db.yaml",
@@ -59,12 +65,6 @@
         "layer": "project"
       },
       {
-        "kind": "rule",
-        "name": "testing",
-        "path": ".agnostic-ai/rules/testing.md",
-        "layer": "project"
-      },
-      {
         "kind": "settings",
         "name": "permissions",
         "path": ".agnostic-ai/settings/permissions.yaml",
@@ -81,7 +81,7 @@
       "declared": "loaded",
       "installed": "checked",
       "runtime": "not-observed",
-      "note": "Declared state comes from the specs loaded at generation time. Installed state compares the files sync would write with disk. Runtime enforcement is never observed."
+      "note": "Generated files were compared with disk for claude, codex, cursor. Runtime enforcement is not observed."
     }
   },
   "sections": [
@@ -89,14 +89,22 @@
       "id": "context",
       "label": "Context",
       "question": "What is the agent told?",
-      "description": "Instructions, rules, and skills the coding tool assembles into every session.",
       "order": 1,
-      "status": "overview",
       "kinds": [
+        {
+          "kind": "instructions",
+          "label": "Instructions",
+          "count": 0
+        },
         {
           "kind": "rule",
           "label": "Rules",
           "count": 1
+        },
+        {
+          "kind": "agent",
+          "label": "Agents",
+          "count": 3
         },
         {
           "kind": "skill",
@@ -108,16 +116,54 @@
         {
           "kind": "rule",
           "name": "testing",
-          "label": "Testing",
+          "label": "testing",
           "description": "Run the tests before presenting work.",
           "path": ".agnostic-ai/rules/testing.md",
-          "layer": "project"
+          "layer": "project",
+          "findings": []
+        },
+        {
+          "kind": "agent",
+          "name": "coding-agent",
+          "label": "coding-agent",
+          "description": "Implements features and ships them to staging.",
+          "path": ".agnostic-ai/agents/coding-agent.md",
+          "layer": "project",
+          "findings": []
+        },
+        {
+          "kind": "agent",
+          "name": "data-analyst",
+          "label": "data-analyst",
+          "description": "Answers questions from the reporting schema.",
+          "path": ".agnostic-ai/agents/data-analyst.md",
+          "layer": "project",
+          "findings": []
+        },
+        {
+          "kind": "agent",
+          "name": "reviewer",
+          "label": "reviewer",
+          "description": "Reviews pull requests without changing files.",
+          "path": ".agnostic-ai/agents/reviewer.md",
+          "layer": "project",
+          "findings": []
         }
       ],
       "support": [
         {
           "kind": "rule",
           "label": "Rules",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        },
+        {
+          "kind": "agent",
+          "label": "Agents",
           "supported": [
             "claude",
             "codex",
@@ -136,123 +182,18 @@
           "unsupported": []
         }
       ],
-      "cardIds": [
-        "card-rule-always-loaded"
-      ]
-    },
-    {
-      "id": "memory",
-      "label": "Memory",
-      "question": "What survives a session?",
-      "description": "Decisions, preferences, and handoffs that carry into future work.",
-      "order": 2,
-      "status": "overview",
-      "kinds": [
-        {
-          "kind": "memory",
-          "label": "Memory files",
-          "count": 0
-        }
-      ],
-      "items": [],
-      "support": [
-        {
-          "kind": "memory",
-          "label": "Memory files",
-          "supported": [
-            "claude"
-          ],
-          "unsupported": [
-            "codex",
-            "cursor"
-          ]
-        }
-      ],
-      "cardIds": []
-    },
-    {
-      "id": "control",
-      "label": "Control",
-      "question": "How is execution shaped?",
-      "description": "Agents, hooks, and settings that decide who does the work and what runs around it.",
-      "order": 3,
-      "status": "overview",
-      "kinds": [
-        {
-          "kind": "agent",
-          "label": "Agents",
-          "count": 3
-        },
-        {
-          "kind": "hook",
-          "label": "Hooks",
-          "count": 0
-        }
-      ],
-      "items": [
-        {
-          "kind": "agent",
-          "name": "coding-agent",
-          "label": "Coding agent",
-          "description": "Implements features and ships them to staging.",
-          "path": ".agnostic-ai/agents/coding-agent.md",
-          "layer": "project"
-        },
-        {
-          "kind": "agent",
-          "name": "data-analyst",
-          "label": "Data analyst",
-          "description": "Answers questions from the reporting schema.",
-          "path": ".agnostic-ai/agents/data-analyst.md",
-          "layer": "project"
-        },
-        {
-          "kind": "agent",
-          "name": "reviewer",
-          "label": "Reviewer",
-          "description": "Reviews pull requests without changing files.",
-          "path": ".agnostic-ai/agents/reviewer.md",
-          "layer": "project"
-        }
-      ],
-      "support": [
-        {
-          "kind": "agent",
-          "label": "Agents",
-          "supported": [
-            "claude",
-            "codex",
-            "cursor"
-          ],
-          "unsupported": []
-        },
-        {
-          "kind": "hook",
-          "label": "Hooks",
-          "supported": [
-            "claude",
-            "codex",
-            "cursor"
-          ],
-          "unsupported": []
-        }
-      ],
-      "cardIds": [
-        "card-agent-git-wider"
-      ]
+      "findings": []
     },
     {
       "id": "authority",
       "label": "Authority",
       "question": "What may the agent do?",
-      "description": "Permissions, protected paths, and the scope each agent declares.",
-      "order": 4,
-      "status": "deep-view",
-      "deepView": "authority",
+      "order": 2,
+      "deepView": "/authority",
       "kinds": [
         {
           "kind": "settings",
-          "label": "Settings",
+          "label": "Permissions",
           "count": 2
         }
       ],
@@ -260,47 +201,50 @@
         {
           "kind": "settings",
           "name": "permissions",
-          "label": "Permissions",
-          "description": "Allow, ask, and deny lists.",
+          "label": "permissions",
+          "description": "Sets permission rules.",
           "path": ".agnostic-ai/settings/permissions.yaml",
-          "layer": "project"
+          "layer": "project",
+          "findings": [
+            {
+              "source": "lint",
+              "code": "LINT038",
+              "severity": "warn",
+              "message": "permissions.allow: bare read now covers every file read (claude: Read); use read(src/**) to name paths",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "explanation": "A bare capability in permissions.allow or permissions.ask now becomes a native permission for every operation it covers. Before permission capabilities, the lowercase spelling matched no tool."
+            }
+          ]
         },
         {
           "kind": "settings",
           "name": "protected",
-          "label": "Protected paths",
-          "description": "CI workflows and migrations change only after a human review.",
+          "label": "protected",
+          "description": "Sets protected paths.",
           "path": ".agnostic-ai/settings/protected.yaml",
-          "layer": "project"
+          "layer": "project",
+          "findings": []
         }
       ],
       "support": [
         {
           "kind": "settings",
-          "label": "Permission settings",
+          "label": "Permissions",
           "supported": [
             "claude",
+            "codex",
             "cursor"
           ],
-          "unsupported": [
-            "codex"
-          ]
+          "unsupported": []
         }
       ],
-      "cardIds": [
-        "card-railway-deploy-unscoped",
-        "card-codex-deny-not-expressed",
-        "card-cursor-ask-not-expressed",
-        "card-scopes-undeclared"
-      ]
+      "findings": []
     },
     {
       "id": "tools",
       "label": "Tools",
       "question": "What can the agent use?",
-      "description": "MCP servers and the capabilities they bring.",
-      "order": 5,
-      "status": "overview",
+      "order": 3,
       "kinds": [
         {
           "kind": "mcp",
@@ -315,7 +259,8 @@
           "label": "analytics-db",
           "description": "Read-only reporting schema of the staging PostgreSQL database.",
           "path": ".agnostic-ai/mcps/analytics-db.yaml",
-          "layer": "project"
+          "layer": "project",
+          "findings": []
         },
         {
           "kind": "mcp",
@@ -323,7 +268,8 @@
           "label": "github",
           "description": "GitHub repositories, pull requests, and issues.",
           "path": ".agnostic-ai/mcps/github.yaml",
-          "layer": "project"
+          "layer": "project",
+          "findings": []
         },
         {
           "kind": "mcp",
@@ -331,7 +277,8 @@
           "label": "railway",
           "description": "Railway projects, services, and deployments.",
           "path": ".agnostic-ai/mcps/railway.yaml",
-          "layer": "project"
+          "layer": "project",
+          "findings": []
         },
         {
           "kind": "mcp",
@@ -339,7 +286,8 @@
           "label": "workspace-files",
           "description": "Read-only access to the documentation folder through a filesystem server.",
           "path": ".agnostic-ai/mcps/workspace-files.yaml",
-          "layer": "project"
+          "layer": "project",
+          "findings": []
         }
       ],
       "support": [
@@ -354,408 +302,81 @@
           "unsupported": []
         }
       ],
-      "cardIds": [
-        "card-github-token-missing"
-      ]
+      "findings": []
     },
     {
-      "id": "verification",
-      "label": "Verification",
-      "question": "How is work checked?",
-      "description": "Review instructions, checks, and the evidence a change must carry.",
-      "order": 6,
-      "status": "overview",
+      "id": "lifecycle",
+      "label": "Lifecycle",
+      "question": "What runs around the agent, and when?",
+      "order": 4,
       "kinds": [
         {
-          "kind": "review",
-          "label": "Review instructions",
+          "kind": "hook",
+          "label": "Hooks",
           "count": 0
         }
       ],
       "items": [],
       "support": [
         {
-          "kind": "review",
-          "label": "Review instructions",
+          "kind": "hook",
+          "label": "Hooks",
           "supported": [
-            "codex"
-          ],
-          "unsupported": [
             "claude",
+            "codex",
             "cursor"
-          ]
+          ],
+          "unsupported": []
         }
       ],
-      "cardIds": [
-        "card-claude-not-generated"
-      ]
-    }
-  ],
-  "feed": [
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-railway-deploy-unscoped",
-      "fingerprint": "9be04f31c2d8",
-      "kind": "decision",
-      "priority": 1,
-      "priorityLabel": "Security",
-      "title": "Railway deploys need no approval, wherever the token reaches",
-      "consequence": "mcp:railway/deploy is allowed and Railway declares no scope, so the coding agent could deploy any project RAILWAY_TOKEN reaches, production included, without a prompt once synced.",
-      "sectionId": "authority",
-      "domainId": "cloud-deployment",
-      "source": "authority",
-      "code": "allow-on-undeclared-scope",
-      "evidence": [
-        {
-          "path": ".agnostic-ai/settings/permissions.yaml",
-          "line": 11,
-          "detail": "allow: mcp:railway/deploy"
-        },
-        {
-          "path": ".agnostic-ai/mcps/railway.yaml",
-          "line": 1,
-          "detail": "No file roots declared"
-        }
-      ],
-      "actions": [
-        {
-          "id": "propose",
-          "kind": "propose",
-          "label": "Require approval for deploys",
-          "proposal": {
-            "agentId": "coding-agent",
-            "target": "claude",
-            "revision": "4d1c9a7e0b52",
-            "changes": [
-              {
-                "op": "remove",
-                "list": "allow",
-                "rule": "mcp:railway/deploy"
-              },
-              {
-                "op": "add",
-                "list": "ask",
-                "rule": "mcp:railway/deploy"
-              }
-            ]
-          }
-        },
-        {
-          "id": "open",
-          "kind": "open",
-          "label": "Inspect Railway",
-          "href": "?view=authority&domain=cloud-deployment&resource=mcp-railway-scope"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
+      "findings": []
     },
     {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-codex-deny-not-expressed",
-      "fingerprint": "17c5a0e9d4b2",
-      "kind": "decision",
-      "priority": 1,
-      "priorityLabel": "Security",
-      "title": "Four deny rules block nothing on Codex",
-      "consequence": "Codex receives none of the deny list, so rm, edits to .env, Railway delete, and analytics-db execute fall back to Codex's own defaults there.",
-      "sectionId": "authority",
-      "domainId": "filesystem-execution",
-      "source": "authority",
-      "code": "target-not-expressed",
-      "evidence": [
+      "id": "settings",
+      "label": "Settings",
+      "question": "How is the harness configured?",
+      "order": 5,
+      "kinds": [
         {
-          "path": ".agnostic-ai/settings/permissions.yaml",
-          "line": 18,
-          "detail": "deny: shell(rm:*), edit(.env), mcp:railway/delete, mcp:analytics-db/execute"
+          "kind": "builtin",
+          "label": "Built-ins",
+          "count": 0
+        },
+        {
+          "kind": "config",
+          "label": "Config",
+          "count": 1
+        },
+        {
+          "kind": "settings",
+          "label": "Other settings",
+          "count": 0
         }
       ],
-      "actions": [
+      "items": [
         {
-          "id": "open",
-          "kind": "open",
-          "label": "See the effects on Codex",
-          "href": "?view=authority&target=codex&domain=filesystem-execution"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
-    },
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-claude-not-generated",
-      "fingerprint": "c03e7b1f8a65",
-      "kind": "decision",
-      "priority": 2,
-      "priorityLabel": "Drift",
-      "title": "Claude Code has no generated settings yet",
-      "consequence": "Every effect shown for Claude Code is what it would do once synced: .claude/settings.json and .mcp.json are not written.",
-      "sectionId": "verification",
-      "source": "drift",
-      "code": "not-generated",
-      "evidence": [
-        {
-          "path": ".claude/settings.json",
-          "detail": "Not generated"
-        },
-        {
-          "path": ".mcp.json",
-          "detail": "Not generated"
+          "kind": "config",
+          "name": "agnostic-ai.yaml",
+          "label": "agnostic-ai.yaml",
+          "description": "Sets targets claude, codex, cursor.",
+          "path": "agnostic-ai.yaml",
+          "layer": "config",
+          "findings": []
         }
       ],
-      "actions": [
+      "support": [
         {
-          "id": "copy-sync",
-          "kind": "copy-command",
-          "label": "Copy the sync command",
-          "command": "agnostic-ai sync"
-        },
-        {
-          "id": "open",
-          "kind": "open",
-          "label": "Inspect installed state",
-          "href": "?view=inspect"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
-    },
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-cursor-ask-not-expressed",
-      "fingerprint": "5f2d8c47e019",
-      "kind": "insight",
-      "priority": 3,
-      "priorityLabel": "Coverage",
-      "title": "Cursor never asks for approval on these rules",
-      "consequence": "Cursor has no ask list, so git push, Railway variables, merges, and protected paths fall back to Cursor's defaults there.",
-      "sectionId": "authority",
-      "domainId": "source-control",
-      "source": "authority",
-      "code": "target-not-expressed",
-      "evidence": [
-        {
-          "path": ".agnostic-ai/settings/permissions.yaml",
-          "line": 14,
-          "detail": "ask: shell(git push:*), mcp:railway/variables, mcp:github/merge_pull_request"
-        },
-        {
-          "path": ".agnostic-ai/settings/protected.yaml",
-          "line": 2,
-          "detail": "protected paths: .github/**, migrations/**"
+          "kind": "settings",
+          "label": "Other settings",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
         }
       ],
-      "actions": [
-        {
-          "id": "open",
-          "kind": "open",
-          "label": "See the effects on Cursor",
-          "href": "?view=authority&target=cursor&domain=source-control"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
-    },
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-github-token-missing",
-      "fingerprint": "a81c3e5d7f20",
-      "kind": "insight",
-      "priority": 4,
-      "priorityLabel": "Hygiene",
-      "title": "GITHUB_TOKEN is not set where the server was started",
-      "consequence": "The github MCP server authenticates with GITHUB_TOKEN; a tool started from this environment would fail to reach GitHub.",
-      "sectionId": "tools",
-      "source": "doctor",
-      "code": "env-missing",
-      "evidence": [
-        {
-          "path": ".agnostic-ai/mcps/github.yaml",
-          "line": 6,
-          "detail": "headers.Authorization references ${GITHUB_TOKEN}"
-        }
-      ],
-      "actions": [
-        {
-          "id": "copy-doctor",
-          "kind": "copy-command",
-          "label": "Copy the doctor command",
-          "command": "agnostic-ai doctor"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
-    },
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-agent-git-wider",
-      "fingerprint": "e6b94d02a3c7",
-      "kind": "insight",
-      "priority": 4,
-      "priorityLabel": "Hygiene",
-      "title": "The coding agent may run git commands no rule names",
-      "consequence": "can: shell(git *) covers commands such as git reset and git clean, which no allow, ask, or deny rule decides, so each tool's default applies to them.",
-      "sectionId": "control",
-      "source": "lint",
-      "code": "agent-scope-wider-than-rules",
-      "evidence": [
-        {
-          "path": ".agnostic-ai/agents/coding-agent.md",
-          "line": 4,
-          "detail": "can: shell(git *)"
-        }
-      ],
-      "actions": [
-        {
-          "id": "open",
-          "kind": "open",
-          "label": "Open shell access",
-          "href": "?view=authority&agentId=coding-agent&domain=filesystem-execution"
-        },
-        {
-          "id": "copy-lint",
-          "kind": "copy-command",
-          "label": "Copy the lint command",
-          "command": "agnostic-ai lint"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
-    },
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-scopes-undeclared",
-      "fingerprint": "3d70f9b6c128",
-      "kind": "insight",
-      "priority": 5,
-      "priorityLabel": "Info",
-      "title": "Three MCP servers declare no scope",
-      "consequence": "GitHub, Railway, and analytics-db name no file roots, so the view cannot say which repositories, projects, or databases they reach. Credential reach is not inspected.",
-      "sectionId": "authority",
-      "domainId": "cloud-deployment",
-      "source": "authority",
-      "code": "provider-scope-undeclared",
-      "evidence": [
-        {
-          "path": ".agnostic-ai/mcps/github.yaml",
-          "line": 1,
-          "detail": "No file roots declared"
-        },
-        {
-          "path": ".agnostic-ai/mcps/railway.yaml",
-          "line": 1,
-          "detail": "No file roots declared"
-        },
-        {
-          "path": ".agnostic-ai/mcps/analytics-db.yaml",
-          "line": 1,
-          "detail": "No file roots declared"
-        }
-      ],
-      "actions": [
-        {
-          "id": "open",
-          "kind": "open",
-          "label": "Inspect cloud resources",
-          "href": "?view=authority&domain=cloud-deployment"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
-    },
-    {
-      "revision": "4d1c9a7e0b52",
-      "id": "card-rule-always-loaded",
-      "fingerprint": "0b8e2a6f45d9",
-      "kind": "insight",
-      "priority": 5,
-      "priorityLabel": "Info",
-      "title": "The testing rule loads in every session",
-      "consequence": "It declares no paths, so every tool reads it on every task, including tasks that never touch Go code.",
-      "sectionId": "context",
-      "source": "lint",
-      "code": "rule-no-paths",
-      "evidence": [
-        {
-          "path": ".agnostic-ai/rules/testing.md",
-          "line": 1,
-          "detail": "No paths field"
-        }
-      ],
-      "actions": [
-        {
-          "id": "open",
-          "kind": "open",
-          "label": "Open Context",
-          "href": "?view=context"
-        },
-        {
-          "id": "snooze",
-          "kind": "snooze",
-          "label": "Snooze for a day"
-        },
-        {
-          "id": "dismiss",
-          "kind": "dismiss",
-          "label": "Dismiss"
-        }
-      ]
+      "findings": []
     }
   ],
   "targets": [
@@ -763,49 +384,149 @@
       "target": "claude",
       "label": "Claude Code",
       "kinds": [
-        "rule",
-        "skill",
-        "memory",
         "agent",
+        "skill",
+        "rule",
         "hook",
+        "mcp",
+        "command",
         "settings",
-        "mcp"
-      ]
+        "environment"
+      ],
+      "sync": {
+        "state": "drifted",
+        "files": [
+          {
+            "path": ".claude/.agnostic-ai-permissions.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/agents/coding-agent.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/agents/data-analyst.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/agents/reviewer.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/rules/testing.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/settings.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".mcp.json",
+            "state": "not generated"
+          },
+          {
+            "path": "CLAUDE.md",
+            "state": "not generated"
+          }
+        ]
+      }
     },
     {
       "target": "codex",
       "label": "Codex",
       "kinds": [
-        "rule",
-        "skill",
         "agent",
+        "skill",
+        "rule",
         "hook",
         "mcp",
-        "review"
-      ]
+        "command",
+        "settings",
+        "review",
+        "environment"
+      ],
+      "sync": {
+        "state": "drifted",
+        "files": [
+          {
+            "path": ".codex/agents/coding-agent.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/agents/data-analyst.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/agents/reviewer.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/config.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/hooks.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/hooks/agnostic-ai-protect.sh",
+            "state": "not generated"
+          },
+          {
+            "path": "AGENTS.md",
+            "state": "not generated"
+          }
+        ]
+      }
     },
     {
       "target": "cursor",
       "label": "Cursor",
       "kinds": [
-        "rule",
-        "skill",
         "agent",
+        "skill",
+        "rule",
         "hook",
+        "mcp",
+        "command",
         "settings",
-        "mcp"
-      ]
+        "review",
+        "environment",
+        "ignore"
+      ],
+      "sync": {
+        "state": "drifted",
+        "files": [
+          {
+            "path": ".cursor/.agnostic-ai-permissions.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/agents/coding-agent.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/agents/data-analyst.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/agents/reviewer.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/cli.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/mcp.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/rules/testing.mdc",
+            "state": "not generated"
+          }
+        ]
+      }
     }
-  ],
-  "explanations": {
-    "decision": "A card that asks you to choose: act on it, snooze it, or dismiss it.",
-    "insight": "A card that explains something worth knowing; no choice is required.",
-    "priority": "Cards rank by consequence: security first, then drift, coverage, hygiene, and information.",
-    "authority": "Derived from the Authority view.",
-    "drift": "Derived from comparing generated files with disk.",
-    "doctor": "Derived from agnostic-ai doctor.",
-    "lint": "Derived from agnostic-ai lint.",
-    "deep-view": "A dedicated view exists for this section.",
-    "overview": "Only this summary exists for this section so far."
-  }
+  ]
 }

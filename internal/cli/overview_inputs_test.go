@@ -41,7 +41,7 @@ func driftByPath(t *testing.T, findings []overview.Finding) map[string]string {
 	return out
 }
 
-func TestCollectFindings_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing.T) {
+func TestRunOverviewChecks_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeBareReadProject(t, dir)
 	cfg, b, err := loadProject(".")
@@ -49,7 +49,7 @@ func TestCollectFindings_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing.T
 		t.Fatal(err)
 	}
 
-	findings := collectFindings(".", cfg, b)
+	findings := runOverviewChecks(".", cfg, b).findings
 
 	var bare []overview.Finding
 	for _, f := range findings {
@@ -77,7 +77,7 @@ func TestCollectFindings_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing.T
 	}
 }
 
-func TestCollectFindings_LeavesNoWarningOrNoteBuffered(t *testing.T) {
+func TestRunOverviewChecks_LeavesNoWarningOrNoteBuffered(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	// Claude Code reads no review spec, so rendering it raises a
@@ -89,14 +89,14 @@ func TestCollectFindings_LeavesNoWarningOrNoteBuffered(t *testing.T) {
 	}
 	buffered := adapters.PendingCapabilityWarningsCount() + adapters.PendingCoverageNotesCount()
 
-	collectFindings(".", cfg, b)
+	runOverviewChecks(".", cfg, b)
 
 	if n := adapters.PendingCapabilityWarningsCount() + adapters.PendingCoverageNotesCount(); n != buffered {
 		t.Errorf("collecting findings changed the buffered warnings and notes from %d to %d", buffered, n)
 	}
 }
 
-func TestCollectFindings_ReportsAHandEditedFileAsStale(t *testing.T) {
+func TestRunOverviewChecks_ReportsAHandEditedFileAsStale(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	silence(t)
 	captureLogOut(t)
@@ -108,12 +108,12 @@ func TestCollectFindings_ReportsAHandEditedFileAsStale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if drift := driftByPath(t, collectFindings(".", cfg, b)); len(drift) != 0 {
+	if drift := driftByPath(t, runOverviewChecks(".", cfg, b).findings); len(drift) != 0 {
 		t.Fatalf("drift right after sync = %v", drift)
 	}
 	mustWrite(t, filepath.Join(dir, ".claude", "settings.json"), "{}\n")
 
-	drift := driftByPath(t, collectFindings(".", cfg, b))
+	drift := driftByPath(t, runOverviewChecks(".", cfg, b).findings)
 	if len(drift) != 1 || drift[".claude/settings.json"] != driftStale {
 		t.Errorf("drift = %v, want only .claude/settings.json stale", drift)
 	}
@@ -123,7 +123,7 @@ func TestOverviewInputs_BuildsTheSnapshotFromTheProject(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeBareReadProject(t, dir)
 
-	in, err := overviewInputs(".", nil)
+	in, err := overviewInputs(".")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,11 +146,11 @@ func TestOverviewInputs_BuildsTheSnapshotFromTheProject(t *testing.T) {
 	if in.Cfg == nil || len(in.Bundle.Settings) != 1 || len(in.Findings) == 0 {
 		t.Errorf("inputs = %+v", in)
 	}
-	if in.Authority == nil || in.Authority.Snapshot.Revision != snap.Revision || in.Authority.Harness.Target != "claude" {
-		t.Errorf("authority = %+v, want the session view on claude at the overview's revision %s", in.Authority, snap.Revision)
+	if !slices.Equal(in.Compared, []string{"claude"}) {
+		t.Errorf("compared = %v, want claude", in.Compared)
 	}
 
-	again, err := overviewInputs(dir, nil)
+	again, err := overviewInputs(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestOverviewInputs_BuildsTheSnapshotFromTheProject(t *testing.T) {
 		t.Errorf("revision changed with nothing edited: %s, %s", snap.Revision, again.Snapshot.Revision)
 	}
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [read(src/**)]\n")
-	edited, err := overviewInputs(".", nil)
+	edited, err := overviewInputs(".")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestOverviewInputs_RefusesARootOtherThanTheWorkingDirectory(t *testing.T) {
 	testutil.TempCwd(t)
 	other := t.TempDir()
 	writeBareReadProject(t, other)
-	if _, err := overviewInputs(other, nil); err == nil || !strings.Contains(err.Error(), "not the working directory") {
+	if _, err := overviewInputs(other); err == nil || !strings.Contains(err.Error(), "not the working directory") {
 		t.Errorf("err = %v, want a refusal naming the working directory", err)
 	}
 }
@@ -190,52 +190,27 @@ func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) 
 	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
 		t.Fatal(err)
 	}
-	var security, drift bool
-	for _, c := range view.Feed {
-		security = security || (c.Code == "LINT038" && c.Priority == overview.PrioritySecurity)
-		drift = drift || (c.Source == overview.SourceDrift && c.Title == "Claude Code runs on stale generated configuration")
+	if got := itemWithFinding(view, "LINT038"); got != "permissions" {
+		t.Errorf("LINT038 sits on %q, want the permissions settings item", got)
 	}
-	if !security || !drift {
-		t.Errorf("feed = %+v, want the LINT038 security card and the claude drift card", view.Feed)
+	if len(view.Targets) != 1 || view.Targets[0].Sync.State != overview.SyncDrifted || len(view.Targets[0].Sync.Files) == 0 {
+		t.Errorf("targets = %+v, want claude drifted: nothing is generated yet", view.Targets)
 	}
 }
 
-func TestNewOverviewHandler_FeedCarriesTheAuthorityViewsCards(t *testing.T) {
-	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "permissions.yaml"), "permissions:\n  allow: [shell]\n")
-	h := newOverviewHandler(".")
-
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, overview.FeedPath, nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
-	}
-	var feed overview.FeedView
-	if err := json.Unmarshal(rec.Body.Bytes(), &feed); err != nil {
-		t.Fatal(err)
-	}
-	var shell *overview.Card
-	for i := range feed.Feed {
-		if feed.Feed[i].Source == overview.SourceAuthority && feed.Feed[i].Kind == overview.CardDecision {
-			shell = &feed.Feed[i]
+// itemWithFinding names the first item that carries a finding with
+// code, or "" when none does.
+func itemWithFinding(v overview.View, code string) string {
+	for _, s := range v.Sections {
+		for _, it := range s.Items {
+			for _, f := range it.Findings {
+				if f.Code == code {
+					return it.Name
+				}
+			}
 		}
 	}
-	if shell == nil {
-		t.Fatalf("feed = %+v, want the Authority view's shell decision card", feed.Feed)
-	}
-	if shell.Title != "Any shell command would be permitted without asking once synced" {
-		t.Errorf("title = %q, want the conditional wording: nothing is generated yet", shell.Title)
-	}
-	var propose *overview.CardAction
-	for i := range shell.Actions {
-		if shell.Actions[i].Kind == overview.ActionPropose {
-			propose = &shell.Actions[i]
-		}
-	}
-	if propose == nil || propose.Proposal == nil || propose.Proposal.Revision != feed.Snapshot.Revision {
-		t.Errorf("propose = %+v, want a proposal at the feed's own revision %s", propose, feed.Snapshot.Revision)
-	}
+	return ""
 }
 
 func TestCompareInstalled_PresentBesideMissingIsNotInSync(t *testing.T) {

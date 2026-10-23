@@ -11,10 +11,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// newGlobalOverviewHandler serves the overview and the feed of the
+// newGlobalOverviewHandler serves the overview of the
 // user-level configuration sync --global reads, built afresh on every
 // request. Unlike the project handler it runs from any working
 // directory: every path comes from $HOME and the global source root.
@@ -36,7 +35,7 @@ func globalOverviewInputs() (overview.Inputs, error) {
 	if err != nil {
 		return overview.Inputs{}, err
 	}
-	cfg := &config.Config{Targets: scope.targets, Builtins: builtins}
+	cfg := &config.Config{Targets: scope.targets, Builtins: builtins, Models: scope.models, Requires: globalRequires(scope.source)}
 	checks := runGlobalOverviewChecks(scope)
 	src := &authoritySource{root: scope.source, global: true}
 	opts := authority.Options{Root: scope.source, ConfigFiles: src.configFiles(), Global: true}
@@ -46,33 +45,39 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		snapshot.Evidence.Installed = "checked"
 	}
 	snapshot.Evidence.Note = globalOverviewEvidenceNote(checks)
+	instructions := instructionDocuments([]instructionFile{
+		{path: filepath.Join(scope.source, "AGNOSTIC_AI.md"), layer: "global"},
+		{path: filepath.Join(scope.source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
+	}, scope.source)
 	return overview.Inputs{
-		Cfg:       cfg,
-		Bundle:    scope.bundle,
-		Snapshot:  snapshot,
-		Authority: globalOverviewAuthority(cfg, scope.bundle, opts),
-		Findings:  checks.findings,
+		Cfg:          cfg,
+		Bundle:       scope.bundle,
+		Snapshot:     snapshot,
+		Instructions: instructions,
+		Findings:     checks.findings,
+		Compared:     checks.compared,
 	}, nil
 }
 
-// globalOverviewAuthority builds the session subject's Authority view
-// on the first target, as overviewAuthority does for a project, so the
-// feed carries the view's uncertainties. Installed state is not
-// computed for the global configuration. A view that cannot be built
-// leaves the feed without those cards rather than failing the overview.
-func globalOverviewAuthority(cfg *config.Config, b spec.Bundle, opts authority.Options) *authority.View {
-	if len(cfg.Targets) == 0 {
-		return nil
+// globalRequires is the requires value of the home config, where
+// local/agnostic-ai.yaml replaces the shared one. A config that cannot
+// be read sets none; lint --global reports it.
+func globalRequires(source string) string {
+	var requires string
+	for _, path := range globalConfigPaths(source) {
+		doc, err := readGlobalConfig(path)
+		if err != nil {
+			continue
+		}
+		if node, ok := doc["requires"]; ok {
+			requires = ""
+			_ = node.Decode(&requires)
+		}
 	}
-	opts.Target = cfg.Targets[0]
-	v, err := authority.Build(cfg, b, opts)
-	if err != nil {
-		return nil
-	}
-	return v
+	return requires
 }
 
-// runGlobalOverviewChecks runs the read-only checks the global feed
+// runGlobalOverviewChecks runs the read-only checks the global overview
 // reads: every finding lint --global reports, and drift between the
 // files sync --global would write and the files on disk. The doctor
 // checks read a project's generated files and do not run.
