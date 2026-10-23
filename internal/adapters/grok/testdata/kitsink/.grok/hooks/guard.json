@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "'echo ok' 'a b'",
+            "command": "echo ok 'a b'",
             "env": {
               "AGNOSTIC_AI_TARGET": "grok"
             },

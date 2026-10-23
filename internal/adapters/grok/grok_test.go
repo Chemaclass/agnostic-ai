@@ -1,10 +1,12 @@
 package grok
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -25,13 +27,71 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindCommand, Name: "check", Meta: map[string]any{"description": "Check work"}, Body: "Check $ARGUMENTS."},
 		{Kind: spec.KindMCP, Name: "local", Meta: map[string]any{"command": "server", "args": []any{"--stdio"}, "cwd": "backend", "disabled": true}},
 		{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "sse", "url": "https://example.com/sse", "headers": map[string]any{"Authorization": "${TOKEN}"}, "startup_timeout_sec": 30, "tool_timeout_sec": 90}},
-		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "echo ok", "args": []any{"a b"}, "timeout": 7}},
+		{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "echo ok 'a b'", "timeout": 7}},
 		{Kind: spec.KindSettings, Name: "permissions", Meta: map[string]any{"permissions": map[string]any{"deny": []any{"Bash(git push *)"}}}},
 	})
 }
 func visibleConfig() *config.Config {
 	return &config.Config{Gitignore: config.Gitignore{Enabled: true, Commit: []string{"grok:instructions"}}}
 }
+
+func TestKitSink_HooksPreserveArgumentsOnWindows(t *testing.T) {
+	for _, hook := range kitSinkBundle().Hooks {
+		for _, command := range emit.HookCommands(hook.Meta["command"]) {
+			if !emit.PowerShellReadsFold(command, emit.HookArgs(target, hook.Meta)) {
+				t.Errorf("shared hook %s has arguments Windows cannot preserve", hook.Name)
+			}
+		}
+	}
+}
+
+func TestHookFile_KeepsTheNativeArgumentPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name, command string
+		args          []any
+		want          string
+		windowsReject bool
+	}{
+		{"safe words", "echo", []any{"a b"}, "echo 'a b'", false},
+		{"quoted executable", "echo ok", []any{"a b"}, "'echo ok' 'a b'", true},
+		{"apostrophe", "echo", []any{"it's"}, `echo 'it'\''s'`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := HookFile(spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": tc.command, "args": tc.args}})
+			if runtime.GOOS == "windows" && tc.windowsReject {
+				if err == nil || !strings.Contains(err.Error(), "args cannot be preserved in Windows PowerShell") {
+					t.Errorf("unsafe Windows argument fold was not refused: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Hooks map[string][]struct {
+					Hooks []struct{ Command string }
+				}
+			}
+			if err := json.Unmarshal(data, &doc); err != nil {
+				t.Fatal(err)
+			}
+			groups := doc.Hooks["PreToolUse"]
+			if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+				t.Fatalf("expected one native command handler: %s", data)
+			}
+			command := groups[0].Hooks[0].Command
+			if command != tc.want {
+				t.Errorf("command = %q, want %q", command, tc.want)
+			}
+			if tc.name == "safe words" && runtime.GOOS != "windows" {
+				if out, err := exec.Command("sh", "-c", command).CombinedOutput(); err != nil || string(out) != "a b\n" {
+					t.Errorf("POSIX argument was not preserved: %q, %v", out, err)
+				}
+			}
+		})
+	}
+}
+
 func TestEmit_RequiresVisibleInstructionsBeforeAnyWrite(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	err := New().Emit(emit.NewSession(), kitSinkBundle(), &config.Config{Gitignore: config.Gitignore{Enabled: true}}, false)
