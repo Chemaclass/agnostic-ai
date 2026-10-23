@@ -476,9 +476,30 @@ export interface SectionItem {
   path: string
   layer: string
   scope?: string
-  /** For a hook, the lifecycle point it runs at. */
+  /** For a hook, the id of the lifecycle stage it runs at. */
   group?: string
+  /** What the item sets, key by key. */
+  values: Value[]
+  /** For a built-in: whether the config turns it on. */
+  enabled?: boolean
   findings: ItemFinding[]
+}
+
+/** One setting: a list renders as chips, a bool as a switch, text as text. */
+export interface Value {
+  key: string
+  type: 'text' | 'bool' | 'list'
+  value?: string
+  list?: string[]
+}
+
+/** One point in a session a hook can run at. */
+export interface Stage {
+  id: string
+  label: string
+  description: string
+  /** The configured coding tools that run a hook here, with their own event name. */
+  targets: { target: string; label: string; event: string }[]
 }
 
 export interface Section {
@@ -492,6 +513,8 @@ export interface Section {
   support: KindSupport[]
   /** Findings that name no configured item. */
   findings: ItemFinding[]
+  /** Lifecycle only: every stage, in session order, even when empty. */
+  stages?: Stage[]
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'

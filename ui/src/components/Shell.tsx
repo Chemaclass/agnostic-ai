@@ -1,18 +1,14 @@
 // The frame around every page: the header with the project chip and
 // each coding tool's sync state, the harness navigation with each
-// section's finding count, and the footer that always states the snapshot
-// revision and that runtime enforcement is not observed. The coding tool
-// and agent selectors belong to the Authority page, the only view that
-// resolves anything per tool and per agent.
+// section's finding count, and the footer with the snapshot revision.
 
 import { useEffect, useRef } from 'react'
-import type { AuthorityView, OverviewView, SyncState, TargetSupport } from '../contract'
+import type { OverviewView, SyncState, TargetSupport } from '../contract'
 import type { Loaded } from '../api'
-import { installedDisplay, type Tone } from '../model/effects'
 import { formatTime } from '../model/format'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
-import { Chip, Icon } from './ui'
+import { Chip, Icon, type Tone } from './ui'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -57,20 +53,9 @@ function SyncChips({ targets }: { targets: TargetSupport[] }) {
   )
 }
 
-export function Header({
-  authority,
-  overview,
-  inspectorOpen,
-  onToggleInspector,
-}: {
-  authority: Remote<AuthorityView>
-  overview: Remote<OverviewView>
-  inspectorOpen: boolean
-  onToggleInspector: () => void
-}) {
+export function Header({ overview, inspectorOpen, onToggleInspector }: { overview: Remote<OverviewView>; inspectorOpen: boolean; onToggleInspector: () => void }) {
   const app = useApp()
-  const view = authority.loaded?.data
-  const snapshot = view?.snapshot ?? overview.loaded?.data.snapshot
+  const snapshot = overview.loaded?.data.snapshot
 
   return (
     <header className="topbar">
@@ -103,47 +88,6 @@ export function Header({
         JSON
       </button>
     </header>
-  )
-}
-
-// The coding tool and agent the Authority view resolves effects for.
-// Rendered on the Authority page only; every other page is independent
-// of both.
-export function SubjectControls({ authority, overview }: { authority: Remote<AuthorityView>; overview: Remote<OverviewView> }) {
-  const app = useApp()
-  const view = authority.loaded?.data
-  const tools = view?.harness.available.length
-    ? view.harness.available
-    : (overview.loaded?.data.targets.map((t) => ({ target: t.target, label: t.label })) ?? [])
-  const agents = view?.agents ?? []
-  const target = view?.harness.target ?? app.state.target ?? ''
-  const agentId = view?.agent.id ?? app.state.agentId ?? ''
-
-  return (
-    <div className="page-controls" role="group" aria-label="Resolve for">
-      <label className="field">
-        <span className="field-label">Coding tool</span>
-        <select value={target} onChange={(e) => app.navigate({ target: e.target.value })} disabled={tools.length === 0}>
-          {tools.length === 0 && <option value="">{authority.error && overview.error ? 'Unavailable' : 'Loading…'}</option>}
-          {tools.map((t) => (
-            <option key={t.target} value={t.target}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span className="field-label">Agent</span>
-        <select value={agentId} onChange={(e) => app.navigate({ agentId: e.target.value })} disabled={agents.length === 0}>
-          {agents.length === 0 && <option value="">{authority.error ? 'Unavailable' : 'Loading…'}</option>}
-          {agents.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
   )
 }
 
@@ -196,10 +140,8 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   )
 }
 
-export function Footer({ authority, overview, theme, onToggleTheme }: { authority: Remote<AuthorityView>; overview: Remote<OverviewView>; theme: 'dark' | 'light'; onToggleTheme: () => void }) {
-  const view = authority.loaded?.data
-  const snapshot = view?.snapshot ?? overview.loaded?.data.snapshot
-  const installed = view ? installedDisplay(view.harness.installed.state, view.explanations) : undefined
+export function Footer({ overview, theme, onToggleTheme }: { overview: Remote<OverviewView>; theme: 'dark' | 'light'; onToggleTheme: () => void }) {
+  const snapshot = overview.loaded?.data.snapshot
   return (
     <footer className="footer">
       <p className="footer-facts">
@@ -209,13 +151,6 @@ export function Footer({ authority, overview, theme, onToggleTheme }: { authorit
           </span>
         )}
         {snapshot?.generatedAt && <span>Built {formatTime(snapshot.generatedAt)}</span>}
-        <span>Declared: {snapshot?.evidence.declared === 'loaded' ? 'loaded from the specs' : 'loading'}</span>
-        {view && installed && (
-          <span title={installed.note}>
-            Installed on {view.harness.label}: {installed.text.toLowerCase()}
-          </span>
-        )}
-        <strong className="runtime-note">Runtime enforcement: not observed</strong>
       </p>
       <button type="button" className="button button-quiet" aria-pressed={theme === 'light'} onClick={onToggleTheme}>
         Light theme

@@ -1,23 +1,14 @@
 // The application: URL-driven state, data loading, and page routing.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { AuthorityView, Change, ImpactResult, OverviewView } from './contract'
-import { LoadError, loadAuthority, loadOverview, validateProposal, type Loaded } from './api'
-import { AppContext, type AppApi, type InspectorTab } from './components/app-context'
-import { AuthorityPage } from './components/Authority'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { OverviewView } from './contract'
+import { LoadError, loadOverview, type Loaded } from './api'
+import { AppContext, type AppApi } from './components/app-context'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel } from './components/Banner'
 import { Footer, Header, Nav, type Remote } from './components/Shell'
-import { buildProposal } from './model/proposal'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
-
-export interface ImpactState {
-  status: 'idle' | 'validating' | 'done' | 'error'
-  key?: string
-  result?: Loaded<ImpactResult>
-  error?: Error
-}
 
 function initialTheme(): 'dark' | 'light' {
   let stored: string | null = null
@@ -30,9 +21,9 @@ function initialTheme(): 'dark' | 'light' {
   return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
-// Loads a document and keeps the previous one on screen while a new
-// subject or tool loads; a different data source starts from nothing, so
-// one source's data never stands in for another's.
+// Loads a document and keeps the previous one on screen while it
+// reloads; a different data source starts from nothing, so one source's
+// data never stands in for another's.
 function useRemote<T>(load: (signal: AbortSignal) => Promise<Loaded<T>>, sourceKey: string, deps: unknown[]): Remote<T> {
   const [remote, setRemote] = useState<Remote<T>>({ status: 'loading' })
   const lastSource = useRef(sourceKey)
@@ -70,16 +61,7 @@ export default function App() {
 
   const source = useMemo(() => resolveDataSource(state, import.meta.env.VITE_DEFAULT_SOURCE), [state.mock, state.source])
   const sourceKey = JSON.stringify(source)
-
-  const authority = useRemote<AuthorityView>((signal) => loadAuthority(source, { agentId: state.agentId, target: state.target }, signal), sourceKey, [source, state.agentId, state.target])
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source])
-
-  const [announcement, setAnnouncement] = useState('')
-  const announce = useCallback((message: string) => {
-    // Clearing first makes a repeated message announce again.
-    setAnnouncement('')
-    window.setTimeout(() => setAnnouncement(message), 30)
-  }, [])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
@@ -91,26 +73,20 @@ export default function App() {
 
   const navigate = useCallback((patch: Partial<UrlState>, options?: { replace?: boolean }) => go(nextState(stateRef.current, patch), options), [go])
 
-  const [inspector, setInspector] = useState<{ open: boolean; tab: InspectorTab }>({ open: false, tab: 'authority' })
-  const defaultInspectorTab = useCallback((): InspectorTab => (stateRef.current.view === 'authority' ? 'authority' : 'overview'), [])
-  const openInspector = useCallback((tab?: InspectorTab) => setInspector({ open: true, tab: tab ?? defaultInspectorTab() }), [defaultInspectorTab])
+  const [inspectorOpen, setInspectorOpen] = useState(false)
 
   const app: AppApi = useMemo(
     () => ({
       state,
       source,
       navigate,
-      go,
       href: (patch) => serializeUrlState(nextState(state, patch)) || window.location.pathname,
-      announce,
-      openInspector,
     }),
-    [state, source, navigate, go, announce, openInspector],
+    [state, source, navigate],
   )
 
   // Move focus to the page heading after a navigation, for keyboard and
   // screen-reader users; the first render keeps the browser's own focus.
-  const placeKey = `${state.view}|${state.domain ?? ''}|${state.resource ?? ''}`
   const firstPlace = useRef(true)
   useEffect(() => {
     if (firstPlace.current) {
@@ -119,35 +95,7 @@ export default function App() {
     }
     window.scrollTo({ top: 0 })
     document.getElementById('page-title')?.focus({ preventScroll: true })
-  }, [placeKey])
-
-  // Proposal validation. A result belongs to one exact proposal; editing
-  // the draft drops it, so a stale validation is never shown.
-  const [impact, setImpact] = useState<ImpactState>({ status: 'idle' })
-  const view = authority.loaded?.data
-  const changes: Change[] = state.proposal?.changes ?? []
-  const proposalKey = view && changes.length ? JSON.stringify(buildProposal(view, changes)) : undefined
-  const currentImpact: ImpactState = impact.key && impact.key === proposalKey ? impact : { status: 'idle' }
-  const validate = useCallback(async () => {
-    if (!view || !changes.length) return
-    const proposal = buildProposal(view, changes)
-    const key = JSON.stringify(proposal)
-    setImpact({ status: 'validating', key })
-    announce('Validating the proposal on the server.')
-    try {
-      const result = await validateProposal(proposal)
-      setImpact({ status: 'done', key, result })
-      const r = result.data
-      announce(
-        r.valid
-          ? `Validated, not applied. ${r.summary.changed} operation${r.summary.changed === 1 ? '' : 's'} change: ${r.summary.narrowed} narrowed, ${r.summary.widened} widened, ${r.summary.moved} moved, ${r.summary.indeterminate ?? 0} indeterminate.`
-          : `Not valid: ${r.problems.join(' ')}`,
-      )
-    } catch (error) {
-      setImpact({ status: 'error', key, error: error as Error })
-      announce(`Validation failed: ${(error as Error).message}`)
-    }
-  }, [view, changes, announce])
+  }, [state.view])
 
   const [theme, setTheme] = useState<'dark' | 'light'>(initialTheme)
   useEffect(() => {
@@ -161,41 +109,22 @@ export default function App() {
 
   const sourceError = source.kind === 'invalid' ? new LoadError(source.reason, `Received: ${source.value}`) : undefined
 
-  let page: ReactNode
-  if (state.view === 'authority') {
-    page = <AuthorityPage authority={authority} overview={overview} impact={currentImpact} onValidate={validate} />
-  } else {
-    page = <SectionPage sectionId={state.view} overview={overview} />
-  }
-
   return (
     <AppContext.Provider value={app}>
       <div className="app">
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <Header authority={authority} overview={overview} inspectorOpen={inspector.open} onToggleInspector={() => (inspector.open ? setInspector((s) => ({ ...s, open: false })) : openInspector())} />
+        <Header overview={overview} inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
         <div className="shell">
           <Nav overview={overview} />
           <main id="main" className="main" tabIndex={-1}>
             {sourceError && <ErrorPanel error={sourceError} />}
-            {page}
+            <SectionPage sectionId={state.view} overview={overview} />
           </main>
         </div>
-        <Footer authority={authority} overview={overview} theme={theme} onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} />
-        {inspector.open && (
-          <JsonInspector
-            tab={inspector.tab}
-            onTab={(tab) => setInspector({ open: true, tab })}
-            onClose={() => setInspector((s) => ({ ...s, open: false }))}
-            authority={authority}
-            overview={overview}
-            impact={currentImpact}
-          />
-        )}
-        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-          {announcement}
-        </div>
+        <Footer overview={overview} theme={theme} onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} />
+        {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
       </div>
     </AppContext.Provider>
   )

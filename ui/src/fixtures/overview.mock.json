@@ -2,7 +2,7 @@
   "schemaVersion": "overview/v1",
   "snapshot": {
     "revision": "fc5bb098abb3",
-    "generatedAt": "2026-10-23T07:07:53Z",
+    "generatedAt": "2026-10-23T07:28:19Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -120,6 +120,7 @@
           "description": "Run the tests before presenting work.",
           "path": ".agnostic-ai/rules/testing.md",
           "layer": "project",
+          "values": [],
           "findings": []
         },
         {
@@ -129,6 +130,7 @@
           "description": "Implements features and ships them to staging.",
           "path": ".agnostic-ai/agents/coding-agent.md",
           "layer": "project",
+          "values": [],
           "findings": []
         },
         {
@@ -138,6 +140,7 @@
           "description": "Answers questions from the reporting schema.",
           "path": ".agnostic-ai/agents/data-analyst.md",
           "layer": "project",
+          "values": [],
           "findings": []
         },
         {
@@ -147,6 +150,7 @@
           "description": "Reviews pull requests without changing files.",
           "path": ".agnostic-ai/agents/reviewer.md",
           "layer": "project",
+          "values": [],
           "findings": []
         }
       ],
@@ -202,9 +206,47 @@
           "kind": "settings",
           "name": "permissions",
           "label": "permissions",
-          "description": "Sets permission rules.",
+          "description": "",
           "path": ".agnostic-ai/settings/permissions.yaml",
           "layer": "project",
+          "values": [
+            {
+              "key": "permissions.allow",
+              "type": "list",
+              "list": [
+                "read",
+                "edit(src/**)",
+                "shell(go test:*)",
+                "shell(git status)",
+                "shell(git diff:*)",
+                "mcp:github/get_pull_request",
+                "mcp:github/list_pull_request_files",
+                "mcp:github/create_pull_request",
+                "mcp:railway/deploy",
+                "mcp:railway/logs",
+                "mcp:analytics-db/query"
+              ]
+            },
+            {
+              "key": "permissions.ask",
+              "type": "list",
+              "list": [
+                "shell(git push:*)",
+                "mcp:railway/variables",
+                "mcp:github/merge_pull_request"
+              ]
+            },
+            {
+              "key": "permissions.deny",
+              "type": "list",
+              "list": [
+                "shell(rm:*)",
+                "edit(.env)",
+                "mcp:railway/delete",
+                "mcp:analytics-db/execute"
+              ]
+            }
+          ],
           "findings": [
             {
               "source": "lint",
@@ -220,9 +262,29 @@
           "kind": "settings",
           "name": "protected",
           "label": "protected",
-          "description": "Sets protected paths.",
+          "description": "",
           "path": ".agnostic-ai/settings/protected.yaml",
           "layer": "project",
+          "values": [
+            {
+              "key": "protected.decision",
+              "type": "text",
+              "value": "ask"
+            },
+            {
+              "key": "protected.paths",
+              "type": "list",
+              "list": [
+                ".github/**",
+                "migrations/**"
+              ]
+            },
+            {
+              "key": "protected.reason",
+              "type": "text",
+              "value": "CI workflows and migrations change only after a human review."
+            }
+          ],
           "findings": []
         }
       ],
@@ -260,6 +322,7 @@
           "description": "Read-only reporting schema of the staging PostgreSQL database.",
           "path": ".agnostic-ai/mcps/analytics-db.yaml",
           "layer": "project",
+          "values": [],
           "findings": []
         },
         {
@@ -269,6 +332,7 @@
           "description": "GitHub repositories, pull requests, and issues.",
           "path": ".agnostic-ai/mcps/github.yaml",
           "layer": "project",
+          "values": [],
           "findings": []
         },
         {
@@ -278,6 +342,7 @@
           "description": "Railway projects, services, and deployments.",
           "path": ".agnostic-ai/mcps/railway.yaml",
           "layer": "project",
+          "values": [],
           "findings": []
         },
         {
@@ -287,6 +352,7 @@
           "description": "Read-only access to the documentation folder through a filesystem server.",
           "path": ".agnostic-ai/mcps/workspace-files.yaml",
           "layer": "project",
+          "values": [],
           "findings": []
         }
       ],
@@ -329,7 +395,148 @@
           "unsupported": []
         }
       ],
-      "findings": []
+      "findings": [],
+      "stages": [
+        {
+          "id": "session-start",
+          "label": "Session start",
+          "description": "When a session opens: load context or check the environment.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "SessionStart"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "SessionStart"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "sessionStart"
+            }
+          ]
+        },
+        {
+          "id": "prompt-submit",
+          "label": "Prompt submit",
+          "description": "Before the agent reads a prompt; exit 2 blocks the prompt.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "UserPromptSubmit"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "UserPromptSubmit"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "beforeSubmitPrompt"
+            }
+          ]
+        },
+        {
+          "id": "before-tool",
+          "label": "Before a tool runs",
+          "description": "Before each tool call; exit 2 blocks the call. Guards live here.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "PreToolUse"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "PreToolUse"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "preToolUse"
+            }
+          ]
+        },
+        {
+          "id": "after-tool",
+          "label": "After a tool runs",
+          "description": "After each tool call: check, log, or react to the result.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "PostToolUse"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "PostToolUse"
+            }
+          ]
+        },
+        {
+          "id": "after-edit",
+          "label": "After a file edit",
+          "description": "After the agent edits a file: format or lint it.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "PostToolUse"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "PostToolUse"
+            }
+          ]
+        },
+        {
+          "id": "stop",
+          "label": "Stop",
+          "description": "When the agent finishes; exit 2 keeps it working.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "Stop"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "Stop"
+            }
+          ]
+        },
+        {
+          "id": "session-end",
+          "label": "Session end",
+          "description": "When a session closes: save state or clean up.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "SessionEnd"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "SessionEnd"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "sessionEnd"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "settings",
@@ -355,12 +562,83 @@
       ],
       "items": [
         {
+          "kind": "builtin",
+          "name": "caveman",
+          "label": "caveman",
+          "description": "Terse replies to cut output tokens.",
+          "path": "builtin:caveman",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "handoff",
+          "label": "handoff",
+          "description": "Saves a task so the next session, in this or another tool, can resume it.",
+          "path": "builtin:handoff",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "handoff-hook",
+          "label": "handoff-hook",
+          "description": "Offers a saved handoff when a session starts.",
+          "path": "builtin:handoff-hook",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "memory",
+          "label": "memory",
+          "description": "Shared memory every coding tool reads and saves facts to.",
+          "path": "builtin:memory",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "rtk",
+          "label": "rtk",
+          "description": "Routes shell commands through rtk to cut output tokens.",
+          "path": "builtin:rtk",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
           "kind": "config",
           "name": "agnostic-ai.yaml",
           "label": "agnostic-ai.yaml",
-          "description": "Sets targets claude, codex, cursor.",
+          "description": "",
           "path": "agnostic-ai.yaml",
           "layer": "config",
+          "values": [
+            {
+              "key": "targets",
+              "type": "list",
+              "list": [
+                "claude",
+                "codex",
+                "cursor"
+              ]
+            },
+            {
+              "key": "on-unsupported",
+              "type": "text",
+              "value": "warn"
+            }
+          ],
           "findings": []
         }
       ],

@@ -1,11 +1,8 @@
-// A drawer with the exact JSON behind the screen: the current view, the
-// overview, or the latest impact result, with its endpoint, schema
-// version, and revision.
+// A drawer with the exact JSON behind the screen: the overview, with its
+// endpoint, schema version, and revision.
 
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import type { AuthorityView, OverviewView } from '../contract'
-import type { ImpactState } from '../App'
-import type { InspectorTab } from './app-context'
+import type { OverviewView } from '../contract'
 import type { Remote } from './Shell'
 import { CopyButton } from './ui'
 
@@ -56,21 +53,7 @@ function sizeLabel(bytes: number): string {
   return bytes < 1024 ? `${bytes} bytes` : `${(bytes / 1024).toFixed(1)} KB`
 }
 
-export function JsonInspector({
-  tab,
-  onTab,
-  onClose,
-  authority,
-  overview,
-  impact,
-}: {
-  tab: InspectorTab
-  onTab: (tab: InspectorTab) => void
-  onClose: () => void
-  authority: Remote<AuthorityView>
-  overview: Remote<OverviewView>
-  impact: ImpactState
-}) {
+export function JsonInspector({ onClose, overview }: { onClose: () => void; overview: Remote<OverviewView> }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
@@ -89,20 +72,9 @@ export function JsonInspector({
     // The opener is captured once, when the drawer opens.
   }, [])
 
-  const doc = tab === 'impact' ? impact.result : tab === 'overview' ? overview.loaded : authority.loaded
+  const doc = overview.loaded
   const json = useMemo(() => (doc ? JSON.stringify(doc.data, null, 2) : ''), [doc])
   const nodes = useMemo(() => highlight(json), [json])
-
-  let schema = ''
-  let revision = ''
-  if (doc && tab === 'impact' && impact.result) {
-    schema = impact.result.data.schemaVersion
-    revision = `${impact.result.data.baseRevision} → ${impact.result.data.proposedRevision} (proposed)`
-  } else if (doc) {
-    const data = doc.data as AuthorityView | OverviewView
-    schema = data.schemaVersion
-    revision = data.snapshot.revision
-  }
 
   return (
     <aside id="json-inspector" className="inspector" role="dialog" aria-modal="false" aria-labelledby="inspector-title">
@@ -110,17 +82,6 @@ export function JsonInspector({
         <h2 id="inspector-title">JSON inspector</h2>
         <button ref={closeRef} type="button" className="button button-quiet" onClick={onClose}>
           Close<span className="sr-only"> the JSON inspector</span>
-        </button>
-      </div>
-      <div className="segmented" role="group" aria-label="Document to show">
-        <button type="button" aria-pressed={tab === 'authority'} onClick={() => onTab('authority')}>
-          Authority view
-        </button>
-        <button type="button" aria-pressed={tab === 'overview'} onClick={() => onTab('overview')}>
-          Overview
-        </button>
-        <button type="button" aria-pressed={tab === 'impact'} onClick={() => onTab('impact')} disabled={!impact.result}>
-          Impact result
         </button>
       </div>
       {doc ? (
@@ -135,13 +96,13 @@ export function JsonInspector({
             <div>
               <dt>Schema</dt>
               <dd>
-                <code className="code">{schema || 'not declared'}</code>
+                <code className="code">{doc.data.schemaVersion || 'not declared'}</code>
               </dd>
             </div>
             <div>
               <dt>Revision</dt>
               <dd>
-                <code className="code">{revision || 'not declared'}</code>
+                <code className="code">{doc.data.snapshot.revision || 'not declared'}</code>
               </dd>
             </div>
           </dl>
@@ -149,12 +110,12 @@ export function JsonInspector({
             <CopyButton text={json} label="Copy JSON" copiedLabel="JSON copied" />
             <span className="muted">{sizeLabel(new TextEncoder().encode(json).length)}</span>
           </div>
-          <pre className="json" tabIndex={0} aria-label={`${tab === 'impact' ? 'Impact result' : tab === 'overview' ? 'Overview' : 'Authority view'} JSON`}>
+          <pre className="json" tabIndex={0} aria-label="Overview JSON">
             {nodes}
           </pre>
         </>
       ) : (
-        <p className="muted inspector-empty">{tab === 'impact' ? 'Validate a proposal to see its impact result.' : 'This document has not loaded.'}</p>
+        <p className="muted inspector-empty">The overview has not loaded.</p>
       )}
     </aside>
   )

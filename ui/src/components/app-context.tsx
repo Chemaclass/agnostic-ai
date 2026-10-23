@@ -4,16 +4,11 @@
 import { createContext, useContext, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
 import type { DataSource, UrlState } from '../model/url'
 
-export type InspectorTab = 'authority' | 'overview' | 'impact'
-
 export interface AppApi {
   state: UrlState
   source: DataSource
   navigate(patch: Partial<UrlState>, options?: { replace?: boolean }): void
-  go(next: UrlState, options?: { replace?: boolean }): void
   href(patch: Partial<UrlState>): string
-  announce(message: string): void
-  openInspector(tab?: InspectorTab): void
 }
 
 export const AppContext = createContext<AppApi | null>(null)

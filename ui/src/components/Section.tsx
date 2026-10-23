@@ -2,11 +2,11 @@
 // with each check finding on the item it names, and which coding tools
 // support each kind.
 
-import type { ItemFinding, OverviewView, Section, SectionItem } from '../contract'
+import type { ItemFinding, OverviewView, Section, SectionItem, Stage, Value } from '../contract'
 import { PageHeader } from './app-context'
 import { ErrorPanel } from './Banner'
 import type { Remote } from './Shell'
-import { Badge, Chip, Code, Icon } from './ui'
+import { Badge, Chip, Code, Icon, Switch } from './ui'
 
 export function SectionPage({ sectionId, overview }: { sectionId: string; overview: Remote<OverviewView> }) {
   const data = overview.loaded?.data
@@ -50,6 +50,7 @@ export function SectionContents({ section }: { section: Section }) {
       )}
       {section.kinds.map((k) => {
         const items = section.items.filter((it) => it.kind === k.kind)
+        if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} />
         const titleId = `${section.id}-${k.kind}`
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
@@ -61,6 +62,41 @@ export function SectionContents({ section }: { section: Section }) {
         )
       })}
     </>
+  )
+}
+
+/** Every stage of a session in order, each with its hooks or none. */
+function Lifecycle({ stages, hooks, count }: { stages: Stage[]; hooks: SectionItem[]; count: number }) {
+  return (
+    <section className="block" aria-labelledby="lifecycle-hooks">
+      <h2 id="lifecycle-hooks">
+        Hooks <span className="muted kind-count">{count}</span>
+      </h2>
+      <ol className="stages">
+        {stages.map((st) => {
+          const here = hooks.filter((h) => h.group === st.id)
+          return (
+            <li key={st.id} className={`stage${here.length ? ' has-hooks' : ''}`}>
+              <div className="stage-head">
+                <h3 className="stage-title">{st.label}</h3>
+                <p className="muted">{st.description}</p>
+                {st.targets.length > 0 && (
+                  <p className="stage-tools">
+                    {st.targets.map((t) => (
+                      <Chip key={t.target} title={`${t.label} calls this ${t.event}`}>
+                        <span>{t.label}</span>
+                        <code>{t.event}</code>
+                      </Chip>
+                    ))}
+                  </p>
+                )}
+              </div>
+              {here.length ? <ItemList items={here} /> : <p className="muted stage-empty">No hook runs here.</p>}
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }
 
@@ -95,14 +131,42 @@ function ItemList({ items }: { items: SectionItem[] }) {
             {item.description && <span className="muted"> · {item.description}</span>}
           </div>
           <div className="item-meta">
-            <Code>{item.path}</Code>
-            <Chip title="Layer the item comes from">{item.layer}</Chip>
+            {item.enabled !== undefined && <Switch on={item.enabled} />}
+            {item.enabled === undefined && <Code>{item.path}</Code>}
+            {item.enabled === undefined && <Chip title="Layer the item comes from">{item.layer}</Chip>}
             {item.scope && <Chip>{item.scope}</Chip>}
           </div>
+          {item.values.length > 0 && <Values values={item.values} />}
           {item.findings.length > 0 && <Findings findings={item.findings} />}
         </li>
       ))}
     </ul>
+  )
+}
+
+/** Each setting as its kind reads best: chips for a list, a switch for a boolean, text otherwise. */
+function Values({ values }: { values: Value[] }) {
+  return (
+    <dl className="values">
+      {values.map((v) => (
+        <div key={v.key} className="value-row">
+          <dt>
+            <code>{v.key}</code>
+          </dt>
+          <dd>
+            {v.type === 'list' ? (
+              <span className="value-chips">
+                {(v.list ?? []).length ? (v.list ?? []).map((entry, i) => <Chip key={`${i}-${entry}`}>{entry}</Chip>) : <span className="muted">Empty</span>}
+              </span>
+            ) : v.type === 'bool' ? (
+              <Switch on={v.value === 'true'} />
+            ) : (
+              <span className="value-text">{v.value}</span>
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 

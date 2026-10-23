@@ -1,8 +1,8 @@
 // Small presentational pieces shared by every screen.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { Effect, Operation } from '../contract'
-import { declaredWording, effectTone, effectWording, type Tone } from '../model/effects'
+
+export type Tone = 'permitted' | 'approval' | 'blocked' | 'info' | 'neutral' | 'accent'
 
 export function Badge({ tone, children, muted, title, className }: { tone: Tone; children: ReactNode; muted?: boolean; title?: string; className?: string }) {
   return (
@@ -12,53 +12,14 @@ export function Badge({ tone, children, muted, title, className }: { tone: Tone;
   )
 }
 
-const GLYPHS: Record<Effect, string> = {
-  allowed: '✓',
-  ask: '?',
-  denied: '✕',
-  unavailable: '∅',
-  default: '–',
-  unresolved: '…',
-}
-
-export function effectGlyph(effect: Effect): string {
-  return GLYPHS[effect] ?? '•'
-}
-
-/** A badge for one effect, worded conditionally when hypothetical. */
-export function EffectBadge({ effect, hypothetical, text, title, muted }: { effect: Effect; hypothetical?: boolean; text?: string; title?: string; muted?: boolean }) {
+/** A read-only on/off switch: it shows a boolean setting, it does not change it. */
+export function Switch({ on, label }: { on: boolean; label?: string }) {
   return (
-    <Badge tone={effectTone(effect)} title={title} muted={muted}>
-      <span className="badge-glyph" aria-hidden="true">
-        {effectGlyph(effect)}
+    <span className={`switch${on ? ' is-on' : ''}`}>
+      <span className="switch-track" aria-hidden="true">
+        <span className="switch-thumb" />
       </span>
-      {text ?? effectWording(effect, hypothetical)}
-    </Badge>
-  )
-}
-
-/** Two declared effects with an arrow: the specs' decision, never an effect claim. */
-export function DeclaredTransition({ before, after }: { before: Effect; after: Effect }) {
-  return (
-    <span className="transition">
-      <EffectBadge effect={before} text={declaredWording(before)} muted />
-      <span className="transition-arrow" aria-label="becomes">
-        →
-      </span>
-      <EffectBadge effect={after} text={declaredWording(after)} muted />
-    </span>
-  )
-}
-
-/** Two effects with an arrow, for before → after. */
-export function EffectTransition({ before, after, hypothetical }: { before: Effect; after: Effect; hypothetical: boolean }) {
-  return (
-    <span className="transition">
-      <EffectBadge effect={before} hypothetical={hypothetical && before !== 'default'} />
-      <span className="transition-arrow" aria-label="becomes">
-        →
-      </span>
-      <EffectBadge effect={after} hypothetical={hypothetical && after !== 'default'} />
+      <span className="switch-text">{label ?? (on ? 'On' : 'Off')}</span>
     </span>
   )
 }
@@ -119,73 +80,6 @@ export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, clas
     >
       {state === 'copied' ? copiedLabel : state === 'failed' ? 'Copy failed' : label}
     </button>
-  )
-}
-
-export function useMediaQuery(query: string): boolean {
-  const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false)
-  const [matches, setMatches] = useState(get)
-  useEffect(() => {
-    if (!window.matchMedia) return
-    const list = window.matchMedia(query)
-    const onChange = () => setMatches(list.matches)
-    onChange()
-    list.addEventListener('change', onChange)
-    return () => list.removeEventListener('change', onChange)
-  }, [query])
-  return matches
-}
-
-export function useReducedMotion(): boolean {
-  return useMediaQuery('(prefers-reduced-motion: reduce)')
-}
-
-/** Small counts by effect, worded conditionally when anything is hypothetical. */
-export function EffectCounts({ counts, hypothetical, compact }: { counts: Record<Effect, number>; hypothetical: boolean; compact?: boolean }) {
-  const order: Effect[] = ['allowed', 'ask', 'denied', 'unavailable', 'default', 'unresolved']
-  const words: Record<Effect, string> = {
-    allowed: 'permitted',
-    ask: 'need approval',
-    denied: 'blocked',
-    unavailable: 'unavailable',
-    default: 'no rule',
-    unresolved: 'unresolved',
-  }
-  const present = order.filter((e) => counts[e] > 0)
-  const total = present.reduce((sum, e) => sum + counts[e], 0)
-  if (total === 0) return <p className="counts counts-empty">No operations here</p>
-  return (
-    <div className={`counts${compact ? ' counts-compact' : ''}`}>
-      <div className="count-bar" aria-hidden="true">
-        {present.map((e) => (
-          <span key={e} className={`count-seg seg-${effectTone(e)}`} style={{ flexGrow: counts[e] }} />
-        ))}
-      </div>
-      <p className="count-text">
-        {hypothetical && <span className="count-condition">Once synced: </span>}
-        {present.map((e, i) => (
-          <span key={e} className={`count-item tone-${effectTone(e)}`}>
-            {i > 0 && <span className="sep" aria-hidden="true"> · </span>}
-            {counts[e]} {words[e]}
-          </span>
-        ))}
-      </p>
-    </div>
-  )
-}
-
-/** One dot per operation, coloured by effect, with the label beside it. */
-export function OperationList({ operations }: { operations: Operation[] }) {
-  return (
-    <ul className="op-list">
-      {operations.map((op) => (
-        <li key={op.id}>
-          <span className={`op-dot dot-${effectTone(op.effect)}`} aria-hidden="true" />
-          <span className="sr-only">{effectWording(op.effect, op.hypothetical)}: </span>
-          {op.label}
-        </li>
-      ))}
-    </ul>
   )
 }
 
