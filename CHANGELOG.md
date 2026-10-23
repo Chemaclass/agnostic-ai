@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- The “Why agnostic-ai?” guide explains when to use the tool, with shorter examples and verified connection formats.
+
 ## v0.87.0 - 2026-10-22
 
 ### General
