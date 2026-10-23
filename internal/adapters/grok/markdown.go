@@ -25,6 +25,7 @@ func selected(meta map[string]any, keys []string) map[string]any {
 }
 func agentMeta(e spec.Entry) (map[string]any, error) {
 	resolved := emit.ResolveMeta(e.Meta, target)
+	custom, _ := e.Meta["x-grok"].(map[string]any)
 	out := selected(resolved, agentKeys)
 	if out["name"] == nil {
 		out["name"] = e.Name
@@ -62,25 +63,9 @@ func agentMeta(e spec.Entry) (map[string]any, error) {
 				return nil, fmt.Errorf("grok agent %s: capability %q has no exact native restriction", e.Name, tool)
 			}
 		}
-		if custom, _ := e.Meta["x-grok"].(map[string]any); custom["tools"] == nil {
+		if custom["tools"] == nil {
 			out["tools"] = native
 		}
-		deny := stringList(out["disallowedTools"])
-		for _, bridge := range []string{"search_tool", "use_tool"} {
-			if !slices.Contains(deny, bridge) {
-				deny = append(deny, bridge)
-			}
-		}
-		out["disallowedTools"] = deny
-	}
-	if e.CapabilityField == "can" {
-		deny := stringList(out["disallowedTools"])
-		for _, bridge := range []string{"search_tool", "use_tool"} {
-			if !slices.Contains(deny, bridge) {
-				deny = append(deny, bridge)
-			}
-		}
-		out["disallowedTools"] = deny
 	}
 	if raw, present := out["tools"]; present {
 		tools := stringList(raw)
@@ -95,6 +80,15 @@ func agentMeta(e spec.Entry) (map[string]any, error) {
 			}
 		}
 		out["tools"] = tools
+		if custom["tools"] == nil {
+			deny := stringList(out["disallowedTools"])
+			for _, bridge := range []string{"search_tool", "use_tool"} {
+				if !slices.Contains(tools, bridge) && !slices.Contains(deny, bridge) {
+					deny = append(deny, bridge)
+				}
+			}
+			out["disallowedTools"] = deny
+		}
 	}
 	if raw, present := out["disallowedTools"]; present {
 		deny := stringList(raw)
