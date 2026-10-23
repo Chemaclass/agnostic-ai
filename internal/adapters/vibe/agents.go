@@ -10,7 +10,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-var tools = map[string]string{"Bash": "bash", "Read": "read_file", "Write": "write_file", "Edit": "edit", "Grep": "grep"}
+var tools = map[string]string{"Bash": "bash", "Read": "read_file", "Write": "write_file", "Edit": "edit"}
 
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
@@ -91,7 +91,7 @@ func stringsList(v any) []string {
 }
 func (Adapter) ToolCapabilities() emit.ToolCapabilityTable {
 	return emit.ToolCapabilityTable{
-		"read": {Agent: []string{"read_file"}}, "edit": {Agent: []string{"edit"}}, "write": {Agent: []string{"write_file"}}, "shell": {Agent: []string{"bash"}}, "Grep": {Agent: []string{"grep"}},
+		"read": {Agent: []string{"read_file"}}, "edit": {Agent: []string{"edit"}}, "write": {Agent: []string{"write_file"}}, "shell": {Agent: []string{"bash"}},
 	}
 }
 
