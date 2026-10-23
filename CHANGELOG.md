@@ -40,6 +40,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
 
+#### Mistral Vibe
+
+- Sync and import native instructions, subagents, skills, model settings, MCP servers, and hooks in projects and user configuration.
+
 ### Site
 
 - Composer users can set up shared instructions, rules, and skills for its Claude Code and Codex providers.

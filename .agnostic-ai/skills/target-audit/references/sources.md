@@ -370,6 +370,15 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: one reviewer, with scoped reviews as conditional prompt sections, because the vendor's per-reviewer `paths` filter needs several reviewers (#2187). Revisit after a real pull request trial.
 - decision: reviewer, model, filters, posting, and budget come from `x-ellipsis` on a settings spec, copied as written; the prompt comes only from review specs.
 
+## vibe
+
+- docs: https://docs.mistral.ai/vibe/code/cli/configuration-reference · https://docs.mistral.ai/vibe/code/cli/agents · https://docs.mistral.ai/vibe/code/cli/skills · https://docs.mistral.ai/vibe/code/cli/hooks
+- changelog: https://github.com/mistralai/mistral-vibe/releases
+- code: https://github.com/mistralai/mistral-vibe/tree/v3.0.2/vibe/core (release commit 36f7b3a4e10440e90f98080492530b8f4d46960d)
+- watch: VIBE_HOME, trusted project loading, AGENTS.md hierarchy, agent_type and enabled_tools, skill flags, config.toml mcp_servers arrays and auth, hooks.toml JSON decisions and Windows shell selection.
+- trap: empty enabled_tools enables every tool; skills allowed-tools does not enforce restrictions; hook exit 2 is a failure, not a denial.
+- decision: native hooks only (pre_tool, post_tool, post_agent); global TOML arrays are owned by native name and retain unrelated text.
+
 ## pi
 
 - docs: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/configuration.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/prompt-templates.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md · https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/security.md · https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/configuration.md (released discovery and trust baseline) · https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md (released transport and enabled contract)
