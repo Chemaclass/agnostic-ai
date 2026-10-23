@@ -28,14 +28,15 @@ func syncedAgentTree(t *testing.T, target, field string) (map[string]string, err
 }
 
 func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
-	cases := []struct{ name, can, tools, vibeError string }{
-		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", ""},
+	cases := []struct{ name, can, tools, grokError, vibeError string }{
+		{"read-only", "can: [read]", "tools: [Read]", "", ""},
+		{"scoped-shell", "can: [read, shell(git diff *)]", "tools: [Read, Bash(git diff *)]", "would restore all tools", ""},
 		{"server-tools", "can: [read, edit, write, shell, web, Grep, mcp:github, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", ""},
-		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", ""},
-		{"empty", "can: []", "tools: []", "no supported allowed tools"},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github, mcp__github__get_issue]", "would restore all tools", ""},
+		{"multiline", "can:\n  - read\n  - 'shell(go test ./...)'", "tools:\n  - Read\n  - 'Bash(go test ./...)'", "would restore all tools", ""},
+		{"empty", "can: []", "tools: []", "empty tools would inherit all tools", "no supported allowed tools"},
 		{"exact-tools", "can: [read, edit, write, shell, web, Grep, mcp:github/get_issue]",
-			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", ""},
+			"tools: [Read, Edit, Write, Bash, WebFetch, WebSearch, Grep, mcp__github__get_issue]", "would restore all tools", ""},
 	}
 	for _, target := range adapters.Names() {
 		t.Run(target, func(t *testing.T) {
@@ -49,10 +50,17 @@ func TestSync_CapabilitiesWriteTheSameFilesAsTheClaudeNames(t *testing.T) {
 						}
 						return
 					}
-					if target == "vibe" && tc.vibeError != "" {
+					expectedError := ""
+					switch target {
+					case "grok":
+						expectedError = tc.grokError
+					case "vibe":
+						expectedError = tc.vibeError
+					}
+					if expectedError != "" {
 						for _, err := range []error{neutralErr, legacyErr} {
-							if err == nil || !strings.Contains(err.Error(), tc.vibeError) {
-								t.Errorf("expected equivalent rejection containing %q, got %v", tc.vibeError, err)
+							if err == nil || !strings.Contains(err.Error(), expectedError) {
+								t.Errorf("expected equivalent rejection containing %q, got %v", expectedError, err)
 							}
 						}
 						for _, tree := range []map[string]string{neutral, legacy} {
