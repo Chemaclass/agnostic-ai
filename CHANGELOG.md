@@ -31,6 +31,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - Global sync accepts inline shell placeholders in trusted user skills while checking argument placeholders and Claude code blocks.
 
+#### Antigravity
+
+- Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+
 ## v0.87.0 - 2026-10-22
 
 ### General

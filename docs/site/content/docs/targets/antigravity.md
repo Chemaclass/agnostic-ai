@@ -102,7 +102,7 @@ Antigravity documents no field that keeps a skill user-only: the agent reads rel
 
 One `mcpServers` object in `.agents/mcp_config.json` ([docs](https://antigravity.google/docs/mcp?tab=ide)).
 
-- Remote servers use `serverUrl`, not the legacy `url` / `httpUrl` or the `url` form that Claude Code and Cursor share. stdio servers have `command`, `args`, `env`, and `cwd`. Remote ones add `headers`.
+- agnostic-ai writes remote servers with `serverUrl`. Antigravity also accepts `url` as an alias; `httpUrl` is unsupported. stdio servers have `command`, `args`, `env`, and `cwd`. Remote ones add `headers`.
 - Both kinds accept `disabled` by that name (see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)), unlike Codex and Kilo, which write `enabled: false`.
 - `authProviderType`, `oauth`, `disabledTools`, `description`, `roots`, and any new field go under `x-antigravity`, like Zed and Warp.
 
