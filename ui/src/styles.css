@@ -987,11 +987,25 @@ input:hover {
   font-size: 14px;
 }
 
-.open-link {
-  min-height: 32px;
-  padding: 4px 12px;
-  font-size: 13px;
-  text-decoration: none;
+.edit-link {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out;
+}
+
+.edit-link:hover,
+.edit-link:focus-visible {
+  opacity: 1;
+}
+
+.edit-link .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .fields {

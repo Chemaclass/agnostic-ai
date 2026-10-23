@@ -12,8 +12,8 @@ Agnostic AI configuration.
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
 Values render by type: a list as chips, a boolean as a switch, anything
-else as text. A Markdown item has an **Open in Cursor** link
-(`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
+else as text. A Markdown or YAML item has an edit icon that opens
+it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
 its file, and the header shows whether each coding tool's generated files
 are in sync with what `sync` would write.
 

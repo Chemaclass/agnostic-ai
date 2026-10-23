@@ -175,8 +175,8 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             {item.enabled === undefined && <Chip title="Layer the item comes from">{item.layer}</Chip>}
             {item.scope && <Chip>{item.scope}</Chip>}
             {item.openPath && (
-              <a className="button button-quiet open-link" href={cursorUrl(item.openPath)}>
-                Open in Cursor<span className="sr-only"> {item.label}</span>
+              <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
+                <Icon name="edit" />
               </a>
             )}
           </div>

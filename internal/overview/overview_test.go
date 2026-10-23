@@ -250,7 +250,7 @@ func TestBuild_ListsEveryLifecycleStageWithTheToolsThatRunIt(t *testing.T) {
 	}
 }
 
-func TestBuild_GivesMarkdownItemsAnAbsolutePathToOpen(t *testing.T) {
+func TestBuild_GivesMarkdownAndYAMLItemsAnAbsolutePathToOpen(t *testing.T) {
 	v := Build(fullInputs())
 	open := map[string]string{}
 	for _, s := range v.Sections {
@@ -258,14 +258,14 @@ func TestBuild_GivesMarkdownItemsAnAbsolutePathToOpen(t *testing.T) {
 			open[it.Kind+":"+it.Name] = it.OpenPath
 		}
 	}
-	for _, key := range []string{"rule:testing", "skill:review", "agent:reviewer"} {
-		if p := open[key]; !filepath.IsAbs(filepath.FromSlash(p)) || !strings.HasSuffix(p, ".md") {
-			t.Errorf("%s open path = %q, want an absolute .md path", key, p)
+	for key, ext := range map[string]string{"rule:testing": ".md", "skill:review": ".md", "agent:reviewer": ".md", "settings:permissions": ".yaml", "mcp:github": ".yaml", "config:agnostic-ai.yaml": ".yaml"} {
+		if p := open[key]; !filepath.IsAbs(filepath.FromSlash(p)) || !strings.HasSuffix(p, ext) {
+			t.Errorf("%s open path = %q, want an absolute %s path", key, p, ext)
 		}
 	}
-	for _, key := range []string{"settings:permissions", "mcp:github", "rule:shared-memory-policy", "config:agnostic-ai.yaml"} {
+	for _, key := range []string{"rule:shared-memory-policy", "builtin:memory"} {
 		if p := open[key]; p != "" {
-			t.Errorf("%s open path = %q, want none: not Markdown, or a built-in", key, p)
+			t.Errorf("%s open path = %q, want none for a built-in", key, p)
 		}
 	}
 }

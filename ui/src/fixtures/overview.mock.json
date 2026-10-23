@@ -2,7 +2,7 @@
   "schemaVersion": "overview/v1",
   "snapshot": {
     "revision": "fc5bb098abb3",
-    "generatedAt": "2026-10-23T11:27:29Z",
+    "generatedAt": "2026-10-23T13:24:55Z",
     "project": {
       "root": ".",
       "name": "demo-project"
@@ -212,6 +212,7 @@
           "label": "permissions",
           "description": "",
           "path": ".agnostic-ai/settings/permissions.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/settings/permissions.yaml",
           "layer": "project",
           "values": [
             {
@@ -268,6 +269,7 @@
           "label": "protected",
           "description": "",
           "path": ".agnostic-ai/settings/protected.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/settings/protected.yaml",
           "layer": "project",
           "values": [
             {
@@ -439,6 +441,7 @@
           "label": "analytics-db",
           "description": "Read-only reporting schema of the staging PostgreSQL database.",
           "path": ".agnostic-ai/mcps/analytics-db.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/analytics-db.yaml",
           "layer": "project",
           "values": [],
           "tools": {
@@ -454,6 +457,7 @@
           "label": "github",
           "description": "GitHub repositories, pull requests, and issues.",
           "path": ".agnostic-ai/mcps/github.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/github.yaml",
           "layer": "project",
           "values": [],
           "tools": {
@@ -469,6 +473,7 @@
           "label": "railway",
           "description": "Railway projects, services, and deployments.",
           "path": ".agnostic-ai/mcps/railway.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/railway.yaml",
           "layer": "project",
           "values": [],
           "tools": {
@@ -484,6 +489,7 @@
           "label": "workspace-files",
           "description": "Read-only access to the documentation folder through a filesystem server.",
           "path": ".agnostic-ai/mcps/workspace-files.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/workspace-files.yaml",
           "layer": "project",
           "values": [],
           "tools": {
@@ -760,6 +766,7 @@
           "label": "agnostic-ai.yaml",
           "description": "",
           "path": "agnostic-ai.yaml",
+          "openPath": "/path/to/agnostic-ai/agnostic-ai.yaml",
           "layer": "config",
           "values": [
             {

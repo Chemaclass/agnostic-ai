@@ -327,7 +327,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			case kindBuiltin:
 				items = builtinItems(in.Cfg)
 			case kindConfig:
-				items = configItems(in.Cfg, in.Snapshot.ConfigFiles)
+				items = configItems(in.Cfg, in.Snapshot.Project.Root, in.Snapshot.ConfigFiles)
 			default:
 				items = specItems(in, r, def.id)
 			}
@@ -404,7 +404,7 @@ func instructionItems(docs []Document) []SectionItem {
 			Label:       filepath.Base(d.Path),
 			Description: fmt.Sprintf("Loaded at the start of every session: %d words.", d.Words),
 			Path:        filepath.ToSlash(d.Path),
-			OpenPath:    markdownPath(d.AbsPath),
+			OpenPath:    editablePath(d.AbsPath),
 			Layer:       d.Layer,
 		})
 	}
@@ -447,14 +447,14 @@ func builtinItems(cfg *config.Config) []SectionItem {
 
 // configItems lists the config files read, each with the keys the
 // loaded configuration sets.
-func configItems(cfg *config.Config, files []string) []SectionItem {
+func configItems(cfg *config.Config, root string, files []string) []SectionItem {
 	items := make([]SectionItem, 0, len(files))
 	for _, f := range files {
 		layer := "config"
 		if strings.HasPrefix(filepath.ToSlash(f), "local/") {
 			layer = "local"
 		}
-		items = append(items, SectionItem{Kind: kindConfig, Name: filepath.Base(f), Label: filepath.ToSlash(f), Path: filepath.ToSlash(f), Layer: layer, Values: configValues(cfg)})
+		items = append(items, SectionItem{Kind: kindConfig, Name: filepath.Base(f), Label: filepath.ToSlash(f), Path: filepath.ToSlash(f), OpenPath: editablePath(filepath.Join(root, f)), Layer: layer, Values: configValues(cfg)})
 	}
 	return items
 }
@@ -474,7 +474,7 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 		item.Values = settingsValues(e)
 	}
 	if e.Layer != builtinLayer {
-		item.OpenPath = markdownPath(e.Path)
+		item.OpenPath = editablePath(e.Path)
 	}
 	return item
 }
@@ -589,11 +589,14 @@ func attachTools(items []SectionItem, in Inputs) {
 	}
 }
 
-// markdownPath is the absolute path of a Markdown file, resolved against
-// the working directory, which a server has changed into, or "" for any
-// other file.
-func markdownPath(path string) string {
-	if path == "" || !strings.EqualFold(filepath.Ext(path), ".md") {
+// editableExts are the file types a view offers to open in an editor.
+var editableExts = map[string]bool{".md": true, ".yaml": true, ".yml": true}
+
+// editablePath is the absolute path of a Markdown or YAML file, resolved
+// against the working directory, which a server has changed into, or ""
+// for any other file.
+func editablePath(path string) string {
+	if path == "" || !editableExts[strings.ToLower(filepath.Ext(path))] {
 		return ""
 	}
 	abs, err := filepath.Abs(path)

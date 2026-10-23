@@ -92,6 +92,7 @@ const ICON_PATHS: Record<string, ReactNode> = {
   warning: <path d="M12 4 21 20H3Z M12 10v4 M12 17h.01" />,
   sun: <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4" />,
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />,
+  edit: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z M13.5 6.5l4 4" />,
   arrow: <path d="M7 17 17 7 M9 7h8v8" />,
 }
 

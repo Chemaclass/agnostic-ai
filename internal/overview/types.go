@@ -115,8 +115,8 @@ type SectionItem struct {
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	Path        string `json:"path"`
-	// OpenPath is the absolute path of a Markdown file, so a local client
-	// can open it in an editor. Empty for anything else.
+	// OpenPath is the absolute path of a Markdown or YAML file, so a local
+	// client can open it in an editor. Empty for anything else.
 	OpenPath string `json:"openPath,omitempty"`
 	Layer    string `json:"layer"`
 	Scope    string `json:"scope,omitempty"`
