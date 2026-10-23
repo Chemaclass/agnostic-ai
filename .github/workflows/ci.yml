@@ -95,6 +95,13 @@ jobs:
           go test -timeout=5m -count=1 ./internal/cli -run '^(TestCodebuddy_(Import|Scoped|Controlled|Instruction|DeleteCapability|Overrides|GlobalRejects|DefaultSync)|TestInstallHook_SharedFromLinkedWorktreeWritesUnderMainToplevel$|TestHandoffList_|TestSessionRetention_|TestSyncGlobal_Cline|TestInit_Memory|TestHookMemory_Trae|TestHookMemory_Devin|TestSync_DevinMemory|TestHookMemory_Augment|TestSyncGlobal_AugmentMemory|TestSyncGlobal_AugmentLocal|TestSync_AugmentLocal|TestSync_AntigravityMemory|TestSyncGlobal_AntigravityMemory|TestHookMemory_Cline|TestHookRun_ClineVSCode|TestHookRun_VSCodeRuntime|TestSync_ClineUnixRemoves|TestGitRepo_DoesNotStartAutomaticMaintenance$|TestImportPi_|TestImportGlobal_Pi|TestSyncGlobal_Pi|TestSyncPi_|TestPiExposure_|TestPiMCPMap_|TestPiBOM_|TestLintMCPMissingRequiredField_PiControls|TestImportGrok_|TestSyncGlobal_Grok|TestGrokTOML_|TestQwen_|TestImportVibe_|TestSyncVibe_|TestSyncGlobal_Vibe|TestImportGlobal_Vibe|TestImportKimi_|TestSyncKimi_|TestSyncGlobal_Kimi|TestImportGlobal_Kimi|TestTOMLArray_)'
           go test -timeout=5m -count=1 ./tests/integration -run '^(TestProjectLifecycle_FirstLaunchAfterFreshInstall|TestProjectLifecycle_LaunchDiagnostic.*|TestPiRoundTrip_NativeProject|TestGrokNativeProject_ImportSyncCheckAndLint|TestQwenNativeProject_BuiltBinaryImportSyncCheck|TestVibeRoundTrip_NativeProject|TestKimiRoundTrip_NativeProject|TestCodebuddy_NativeImportRecreatesAnEmptyOutputTree)$'
 
+      - name: Windows local API and MCP lifecycle
+        if: matrix.os == 'windows-latest' && inputs.full_windows != true
+        shell: bash
+        run: |
+          go test -timeout=2m -count=1 ./internal/authority ./internal/overview ./internal/preview ./internal/mcpprobe
+          go test -timeout=2m -count=1 ./internal/cli -run '^(TestServe|TestEdit|TestSetBool|TestSetBuiltin|TestMCPTools_|TestMCPServer_|TestHookWorktreeRefresh_CancelsReadyDescendant|TestHookWorktreeRefresh_KeepsSuccessfulBackgroundSetup)'
+
       - name: Repeat Windows fresh-install startup
         if: github.event_name == 'workflow_dispatch' && matrix.os == 'windows-latest' && inputs.full_windows != true && inputs.repeat_windows_startup == true
         timeout-minutes: 3
@@ -509,3 +516,54 @@ jobs:
 
       - name: Build plugin
         run: ./gradlew --no-daemon buildPlugin
+
+  ui:
+    name: Web client
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Build local server
+        working-directory: .
+        run: go build -o agnostic-ai ./cmd/agnostic-ai
+
+      - name: Install browser
+        run: npx playwright install chromium
+
+      - name: Fixture browser tests
+        env:
+          E2E_PREVIEW: '1'
+          E2E_MOCK: '1'
+        run: npm run e2e
+
+      - name: Live server browser tests
+        env:
+          AGNOSTIC_E2E_BIN: ${{ github.workspace }}/agnostic-ai
+        run: npm run e2e:live

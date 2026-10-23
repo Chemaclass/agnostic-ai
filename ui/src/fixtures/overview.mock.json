@@ -1,0 +1,981 @@
+{
+  "schemaVersion": "overview/v1",
+  "snapshot": {
+    "revision": "fc5bb098abb3",
+    "generatedAt": "2026-10-23T13:24:55Z",
+    "project": {
+      "root": ".",
+      "name": "demo-project"
+    },
+    "targets": [
+      "claude",
+      "codex",
+      "cursor"
+    ],
+    "configFiles": [
+      "agnostic-ai.yaml"
+    ],
+    "specs": [
+      {
+        "kind": "agent",
+        "name": "coding-agent",
+        "path": ".agnostic-ai/agents/coding-agent.md",
+        "layer": "project"
+      },
+      {
+        "kind": "agent",
+        "name": "data-analyst",
+        "path": ".agnostic-ai/agents/data-analyst.md",
+        "layer": "project"
+      },
+      {
+        "kind": "agent",
+        "name": "reviewer",
+        "path": ".agnostic-ai/agents/reviewer.md",
+        "layer": "project"
+      },
+      {
+        "kind": "rule",
+        "name": "testing",
+        "path": ".agnostic-ai/rules/testing.md",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "analytics-db",
+        "path": ".agnostic-ai/mcps/analytics-db.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "github",
+        "path": ".agnostic-ai/mcps/github.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "railway",
+        "path": ".agnostic-ai/mcps/railway.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "mcp",
+        "name": "workspace-files",
+        "path": ".agnostic-ai/mcps/workspace-files.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "settings",
+        "name": "permissions",
+        "path": ".agnostic-ai/settings/permissions.yaml",
+        "layer": "project"
+      },
+      {
+        "kind": "settings",
+        "name": "protected",
+        "path": ".agnostic-ai/settings/protected.yaml",
+        "layer": "project"
+      }
+    ],
+    "evidence": {
+      "declared": "loaded",
+      "installed": "checked",
+      "runtime": "not-observed",
+      "note": "Generated files were compared with disk for claude, codex, cursor. Runtime enforcement is not observed."
+    }
+  },
+  "sections": [
+    {
+      "id": "context",
+      "label": "Context",
+      "question": "What is the agent told?",
+      "order": 1,
+      "kinds": [
+        {
+          "kind": "instructions",
+          "label": "Instructions",
+          "count": 0
+        },
+        {
+          "kind": "rule",
+          "label": "Rules",
+          "count": 1
+        },
+        {
+          "kind": "agent",
+          "label": "Agents",
+          "count": 3
+        },
+        {
+          "kind": "skill",
+          "label": "Skills",
+          "count": 0
+        }
+      ],
+      "items": [
+        {
+          "kind": "rule",
+          "name": "testing",
+          "label": "testing",
+          "description": "Run the tests before presenting work.",
+          "path": ".agnostic-ai/rules/testing.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/rules/testing.md",
+          "layer": "project",
+          "values": [],
+          "findings": []
+        },
+        {
+          "kind": "agent",
+          "name": "coding-agent",
+          "label": "coding-agent",
+          "description": "Implements features and ships them to staging.",
+          "path": ".agnostic-ai/agents/coding-agent.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/agents/coding-agent.md",
+          "layer": "project",
+          "values": [],
+          "findings": []
+        },
+        {
+          "kind": "agent",
+          "name": "data-analyst",
+          "label": "data-analyst",
+          "description": "Answers questions from the reporting schema.",
+          "path": ".agnostic-ai/agents/data-analyst.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/agents/data-analyst.md",
+          "layer": "project",
+          "values": [],
+          "findings": []
+        },
+        {
+          "kind": "agent",
+          "name": "reviewer",
+          "label": "reviewer",
+          "description": "Reviews pull requests without changing files.",
+          "path": ".agnostic-ai/agents/reviewer.md",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/agents/reviewer.md",
+          "layer": "project",
+          "values": [],
+          "findings": []
+        }
+      ],
+      "support": [
+        {
+          "kind": "rule",
+          "label": "Rules",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        },
+        {
+          "kind": "agent",
+          "label": "Agents",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        },
+        {
+          "kind": "skill",
+          "label": "Skills",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        }
+      ],
+      "findings": []
+    },
+    {
+      "id": "authority",
+      "label": "Authority",
+      "question": "What may the agent do?",
+      "order": 2,
+      "deepView": "/authority",
+      "kinds": [
+        {
+          "kind": "settings",
+          "label": "Permissions",
+          "count": 2
+        }
+      ],
+      "items": [
+        {
+          "kind": "settings",
+          "name": "permissions",
+          "label": "permissions",
+          "description": "",
+          "path": ".agnostic-ai/settings/permissions.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/settings/permissions.yaml",
+          "layer": "project",
+          "values": [
+            {
+              "key": "permissions.allow",
+              "type": "list",
+              "list": [
+                "read",
+                "edit(src/**)",
+                "shell(go test:*)",
+                "shell(git status)",
+                "shell(git diff:*)",
+                "mcp:github/get_pull_request",
+                "mcp:github/list_pull_request_files",
+                "mcp:github/create_pull_request",
+                "mcp:railway/deploy",
+                "mcp:railway/logs",
+                "mcp:analytics-db/query"
+              ]
+            },
+            {
+              "key": "permissions.ask",
+              "type": "list",
+              "list": [
+                "shell(git push:*)",
+                "mcp:railway/variables",
+                "mcp:github/merge_pull_request"
+              ]
+            },
+            {
+              "key": "permissions.deny",
+              "type": "list",
+              "list": [
+                "shell(rm:*)",
+                "edit(.env)",
+                "mcp:railway/delete",
+                "mcp:analytics-db/execute"
+              ]
+            }
+          ],
+          "findings": [
+            {
+              "source": "lint",
+              "code": "LINT038",
+              "severity": "warn",
+              "message": "permissions.allow: bare read now covers every file read (claude: Read); use read(src/**) to name paths",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "explanation": "A bare capability in permissions.allow or permissions.ask now becomes a native permission for every operation it covers. Before permission capabilities, the lowercase spelling matched no tool."
+            }
+          ]
+        },
+        {
+          "kind": "settings",
+          "name": "protected",
+          "label": "protected",
+          "description": "",
+          "path": ".agnostic-ai/settings/protected.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/settings/protected.yaml",
+          "layer": "project",
+          "values": [
+            {
+              "key": "protected.decision",
+              "type": "text",
+              "value": "ask"
+            },
+            {
+              "key": "protected.paths",
+              "type": "list",
+              "list": [
+                ".github/**",
+                "migrations/**"
+              ]
+            },
+            {
+              "key": "protected.reason",
+              "type": "text",
+              "value": "CI workflows and migrations change only after a human review."
+            }
+          ],
+          "findings": []
+        }
+      ],
+      "support": [
+        {
+          "kind": "settings",
+          "label": "Permissions",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        }
+      ],
+      "findings": [],
+      "fields": [
+        {
+          "key": "permissions.allow",
+          "label": "Allowed without asking",
+          "description": "Rules the agent runs without a prompt.",
+          "set": [
+            {
+              "spec": "permissions",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "values": [
+                {
+                  "key": "permissions.allow",
+                  "type": "list",
+                  "list": [
+                    "read",
+                    "edit(src/**)",
+                    "shell(go test:*)",
+                    "shell(git status)",
+                    "shell(git diff:*)",
+                    "mcp:github/get_pull_request",
+                    "mcp:github/list_pull_request_files",
+                    "mcp:github/create_pull_request",
+                    "mcp:railway/deploy",
+                    "mcp:railway/logs",
+                    "mcp:analytics-db/query"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "permissions.ask",
+          "label": "Ask first",
+          "description": "Rules that prompt before running.",
+          "set": [
+            {
+              "spec": "permissions",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "values": [
+                {
+                  "key": "permissions.ask",
+                  "type": "list",
+                  "list": [
+                    "shell(git push:*)",
+                    "mcp:railway/variables",
+                    "mcp:github/merge_pull_request"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "permissions.deny",
+          "label": "Always blocked",
+          "description": "Rules the agent may never run.",
+          "set": [
+            {
+              "spec": "permissions",
+              "path": ".agnostic-ai/settings/permissions.yaml",
+              "values": [
+                {
+                  "key": "permissions.deny",
+                  "type": "list",
+                  "list": [
+                    "shell(rm:*)",
+                    "edit(.env)",
+                    "mcp:railway/delete",
+                    "mcp:analytics-db/execute"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "permissions.default-mode",
+          "label": "Default permission mode",
+          "description": "Claude Code's starting mode: default, manual, acceptEdits, plan, auto, dontAsk, or bypassPermissions.",
+          "set": []
+        },
+        {
+          "key": "protected",
+          "label": "Protected paths",
+          "description": "Files agents must not edit without asking: paths, a decision (ask or deny), and a reason.",
+          "set": [
+            {
+              "spec": "protected",
+              "path": ".agnostic-ai/settings/protected.yaml",
+              "values": [
+                {
+                  "key": "protected.decision",
+                  "type": "text",
+                  "value": "ask"
+                },
+                {
+                  "key": "protected.paths",
+                  "type": "list",
+                  "list": [
+                    ".github/**",
+                    "migrations/**"
+                  ]
+                },
+                {
+                  "key": "protected.reason",
+                  "type": "text",
+                  "value": "CI workflows and migrations change only after a human review."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tools",
+      "label": "Tools",
+      "question": "What can the agent use?",
+      "order": 3,
+      "kinds": [
+        {
+          "kind": "mcp",
+          "label": "MCP servers",
+          "count": 4
+        }
+      ],
+      "items": [
+        {
+          "kind": "mcp",
+          "name": "analytics-db",
+          "label": "analytics-db",
+          "description": "Read-only reporting schema of the staging PostgreSQL database.",
+          "path": ".agnostic-ai/mcps/analytics-db.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/analytics-db.yaml",
+          "layer": "project",
+          "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
+          "findings": []
+        },
+        {
+          "kind": "mcp",
+          "name": "github",
+          "label": "github",
+          "description": "GitHub repositories, pull requests, and issues.",
+          "path": ".agnostic-ai/mcps/github.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/github.yaml",
+          "layer": "project",
+          "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
+          "findings": []
+        },
+        {
+          "kind": "mcp",
+          "name": "railway",
+          "label": "railway",
+          "description": "Railway projects, services, and deployments.",
+          "path": ".agnostic-ai/mcps/railway.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/railway.yaml",
+          "layer": "project",
+          "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
+          "findings": []
+        },
+        {
+          "kind": "mcp",
+          "name": "workspace-files",
+          "label": "workspace-files",
+          "description": "Read-only access to the documentation folder through a filesystem server.",
+          "path": ".agnostic-ai/mcps/workspace-files.yaml",
+          "openPath": "/path/to/agnostic-ai/.agnostic-ai/mcps/workspace-files.yaml",
+          "layer": "project",
+          "values": [],
+          "tools": {
+            "state": "not-listed",
+            "tools": [],
+            "command": "agnostic-ai mcp tools"
+          },
+          "findings": []
+        }
+      ],
+      "support": [
+        {
+          "kind": "mcp",
+          "label": "MCP servers",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        }
+      ],
+      "findings": []
+    },
+    {
+      "id": "lifecycle",
+      "label": "Lifecycle",
+      "question": "What runs around the agent, and when?",
+      "order": 4,
+      "kinds": [
+        {
+          "kind": "hook",
+          "label": "Hooks",
+          "count": 0
+        }
+      ],
+      "items": [],
+      "support": [
+        {
+          "kind": "hook",
+          "label": "Hooks",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        }
+      ],
+      "findings": [],
+      "stages": [
+        {
+          "id": "session-start",
+          "label": "Session start",
+          "description": "When a session opens: load context or check the environment.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "SessionStart"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "SessionStart"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "sessionStart"
+            }
+          ]
+        },
+        {
+          "id": "prompt-submit",
+          "label": "Prompt submit",
+          "description": "Before the agent reads a prompt; exit 2 blocks the prompt.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "UserPromptSubmit"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "UserPromptSubmit"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "beforeSubmitPrompt"
+            }
+          ]
+        },
+        {
+          "id": "before-tool",
+          "label": "Before a tool runs",
+          "description": "Before each tool call; exit 2 blocks the call. Guards live here.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "PreToolUse"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "PreToolUse"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "preToolUse"
+            }
+          ]
+        },
+        {
+          "id": "after-tool",
+          "label": "After a tool runs",
+          "description": "After each tool call: check, log, or react to the result.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "PostToolUse"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "PostToolUse"
+            }
+          ]
+        },
+        {
+          "id": "after-edit",
+          "label": "After a file edit",
+          "description": "After the agent edits a file: format or lint it.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "PostToolUse"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "PostToolUse"
+            }
+          ]
+        },
+        {
+          "id": "stop",
+          "label": "Stop",
+          "description": "When the agent finishes; exit 2 keeps it working.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "Stop"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "Stop"
+            }
+          ]
+        },
+        {
+          "id": "session-end",
+          "label": "Session end",
+          "description": "When a session closes: save state or clean up.",
+          "targets": [
+            {
+              "target": "claude",
+              "label": "Claude Code",
+              "event": "SessionEnd"
+            },
+            {
+              "target": "codex",
+              "label": "Codex",
+              "event": "SessionEnd"
+            },
+            {
+              "target": "cursor",
+              "label": "Cursor",
+              "event": "sessionEnd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "question": "How is the harness configured?",
+      "order": 5,
+      "kinds": [
+        {
+          "kind": "builtin",
+          "label": "Built-ins",
+          "count": 0
+        },
+        {
+          "kind": "config",
+          "label": "Config",
+          "count": 1
+        },
+        {
+          "kind": "settings",
+          "label": "Other settings",
+          "count": 0
+        }
+      ],
+      "items": [
+        {
+          "kind": "builtin",
+          "name": "caveman",
+          "label": "caveman",
+          "description": "Terse replies to cut output tokens.",
+          "path": "builtin:caveman",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "handoff",
+          "label": "handoff",
+          "description": "Saves a task so the next session, in this or another tool, can resume it.",
+          "path": "builtin:handoff",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "handoff-hook",
+          "label": "handoff-hook",
+          "description": "Offers a saved handoff when a session starts.",
+          "path": "builtin:handoff-hook",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "memory",
+          "label": "memory",
+          "description": "Shared memory every coding tool reads and saves facts to.",
+          "path": "builtin:memory",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "builtin",
+          "name": "rtk",
+          "label": "rtk",
+          "description": "Routes shell commands through rtk to cut output tokens.",
+          "path": "builtin:rtk",
+          "layer": "builtin",
+          "values": [],
+          "enabled": false,
+          "findings": []
+        },
+        {
+          "kind": "config",
+          "name": "agnostic-ai.yaml",
+          "label": "agnostic-ai.yaml",
+          "description": "",
+          "path": "agnostic-ai.yaml",
+          "openPath": "/path/to/agnostic-ai/agnostic-ai.yaml",
+          "layer": "config",
+          "values": [
+            {
+              "key": "targets",
+              "type": "list",
+              "list": [
+                "claude",
+                "codex",
+                "cursor"
+              ]
+            },
+            {
+              "key": "on-unsupported",
+              "type": "text",
+              "value": "warn"
+            }
+          ],
+          "findings": []
+        }
+      ],
+      "support": [
+        {
+          "kind": "settings",
+          "label": "Other settings",
+          "supported": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "unsupported": []
+        }
+      ],
+      "findings": [],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Default model",
+          "description": "The model each tool starts with: one value, a map per tool, or a model tier name.",
+          "set": []
+        },
+        {
+          "key": "effort",
+          "label": "Reasoning effort",
+          "description": "The default reasoning effort: one value, or a map per tool.",
+          "set": []
+        },
+        {
+          "key": "session-retention-days",
+          "label": "Session retention",
+          "description": "Days to keep session transcripts, at least 1. Only sync --global writes it.",
+          "set": []
+        },
+        {
+          "key": "x-",
+          "label": "Native keys",
+          "description": "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.",
+          "set": []
+        }
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "target": "claude",
+      "label": "Claude Code",
+      "kinds": [
+        "agent",
+        "skill",
+        "rule",
+        "hook",
+        "mcp",
+        "command",
+        "settings",
+        "environment"
+      ],
+      "sync": {
+        "state": "drifted",
+        "files": [
+          {
+            "path": ".claude/.agnostic-ai-permissions.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/agents/coding-agent.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/agents/data-analyst.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/agents/reviewer.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/rules/testing.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".claude/settings.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".mcp.json",
+            "state": "not generated"
+          },
+          {
+            "path": "CLAUDE.md",
+            "state": "not generated"
+          }
+        ]
+      }
+    },
+    {
+      "target": "codex",
+      "label": "Codex",
+      "kinds": [
+        "agent",
+        "skill",
+        "rule",
+        "hook",
+        "mcp",
+        "command",
+        "settings",
+        "review",
+        "environment"
+      ],
+      "sync": {
+        "state": "drifted",
+        "files": [
+          {
+            "path": ".codex/agents/coding-agent.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/agents/data-analyst.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/agents/reviewer.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/config.toml",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/hooks.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".codex/hooks/agnostic-ai-protect.sh",
+            "state": "not generated"
+          },
+          {
+            "path": "AGENTS.md",
+            "state": "not generated"
+          }
+        ]
+      }
+    },
+    {
+      "target": "cursor",
+      "label": "Cursor",
+      "kinds": [
+        "agent",
+        "skill",
+        "rule",
+        "hook",
+        "mcp",
+        "command",
+        "settings",
+        "review",
+        "environment",
+        "ignore"
+      ],
+      "sync": {
+        "state": "drifted",
+        "files": [
+          {
+            "path": ".cursor/.agnostic-ai-permissions.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/agents/coding-agent.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/agents/data-analyst.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/agents/reviewer.md",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/cli.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/mcp.json",
+            "state": "not generated"
+          },
+          {
+            "path": ".cursor/rules/testing.mdc",
+            "state": "not generated"
+          }
+        ]
+      }
+    }
+  ]
+}

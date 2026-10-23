@@ -288,3 +288,71 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 |------|-------------|
 | `--format` | `text` (default) or `json`. |
 | `--json` | Alias for JSON output. |
+
+## view
+
+Show a read-only view of the configuration as versioned JSON or readable text. Nothing is written. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
+
+`view authority` answers, for one subject on one coding tool, which exact action on which exact target is permitted, with the rule and file behind each decision. Four states stay separate: what the specs declare, what the selected tool does with it, whether the generated file is installed, and runtime enforcement, which is never observed.
+
+```bash
+agnostic-ai view authority --agent reviewer --target claude
+agnostic-ai view authority --json
+agnostic-ai view overview --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--agent` | The subject: an agent name, or `session` (default) for the tool itself before any agent narrows it. |
+| `--target` | The coding tool to resolve effects for. Default: the first in `agnostic-ai.yaml`. |
+| `--json` | The full view as JSON, schema `authority/v1` or `overview/v1`. |
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
+| `--no-installed` | Skip comparing the generated files with disk. |
+
+`view overview` prints whether each target's generated files are in sync, then the five harness sections (context, authority, tools, lifecycle, settings) with their items, each with the `lint` and `doctor` findings that name it. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
+
+## serve
+
+Host the views as a local JSON API, and the built web client when `--ui` names its directory. The configuration loads on every request. The switches change builtin choices or boolean settings without syncing generated files. Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
+
+The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
+
+```bash
+agnostic-ai serve --ui ui/dist --open
+agnostic-ai serve --global
+```
+
+| Flag | Description |
+|------|-------------|
+| `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
+| `--allow-origin` | Additional exact browser origin, such as `http://127.0.0.1:5173` for Vite. |
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--ui` | Directory of the built client to serve, such as `ui/dist`. |
+| `--open` | Open the served URL in a browser. |
+| `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
+| `--no-installed` | Skip comparing the generated files with disk. |
+
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health`.
+
+## mcp tools
+
+Connect to each configured MCP server and list its tools, then cache the result so `view overview` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
+
+```bash
+agnostic-ai mcp tools
+agnostic-ai mcp tools --global
+```
+
+Stdio servers start with their `command`, `args`, and `env`; HTTP servers use their headers and optional `headersHelper`. Relative and omitted working directories use the selected configuration root. `${NAME}` references resolve from the environment; `${workspaceFolder}` means that root. An unset reference is reported without connecting. SSE, WebSocket, and disabled servers are not probed.
+
+Up to four servers are checked at once. Each server's timeout includes its header helper. Cancellation closes its pipes and stops its owned processes. Errors and tool descriptions are redacted before display or caching.
+
+The cache lives in the native user cache directory, outside the repository. Directory aliases share a listing. Changed specs mark their listing stale. Refresh older listings with `mcp tools` before they appear in the overview.
+
+| Flag | Description |
+|------|-------------|
+| `--dir` | Project directory to read. Default: the current directory. |
+| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
+| `--json` | Print the cached result as JSON. |
+| `--timeout` | Maximum probe time per server, including its header helper. Default `20s`. Process cleanup is bounded separately. |

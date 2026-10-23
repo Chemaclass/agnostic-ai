@@ -1,0 +1,141 @@
+import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { MOCK, openApp, saveScreenshot } from './helpers'
+
+const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+
+test.describe('overview', () => {
+  test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {
+    await openApp(page)
+    await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
+    await expect(page.locator('.page-subtitle')).toHaveText('What is the agent told?')
+    for (const kind of ['Instructions', 'Rules', 'Agents', 'Skills']) await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${kind}`) })).toBeVisible()
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
+    await expect(nav.getByRole('link')).toHaveCount(5)
+    for (const name of ['Context', 'Authority', 'Tools', 'Lifecycle', 'Settings']) await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible()
+    await expect(page.locator('.topbar .chip', { hasText: 'sync' })).toHaveCount(0)
+    const theme = page.getByRole('button', { name: /^Switch to (light|dark) theme$/ })
+    const before = await theme.getAttribute('aria-label')
+    await theme.click()
+    await expect(theme).not.toHaveAttribute('aria-label', before ?? '')
+    await expect(page.getByRole('combobox')).toHaveCount(0)
+    const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Edit .+ in Cursor$/ })
+    await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
+    await saveScreenshot(page, '01-context.png')
+  })
+
+  test('lists every lifecycle stage in session order, even with no hooks', async ({ page }) => {
+    await openApp(page, '?view=lifecycle')
+    await expect(page.getByRole('heading', { level: 1, name: 'Lifecycle' })).toBeVisible()
+    const stages = page.locator('.stage-title')
+    await expect(stages.nth(0)).toHaveText('Session start')
+    await expect(stages.nth(6)).toHaveText('Session end')
+    if (MOCK) await expect(page.locator('.stage-empty')).toHaveCount(7)
+    const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
+    await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
+    await expect(avatar.locator('img')).toBeVisible()
+    await saveScreenshot(page, '02-lifecycle.png')
+  })
+
+  test('shows built-ins as switches and config values as chips and text', async ({ page }) => {
+    await openApp(page, '?view=settings')
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    const builtins = page.locator('.item-row', { has: page.locator('.switch') })
+    await expect(builtins).toHaveCount(5)
+    await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
+    const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })
+    await expect(config.getByRole('link', { name: /^Edit .+ in Cursor$/ })).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
+    await expect(config.locator('.value-row', { hasText: 'targets' }).locator('.chip').first()).toBeVisible()
+    await saveScreenshot(page, '03-settings.png')
+  })
+
+  test('shows a check finding on the item it names', async ({ page }) => {
+    test.skip(!MOCK, 'The finding is specific to the demo project fixture.')
+    await openApp(page, '?view=authority')
+    await expect(page.getByRole('heading', { level: 1, name: 'Authority' })).toBeVisible()
+    const permissions = page.locator('.item-row', { hasText: 'permissions.yaml' }).first()
+    await expect(permissions).toHaveClass(/has-findings/)
+    await expect(permissions.locator('.finding')).toContainText('LINT038')
+    await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
+    await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
+    await expect(page.getByText('Capability domains')).toHaveCount(0)
+    await expect(page.getByText('Uncertainties')).toHaveCount(0)
+    await saveScreenshot(page, '04-authority.png')
+  })
+
+  test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
+    await openApp(page, '?view=tools')
+    await expect(page.getByRole('heading', { level: 1, name: 'Tools' })).toBeVisible()
+    const servers = page.locator('.item-row', { has: page.locator('.tool-listing') })
+    await expect(servers.first()).toBeVisible()
+    if (MOCK) await expect(servers.first().locator('.tool-state')).toContainText('agnostic-ai mcp tools')
+  })
+
+  test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 500 })
+    await openApp(page, '?view=lifecycle')
+    await expect(page.locator('.footer')).toHaveCount(0)
+    const main = page.locator('#main')
+    expect(await main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    expect(await page.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight + 1)).toBe(true)
+    const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
+    await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
+    expect(await page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().top)).toBe(0)
+    expect(await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)).toBe(navTop)
+  })
+
+  test('follows the system colour scheme until the person picks a theme', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await openApp(page)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await page.getByRole('button', { name: 'Switch to light theme' }).click()
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  })
+
+  test('renders accepted and refused edit responses', async ({ page }) => {
+    let memory = false
+    let refuse = false
+    const posted: unknown[] = []
+    await page.route('**/api/views/overview', async (route) => {
+      const view = structuredClone(fixture)
+      for (const it of view.sections.find((s: { id: string }) => s.id === 'settings').items) if (it.name === 'memory') it.enabled = memory
+      await route.fulfill({ json: view })
+    })
+    await page.route('**/api/edit/builtin', async (route) => {
+      posted.push(route.request().postDataJSON())
+      if (refuse) return route.fulfill({ status: 422, json: { error: 'the edit did not validate, so the file was restored', problems: ['agnostic-ai.yaml: builtins: memory clashes with skill memory'] } })
+      memory = !memory
+      return route.fulfill({ json: { ok: true } })
+    })
+    await page.goto('./?view=settings')
+    const toggle = page.getByRole('switch', { name: 'memory built-in' })
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(posted).toEqual([{ name: 'memory', enabled: true }])
+
+    refuse = true
+    await toggle.click()
+    await expect(page.getByRole('alert')).toContainText('the file was restored')
+    await expect(page.getByRole('alert')).toContainText('memory clashes with skill memory')
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('opens the JSON inspector on the overview document', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await openApp(page)
+    const button = page.getByRole('button', { name: 'JSON', exact: true })
+    await button.click()
+    const drawer = page.getByRole('dialog', { name: 'JSON inspector' })
+    await expect(drawer.locator('.inspector-meta')).toContainText('overview/v1')
+    await drawer.getByRole('button', { name: 'Copy JSON' }).click()
+    await expect(drawer.getByRole('button', { name: 'JSON copied' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(drawer).toHaveCount(0)
+    await expect(button).toBeFocused()
+  })
+})

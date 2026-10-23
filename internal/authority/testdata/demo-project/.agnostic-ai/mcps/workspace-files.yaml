@@ -1,0 +1,11 @@
+name: workspace-files
+description: Read-only access to the documentation folder through a filesystem server.
+type: stdio
+command: npx
+args:
+  - -y
+  - "@modelcontextprotocol/server-filesystem"
+  - /workspace/demo-project/docs
+roots:
+  - uri: file:///workspace/demo-project/docs
+    name: docs folder

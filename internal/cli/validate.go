@@ -41,29 +41,17 @@ func newValidateCmd() *cobra.Command {
 			b := scope.bundle
 			entries := b.All()
 			cmd.Printf("loaded %d entries.\n", len(entries))
-			var scopeIssues []validationIssue
-			if global {
-				scopeIssues = lintGlobalRules(b.Rules)
-				scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
-			} else {
+			if !global {
 				reportNotes(cmd, missingSourceNotes("."))
 				// A user or plugin skill is valid and invisible here.
 				reportNotes(cmd, agentSkillTypos(b))
-				scopeIssues = lintEntryPointFences(".", scope.cfg)
 			}
+			issues := scopeValidationIssues(scope)
 			if len(entries) == 0 {
-				reportIssues(cmd, scopeIssues)
+				reportIssues(cmd, issues)
 				cmd.PrintErrln(scope.emptyHint())
-				return issuesError(scopeIssues)
+				return issuesError(issues)
 			}
-			issues := lintEntries(entries)
-			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
-			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
-			if !global {
-				issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
-				issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
-			}
-			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
 				return issuesError(issues)
@@ -85,6 +73,31 @@ func newValidateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
 	cmd.Flags().BoolVar(&global, "global", false, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes")
 	return cmd
+}
+
+// scopeValidationIssues is every issue validate reports for scope: the
+// scope-wide checks, then, when it holds specs, the per-entry ones.
+func scopeValidationIssues(scope checkScope) []validationIssue {
+	b := scope.bundle
+	entries := b.All()
+	var scopeIssues []validationIssue
+	if scope.global {
+		scopeIssues = lintGlobalRules(b.Rules)
+		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
+	} else {
+		scopeIssues = lintEntryPointFences(".", scope.cfg)
+	}
+	if len(entries) == 0 {
+		return scopeIssues
+	}
+	issues := lintEntries(entries)
+	issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
+	issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
+	if !scope.global {
+		issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
+		issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
+	}
+	return append(issues, scopeIssues...)
 }
 
 // lintEntries scans loaded specs for validation problems that are specific

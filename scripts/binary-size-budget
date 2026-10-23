@@ -397,4 +397,7 @@
 # Native CodeBuddy support, same Linux amd64 release flags; no headroom or deps.
 # Final codebuddy Windows hook integration measured 21262496 bytes.
 # Go 1.27.3, Linux amd64 release flags; no added headroom or dependencies.
-21262496
+# #2319 measured 22565024 on Go 1.27.3, up 1302528
+# from main 80e54f1f (21262496): local configuration views, safe edits,
+# MCP probes and process ownership. Linux amd64 release flags; no headroom.
+22565024

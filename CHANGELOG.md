@@ -6,6 +6,9 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- The web interface changes builtin choices and boolean settings after validating the result.
+- `mcp tools` lists a configured server's tools and saves the result for the overview.
+- Inspect agent permissions with `view authority`, inspect shared setup with `view overview`, or serve these views to the web client with `serve` (#1323).
 - Global import keeps existing MCP specs when native server names differ only by case.
 - Project checks skip built-in hooks that do not target the selected tools.
 - Refresh audited vendor sources, update Trae context names, and use installed Amp tool names in its settings guide.
