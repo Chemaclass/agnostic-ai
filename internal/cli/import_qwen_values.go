@@ -14,10 +14,40 @@ import (
 var qwenCredentialEnvName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 func guardQwenValues(path string, value any, resolveRefs bool) error {
+	if field := qwenNonStringKeyPath(value, ""); field != "" {
+		return fmt.Errorf("%s: qwen: %s has non-string YAML keys; quote the keys before importing", path, field)
+	}
 	if field := qwenPrivateField(value, "", false, resolveRefs); field != "" {
 		return fmt.Errorf("%s: qwen: %s contains a credential or an environment reference this native field cannot resolve; keep it outside imported specs", path, field)
 	}
 	return nil
+}
+
+func qwenNonStringKeyPath(value any, path string) string {
+	switch value := value.(type) {
+	case map[any]any:
+		if path == "" {
+			return "configuration"
+		}
+		return path
+	case map[string]any:
+		for _, key := range slices.Sorted(maps.Keys(value)) {
+			next := key
+			if path != "" {
+				next = path + "." + key
+			}
+			if field := qwenNonStringKeyPath(value[key], next); field != "" {
+				return field
+			}
+		}
+	case []any:
+		for i, item := range value {
+			if field := qwenNonStringKeyPath(item, path+"["+strconv.Itoa(i)+"]"); field != "" {
+				return field
+			}
+		}
+	}
+	return ""
 }
 
 func qwenPrivateField(value any, path string, sensitive, resolveRefs bool) string {

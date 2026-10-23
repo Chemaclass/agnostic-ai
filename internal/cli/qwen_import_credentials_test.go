@@ -16,6 +16,8 @@ func TestQwen_ImportRefusesRetainedNativeCredentials(t *testing.T) {
 		{"agent MCP argument", ".qwen/agents/reviewer.md", "---\nname: reviewer\ndescription: Review\nmcpServers:\n  docs:\n    command: server\n    args: [--password, " + literal + "]\n---\nReview changes.\n"},
 		{"agent hook environment", ".qwen/agents/reviewer.md", "---\nname: reviewer\ndescription: Review\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo check\n          env:\n            API_TOKEN: " + literal + "\n---\nReview changes.\n"},
 		{"skill hook environment", ".qwen/skills/check/SKILL.md", "---\nname: check\ndescription: Check\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo check\n          env:\n            API_TOKEN: " + literal + "\n---\nCheck changes.\n"},
+		{"agent hook mixed-key environment", ".qwen/agents/reviewer.md", "---\nname: reviewer\ndescription: Review\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo check\n          env:\n            1: harmless\n            API_TOKEN: " + literal + "\n---\nReview changes.\n"},
+		{"skill hook mixed-key environment", ".qwen/skills/check/SKILL.md", "---\nname: check\ndescription: Check\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: echo check\n          env:\n            1: harmless\n            API_TOKEN: " + literal + "\n---\nCheck changes.\n"},
 		{"settings authentication", ".qwen/settings.json", `{"security":{"auth":{"apiKey":"` + literal + `"}}}`},
 		{"nested settings password", ".qwen/settings.json", `{"gateway":{"credentials":{"password":"` + literal + `"}}}`},
 		{"settings hook environment", ".qwen/settings.json", `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo check","env":{"API_TOKEN":"` + literal + `"}}]}]}}`},
@@ -31,6 +33,9 @@ func TestQwen_ImportRefusesRetainedNativeCredentials(t *testing.T) {
 			output, err := runCLI(t, "import", "qwen")
 			if err == nil {
 				t.Errorf("import accepted unsafe retained native field")
+			}
+			if strings.Contains(tc.name, "mixed-key") && (err == nil || !strings.Contains(err.Error(), "hooks.PreToolUse[0].hooks[0].env has non-string YAML keys")) {
+				t.Errorf("import did not identify the unsafe YAML mapping: %v", err)
 			}
 			if strings.Contains(output, literal) || err != nil && strings.Contains(err.Error(), literal) {
 				t.Error("credential appeared in error output")
