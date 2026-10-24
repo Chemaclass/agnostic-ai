@@ -313,19 +313,19 @@ test.describe('overview', () => {
     await row.getByRole('button', { name: 'Cancel', exact: true }).click()
     refuse = true
     await toggle.click()
-    await expect(row.getByRole('alert')).toContainText('The snapshot contains a symbolic link.')
+    await expect(page.getByRole('alert')).toContainText('The snapshot contains a symbolic link.')
     await aligned()
     await page.setViewportSize({ width: 390, height: 844 })
     await aligned()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 
-  test('renders accepted and refused edit responses', async ({ page }) => {
+  test('keeps global built-ins source-only with one sync instruction', async ({ page }) => {
     let memory = false
     let refuse = false
     const posted: unknown[] = []
     await page.route('**/api/changes/builtin', (route) => route.fulfill({
-      json: { schemaVersion: 'builtin-change/v1', name: 'caveman', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: [], changes: [], findings: [] },
+      json: { schemaVersion: 'builtin-change/v1', name: 'caveman', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] },
     }))
     await page.route('**/api/views/overview', async (route) => {
       const view = structuredClone(fixture)
@@ -341,6 +341,9 @@ test.describe('overview', () => {
     await page.goto('./?view=settings')
     const toggle = page.getByRole('switch', { name: 'memory built-in' })
     await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByText('Saves source files.')).toHaveCount(1)
+    await expect(page.getByText('agnostic-ai sync --global', { exact: true })).toBeVisible()
+    await expect(page.getByRole('switch')).toHaveCount(5)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(posted).toEqual([{ name: 'memory', enabled: true }])

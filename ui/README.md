@@ -19,7 +19,7 @@ The interface shares the website’s warm neutral palette and rust accent in lig
 Source lists use aligned rows. Unconfigured fields stay in a disclosure, empty lifecycle stages show their descriptions on demand, and support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
 
 Values render by type: a list as chips, a boolean as a switch, anything
-else as text. Built-in switches share the same row layout, with previews and errors below. Caveman previews check source and output files; unrelated local working folders do not block them. The project Caveman switch previews, applies, and undoes changes across the configured targets. Other built-in and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
+else as text. Project built-in switches preview and apply changes across the configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
 it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
 its file. The JSON overview also reports whether generated files match
@@ -165,7 +165,7 @@ Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install
 the browser matching the pinned Playwright version with
 `npx playwright install chromium` from `ui/`. CI installs the pinned browser before running both suites.
 
-The live suite also checks Caveman preview cancellation, apply for Claude and Codex, undo after reload, and conflicts that preserve later source and output edits.
+The live suite also checks Handoff then Caveman for Claude and Codex, pending source updates, shared undo after reload and filtering, and conflicts that preserve later source and output edits.
 
 ## Source layout
 

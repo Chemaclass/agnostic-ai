@@ -46,9 +46,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 		Short: "Open the local web interface and its JSON API.",
 		Long: "Serves the bundled web interface and its API under /api. Use --ui for a " +
 			"development client or --api-only to serve just the API. Specs load on every request. " +
-			"Project Caveman changes preview and apply source and generated files, with undo " +
-			"for the last change in this server session. Other switches save built-in choices " +
-			"or boolean settings without syncing generated files. Stops on Ctrl-C.",
+			"Project built-in changes preview and apply source and generated files, with undo " +
+			"for the last change in this server session. Global built-ins and boolean settings save source choices " +
+			" without syncing generated files. Stops on Ctrl-C.",
 		Example: `  # Open the bundled interface
   agnostic-ai serve --open
 

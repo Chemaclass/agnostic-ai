@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - **Removed:** `view authority` and `view overview`; use `view` to open project or user configuration, or `view --json` for the overview (#2466).
+- Project built-in switches preview, apply, and undo generated files together, including pending source updates.
 - Caveman web previews ignore unrelated local working files, including tool symlinks, while checking source and output changes.
 
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).

@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/builtins"
 )
 
 const (
@@ -33,6 +35,7 @@ type builtinChangeView struct {
 	Targets       []string            `json:"targets"`
 	Changes       []builtinFileChange `json:"changes"`
 	Findings      []string            `json:"findings"`
+	UndoName      string              `json:"undoName,omitempty"`
 	UndoID        string              `json:"undoId,omitempty"`
 	UndoAvailable bool                `json:"undoAvailable"`
 	Supported     bool                `json:"supported"`
@@ -68,7 +71,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		view.UndoAvailable = h.after != nil
 		if h.applied != nil {
-			view.UndoID = h.applied.ID
+			view.UndoID, view.UndoName = h.applied.ID, h.applied.Name
 		}
 		writeEditJSON(w, http.StatusOK, view)
 		return
@@ -78,7 +81,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if h.global {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Caveman preview, apply, and undo are available for projects only"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Built-in preview, apply, and undo are available for projects only"})
 		return
 	}
 	var request struct {
@@ -106,12 +109,12 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	switch r.URL.Path {
 	case builtinPreviewPath:
-		if request.Name != "caveman" || request.Enabled == nil || request.ID != "" {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires name caveman and an enabled boolean"})
+		if !slices.Contains(builtins.Names(), request.Name) || request.Enabled == nil || request.ID != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires a known built-in name and an enabled boolean"})
 			return
 		}
 		var plan *builtinChangePlan
-		plan, err = planBuiltinChange(h.root, *request.Enabled)
+		plan, err = planBuiltinChange(h.root, request.Name, *request.Enabled)
 		if err == nil {
 			var token [24]byte
 			if _, err = rand.Read(token[:]); err == nil {
@@ -143,7 +146,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if h.applied != nil {
-		view.UndoAvailable, view.UndoID = h.after != nil, h.applied.ID
+		view.UndoAvailable, view.UndoID, view.UndoName = h.after != nil, h.applied.ID, h.applied.Name
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }
@@ -193,7 +196,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
-	if _, err := planBuiltinChange(h.root, plan.view.Enabled); err != nil {
+	if _, err := planBuiltinChange(h.root, plan.view.Name, plan.view.Enabled); err != nil {
 		return builtinChangeView{}, err
 	}
 	if err := plan.inputs.check(h.root); err != nil {
@@ -218,7 +221,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	}
 	if err != nil {
 		h.plan = nil
-		h.last = nil
+		h.last = h.applied
 		restored, rollback := journal.rollback(h.root)
 		if rollback != nil {
 			return builtinChangeView{}, fmt.Errorf("apply failed: %w; rollback could not restore all files: %v; keep the current files and run agnostic-ai doctor before retrying", err, rollback)
@@ -229,7 +232,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 
 	h.undo, h.after, h.plan = journal, &after, nil
 	view := plan.view
-	view.Status, view.UndoAvailable, view.UndoID = "applied", true, view.ID
+	view.Status, view.UndoAvailable, view.UndoID, view.UndoName = "applied", true, view.ID, view.Name
 	h.last, h.applied = &view, &view
 	return view, nil
 }
@@ -263,7 +266,7 @@ func (h *builtinChangeHandler) restore(id string) (builtinChangeView, error) {
 	}
 	cleanup := h.undo.removeCreatedDirs(h.root)
 	view := *h.applied
-	view.UndoID = ""
+	view.UndoID, view.UndoName = "", ""
 	view.Status, view.UndoAvailable = "undone", false
 	if cleanup != nil {
 		view.Findings = append(view.Findings, "Files restored; directory cleanup: "+cleanup.Error())

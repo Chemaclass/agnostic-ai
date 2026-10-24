@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { ChildProcess } from 'node:child_process'
 import { execFile, spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
@@ -15,6 +15,22 @@ const binary = resolve(process.env.AGNOSTIC_E2E_BIN ?? join(uiRoot, '..', proces
 async function put(file: string, body: string) {
   await mkdir(dirname(file), { recursive: true })
   await writeFile(file, body)
+}
+
+async function projectFiles(root: string) {
+  const files: Record<string, { bytes: string; mode: number }> = {}
+  async function visit(directory: string, prefix = '') {
+    const entries = await readdir(directory, { withFileTypes: true })
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const relative = prefix + entry.name
+      if (relative === '.agnostic-ai/.command-lock') continue
+      const file = join(directory, entry.name)
+      if (entry.isDirectory()) await visit(file, relative + '/')
+      else files[relative] = { bytes: (await readFile(file)).toString('base64'), mode: (await stat(file)).mode & 0o777 }
+    }
+  }
+  await visit(root)
+  return files
 }
 
 async function stop(child: ChildProcess) {
@@ -110,11 +126,12 @@ createInterface({input:process.stdin}).on('line',line=>{
       await put(join(sources, 'mcps', 'fixture.yaml'), `name: fixture\ncommand: ${JSON.stringify(process.execPath)}\nargs: [fake-mcp.mjs]\n`)
       const listed = await run(binary, ['mcp', 'tools', '--dir', project, '--timeout', '3s', '--json'], { cwd: temporary, env, timeout: 10_000 })
       expect(listed.stdout).toContain('workspace-tool')
+      await run(binary, ['sync'], { cwd: project, env })
     }
     const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--global'] : ['--dir', project])]
     child = spawn(binary, args, { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const url = await serverURL(child)
-    return { root, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, close }
+    return { root, userHome, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, close }
   } catch (error) {
     await close()
     throw error
@@ -135,11 +152,17 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
     const memory = page.getByRole('switch', { name: 'memory built-in' })
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     await memory.click()
+    const memoryPreview = page.getByRole('region', { name: 'Memory change preview' })
+    await expect(memory).toHaveAttribute('aria-checked', 'false')
+    await memoryPreview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(memory).toHaveAttribute('aria-checked', 'true')
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     await page.reload()
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     await memory.click()
+    await memoryPreview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(memory).toHaveAttribute('aria-checked', 'false')
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     expect(await readFile(f.config, 'utf8')).toBe(f.configBytes)
 
     const verbose = page.getByRole('switch', { name: 'x-claude.verbose', exact: true })
@@ -167,8 +190,10 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
 
 test('live global edits keep the last local builtin disabled and enforce browser boundaries', async ({ page, request }) => {
   const f = await fixture(true)
+  const nativeBefore = await projectFiles(f.userHome)
   try {
     await page.goto(`${f.url}?view=settings`)
+    await expect(page.getByText('Saves source files. Run agnostic-ai sync --global to apply them to your tools.', { exact: true })).toHaveCount(1)
     const memory = page.getByRole('switch', { name: 'memory built-in' })
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     await memory.click()
@@ -177,6 +202,9 @@ test('live global edits keep the last local builtin disabled and enforce browser
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     expect(await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')).toContain('builtins: []')
     expect(await readFile(f.config, 'utf8')).toBe(f.configBytes.replace('builtins: []', 'builtins: [memory]'))
+
+    expect(await projectFiles(f.userHome)).toEqual(nativeBefore)
+    await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
 
     const edit = `${f.url}api/edit/builtin`
     const before = await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')
@@ -257,7 +285,11 @@ test('the development proxy preserves real API edits with an explicitly allowed 
     const memory = page.getByRole('switch', { name: 'memory built-in' })
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     await memory.click()
+    const memoryPreview = page.getByRole('region', { name: 'Memory change preview' })
+    await expect(memory).toHaveAttribute('aria-checked', 'false')
+    await memoryPreview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(memory).toHaveAttribute('aria-checked', 'true')
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     await page.reload()
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     expect(await readFile(f.config, 'utf8')).toContain('memory')
@@ -267,7 +299,7 @@ test('the development proxy preserves real API edits with an explicitly allowed 
   }
 })
 
-test('Caveman previews, applies to every target, and undoes after reload', async ({ page }, testInfo) => {
+test('Handoff then Caveman apply to every target and share one undo after reload', async ({ page }, testInfo) => {
   const f = await fixture()
   try {
     const tool = join(f.root, '.agnostic-ai', 'local', 'refactor-sync-guards', 'tools', 'bashunit')
@@ -279,6 +311,15 @@ test('Caveman previews, applies to every target, and undoes after reload', async
     await put(f.config, config)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
     await page.goto(`${f.url}?view=settings`)
+    const handoff = page.getByRole('switch', { name: 'handoff built-in', exact: true })
+    await handoff.click()
+    await page.getByRole('region', { name: 'Handoff change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(handoff).toHaveAttribute('aria-checked', 'true')
+    for (const file of ['.claude/skills/handoff/SKILL.md', '.agents/skills/handoff/SKILL.md']) {
+      expect(await readFile(join(f.root, file), 'utf8')).toContain('handoff')
+    }
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+    const afterHandoff = await readFile(f.config, 'utf8')
     const caveman = page.getByRole('switch', { name: 'caveman built-in', exact: true })
     await expect(caveman).toBeEnabled()
     await caveman.click()
@@ -288,9 +329,11 @@ test('Caveman previews, applies to every target, and undoes after reload', async
     await expect(preview.locator('.tool-avatar').nth(1)).toHaveAttribute('title', 'Codex')
     await expect(preview).toContainText('.claude/skills/caveman/SKILL.md')
     await expect(preview).toContainText('.agents/skills/caveman/SKILL.md')
-    expect(await readFile(f.config, 'utf8')).toBe(config)
+    expect(await readFile(f.config, 'utf8')).toBe(afterHandoff)
+    await expect(page.getByRole('button', { name: 'Undo last change', exact: true })).toHaveCount(1)
     await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
-    expect(await readFile(f.config, 'utf8')).toBe(config)
+    await expect(page.getByRole('button', { name: 'Undo last change', exact: true })).toHaveCount(1)
+    expect(await readFile(f.config, 'utf8')).toBe(afterHandoff)
     await caveman.click()
     await preview.locator('summary').filter({ hasText: 'agnostic-ai.yaml' }).click()
     const configDiff = preview.getByLabel('Diff for agnostic-ai.yaml', { exact: true })
@@ -309,9 +352,84 @@ test('Caveman previews, applies to every target, and undoes after reload', async
     }
     await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     await page.reload()
+    await expect(page.getByRole('button', { name: 'Undo last change', exact: true })).toHaveCount(1)
     await page.getByRole('button', { name: 'Undo last change' }).click()
     await expect(caveman).toHaveAttribute('aria-checked', 'false')
-    expect(await readFile(f.config, 'utf8')).toBe(config)
+    await expect(handoff).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('button', { name: 'Undo last change', exact: true })).toHaveCount(0)
+    expect(await readFile(f.config, 'utf8')).toBe(afterHandoff)
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+  } finally {
+    await f.close()
+  }
+})
+
+test('Caveman preview repairs pending Handoff outputs and undo restores the original drift', async ({ page, request }) => {
+  const f = await fixture()
+  try {
+    const config = f.configBytes.replace('- claude # team tool', '- claude # team tool\n    - codex')
+    await put(f.config, config)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { name: 'handoff', enabled: true } })
+    expect(legacy.status()).toBe(200)
+    await put(f.localSettings, f.localBytes.replace('alwaysThinkingEnabled: true', 'alwaysThinkingEnabled: false'))
+    const before = await projectFiles(f.root)
+    expect(before['.claude/skills/handoff/SKILL.md']).toBeUndefined()
+    expect(before['.agents/skills/handoff/SKILL.md']).toBeUndefined()
+    const settingsBefore = await readFile(join(f.root, '.claude/settings.json'), 'utf8')
+    expect(JSON.parse(settingsBefore).alwaysThinkingEnabled).toBe(true)
+
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('switch', { name: 'caveman built-in', exact: true }).click()
+    const preview = page.getByRole('region', { name: 'Caveman change preview' })
+    await expect(preview).toContainText('pending source changes')
+    for (const file of ['.claude/skills/handoff/SKILL.md', '.agents/skills/handoff/SKILL.md', '.claude/settings.json']) {
+      await expect(preview).toContainText(file)
+    }
+    expect(await projectFiles(f.root)).toEqual(before)
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(page.getByRole('switch', { name: 'caveman built-in', exact: true })).toHaveAttribute('aria-checked', 'true')
+    for (const tool of ['.claude', '.agents']) {
+      for (const name of ['handoff', 'caveman']) {
+        expect(await readFile(join(f.root, tool, 'skills', name, 'SKILL.md'), 'utf8')).toContain(name)
+      }
+    }
+    expect(JSON.parse(await readFile(join(f.root, '.claude/settings.json'), 'utf8')).alwaysThinkingEnabled).toBe(false)
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+    await page.reload()
+    await page.getByRole('button', { name: 'Undo last change', exact: true }).click()
+    await expect(page.getByRole('switch', { name: 'caveman built-in', exact: true })).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByRole('switch', { name: 'handoff built-in', exact: true })).toHaveAttribute('aria-checked', 'true')
+    expect(await projectFiles(f.root)).toEqual(before)
+  } finally {
+    await f.close()
+  }
+})
+
+test('a cancelled preview keeps the previous built-in undo through reload and filtering', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const before = await projectFiles(f.root)
+    await page.goto(`${f.url}?view=settings`)
+    const handoff = page.getByRole('switch', { name: 'handoff built-in', exact: true })
+    await handoff.click()
+    await page.getByRole('region', { name: 'Handoff change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(handoff).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('switch', { name: 'caveman built-in', exact: true }).click()
+    await page.reload()
+    const preview = page.getByRole('region', { name: 'Caveman change preview' })
+    await expect(preview).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Handoff change preview' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Undo last change', exact: true })).toHaveCount(1)
+    const search = page.getByRole('searchbox', { name: 'Search settings' })
+    await search.fill('handoff')
+    await expect(preview).toHaveCount(0)
+    await search.fill('')
+    await expect(preview).toBeVisible()
+    await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo last change', exact: true }).click()
+    await expect(handoff).toHaveAttribute('aria-checked', 'false')
+    expect(await projectFiles(f.root)).toEqual(before)
     await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
   } finally {
     await f.close()
@@ -321,7 +439,6 @@ test('Caveman previews, applies to every target, and undoes after reload', async
 test('Caveman conflicts preserve later edits and explain how to recover', async ({ page }) => {
   const f = await fixture()
   try {
-    await run(binary, ['sync'], { cwd: f.root, env: f.env })
     await page.goto(`${f.url}?view=settings`)
     const caveman = page.getByRole('switch', { name: 'caveman built-in', exact: true })
     await expect(caveman).toBeEnabled()
@@ -352,7 +469,6 @@ test('Caveman conflicts preserve later edits and explain how to recover', async 
 test('Caveman reload shows an external config change instead of historical apply state', async ({ page }) => {
   const f = await fixture()
   try {
-    await run(binary, ['sync'], { cwd: f.root, env: f.env })
     await page.goto(`${f.url}?view=settings`)
     const caveman = page.getByRole('switch', { name: 'caveman built-in', exact: true })
     await expect(caveman).toBeEnabled()
