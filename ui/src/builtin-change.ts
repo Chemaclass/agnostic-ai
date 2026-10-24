@@ -1,0 +1,70 @@
+export const BUILTIN_CHANGE_PATH = '/api/changes/builtin'
+
+export interface BuiltinFileChange {
+  path: string
+  action: 'create' | 'update' | 'delete'
+  diff: string
+}
+
+export interface BuiltinChange {
+  status: 'idle' | 'proposed' | 'applied' | 'undone'
+  id?: string
+  enabled: boolean
+  config?: string
+  targets: string[]
+  changes: BuiltinFileChange[]
+  findings: string[]
+  undoId?: string
+  undoAvailable: boolean
+  supported: boolean
+}
+
+function object(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function strings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function fileChange(value: unknown): value is BuiltinFileChange {
+  return object(value) && typeof value.path === 'string' && typeof value.diff === 'string'
+    && (value.action === 'create' || value.action === 'update' || value.action === 'delete')
+}
+
+export function parseBuiltinChange(value: unknown): BuiltinChange {
+  if (!object(value) || value.schemaVersion !== 'builtin-change/v1' || value.name !== 'caveman'
+    || (value.status !== 'idle' && value.status !== 'proposed' && value.status !== 'applied' && value.status !== 'undone')
+    || typeof value.enabled !== 'boolean' || typeof value.supported !== 'boolean' || typeof value.undoAvailable !== 'boolean'
+    || !strings(value.targets) || !strings(value.findings) || !Array.isArray(value.changes) || !value.changes.every(fileChange)
+    || (value.id !== undefined && typeof value.id !== 'string') || (value.config !== undefined && typeof value.config !== 'string')
+    || (value.undoId !== undefined && typeof value.undoId !== 'string')
+    || (value.status === 'proposed' && !value.id) || (value.undoAvailable && !value.undoId)) {
+    throw new Error('The server returned an invalid change. Reload before trying again.')
+  }
+  return {
+    status: value.status, id: value.id, enabled: value.enabled, config: value.config,
+    targets: value.targets, changes: value.changes, findings: value.findings,
+    undoId: value.undoId, undoAvailable: value.undoAvailable, supported: value.supported,
+  }
+}
+
+export class BuiltinChangeError extends Error {
+  constructor(message: string, readonly conflict = false) { super(message) }
+}
+
+export async function builtinChange(action?: 'preview' | 'apply' | 'undo', body?: unknown): Promise<BuiltinChange> {
+  let response: Response
+  try {
+    response = await fetch(BUILTIN_CHANGE_PATH + (action ? `/${action}` : ''), action ? {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body),
+    } : { headers: { Accept: 'application/json' } })
+  } catch {
+    throw new BuiltinChangeError('Connection lost. Reload to check the change before trying again.')
+  }
+  const value: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new BuiltinChangeError(object(value) && typeof value.error === 'string' ? value.error : `The server answered ${response.status}. Reload before trying again.`, response.status === 409)
+  }
+  return parseBuiltinChange(value)
+}

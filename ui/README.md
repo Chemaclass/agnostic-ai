@@ -11,16 +11,14 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
 Values render by type: a list as chips, a boolean as a switch, anything
-else as text. Against a running server, built-in and boolean switches
-save: the server edits the file, validates the configuration, and undoes
-the edit with the reasons when it fails. Lifecycle shows each tool that
+else as text. The project Caveman switch previews, applies, and undoes changes across the configured targets. Other built-in and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
 it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
 its file. The JSON overview also reports whether generated files match
 what `sync` would write.
 
 `src/contract.ts` mirrors the Go types in `internal/overview/types.go`
-and `internal/authority/types.go`. Update them together.
+and `internal/authority/types.go`. Update them together. `src/builtin-change.ts` validates the change responses from `internal/cli/serve_builtin_changes.go`.
 
 ## Run it against the server
 
@@ -156,6 +154,8 @@ make build
 Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install
 the browser matching the pinned Playwright version with
 `npx playwright install chromium` from `ui/`. CI installs the pinned browser before running both suites.
+
+The live suite also checks Caveman preview cancellation, apply for Claude and Codex, undo after reload, and conflicts that preserve later source and output edits.
 
 ## Source layout
 

@@ -613,3 +613,26 @@ func TestStartCapture_ResetsAWritesOnlyCapture(t *testing.T) {
 		t.Errorf("StartCapture after a writes-only capture recorded %d removals, want 1", got)
 	}
 }
+
+func TestCapture_ReportsOnlyEnforcedModes(t *testing.T) {
+	t.Parallel()
+	sess := NewSession()
+	sess.StartCapture()
+	path := filepath.Join(t.TempDir(), "ordinary")
+	if err := sess.WriteFile(path, "ordinary", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.WriteExecutableFile(path+"-script", "#!/bin/sh", false); err != nil {
+		t.Fatal(err)
+	}
+	files := sess.StopCapture()
+	if len(files) != 2 {
+		t.Fatalf("captured %d files", len(files))
+	}
+	if files[0].Mode != 0 || files[1].Mode != 0o755 {
+		t.Errorf("captured modes = %v, %v", files[0].Mode, files[1].Mode)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("capture wrote a file: %v", err)
+	}
+}

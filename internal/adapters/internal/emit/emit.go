@@ -38,6 +38,8 @@ const (
 
 // CapturedFile is one (path, content) pair recorded during capture mode.
 type CapturedFile struct {
+	// Mode is set when emission enforces an asset or executable mode.
+	Mode    os.FileMode `json:"-"`
 	Path    string
 	Content string
 	// Merged, Keys, and Released carry a merged JSON write's claims, as
@@ -868,7 +870,11 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	detailing := s.detailing
 	transacting := s.transacting
 	if capturing {
-		s.captured = append(s.captured, CapturedFile{Path: path, Content: content})
+		file := CapturedFile{Path: path, Content: content}
+		if enforceMode {
+			file.Mode = mode
+		}
+		s.captured = append(s.captured, file)
 	}
 	if recording {
 		s.recorded = append(s.recorded, path)

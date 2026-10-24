@@ -732,9 +732,23 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return false, err
 	}
+	updated := renderWorktreeInclude(string(existing), cfg, block)
+	if updated == string(existing) {
+		return false, nil
+	}
+	if strings.TrimSpace(updated) == "" {
+		return true, os.Remove(path)
+	}
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func renderWorktreeInclude(existing string, cfg *config.Config, block []string) string {
 	if !cfg.Gitignore.WorktreeIncludeEnabled() || !slices.Contains(cfg.Targets, "claude") {
-		if !strings.Contains(string(existing), gitignoreBlockStart) {
-			return false, nil
+		if !strings.Contains(existing, gitignoreBlockStart) {
+			return existing
 		}
 		block = nil
 	}
@@ -759,17 +773,7 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 		}
 	}
 	entries = append(entries, exclusions...)
-	updated := replaceRenderedBlock(string(existing), renderBlockWith(entries, worktreeIncludeHint, worktreeIncludeAllowNote))
-	if updated == string(existing) {
-		return false, nil
-	}
-	if strings.TrimSpace(updated) == "" {
-		return true, os.Remove(path)
-	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return false, err
-	}
-	return true, nil
+	return replaceRenderedBlock(existing, renderBlockWith(entries, worktreeIncludeHint, worktreeIncludeAllowNote))
 }
 
 // priorFile is the state restoreFiles puts back at path after a failed

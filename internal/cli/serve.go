@@ -42,9 +42,9 @@ func newServeCmd() *cobra.Command {
 		Short: "Open the local web interface and its JSON API.",
 		Long: "Serves the bundled web interface and its API under /api. Use --ui for a " +
 			"development client or --api-only to serve just the API. Specs load on every request. " +
-			"The only writes are the overview's toggles: a built-in in the config file, or a " +
-			"boolean in a settings spec, each validated afterwards and undone when it adds a " +
-			"problem. Generated files are not synced. Stops on Ctrl-C.",
+			"Project Caveman changes preview and apply source and generated files, with undo " +
+			"for the last change in this server session. Other switches save built-in choices " +
+			"or boolean settings without syncing generated files. Stops on Ctrl-C.",
 		Example: `  # Open the bundled interface
   agnostic-ai serve --open
 
@@ -150,6 +150,9 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 	}
 	mux.Handle(editBuiltinPath, edits)
 	mux.Handle(editValuePath, edits)
+	changes := newBuiltinChangeHandler(opts.Root, opts.Global)
+	mux.Handle(builtinStatusPath, changes)
+	mux.Handle(builtinStatusPath+"/", changes)
 	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
 }
 
