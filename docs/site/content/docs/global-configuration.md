@@ -11,7 +11,7 @@ group = "Reference"
 
 ## Source and targets
 
-`agnostic-ai sync --global` installs your user-level instructions, rules, hooks, and skills for 22 of the 26 targets. [Global output](#global-output) lists the paths. It runs from any directory and loads no packs or project specs.
+`agnostic-ai sync --global` installs your user-level instructions, rules, hooks, and skills for the supported targets. [Global output](#global-output) lists the paths. It runs from any directory and loads no packs or project specs.
 
 The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 

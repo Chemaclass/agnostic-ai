@@ -98,40 +98,83 @@ agnostic-ai writes one JSON document to standard input and reads one from standa
 
 ## Reference helpers
 
-Go authors: `github.com/chemaclass/agnostic-ai/internal/adapters/external` exposes typed `Input` / `Output` structs and `DecodeInput` / `EncodeOutput`. For other languages, read and write the JSON fields shown above.
+Define local types for the JSON fields your adapter reads and writes. The Go types under this repository's `internal/` directory are implementation details; Go does not allow unrelated modules to import them. The protocol above works without a library dependency.
 
 ## Minimal Go adapter
+
+Save this as `main.go` in a new directory. This example renders rule names and bodies into `MY-TOOL.md`, rejects unsupported protocol versions and commands, and ignores unknown JSON fields.
 
 ```go
 package main
 
 import (
-    "os"
-
-    "github.com/chemaclass/agnostic-ai/internal/adapters/external"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
 )
 
-func main() {
-    in, err := external.DecodeInput(os.Stdin)
-    if err != nil {
-        os.Exit(1)
-    }
-    out := external.Output{
-        Files: []external.File{{
-            Path:    "MY-TOOL.md",
-            Content: render(in.Specs.Rules),
-        }},
-    }
-    _ = external.EncodeOutput(os.Stdout, out)
+type rule struct {
+	Name string `json:"name"`
+	Body string `json:"body"`
 }
 
-func render(rules []external.SpecEntry) string {
-    var b []byte
-    for _, r := range rules {
-        b = append(b, "## "+r.Name+"\n\n"+r.Body+"\n"...)
-    }
-    return string(b)
+type input struct {
+	ProtocolVersion int    `json:"protocol_version"`
+	Command         string `json:"command"`
+	Specs           struct {
+		Rules []rule `json:"rules"`
+	} `json:"specs"`
+}
+
+type file struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+type output struct {
+	ProtocolVersion int      `json:"protocol_version"`
+	Files           []file   `json:"files,omitempty"`
+	Errors          []string `json:"errors,omitempty"`
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	var in input
+	if err := json.NewDecoder(os.Stdin).Decode(&in); err != nil {
+		return fmt.Errorf("decode input: %w", err)
+	}
+	out := output{ProtocolVersion: 1}
+	switch {
+	case in.ProtocolVersion != 1:
+		out.Errors = []string{"unsupported protocol_version"}
+	case in.Command != "emit":
+		out.Errors = []string{"unsupported command"}
+	default:
+		var body strings.Builder
+		for _, r := range in.Specs.Rules {
+			fmt.Fprintf(&body, "## %s\n\n%s\n", r.Name, r.Body)
+		}
+		out.Files = []file{{Path: "MY-TOOL.md", Content: body.String()}}
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+		return fmt.Errorf("encode output: %w", err)
+	}
+	return nil
 }
 ```
 
-Build as `agnostic-ai-adapter-my-tool`, put it on `PATH`, and list `my-tool` in `agnostic-ai.yaml`. The next `agnostic-ai sync` runs it.
+Build it as a standalone module:
+
+```sh
+go mod init example.com/my-tool
+go build -o agnostic-ai-adapter-my-tool .
+```
+
+Put the binary on `PATH` and list `my-tool` in `agnostic-ai.yaml`. The next `agnostic-ai sync` runs it and writes the returned file.

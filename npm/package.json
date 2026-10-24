@@ -1,7 +1,7 @@
 {
   "name": "agnostic-ai",
   "version": "0.0.0-dev",
-  "description": "One spec, every AI CLI. Sync agents, skills, rules, hooks, and MCP servers to Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more.",
+  "description": "One spec, every AI CLI. Sync agents, skills, rules, hooks, and MCP servers to Claude Code, Codex, Gemini, Cursor, Copilot, and other supported tools.",
   "keywords": [
     "ai",
     "cli",

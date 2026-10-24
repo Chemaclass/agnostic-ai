@@ -85,7 +85,7 @@ Each run costs about $0.01 to $0.015. Without a key, or with `--lexical`, the cl
 
 ## What the measurements showed
 
-All numbers are from 2026-09-28.
+The Jev evaluation is from 2026-09-28. The later trim-1 comparison, including its word-matching baseline, uses the cases and audit from 2026-10-14.
 
 **Ask every claim, not a word-matching shortlist.** The first version sent Jev only the claims that shared a term with the change. That filter dropped 5 of the 11 confirmed differences before Jev saw them, and the replay skipped the filter, so it could not show the loss.
 
@@ -130,7 +130,7 @@ The random row is what the cut would keep if trim-1 ranked lines at random. Top 
 
 ## Limits
 
-- 35 claim cases and 18 cases about configuration features are small sets, and each excerpt is asked alone, not inside a real page change.
+- The 2026-09-28 Jev evaluation used small sets of 35 claim cases and 18 cases about configuration features, and each excerpt is asked alone, not inside a real page change.
 - The trim-1 replay ranks each excerpt alone. In a run, the other changed lines of the same part compete too.
 - The threshold for configuration features of 0.1 keeps some harmless pages `judged`; on 2026-09-28 it cost one extra auditor read (Cursor's subagents page).
 - Pages without a saved earlier copy need a full review. Claude, Codex, and Warp had such pages on 2026-09-28.
