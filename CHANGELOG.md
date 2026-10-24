@@ -6,81 +6,72 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- The web interface changes builtin choices and boolean settings after validating the result.
-- `mcp tools` lists a configured server's tools and saves the result for the overview.
-- Inspect agent permissions with `view authority`, inspect shared setup with `view overview`, or serve these views to the web client with `serve` (#1323).
-- Global import keeps existing MCP specs when native server names differ only by case.
-- Project checks skip built-in hooks that do not target the selected tools.
-- Refresh audited vendor sources, update Trae context names, and use installed Amp tool names in its settings guide.
-
-- Target audit facts include compact capability declarations and output defaults from sibling adapter files.
-- Landing examples show the selected source's output, with labeled excerpts for shared files and the current Codex command format.
-- The “Why agnostic-ai?” guide explains when to use the tool, with shorter examples and verified connection formats.
+- Inspect permissions with `view authority` and shared setup with `view overview` (#2319).
+- `serve` provides a local web interface to inspect configuration and change built-ins and boolean settings (#2319).
+- `mcp tools` lists server tools and saves them for the overview (#2319).
+- Global import keeps MCP specs whose native server names differ only by case (#2434).
+- Project checks skip built-in hooks that do not target the selected tools (#2438).
 
 ### By tool
 
-#### CodeBuddy Code
+#### Grok Build
 
-- Sync and import native CodeBuddy configuration through explicit `targets: [codebuddy]` selection, preserving existing default sync.
+- Sync and import native project and user configuration with opt-in `grok` (#2434). Set `gitignore.commit: [grok:instructions]`.
+- Agent restrictions block unrequested MCP bridge tools; import keeps plugins and rejects credentials in agent metadata and hooks (#2434).
+- Sync validates skill and command names and rejects Windows hook paths that need an explicit shell wrapper (#2434).
 
 #### Kimi Code CLI
 
-- Keep Kimi opt-in so existing scoped agent tool lists still sync with the default targets.
-- Sync and import native instructions, agents, skills, and MCP connections; manage user hooks and selected settings.
-- Import refuses literal credentials in project and user hooks, including generated command wrappers.
-
-#### Grok Build
-
-- Windows short-name hook paths stay literal; shared paths needing shell-specific quoting require a native wrapper command.
-- Portable `can` and `tools` agent restrictions block the same unrequested MCP bridge tools.
-- Add the explicit `grok` target with native project import and safe global sync. Set `gitignore.commit: [grok:instructions]`.
-- Native import preserves project plugins and rejects credentials in inline agent metadata and hooks before writing sources.
-- Skill and command names are checked against Grok's native limit before project or global files change.
-
-#### OpenCode
-
-- Native V2 agent fields preserve generated tool restrictions and ordered rules through sync and import.
-
-#### Codex
-
-- Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks.
-
-#### Pi
-
-- Sync and import Pi instructions, skills, prompt commands, MCP servers, and model settings.
-
-#### Junie
-
-- MCP request timeouts survive sync and native project import in milliseconds.
-
-#### Crush
-
-- Skills shared with Goose sync without collisions; commands stay skipped until Crush has its own skill folder.
-
-#### Goose
-
-- Skills shared with Crush keep neutral invocation fields and sync without collisions.
-
-#### Kilo
-
-- Global sync accepts inline shell placeholders in trusted user skills while checking argument placeholders and Claude code blocks.
-
-#### Antigravity
-
-- Antigravity MCP guidance now lists `url` as an alias for `serverUrl`; `httpUrl` remains unsupported.
+- Sync and import instructions, agents, skills, MCP, user hooks, and settings with the opt-in `kimi` target (#2436).
+- Import rejects credentials in project and user hooks, including command wrappers (#2436).
 
 #### Qwen Code
 
-- Sync and import Qwen Code instructions, agents, skills, commands, MCP, hooks, settings, and ignore files.
-- Import refuses credentials in retained native metadata and keeps supported settings references.
+- Sync and import instructions, agents, skills, commands, MCP, hooks, settings, and ignore files (#2431).
+- Import rejects credentials in native metadata and preserves supported settings references (#2431).
+
+#### CodeBuddy Code
+
+- Sync and import native configuration with the opt-in `codebuddy` target (#2433).
 
 #### Mistral Vibe
 
-- Sync and import native instructions, subagents, skills, model settings, MCP servers, and hooks in projects and user configuration.
+- Sync and import project and user instructions, subagents, skills, model settings, MCP servers, and hooks (#2429).
+
+#### Pi
+
+- Sync and import instructions, skills, prompt commands, MCP servers, and model settings (#2425).
+
+#### OpenCode
+
+- V2 agent fields keep tool restrictions and ordered permission rules through sync and import (#2432).
+
+#### Codex
+
+- Validation accepts `PreModelRequest` and `PostModelRequest` observer hooks (#2415).
+
+#### Junie
+
+- MCP request timeouts survive sync and import in milliseconds (#2415).
+
+#### Crush
+
+- Skills shared with Goose sync without collisions; commands require a separate Crush skill folder (#2415).
+
+#### Goose
+
+- Skills shared with Crush keep invocation fields that both tools accept and sync without collisions (#2415).
+
+#### Kilo
+
+- Global sync accepts inline shell placeholders in trusted user skills and checks argument placeholders and Claude code blocks (#2415).
 
 ### Site
 
-- Composer users can set up shared instructions, rules, and skills for its Claude Code and Codex providers.
+- Landing examples show the selected source's output and label excerpts from shared files (#2408).
+- The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
+- The Composer guide covers shared instructions, rules, and skills for its Claude Code and Codex providers (#2426).
+- Target guides correct Antigravity MCP URL fields, Trae context names, and Amp tool-name examples (#2416, #2435).
 
 ## v0.87.0 - 2026-10-22
 
