@@ -314,7 +314,13 @@ agnostic-ai view overview --json
 
 ## serve
 
-Serve the views through a local JSON API. Pass the built web client directory with `--ui` to serve it too. Configuration reloads on every request. Switches change built-in choices or boolean settings without syncing generated files. Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
+Serve the views through a local JSON API. Pass the built web client directory with `--ui` to serve it too. Configuration reloads on every request.
+
+In a project, the Caveman switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Other built-ins, global built-ins, and boolean settings save their source files without syncing.
+
+Run `agnostic-ai sync` before the first Caveman preview. Existing drift, external adapters, paths outside the project, and linked skill folders require the CLI. A changed input or output blocks apply or undo and asks for a fresh preview. Failed writes restore files still owned by the operation; a recovery error names the files it kept and directs you to `agnostic-ai doctor`. Undo expires when the server stops. A browser reload keeps it available.
+
+Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
 
 The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
 
@@ -334,6 +340,8 @@ agnostic-ai serve --global
 | `--no-installed` | Skip comparing the generated files with disk. |
 
 Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health`.
+
+Caveman change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "caveman", enabled: true|false}`, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
 
 ## mcp tools
 

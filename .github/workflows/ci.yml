@@ -100,7 +100,7 @@ jobs:
         shell: bash
         run: |
           go test -timeout=2m -count=1 ./internal/authority ./internal/overview ./internal/preview ./internal/mcpprobe
-          go test -timeout=2m -count=1 ./internal/cli -run '^(TestServe|TestEdit|TestSetBool|TestSetBuiltin|TestMCPTools_|TestMCPServer_|TestHookWorktreeRefresh_CancelsReadyDescendant|TestHookWorktreeRefresh_KeepsSuccessfulBackgroundSetup)'
+          go test -timeout=2m -count=1 ./internal/cli -run '^(TestServe|TestBuiltinChanges_|TestEdit|TestSetBool|TestSetBuiltin|TestMCPTools_|TestMCPServer_|TestHookWorktreeRefresh_CancelsReadyDescendant|TestHookWorktreeRefresh_KeepsSuccessfulBackgroundSetup)'
 
       - name: Repeat Windows fresh-install startup
         if: github.event_name == 'workflow_dispatch' && matrix.os == 'windows-latest' && inputs.full_windows != true && inputs.repeat_windows_startup == true

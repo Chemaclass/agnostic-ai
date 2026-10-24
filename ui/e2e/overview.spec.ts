@@ -100,6 +100,9 @@ test.describe('overview', () => {
     let memory = false
     let refuse = false
     const posted: unknown[] = []
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({
+      json: { schemaVersion: 'builtin-change/v1', name: 'caveman', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: [], changes: [], findings: [] },
+    }))
     await page.route('**/api/views/overview', async (route) => {
       const view = structuredClone(fixture)
       for (const it of view.sections.find((s: { id: string }) => s.id === 'settings').items) if (it.name === 'memory') it.enabled = memory

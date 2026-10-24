@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- The project web interface previews and applies Caveman changes across configured tools, with undo for the last change in the running session (#2454).
+
 - Inspect permissions with `view authority` and shared setup with `view overview` (#2319).
 - `serve` provides a local web interface to inspect configuration and change built-ins and boolean settings (#2319).
 - `mcp tools` lists server tools and saves them for the overview (#2319).

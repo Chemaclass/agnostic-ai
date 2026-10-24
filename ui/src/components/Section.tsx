@@ -3,6 +3,7 @@ import { API, type ItemFinding, type OverviewView, type Section, type SectionIte
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
+import { CavemanChange } from './BuiltinChange'
 import { cursorUrl } from '../model/editor'
 import type { Remote } from './Shell'
 import { Badge, Chip, Code, Icon, Switch, Toggle, ToolAvatar } from './ui'
@@ -166,7 +167,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             {item.description && <span className="muted"> · {item.description}</span>}
           </div>
           <div className="item-meta">
-            {item.enabled !== undefined && (
+            {item.enabled !== undefined && item.name !== 'caveman' && (
               <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
             )}
             {item.enabled === undefined && <Code>{item.path}</Code>}
@@ -178,6 +179,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
               </a>
             )}
           </div>
+          {item.name === 'caveman' && item.enabled !== undefined && <CavemanChange on={item.enabled} fallback={<EditSwitch on={item.enabled} label="caveman built-in" save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />} />}
           {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
           {item.tools && <Tools listing={item.tools} />}
           {item.findings.length > 0 && <Findings findings={item.findings} />}

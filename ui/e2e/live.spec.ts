@@ -266,3 +266,100 @@ test('the development proxy preserves real API edits with an explicitly allowed 
     await f.close()
   }
 })
+
+test('Caveman previews, applies to every target, and undoes after reload', async ({ page }, testInfo) => {
+  const f = await fixture()
+  try {
+    const config = f.configBytes.replace('- claude # team tool', '- claude # team tool\n    - codex')
+    await put(f.config, config)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const caveman = page.getByRole('switch', { name: 'caveman built-in', exact: true })
+    await expect(caveman).toBeEnabled()
+    await caveman.click()
+    const preview = page.getByRole('region', { name: 'Caveman change preview' })
+    await expect(preview).toContainText('claude, codex')
+    await expect(preview).toContainText('.claude/skills/caveman/SKILL.md')
+    await expect(preview).toContainText('.agents/skills/caveman/SKILL.md')
+    expect(await readFile(f.config, 'utf8')).toBe(config)
+    await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect(await readFile(f.config, 'utf8')).toBe(config)
+    await caveman.click()
+    await preview.locator('summary').filter({ hasText: 'agnostic-ai.yaml' }).click()
+    const configDiff = preview.getByLabel('Diff for agnostic-ai.yaml', { exact: true })
+    await expect(configDiff).toContainText('caveman')
+    await configDiff.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('caveman-preview-desktop.png'), animations: 'disabled' })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await configDiff.scrollIntoViewIfNeeded()
+    await expect(configDiff).toBeInViewport()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('caveman-preview-mobile.png'), animations: 'disabled' })
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'true')
+    for (const file of ['.claude/skills/caveman/SKILL.md', '.agents/skills/caveman/SKILL.md']) {
+      expect(await readFile(join(f.root, file), 'utf8')).toContain('caveman')
+    }
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+    await page.reload()
+    await page.getByRole('button', { name: 'Undo last change' }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'false')
+    expect(await readFile(f.config, 'utf8')).toBe(config)
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+  } finally {
+    await f.close()
+  }
+})
+
+test('Caveman conflicts preserve later edits and explain how to recover', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const caveman = page.getByRole('switch', { name: 'caveman built-in', exact: true })
+    await expect(caveman).toBeEnabled()
+    await caveman.click()
+    await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toBeVisible()
+    const changed = f.configBytes + '# An intervening edit.\n'
+    await put(f.config, changed)
+    await page.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText('Files changed. Review a fresh preview.')
+    expect(await readFile(f.config, 'utf8')).toBe(changed)
+    await page.getByRole('button', { name: 'Reload change state' }).click()
+    await expect(page.getByRole('button', { name: 'Apply change', exact: true })).not.toBeVisible()
+    await expect(caveman).toBeEnabled()
+    await caveman.click()
+    await page.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'true')
+    const output = join(f.root, '.claude/skills/caveman/SKILL.md')
+    await put(output, 'A later manual change.\n')
+    await page.getByRole('button', { name: 'Undo last change' }).click()
+    await expect(page.getByRole('alert')).toContainText('Files changed. Review a fresh preview.')
+    expect(await readFile(output, 'utf8')).toBe('A later manual change.\n')
+  } finally {
+    await f.close()
+  }
+})
+
+
+test('Caveman reload shows an external config change instead of historical apply state', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const caveman = page.getByRole('switch', { name: 'caveman built-in', exact: true })
+    await expect(caveman).toBeEnabled()
+    await caveman.click()
+    await page.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'true')
+    await put(f.config, f.configBytes)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.reload()
+    await expect(caveman).toBeEnabled()
+    await expect(caveman).toHaveAttribute('aria-checked', 'false')
+    await caveman.click()
+    await expect(page.getByRole('heading', { name: 'Enable Caveman', exact: true })).toBeVisible()
+  } finally {
+    await f.close()
+  }
+})

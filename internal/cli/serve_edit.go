@@ -23,7 +23,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
-// Edit endpoints serve mounts. They are the only API calls that write.
+// Source-only edit endpoints.
 const (
 	editBuiltinPath = "/api/edit/builtin"
 	editValuePath   = "/api/edit/value"
