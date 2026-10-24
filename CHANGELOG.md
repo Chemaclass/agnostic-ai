@@ -72,7 +72,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Landing examples show the selected source's output and label excerpts from shared files (#2408).
 - The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
 - The Composer guide covers shared instructions, rules, and skills for its Claude Code and Codex providers (#2426).
-- Docs derive current tool counts from the supported and default targets, correct installation claims and audit dates, and fix the Go plugin example.
+- Docs add a web walkthrough, derive tool counts, correct installation claims and audit dates, and fix the Go plugin example.
 
 ## v0.87.0 - 2026-10-22
 

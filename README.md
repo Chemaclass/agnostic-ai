@@ -70,7 +70,7 @@ agnostic-ai view authority --agent reviewer # inspect one agent's permissions
 agnostic-ai serve --open                    # open the bundled web interface
 ```
 
-In the web interface, the project Caveman switch previews the files before applying them to every configured tool. See [web changes and undo](https://agnostic-ai.org/docs/cli-reference/inspect/#serve).
+Use the [browser walkthrough](https://agnostic-ai.org/docs/inspect-configuration/) to find and fix a configuration warning. See [saving changes and undo](https://agnostic-ai.org/docs/cli-reference/inspect/#serve) for browser switches.
 
 When something looks wrong:
 

@@ -291,9 +291,9 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-Inspect the configuration as versioned JSON or readable text without writing files. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
+Print configuration as text or versioned JSON without changing files. See the [Authority API contract](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md).
 
-`view authority` reports which actions a subject is permitted to take on a target in one coding tool, with the rule and file behind each decision. It distinguishes declared permissions, the tool's interpretation, and whether the generated file is installed. Runtime enforcement is reported separately and is never observed.
+`view authority` shows an agent or session's permissions for one coding tool, with the rule and file behind each decision. It separates declared permissions, the tool's interpretation, and whether generated files match the sources. It does not observe runtime enforcement.
 
 ```bash
 agnostic-ai view authority --agent reviewer --target claude
@@ -315,6 +315,8 @@ agnostic-ai view overview --json
 ## serve
 
 Serve the bundled web interface and a local JSON API. The interface works offline without a source checkout or frontend build. Use `--ui` for a development client, or `--api-only` to serve only the API. Configuration reloads on every request.
+
+Start with the [browser walkthrough](@/docs/inspect-configuration.md). The browser's **Authority** section lists permission files and rules. For per-agent decisions, use [`view authority`](#view); for permission proposal previews, use `POST /api/views/authority/impact`. The browser has no permission proposal editor.
 
 In a project, the Caveman switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Other built-ins, global built-ins, and boolean settings save their source files without syncing.
 
