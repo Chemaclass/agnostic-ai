@@ -12,6 +12,10 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 
 Findings include a **Copy fix prompt** action. **Details** shows the suggested fix, explanation, and the exact prompt the button copies. Native settings group keys by tool. Target lists use logos with full names on hover.
 
+Each page has a search field for names, paths, descriptions, and values. Matching unconfigured fields open automatically, and findings remain visible while searching. Clear the search or change pages to restore the full list.
+
+The interface shares the website’s warm neutral palette and rust accent in light and dark themes. Source paths sit below descriptions, edit controls stay alongside their rows, and lifecycle stages form a numbered timeline. The sidebar shows the configured tools and becomes a horizontal navigation row on narrow screens.
+
 Source lists use aligned rows. Unconfigured fields stay in a disclosure, empty lifecycle stages show their descriptions on demand, and support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
 
 Values render by type: a list as chips, a boolean as a switch, anything
@@ -23,6 +27,8 @@ what `sync` would write.
 
 `src/contract.ts` mirrors the Go types in `internal/overview/types.go`
 and `internal/authority/types.go`. Update them together. `src/builtin-change.ts` validates the change responses from `internal/cli/serve_builtin_changes.go`.
+
+See [the local UI design system](DESIGN.md) for layout, colors, and component conventions.
 
 ## Run it against the server
 

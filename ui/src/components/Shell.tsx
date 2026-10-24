@@ -3,7 +3,7 @@ import type { OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
-import { Icon } from './ui'
+import { Icon, ToolAvatar } from './ui'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -17,6 +17,14 @@ const DEFAULT_SECTION_LABELS: Record<string, string> = {
   tools: 'Tools',
   lifecycle: 'Lifecycle',
   settings: 'Settings',
+}
+
+const SECTION_DESCRIPTIONS: Record<string, string> = {
+  context: 'Instructions, rules & skills',
+  authority: 'Permissions & boundaries',
+  tools: 'Servers & available tools',
+  lifecycle: 'Hooks through a session',
+  settings: 'Built-ins & preferences',
 }
 
 const PRODUCT_NAME = 'agnostic-ai'
@@ -41,9 +49,18 @@ export function Header({
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="logo" aria-hidden="true">
-          A
-        </span>
+        <svg className="logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <path d="M43 32H50.5M39.78 39.78L45.08 45.08M32 43V50.5M24.22 39.78L18.92 45.08M21 32H13.5M24.22 24.22L18.92 18.92M32 21V13.5M39.78 24.22L45.08 18.92" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+          <circle cx="32" cy="32" r="8" fill="currentColor" />
+          <g fill="currentColor">
+            <circle cx="55" cy="32" r="4.5" /><circle cx="32" cy="55" r="4.5" />
+            <circle cx="9" cy="32" r="4.5" /><circle cx="32" cy="9" r="4.5" />
+          </g>
+          <g fill="var(--text-muted)">
+            <circle cx="48.26" cy="48.26" r="4.5" /><circle cx="15.74" cy="48.26" r="4.5" />
+            <circle cx="15.74" cy="15.74" r="4.5" /><circle cx="48.26" cy="15.74" r="4.5" />
+          </g>
+        </svg>
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
       {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
@@ -104,7 +121,7 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
       <li key={id}>
         <AppLink to={{ view: id }} className="nav-link" aria-current={app.state.view === id ? 'page' : undefined}>
           <Icon name={id} />
-          <span className="nav-text">{label}</span>
+          <span className="nav-text">{label}<span className="nav-description">{SECTION_DESCRIPTIONS[id]}</span></span>
         </AppLink>
       </li>
     )
@@ -113,6 +130,16 @@ export function Nav({ overview }: { overview: Remote<OverviewView> }) {
   return (
     <nav className="sidenav" aria-label="Configuration sections" ref={navRef}>
       <ul className="nav-list">{ordered.map((s) => item(s.id, s.label))}</ul>
+      {overview.loaded && (
+        <div className="nav-project">
+          <span className="nav-project-label">Configured tools</span>
+          <div className="nav-targets">
+            {overview.loaded.data.targets.map((target) => <ToolAvatar key={target.target} target={target.target} label={target.label} />)}
+            {overview.loaded.data.targets.length === 0 && <span className="muted">None selected</span>}
+          </div>
+          <p>{app.source.kind === 'api' ? 'Changes are saved to your source configuration.' : 'Read-only configuration snapshot.'}</p>
+        </div>
+      )}
     </nav>
   )
 }
