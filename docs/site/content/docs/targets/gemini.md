@@ -89,7 +89,7 @@ The `hooks` map, keyed by event. Gemini documents 11 events: `BeforeTool`, `Afte
 - A `command` list becomes separate handlers in one hook. `x-gemini.sequential: true` runs them in order.
 - `description` is copied to each handler, `x-gemini.name` sets its display name, and `x-gemini.env` sets its environment variables. Your existing keys stay.
 - Gemini runs `command` through `bash -c` (PowerShell on Windows) and has no `args` field. Sync folds `args` into `command`, each single-quoted (`node 'guard.js'`). `import gemini` reads it back as one shell-form `command`.
-- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs a `BeforeTool`, `AfterTool`, `BeforeAgent`, or `SessionStart` hook the same way, so you can test it before a session.
+- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests a `BeforeTool`, `AfterTool`, `BeforeAgent`, or `SessionStart` hook before a session using the same behavior.
 
 ### Ignore
 

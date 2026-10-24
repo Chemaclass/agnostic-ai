@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-Use this map to find the package to change. An adapter is the code that writes configuration for one coding tool. Follow the data flow before editing so you change the source of the behavior.
+Use this map to find where a behavior starts before editing it. An adapter writes configuration for one coding tool.
 
 ## Code layout
 
@@ -61,7 +61,7 @@ Outputs for each target are documented in [docs/site/content/docs/targets/](../s
 
 ## Emit modes
 
-The shared `emit` package keeps mode flags and buffers in a `Session` for each output run. A mutex protects the session when multiple operations use it at once. Common modes include:
+The shared `emit` package keeps each output run's flags and buffers in a `Session`. A mutex protects concurrent operations on the session. Common modes include:
 
 | Mode | Effect | Used by |
 |------|--------|---------|

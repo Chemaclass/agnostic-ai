@@ -108,7 +108,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
 - Crush runs a command as a script only when it starts with `./`, `../`, or `/`. A hook command that starts with a `.agnostic-ai/scripts/<name>` script, which sync copies, becomes `./.crush/hooks/<name>`. Other commands, such as `bin/guard` or `.crush/hooks/guard`, stay as written. Import keeps every command as written.
 - Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, for example `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a note that the field has no effect.
-- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them in Crush's embedded shell, with its event data and timeout, so you can test them before a session does.
+- [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using Crush's embedded shell, event data, and timeout.
 
 </details>
 

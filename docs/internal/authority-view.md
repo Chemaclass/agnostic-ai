@@ -2,13 +2,13 @@
 
 [Contributor docs](README.md) · [Architecture](architecture.md)
 
-The Authority view answers one question for one subject on one coding tool: which exact action on which exact target is permitted, with what conditions, and why. It is one versioned JSON document that the `view authority` command prints and `serve` hosts. The client under [`ui/`](../../ui/README.md) renders the overview below, not this view. The server owns normalization, precedence, provenance, and impact analysis; the client owns rendering, selection, and motion.
+The Authority view shows which actions a subject may take on a coding tool, on which targets, under what conditions, and why. `view authority` prints the versioned JSON document; `serve` hosts it. The client under [`ui/`](../../ui/README.md) renders the overview described below. It does not render the Authority view. The server normalizes rules, resolves precedence, records their sources, and analyzes proposed changes. The client handles rendering, selection, and motion.
 
 The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
 
 ## Four states, kept apart
 
-Every operation carries four values that are never merged into one badge.
+Every operation carries four values. Do not combine them in one badge.
 
 | State | Field | Comes from | Values |
 |---|---|---|---|
@@ -19,7 +19,7 @@ Every operation carries four values that are never merged into one badge.
 
 `resolution` says how the step from declared to effective went: `translated` (the adapter writes the winning rule and the tool's matching for that rule form is documented in this repository), `translated-unverified` (the rule is written but its matching is not documented, so the effect stays `unresolved`), `hook` (a generated hook enforces it), `not-expressed` (the adapter writes nothing for it), `agent-scope` (the subject's own spec decides, on a tool that reads agent tool lists), `no-rule`, or `disabled`.
 
-`hypothetical` is true while the generated file is stale, missing, or unchecked. A client then words the effect conditionally: "Would be permitted once synced".
+`hypothetical` is true while the generated file is stale, missing, or unchecked. A client then uses conditional wording: "Would be permitted once synced".
 
 ## Precedence
 
@@ -30,7 +30,7 @@ Every operation carries four values that are never merged into one badge.
 
 ## Evidence threshold
 
-A permitted, approval-required, or blocked badge is shown as effective only when a loaded spec declares the rule and the selected tool's adapter translates it, through the same calls `explain` uses (`adapters.TranslatePermissionCapabilityIn` and `TranslateAgentCapabilityIn`), and the tool's matching for that rule form is documented under `docs/site/content/docs/targets/`. Whole-tool rules and exact MCP tool names qualify on every tool that writes them; prefix, glob, and domain forms qualify only where the target page documents how they match. Any translation the adapter reports as widening stays unresolved. Installed requires a disk comparison. Runtime is never claimed.
+A permitted, approval-required, or blocked badge is effective only when a loaded spec declares the rule, the selected adapter translates it, and the tool's matching behavior for that rule form is documented under `docs/site/content/docs/targets/`. Translation uses the same calls as `explain`: `adapters.TranslatePermissionCapabilityIn` and `TranslateAgentCapabilityIn`. Whole-tool rules and exact MCP tool names qualify on every tool that writes them. Prefix, glob, and domain forms qualify only where the target page documents how they match. A translation reported as widening stays unresolved. Installed status requires a disk comparison. Runtime behavior is never claimed.
 
 ## Resources
 
@@ -48,7 +48,7 @@ Tool lists are not queried. An MCP tool appears as an operation when a rule or t
 
 ## Alternate routes
 
-`alternateRoutes` lists routes that could reach the same system and that the operation does not govern, such as shell access to a provider's command-line client. It is never a claim of absence: `routeCoverage.checked` lists every route the view evaluated with the subject's decision on it (shell as a whole, each scoped shell prefix, and local files), and `routeCoverage.notModeled` names what the view does not evaluate (delegation to other agents, other MCP servers, web access, anything a running tool does that configuration does not describe).
+`alternateRoutes` lists ways to reach the same system outside this operation's rules, such as shell access to a provider's command-line client. An empty list does not prove that no other route exists. `routeCoverage.checked` lists each evaluated route and the subject's decision: shell as a whole, each scoped shell prefix, and local files. `routeCoverage.notModeled` lists what the view does not evaluate: delegation, other MCP servers, web access, and runtime behavior absent from configuration.
 
 ## Secrets
 
@@ -78,7 +78,7 @@ Applying is listed under `supportedActions` as unsupported. Editing the spec and
 
 Settings specs and config files carry `values`: one entry per dotted key, typed `list`, `bool`, or `text`, so a client can render chips, a switch, or text. A value whose key names a credential, or that looks like a known token format or a 32-character key run, shows as `<redacted>`; a `${VAR}` reference shows as written.
 
-Read-only check results are shown on what they concern, never as a separate list. A lint or doctor finding sits on every item whose file it names, or whose skill folder holds that file; one that names no configured item sits on the section it states, else on Settings. Drift, from the capture-and-compare path `sync --check` uses, sets each target's `sync` state: `in-sync`, `drifted` with the files that differ, or `not-checked`.
+Read-only check results appear on affected items or sections, never in a separate list. A lint or doctor finding appears on every item whose file it names, or whose skill folder contains that file. If it names no configured item, it appears on its stated section, or Settings when no section is stated. The capture-and-compare path used by `sync --check` sets each target's `sync` state: `in-sync`, `drifted` with the files that differ, or `not-checked`.
 
 ## Endpoints
 

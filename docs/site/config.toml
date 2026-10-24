@@ -1,6 +1,6 @@
 base_url = "https://agnostic-ai.org"
 title = "agnostic-ai"
-description = "One source of truth for AI coding agents, skills, rules, hooks, commands, and MCP servers."
+description = "One source for AI coding agents, skills, rules, hooks, commands, and MCP servers."
 default_language = "en"
 author = "Chemaclass"
 compile_sass = false

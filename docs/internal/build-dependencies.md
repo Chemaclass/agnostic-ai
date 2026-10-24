@@ -1,18 +1,18 @@
 # Build dependency checks
 
-Release builds, editor packaging, vendor compatibility checks, and local experiments use different inputs. When a dependency alert appears, find the workflow that installs or runs the affected package in the table below. Check its selected version and verification steps.
+For a dependency alert, find the workflow that installs or runs the affected package below. Check its selected version and verification steps; release builds, editor packaging, vendor checks, and local experiments use different inputs.
 
 | Workflow | Inputs and verification | Alert review |
 | --- | --- | --- |
 | VS Code packaging | Exact @vscode/vsce 4.0.0 and the committed npm lock, built with Node 22. Its dependencies no longer include the braces package; package checks still scan for secrets. | Run a fresh dependency scan after merging and include development dependencies. |
-| JetBrains bootstrap | The committed Gradle9 wrapper matches its official checksum. CI validates wrapper changes before execution. The distribution has its official SHA-256 pin. | Review the intentional committed binary alert against this evidence. |
+| JetBrains bootstrap | The committed Gradle 9 wrapper matches its official checksum. CI validates wrapper changes before execution. The distribution has its official SHA-256 pin. | Review the intentional committed binary alert against this evidence. |
 | Local npm smoke | Validate seven locally packed package names, versions and exact platform pins. Install parent and host tarballs with an empty offline cache and scripts disabled. Compare installed binary bytes with the local build. | Review the variable local-path warning after the real package smoke passes. |
 | Released npm install | Resolve the latest GitHub release, validate its exact version, wait for that version in npm, and pass it as a quoted shell argument. Compare the full reported CLI version with that release. | Preserve discovery of new releases between runs. Review the variable-version warning against the recorded version. |
 | Release npm toolchain | Both release jobs download npm 11.5.1 from its exact archive URL and verify the committed SHA-512 before installation. Install the verified local archive offline with scripts disabled. The publication token is available only to the Publish step. | Verify the real empty-cache installation and refresh the dependency scan before closing its alerts. |
 | Vendor load checks | Resolve current vendor releases to exact versions before installing. Create the lock in a temporary npm project with a fixed package name and version and private: true. Save the selected packages and their registry checksums. | Preserve the scheduled discovery check; review its intentional moving inputs separately from release builds. |
 | Caveman experiment | Install the committed CLI 2.1.0 lock with `npm ci --ignore-scripts`, then retain the entrypoint digest and signed engine checks. | Review the fixed lock and experiment scope. Debian package installation still uses current repository packages. |
 
-These checks provide evidence for reviewing alerts, not records of dismissed alerts. For each dependency alert, record a confirmed fix or a reviewed exception backed by a fresh scan.
+These checks do not record dismissed alerts. For each alert, record a confirmed fix or a reviewed exception backed by a fresh scan.
 
 ## Check npm dependencies
 
@@ -41,7 +41,7 @@ Two scoped overrides replace vulnerable upstream selections:
 
 The Tool load workflow uploads `tool-load-dependencies`, containing `package.json`, `package-lock.json`, `selected-packages.txt`, and `environment.txt`. The lock records all selected npm packages, their dependencies, and registry checksums. Those checksums verify that downloaded files match the lock; they do not verify who published the package or which source produced it.
 
-To repeat the check using the packages recorded in a downloaded workflow artifact (its saved output), use an existing agnostic-ai binary:
+To repeat a check from a downloaded workflow artifact, use an existing agnostic-ai binary:
 
 ```sh
 TOOL_LOAD_LOCK_DIR=/absolute/path/to/tool-load-dependencies \

@@ -64,7 +64,7 @@ var registry = map[string]Adapter{
 }
 ```
 
-Add the target to the complete list in `internal/cli/init_interactive.go` (`allTargets`). Decide separately whether to include it in `internal/config/config.go` (`DefaultTargets()`): targets whose native restrictions need an explicit policy stay opt-in. Keep registration complete without expanding defaults automatically.
+Add the target to `allTargets` in `internal/cli/init_interactive.go`. Decide separately whether to include it in `DefaultTargets()` in `internal/config/config.go`. Targets whose native restrictions need an explicit policy stay opt-in.
 
 - Add native per-kind defaults to `emit.TargetVarPaths` in `internal/adapters/internal/emit/var_tables.go`, plus `dirRelativeVars` when a `dir` override moves them. Use an empty entry when the target has no dedicated paths. `TestTargetVarPaths_CoverEveryRegisteredTarget` and the emission parity tests check this table.
 - If settings merge `x-<target>` fields, register the target in `settingsPassThroughTargets` in `internal/cli/unread_overlays.go`. `TestSettingsPassThroughTargets_MatchAdapters` checks this registration.
@@ -169,25 +169,10 @@ Emit alongside MCPs in the target's project configuration file (Codex: `.codex/h
 
 An adapter follows the vendor's configuration format at the time it is written. Vendors can move paths or rename keys. Sync can still succeed while writing files the tool no longer reads. Check both sources below:
 
-- Add the target's doc and changelog URLs to
-  `.agnostic-ai/skills/target-audit/references/sources.md`, with a
-  `watch:` line naming the parts most likely to change. This is not
-  optional: `tests/integration/target_audit_sources_test.go` fails until
-  the new target has a section, so a new adapter must have documented audit sources before it can merge.
-  Follow that file's required URL line format, because `scripts/docfetch.sh`
-  parses those two lines and `scripts/docfetch_test.sh` fails when a
-  target resolves no docs URL or no changelog URL. Run
-  `scripts/docfetch.sh <target>` once and commit the new rows it adds to
-  `scripts/target-audit/sources.lock`.
-- `scripts/target-facts.sh <target>` prints what the repo currently
-  claims: capabilities, default paths, package comments and target guidance.
-  Capabilities can use compact or multiline declarations. Output defaults
-  include constants and inline calls across non-test files in the adapter package.
-  Compare that output with the vendor documentation.
+- Add the target's doc and changelog URLs to `.agnostic-ai/skills/target-audit/references/sources.md`, with a `watch:` line naming the parts most likely to change. `tests/integration/target_audit_sources_test.go` requires this section before the adapter can merge. Follow the required URL line format: `scripts/docfetch.sh` parses those two lines, and `scripts/docfetch_test.sh` fails when either URL is missing. Run `scripts/docfetch.sh <target>` once and commit its new rows in `scripts/target-audit/sources.lock`.
+- Run `scripts/target-facts.sh <target>` and compare its capabilities, default paths, package comments, and target guidance with the vendor documentation. It reads compact and multiline capability declarations, plus output constants and inline calls across non-test files in the adapter package.
 
-The `target-audit` skill runs that comparison across every registered
-target in parallel and files an issue for each confirmed difference. Run it after
-adding an adapter to confirm the new rows read correctly.
+The `target-audit` skill compares every registered target in parallel and files an issue for each confirmed difference. Run it after adding an adapter to check the new rows.
 
 To fetch a subset again, run `scripts/docfetch.sh --out DIR <target>...`. Its reports and delta counts cover only those targets, even when `DIR` already holds other targets' files. Add `--mirrors` to refresh the mirror report too. A successful fetch that skips mirrors removes the previous mirror report. Other targets' saved files stay in place. If a worker fails or returns too few rows, the command fails and keeps the last complete reports.
 

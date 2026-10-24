@@ -2,20 +2,20 @@
 
 [Contributor docs](README.md) · [Decision 005](decisions.md#005-jev-triage-for-target-audits-optional-and-measured) · [Target audit skill](../../.agnostic-ai/skills/target-audit/SKILL.md)
 
-`scripts/jev-triage.sh` is an optional first pass that decides which changed pages `/target-audit` should review. It asks TypeSafe's Jev, a model that returns structured answers instead of prose, which changed vendor pages probably break a claim agnostic-ai makes, and which pages are safe to skip. The audit works the same without it.
+`scripts/jev-triage.sh` helps `/target-audit` choose which changed vendor pages to review. It asks TypeSafe's Jev, a model that returns structured answers, which pages probably contradict an agnostic-ai claim and which can be skipped. It is optional; audits still work without it.
 
 Use `scripts/jev-triage.sh --lexical <run> <pending-deep-target>...` when every pending deep target is in `builtin-deep:`. Those targets need full review regardless of Jev scores. Other runs use the API mode when available. Limit either mode to pending deep targets so resumed and unchanged coverage does not consume triage work. This changes triage cost, not the required evidence or review coverage.
 
 ## What it does
 
-The script reads a `scripts/docfetch.sh` run directory. For each changed page with a `.delta`, it sends one request to Jev with the page's changed text and every claim `scripts/target-facts.sh` prints for that target. Each claim is a Choice question (a selection from named answers) (`supports`, `contradicts`, `says_nothing`). One Noul question (a numeric score) per page asks whether the change documents a configuration feature for a project, which is the only check that can catch a new tool configuration feature that none of our current claims covers.
+The script reads a `scripts/docfetch.sh` run directory. For each changed page with a `.delta`, it sends Jev one request containing the changed text and every claim `scripts/target-facts.sh` prints for that target. Each claim becomes a Choice question with three answers: `supports`, `contradicts`, or `says_nothing`. A separate Noul question returns a numeric score for whether the page documents a project configuration feature. This is the only check that can catch a feature absent from the current claims.
 
 It writes two TSV files into the run directory:
 
 - `triage.tsv`: one row per possible problem, most likely difference from vendor documentation first. A Jev row is kept only when its verdict is `contradicts` or its `p_contradicts` reaches 0.4, or, for the question about configuration features, when its Noul reaches 0.5.
 - `triage-pages.tsv`: one status per changed page. `clear` means Jev answered every question for the page, kept no row, its score for configuration features stayed under 0.1, and no path we write moved on it (`mentions:` label). The others are `lead`, `judged` (no lead, but a `mentions:` page or a score for configuration features of 0.1 or more), `unjudged` (a request was capped or failed), and `lexical` (Jev did not run).
 
-The skill reviews targets with a possible problem from Jev first and passes the rows to reviewers as questions. A target can take a "fast path by Jev" only when every changed row is `clear`, it is absent from `builtin-deep:`, and a manual delta check finds no built-in hook or skill behavior changes. Each run still reviews one randomly chosen target from that group. If that review finds a problem, skipping reviews is disabled until a saved test case for the problem passes.
+The skill reviews targets with possible problems first and passes Jev's rows to reviewers as questions. A target can skip full review only when every changed row is `clear`, it is absent from `builtin-deep:`, and a manual delta check finds no built-in hook or skill behavior changes. Each run still reviews one randomly chosen target from that group. If that review finds a problem, skipping reviews is disabled until a saved test case for the problem passes.
 
 ## Per-run metrics
 

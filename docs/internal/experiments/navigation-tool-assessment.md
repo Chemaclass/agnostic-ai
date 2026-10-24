@@ -1,6 +1,6 @@
 # CodeGraph, Ponytail and Headroom: what helps this repo?
 
-Keep CodeGraph as a small navigation pilot. Skip Ponytail and Headroom for now. The trial produced correct source answers, but it did not prove that any tool saves time, money or model input. Related to #2024.
+Keep CodeGraph as a small navigation pilot. Skip Ponytail and Headroom for now. The trial's source answers were correct; savings in time, money, and model input remain unproven. Related to #2024.
 
 | Tool | Decision | Why and next step |
 |---|---|---|
@@ -22,7 +22,7 @@ The [earlier assessment](https://github.com/Chemaclass/agnostic-ai/blob/06cbea99
 
 Independent reviews checked the source answers, usage, tool restrictions and source copies, and confirmed that all 59 saved evidence files matched their recorded checksums. Local transcripts, prompts, flags, profiles and freshness results remain outside public commits because they include temporary host paths.
 
-Any supported contributor setup or product integration needs a separate issue covering activation, cleanup, file ownership and licensing. A performance claim needs a runner committed before measurement, following the [existing method](trio-evaluation.md). This assessment changes documentation only.
+Before adding a supported contributor setup or product integration, open a separate issue covering activation, cleanup, file ownership, and licensing. Commit a runner before measuring performance, following the [existing method](trio-evaluation.md). This assessment changes documentation only.
 
 <details>
 <summary>Trial record and measurements</summary>

@@ -2,7 +2,7 @@
 
 [All docs](../README.md) · [Set up your checkout](../../CONTRIBUTING.md)
 
-Build and run the CLI first using the contributor setup guide. Then choose the area you want to change.
+Follow the contributor setup guide to build and run the CLI, then choose an area to change.
 
 | Task | Guide |
 |---|---|

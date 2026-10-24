@@ -109,7 +109,7 @@ YAML specs (hooks, MCP servers, settings, environments) follow the same rules. A
 
 ## Turn a shared spec off
 
-Exclude the targets you do not want. There is nothing to copy:
+Exclude the targets you do not want:
 
 ```md
 ---
@@ -155,7 +155,7 @@ A local skill folder with only a `SKILL.md` keeps the shared folder's supporting
 
 ## What does not merge
 
-Only your personal setup merges. A project spec over a [pack](@/docs/packs.md) spec replaces it whole, because a project that adapts a pack means to own that spec.
+Only personal overrides merge field by field. A project spec replaces a [pack](@/docs/packs.md) spec with the same kind and name in full.
 
 Two files with the same name in one folder are a mistake. One wins, and `agnostic-ai lint` reports the other (LINT003).
 

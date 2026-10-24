@@ -21,7 +21,7 @@ Leave out empty directories. No `agnostic-ai.yaml` is needed; the loader uses th
 
 ## Spec content
 
-Use the same YAML header fields (frontmatter) and Markdown body as [user spec format](../site/content/docs/spec-format/_index.md). Authors should:
+Follow the [user spec format](../site/content/docs/spec-format/_index.md) for YAML header fields (frontmatter) and the Markdown body:
 
 - Set `name:` (name that projects use to override a spec).
 - Write a short, action-oriented `description:` (adapters show it in combined documents).

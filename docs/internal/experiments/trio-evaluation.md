@@ -1,6 +1,6 @@
 # Compare RTK and Caveman across a complete diagnostic task
 
-The [runner](trio-evaluation.py) compares concise instructions, RTK, the Caveman response skill, and both. Each task asks a live Claude session to run one harmless test command with fixed failing output and report its counts, failures, paths, and expected and actual values. Each failure has its own line linking its identifier, path, and values. It measures a complete diagnostic session, including skill loading. It does not test code repair or a production workload.
+The [runner](trio-evaluation.py) compares concise instructions, RTK, the Caveman response skill, and both. Each live Claude session runs one harmless command with fixed failing output, then reports its counts, failures, paths, and expected and actual values. Each failure needs its own line linking its identifier, path, and values. Measurements cover the complete diagnostic session, including skill loading. They do not cover code repair or a production workload.
 
 Two larger fixed transcripts cover one failure and two failures, including a Unicode path. A third, short transcript uses an unsupported command so RTK leaves it unchanged. Runs are paired by task and repetition, then shuffled with a recorded seed. Each case starts in a separate directory with fresh Claude settings. RTK history and recovery paths are redirected explicitly; on macOS RTK still reads its existing configuration. HOME is inherited unchanged.
 
@@ -25,13 +25,13 @@ The default preparation run writes each configuration's `builtins` list, runs sy
 
 Land the runner before collecting a published result. Run it from current main while local builds and checks are idle. Use a fresh output directory, the skill from the same recorded revision, and `--live`. The default runs 24 cases with `claude-haiku-5-5`, two repetitions, a $0.12 per-session limit, and a $2 total limit. Review those options before running. Supply existing Claude authentication through its supported environment without putting credentials in command arguments or files.
 
-First run a separate four-case trial run with `--tasks short --repetitions 1 --live` and a fresh output directory. Keep it separate from the final 24 cases. It checks the skills and plugins actually loaded by Claude and the unchanged short command before committing to the complete comparison.
+First run a separate four-case trial with `--tasks short --repetitions 1 --live` and a fresh output directory. Keep it separate from the final 24 cases. It checks which skills and plugins Claude loads and verifies the unchanged short command before the complete comparison.
 
 Every configuration uses the same Bash and Skill tools and the same host settings. The three bundled skills remain available in every configuration. Only the generated Caveman skill changes between the baseline and skill configurations. The runner records the skills and plugins loaded at startup and requires the same bundled plugins across cases. Unexpected personal plugins or skills fail the setup check. A failed check stops further requests and retains the failed row and its known cost.
 
 The skill configurations explicitly request `/caveman` through the Skill tool. A passing result must show that the loaded skill came from the generated project directory and matches the pinned body. Effective skills, bundled plugins, model, and MCP servers are recorded.
 
-The exact fixture command, its exact RTK command form, and the Caveman skill are preapproved. These approval settings do not make other calls impossible. The study rules reject saved-output retrieval and any extra tool call. Zero recovery reads therefore cannot establish that recovery would never be needed. This is a comparison of tasks answerable from the visible summary. The separate runtime experiment tests exact recovery and missing stores.
+The exact fixture command, its RTK command form, and the Caveman skill are preapproved. Other calls remain possible, but the study rejects saved-output retrieval and extra tool calls. It covers tasks answerable from the visible summary; zero recovery reads cannot establish that other tasks would never need recovery. The separate runtime experiment tests exact recovery and missing stores.
 
 ## Read the result
 

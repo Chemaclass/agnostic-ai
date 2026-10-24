@@ -33,7 +33,7 @@ in-your-terminal = "@/docs/getting-started.md#install-agnostic-ai"
 
 Claude Code and Codex read project notes to learn how to work in your codebase. Keep those notes in one place with agnostic-ai. Edit once, then sync the files your tools read.
 
-Rather have your coding agent do it? [Paste one prompt](@/docs/agent-setup.md) instead, then come back for [the daily loop](#daily-use).
+To have your coding agent handle setup, [paste this prompt](@/docs/agent-setup.md), then follow [the daily loop](#daily-use).
 
 The walkthrough below writes one project note, generates files for Claude Code and Codex, then edits the note and updates both. Follow along with the tools you use, from your project folder.
 
@@ -47,7 +47,7 @@ Verify the command:
 agnostic-ai --version
 ```
 
-Command not found? Open a new terminal or see [Installation](@/docs/installation.md#verify-the-install).
+If the command is not found, open a new terminal or see [Installation](@/docs/installation.md#verify-the-install).
 
 ## Initialize your project {#quickstart}
 
@@ -57,7 +57,7 @@ From your project root:
 agnostic-ai init
 ```
 
-Select `claude` and `codex` for this example, or select the tools you actually use. These are the CLI names for Claude Code and Codex. `init` creates `agnostic-ai.yaml` and updates `.gitignore`; the next step puts your note in `.agnostic-ai/`.
+Select `claude` and `codex` for this example, or select the tools you use. These are the CLI names for Claude Code and Codex. `init` creates `agnostic-ai.yaml` and updates `.gitignore`; the next step puts your note in `.agnostic-ai/`.
 
 When asked about Git, keep **Ignore them** (the default) for this walkthrough. Commit the sources; teammates run `sync` after cloning. Choose **Commit them** if you want Git to track generated files so a clone has them ready. See [Commit or ignore generated outputs](#commit-or-ignore-generated-outputs) after your first sync.
 
@@ -123,7 +123,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-In this fresh two-tool example, open `AGENTS.md` again to find the new sentence. `CLAUDE.md` still points to it, so both tools use the updated instructions. For another setup, check the native files you inspected above. This is the maintenance loop: edit one source, review the plan, and sync your selected tools.
+In this fresh two-tool example, open `AGENTS.md` again to find the new sentence. `CLAUDE.md` still points to it, so both tools use the updated instructions. For another setup, check the native files you inspected above. For later changes, edit the source, review the plan, and sync.
 
 After cloning, install agnostic-ai using the project's documented method, then run `sync`. For a project dependency, install its locked dependencies and use the local command, such as `pnpm exec agnostic-ai`.
 

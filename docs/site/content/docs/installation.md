@@ -22,7 +22,7 @@ agnostic-ai --version
 # agnostic-ai version X.Y.Z
 ```
 
-Command not found? Open a new terminal, or add the install directory to `PATH`. To prove the binary came from this repository, see [Verify a release](@/docs/verify-a-release.md).
+If the command is not found, open a new terminal or add the install directory to `PATH`. To prove the binary came from this repository, see [Verify a release](@/docs/verify-a-release.md).
 
 Next: [Getting started](@/docs/getting-started.md), or [Migration](@/docs/migration.md) if you already have `CLAUDE.md`, `AGENTS.md`, or other tool files.
 

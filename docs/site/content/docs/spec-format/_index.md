@@ -18,7 +18,7 @@ mcp-servers = "@/docs/spec-format/mcps.md"
 
 # Spec format
 
-A spec is one file under `.agnostic-ai/` that says what you want, once. `agnostic-ai sync` writes it for every tool you enable, in that tool's own place and format, such as `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, or `.gemini/settings.json`.
+A spec is a file under `.agnostic-ai/` that defines shared tool configuration. `agnostic-ai sync` writes it for each enabled tool in its native path and format, such as `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, or `.gemini/settings.json`.
 
 ## Choose what to write
 

@@ -9,7 +9,7 @@ group = "Reference"
 
 # Environments
 
-`environments/` tells a coding tool how to get the project running in a place it just created: a new Git worktree (a separate checkout of the same repository), a cloud sandbox, or a preview. That covers installing dependencies, copying local config, starting the dev server, and stopping it afterwards. Sync writes it into each tool's own file, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
+`environments/` defines project setup for a new Git worktree (a separate checkout of the same repository), cloud sandbox, or preview. It covers installing dependencies, copying local config, starting the dev server, and stopping it afterwards. Sync writes each tool's native file, such as `.cursor/worktrees.json`, `.codex/environments/environment.toml`, or `.claude/launch.json`.
 
 ## Write one
 

@@ -27,7 +27,7 @@ complete user documentation.
 - [Agent setup guide](https://agnostic-ai.org/docs/agent-setup/): the human-readable version, including a ready-to-paste prompt.
 - [Landing page](https://agnostic-ai.org/): what it does and why, with a worked example.
 - [Playground](https://agnostic-ai.org/playground/): paste a spec, pick targets, see each CLI's output. Runs in-browser via WebAssembly.
-- [AI tooling updates](https://agnostic-ai.org/updates/): release briefings on consequential vendor changes, developer impact, and the agnostic-ai response.
+- [AI tooling updates](https://agnostic-ai.org/updates/): release briefings on major tool changes, their effect on developers, and agnostic-ai support.
 - [Updates RSS feed](https://agnostic-ai.org/updates/feed.xml): subscribe without watching an issue tracker.
 - [Full docs as one file](https://agnostic-ai.org/llms-full.txt): all user guides and references in one fetch.
 - [Repository](https://github.com/Chemaclass/agnostic-ai): source, issues, releases.

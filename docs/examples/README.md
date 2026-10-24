@@ -17,7 +17,7 @@ For language-specific starters, use `init --preset go`, `init --preset ts-react`
 
 ## Try directory-specific instructions
 
-The [directory-specific instructions walkthrough](https://agnostic-ai.org/docs/scoped-context/#start-with-one-directory) creates one payments rule for Claude, Codex, Gemini, and Cursor, with commands to inspect each tool's output path. Run it in a scratch project or use its rule in your existing project.
+The [directory-specific instructions walkthrough](https://agnostic-ai.org/docs/scoped-context/#start-with-one-directory) creates a payments rule for Claude, Codex, Gemini, and Cursor and shows how to inspect each tool's output. Run it in a scratch project or add the rule to an existing project.
 
 ## Configure only what you need
 
@@ -27,4 +27,4 @@ Check [Targets](https://agnostic-ai.org/docs/targets/) for the fields your tool 
 
 ## Add RTK or Caveman independently
 
-[Project packs for RTK and Caveman](rtk-and-caveman/README.md) supplies two local packs (folders of shared specs) for Claude Code on macOS or Linux. It explains how to replace an existing installation, remove either pack, and repeat the configuration checks. The RTK hook and default Caveman response skill remain separate choices.
+[Project packs for RTK and Caveman](rtk-and-caveman/README.md) provides two independent packs (folders of shared specs) for Claude Code on macOS or Linux: an RTK hook and the default Caveman response skill. The guide covers replacing an existing installation, removing either pack, and repeating the configuration checks.

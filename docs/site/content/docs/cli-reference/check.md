@@ -38,7 +38,7 @@ For event names and mappings, see [portable hook events](@/docs/spec-format/hook
 
 ## lint
 
-Check spec quality beyond whether the file format is valid. Exits 1 on errors.
+Check spec quality after parsing. Exits 1 on errors.
 
 ```bash
 agnostic-ai lint --strict
@@ -188,7 +188,7 @@ The report compares simple declared Bash rules from planned project settings, pr
 
 Known RTK PreToolUse handlers are listed by settings path. More than one produces an ownership warning. This inspection recognizes direct Bash handlers using RTK rewrite or its Claude processor; plugins, indirect scripts, and other matcher expressions can remain undiscovered.
 
-Runtime approval always remains `unknown`. Administrator settings, session options, project trust, enabled hooks, and other handlers can change the actual outcome. The report describes declared rules rather than verifying a live host. Processor failures and unreadable settings fail the command. Warnings are diagnostic and do not grant approval or fail an otherwise successful inspection.
+Runtime approval always remains `unknown`. Administrator settings, session options, project trust, enabled hooks, and other handlers can change the actual outcome. The report describes declared rules; it does not verify a live host. Processor failures and unreadable settings fail the command. Warnings are diagnostic and do not grant approval or fail an otherwise successful inspection.
 
 The processor interface follows [RTK's rewrite protocol](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/hooks/rewrite_cmd.rs), and rule precedence follows [Claude Code permissions](https://code.claude.com/docs/en/permissions).
 

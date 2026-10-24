@@ -72,7 +72,7 @@ After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync
 
 A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` puts the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
-Sync reports a sync note for each skill field a tool leaves out, including `argument-hint`, `model`, and `effort`.
+Sync reports each skill field a tool leaves out, including `argument-hint`, `model`, and `effort`.
 
 - A field that is kept in the tool's own frontmatter, in a command copy of the skill, or in a policy file gets no note.
 - `agnostic-ai compare claude codex` shows which skill fields each tool keeps, translates, or drops.

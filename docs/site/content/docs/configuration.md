@@ -231,7 +231,7 @@ Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` itself. Codex takes 
 
 On v0.77.0 or earlier, write `terra` as `gpt-5.6-terra`.
 
-Each release fixes the ids. When an upgrade changes one, the next `sync` prints `note: codex: sol now resolves to <new id> (was <old id>)` once. An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given.
+Each release pins the model IDs. When an upgrade changes one, the next `sync` prints `note: codex: sol now resolves to <new id> (was <old id>)` once. An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given.
 
 | Tier key | Value |
 |----------|-------|
@@ -404,7 +404,7 @@ Per-source options for the `import` command.
 
 ### `import.codex.shred`
 
-Sets how `agnostic-ai import codex` treats a nested `AGENTS.md`. The root file always lands in `.agnostic-ai/AGNOSTIC_AI.md`.
+Sets how `agnostic-ai import codex` treats a nested `AGENTS.md`. The root file always imports into `.agnostic-ai/AGNOSTIC_AI.md`.
 
 | Value | Behavior |
 |-------|----------|
@@ -515,7 +515,7 @@ Default `false`. When `true`, sync fails on each coverage note that names a targ
 
 ### `coverage.accept` {#coverageaccept}
 
-List each note the project chose to live with, and why. Each entry names one note with exactly one of `field`, `via`, or `surface`.
+List each note the project accepts and the reason. Each entry names one note with exactly one of `field`, `via`, or `surface`.
 
 | Field | Required | Description |
 |-------|----------|-------------|
