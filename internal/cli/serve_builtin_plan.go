@@ -198,7 +198,10 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 		if err != nil {
 			return nil, err
 		}
-		ignore := gitignoreRel(cfg)
+		ignore, err := builtinRelativePath(root, gitignoreRel(cfg))
+		if err != nil {
+			return nil, err
+		}
 		existing, err := snapshotEditFile(ignore)
 		if err != nil {
 			return nil, err
@@ -241,7 +244,7 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", stateFilePath("."), err)
 	}
-	desired[stateFilePath(".")] = state
+	desired[filepath.ToSlash(stateFilePath("."))] = state
 	for path := range desired {
 		inputs = append(inputs, path)
 	}
@@ -257,7 +260,10 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	}
 	for _, path := range slices.Sorted(maps.Keys(desired)) {
 		data := desired[path]
-		snap := plan.inputs.files[path]
+		snap, recorded := plan.inputs.files[path]
+		if !recorded {
+			return nil, fmt.Errorf("%s: preview did not record the original file state", path)
+		}
 		if data == nil && snap.info == nil || data != nil && snap.info != nil && bytes.Equal(snap.data, data) && (modes[path] == 0 || snap.info.Mode().Perm() == modes[path]) {
 			continue
 		}

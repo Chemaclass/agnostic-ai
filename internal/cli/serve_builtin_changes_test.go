@@ -147,8 +147,8 @@ func TestBuiltinChanges_EnableDisableMatchesOrdinarySync(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		delete(before.files, stateFilePath("."))
-		delete(after.files, stateFilePath("."))
+		delete(before.files, filepath.ToSlash(stateFilePath(".")))
+		delete(after.files, filepath.ToSlash(stateFilePath(".")))
 		if !before.sameContent(after) {
 			t.Errorf("enabled %v: ordinary sync changed planned native files", enabled)
 			for path, a := range before.files {
@@ -695,4 +695,91 @@ func TestBuiltinChanges_StaleProposalRecoveryRequiresFreshPreview(t *testing.T) 
 		t.Error("fresh preview reused stale proposal")
 	}
 	builtinAction(t, h, builtinApplyPath, fresh.ID)
+}
+
+func TestBuiltinChanges_NativePathsUseRecordedSnapshots(t *testing.T) {
+	root := builtinChangeProject(t)
+	ignore := "nested" + string(filepath.Separator) + "." + string(filepath.Separator) + "generated.ignore"
+	if err := os.Mkdir("nested", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile("agnostic-ai.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", string(config)+"gitignore:\n  enabled: true\n  path: '"+ignore+"'\n")
+	if _, err := runCLI(t, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planBuiltinChange(root, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledgerFound := false
+	for _, change := range plan.changes {
+		canonical := filepath.ToSlash(filepath.Clean(change.Path))
+		if change.Path != canonical {
+			t.Fatalf("planned path %q does not match snapshot key %q", change.Path, canonical)
+		}
+		recorded, ok := plan.inputs.files[change.Path]
+		if !ok || !sameBuiltinFile(change.before, recorded) {
+			t.Fatalf("planned path %q lost its recorded snapshot", change.Path)
+		}
+		if change.Path == filepath.ToSlash(stateFilePath(".")) {
+			ledgerFound = true
+			if change.Action != "update" || change.before.info == nil {
+				t.Fatal("existing ledger planned as a new file")
+			}
+		}
+	}
+	if !ledgerFound {
+		t.Fatal("preview omitted ledger update")
+	}
+	h := newBuiltinChangeHandler(root, false)
+	proposal := builtinProposal(t, h, true)
+	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	after, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !before.sameContent(after) {
+		t.Error("native-path apply/undo changed original bytes or modes")
+	}
+}
+
+func TestBuiltinChanges_AnchoredSnapshotRejectsIdenticalReplacement(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join("nested", "file")
+	absolute := filepath.Join(root, path)
+	mustWriteFile(t, absolute, "Keep this content.\n")
+	before, err := snapshotEditFile(absolute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchored, err := os.OpenRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = anchored.Close() }()
+	if err := checkBuiltinFile(anchored, path, before); err != nil {
+		t.Fatalf("unchanged native path: %v", err)
+	}
+	replacement := filepath.Join(root, "replacement")
+	if err := os.WriteFile(replacement, before.data, before.info.Mode().Perm()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(replacement, before.info.ModTime(), before.info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(replacement, absolute); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkBuiltinFile(anchored, path, before); err == nil {
+		t.Error("accepted replacement with different identity despite equal bytes, mode, and time")
+	}
 }
