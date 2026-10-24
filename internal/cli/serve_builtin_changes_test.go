@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 func builtinChangeProject(t *testing.T) string {
@@ -1066,26 +1066,24 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 				} else {
 					mustWriteFile(t, filepath.Join(native, "MEMORY.md"), "A saved note in the index.\n")
 				}
-			case "repo fact", "external store":
-				git := exec.Command("git", "init", "--quiet")
-				if out, err := git.CombinedOutput(); err != nil {
-					t.Fatalf("git init: %v %s", err, out)
+			case "repo fact", "external store", "private exclusion":
+				if _, err := gitquery.LayoutAt(root); err == nil {
+					t.Fatal("fixture already belongs to a Git repository")
 				}
-				if kind == "repo fact" {
+				git(t, root, "init", "--quiet")
+				gitquery.Reset()
+				switch kind {
+				case "repo fact":
 					store, err := adapters.PersonalMemoryDir(&config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}, root)
 					if err != nil {
 						t.Fatal(err)
 					}
 					mustWriteFile(t, filepath.Join(store, "fact.md"), "A saved repository fact.\n")
-				} else {
+				case "external store":
 					mustWriteFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+				case "private exclusion":
+					mustWriteFile(t, "agnostic-ai.local.yaml", "gitignore:\n  enabled: false\n")
 				}
-			case "private exclusion":
-				git := exec.Command("git", "init", "--quiet")
-				if out, err := git.CombinedOutput(); err != nil {
-					t.Fatalf("git init: %v %s", err, out)
-				}
-				mustWriteFile(t, "agnostic-ai.local.yaml", "gitignore:\n  enabled: false\n")
 			}
 			before, err := snapshotBuiltinProject(root, nil)
 			if err != nil {
