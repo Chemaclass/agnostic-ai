@@ -886,13 +886,42 @@ input:hover {
 
 .finding-evidence {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   font-size: 13px;
 }
 
 .finding-evidence strong,
 .finding-evidence span {
   display: block;
+}
+
+.finding-evidence strong,
+.finding-prompt label {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.finding-prompt {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finding-prompt textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .tool-list {

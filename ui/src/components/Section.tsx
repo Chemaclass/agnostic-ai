@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useId, useState } from 'react'
 import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -326,40 +326,51 @@ function Values({ values, file, prefix }: { values: Value[]; file?: string; pref
 }
 
 function Findings({ findings }: { findings: ItemFinding[] }) {
-  const root = useContext(ConfigurationRoot)
   return (
     <ul className="findings">
       {findings.map((f, i) => (
-        <li key={`${f.code ?? f.source}-${f.line ?? 0}-${i}`} className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
-          <Icon name="warning" className="finding-icon" />
-          <div className="finding-body">
-            <div className="finding-head">
-              <div className="finding-meta">
-                <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
-                {f.code && <Code>{f.code}</Code>}
-                <span className="muted">{f.source}</span>
-              </div>
-              <CopyButton text={findingFixPrompt(f, root)} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
-            </div>
-            <p className="finding-message">{f.message}</p>
-            {f.path ? (
-              <p className="finding-source muted">
-                <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
-              </p>
-            ) : f.line ? <p className="finding-source muted">Line {f.line}</p> : null}
-            {(f.explanation || f.fix) && (
-              <details className="finding-details">
-                <summary>Details</summary>
-                <div className="finding-evidence muted">
-                  {f.explanation && <p>{f.explanation}</p>}
-                  {f.fix && <p><strong>Suggested fix</strong><span>{f.fix}</span></p>}
-                </div>
-              </details>
-            )}
-          </div>
-        </li>
+        <Finding key={`${f.code ?? f.source}-${f.line ?? 0}-${i}`} finding={f} />
       ))}
     </ul>
+  )
+}
+
+function Finding({ finding: f }: { finding: ItemFinding }) {
+  const root = useContext(ConfigurationRoot)
+  const prompt = findingFixPrompt(f, root)
+  const promptId = useId()
+  return (
+    <li className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
+      <Icon name="warning" className="finding-icon" />
+      <div className="finding-body">
+        <div className="finding-head">
+          <div className="finding-meta">
+            <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
+            {f.code && <Code>{f.code}</Code>}
+            <span className="muted">{f.source}</span>
+          </div>
+          <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
+        </div>
+        <p className="finding-message">{f.message}</p>
+        {f.path ? (
+          <p className="finding-source muted">
+            <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
+          </p>
+        ) : f.line ? <p className="finding-source muted">Line {f.line}</p> : null}
+        <details className="finding-details">
+          <summary>Details</summary>
+          <div className="finding-evidence muted">
+            {f.fix && <p><strong>Suggested fix</strong><span>{f.fix}</span></p>}
+            {f.explanation && <p><strong>Why this appears</strong><span>{f.explanation}</span></p>}
+            <div className="finding-prompt">
+              <label htmlFor={promptId}>Fix prompt</label>
+              <p id={`${promptId}-hint`}>Paste this prompt into your coding agent.</p>
+              <textarea id={promptId} aria-describedby={`${promptId}-hint`} value={prompt} readOnly rows={12} spellCheck={false} />
+            </div>
+          </div>
+        </details>
+      </div>
+    </li>
   )
 }
 

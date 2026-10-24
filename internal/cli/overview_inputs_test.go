@@ -66,6 +66,9 @@ func TestRunOverviewChecks_ReportsTheBareReadRuleAndNotGeneratedDrift(t *testing
 	if bare[0].Explanation != lintCodes["LINT038"].Cause {
 		t.Errorf("explanation = %q, want the explain cause", bare[0].Explanation)
 	}
+	if bare[0].Fix != lintCodes["LINT038"].Fix {
+		t.Errorf("fix = %q, want the explain fix", bare[0].Fix)
+	}
 	drift := driftByPath(t, findings)
 	for _, path := range []string{".claude/settings.json", "CLAUDE.md"} {
 		if drift[path] != driftNotGenerated {
@@ -192,6 +195,15 @@ func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) 
 	}
 	if got := itemWithFinding(view, "LINT038"); got != "permissions" {
 		t.Errorf("LINT038 sits on %q, want the permissions settings item", got)
+	}
+	for _, section := range view.Sections {
+		for _, item := range section.Items {
+			for _, finding := range item.Findings {
+				if finding.Code == "LINT038" && finding.Fix != lintCodes["LINT038"].Fix {
+					t.Errorf("served fix = %q, want the explain fix", finding.Fix)
+				}
+			}
+		}
 	}
 	if len(view.Targets) != 1 || view.Targets[0].Sync.State != overview.SyncDrifted || len(view.Targets[0].Sync.Files) == 0 {
 		t.Errorf("targets = %+v, want claude drifted: nothing is generated yet", view.Targets)

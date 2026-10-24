@@ -318,7 +318,7 @@ Serve the bundled web interface and a local JSON API. The interface works offlin
 
 Start with the [browser walkthrough](@/docs/inspect-configuration.md). The browser's **Authority** section lists permission files and rules. For per-agent decisions, use [`view authority`](#view); for permission proposal previews, use `POST /api/views/authority/impact`. The browser has no permission proposal editor.
 
-Each finding has **Copy fix prompt** with its source, message, and suggested fix. Expand **Details** for the explanation. Native settings are grouped by tool, with the shared `x-<tool>` prefix shown once.
+Each finding has **Copy fix prompt**. Expand **Details** to read the suggested fix, explanation, and full prompt before copying it into your coding agent. Native settings are grouped by tool, with the shared `x-<tool>` prefix shown once.
 
 Tool lists use logos. Hover over a logo for the tool's full name.
 

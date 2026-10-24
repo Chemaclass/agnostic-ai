@@ -7,7 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
-- `serve --open` opens settings editing and Caveman preview, apply, and session undo; findings have fix prompts (#2319, #2453, #2454).
+- `serve --open` opens settings editing and Caveman preview, apply, and session undo; findings show fixes and previewable prompts (#2319, #2453, #2454).
 - `view authority` shows permissions; `view overview` shows setup and cached MCP tools; the browser groups native keys and adds tool logos (#2319).
 - Global import keeps MCP specs whose native server names differ only by case (#2434).
 - Project checks skip built-in hooks that do not target the selected tools (#2438).

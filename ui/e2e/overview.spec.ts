@@ -70,18 +70,36 @@ test.describe('overview', () => {
     await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
     expect(edit).toEqual({ path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true })
     const finding = page.locator('.finding', { hasText: 'LINT038' })
-    await expect(finding.getByText('This rule grants all file reads.')).not.toBeVisible()
+    await expect(finding.getByText('This rule grants all file reads.', { exact: true })).not.toBeVisible()
     await finding.getByText('Details', { exact: true }).click()
-    await expect(finding.getByText('This rule grants all file reads.')).toBeVisible()
+    await expect(finding.getByText('This rule grants all file reads.', { exact: true })).toBeVisible()
+    await expect(finding.getByText('Use read(src/**).', { exact: true })).toBeVisible()
+    const preview = finding.getByRole('textbox', { name: 'Fix prompt', exact: true })
+    await expect(preview).toHaveJSProperty('readOnly', true)
+    expect(await preview.inputValue()).toContain('Suggested fix: Use read(src/**).')
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await finding.getByRole('button', { name: 'Copy fix prompt' }).click()
     await expect(finding.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
+    expect(prompt).toBe(await preview.inputValue())
     expect(prompt).toContain('LINT038')
     expect(prompt).toContain(`Configuration root: ${data.snapshot.project.root}`)
     expect(prompt).toContain('.agnostic-ai/settings/permissions.yaml:3')
     expect(prompt).toContain('Use read(src/**).')
     expect(prompt).toContain('sync --check')
+  })
+
+  test('shows the fix prompt when a finding has no explanation or suggested fix', async ({ page }) => {
+    const data = structuredClone(fixture)
+    data.sections.find((section: { id: string }) => section.id === 'settings').findings = [{
+      source: 'doctor', severity: 'warn', message: 'The selected tool is unavailable.',
+    }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=settings')
+    const finding = page.locator('.finding', { hasText: 'The selected tool is unavailable.' })
+    await finding.getByText('Details', { exact: true }).click()
+    await expect(finding.getByRole('textbox', { name: 'Fix prompt', exact: true })).toHaveValue(/The selected tool is unavailable[.]/)
+    await expect(finding.getByText('Suggested fix', { exact: true })).toHaveCount(0)
   })
 
   test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {

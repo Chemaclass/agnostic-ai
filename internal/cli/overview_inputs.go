@@ -72,13 +72,13 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 }
 
 // overviewLintFindings is what `lint` reports for the project, each with
-// the cause `explain` gives for its code.
+// the cause and fix `explain` gives for its code.
 func overviewLintFindings(cfg *config.Config, b spec.Bundle) []overview.Finding {
 	return overviewScopeLintFindings(loadedProjectCheckScope(cfg, b), overviewConfigPath(), filepath.ToSlash)
 }
 
 // overviewScopeLintFindings is what `lint` reports for scope, each with
-// the cause `explain` gives for its code and its path shown through
+// the cause and fix `explain` gives for its code and its path shown through
 // display. A lint run that stops early becomes one finding on
 // configPath, so the overview shows the gap instead of hiding it.
 func overviewScopeLintFindings(scope checkScope, configPath string, display func(string) string) []overview.Finding {
@@ -103,6 +103,7 @@ func overviewScopeLintFindings(scope checkScope, configPath string, display func
 		}
 		if code, ok := lintCodes[f.Code]; ok {
 			finding.Explanation = code.Cause
+			finding.Fix = servedFindingMessage(code.Fix)
 		}
 		out = append(out, finding)
 	}
