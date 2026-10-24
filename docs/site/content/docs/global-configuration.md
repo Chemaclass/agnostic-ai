@@ -285,7 +285,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~
 - Jules documents nothing at user level.
 - Ellipsis reads only files in the repository.
 
-Hooks reach ten tools at user level: Claude Code, CodeBuddy Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, and Cline SDK/CLI. The other tools have no user-level hook output:
+Hooks reach these tools at user level: Claude Code, CodeBuddy Code, Codex, Gemini, Qoder, Cursor, Augment, Kiro CLI V3, Copilot, Cline SDK/CLI, Grok Build, Kimi Code CLI, Qwen Code, and Mistral Vibe. The other tools have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`.
 - Junie's hooks are Early Access.

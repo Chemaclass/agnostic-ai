@@ -32,9 +32,8 @@
 // (openai/codex#41700), and an unquoted header for one of those names
 // is invalid TOML that aborts the whole file's parse (#706). Lifecycle
 // hooks (SessionStart, Stop, UserPromptSubmit, PreToolUse, PostToolUse,
-// pre/post compact) emit to `.codex/hooks.json`, which preserves
-// matcher metadata the inline `[[hooks.<event>]]` TOML form cannot.
-// Override the hooks path via `outputs.codex.hooks-file`.
+// pre/post compact) emit to `.codex/hooks.json`. Override the hooks
+// path via `outputs.codex.hooks-file`.
 //
 // An MCP spec's `disabled: true` maps to Codex's own `enabled = false`
 // key (`learn.chatgpt.com/docs/config-file/config-reference` documents

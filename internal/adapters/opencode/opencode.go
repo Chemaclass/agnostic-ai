@@ -374,11 +374,7 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 	if disabled, _ := e.Meta["disabled"].(bool); disabled {
 		entry["enabled"] = false
 	}
-	// timeout appears in both the local and remote option tables:
-	// "Timeout in ms for fetching tools from the MCP server. Defaults to
-	// 5000 (5 seconds)." Milliseconds, matching the gemini and claude
-	// spelling of the same spec field, so it needs no unit conversion
-	// (target-audit 2026-09-03, #641).
+	// OpenCode uses milliseconds for local and remote MCP request timeouts.
 	if timeout, ok := emit.IntField(e.Meta, "timeout"); ok {
 		entry["timeout"] = timeout
 	}
