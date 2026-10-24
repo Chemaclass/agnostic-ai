@@ -75,6 +75,7 @@ Add the target to `allTargets` in `internal/cli/init_interactive.go`. Decide sep
 - Add the target ID and label to `docs/site/data/updates.toml`; `TestTargetUpdates_MetadataUsesRegisteredTargetVocabulary` checks the archive filter vocabulary.
 - Give the target page a `## Protected paths` section matching its native enforcement. Start the first paragraph with `Not enforced.` when protection is advisory. `TestDocs_TargetPagesStateProtectedPathEnforcement` checks this contract.
 - Update `README.md` supported-target summary and `docs/site/content/docs/configuration.md`.
+- Run `make site-generate` to update the current supported and default target counts.
 - Add an `[Unreleased]` entry in `CHANGELOG.md`.
 - If config struct fields or tags change, run `go run ./cmd/schemagen`.
 - Regenerate the saved expected output files and supported-target lists listed in `.agnostic-ai/rules/capability-fixtures.md`.

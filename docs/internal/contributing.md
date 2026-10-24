@@ -68,6 +68,8 @@ PATH="$PWD:$PATH" make site-serve   # http://127.0.0.1:1111
 
 **A mismatched Zola does not fail `go test ./...`; it skips the three site build tests.** Run `make site-test` with the pinned binary before trusting a change under `docs/site/`.
 
+`make site-serve` and `make site-build` generate current target counts from `adapters.Names()` and `config.DefaultTargets()`. The generated `docs/site/data/targets.toml` supplies the landing page counts; `docs/site/static/llms.txt` comes from `docs/site/llms.txt.tmpl`. After changing registered targets, defaults, or the text template, run `make site-generate` and commit the generated files. `make site-check` and `make site-test` reject missing or stale output without rewriting it.
+
 The social preview image is rendered from `docs/site/og/card.html`. After editing the card, run `make site-og` (it needs Chrome or Chromium; set `CHROME` if it is not found). Platforms cache the image by URL, so a redesign ships under a new file name: pass the new path to `scripts/render-og-image.sh` and update `image_url` in `docs/site/config.toml` and the image tags in `docs/playground/index.html`.
 
 A long reference page can be split into a topic index (a hub): a folder with an `_index.md` (`template = "docs/hub.html"`, `hub = true`) and one page per topic, such as `cli-reference/` and `spec-format/`. Link to a topic page as `@/docs/<hub>/<page>.md#anchor`. The hub redirects old `#anchor` links from before the split to the topic page that now holds them. Add new hubs to the sitemap and `llms-full.txt` lists in `scripts/`.
