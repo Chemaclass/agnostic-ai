@@ -33,7 +33,7 @@ test.describe('overview', () => {
     for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
       await page.goto(`/?view=${view}`)
       const tools = page.locator('.support-table .tool-avatar')
-      expect(await tools.count()).toBeGreaterThan(0)
+      await expect(tools.first()).toBeVisible()
       for (const avatar of await tools.all()) {
         await expect(avatar).toHaveAttribute('title', /Claude Code|Codex|Cursor/)
         await expect(avatar.locator('img')).toBeVisible()
