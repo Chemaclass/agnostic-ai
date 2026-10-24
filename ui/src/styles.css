@@ -880,30 +880,25 @@ input:hover {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 8px;
+  border-block: 1px solid var(--line);
 }
 
 .finding {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--approval-wash);
+  gap: 12px;
+  padding: 20px 0;
   font-size: 14px;
 }
 
-.finding-error {
-  background: var(--blocked-wash);
+.finding + .finding {
+  border-top: 1px solid var(--line);
 }
 
 .finding-icon {
   flex: none;
   width: 18px;
   height: 18px;
-  margin-top: 2px;
   color: var(--approval);
 }
 
@@ -913,7 +908,7 @@ input:hover {
 
 .finding-body {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -924,7 +919,7 @@ input:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 10px;
+  gap: 6px 12px;
 }
 
 .finding-head {
@@ -936,26 +931,124 @@ input:hover {
   font-size: 12px;
 }
 
-.finding-copy {
-  padding: 5px 8px;
+.finding-meta .badge {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   font-size: 12px;
+  font-weight: 650;
+}
+
+.finding-meta .code,
+.finding-source .code {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.finding .finding-source {
+  max-width: none;
+}
+
+.finding-copy {
+  min-height: 32px;
+  padding: 4px 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.finding-message {
-  line-height: 1.5;
+.finding-copy:hover {
+  border-color: var(--line);
+  background: var(--panel);
 }
 
-.finding-details summary {
-  min-height: 24px;
-  width: fit-content;
+.finding-message-wrap {
+  min-width: 0;
+}
+
+.finding-message {
+  line-height: 1.6;
+}
+
+.finding-message.is-collapsed {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.finding-expand {
+  display: block;
+  padding: 4px 0;
+  margin-top: 4px;
+  border: 0;
+  background: none;
   color: var(--accent-strong);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
+.finding-expand:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.finding-details summary {
+  min-height: 28px;
+  width: fit-content;
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.finding-details summary:hover {
+  color: var(--accent-strong);
+}
+
 .finding-details[open] summary {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.finding-details[open] {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  .finding {
+    gap: 8px;
+    padding-block: 16px;
+  }
+
+  .finding-head {
+    align-items: flex-start;
+  }
+
+  .finding-meta {
+    min-height: 32px;
+    gap: 6px 8px;
+  }
+
+  .finding-copy {
+    min-height: 44px;
+    padding-inline: 0;
+  }
+
+  .finding-expand,
+  .finding-details summary {
+    min-height: 44px;
+    align-content: center;
+  }
 }
 
 .finding-evidence {

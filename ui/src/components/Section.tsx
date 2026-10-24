@@ -93,8 +93,11 @@ export function SectionContents({ section }: { section: Section }) {
           <strong>{findingCounts}</strong>
           <button type="button" className="button button-quiet" onClick={() => {
             const heading = document.getElementById(findingsId)
-            heading?.scrollIntoView({ block: 'start' })
-            heading?.focus({ preventScroll: true })
+            const main = document.getElementById('main')
+            if (heading && main) {
+              main.scrollTo({ top: main.scrollTop + heading.getBoundingClientRect().top - main.getBoundingClientRect().top - 16 })
+              heading.focus({ preventScroll: true })
+            }
           }}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
         </div>
       )}
@@ -423,17 +426,17 @@ function Finding({ finding: f }: { finding: ItemFinding }) {
   const promptId = useId()
   return (
     <li className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
-      <Icon name="warning" className="finding-icon" />
       <div className="finding-body">
         <div className="finding-head">
           <div className="finding-meta">
+            <Icon name="warning" className="finding-icon" />
             <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
             {f.code && <Code>{f.code}</Code>}
             <span className="muted">{f.source}</span>
           </div>
           <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
         </div>
-        <p className="finding-message">{f.message}</p>
+        <FindingMessage message={f.message} />
         {f.path ? (
           <p className="finding-source muted">
             <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
@@ -453,6 +456,22 @@ function Finding({ finding: f }: { finding: ItemFinding }) {
         </details>
       </div>
     </li>
+  )
+}
+
+function FindingMessage({ message }: { message: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const messageId = useId()
+  const collapsible = message.length > 240
+  return (
+    <div className="finding-message-wrap">
+      <p id={messageId} className={`finding-message${collapsible && !expanded ? ' is-collapsed' : ''}`}>{message}</p>
+      {collapsible && (
+        <button type="button" className="finding-expand" aria-expanded={expanded} aria-controls={messageId} onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Show less' : 'Show full message'}
+        </button>
+      )}
+    </div>
   )
 }
 
