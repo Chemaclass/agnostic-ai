@@ -9,7 +9,15 @@ group = "Reference"
 
 # Troubleshooting
 
-Find your symptom below, apply the fix, and rerun the failed command. Run commands from the directory that holds `agnostic-ai.yaml`.
+Start with `doctor` from the directory that holds `agnostic-ai.yaml`:
+
+```bash
+agnostic-ai doctor
+```
+
+Read its findings and follow the final **Next step**. Doctor is read-only by default. Use [`doctor --fix`](@/docs/cli-reference/check.md#doctor) only when you choose to apply its repairs, then rerun `doctor`.
+
+Use the symptoms below when a finding needs more detail or the command cannot start.
 
 | Symptom | Next step |
 |---|---|
@@ -31,17 +39,9 @@ Find your symptom below, apply the fix, and rerun the failed command. Run comman
 
 ## Inspect the project
 
-```bash
-agnostic-ai status
-agnostic-ai validate
-agnostic-ai doctor
-```
+After `doctor`, use the command its finding names. [`validate`](@/docs/cli-reference/check.md#validate) checks spec formats, [`lint`](@/docs/cli-reference/check.md#lint) checks spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) checks generated files. For a project summary, use [`status`](@/docs/cli-reference/check.md#status).
 
-- `status` summarizes the project and reports out-of-date files. It always exits zero.
-- `validate` checks your specs.
-- `doctor` finds configuration and generated-file problems. It can exit non-zero.
-
-See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes. To trace a generated file to its source, use [why](@/docs/trace.md). To see which tools receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, run `agnostic-ai explain` with it, such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`.
+To trace a generated file to its source, use [why](@/docs/trace.md). To see which tools receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, use [`explain`](@/docs/cli-reference/inspect.md#explain), such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`. Each command's reference covers its flags and exit behavior.
 
 <details>
 <summary>Fix directory-specific rule problems</summary>

@@ -75,9 +75,11 @@ In the web interface, the project Caveman switch previews the files before apply
 When something looks wrong:
 
 ```bash
+agnostic-ai doctor         # diagnose problems and suggest a next step
 agnostic-ai why AGENTS.md  # trace an output to its source
-agnostic-ai doctor --fix   # repair generated files
 ```
+
+Follow doctor's suggested next step. Choose `agnostic-ai doctor --fix` when you want it to repair generated files. See [troubleshooting](https://agnostic-ai.org/docs/troubleshooting/).
 
 `agnostic-ai explain <spec> --layers` shows which built-in, pack, project, and personal sources replace or extend a spec.
 

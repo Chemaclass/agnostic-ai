@@ -6,11 +6,9 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- The project web interface previews and applies Caveman changes across configured tools, with undo for the last change in the running session (#2454).
-- `serve --open` opens the bundled web interface; `--api-only` serves only the JSON API (#2453).
-- Inspect permissions with `view authority` and shared setup with `view overview` (#2319).
-- `serve` provides a local web interface to inspect configuration and change built-ins and boolean settings (#2319).
-- `mcp tools` lists server tools and saves them for the overview (#2319).
+- Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
+- `serve --open` opens settings editing and Caveman preview, apply, and session undo; `--api-only` serves JSON (#2319, #2453, #2454).
+- `view authority` shows permissions; `view overview` shows shared setup and saved `mcp tools` results (#2319).
 - Global import keeps MCP specs whose native server names differ only by case (#2434).
 - Project checks skip built-in hooks that do not target the selected tools (#2438).
 

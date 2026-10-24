@@ -406,4 +406,7 @@
 # #2454 measured 23146656 on Go 1.27.3, up 172032
 # from main 27c2c202 (22974624): guarded project Caveman changes,
 # same-session undo, and web controls. Linux amd64 release flags; no headroom.
-23146656
+# #2460 measured 23154848 on Go 1.27.3, up 8192
+# from main 953125fb (23146656): native command groups and task help.
+# Linux amd64 release flags; no added headroom or dependencies.
+23154848

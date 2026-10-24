@@ -10,11 +10,11 @@ group = "Reference"
 
 # Check specs and output
 
-Use `validate` for invalid spec formats, `lint` for spec quality, and `sync --check` for generated files that differ from the sources. `doctor` combines project checks with local setup checks. `verify` runs your own tasks to check the AI tool's behavior.
+Start troubleshooting with [`doctor`](#doctor). It combines project checks with local setup checks and suggests a next step. Review the findings, then follow that step. Doctor is read-only by default; `doctor --fix` opts into repairs.
+
+Use [`validate`](#validate) for invalid spec formats, [`lint`](#lint) for spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) for generated files that differ from the sources. [`status`](#status) summarizes the project. [`verify`](#verify) runs your own tasks to check the AI tool's behavior.
 
 `validate` and `lint` skip built-in hooks whose target selectors match no selected tool. User-authored hooks still receive the usual checks.
-
-For coding agents and scripts, inspect errors before choosing a repair. `doctor` is read-only by default; `doctor --fix` changes files.
 
 ## validate
 
@@ -75,6 +75,12 @@ The command in [`verify.command`](@/docs/configuration.md#verify) runs once per 
 | `harness_fingerprint` | SHA-256 checksum of the tool's specs and generated files. It identifies the setup. |
 
 ## doctor
+
+```bash
+agnostic-ai doctor
+```
+
+Read the findings and the final **Next step** before running a repair or a focused check. See the [troubleshooting guide](@/docs/troubleshooting.md) for symptom-specific paths.
 
 Report four kinds of file:
 
