@@ -1,14 +1,16 @@
 # Issues and fix PRs
 
-Read this when filing audit findings or running `--fix`. All paths are repository-root relative.
+Read this before any GitHub write or `--fix` work. All paths are repository-root relative. `--no-file-issues` suppresses GitHub writes and fixers even when combined with `--fix`.
+
+Default mode files confirmed issues and opens one maintenance PR when audit-owned files changed. Only `--fix` authorizes implementation or cosmetic documentation fixes. Finish coverage finalization before editing maintenance files or launching fixers.
 
 ## File actionable evidence
 
 Refresh matching issue state and relevant comments before filing. Open findings are `still-open #N`; resolved gaps that return are regressions. Never file an unconfirmed finding.
 
-Before issue creation, save the stable finding identity and intended issue title in the run artifact. Use an existing stable signal ID when available; otherwise choose a durable identity from the target, native surface and vendor change. Include `Audit finding: <identity>` in the issue body and retain it across resumed research.
+Before issue creation, save the stable finding identity and intended issue title in a separate publication record in the run directory. Keep issue URLs and publication state there; never edit an evidence artifact whose hash the manifest has recorded. Use an existing stable signal ID when available; otherwise choose a durable identity from the target, native surface and vendor change. Include `Audit finding: <identity>` in the issue body and retain it across resumed research.
 
-An interrupted or timed-out issue creation has an ambiguous outcome. Do not replay the write. Refresh matching remote issues and comments using that stable identity and inspect the complete matching body. A unique matching issue confirms publication; save its URL in the run artifact. No match, several matches, an incomplete response or unavailable remote state leaves publication uncertain. Stop that write and report the identity and uncertainty for reconciliation. Research resume never retries external writes or promises exactly-once issue creation.
+An interrupted or timed-out issue creation has an ambiguous outcome. Do not replay the write. Refresh matching remote issues and comments using that stable identity and inspect the complete matching body. A unique matching issue confirms publication; save its URL in the publication record. No match, several matches, an incomplete response or unavailable remote state leaves publication uncertain. Stop that write and report the identity and uncertainty for reconciliation. Research resume never retries external writes or promises exactly-once issue creation.
 
 Create the `target-audit` label only if absent:
 
@@ -41,12 +43,15 @@ Design issues need the capability reference's evidence, representation test, ind
 
 ## Settle fix buckets
 
+In every mode except `--no-file-issues`, give one maintenance PR ownership of changed `sources.lock`, source-registry corrections, `signals.tsv`, and triage or surface replay cases. Include it even when all findings are already tracked or the lock did not change. Under `--fix`, combine this work with the cosmetic docs bucket when one exists. Never assign the same file to two buckets.
+
+The implementation buckets below apply only with `--fix`:
+
 | Bucket | PR scope |
 |---|---|
 | Breaking | One PR per target and breaking finding |
 | Missing-feature and degraded | One additive batch |
-| Cosmetic and audit-source corrections | One docs PR, including `scripts/target-audit/sources.lock` and `signals.tsv` |
-| No new findings (clean, or all `still-open`) | One `chore(target-audit)` PR with the lock update alone |
+| Cosmetic | One docs PR, also owning any audit-maintenance edits |
 
 Settle every bucket before spawning. Give each `adapter-fixer` the issue links and verbatim finding blocks, including vendor quote, repository line, and reproduction. If newer research changes the issue's conclusion, include the URL, extraction method, and command that establishes it. Do not ask fixers to trust a summary or infer one vendor's schema from another.
 

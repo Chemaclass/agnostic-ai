@@ -5,10 +5,11 @@ globs: ["internal/adapters/**/*.go", "internal/cli/native_capabilities.go", "doc
 alwaysApply: false
 ---
 
-A change to what a target writes moves these together in one PR:
+When supported kinds change, update `caps.Supports`, `targetsSupportingKind` in `internal/cli/native_capabilities.go`, and the target's row in `docs/site/data/capabilities.toml` together. Add the kind to its `kitSinkBundle`, parity test, and integration fixture.
 
-- `caps.Supports` in the adapter, `targetsSupportingKind` in `internal/cli/native_capabilities.go`, and the target's row in `docs/site/data/capabilities.toml`.
-- The adapter's kit-sink golden file (saved expected output): `UPDATE_GOLDEN=1 go test ./internal/adapters/<target>/ -run TestKitSink_GoldenSnapshot`, after adding the kind to its `kitSinkBundle` and parity test.
-- Integration golden files: `UPDATE_GOLDEN=1 go test ./tests/integration/ -run 'TestGolden|TestSiteDocs_Compare|TestSiteDocs_LandingExplorer'`. The compare and landing data come from fixtures under `tests/integration/fixtures/`; give a new kind a spec there so the page shows it.
+When emitted bytes change, refresh the affected saved output:
 
-Review each regenerated diff: it should touch only the changed target.
+- Adapter kit-sink golden file: `UPDATE_GOLDEN=1 go test ./internal/adapters/<target>/ -run TestKitSink_GoldenSnapshot`.
+- Integration golden files: `UPDATE_GOLDEN=1 go test ./tests/integration/ -run 'TestGolden|TestSiteDocs_Compare|TestSiteDocs_LandingExplorer'`. Compare and landing data come from `tests/integration/fixtures/`.
+
+Review every regenerated diff. Each change must follow from the affected target or shared behavior; discard unrelated fixture churn.

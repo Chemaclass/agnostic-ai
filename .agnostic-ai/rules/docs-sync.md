@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: User-visible changes must update docs, schema, and CHANGELOG in the same PR.
+description: Keep documentation and CHANGELOG aligned with user-visible changes.
 globs: "**/*"
 alwaysApply: true
 ---

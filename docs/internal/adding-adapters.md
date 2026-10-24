@@ -64,7 +64,7 @@ var registry = map[string]Adapter{
 }
 ```
 
-Add to default targets in `internal/config/config.go` (`DefaultTargets()`) and to the complete target list in `internal/cli/init_interactive.go` (`allTargets`). These two lists are separate; keep them in sync.
+Add the target to the complete list in `internal/cli/init_interactive.go` (`allTargets`). Decide separately whether to include it in `internal/config/config.go` (`DefaultTargets()`): targets whose native restrictions need an explicit policy stay opt-in. Keep registration complete without expanding defaults automatically.
 
 - Add native per-kind defaults to `emit.TargetVarPaths` in `internal/adapters/internal/emit/var_tables.go`, plus `dirRelativeVars` when a `dir` override moves them. Use an empty entry when the target has no dedicated paths. `TestTargetVarPaths_CoverEveryRegisteredTarget` and the emission parity tests check this table.
 - If settings merge `x-<target>` fields, register the target in `settingsPassThroughTargets` in `internal/cli/unread_overlays.go`. `TestSettingsPassThroughTargets_MatchAdapters` checks this registration.

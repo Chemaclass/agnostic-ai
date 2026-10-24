@@ -164,8 +164,8 @@ aliases, GUIDs, audit markers, report digests, counts, or capability markers.
 
 Before committing:
 
-1. Check every shipped claim against the exact dated changelog, release tag,
-   and implementation. Cover every substantial feature and migration, with
+1. Check every shipped claim against the exact dated changelog and prepared
+   release tree. For an already published release, use its tag. Cover every substantial feature and migration, with
    syntax a reader can use. Do not include unreleased work.
 2. Open every upstream source and confirm that the article makes no broader
    claim than the source.
@@ -173,7 +173,8 @@ Before committing:
    and article narrative.
 4. Confirm `extra.targets` names every substantively covered target and no
    target mentioned only as checked or clean.
-5. Run `make site-build site-test`.
+5. Use the `make site-build site-test` result for the completed release tree
+   from the parent workflow. If article inputs changed since that check, rerun it.
 6. Check that the new canonical article, `.html` alias, archive entry, and RSS
    GUID exist in the built output.
 7. Stage the briefing with the version and changelog. Confirm the release tag

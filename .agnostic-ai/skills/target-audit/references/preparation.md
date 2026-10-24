@@ -2,6 +2,8 @@
 
 Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state, and open PRs before delegating.
 
+Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit that records an audit's source corrections in `.agnostic-ai/skills/target-audit/references/sources.md`. A commit that only trims or restructures that file, such as #1109's, is not an audit and does not move the window. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
+
 Select the built-in baseline using `.agnostic-ai/skills/target-audit/references/builtins.md`, then start a unique audit run using `scripts/target-audit/manifest.md`. Freeze the requested target-kind-URL set before fetching and use that run path below wherever `<date>-run` appears.
 
 Initialize the run metrics before fetching, using `.agnostic-ai/skills/target-audit/references/metrics.md`. Record observed stages, routing decisions, usage, and outcomes there, including a no-change early return.
@@ -18,11 +20,20 @@ Read `scripts/target-audit/signals.tsv` for the signal history, and the publishe
 
 Read the cross-target kind notes in `docs/site/content/docs/target-behavior.md` once and pass relevant claims to each batch. The fact script prints only the lines that name a target, so a shared paragraph that lists no targets is missing from it; those can stay stale after a target page is fixed.
 
-Take the newest date from the latest completed local report, legacy `extra.audit_marker`, audit issue creation, or commit that records an audit's source corrections in `.agnostic-ai/skills/target-audit/references/sources.md`. A commit that only trims or restructures that file, such as #1109's, is not an audit and does not move the window. Widen it slightly for changelog overlap and record the chosen window. Scratch reproductions and incomplete runs are not completed reports.
-
 Dedupe rules:
 
 - Already open: record `still-open #N`, do not file again.
 - Already closed: inspect the resolution and current code. Report a regression only when a resolved gap has returned; closure alone does not prove a fix shipped.
 - Prior reports and source notes are leads, never substitutes for fresh vendor evidence.
 
+## Batch handoff
+
+Use returned agent IDs for messages. Give each read-only batch only:
+
+- Its targets, audited commit, window, repository and run paths.
+- Its fetched rows, deltas, triage leads, and review-reason rows.
+- Shared issue-index path and relevant signal IDs and published source paths.
+- `builtins.txt`, baseline, affected repository paths, and `builtin-deep:` membership.
+- Read-only ownership and a validation budget.
+
+Do not paste the skill, full issue history, or unrelated vendor material into prompts. Auditors follow `.agnostic-ai/agents/target-auditor.md`.

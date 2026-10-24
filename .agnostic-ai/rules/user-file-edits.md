@@ -1,7 +1,7 @@
 ---
 name: user-file-edits
 description: Safety rules for code that edits files in the user's home under sync --global.
-globs: "internal/cli/{sync_global,global_,settings_json_edit,settings_toml_edit,import_global}*.go"
+globs: "internal/cli/{sync_global,global_,settings_,grok_settings_,import_global}*.go"
 alwaysApply: false
 ---
 

@@ -1,34 +1,16 @@
 ---
 name: pull-request
-description: What a review bot should check on an agnostic-ai diff.
+description: Check a diff for broken behavior and project contracts that compilation cannot prove.
 ---
 
-Review the diff against the rules this project cannot check by compiling. The rules under `.agnostic-ai/rules/` say how to write the code; this page
-says what to catch in a change.
+Review changed behavior against its callers, tests, and `.agnostic-ai/rules/`. Report verified defects, not speculation or style preferences.
 
-- **Adapter independence.** No import between `internal/adapters/<a>/` and
-  `internal/adapters/<b>/`. Shared behaviour belongs in
-  `internal/adapters/internal/`. A cross-adapter import is the one change that
-  makes every other target's output depend on an unrelated vendor.
-- **Emitted output depends only on the specs.** A change to an adapter that
-  alters emitted bytes must come with regenerated golden fixtures under
-  `tests/integration/fixtures/golden/` and `internal/adapters/*/testdata/`. A
-  diff that changes an emitter and touches no fixture is either unused code or an
-  untested behaviour change.
-- **Capability claims match the adapter.** A target listed as supporting a spec
-  kind must actually write a file for it. Declaring support without an emitter
-  does nothing and says nothing, which is the failure this tool exists to prevent.
-- **A new behaviour has a test that fails without it.** A test that only passes
-  afterwards is not enough.
-- **Errors carry the path or operation.** `fmt.Errorf("read %s: %w", path, err)`,
-  not a bare `err`.
-- **A user-visible change gets a user-visible record.** Anything a user can observe
-  updates `docs/site/content/docs/` or `README.md`, and lands under
-  `## [Unreleased]` in `CHANGELOG.md`.
-- **Config struct changes regenerate the schema.** Editing
-  `internal/config/config.go` without a matching
-  `docs/schemas/config.schema.json` fails CI.
+- Target adapter packages must not import one another. Shared emission belongs in `internal/adapters/internal/`.
+- Changed emitted bytes need matching golden coverage in `tests/integration/fixtures/golden/` and the affected adapter's `testdata/`. Byte-preserving refactors need no golden diff.
+- Capability claims must match actual emission, CLI parity, and site capability data.
+- New behavior needs a test that fails without the change.
+- Returned errors retain the failing path or operation and preserve wrapped causes.
+- User-visible changes update the relevant docs or README and `CHANGELOG.md` under Unreleased, following `docs/internal/contributing.md#documentation-checklist`.
+- Config field or schema-tag changes regenerate `docs/schemas/config.schema.json`; include any resulting diff.
 
-Report each finding as `path:line  problem -> suggested fix`. Lead with the
-highest-impact one. Say nothing about formatting; `gofmt` and the linter already
-gate it.
+Report each finding as `path:line problem -> suggested fix`, highest impact first. Name validation limits. Formatting and static-analysis results belong to their existing checks.

@@ -9,11 +9,11 @@ x-claude:
 
 # GitHub issues watcher
 
-Work open issues that are unassigned or assigned only to the current user through `.agnostic-ai/skills/agnostic-ai-gh-issue/SKILL.md`, one at a time. That skill owns implementation, validation, review, and authorized merging.
+Work open issues that are unassigned or assigned only to the current user through `.agnostic-ai/skills/agnostic-ai-gh-issue/SKILL.md`, one at a time. That skill owns implementation, validation, review, and authorized merging. Carry the user's scope into each issue, including any restriction on pushing or merging.
 
 ## Discover
 
-- `--limit N`: process at most N issues (default: all).
+- `--limit N`: process at most N issues (default: all); require a positive integer.
 - `--label foo`: require this label.
 - `--dry-run`: list the queue only, with no assignment or repository changes.
 

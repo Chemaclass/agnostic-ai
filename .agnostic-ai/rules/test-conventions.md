@@ -5,7 +5,7 @@ globs: "**/*_test.go"
 alwaysApply: false
 ---
 
-- Tests that write files use `t.TempDir()` and `testutil.Chdir(t, dir)` so they leave no traces and parallel runs do not collide.
+- Use `t.TempDir()` for files. Use `testutil.Chdir(t, dir)` only when the test needs a working directory; it changes process-wide state, so that test must not use `t.Parallel()`.
 - Test names describe behavior. `TestEmit_WritesRulesFile`, not `TestEmit1`.
 - Use table-driven tests only when it pays off (three or more cases with the same shape). A one-off test stays a plain test function.
 - Reuse helpers from `internal/testutil`. Do not add an external mocking library.

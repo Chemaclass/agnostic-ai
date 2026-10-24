@@ -30,7 +30,7 @@ The prompt supplies your targets, audited commit, date window, run directory, sh
 
 Retain URLs, fetch dates, exact excerpts, and reproduction commands. Prior runs' pages, reports, and lock rows are research leads, not current evidence. The lock controls reading depth, never freshness. Report research limits explicitly; an inaccessible source is not a clean check.
 
-Read-only means no repository or GitHub changes. Temporary reproduction projects are allowed. Reuse a current binary supplied by the orchestrator; request one build if needed. Do not run broad tests or builds during research.
+Read-only means no source, generated configuration, or GitHub changes. Write evidence only to your assigned run-directory artifacts; temporary reproduction projects are allowed. Reuse a current binary supplied by the orchestrator; request one build if needed. Do not run broad tests or builds during research.
 
 ## Method, per target
 
@@ -85,3 +85,12 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 11. Compare another target only after opening that target's own vendor
    evidence and checking its semantics independently. Similar names are
    not equivalent behavior. Omit unverified targets from the comparison.
+
+## Handoff
+
+Save the evidence-contract report at the caller's assigned run-directory path.
+Account for every assigned target and source page, with its evidence artifact,
+review outcome, or research limit, so the coordinator can record coverage.
+Return the artifact paths and a short summary. The coordinator owns manifest
+writes; finish artifacts before handoff and do not change them after their
+hashes are recorded. Report later corrections separately.

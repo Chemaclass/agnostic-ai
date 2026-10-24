@@ -13,41 +13,31 @@ Check whether tools still read what agnostic-ai emits and identify released proj
 
 - No arguments: all registered targets, one issue per confirmed finding.
 - Target names: only those targets.
-- `--no-file-issues`: report only, no GitHub writes. Leave validated lock and source corrections in the working tree.
+- `--no-file-issues`: no GitHub writes or fixers, including when combined with `--fix`. Leave validated audit-maintenance edits in the working tree.
 - `--fix`: file issues and open fix PRs. Never merge or enable auto-merge.
 - `--compare-models <model>`: bounded challenge of breaking findings, spec candidates, and conflicting evidence. Continue if unavailable.
 
-Publish reports and issues, plus implementation PRs under `--fix`. Never create or edit site articles or publication PRs; legacy articles are immutable dedupe history. Generic schema changes need a separate implementation decision.
+Default delivery includes confirmed issues and a PR for changed audit-maintenance files. Implementation PRs require `--fix`. Never create or edit site articles or their publication PRs; legacy articles are immutable dedupe history. Generic schema changes need a separate implementation decision.
 
 All paths are relative to the repository root, including from nested generated skills. Edit canonical sources, never generated native copies.
 
 ## 1. Prepare and route
 
-Read `.agnostic-ai/skills/target-audit/references/preparation.md` for the coordinator's setup. It owns baseline selection, fresh fetch, explicit resume, issue dedupe, signals, and review reasons. Use `scripts/target-audit/manifest.md` for command syntax and `.agnostic-ai/skills/target-audit/references/metrics.md` to record observed intervals and routing. Initialize metrics before fetching.
+Follow `.agnostic-ai/skills/target-audit/references/preparation.md` for the window, baseline, manifest, metrics, fresh fetch, explicit resume, issue dedupe, and routing. Command syntax belongs to `scripts/target-audit/manifest.md`.
 
-Freeze inputs before fetching. Keep repository inputs, source inventory, and lock unchanged until finalization. Parallel implementation belongs in separate worktrees. Reused research needs explicit manifest validation, not matching dates or hashes alone.
+Freeze repository inputs, source inventory, and lock until finalization. Preserve validated reused assignments; remove them from pending work. Every requested target needs exactly one assignment and every requested source its own disposition. Reuse never implies Clean.
 
-Run `scripts/target-facts.sh --changed <run>/docfetch.tsv 5 --builtins-since <rev>` and save review reasons. Preserve reused assignments and remove them from pending batches and sweeps. Every requested target needs exactly one assignment and every requested source needs its own disposition.
+When no pending target needs deep review, record justified fast paths and skip triage and auditors. Reused findings, signals, or uncertain publication still require synthesis and delivery. Only a pure no-change run can skip issue indexing and signals before reporting and finalizing.
 
-If no pending target needs deep review, record justified fast paths and skip triage and auditors. Reused findings, signals, or uncertain publication still need synthesis, relevant issue history, and delivery. Only a run with none of those can skip issue indexing and signals, write its no-change report, and finalize. Reuse never implies Clean.
-
-Otherwise read `.agnostic-ai/skills/target-audit/references/triage.md` before dispatch. Use offline triage when all pending deep targets require built-in review; Jev cannot exempt those targets. Deep review remains the default.
+Otherwise follow `.agnostic-ai/skills/target-audit/references/triage.md` before dispatch. Deep review remains the default. All-built-in deep work uses offline triage; Jev cannot exempt it.
 
 ## 2. Investigate bounded batches
 
 Read `.agnostic-ai/skills/target-audit/references/evidence-and-output.md` before research or delegation. The coordinator owns shared inputs, routing, coverage, synthesis, publication, finalization, and metrics. Auditors own per-target investigation and evidence artifacts.
 
-Numbered routing lines are deep batches, at most five. Queue batches to fit available worker slots. Record the `sweep` targets as eligible unchanged-vendor fast paths without an agent. For fewer than six deep targets, investigate inline using `.agnostic-ai/agents/target-auditor.md`.
+Numbered routing lines are deep batches, at most five. Queue `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order to fit worker capacity. Use minimal context and the batch handoff in the preparation reference. Record eligible unchanged `sweep` targets without an agent.
 
-Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order, with minimal context. Use returned IDs for messages. Give each batch only:
-
-- Its targets, audited commit, window, repository and run paths.
-- Its fetched rows, deltas, triage leads, and review-reason rows.
-- Shared issue-index path and relevant signal IDs and published source paths.
-- `builtins.txt`, baseline, affected repository paths, and `builtin-deep:` membership.
-- Read-only ownership and a validation budget.
-
-Do not paste the skill, full issue history, or unrelated vendor material into prompts. Auditors follow their role instructions. Build one current binary for compatible isolated reproductions; no broad tests during research.
+For fewer than six deep targets, or when auditor delegation is unavailable, investigate inline using `.agnostic-ai/agents/target-auditor.md`. Coordinator-authored behavior claims still need a separate checker under the behavior contract; without one, keep them unconfirmed. Reuse one current binary for isolated reproductions; no broad tests during research.
 
 Finish artifacts before recording hashes. Complete assignments and record page dispositions separately through the manifest. A research limit accounts for coverage but retains the prior source hash. Pending built-in checks block Clean even when vendor text is unchanged.
 
@@ -65,11 +55,11 @@ For capability signals or a requested challenger pass, read `.agnostic-ai/skills
 
 ## 4. Report, finalize, and deliver
 
-Read `.agnostic-ai/skills/target-audit/references/report-and-finalize.md` for report sections, metrics, built-in baseline proof, lock finalization, source corrections, and signal publication. Finish the audit interval after synthesis and the report, before implementation. Unknown measurements stay unknown.
+Follow `.agnostic-ai/skills/target-audit/references/report-and-finalize.md` for the report, metrics, built-in baseline proof, validated lock update, and maintenance delivery. Finish the audit interval after synthesis and the report, before implementation. Unknown measurements stay unknown.
 
-Validate complete coverage before updating the lock. Keep source corrections and signal edits until after finalization. Unless `--no-file-issues` is set, commit a changed lock even when the audit is clean or every finding is already tracked.
+Finalize complete coverage before editing source corrections, signal history, or replay cases. Keep recorded evidence artifacts immutable; save later publication state separately.
 
-Before GitHub writes or `--fix` work, read `.agnostic-ai/skills/target-audit/references/issues-and-fixes.md`. Refresh dedupe matches, file confirmed findings with durable evidence, settle all buckets, then launch isolated `adapter-fixer` agents. Never widen an active bucket or implement a spec candidate without a separate decision. Stop at reviewable PRs.
+Before GitHub writes or `--fix` work, read `.agnostic-ai/skills/target-audit/references/issues-and-fixes.md`. Refresh dedupe matches, file confirmed findings with durable evidence, settle all buckets, then launch isolated `adapter-fixer` agents only under `--fix`. Never widen an active bucket or implement a spec candidate without a separate decision. Stop at reviewable PRs.
 
 Finish with top findings, recommended next actions, report and issue/PR links, and specific validation limits.
 

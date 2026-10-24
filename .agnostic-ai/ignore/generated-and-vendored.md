@@ -17,9 +17,8 @@ description: Build output, vendored dependencies, and local state an agent shoul
 /docs/playground/agnostic-ai.wasm
 /docs/playground/wasm_exec.js
 
-# Dependency trees, lockfiles, and editor-plugin build output.
+# Dependency trees and editor-plugin build output. Keep lockfiles readable.
 node_modules/
-package-lock.json
 /editors/vscode/out/
 /editors/jetbrains/build/
 /editors/jetbrains/.gradle/

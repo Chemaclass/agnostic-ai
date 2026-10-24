@@ -27,8 +27,9 @@ Builds the Zola site and WebAssembly bundle, assembles the same files that GitHu
 
 ## After edits
 
-- `index.html`, `playground.js`, or `style.css` changes: restart the server so `_site/playground/` receives the update, then refresh the browser.
-- Go source changes: rebuild with `make playground-build` first, then refresh.
+For frontend or Go source changes, stop the server started for this task and rerun `make playground-serve`, then refresh the browser. This rebuilds and copies the bundle into `_site/playground/`. `make playground-build` alone updates `docs/playground/`, leaving the served copy stale.
+
+Exercise the changed spec and target in the browser and inspect its generated output or error. Record the scenario and result. Select any additional checks from repository-root `docs/internal/contributing.md`, section "Choose checks for your change".
 
 ## Clean
 

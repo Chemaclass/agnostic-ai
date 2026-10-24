@@ -10,19 +10,9 @@ version: 1
 requires: "0.87.0"
 builtins: [handoff, memory]
 
-# Source directories default to `.agnostic-ai/{agents,skills,rules,hooks,
-# mcps,commands}` relative to this file, so the `sources:` block is omitted.
-# Set it only to point a kind somewhere else.
-
-# AI CLIs to emit configs for. Every adapter the tool ships is enabled,
-# so this repo is the end-to-end fixture for each emitter. Comment any
-# out to skip.
-#
-# codex, amp, warp, zed, cline, junie, kiro, crush, and trae all read the
-# root `AGENTS.md`. Sync writes it once: the byte-identical pointer body
-# (plus the shared inline rules block) deduplicates across them, so they
-# coexist with no collision. Only divergent content at the same path
-# errors, which an `outputs.<target>.file` override would resolve.
+# Use default source directories under .agnostic-ai/.
+# Dogfood the registered targets; Grok needs an explicit policy below.
+# Targets sharing an output path must emit identical content there.
 targets:
   - codebuddy
   - claude
@@ -39,9 +29,6 @@ targets:
   - continue
   - zed
   - opencode
-  # antigravity: Google Antigravity IDE (.agents/rules/*.md, .agents/skills/,
-  # .agents/mcp_config.json + .agents/AGENTS.md entry-point). Hooks emit to
-  # .agents/hooks.json. Commands have no confirmed native format.
   - antigravity
   - junie
   - kiro
@@ -60,20 +47,10 @@ targets:
   - augment
   - amp
   - warp
-  # ellipsis: Ellipsis code review (.ellipsis/code-review.yaml) and the session
-  # environment (.ellipsis/environments/<name>.yaml). Both need the reviewer and
-  # the environment named in .agnostic-ai/settings/ellipsis.yaml (x-ellipsis);
-  # without them sync writes no file and says what is missing. The files stay
-  # ignored here, so Ellipsis never reads this fixture.
+  # Ignored dogfood fixture; names live in .agnostic-ai/settings/ellipsis.yaml.
   - ellipsis
 
-# Per-target output overrides. Defaults work for everything below;
-# the aider conf-file is opt-in and demonstrates the merge feature.
-#
-# The remaining keys close the "soft gaps" sync reports as `note:` lines.
-# Each kind below is declared-supported by the adapter but only emits
-# behind one of these output keys; without it the content stays
-# source-dir only.
+# Enable optional outputs so the repository exercises their emitters.
 outputs:
   aider:
     file: CONVENTIONS.md
