@@ -412,4 +412,7 @@
 # Tool logos, finding fix prompts, native settings layout, and bundled
 # license texts add 81920 bytes over main 8433ffb0 on Go 1.27.3.
 # Linux amd64 release flags; no added headroom or dependencies.
-23236768
+# Compact source lists, responsive support groups, field disclosures,
+# and header cleanup add 4096 bytes over main 7b133db3 on Go 1.27.3.
+# Linux amd64 release flags; no added headroom or dependencies.
+23240864

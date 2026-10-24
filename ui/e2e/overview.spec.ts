@@ -5,6 +5,21 @@ import { MOCK, openApp, saveScreenshot } from './helpers'
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
+  test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
+    const data = structuredClone(fixture)
+    data.snapshot.project.name = 'agnostic-ai'
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context')
+    await expect(page.locator('.support-table')).toBeVisible()
+    await expect(page.locator('.brand-name')).toHaveText('agnostic-ai')
+    await expect(page.locator('.project-name')).toHaveCount(0)
+    await expect(page.locator('.topbar-context')).toHaveCount(0)
+    data.snapshot.project.name = 'billing-service'
+    await page.reload()
+    await expect(page.locator('.project-name')).toHaveText('Project billing-service')
+    await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
+  })
+
   test('loads a logo for every registered target', async ({ page }) => {
     const data = structuredClone(fixture)
     const capabilities = readFileSync(new URL('../../docs/site/data/capabilities.toml', import.meta.url), 'utf8')
@@ -100,6 +115,46 @@ test.describe('overview', () => {
     await finding.getByText('Details', { exact: true }).click()
     await expect(finding.getByRole('textbox', { name: 'Fix prompt', exact: true })).toHaveValue(/The selected tool is unavailable[.]/)
     await expect(finding.getByText('Suggested fix', { exact: true })).toHaveCount(0)
+  })
+
+  test('keeps configured settings visible and reveals unset fields on demand', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=authority')
+    const unset = page.locator('.field-row', { hasText: 'Default permission mode' })
+    await expect(unset).not.toBeVisible()
+    await expect(page.locator('.field-row.is-set').first()).toBeVisible()
+    await page.locator('.unconfigured-fields > summary').click()
+    await expect(unset).toBeVisible()
+    await expect(unset).toContainText('Not set')
+  })
+
+  test('keeps controls before warning details and links to the findings', async ({ page }) => {
+    const data = structuredClone(fixture)
+    data.sections.find((section: { id: string }) => section.id === 'settings').findings = [{
+      source: 'lint', severity: 'warn', code: 'LINT011', message: 'The session context exceeds its budget.',
+    }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/?view=settings')
+    const review = page.getByRole('button', { name: 'Review 1 finding', exact: true })
+    await expect(review).toBeInViewport()
+    await expect(page.getByRole('heading', { name: /^Built-ins/, level: 2 })).toBeInViewport()
+    await review.click()
+    await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
+    await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeInViewport()
+  })
+
+  test('stacks mobile tool support groups without losing table labels', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/?view=tools')
+    const table = page.getByRole('table', { name: 'Coding tool support' })
+    await expect(table).toBeVisible()
+    await expect(table.getByRole('columnheader', { name: 'Supported on', exact: true })).toHaveCount(1)
+    const status = table.locator('tbody td').first()
+    await expect(status.locator('.support-status-label')).toBeVisible()
+    expect((await status.boundingBox())?.width).toBeGreaterThan(300)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   })
 
   test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {

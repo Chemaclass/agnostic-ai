@@ -322,6 +322,8 @@ Each finding has **Copy fix prompt**. Expand **Details** to read the suggested f
 
 Tool lists use logos. Hover over a logo for the tool's full name.
 
+Source files appear in compact lists with their paths and edit links. Settings shows configured fields first; expand **Unconfigured fields** for the rest. Empty lifecycle stages keep their tool logos and put their descriptions under **When this runs**. A findings summary links to the full warnings below the controls; errors stay above them.
+
 In a project, the Caveman switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Other built-ins, global built-ins, and boolean settings save their source files without syncing.
 
 Run `agnostic-ai sync` before the first Caveman preview. Existing drift, external adapters, paths outside the project, and linked skill folders require the CLI. A changed input or output blocks apply or undo and asks for a fresh preview. Failed writes restore files still owned by the operation; a recovery error names the files it kept and directs you to `agnostic-ai doctor`. Undo expires when the server stops. A browser reload keeps it available.

@@ -45,14 +45,30 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
 
 /** The section's items, kind by kind, with their findings. */
 export function SectionContents({ section }: { section: Section }) {
+  const errors = section.findings.filter((finding) => finding.severity === 'error').length
+  const warnings = section.findings.length - errors
+  const findingsId = `${section.id}-findings`
+  const findingCounts = [errors ? `${errors} error${errors === 1 ? '' : 's'}` : '', warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
+  const otherFindings = section.findings.length > 0 && (
+    <section className="block" aria-labelledby={findingsId}>
+      <h2 id={findingsId} tabIndex={-1}>Other findings</h2>
+      <Findings findings={section.findings} />
+    </section>
+  )
   return (
     <>
       {section.findings.length > 0 && (
-        <section className="block" aria-labelledby={`${section.id}-unplaced`}>
-          <h2 id={`${section.id}-unplaced`}>Other findings</h2>
-          <Findings findings={section.findings} />
-        </section>
+        <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
+          <Icon name="warning" />
+          <strong>{findingCounts}</strong>
+          <button type="button" className="button button-quiet" onClick={() => {
+            const heading = document.getElementById(findingsId)
+            heading?.scrollIntoView({ block: 'start' })
+            heading?.focus({ preventScroll: true })
+          }}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
+        </div>
       )}
+      {errors > 0 && otherFindings}
       {section.kinds.map((k) => {
         const items = section.items.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} />
@@ -67,6 +83,7 @@ export function SectionContents({ section }: { section: Section }) {
           </section>
         )
       })}
+      {errors === 0 && otherFindings}
     </>
   )
 }
@@ -74,32 +91,18 @@ export function SectionContents({ section }: { section: Section }) {
 /** Every field the section's settings can set, each with its value or "Not set", then the files that set them. */
 function SettingsFields({ title, fields, files }: { title: string; fields: SettingField[]; files: SectionItem[] }) {
   const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
+  const configured = fields.filter((field) => field.set.length > 0)
+  const unconfigured = fields.filter((field) => field.set.length === 0)
   return (
     <section className="block" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
-      <ul className="fields">
-        {fields.map((f) => (
-          <li key={f.key} className={`field-row${f.set.length ? ' is-set' : ''}`}>
-            <div className="field-head">
-              <strong>{f.label}</strong>
-              {f.key !== 'x-' && <code className="muted">{f.key}</code>}
-              <p className="muted">{f.description}</p>
-            </div>
-            {f.set.length === 0 ? (
-              <p className="muted field-unset">Not set</p>
-            ) : (
-              f.set.map((src) => (
-                <div key={src.spec} className="field-source">
-                  {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
-                  <p className="muted field-from">
-                    from <Code>{src.path}</Code>
-                  </p>
-                </div>
-              ))
-            )}
-          </li>
-        ))}
-      </ul>
+      {configured.length ? <FieldList fields={configured} /> : <p className="muted">No settings configured.</p>}
+      {unconfigured.length > 0 && (
+        <details className="unconfigured-fields">
+          <summary>Unconfigured fields ({unconfigured.length})</summary>
+          <FieldList fields={unconfigured} />
+        </details>
+      )}
       {files.length > 0 && (
         <>
           <h3 className="item-group-title">Files</h3>
@@ -107,6 +110,34 @@ function SettingsFields({ title, fields, files }: { title: string; fields: Setti
         </>
       )}
     </section>
+  )
+}
+
+function FieldList({ fields }: { fields: SettingField[] }) {
+  return (
+    <ul className="fields">
+      {fields.map((f) => (
+        <li key={f.key} className={`field-row${f.set.length ? ' is-set' : ''}`}>
+          <div className="field-head">
+            <strong>{f.label}</strong>
+            {f.key !== 'x-' && <code className="muted">{f.key}</code>}
+            <p className="muted">{f.description}</p>
+          </div>
+          {f.set.length === 0 ? (
+            <p className="muted field-unset">Not set</p>
+          ) : (
+            f.set.map((src) => (
+              <div key={src.spec} className="field-source">
+                {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
+                <p className="muted field-from">
+                  from <Code>{src.path}</Code>
+                </p>
+              </div>
+            ))
+          )}
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -123,8 +154,16 @@ function Lifecycle({ stages, hooks, count }: { stages: Stage[]; hooks: SectionIt
           return (
             <li key={st.id} className={`stage${here.length ? ' has-hooks' : ''}`}>
               <div className="stage-head">
-                <h3 className="stage-title">{st.label}</h3>
-                <p className="muted">{st.description}</p>
+                <div className="stage-label">
+                  <h3 className="stage-title">{st.label}</h3>
+                  {!here.length && <p className="muted stage-empty">No hook runs here.</p>}
+                </div>
+                {here.length ? <p className="muted stage-description">{st.description}</p> : (
+                  <details className="stage-description">
+                    <summary>When this runs</summary>
+                    <p className="muted">{st.description}</p>
+                  </details>
+                )}
                 {st.targets.length > 0 && (
                   <p className="stage-tools">
                     {st.targets.map((t) => (
@@ -133,7 +172,7 @@ function Lifecycle({ stages, hooks, count }: { stages: Stage[]; hooks: SectionIt
                   </p>
                 )}
               </div>
-              {here.length ? <ItemList items={here} /> : <p className="muted stage-empty">No hook runs here.</p>}
+              {here.length > 0 && <ItemList items={here} />}
             </li>
           )
         })}
@@ -168,22 +207,24 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
     <ul className="item-list">
       {items.map((item) => (
         <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
-          <div className="item-main">
-            <strong>{item.label}</strong>
-            {item.description && <span className="muted"> · {item.description}</span>}
-          </div>
-          <div className="item-meta">
-            {item.enabled !== undefined && item.name !== 'caveman' && (
-              <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
-            )}
-            {item.enabled === undefined && <Code>{item.path}</Code>}
-            {item.enabled === undefined && <Chip title="Layer the item comes from">{item.layer}</Chip>}
-            {item.scope && <Chip>{item.scope}</Chip>}
-            {item.openPath && (
-              <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
-                <Icon name="edit" />
-              </a>
-            )}
+          <div className="item-heading">
+            <div className="item-main">
+              <strong>{item.label}</strong>
+              {item.description && <span className="muted item-description">{item.description}</span>}
+            </div>
+            <div className="item-meta">
+              {item.enabled !== undefined && item.name !== 'caveman' && (
+                <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
+              )}
+              {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
+              {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
+              {item.scope && <Chip>{item.scope}</Chip>}
+              {item.openPath && (
+                <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
+                  <Icon name="edit" />
+                </a>
+              )}
+            </div>
           </div>
           {item.name === 'caveman' && item.enabled !== undefined && <CavemanChange on={item.enabled} fallback={<EditSwitch on={item.enabled} label="caveman built-in" save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />} />}
           {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
@@ -380,19 +421,20 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
     <section className="block" aria-labelledby="support-title">
       <h2 id="support-title">Coding tool support</h2>
       <div className="table-wrap">
-        <table className="table support-table">
-          <thead>
-            <tr>
-              <th scope="col">Kind</th>
-              <th scope="col">Supported on</th>
-              <th scope="col">Not supported on</th>
+        <table className="table support-table" role="table" aria-labelledby="support-title">
+          <thead role="rowgroup">
+            <tr role="row">
+              <th id="support-kind" scope="col" role="columnheader">Kind</th>
+              <th id="support-supported" scope="col" role="columnheader">Supported on</th>
+              <th id="support-unsupported" scope="col" role="columnheader">Not supported on</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {section.support.map((k) => (
-              <tr key={k.kind}>
-                <th scope="row">{k.label}</th>
-                <td>
+              <tr key={k.kind} role="row">
+                <th id={`${section.id}-${k.kind}-support`} scope="row" role="rowheader">{k.label}</th>
+                <td role="cell" headers={`${section.id}-${k.kind}-support support-supported`}>
+                  <span className="support-status-label" aria-hidden="true">Supported on</span>
                   {k.supported.length ? (
                     <span className="tool-list">
                       {k.supported.map((t) => (
@@ -403,7 +445,8 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
                     <span className="muted">No configured tool</span>
                   )}
                 </td>
-                <td>
+                <td role="cell" headers={`${section.id}-${k.kind}-support support-unsupported`}>
+                  <span className="support-status-label" aria-hidden="true">Not supported on</span>
                   {k.unsupported.length ? (
                     <span className="tool-list">
                       {k.unsupported.map((t) => (

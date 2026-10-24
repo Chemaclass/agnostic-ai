@@ -12,6 +12,8 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 
 Findings include a **Copy fix prompt** action. **Details** shows the suggested fix, explanation, and the exact prompt the button copies. Native settings group keys by tool. Target lists use logos with full names on hover.
 
+Source lists use aligned rows. Unconfigured fields stay in a disclosure, empty lifecycle stages show their descriptions on demand, and support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
+
 Values render by type: a list as chips, a boolean as a switch, anything
 else as text. The project Caveman switch previews, applies, and undoes changes across the configured targets. Other built-in and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens

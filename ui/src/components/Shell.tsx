@@ -19,6 +19,8 @@ const DEFAULT_SECTION_LABELS: Record<string, string> = {
   settings: 'Settings',
 }
 
+const PRODUCT_NAME = 'agnostic-ai'
+
 export function Header({
   overview,
   inspectorOpen,
@@ -34,6 +36,7 @@ export function Header({
 }) {
   const app = useApp()
   const snapshot = overview.loaded?.data.snapshot
+  const projectName = snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
 
   return (
     <header className="topbar">
@@ -41,26 +44,28 @@ export function Header({
         <span className="logo" aria-hidden="true">
           A
         </span>
-        <span className="brand-name">agnostic-ai</span>
+        <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
-      <div className="topbar-chips">
-        {snapshot?.project.name && (
-          <span className="chip chip-project" title={snapshot.project.root ? `Project root: ${snapshot.project.root}` : undefined}>
-            <span className="sr-only">Project </span>
-            {snapshot.project.name}
-          </span>
-        )}
-        {app.source.kind === 'static' && (
-          <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
-            Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
-          </span>
-        )}
-        {app.source.kind === 'mock' && (
-          <span className="chip chip-source" title="Handwritten data bundled with the client; not a live configuration scan">
-            Mock fixtures
-          </span>
-        )}
-      </div>
+      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
+        <div className="topbar-context">
+          {projectName && (
+            <span className="project-name" title={snapshot?.project.root ? `Project root: ${snapshot.project.root}` : undefined}>
+              <span className="sr-only">Project </span>
+              {projectName}
+            </span>
+          )}
+          {app.source.kind === 'static' && (
+            <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
+              Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
+            </span>
+          )}
+          {app.source.kind === 'mock' && (
+            <span className="chip chip-source" title="Handwritten data bundled with the client; not a live configuration scan">
+              Mock fixtures
+            </span>
+          )}
+        </div>
+      )}
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
       </button>
