@@ -111,7 +111,7 @@ createInterface({input:process.stdin}).on('line',line=>{
       const listed = await run(binary, ['mcp', 'tools', '--dir', project, '--timeout', '3s', '--json'], { cwd: temporary, env, timeout: 10_000 })
       expect(listed.stdout).toContain('workspace-tool')
     }
-    const args = ['serve', '--addr', '127.0.0.1:0', '--ui', join(uiRoot, 'dist'), ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--global'] : ['--dir', project])]
+    const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--global'] : ['--dir', project])]
     child = spawn(binary, args, { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const url = await serverURL(child)
     return { root, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, close }

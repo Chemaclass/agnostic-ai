@@ -38,6 +38,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node for the bundled client
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
       - name: Build release notes from CHANGELOG.md
         run: |
           scripts/release-notes.sh "${GITHUB_REF_NAME}" CHANGELOG.md "${GITHUB_REPOSITORY}" > NOTES.md
@@ -85,6 +92,12 @@ jobs:
           # the push when its secret is absent, so the release still succeeds.
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      - name: Verify the archived web interface
+        run: |
+          archive_dir="$(mktemp -d)"
+          tar -xzf dist/agnostic-ai_linux_amd64.tar.gz -C "$archive_dir" agnostic-ai
+          node scripts/ui-smoke.js "$archive_dir/agnostic-ai"
 
       - name: Attest build provenance
         id: attest

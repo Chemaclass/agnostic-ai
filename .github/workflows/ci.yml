@@ -550,6 +550,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check bundled client against sources
+        run: npm run bundle:check
+
       - name: Build local server
         working-directory: .
         run: go build -o agnostic-ai ./cmd/agnostic-ai

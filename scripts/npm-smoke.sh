@@ -57,7 +57,7 @@ host_package() {
 }
 
 main() {
-  local work version host dir tarballs=()
+  local work version host dir native_name tarballs=()
   work="$(mktemp -d)"
   if [[ -z "$work" || ! -d "$work" ]]; then
     note "could not create a work directory"
@@ -93,6 +93,12 @@ main() {
   node "$ROOT/scripts/npm-smoke-verify.js" installed "$work" "$version"
   note "resolved binary:"
   AGNOSTIC_AI_BINARY="" "$work/project/node_modules/.bin/$BINARY" --version
+  case "$host" in
+    agnostic-ai-win32-*) native_name="$BINARY.exe" ;;
+    *) native_name="$BINARY" ;;
+  esac
+  note "checking the installed web interface without Node.js on PATH"
+  node "$ROOT/scripts/ui-smoke.js" "$work/project/node_modules/$(host_package)/$native_name"
 
   rm -rf "$work"
   note "ok"

@@ -4,11 +4,22 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestServe_RejectsAPIOnlyWithClientFlags(t *testing.T) {
+	for _, flags := range [][]string{{"--api-only", "--open"}, {"--api-only", "--ui", "client"}} {
+		cmd := newServeCmd()
+		cmd.SetArgs(flags)
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--api-only cannot be combined") {
+			t.Errorf("%v: error = %v", flags, err)
+		}
+	}
+}
 
 func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 	silence(t)

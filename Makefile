@@ -1,4 +1,4 @@
-.PHONY: build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -10,7 +10,13 @@ GOLANGCI_LINT_VERSION := v2.14.0
 LEFTHOOK_VERSION := v1.10.10
 ZOLA_VERSION := 0.23.6
 
-build:
+ui-build:
+	cd ui && npm ci && npm run bundle
+
+ui-check:
+	go test ./ui -run TestBundleMatchesSources -count=1
+
+build: ui-check
 	go build -trimpath -ldflags="-s -w" -o $(BIN) $(PKG)
 
 test:
