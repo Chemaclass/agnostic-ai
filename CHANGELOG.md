@@ -68,7 +68,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
-- The global guide lists all user-hook targets, and the OpenCode guide explains current MCP timeouts.
+- The global guide lists all user-hook targets, and the OpenCode guide explains current MCP timeouts (#2444).
 
 - Landing examples show the selected source's output and label excerpts from shared files (#2408).
 - The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
