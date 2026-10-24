@@ -70,7 +70,7 @@ Commit `ui/embedded/` with changes to its inputs. The bundle records source and 
 project, with the checkout's absolute path replaced so no machine path is committed. Regenerate it after a contract change:
 
 ```sh
-go run ./cmd/agnostic-ai view overview --dir internal/authority/testdata/demo-project --json \
+go run ./cmd/agnostic-ai view --dir internal/authority/testdata/demo-project --json \
   | sed "s|$PWD/|/path/to/agnostic-ai/|g" > ui/src/fixtures/overview.mock.json
 ```
 

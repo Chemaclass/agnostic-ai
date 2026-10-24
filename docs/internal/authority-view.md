@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Architecture](architecture.md)
 
-The Authority view shows which actions a subject may take on a coding tool, on which targets, under what conditions, and why. `view authority` prints the versioned JSON document; `serve` hosts it. The client under [`ui/`](../../ui/README.md) renders the overview described below. It does not render the Authority view. The server normalizes rules, resolves precedence, records their sources, and analyzes proposed changes. The client handles rendering, selection, and motion.
+The Authority view shows which actions a subject may take on a coding tool, on which targets, under what conditions, and why. `serve` hosts the versioned JSON document at `/api/views/authority`. The client under [`ui/`](../../ui/README.md) renders the overview described below. It does not render the Authority view. The server normalizes rules, resolves precedence, records their sources, and analyzes proposed changes. The client handles rendering, selection, and motion.
 
 The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
 

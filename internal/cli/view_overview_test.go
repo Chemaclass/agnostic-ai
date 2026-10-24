@@ -11,20 +11,20 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
-func runViewOverview(t *testing.T, args ...string) string {
+func runViewCmd(t *testing.T, args ...string) string {
 	t.Helper()
-	cmd := newViewOverviewCmd()
+	cmd := newViewCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs(args)
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("view overview %v: %v", args, err)
+		t.Fatalf("view %v: %v", args, err)
 	}
 	return out.String()
 }
 
-func TestNewViewOverviewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
+func TestNewViewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 	dir := t.TempDir()
 	writeBareReadProject(t, dir)
 	before, err := os.Getwd()
@@ -32,7 +32,7 @@ func TestNewViewOverviewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out := runViewOverview(t, "--dir", dir, "--json")
+	out := runViewCmd(t, "--dir", dir, "--json")
 
 	var view overview.View
 	if err := json.Unmarshal([]byte(out), &view); err != nil {
@@ -49,11 +49,11 @@ func TestNewViewOverviewCmd_PrintsJSONThatParsesAsAnOverviewView(t *testing.T) {
 	}
 }
 
-func TestNewViewOverviewCmd_PrintsSectionCountsFindingsAndSyncState(t *testing.T) {
+func TestNewViewCmd_PrintsSectionCountsFindingsAndSyncState(t *testing.T) {
 	dir := t.TempDir()
 	writeBareReadProject(t, dir)
 
-	out := runViewOverview(t, "--dir", dir)
+	out := runViewCmd(t, "--dir", dir)
 
 	for _, want := range []string{
 		"Harness overview of " + filepath.Base(dir),
@@ -68,6 +68,15 @@ func TestNewViewOverviewCmd_PrintsSectionCountsFindingsAndSyncState(t *testing.T
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestView_HasNoSubcommands(t *testing.T) {
+	for _, sub := range []string{"authority", "overview"} {
+		_, err := runCLI(t, "view", sub)
+		if err == nil || !strings.Contains(err.Error(), `unknown command "`+sub+`"`) {
+			t.Errorf("view %s error = %v, want an unknown command", sub, err)
 		}
 	}
 }

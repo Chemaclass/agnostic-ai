@@ -12,13 +12,13 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
-// newViewOverviewCmd is `view overview`: the harness overview of a
-// project, as text or as the overview/v1 JSON document.
-func newViewOverviewCmd() *cobra.Command {
+// newViewCmd is `view`: the harness overview of a project, as text or
+// as the overview/v1 JSON document.
+func newViewCmd() *cobra.Command {
 	var dir string
 	var asJSON, global bool
 	cmd := &cobra.Command{
-		Use:   "overview",
+		Use:   "view",
 		Short: "Show the harness overview: what each section holds, which tools support it, and what the checks report.",
 		Long: "Prints the harness sections (context, authority, tools, lifecycle, " +
 			"settings) with the items each holds, each item's lint and read-only " +
@@ -26,13 +26,13 @@ func newViewOverviewCmd() *cobra.Command {
 			"sync would write. Nothing is written. --json prints the overview/v1 " +
 			"document the UI reads.",
 		Example: `  # Summarize the project in the working directory
-  agnostic-ai view overview
+  agnostic-ai view
 
   # Print the overview document of another project
-  agnostic-ai view overview --dir ../service --json
+  agnostic-ai view --dir ../service --json
 
   # Summarize the user-level configuration
-  agnostic-ai view overview --global`,
+  agnostic-ai view --global`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if global && cmd.Flags().Changed("dir") {

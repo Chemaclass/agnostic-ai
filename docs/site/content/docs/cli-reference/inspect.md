@@ -291,26 +291,19 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-Inspect the configuration as versioned JSON or readable text without writing files. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
-
-`view authority` reports which actions a subject is permitted to take on a target in one coding tool, with the rule and file behind each decision. It distinguishes declared permissions, the tool's interpretation, and whether the generated file is installed. Runtime enforcement is reported separately and is never observed.
+Summarize the configuration without writing files. `view` reports whether each target's generated files are in sync. It lists context, authority, tools, lifecycle, and settings, with the `lint` and `doctor` findings for each item. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
 
 ```bash
-agnostic-ai view authority --agent reviewer --target claude
-agnostic-ai view authority --json
-agnostic-ai view overview --json
+agnostic-ai view
+agnostic-ai view --json
+agnostic-ai view --global
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--agent` | The subject: an agent name, or `session` (default) for the tool itself before any agent narrows it. |
-| `--target` | The coding tool to resolve effects for. Default: the first in `agnostic-ai.yaml`. |
-| `--json` | The full view as JSON, schema `authority/v1` or `overview/v1`. |
+| `--json` | The overview as JSON, schema `overview/v1`. |
 | `--dir` | Project directory to read. Default: the current directory. |
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
-| `--no-installed` | Skip comparing the generated files with disk. |
-
-`view overview` reports whether each target's generated files are in sync. It lists context, authority, tools, lifecycle, and settings, with the `lint` and `doctor` findings for each item. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
 
 ## serve
 
@@ -347,7 +340,7 @@ Caveman change endpoints: `GET /api/changes/builtin` returns the current session
 
 ## mcp tools
 
-Connect to each configured MCP server and list its tools, then cache the result so `view overview` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
+Connect to each configured MCP server and list its tools, then cache the result so `view` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
 
 ```bash
 agnostic-ai mcp tools
