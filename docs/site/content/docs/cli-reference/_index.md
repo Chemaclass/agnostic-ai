@@ -20,13 +20,24 @@ agnostic-ai [command] [flags]
 
 Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents support for subdirectories or `--global`. Use `agnostic-ai <command> --help` for the options available in your installed release.
 
+For troubleshooting, start with [`doctor`](@/docs/cli-reference/check.md#doctor), review its findings, and follow its suggested next step. Diagnosis is read-only by default. Choose `doctor --fix` only when you want its repairs. See [troubleshooting](@/docs/troubleshooting.md) for symptom-specific guidance.
+
 ## Find a command
+
+Root help groups commands into setup, daily generation, diagnosis and inspection, and maintenance. A fresh project can follow this path:
+
+```bash
+echo "claude,codex" | agnostic-ai init
+agnostic-ai sync --plan
+agnostic-ai sync
+agnostic-ai doctor
+```
 
 | Task | Commands |
 |---|---|
 | Set up a project | [use](@/docs/cli-reference/start.md#use), [init](@/docs/cli-reference/start.md#init), [import](@/docs/cli-reference/start.md#import), [new](@/docs/cli-reference/start.md#new) |
 | Generate or preview output | [sync](@/docs/cli-reference/sync.md#sync), [render](@/docs/cli-reference/inspect.md#render) |
-| Check source, output, and behavior | [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [doctor](@/docs/cli-reference/check.md#doctor), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
+| Diagnose problems, then check a specific area | [doctor](@/docs/cli-reference/check.md#doctor), [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
 | Find which specs each tool reads | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
 | Inspect tool permissions and settings | [view](@/docs/cli-reference/inspect.md#view), [serve](@/docs/cli-reference/inspect.md#serve) |
 | List each MCP server's tools for the overview | [mcp tools](@/docs/cli-reference/inspect.md#mcp-tools) |

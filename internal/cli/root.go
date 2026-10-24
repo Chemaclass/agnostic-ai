@@ -30,9 +30,15 @@ func NewRootCmd(version string) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version,
-		Example: `  # Start a new project and emit configs for every target
-  agnostic-ai init
+		Example: `  # Set up a project for the tools you use
+  echo "claude,codex" | agnostic-ai init
+
+  # Preview changes, then generate tool configs
+  agnostic-ai sync --plan
   agnostic-ai sync
+
+  # Start troubleshooting, then follow the suggested next step
+  agnostic-ai doctor
 
   # Migrate an existing project from another tool
   agnostic-ai init
@@ -77,42 +83,58 @@ func NewRootCmd(version string) *cobra.Command {
 		return nil
 	}
 
-	root.AddCommand(
-		newSyncCmd(),
-		newVerifyCmd(),
-		newValidateCmd(),
-		newLintCmd(),
-		newListCmd(),
+	addCommandGroup(root, "setup", "Setup:",
 		newInitCmd(),
 		newImportCmd(),
-		newDoctorCmd(),
-		newInstallHookCmd(),
-		newProjectCmd(),
-		newHookCmd(),
-		newRevertCmd(),
-		newCleanupCmd(),
-		newPacksCmd(),
-		newStatusCmd(),
 		newNewCmd(),
+		newUseCmd(),
+	)
+	addCommandGroup(root, "generation", "Daily generation:",
+		newSyncCmd(),
 		newRenderCmd(),
+	)
+	addCommandGroup(root, "diagnosis", "Diagnosis and inspection:",
+		newDoctorCmd(),
+		newValidateCmd(),
+		newLintCmd(),
+		newStatusCmd(),
+		newVerifyCmd(),
+		newListCmd(),
 		newExplainCmd(),
 		newCompareCmd(),
 		newWhyCmd(),
 		newGraphCmd(),
 		newViewCmd(),
 		newServeCmd(),
+		newMCPCmd(),
+	)
+	addCommandGroup(root, "maintenance", "Maintenance:",
+		newInstallHookCmd(),
+		newProjectCmd(),
+		newHookCmd(),
+		newRevertCmd(),
+		newCleanupCmd(),
+		newPacksCmd(),
 		newLSPCmd(),
 		newUpgradeCmd(),
-		newUseCmd(),
 		newMigrateCmd(),
 		newMemoryCmd(),
 		newHandoffCmd(),
-		newMCPCmd(),
 	)
+	root.SetHelpCommandGroupID("maintenance")
+	root.SetCompletionCommandGroupID("maintenance")
 	root.InitDefaultCompletionCmd()
 	profileEachRun(root, &profilePath)
 	guidedUpgradeEachRun(root)
 	return root
+}
+
+func addCommandGroup(root *cobra.Command, id, title string, commands ...*cobra.Command) {
+	root.AddGroup(&cobra.Group{ID: id, Title: title})
+	for _, cmd := range commands {
+		cmd.GroupID = id
+	}
+	root.AddCommand(commands...)
 }
 
 // profileEachRun starts and stops the CPU profile inside every RunE, so

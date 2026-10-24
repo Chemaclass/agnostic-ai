@@ -626,8 +626,10 @@ func newDoctorCmd() *cobra.Command {
 	var fix, backup, jsonOut, checkGlobs, checkRefs bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Unified diagnostic: config, CLIs, spec health, and drift.",
-		Long: "doctor runs a prioritized punch list:\n" +
+		Short: "Diagnose project and local setup problems, then suggest a next step.",
+		Long: "Start troubleshooting with doctor. It is read-only by default and suggests a next step.\n" +
+			"Review the findings before choosing a repair. Pass --fix to change files.\n\n" +
+			"doctor runs these checks:\n" +
 			"  1. Detect installed AI CLIs on PATH.\n" +
 			"  2. Validate agnostic-ai.yaml config.\n" +
 			"  3. Report unsupported spec kinds per target, then spec health: the\n" +
