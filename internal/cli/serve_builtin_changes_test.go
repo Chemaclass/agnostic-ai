@@ -380,24 +380,92 @@ func TestBuiltinChanges_RejectsUnsafeProjectsBeforeWriting(t *testing.T) {
 	}
 }
 
-func TestBuiltinChanges_SymlinkInputRefused(t *testing.T) {
+func TestBuiltinChanges_LocalScratchSymlinkDoesNotBlockApplyOrUndo(t *testing.T) {
 	root := builtinChangeProject(t)
-	outside := filepath.Join(t.TempDir(), "rule.md")
-	mustWriteFile(t, outside, "Keep me.\n")
-	if err := os.MkdirAll(".agnostic-ai/rules", 0o755); err != nil {
+	outside := filepath.Join(t.TempDir(), "bashunit")
+	mustWriteFile(t, outside, "Keep the tool.\n")
+	link := filepath.Join(defaultProjectUser, "refactor-sync-guards", "tools", "bashunit")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, ".agnostic-ai/rules/linked.md"); err != nil {
+	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
+	report := filepath.Join(defaultProjectUser, "refactor-sync-guards", "report.md")
+	mustWriteFile(t, report, "Original notes.\n")
 	h := newBuiltinChangeHandler(root, false)
-	rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
-	if rec.Code == http.StatusOK {
-		t.Fatalf("unsafe preview accepted: %s", rec.Body)
+	proposal := builtinProposal(t, h, true)
+	mustWriteFile(t, report, "Later notes.\n")
+	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	if target, err := os.Readlink(link); err != nil || target != outside {
+		t.Errorf("scratch link changed: %q, %v", target, err)
 	}
-	data, _ := os.ReadFile(outside)
-	if string(data) != "Keep me.\n" {
-		t.Error("external source changed")
+	for path, want := range map[string]string{outside: "Keep the tool.\n", report: "Later notes.\n"} {
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != want {
+			t.Errorf("%s: got %q, %v", path, data, err)
+		}
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("undo left drift: %v\n%s", err, out)
+	}
+}
+
+func TestBuiltinChanges_NewLocalSourcesAndHookScriptsRefuseApply(t *testing.T) {
+	for _, path := range []string{
+		".agnostic-ai/local/rules/later.md",
+		".agnostic-ai/local/AGNOSTIC_AI.md",
+		".agnostic-ai/scripts/later.sh",
+	} {
+		t.Run(path, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			h := newBuiltinChangeHandler(root, false)
+			proposal := builtinProposal(t, h, true)
+			mustWriteFile(t, path, "A later source.\n")
+			rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("apply: %d %s", rec.Code, rec.Body)
+			}
+			data, err := os.ReadFile("agnostic-ai.yaml")
+			if err != nil || strings.Contains(string(data), "caveman") {
+				t.Errorf("stale apply changed config: %q, %v", data, err)
+			}
+		})
+	}
+}
+
+func TestBuiltinChanges_SymlinkInputRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name, path, config string
+	}{
+		{"shared rule", ".agnostic-ai/rules/linked.md", ""},
+		{"local rule", ".agnostic-ai/local/rules/linked.md", ""},
+		{"custom source", ".agnostic-ai/local/custom-specs/linked.md", "version: 1\ntargets: [claude, codex]\nbuiltins: []\nsources:\n  rules: .agnostic-ai/local/custom-specs\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			if tc.config != "" {
+				mustWriteFile(t, "agnostic-ai.yaml", tc.config)
+			}
+			outside := filepath.Join(t.TempDir(), "rule.md")
+			mustWriteFile(t, outside, "Keep me.\n")
+			if err := os.MkdirAll(filepath.Dir(tc.path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, tc.path); err != nil {
+				t.Fatal(err)
+			}
+			h := newBuiltinChangeHandler(root, false)
+			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "not a regular file") {
+				t.Fatalf("unsafe input not rejected: %d %s", rec.Code, rec.Body)
+			}
+			data, _ := os.ReadFile(outside)
+			if string(data) != "Keep me.\n" {
+				t.Error("external source changed")
+			}
+		})
 	}
 }
 

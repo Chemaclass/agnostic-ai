@@ -61,7 +61,7 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	if previous.Version == 0 {
 		return nil, fmt.Errorf("run agnostic-ai sync before previewing a web change")
 	}
-	inputs, err := projectInputs(cfg)
+	inputs, err := builtinProjectInputs(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	if err := initial.check(root); err != nil {
 		return nil, err
 	}
-	freshInputs, err := projectInputs(cfg)
+	freshInputs, err := builtinProjectInputs(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +282,39 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 		plan.view.Changes = append(plan.view.Changes, change)
 	}
 	return plan, nil
+}
+
+func builtinProjectInputs(cfg *config.Config) ([]string, error) {
+	inputs, err := projectInputs(cfg)
+	if err != nil {
+		return nil, err
+	}
+	// Web previews track source trees, not unrelated local working files.
+	inputs = slices.DeleteFunc(inputs, func(path string) bool { return path == config.SourceBaseDir+"/**" })
+	inputs = append(inputs,
+		adapters.AgnosticEntryPointPath,
+		filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"),
+		agnosticOverlayDir+"/**",
+		agnosticScriptsDir+"/**",
+		packsDir+"/**",
+		config.SourceBaseDir+"/memory/**",
+		defaultProjectUser+"/memory/**",
+	)
+	for _, layer := range []struct {
+		root    string
+		sources config.Sources
+	}{
+		{".", cfg.Sources},
+		{defaultProjectUser, defaultLayerSources()},
+	} {
+		for _, source := range sourceDirsByKind(layer.sources) {
+			if source != "" {
+				inputs = append(inputs, filepath.ToSlash(config.ResolveSourcePath(layer.root, source))+"/**")
+			}
+		}
+	}
+	slices.Sort(inputs)
+	return slices.Compact(inputs), nil
 }
 
 func builtinRelativePath(root, path string) (string, error) {

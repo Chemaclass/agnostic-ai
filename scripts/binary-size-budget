@@ -415,4 +415,6 @@
 # Compact source lists, responsive support groups, field disclosures,
 # and header cleanup add 4096 bytes over main 7b133db3 on Go 1.27.3.
 # Linux amd64 release flags; no added headroom or dependencies.
-23240864
+# Caveman preview source boundaries add 8192 bytes over main bc4e1bd4
+# on Go 1.27.3. Linux amd64 release flags; no added headroom or dependencies.
+23249056

@@ -6,6 +6,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Caveman web previews ignore unrelated local working files, including tool symlinks, while checking source and output changes.
+
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
 - `serve --open` shows compact settings with aligned switches, Caveman preview/apply/undo, and warning fixes with prompt previews (#2319, #2453, #2454).
 - `view authority` shows permissions; `view overview` shows setup and cached MCP tools; the browser groups native keys and adds tool logos (#2319).
