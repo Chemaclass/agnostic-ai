@@ -15,6 +15,7 @@ Start with one project note. Generate the files your coding tools read, then cha
 | Set up this project with a coding agent or terminal | [Set up your project](@/docs/getting-started.md) |
 | Understand what project notes do | [Why agnostic-ai?](@/docs/why-agnostic-ai.md) |
 | Work in an already configured project | [Daily use](@/docs/getting-started.md#daily-use) |
+| Inspect configuration and warnings in a browser | [Inspect your configuration](@/docs/inspect-configuration.md) |
 | Look up a command, field, or supported tool | [CLI reference](@/docs/cli-reference/_index.md), [Configuration](@/docs/configuration.md), [Supported tools](@/docs/targets/_index.md) |
 | Fix a failed command or missing file | [Troubleshooting](@/docs/troubleshooting.md) |
 

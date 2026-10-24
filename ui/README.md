@@ -10,8 +10,12 @@ Inspect project or user configuration in a local browser. Installed binaries inc
 | Lifecycle | Every point in a session a hook can run at, with the coding tools that run it and the hooks configured there |
 | Settings | Every built-in with its on/off state, the config file's values, and other settings specs |
 
+Findings include a **Copy fix prompt** action. **Details** shows the suggested fix, explanation, and the exact prompt the button copies. Native settings group keys by tool. Target lists use logos with full names on hover.
+
+Source lists use aligned rows. Unconfigured fields stay in a disclosure, empty lifecycle stages show their descriptions on demand, and support groups stack on mobile. The findings summary jumps to the full list; errors remain above the controls.
+
 Values render by type: a list as chips, a boolean as a switch, anything
-else as text. The project Caveman switch previews, applies, and undoes changes across the configured targets. Other built-in and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
+else as text. Built-in switches share the same row layout, with previews and errors below. Caveman previews check source and output files; unrelated local working folders do not block them. The project Caveman switch previews, applies, and undoes changes across the configured targets. Other built-in and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
 it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
 its file. The JSON overview also reports whether generated files match

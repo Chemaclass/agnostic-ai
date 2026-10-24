@@ -44,7 +44,11 @@ try {
     notices.push(`${name} ${metadata.version}\n\n${await readFile(join(directory, 'LICENSE'), 'utf8')}`)
   }
   notices.push(`Vite runtime helpers\n\n${await readFile(join(root, 'node_modules/vite/LICENSE.md'), 'utf8')}`)
-  notices.push(`${await readFile(join(root, 'src/assets/tools/README.md'), 'utf8')}\n${await readFile(join(root, 'src/assets/tools/LICENSE'), 'utf8')}`)
+  const toolAssets = join(root, 'src/assets/tools')
+  notices.push(await readFile(join(toolAssets, 'README.md'), 'utf8'))
+  for (const name of (await readdir(toolAssets)).filter((name) => name.startsWith('LICENSE')).sort()) {
+    notices.push(`${name}\n\n${await readFile(join(toolAssets, name), 'utf8')}`)
+  }
   await writeFile(join(output, 'third-party-notices.txt'), notices.join('\n\n'))
   const inputs = [
     ...['index.html', 'package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts'].map((file) => join(root, file)),

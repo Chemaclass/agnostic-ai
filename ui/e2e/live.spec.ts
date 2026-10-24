@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { ChildProcess } from 'node:child_process'
 import { execFile, spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
@@ -270,6 +270,11 @@ test('the development proxy preserves real API edits with an explicitly allowed 
 test('Caveman previews, applies to every target, and undoes after reload', async ({ page }, testInfo) => {
   const f = await fixture()
   try {
+    const tool = join(f.root, '.agnostic-ai', 'local', 'refactor-sync-guards', 'tools', 'bashunit')
+    await mkdir(dirname(tool), { recursive: true })
+    const toolSource = join(f.root, 'auxiliary-tool')
+    await put(toolSource, '#!/bin/sh\necho test\n')
+    await symlink(toolSource, tool)
     const config = f.configBytes.replace('- claude # team tool', '- claude # team tool\n    - codex')
     await put(f.config, config)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
@@ -278,7 +283,9 @@ test('Caveman previews, applies to every target, and undoes after reload', async
     await expect(caveman).toBeEnabled()
     await caveman.click()
     const preview = page.getByRole('region', { name: 'Caveman change preview' })
-    await expect(preview).toContainText('claude, codex')
+    await expect(preview.locator('.tool-avatar')).toHaveCount(2)
+    await expect(preview.locator('.tool-avatar').first()).toHaveAttribute('title', 'Claude Code')
+    await expect(preview.locator('.tool-avatar').nth(1)).toHaveAttribute('title', 'Codex')
     await expect(preview).toContainText('.claude/skills/caveman/SKILL.md')
     await expect(preview).toContainText('.agents/skills/caveman/SKILL.md')
     expect(await readFile(f.config, 'utf8')).toBe(config)

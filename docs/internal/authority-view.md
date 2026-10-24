@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Architecture](architecture.md)
 
-The Authority view shows which actions a subject may take on a coding tool, on which targets, under what conditions, and why. `serve` hosts the versioned JSON document at `/api/views/authority`. The client under [`ui/`](../../ui/README.md) renders the overview described below. It does not render the Authority view. The server normalizes rules, resolves precedence, records their sources, and analyzes proposed changes. The client handles rendering, selection, and motion.
+The Authority view resolves an agent or session's permissions for one coding tool. The server resolves rules, records their sources, and analyzes proposed changes. `serve` hosts the versioned JSON document at `/api/views/authority`. The [browser client](../../ui/README.md) displays the configuration overview, including its Authority section.
 
 The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
 
@@ -62,7 +62,7 @@ A secret is a credential the configuration references by name through `${NAME}`.
 
 `POST /api/views/authority/impact` takes a `Proposal` (subject, harness, optional revision, and `add` or `remove` changes on the `allow`, `ask`, or `deny` lists), applies it to a copy of the specs, rebuilds every subject on the harness, and returns an `ImpactResult` with `status: "proposed"`, each operation whose declared or effective effect changes, the direction, affected subjects, and the exact before and after of the edited file. Nothing is written. Direction is ranked only between known decisions (allowed over ask over denied, with unavailable counted as denied); any side that is `default` or `unresolved` is `indeterminate` with a reason. A revision mismatch is reported as a problem, not recomputed.
 
-Applying is listed under `supportedActions` as unsupported. Editing the spec and running `sync` is the only way to apply; an API apply needs revision checks, approval, and rollback first.
+Permission proposals are preview-only (`supportedActions` lists apply as unsupported). Edit the spec and run `sync` to apply one.
 
 ## Overview
 
@@ -91,8 +91,14 @@ Read-only check results appear on affected items or sections, never in a separat
 | GET | `/api/health` | `{ok, revision}` |
 | POST | `/api/edit/builtin` | switches a built-in in the config file in effect; `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
 | POST | `/api/edit/value` | sets a boolean at a dotted key in a settings spec; same replies |
+| GET | `/api/changes/builtin` | the current Caveman preview and undo state for this server session |
+| POST | `/api/changes/builtin/preview` | a project Caveman change plan for `{name: "caveman", enabled: true\|false}` |
+| POST | `/api/changes/builtin/apply` | writes the reviewed config and generated files for `{id}` |
+| POST | `/api/changes/builtin/undo` | restores the files and permissions from before the last successful apply for `{id}` |
 
-The two edit endpoints are the server's only writes. They require explicit boolean values in JSON, edit owned YAML spans, preserve unrelated bytes and file modes, and run the validation checks before and after. File snapshots detect concurrent changes before replacement and rollback. A failed restoration is reported without claiming the file was restored. Inherited booleans become explicit local overrides; an empty local builtin list keeps shared builtins disabled.
+`/api/edit/builtin` and `/api/edit/value` write source files without syncing. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. Inherited booleans become local overrides. An empty local built-in list disables shared built-ins.
+
+The Caveman apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/inspect.md#serve).
 
 `serve` binds to an explicit loopback IP and reloads the configuration on every request. One shared Host/Origin guard protects every route. Other browser origins require an exact `--allow-origin`; no-Origin CLI requests remain allowed, while cross-site browser requests are refused. Bodies are bounded and read before the adapter serialization lock. Header, read, write and idle deadlines limit stalled clients.
 

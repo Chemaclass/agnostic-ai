@@ -6,8 +6,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Caveman web previews ignore unrelated local working files, including tool symlinks, while checking source and output changes.
+
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
-- `serve --open` opens settings editing and Caveman preview, apply, and session undo; `--api-only` serves JSON (#2319, #2453, #2454).
+- `serve --open` shows compact settings with aligned switches, Caveman preview/apply/undo, and warning fixes with prompt previews (#2319, #2453, #2454).
 - `view` shows shared setup and saved `mcp tools` results (#2319).
 - Global import keeps MCP specs whose native server names differ only by case (#2434).
 - Project checks skip built-in hooks that do not target the selected tools (#2438).
@@ -72,7 +74,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Landing examples show the selected source's output and label excerpts from shared files (#2408).
 - The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
 - The Composer guide covers shared instructions, rules, and skills for its Claude Code and Codex providers (#2426).
-- Docs derive current tool counts from the supported and default targets, correct installation claims and audit dates, and fix the Go plugin example.
+- Docs add a web walkthrough, derive tool counts, correct installation claims and audit dates, and fix the Go plugin example.
 
 ## v0.87.0 - 2026-10-22
 
