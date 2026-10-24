@@ -7,7 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
-- `serve --open` shows compact settings, Caveman preview/apply/undo, and warning fixes with prompt previews (#2319, #2453, #2454).
+- `serve --open` shows compact settings with aligned switches, Caveman preview/apply/undo, and warning fixes with prompt previews (#2319, #2453, #2454).
 - `view authority` shows permissions; `view overview` shows setup and cached MCP tools; the browser groups native keys and adds tool logos (#2319).
 - Global import keeps MCP specs whose native server names differ only by case (#2434).
 - Project checks skip built-in hooks that do not target the selected tools (#2438).

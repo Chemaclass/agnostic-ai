@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useState } from 'react'
+import { createContext, useContext, useId, useState, type ReactNode } from 'react'
 import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -205,34 +205,43 @@ function GroupedItems({ items }: { items: SectionItem[] }) {
 function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: boolean }) {
   return (
     <ul className="item-list">
-      {items.map((item) => (
-        <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
-          <div className="item-heading">
-            <div className="item-main">
-              <strong>{item.label}</strong>
-              {item.description && <span className="muted item-description">{item.description}</span>}
-            </div>
-            <div className="item-meta">
-              {item.enabled !== undefined && item.name !== 'caveman' && (
-                <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
-              )}
-              {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
-              {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
-              {item.scope && <Chip>{item.scope}</Chip>}
-              {item.openPath && (
-                <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
-                  <Icon name="edit" />
-                </a>
-              )}
-            </div>
-          </div>
-          {item.name === 'caveman' && item.enabled !== undefined && <CavemanChange on={item.enabled} fallback={<EditSwitch on={item.enabled} label="caveman built-in" save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />} />}
-          {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
-          {item.tools && <Tools listing={item.tools} />}
-          {item.findings.length > 0 && <Findings findings={item.findings} />}
-        </li>
-      ))}
+      {items.map((item) => {
+        const control = item.enabled !== undefined && <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
+        const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
+        return (
+          <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
+            {item.name === 'caveman' && item.enabled !== undefined
+              ? <CavemanChange on={item.enabled} fallback={control} renderHeading={heading} />
+              : heading(control)}
+            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
+            {item.tools && <Tools listing={item.tools} />}
+            {item.findings.length > 0 && <Findings findings={item.findings} />}
+          </li>
+        )
+      })}
     </ul>
+  )
+}
+
+function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
+  return (
+    <div className="item-heading">
+      <div className="item-main">
+        <strong>{item.label}</strong>
+        {item.description && <span className="muted item-description">{item.description}</span>}
+      </div>
+      <div className="item-meta">
+        {control}
+        {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
+        {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
+        {item.scope && <Chip>{item.scope}</Chip>}
+        {item.openPath && (
+          <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
+            <Icon name="edit" />
+          </a>
+        )}
+      </div>
+    </div>
   )
 }
 

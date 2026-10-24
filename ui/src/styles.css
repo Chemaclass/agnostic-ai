@@ -1724,7 +1724,6 @@ input:hover {
 }
 
 .builtin-change {
-  flex-basis: 100%;
   min-width: 0;
   font-size: 13px;
 }

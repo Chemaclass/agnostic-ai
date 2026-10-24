@@ -248,6 +248,44 @@ test.describe('overview', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   })
 
+  test('keeps the Caveman switch aligned while its preview and errors use the full row', async ({ page }) => {
+    const state = { schemaVersion: 'builtin-change/v1', name: 'caveman', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: [], changes: [], findings: [] }
+    let refuse = false
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: state }))
+    await page.route('**/api/changes/builtin/preview', (route) => route.fulfill(refuse
+      ? { status: 422, json: { error: 'The snapshot contains a symbolic link.' } }
+      : { json: { ...state, status: 'proposed', id: 'preview', enabled: true, config: 'agnostic-ai.yaml', targets: ['claude'] } }))
+    await page.goto('/?view=settings')
+    const row = page.locator('.item-row', { has: page.getByRole('switch', { name: 'caveman built-in', exact: true }) })
+    const toggle = row.locator('.item-heading').getByRole('switch', { name: 'caveman built-in', exact: true })
+    await expect(toggle).toBeEnabled()
+    const memory = page.getByRole('switch', { name: 'memory built-in', exact: true })
+    const aligned = async () => {
+      const first = await toggle.boundingBox()
+      const other = await memory.boundingBox()
+      expect(first).not.toBeNull()
+      expect(other).not.toBeNull()
+      const desktop = page.viewportSize()!.width > 760
+      const edge = (box: NonNullable<typeof first>) => box.x + (desktop ? box.width : 0)
+      expect(Math.abs(edge(first!) - edge(other!))).toBeLessThan(1)
+    }
+    await aligned()
+    await toggle.click()
+    const preview = row.getByRole('region', { name: 'Caveman change preview' })
+    await expect(preview).toBeVisible()
+    expect((await preview.boundingBox())!.width).toBeGreaterThan((await row.boundingBox())!.width * 0.9)
+    await expect(row.locator('.item-heading .builtin-change-preview')).toHaveCount(0)
+    await row.getByRole('button', { name: 'Cancel', exact: true }).click()
+    refuse = true
+    await toggle.click()
+    await expect(row.getByRole('alert')).toContainText('The snapshot contains a symbolic link.')
+    await aligned()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await aligned()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+
   test('renders accepted and refused edit responses', async ({ page }) => {
     let memory = false
     let refuse = false
