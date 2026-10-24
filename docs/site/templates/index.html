@@ -10,6 +10,7 @@
 {% block structured_data %}
 {% set landing = load_data(path="data/landing.toml") %}
 {% set video = landing.hero.video %}
+{% set targets = load_data(path="data/targets.toml") %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -39,8 +40,8 @@
       "image": "{{ config.extra.image_url }}",
       "description": {{ config.description | json_encode | safe }},
       "featureList": [
-        "One spec emitted to 32 AI coding targets",
-        "23 targets enabled by default",
+        "One spec emitted to {{ targets.supported }} AI coding targets",
+        "{{ targets.default }} targets enabled by default",
         "Byte-stable, reviewable generated output",
         "Round-trip safe import then sync",
         "sync --check CI drift detection"
@@ -63,6 +64,7 @@
 {% endblock structured_data %}
 
 {% block content %}
+{% set targets = load_data(path="data/targets.toml") %}
 {% set landing = load_data(path="data/landing.toml") %}{% set explorer_files = load_data(path="data/explorer.toml") %}
 {% set agent_setup = get_page(path="docs/agent-setup.md") %}
 {% set_global default_installer = false %}{% for installer in landing.workflow.installers %}{% if default_installer is bool and installer.id == "script" %}{% set_global default_installer = installer %}{% endif %}{% endfor %}
@@ -79,7 +81,7 @@
           <a class="button button-secondary" href="#source-explorer">{{ landing.hero.secondary_label }}</a>
         </div>
       </div>
-      {% set fanout = landing.hero.fanout %}{% set matrix = load_data(path="data/capabilities.toml") %}
+      {% set fanout = landing.hero.fanout %}
       <figure class="fanout" id="first-sync" aria-label="{{ fanout.label }}">
         <input class="fanout-mode" type="radio" name="fanout-mode" id="fanout-with" checked>
         <input class="fanout-mode" type="radio" name="fanout-mode" id="fanout-without">
@@ -93,7 +95,7 @@
           {% for output in fanout.outputs %}
           <li style="--i: {{ loop.index0 }}"{% if output.drift != output.line %} class="is-drifted"{% endif %}><span class="fanout-head"><code class="fanout-path">{{ output.path }}</code><span class="fanout-tools">{{ output.tools }}</span></span><svg class="fanout-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><code class="fanout-line">{{ output.line }}</code><code class="fanout-drift">{{ output.drift }}</code></li>
           {% endfor %}
-          <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ matrix.targets | length - fanout.targets | length }} {{ fanout.more_label }}</a></li>
+          <li class="fanout-more" style="--i: {{ fanout.outputs | length }}"><a href="{{ get_url(path='@/docs/targets/_index.md') }}">+ {{ targets.supported - fanout.targets | length }} {{ fanout.more_label }}</a></li>
         </ul>
         <div class="fanout-summary">
           <ul class="fanout-good">{% for line in fanout.with_summary %}<li>{{ line | markdown(inline=true) | safe }}</li>{% endfor %}</ul>

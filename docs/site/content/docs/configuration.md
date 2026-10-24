@@ -71,7 +71,7 @@ An unknown key, in `agnostic-ai.local.yaml` too, fails every command that reads 
 | `version` | int | `1` | Schema version, reserved for migrations. |
 | [`requires`](#requires) | string | none | Releases the specs work with: a minimum, one release, or a range. |
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
-| [`targets`](#targets) | list | 21 tools | Tools to write files for. |
+| [`targets`](#targets) | list | see [targets](#targets) | Tools to write files for. |
 | [`builtins`](#built-ins) | list | none | Built-in specs to enable. `init` enables `handoff`. |
 | [`outputs`](#outputs) | map | per target | Output path overrides. |
 | [`models`](#models) | map | none | Model tiers that specs name. |
@@ -247,7 +247,7 @@ Each release pins the model IDs. When an upgrade changes one, the next `sync` pr
 
 ## `targets`
 
-Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, `ellipsis`, and `grok` (22 in total). `-t/--target` replaces the list for one run.
+Default: every tool except `amp`, `warp`, `jules`, `goose`, `augment`, `ellipsis`, `grok`, `codebuddy`, and `kimi`. `-t/--target` replaces the list for one run.
 
 A likely typo of a built-in target, such as `cursr`, fails before any write. Any other unknown name is skipped with a warning, since it may be an external adapter missing from this machine's PATH.
 

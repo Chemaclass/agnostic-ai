@@ -40,7 +40,7 @@ For a normal edit, change the source under `.agnostic-ai/`, preview with `agnost
 | `--watch-poll` | With `--watch`, force 200 ms polling, for network mounts or container volumes. |
 | `--jobs <n>` | Targets written in parallel. `0` (default) is one worker per CPU. `1` is serial. See [parallel emission](#parallel-emission). |
 | `--json` | Output as JSON, also with `--plan` or `--dry-run`. Not with `--watch` or `--diff`. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into supported tools' user config, including native agents where supported. |
 
 <a id="against-details"></a>
 <details>

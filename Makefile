@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check build test test-race ci-local opencode-hooks-test test-shell size-check bench bench-commands coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -174,7 +174,11 @@ release:
 SITE_DIR := docs/site
 SITE_OUTPUT_DIR := _site
 
+site-generate:
+	go run ./cmd/sitegen
+
 site-check:
+	go run ./cmd/sitegen -check
 	@have=$$(zola --version 2>/dev/null); \
 	want="zola $(ZOLA_VERSION)"; \
 	if [ "$$have" != "$$want" ]; then \
@@ -183,7 +187,7 @@ site-check:
 	fi
 	zola --root $(SITE_DIR) check --skip-external-links
 
-site-build:
+site-build: site-generate
 	@have=$$(zola --version 2>/dev/null); \
 	want="zola $(ZOLA_VERSION)"; \
 	if [ "$$have" != "$$want" ]; then \
@@ -195,10 +199,12 @@ site-build:
 	./scripts/build-llm-docs.sh $(SITE_OUTPUT_DIR)
 
 site-test:
+	go run ./cmd/sitegen -check
+	go test -count=1 ./cmd/sitegen
 	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/compare-targets.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js
 	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
-site-serve:
+site-serve: site-generate
 	@have=$$(zola --version 2>/dev/null); \
 	want="zola $(ZOLA_VERSION)"; \
 	if [ "$$have" != "$$want" ]; then \

@@ -26,6 +26,40 @@ const siteDocsContentDir = "../../docs/site/content/docs"
 const cronitorRUMSnippet = `https://rum.cronitor.io/script.js`
 const cronitorRUMClientKey = `329b6c9d061abda36830327a5baa667a`
 
+func TestSiteDocs_SocialPreviewOmitsTargetTotals(t *testing.T) {
+	card := readBuiltFile(t, "../../docs/site/og/card.html")
+	if !strings.Contains(card, ">and more</text>") {
+		t.Error("social preview does not end its target examples with 'and more'")
+	}
+	if regexp.MustCompile(`(?i)\+?\d+\s+(more|tools|targets)`).MatchString(card) {
+		t.Error("social preview contains a numeric target total")
+	}
+	var config struct {
+		Extra struct {
+			ImageURL string `toml:"image_url"`
+		} `toml:"extra"`
+	}
+	if _, err := toml.DecodeFile("../../docs/site/config.toml", &config); err != nil {
+		t.Fatal(err)
+	}
+	image, ok := strings.CutPrefix(config.Extra.ImageURL, "https://agnostic-ai.org/")
+	if !ok || image == "" {
+		t.Fatalf("social preview URL = %q, want an image on the site", config.Extra.ImageURL)
+	}
+	path := filepath.Join("../../docs/site/static", image)
+	if info, err := os.Stat(path); err != nil {
+		t.Errorf("social preview image: %v", err)
+	} else if info.Size() == 0 {
+		t.Errorf("social preview image %s is empty", path)
+	}
+	playground := readBuiltFile(t, "../../docs/playground/index.html")
+	for _, attribute := range []string{`property="og:image"`, `property="og:image:secure_url"`, `name="twitter:image"`} {
+		if !strings.Contains(playground, attribute+` content="`+config.Extra.ImageURL+`"`) {
+			t.Errorf("playground %s does not use the active social preview", attribute)
+		}
+	}
+}
+
 func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 	for _, path := range []string{
 		"../../docs/site/templates/base.html",
@@ -562,6 +596,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"Read the latest briefing",
 		`href="https://agnostic-ai.org/docs/targets/"`,
 		`"installUrl": "https://agnostic-ai.org/#quickstart"`,
+		fmt.Sprintf("One spec emitted to %d AI coding targets", len(adapters.Names())),
+		fmt.Sprintf("%d targets enabled by default", len(config.DefaultTargets())),
 		"/docs/agent-setup/",
 		"agnostic-ai agent setup",
 		"/agent-setup.txt",
@@ -645,7 +681,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, metadata := range []string{
 		`property="og:site_name" content="agnostic-ai.org"`,
 		`property="og:url" content="https://agnostic-ai.org/"`,
-		`property="og:image:secure_url" content="https://agnostic-ai.org/og-v2.png"`,
+		`property="og:image:secure_url" content="https://agnostic-ai.org/og-v3.png"`,
 		`name="twitter:domain" content="agnostic-ai.org"`,
 		`name="twitter:url" content="https://agnostic-ai.org/"`,
 	} {

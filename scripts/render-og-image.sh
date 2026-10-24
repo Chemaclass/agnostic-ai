@@ -6,7 +6,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_file="$root/docs/site/og/card.html"
-output_file=${1:-"$root/docs/site/static/og-v2.png"}
+output_file=${1:-"$root/docs/site/static/og-v3.png"}
 
 find_chrome() {
   if [[ -n "${CHROME:-}" ]]; then
@@ -33,7 +33,6 @@ find_chrome() {
 }
 
 chrome=$(find_chrome)
-targets=$(grep -c '^\[\[targets\]\]' "$root/docs/site/data/capabilities.toml")
 
 profile=$(mktemp -d)
 screenshot="$profile/card.png"
@@ -54,7 +53,7 @@ trap cleanup EXIT
   --disable-component-update --disable-extensions --disable-sync \
   --use-mock-keychain --password-store=basic --force-device-scale-factor=1 \
   --user-data-dir="$profile" --window-size=1200,630 \
-  --screenshot="$screenshot" "file://$source_file?targets=$targets" >"$log" 2>&1 &
+  --screenshot="$screenshot" "file://$source_file" >"$log" 2>&1 &
 chrome_pid=$!
 
 # Some Chrome builds keep running after they write the screenshot, so wait for
@@ -73,4 +72,4 @@ if [[ ! -s "$screenshot" ]]; then
 fi
 
 mv "$screenshot" "$output_file"
-printf 'wrote %s (%s targets)\n' "$output_file" "$targets"
+printf 'wrote %s\n' "$output_file"

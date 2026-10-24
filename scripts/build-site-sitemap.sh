@@ -37,7 +37,7 @@ write_url() {
   printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
   printf '%s\n' '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
   write_url / weekly 1.0 \
-    docs/site/content/_index.md docs/site/data/landing.toml \
+    docs/site/content/_index.md docs/site/data/landing.toml docs/site/data/targets.toml \
     docs/site/templates/base.html docs/site/templates/index.html \
     docs/site/static/assets/styles/base.css docs/site/static/assets/styles/landing.css \
     docs/site/static/assets/scripts/theme.js docs/site/static/assets/scripts/landing.js

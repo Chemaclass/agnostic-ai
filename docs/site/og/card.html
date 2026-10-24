@@ -189,21 +189,13 @@
         <circle cx="908" cy="453" r="7"/>
       </g>
       <circle class="brand-sat-ink" cx="908" cy="511" r="7"/>
-      <text x="930" y="221" data-target>Claude Code</text>
-      <text x="930" y="279" data-target>Codex</text>
-      <text x="930" y="337" data-target>Cursor</text>
-      <text x="930" y="395" data-target>Gemini CLI</text>
-      <text x="930" y="453" data-target>Copilot</text>
-      <text class="more" x="930" y="511" data-more>+20 more</text>
+      <text x="930" y="221">Claude Code</text>
+      <text x="930" y="279">Codex</text>
+      <text x="930" y="337">Cursor</text>
+      <text x="930" y="395">Gemini CLI</text>
+      <text x="930" y="453">Copilot</text>
+      <text class="more" x="930" y="511">and more</text>
     </svg>
   </div>
-  <script>
-    // scripts/render-og-image.sh passes ?targets=N from docs/site/data/capabilities.toml.
-    const total = Number(new URLSearchParams(location.search).get("targets"));
-    if (Number.isInteger(total) && total > 0) {
-      const named = document.querySelectorAll("[data-target]").length;
-      document.querySelector("[data-more]").textContent = `+${total - named} more`;
-    }
-  </script>
 </body>
 </html>
