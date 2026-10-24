@@ -86,7 +86,7 @@ agnostic-ai writes one JSON document to standard input and reads one from standa
 
 ## Process model
 
-- Adapter runs as a subprocess, not in-process. Only the operating system's restrictions for child processes apply.
+- The adapter runs as a child process with only the operating system's child-process restrictions.
 - agnostic-ai sends input once, reads output until the stream ends, and waits for the program to exit. No interactive terminal.
 - Adapter must not write to disk. agnostic-ai handles all file writes so comparison, backup, and dry-run behavior stays consistent.
 
@@ -134,4 +134,4 @@ func render(rules []external.SpecEntry) string {
 }
 ```
 
-Build as `agnostic-ai-adapter-my-tool`, put it on `PATH`, list `my-tool` in `agnostic-ai.yaml`. The next `agnostic-ai sync` picks it up.
+Build as `agnostic-ai-adapter-my-tool`, put it on `PATH`, and list `my-tool` in `agnostic-ai.yaml`. The next `agnostic-ai sync` runs it.

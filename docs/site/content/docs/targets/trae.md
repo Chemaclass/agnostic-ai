@@ -89,7 +89,7 @@ Sync always writes `description`, `globs`, and `alwaysApply` (Cursor's `.mdc` fi
 
 ### Hooks
 
-`.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them with Trae's event data, shell, and timeout, so you can test them before a session.
+`.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using Trae's event data, shell, and timeout.
 
 - A `version` field (always 1) wraps the `hooks` map. Each event holds `{matcher, hooks: [{type, command, timeout}]}` groups. Claude Code, Codex, OpenHands, and Qoder use the same shape, so one hook spec feeds all five.
 - Six [events](https://docs.trae.ai/ide/automate-actions-with-hooks): `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`. Each entry takes `type` (only `command`), `command`, and `timeout` (seconds, default 30).

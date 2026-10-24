@@ -120,7 +120,7 @@ Ellipsis reads MCP servers from the environment file and ignores a repository's 
 
 A `${NAME}` in `env` or `headers` stays `${NAME}`, which Ellipsis fills from the stored secret `NAME` when a session starts. A plain setting needs `!literal` in the spec, as for every target. Local secret values never reach the file or a preview. A `${NAME}` in `url` or `args`, or a `${NAME:-default}` anywhere, has no Ellipsis form, so sync leaves out that server with a note, or that header or variable.
 
-Sync leaves out a server it cannot write as it is, with a note that names the server and the reason. Under `on-unsupported: error` it stops instead:
+Sync skips a server it cannot preserve and reports its name and the reason. Under `on-unsupported: error` it stops instead:
 
 - `sse` and `ws` transports. Ellipsis connects over streamable HTTP only.
 - `oauth`, which an entry has no key for.

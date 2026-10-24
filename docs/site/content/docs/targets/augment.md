@@ -79,7 +79,7 @@ Servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `comm
 
 ### Hooks
 
-Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) runs them with Auggie's event data, shell, and timeout, so you can test them before a session.
+Hooks merge in under `hooks`, in the same write as `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using Auggie's event data, shell, and timeout.
 
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
 - `command` must be a script ending in `.sh`, `.ps1`, `.cmd`, or `.bat`, because Augment never runs an inline shell string. Other commands are written as is with a sync note. A hook with `args` is skipped with a note, because Augment has no shell to fold them into.

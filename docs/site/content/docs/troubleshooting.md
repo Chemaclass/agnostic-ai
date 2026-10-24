@@ -66,7 +66,7 @@ See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes
 
 ## Broken skill references
 
-A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
+A skill can sync successfully even if it contains a broken relative link. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
 
 A link that works from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. Not every tool resolves links from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
 

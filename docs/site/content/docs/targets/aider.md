@@ -48,7 +48,7 @@ CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 <details>
 <summary>What sync removes from .aider.conf.yml</summary>
 
-When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, `weak-model`, and the `read:` entry it added. It keeps your keys in their order, with whatever comments they still have, and drops the header. When `rules-file` changes, sync removes the `read:` entry it added for the old path.
+When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, `weak-model`, and the `read:` entry it added. It preserves your key order and remaining comments, and removes the header. When `rules-file` changes, sync removes the `read:` entry it added for the old path.
 
 </details>
 

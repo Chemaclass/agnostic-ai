@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-Measure sync performance before and after changing code that runs frequently. The permanent benchmark suite provides repeatable before-and-after measurements for writing, comparing, and rendering output.
+Use the benchmark suite to measure writing, comparing, and rendering output before and after changing frequently run code.
 
 Most benchmarks live in `internal/cli/bench_test.go`, in the same package so they can
 call the unexported sync internals directly. `BenchmarkCompareToDisk` lives
@@ -33,8 +33,7 @@ go test -run '^$' -bench BenchmarkSyncEmit -benchmem ./internal/cli/
 go test -run '^$' -bench 'Fingerprint' -benchmem -benchtime=100x ./internal/cli/
 ```
 
-Benchmarks do not decide whether continuous integration (CI) passes. They report numbers for local comparison,
-not pass or fail.
+Benchmarks report measurements for local comparison; they do not decide whether continuous integration (CI) passes.
 
 To time the built binary end to end on the same test project (500 specs by
 default), including process startup and git calls the benchmarks skip:
@@ -91,10 +90,7 @@ numbers are comparable across runs on the same machine.
 - `baseline`: `naiveFolderFingerprint`, the direct uncached version that
   concatenates every entry into one buffer before hashing. It sets the lower bound for comparison.
 
-When you propose a change to frequently run code, add a third `proposed` sub-benchmark
-next to these two, run all three side by side, and find when the proposed version becomes faster
-before touching the production code. Keep the benchmark after the proposal
-closes: future runtime or compiler changes can re-measure it cheaply.
+Before changing frequently run production code, add a `proposed` sub-benchmark beside these two. Run all three to find when the proposed version becomes faster. Keep the benchmark after the proposal closes so later runtime or compiler changes can be measured against it.
 
 ## Profiling a slow sync
 
@@ -118,9 +114,7 @@ go tool pprof -http=:0 cpu.prof   # flame graph in the browser
 ✓ synced 2 targets · 52 created · 3 updated · 260ms
 ```
 
-Each per-target time is measured around that target's emit and reported
-independently, so under `--jobs > 1` the times overlap. Read them as
-time for each adapter, rather than parts that add up to the total run time.
+Each target's time measures its emit call. With `--jobs > 1`, these times overlap and do not add up to the total run time.
 
 The flag lives on the root command (`internal/cli/root.go`): profiling
 starts in the persistent pre-run hook and stops in the persistent post-run

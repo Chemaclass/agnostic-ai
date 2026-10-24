@@ -16,9 +16,9 @@ scripts = ["assets/scripts/capability-matrix.js"]
 # Targets
 
 
-A target is the writer for one coding tool. Select the tools you use; sync turns the same source specs into their native files.
+A target writes configuration for one coding tool. Select the tools you use; sync converts the shared specs into their native files.
 
-Starting a setup? [Create one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule). For an existing setup, filter the table and open a tool for its paths, import coverage, and native limits.
+[Create one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule) to start a setup. For an existing setup, filter the table and open a tool for its paths, import coverage, and native limits.
 
 [Compare targets](@/docs/compare.md) puts two or three tools side by side, with the paths each one gets.
 

@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Setup and first contribution](../../CONTRIBUTING.md)
 
-Use this page after building the CLI. It covers checks, conventions, and generated files without repeating checkout setup.
+After building the CLI, use this page to choose checks and prepare a change.
 
 ## Development loop
 
@@ -18,11 +18,11 @@ Use a temporary project when experimenting with imported or generated files. Ada
 
 ## Choose checks for your change
 
-This section owns validation selection for contributions, audit fixes, and PR review. Select checks from the whole diff against the PR base, including changed tests, fixtures, generated files, and embedded inputs. Combine every applicable row below.
+Use this section to choose checks for contributions, audit fixes, and PR review. Review the whole diff against the PR base, including tests, fixtures, generated files, and embedded inputs. Run the checks in every applicable row below.
 
 - Documentation, audit data, and source instructions use the focused checks for their changed inputs. Do not add a full local gate only to validate prose.
 - Adapter, shared Go, or runtime behavior changes require `make ci-local`, plus applicable checks below that it does not cover. Unknown impact uses this full gate too.
-- Classify test-only and fixture-only changes by the behavior they exercise. Rerun the affected checks; tests and fixtures for adapter, shared Go, or runtime behavior require the full gate. A test-only merge is not an exemption.
+- Classify test-only and fixture-only changes by the behavior they exercise. Rerun the affected checks; tests and fixtures for adapter, shared Go, or runtime behavior still require the full gate.
 - Run expensive local checks serially, including across workers and worktrees. Use focused reproductions during diagnosis, then run the selected gate once the change set is complete. Check each command's own exit code, never a filtering pipe.
 
 | Change | Checks |
@@ -42,13 +42,13 @@ This section owns validation selection for contributions, audit fixes, and PR re
 
 `make preflight` covers formatting, lint (including `govet`), and Go tests. It is useful during development but does not replace the full gate above. `make ci-local` adds race tests, the CLI and WASM builds, schema drift, source lint, shell tests, binary size, and editor checks. Use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable, report the skip, and require JetBrains CI when its inputs changed. Neither command replaces applicable site checks or required remote CI.
 
-Record the commands, outcomes (including failures and skips), tested commit or tree, and any relevant working-tree, generated, embedded, or external inputs. Include toolchain versions and environment limits that affect the result, without secrets. A binary used for sync must match the relevant source and embedded inputs; rebuild it or use `go run` after those inputs change.
+Record the commands, results (including failures and skips), tested commit or tree, and relevant working-tree, generated, embedded, or external inputs. Include toolchain versions and environment limits that affect the result, without secrets. A binary used for sync must match its source and embedded inputs; rebuild it or use `go run` after those inputs change.
 
 Manual evidence may be reused only when its relevant inputs are known unchanged and its environment still applies. A commit SHA alone does not establish that for an uncommitted tree, a stale binary, or external inputs. Otherwise rerun the affected checks. Changed tests and fixtures invalidate results that depend on them. After a rebase, merge, or review fix, inspect the resulting diff and rerun checks whose inputs changed.
 
 All selected checks must pass before pushing. Missing tools, skipped tests, and pending or absent required CI are limits to resolve, not green checks. Before merging, wait for required checks on the current PR head and the remote OS checks below when applicable. Audit fixers stop at reviewable PRs; merging requires an explicitly authorized merge workflow. Releases still require the full local and remote gates in [cut-release](../../.agnostic-ai/skills/cut-release/SKILL.md).
 
-The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks and migration plans that leave files unchanged. They do not connect to coding tools or call a model. On Windows, the launcher tries to save a failed command's result outside the project. Follow-up checks have time and output limits.
+The [project lifecycle tests](../../tests/integration/project_large_lifecycle_test.go) use a generated project with 500 entries, temporary clones and linked checkouts, and a local test installer. They check initial setup, installation using saved package versions, branch changes, project checks, and migration plans that leave files unchanged. They do not connect to coding tools or call a model. On Windows, the launcher tries to save a failed command's result outside the project. Follow-up checks have time and output limits.
 
 To investigate first-launch failures without the large project, run `go test ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$' -count=1 -v`. This installs into eight separate small projects and stops at the first setup error. It uses the same test installer and Windows launcher. Passing runs do not explain an earlier failure.
 
@@ -98,7 +98,7 @@ CI lints source specs. It does not run `sync --check` against a fresh checkout b
 
 Start with the reader's task, one complete example, and a clear next action. Explain a term where the reader first needs it. Keep each fact on one canonical page and link to it from related guides.
 
-Cut repeated benefits and cautions. Put necessary edge cases in a named disclosure or focused reference page, keeping limits that affect the example visible. Preserve full details in HTML and agent exports, and keep old links pointed at meaningful answers.
+Cut repeated benefits and cautions. Put edge cases in a named disclosure or focused reference page, while keeping limits that affect the example visible. Preserve the details in HTML and agent exports, and keep old links pointing to relevant content.
 
 Verify examples in a temporary project. Describe what the generated files prove separately from what the coding tool does at run time.
 

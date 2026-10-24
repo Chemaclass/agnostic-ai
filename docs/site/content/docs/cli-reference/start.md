@@ -11,11 +11,11 @@ group = "Reference"
 
 Use `use <tool>` to add a tool and generate its files in one step. Use `init` and `import` separately when you want to review existing instructions before generating output. Use `new` to create a source spec and `list` to see what loads.
 
-Run these commands from the project root. For coding agents and setup scripts, pass tool names explicitly rather than relying on an interactive choice.
+Run these commands from the project root. In coding agents and setup scripts, pass tool names explicitly to avoid an interactive choice.
 
 ## use
 
-Start using an AI tool with what the project already has, in one step:
+Add an AI tool using the project's existing specs:
 
 ```bash
 agnostic-ai use codex                  # switching to Codex this month
@@ -188,7 +188,7 @@ agnostic-ai import reconcile \
 
 Each row reports `add`, `remove`, `update`, or `conflict`, followed by the tool and source spec file paths. Asset files and executable modes are included. Concurrent source edits, deletions, and additions at occupied destinations are conflicts; matching final files need no row. Proposed files also conflict with surviving files above or below their destination, including source files outside a skill. Planned removals can make a file-to-directory replacement possible. Changes to a destination owned by multiple mapped native sources are conflicts, including when another owner is unchanged. Conflicts remain in the report and do not change its exit status. Add `--json` for the four resolved commit IDs and an `entries` array with `action`, `source`, and `destination` fields.
 
-The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a source counterpart at the migration revision. Content is compared using the file contents stored in Git, without merging text or normalizing later edits.
+The destination must match `sources.skills` from the current config. Repeat `--map` for distinct native skill directories. Both paths must be separate and relative to the configured project directory, including a nested project inside a larger Git repository. Only direct skill folders containing `SKILL.md` and their regular files are supported; symlinks and special files stop planning. Every base file must have a source counterpart at the migration revision. The comparison uses file contents stored in Git, without merging text or normalizing later edits.
 
 Commit changes in mapped trees first. The command reads Git revisions and reports a plan; it does not copy files, restore deleted skills, or change the index. Applying a plan is a separate manual step. Other uncommitted project changes are allowed.
 

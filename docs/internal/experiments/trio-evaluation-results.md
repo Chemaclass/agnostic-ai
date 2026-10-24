@@ -2,9 +2,9 @@
 
 # RTK and Caveman results for complete sessions
 
-RTK alone had the lowest observed cost estimate reported by the CLI using published prices for both larger diagnostic tasks in both repetitions. Adding Caveman cost more than RTK alone in every paired task. The short, unsupported command found no consistent reduction with RTK, and the skill configurations cost more. Keep both features opt-in; choose Caveman for its response style rather than a cost claim from this study.
+RTK alone had the lowest observed CLI cost estimate, calculated from published prices, for both larger diagnostic tasks in both repetitions. Adding Caveman cost more than RTK alone in every paired task. RTK showed no consistent reduction for the short, unsupported command, and the skill configurations cost more. Keep both features opt-in; choose Caveman for its response style rather than a cost claim from this study.
 
-Collected on 2026-10-10 for [#1961](https://github.com/Chemaclass/agnostic-ai/issues/1961), following the unchanged [plan written before collection](trio-evaluation-analysis-plan.md). The [method](trio-evaluation.md) and [full evidence](trio-evaluation-data/) accompany these results. There are 24 planned and attempted cases, not a selected subset of successful sessions.
+Collected on 2026-10-10 for [#1961](https://github.com/Chemaclass/agnostic-ai/issues/1961), following the unchanged [plan written before collection](trio-evaluation-analysis-plan.md). The [method](trio-evaluation.md) and [full evidence](trio-evaluation-data/) cover all 24 planned and attempted cases, including unsuccessful attempts.
 
 <a id="scope-and-provenance"></a>
 
@@ -30,7 +30,7 @@ Claude shortens the four payment outputs from commands run without RTK: the resu
 
 Sixty unique assistant message IDs reconcile input and cache counters with the final result and per-model usage. Streamed assistant output counters are placeholders; final result and modelUsage agree on the actual output. Thinking is included within output and is not added again. See Claude's [usage accounting rules](https://code.claude.com/docs/en/agent-sdk/cost-tracking).
 
-All required token, cost and elapsed values are known, with zero unknown attempts in each category. The final-only estimate is $0.02404614. All session limits are $0.12, and the complete cost record with the maximum reserved for each next session stayed within the selected $2 allowance. The outer allowance is recorded in the [collection invocation](trio-evaluation-data/final/collection-invocation.json), not its manifest. Prices are cost estimates reported by the CLI using published prices, not account invoices; connection-level retries and actual billed spend cannot be observed.
+All required token, cost, and elapsed values are known, with zero unknown attempts in each category. The final-only estimate is $0.02404614. All session limits are $0.12, and the cost record, including the maximum reserved for each next session, stayed within the selected $2 allowance. The outer allowance is recorded in the [collection invocation](trio-evaluation-data/final/collection-invocation.json), not its manifest. These CLI estimates use published prices. Connection-level retries and actual billed spend cannot be observed.
 
 | Configuration | Planned / attempted | Independent / original answer-check passes | Input | Cache creation | Cache read | Output (thinking within it) | Estimate, USD | Session seconds |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -96,7 +96,7 @@ The retained historical cost record lists 16 legacy debug attempts, including ei
 
 ## Publication and reproduction
 
-Three archives contain the exact reviewed copies with private details removed: 580 final files, 110 original-pilot files and 110 fresh-pilot files. [Archive hashes](trio-evaluation-data/artifacts.json) identify the containers; each export manifest separately records private-original and hashes of the copies with private details removed and byte counts. No source file is silently replaced by its hash of its edited copy. All 4,820 numeric and boolean values, usage objects, fixtures, public pinned assets and 12 loaded skill bodies survive the final export unchanged. Paired identifiers retain their relationships. The published evidence excludes authentication, home-directory, profile and saved-output files. The privacy review checks those selected files for the recorded private names, paths, identifiers and credentials; it is not a claim to detect every private fact in arbitrary prose.
+Three archives contain the reviewed copies with private details removed: 580 final files, 110 original-pilot files, and 110 fresh-pilot files. [Archive hashes](trio-evaluation-data/artifacts.json) identify the containers. Each export manifest records separate hashes and byte counts for private originals and exported copies; an edited copy's hash never replaces its original's hash. All 4,820 numeric and boolean values, usage objects, fixtures, public pinned assets, and 12 loaded skill bodies survive the final export unchanged. Paired identifiers retain their relationships. Published evidence excludes authentication, home-directory, profile, and saved-output files. The privacy review checks the selected files for recorded private names, paths, identifiers, and credentials. It does not establish that every private fact in arbitrary prose was detected.
 
 Verify each archive and recompute all pairs without a provider request:
 

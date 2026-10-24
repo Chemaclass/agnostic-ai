@@ -46,7 +46,7 @@ For project-local npm or pnpm installs, the offer prints the package manager's u
 
 If installation or version checking fails, project changes do not start. If a later step fails, the tool stops and prints how to continue. Changes already completed stay in place.
 
-Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable these checks. Offline checks stay silent. Checks also skip CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds. You can still run `upgrade` yourself.
+Set `AGNOSTIC_AI_NO_UPDATE_CHECK=1` to disable these checks. Offline checks stay silent. Checks also skip CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds. Manual `upgrade` remains available.
 
 ### Upgrade options
 

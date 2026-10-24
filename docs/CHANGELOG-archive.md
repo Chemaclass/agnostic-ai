@@ -186,7 +186,7 @@ Releases before v0.80.0. Everything from v0.80.0 on lives in [CHANGELOG.md](../C
 
 #### Aider
 
-- A `rules-file` change takes the old path's `read:` entry sync added out of `.aider.conf.yml`; an entry you listed stays (#1562, #1565).
+- Changing `rules-file` removes the old path's sync-owned `read:` entry from `.aider.conf.yml`; entries you added stay (#1562, #1565).
 
 #### Continue
 
@@ -524,7 +524,7 @@ Releases before v0.80.0. Everything from v0.80.0 on lives in [CHANGELOG.md](../C
 ### Site
 
 - The home page uses its full width: the source spec runs across the top, with each target's generated file beside the target list.
-- Code blocks, generated files, and the closing call to action share one dark slab, so a listing is distinguishable from the prose around it at a glance.
+- Code blocks, generated files, and the closing call to action share a dark background that distinguishes them from the surrounding prose.
 - The header reads Home, Docs, Targets, Updates, Playground, underlines the current section, and moves the version badge and GitHub button to the footer.
 - The docs sidebar marks the current guide, the guide index reads as cards, and an `x-<target>` heading no longer breaks the table of contents (#1015).
 - The targets page leads with the capability matrix, the README links each install channel, and releases before v0.50.0 move to `docs/CHANGELOG-archive.md`.
@@ -559,7 +559,7 @@ Releases before v0.80.0. Everything from v0.80.0 on lives in [CHANGELOG.md](../C
 ### Site
 
 - The site builds on Zola 0.23.6: templates moved to Tera 2 components, and three site tests that silently skipped on a mismatched local Zola now run (#970).
-- The ten spec kinds stop being a bare list: the playground's kind picker, the landing, and the README each say what a kind is and link its definition (#980).
+- The playground's kind picker, landing page, and README explain each of the ten spec kinds and link to its definition (#980).
 - The landing says the same things in fewer words and drops two installers it never rendered (#977, #991).
 - The targets index records Cursor's default-on compatibility hooks and required `type: stdio` field (#1007).
 
@@ -580,11 +580,11 @@ Releases before v0.80.0. Everything from v0.80.0 on lives in [CHANGELOG.md](../C
 
 ### Fixed
 
-- An `x-<target>` settings key merges with the translated policy instead of deleting it; an unmergeable shape prints a coverage note (#966, #974).
-- An `x-<target>` hooks block merges with the generated one event by event, and a wrong-shaped permission key raises a coverage note (#976).
+- An `x-<target>` settings key merges with the translated policy instead of deleting it; a structure that cannot merge produces a coverage note (#966, #974).
+- An `x-<target>` hooks block merges with the generated one event by event; a permission key with an invalid structure produces a coverage note (#976).
 - OpenCode and Devin permission rules use vendor names: `mcp__<server>__<tool>` becomes `<server>_<tool>`, and `WebSearch` becomes `web_search` (#947, #951).
 - Installing the latest release no longer fails with HTTP 403 on a shared IP: the install scripts and `upgrade` skip the rate-limited GitHub API (#940).
-- The npm wrapper survives the four ways its download used to fail, and exits `128 + signal` when killed (#936).
+- The npm wrapper handles four previously failing download cases and exits `128 + signal` when killed (#936).
 - An integer `effort` raises Factory's coverage note, `brew` drops a cask deprecation, and `update` reports only the PATH copy that wins (#933, #937, #968).
 
 ### Site
@@ -826,7 +826,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 - `sync --jobs` no longer fails intermittently with `invalid argument` on macOS when two targets share a directory (#701).
 - Warp: sync warns when a hand-authored `WARP.md` sits beside the generated `AGENTS.md`, since Warp reads `WARP.md` first and ignores synced rules (#691).
-- Cursor skills promote the documented `icon` and `color` to first-class keys, which previously reached the file only through `x-cursor` (#694).
+- Cursor skills accept `icon` and `color` directly; previously, those documented fields required `x-cursor` (#694).
 - The generated entry-point body offers `.geminiignore` instead of the `.aiexclude` this tool stopped writing in #625 (#651).
 
 ## v0.52.1 - 2026-09-07
@@ -1036,7 +1036,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `docs/user/targets.md` corrects Warp's MCP `type` field, Codex's `SessionEnd` event and Starlark policies, Gemini's hook list, and Amp's commands path.
 - Ten stale vendor doc URLs in the target-audit sources are refreshed, including Codex's move to `learn.chatgpt.com` and Kilo's to `kilo.ai`.
 - Codex exec-policy `decision` takes `allow`, `forbidden`, or `prompt`; the old `ask` wrote a rule Codex ignored.
-- `outputs.claude.settings.enabledPlugins` is a map of `plugin-id@marketplace-id` to boolean, matching Claude Code, so a plugin actually enables.
+- `outputs.claude.settings.enabledPlugins` maps `plugin-id@marketplace-id` to a boolean, matching the format Claude Code uses to enable plugins.
 - MCP `disabled: true` maps to Codex's `enabled = false`; Claude Code, Cursor, and Copilot get a coverage note, since they cannot pre-disable a project server.
 - Cline and Windsurf skills write as a folder per skill that each tool loads, and `import cline` and `import windsurf` read both the new and old forms.
 - Cline rules and agents default to `.cline/rules` and `.cline/agents`; keep `.clinerules` with `outputs.cline.rules-dir` (#534).
@@ -1297,7 +1297,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Fixed
 
-- Every adapter passes a full audit: golden output, capability parity, headers identifying generated files, and byte-equal sync -> import -> sync where supported.
+- Every adapter passes checks for golden output, consistent capability claims, headers identifying generated files, and byte-equal sync -> import -> sync where supported.
 - Cursor `.mdc` opening settings double-quotes `globs:` so `**/*` parses as a YAML string instead of an anchor reference.
 - Import unwraps `## Rules`, `## Agents`, and `## Skills` wrappers and provenance comments, so legacy concatenated rules files round-trip byte-equal.
 - `import codex` reads `outputs.codex.rules-file` and more MCP fields; sync removes an empty `.codex/config.toml` and legacy `.agents/` trees.
@@ -1364,7 +1364,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- `sync` footer counts only files that actually changed.
+- The `sync` footer counts only changed files.
 - Hook command paths rewrite `.<sibling>/hooks/` → `.<target>/hooks/` per target.
 - Codex agent filenames canonicalise to dash-case; underscore form preserved via `x-codex.name`. Claude + codex variants merge onto one spec.
 - Codex overlay capture preserves multi-line TOML literals and key order (text-level strip instead of decode/encode).
@@ -1373,7 +1373,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 - Codex write: multi-command hook arrays now write one `[[hooks.<event>]]` block per command (was dropping `command` entirely).
 - Claude settings.json: `timeout` and `statusMessage` round-trip.
-- Claude import: spurious "AGNOSTIC_AI.md seeded" log only prints when the mirror actually wrote.
+- Claude import prints "AGNOSTIC_AI.md seeded" only when it writes the mirrored file.
 - Codex AGENTS.md shred skips rules that already exist from a prior import.
 
 ## v0.24.0 - 2026-05-19
@@ -1473,11 +1473,11 @@ Three changes make a previously green repo fail. All three are deliberate.
 ### Fixed
 
 - write: normalize trailing newlines to exactly one `\n`. Closes #195.
-- `doctor` no longer false-positives drift on `.claude/settings.json` after sync (OrderedJSON round-trip is now byte-stable). Closes #200.
+- `doctor` no longer reports false drift on `.claude/settings.json` after sync (OrderedJSON round-trip is now byte-stable). Closes #200.
 
 ### Docs
 
-- README: rewrite "byte-identical" round-trip claim to match reality (content-preserving; marker + canonical formatting applied). Closes #201.
+- README clarifies that round-trips preserve content but apply a marker and canonical formatting, replacing the "byte-identical" claim. Closes #201.
 - README: target table separates native from convention paths. Closes #202.
 - README + getting-started: recommended adoption workflow (split `import` and `sync` into two commits). Closes #196.
 - AGNOSTIC_AI.md template: new "Target-specific overlays" section. Closes #203.
@@ -1503,7 +1503,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 - `sync` distributes `AGNOSTIC_AI.md` to `CLAUDE.md`, `AGENTS.md`, and other entry points, seeds it when absent, and keeps content written by `import <target>`.
 - `AGNOSTIC_AI.md` is no longer auto-added to `.gitignore`; commit it as a source file.
-- `outputs` key in `agnostic-ai.yaml` is fully optional; omitted when empty in the JSON envelope sent to external adapters.
+- The `outputs` key in `agnostic-ai.yaml` is optional and omitted from the JSON sent to external adapters when empty.
 
 ## v0.15.1 - 2026-05-15
 
@@ -1537,9 +1537,9 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `agnostic-ai install-hook`: pre-commit `sync --check`, `--shared` for `.githooks/` (#169).
 - MCP spec: `description`, `disabled`, `roots` (#177).
 - Claude import: `.claude/commands/*.md` round-trips opening settings (#177).
-- Codex `outputs.codex.config`: first-class `notify`, `profiles.<name>`, `model-providers.<id>` (#177).
+- Codex `outputs.codex.config` supports `notify`, `profiles.<name>`, and `model-providers.<id>` directly (#177).
 - Codex `[mcp_servers.<name>]`: `description`, `disabled`, `roots` (#177).
-- Codex agent: top-level `tools:` first-classed in agent TOML (#177).
+- Codex agents write top-level `tools:` into agent TOML (#177).
 - Golden snapshot tests per adapter (#166).
 
 ## v0.13.0 - 2026-05-15
@@ -1675,7 +1675,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 - WASM playground at `docs/playground/` (#43).
 - `validate` rejects unknown hook `event:` with supported list (#112); warns on hook/MCP with no consumer (#114).
 - `doctor` resolves stdio MCP `command:` on PATH; install hints for missing npx/uvx/python/docker (#113).
-- Opt-in native surfaces: Copilot chat modes, Cursor commands, Cline, Windsurf, and Warp workflows, Continue assistants, Zed tasks (#104, #105, #106, #107, #108, #109, #110).
+- Opt-in tool features: Copilot chat modes, Cursor commands, Cline, Windsurf, and Warp workflows, Continue assistants, Zed tasks (#104, #105, #106, #107, #108, #109, #110).
 
 ### Changed
 
@@ -1757,7 +1757,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- MCP servers as first-class spec kind (`mcps/*.yaml`). Propagates to Claude (`.mcp.json`), Cursor, Copilot (VS Code shape). Other targets warn.
+- MCP server specs (`mcps/*.yaml`) sync to Claude (`.mcp.json`), Cursor, and Copilot (VS Code format). Other targets warn.
 - `sync --backup`: copy each existing file to `<path>.bak`. Opt-in. Skipped on no-op writes.
 - `agnostic-ai revert`: restore `.bak` if present, otherwise remove. `--dry-run` to preview.
 - Auto-managed `.gitignore` block. `gitignore.enabled: true` (or `sync --gitignore on`); lines outside block preserved.

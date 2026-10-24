@@ -86,7 +86,7 @@ Under `amp.mcpServers` (one dotted key, not a nested object). Stdio writes `comm
 
 ### Settings
 
-**no portable field reaches Amp.** `permissions.allow`, `permissions.deny`, `permissions.ask`, and `model` each raise a sync note on every sync, and your portable deny list is not enforced. Only `x-amp` keys, in Amp's spelling, are written.
+**Amp does not read portable settings.** Each sync reports unsupported `permissions.allow`, `permissions.deny`, `permissions.ask`, and `model` fields. Your portable deny list is not enforced. Only `x-amp` keys, in Amp's spelling, are written.
 
 - They go to `.amp/settings.json`, Amp's [workspace settings file](https://ampcode.com/docs/cli/settings). Amp finds it by searching up from the working directory to the repository root. Workspace settings override user settings. MCP servers and settings are merged in one write, and every other key stays.
 - **`allow` and `ask` cannot be written.** Amp's [settings schema](https://ampcode.com/cli-settings.schema.json) has no tool allow-list. `amp.tools.disable` only disables, and `amp.mcpPermissions` matches MCP servers, not tools. Amp [does not ask for approval by default](https://ampcode.com/docs/tools) and points to a [permissions plugin](https://ampcode.com/docs/customize/plugins#example-plugin-permissions). `model` has no key either, because Amp picks models through the Dial.

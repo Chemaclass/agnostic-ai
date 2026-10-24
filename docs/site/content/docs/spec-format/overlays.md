@@ -1,6 +1,6 @@
 +++
 title = "Overlays"
-description = "overlays/: tool-specific settings and helper files that import captured, so sync keeps writing them."
+description = "overlays/: imported tool-specific settings and helper files that sync restores."
 weight = 110
 
 [extra]

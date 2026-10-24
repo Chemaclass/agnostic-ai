@@ -9,7 +9,7 @@ group = "Reference"
 
 # Reviews
 
-`reviews/` tells code-review bots what to check in this project: the layering rule, the error handling, the migrations that need a second look. One review spec writes that guidance into each bot's own file:
+`reviews/` defines project checks for code-review bots, such as dependency boundaries, error handling, and migration risks. One review spec writes that guidance into each bot's own file:
 
 | Target | Reads |
 |--------|-------|

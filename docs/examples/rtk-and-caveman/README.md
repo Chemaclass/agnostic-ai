@@ -1,6 +1,6 @@
 # Project packs for RTK and Caveman
 
-These two local packs (folders of shared specs) work independently with existing agnostic-ai commands on Claude Code using a shell such as Bash on macOS or Linux. The RTK pack adds a hook that calls an installed RTK. The Caveman pack adds the default response skill from a fixed Git commit of the Caveman project. Invoke `/caveman` in Claude before your task. Copying the skill does not prove Claude used it.
+Use either pack (a folder of shared specs) with the existing agnostic-ai commands, Claude Code, and a shell such as Bash on macOS or Linux. The RTK pack adds a hook that calls an installed RTK. The Caveman pack adds the default response skill from a fixed Git commit of the Caveman project. Invoke `/caveman` in Claude before your task; copying the skill alone does not prove Claude used it.
 
 <a id="add-a-component"></a>
 
@@ -15,7 +15,7 @@ agnostic-ai sync --all
 agnostic-ai sync --check
 ```
 
-To add the response skill, independently:
+To add the response skill on its own:
 
 ```sh
 agnostic-ai packs add "$example/packs/caveman" --name caveman
@@ -37,7 +37,7 @@ Do not add `decision: stdout`: RTK returns the JSON format Claude uses to replac
 
 ## Keep or replace an existing installation
 
-Review project and global `.claude/settings.json` hooks before adding RTK. Also review `.claude/skills/caveman/` and `~/.claude/skills/caveman/`. A shell script such as `bash .claude/hooks/rtk-rewrite.sh` and a direct `rtk hook claude` command can both run RTK. Different command text does not mean they do different jobs. agnostic-ai preserves handwritten hooks, so adding the pack beside a hook installed by RTK can run RTK twice.
+Before adding RTK, review project and global `.claude/settings.json` hooks, `.claude/skills/caveman/`, and `~/.claude/skills/caveman/`. A script such as `bash .claude/hooks/rtk-rewrite.sh` and a direct `rtk hook claude` command can both run RTK. agnostic-ai preserves handwritten hooks, so adding the pack alongside an existing RTK hook can run RTK twice.
 
 To keep an RTK-managed hook, leave the RTK pack out and add only Caveman. To keep a Caveman-managed skill, leave the Caveman pack out and add only RTK. Neither choice changes the existing installation.
 
@@ -124,6 +124,6 @@ python3 "$example/verify.py" \
 
 [UPSTREAM.json](packs/caveman/UPSTREAM.json) records the source repository, exact revision, download URLs, and SHA-256 hashes (file-content fingerprints). The original Caveman skill is copied without changes. Its README, license texts, licensing explanation, and notices travel with the skill. agnostic-ai writes the skill's opening settings in each tool's format and adds a header identifying its source while retaining the instruction body.
 
-Local packs work today without a plugin or a new project YAML setting. Their lock records a local path rather than a Git revision. Commit the pack sources when sharing this setup, or publish each pack as its own versioned Git repository and install a fixed tag or commit. Do not publish the combined parent directory as one pack: it holds two separate packs.
+Local packs need no plugin or new project YAML setting. Their lock records a local path rather than a Git revision. To share this setup, commit the pack sources or publish each pack as its own Git repository and install a fixed tag or commit. Do not publish the combined parent directory as one pack: it holds two separate packs.
 
-At the time of this pack test, a plugin would need installation and removal rules for each coding tool. A new YAML setting would still need separately installed programs and rules for managing existing installations. Neither addressed an unmet need in those local configuration checks. agnostic-ai now also offers separate `rtk` and `caveman` names in its existing `builtins` list. See the [current setup guide](https://agnostic-ai.org/docs/rtk-and-caveman/) and choose one source for each tool. Compressing command output with a separate program, recovering its original text, actual Claude behavior, and model-provider savings require separate evidence.
+At the time of this test, the local configuration checks showed no need for a plugin or new YAML setting. A plugin would require installation and removal rules for each coding tool; a YAML setting would still require separately installed programs and rules for existing installations. agnostic-ai now also offers separate `rtk` and `caveman` names in its `builtins` list. See the [current setup guide](https://agnostic-ai.org/docs/rtk-and-caveman/) and choose one source for each tool. Compressing command output with a separate program, recovering its original text, actual Claude behavior, and model-provider savings require separate evidence.

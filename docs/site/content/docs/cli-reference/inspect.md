@@ -107,7 +107,7 @@ rule conventional-commits
 effective source: .agnostic-ai/local/rules/conventional-commits.md
 ```
 
-Here the project replaces the pack rule, and the personal file extends the project rule. Edit either contributor to change the effective spec. You can also pass the replaced pack path to get the same report.
+The project replaces the pack rule, and the personal file extends the project rule. Edit either contributor to change the effective spec. Passing the replaced pack path gives the same report.
 
 Sources follow sync's resolution order: enabled built-ins, installed packs, project specs, then project-local overrides. `base` starts a spec, `replace` discards the earlier chain, and `extend` merges with it. `contributor` means the source survives resolution, without attributing individual fields or body text. An extension can replace body text or metadata while still participating in the merge.
 
@@ -128,7 +128,7 @@ agnostic-ai explain --file services/payments/handler.go --target codex
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot combine with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Supported: `cursor`, `claude`, `codex`. |
 
-The report describes planned project configuration, not the instructions the model has actually loaded. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
+The report describes planned project configuration, not the instructions the model has loaded. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
 
 <details>
 <summary>Read instruction statuses, native discovery rules, and JSON</summary>
@@ -291,9 +291,9 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-Show a read-only view of the configuration as versioned JSON or readable text. Nothing is written. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
+Inspect the configuration as versioned JSON or readable text without writing files. See the [Authority view](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md) notes for the contract.
 
-`view authority` answers, for one subject on one coding tool, which exact action on which exact target is permitted, with the rule and file behind each decision. Four states stay separate: what the specs declare, what the selected tool does with it, whether the generated file is installed, and runtime enforcement, which is never observed.
+`view authority` reports which actions a subject is permitted to take on a target in one coding tool, with the rule and file behind each decision. It distinguishes declared permissions, the tool's interpretation, and whether the generated file is installed. Runtime enforcement is reported separately and is never observed.
 
 ```bash
 agnostic-ai view authority --agent reviewer --target claude
@@ -310,11 +310,11 @@ agnostic-ai view overview --json
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-`view overview` prints whether each target's generated files are in sync, then the five harness sections (context, authority, tools, lifecycle, settings) with their items, each with the `lint` and `doctor` findings that name it. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
+`view overview` reports whether each target's generated files are in sync. It lists context, authority, tools, lifecycle, and settings, with the `lint` and `doctor` findings for each item. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
 
 ## serve
 
-Host the views as a local JSON API, and the built web client when `--ui` names its directory. The configuration loads on every request. The switches change builtin choices or boolean settings without syncing generated files. Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
+Serve the views through a local JSON API. Pass the built web client directory with `--ui` to serve it too. Configuration reloads on every request. Switches change built-in choices or boolean settings without syncing generated files. Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
 
 The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
 

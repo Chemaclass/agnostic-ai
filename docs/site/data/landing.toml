@@ -56,8 +56,8 @@ body = "Same input, same bytes. Catch drift in CI with `sync --check`."
 title = "Keep native tool files"
 body = "Each tool reads its own files. Sync flags what a tool cannot use."
 [[mission.principles]]
-title = "A sync layer, not a platform"
-body = "Stop any time. The generated files keep working."
+title = "Stop syncing at any time"
+body = "The generated files keep working."
 
 [mission.symlinks]
 question = "Why not just symlink one file?"
