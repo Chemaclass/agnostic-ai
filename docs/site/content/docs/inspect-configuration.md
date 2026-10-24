@@ -13,13 +13,13 @@ Find a warning in the local browser interface, edit its source, and sync the fix
 
 ## Open the project
 
-From the folder containing `agnostic-ai.yaml`, run:
+From the folder containing `agnostic-ai.yaml` or any folder inside it, run:
 
 ```bash
-agnostic-ai serve --open
+agnostic-ai view
 ```
 
-Keep the terminal running. The browser opens at `http://127.0.0.1:4310`. For user configuration, add `--global`.
+Keep the terminal running. The browser opens at `http://127.0.0.1:4310`. Outside a project, `view` opens user configuration. Add `--global` to select user configuration from a project.
 
 ## Fix a warning
 
@@ -49,6 +49,6 @@ agnostic-ai sync --check
 
 Review the plan before syncing. `sync --check` should exit 0. Reload the browser to see the updated rules and findings.
 
-For per-agent permission decisions, use [`view authority`](@/docs/cli-reference/inspect.md#view).
+For per-agent permission decisions, use the [Authority API](@/docs/cli-reference/inspect.md#serve).
 
 For browser switches, see [saving changes and undo](@/docs/cli-reference/inspect.md#serve).

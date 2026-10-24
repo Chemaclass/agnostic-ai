@@ -90,11 +90,11 @@ func mcpToolsScope(dir string, global bool) (string, []spec.Entry, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	leave, err := overviewEnterDir(dir)
+	src, err := openAuthoritySource(dir, false)
 	if err != nil {
 		return "", nil, err
 	}
-	defer leave()
+	defer src.close()
 	_, b, err := loadProject(".")
 	if err != nil {
 		return "", nil, err

@@ -117,7 +117,7 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 	}
 
 	context := sectionByID(t, v, SectionContext)
-	if context.Question != "What is the agent told?" || context.DeepView != "" {
+	if context.Question != "What is the agent told?" {
 		t.Errorf("context = %+v", context)
 	}
 	byName := map[string]SectionItem{}
@@ -138,7 +138,7 @@ func TestBuild_SectionsCountKindsAndItemsFromTheBundle(t *testing.T) {
 	}
 
 	authoritySection := sectionByID(t, v, SectionAuthority)
-	if authoritySection.DeepView != "/authority" || authoritySection.Question != "What may the agent do?" {
+	if authoritySection.Question != "What may the agent do?" {
 		t.Errorf("authority = %+v", authoritySection)
 	}
 	var names []string
@@ -528,6 +528,57 @@ func TestBuild_LabelsEveryBuiltInTarget(t *testing.T) {
 	for _, name := range adapters.Names() {
 		if labels.of(name) == name {
 			t.Errorf("target %s has no label", name)
+		}
+	}
+}
+
+func TestBuild_OnlyListsSpecsForConfiguredTargetsAndKeepsTheirFindings(t *testing.T) {
+	in := Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}}
+	in.Bundle.Hooks = []spec.Entry{
+		entry(spec.KindHook, "memory-claude-session-start", "builtin:claude-hook", map[string]any{"target": "claude", "event": "SessionStart"}),
+		entry(spec.KindHook, "memory-trae-session-start", "builtin:trae-hook", map[string]any{"target": "trae", "event": "SessionStart"}),
+		entry(spec.KindHook, "memory-windsurf-session-start", "builtin:windsurf-hook", map[string]any{"targets": []any{"windsurf"}, "event": "pre_setup_worktree"}),
+		entry(spec.KindHook, "memory-cline-task-start", "builtin:cline-hook", map[string]any{"target": "cline", "event": "TaskStart"}),
+		entry(spec.KindHook, "shared-hook", "shared.yaml", map[string]any{"on": "session-start"}),
+		entry(spec.KindHook, "excluded-hook", "excluded.yaml", map[string]any{"targets-exclude": []any{"claude", "codex"}, "on": "stop"}),
+	}
+	in.Bundle.Rules = []spec.Entry{
+		entry(spec.KindRule, "other-only", "other-rule.md", map[string]any{"target": "trae"}),
+		entry(spec.KindRule, "shared-rule", "shared-rule.md", nil),
+		entry(spec.KindRule, "codex-rule", "codex-rule.md", map[string]any{"targets": []any{"codex", "trae"}}),
+	}
+	in.Findings = []Finding{
+		{Source: SourceLint, Code: "active", Path: "builtin:claude-hook", Message: "active hook finding", Section: SectionLifecycle},
+		{Source: SourceLint, Code: "inactive", Path: "builtin:trae-hook", Message: "inactive source finding", Section: SectionLifecycle},
+	}
+	view := Build(in)
+	lifecycle := sectionByID(t, view, SectionLifecycle)
+	var hooks []string
+	for _, item := range lifecycle.Items {
+		hooks = append(hooks, item.Name)
+		if item.Name == "memory-claude-session-start" && (len(item.Findings) != 1 || item.Findings[0].Code != "active") {
+			t.Errorf("active hook findings = %+v", item.Findings)
+		}
+	}
+	slices.Sort(hooks)
+	if !slices.Equal(hooks, []string{"memory-claude-session-start", "shared-hook"}) || counts(lifecycle)["Hooks"] != 2 {
+		t.Errorf("lifecycle = %+v", lifecycle)
+	}
+	if len(lifecycle.Findings) != 1 || lifecycle.Findings[0].Code != "inactive" {
+		t.Errorf("unattached source findings = %+v", lifecycle.Findings)
+	}
+	var rules []string
+	for _, item := range sectionByID(t, view, SectionContext).Items {
+		rules = append(rules, item.Name)
+	}
+	if !slices.Equal(rules, []string{"codex-rule", "shared-rule"}) {
+		t.Errorf("rules = %v", rules)
+	}
+	for _, stage := range lifecycle.Stages {
+		for _, target := range stage.Targets {
+			if !slices.Contains(in.Cfg.Targets, target.Target) {
+				t.Errorf("stage has inactive target: %+v", target)
+			}
 		}
 	}
 }

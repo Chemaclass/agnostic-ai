@@ -32,6 +32,10 @@ import (
 const defaultServeAddr = "127.0.0.1:4310"
 
 func newServeCmd() *cobra.Command {
+	return newServeCmdWithBrowser(openBrowser)
+}
+
+func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
 		addr, dir, uiDir                   string
 		open, global, noInstalled, apiOnly bool
@@ -111,7 +115,7 @@ func newServeCmd() *cobra.Command {
 			}
 			_, _ = fmt.Fprintln(out, "Press Ctrl-C to stop.")
 			if open {
-				if err := openBrowser(url); err != nil {
+				if err := browser(url); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}

@@ -98,8 +98,8 @@ func (r row) title() string {
 }
 
 type sectionDef struct {
-	id, label, question, deepView string
-	rows                          []row
+	id, label, question string
+	rows                []row
 }
 
 // sectionDefs are the harness sections in order.
@@ -117,7 +117,7 @@ var sectionDefs = []sectionDef{
 		},
 	},
 	{
-		id: SectionAuthority, label: "Authority", question: "What may the agent do?", deepView: "/authority",
+		id: SectionAuthority, label: "Authority", question: "What may the agent do?",
 		rows: []row{{kind: spec.KindSettings, label: "Permissions", keep: grantsAuthority}},
 	},
 	{
@@ -313,7 +313,6 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			Label:    def.label,
 			Question: def.question,
 			Order:    i + 1,
-			DeepView: def.deepView,
 			Kinds:    []KindCount{},
 			Items:    []SectionItem{},
 			Support:  []KindSupport{},
@@ -373,7 +372,11 @@ func specItems(in Inputs, r row, section string) []SectionItem {
 		entries = slices.DeleteFunc(slices.Clone(entries), func(e spec.Entry) bool { return !r.keep(e) })
 	}
 	items := make([]SectionItem, 0, len(entries))
+	targets := targetsOf(in.Cfg)
 	for _, e := range entries {
+		if len(targets) > 0 && !slices.ContainsFunc(targets, e.EmitsTo) {
+			continue
+		}
 		item := sectionItem(in.Snapshot.Project.Root, e)
 		if r.group != nil {
 			item.Group = r.group(e)

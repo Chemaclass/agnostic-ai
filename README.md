@@ -66,8 +66,8 @@ agnostic-ai status       # see selected tools and out-of-date files
 agnostic-ai sync --plan  # preview what will change
 agnostic-ai sync         # write the tool files
 agnostic-ai sync --check # confirm they match the sources
-agnostic-ai view                            # summarize the configuration and its findings
-agnostic-ai serve --open                    # open the bundled web interface
+agnostic-ai view                            # open project or user configuration in the browser
+agnostic-ai view --json                     # print the configuration overview
 ```
 
 Use the [browser walkthrough](https://agnostic-ai.org/docs/inspect-configuration/) to find and fix a configuration warning. See [saving changes and undo](https://agnostic-ai.org/docs/cli-reference/inspect/#serve) for browser switches.

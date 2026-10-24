@@ -520,7 +520,6 @@ export interface Section {
   label: string
   question: string
   order: number
-  deepView?: string
   kinds: KindCount[]
   items: SectionItem[]
   support: KindSupport[]

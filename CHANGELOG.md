@@ -6,11 +6,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- **Removed:** `view authority` and `view overview`; use `view` to open project or user configuration, or `view --json` for the overview (#2466).
 - Caveman web previews ignore unrelated local working files, including tool symlinks, while checking source and output changes.
 
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
 - `serve --open` shows compact settings with aligned switches, Caveman preview/apply/undo, and warning fixes with prompt previews (#2319, #2453, #2454).
-- `view` shows shared setup and saved `mcp tools` results (#2319).
+- The browser shows shared setup, native tool settings, and saved `mcp tools` results (#2319).
 - Global import keeps MCP specs whose native server names differ only by case (#2434).
 - Project checks skip built-in hooks that do not target the selected tools (#2438).
 

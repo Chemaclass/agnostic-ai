@@ -291,8 +291,11 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-Summarize the configuration without writing files. `view` reports whether each target's generated files are in sync. It lists context, authority, tools, lifecycle, and settings, with the `lint` and `doctor` findings for each item. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
+Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). Keep the terminal running and press Ctrl-C to stop.
 
+Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
+
+The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
 ```bash
 agnostic-ai view
 agnostic-ai view --json
@@ -302,7 +305,8 @@ agnostic-ai view --global
 | Flag | Description |
 |------|-------------|
 | `--json` | The overview as JSON, schema `overview/v1`. |
-| `--dir` | Project directory to read. Default: the current directory. |
+| `--dir` | Read this project directory instead of discovering a project from the current folder. |
+| `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
 
 ## serve
