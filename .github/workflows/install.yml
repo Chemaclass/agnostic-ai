@@ -6,10 +6,10 @@ name: Install scripts
 on:
   push:
     branches: [main]
-    paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', '.github/workflows/install.yml']
+    paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', 'ui/**', 'scripts/ui-smoke.js', 'scripts/npm-smoke.sh', 'internal/cli/serve.go', 'internal/authority/handler.go', '.github/workflows/install.yml']
   pull_request:
     branches: [main]
-    paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', '.github/workflows/install.yml']
+    paths: ['scripts/install.sh', 'scripts/install.ps1', 'npm/**', 'ui/**', 'scripts/ui-smoke.js', 'scripts/npm-smoke.sh', 'internal/cli/serve.go', 'internal/authority/handler.go', '.github/workflows/install.yml']
   schedule:
     - cron: '0 6 * * 1'
   # A release is the moment the published artifacts change, so it is the

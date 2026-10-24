@@ -67,7 +67,7 @@ agnostic-ai sync --plan  # preview what will change
 agnostic-ai sync         # write the tool files
 agnostic-ai sync --check # confirm they match the sources
 agnostic-ai view authority --agent reviewer # inspect one agent's permissions
-agnostic-ai serve --ui ui/dist              # serve the local web interface
+agnostic-ai serve --open                    # open the bundled web interface
 ```
 
 In the web interface, the project Caveman switch previews the files before applying them to every configured tool. See [web changes and undo](https://agnostic-ai.org/docs/cli-reference/inspect/#serve).

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -207,6 +208,70 @@ func TestHandler_ServesTheClientWithAFallbackToIndex(t *testing.T) {
 		}
 		if strings.HasPrefix(path, "/api/") && resp.StatusCode != http.StatusNotFound {
 			t.Errorf("%s status = %d, want 404", path, resp.StatusCode)
+		}
+	}
+}
+
+func TestHandler_MissingAssetsAreNotHTML(t *testing.T) {
+	ui := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ui, "index.html"), []byte("<!doctype html><title>app</title>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := demoServer(t, HandlerOptions{UIDir: ui})
+	for _, path := range []string{"/assets/missing.js", "/missing.css", "/favicon.ico", "/api/missing"} {
+		resp, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusNotFound || strings.Contains(string(body), "<title>app</title>") {
+			t.Errorf("%s: status %d, body %q", path, resp.StatusCode, body)
+		}
+	}
+}
+
+func TestHandler_ServesEmbeddedFilesAndClientRoutes(t *testing.T) {
+	files := fstest.MapFS{
+		"index.html":    &fstest.MapFile{Data: []byte("<!doctype html><title>embedded</title>")},
+		"assets/app.js": &fstest.MapFile{Data: []byte("console.log(1)")},
+	}
+	srv := demoServer(t, HandlerOptions{UIFiles: files})
+	for _, check := range []struct {
+		method string
+		path   string
+		status int
+		body   string
+	}{
+		{http.MethodGet, "/", http.StatusOK, "<title>embedded</title>"},
+		{http.MethodGet, "/context/details", http.StatusOK, "<title>embedded</title>"},
+		{http.MethodGet, "/assets/app.js", http.StatusOK, "console.log(1)"},
+		{http.MethodHead, "/assets/app.js", http.StatusOK, ""},
+		{http.MethodGet, "/assets/", http.StatusNotFound, "404"},
+		{http.MethodGet, "/missing.css", http.StatusNotFound, "404"},
+		{http.MethodPost, "/", http.StatusMethodNotAllowed, "use GET or HEAD"},
+	} {
+		req, err := http.NewRequest(check.method, srv.URL+check.path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != check.status || !strings.Contains(string(body), check.body) {
+			t.Errorf("%s %s: status %d, body %q", check.method, check.path, resp.StatusCode, body)
+		}
+		if check.method == http.MethodHead && len(body) != 0 {
+			t.Errorf("HEAD returned a body: %q", body)
 		}
 	}
 }

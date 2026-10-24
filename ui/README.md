@@ -1,6 +1,6 @@
 # Local configuration UI
 
-Inspect project or user configuration in a local browser.
+Inspect project or user configuration in a local browser. Installed binaries include the client: run `agnostic-ai serve --open` from a configured project, or add `--global` for user configuration.
 
 | Section | Shows |
 | --- | --- |
@@ -25,9 +25,9 @@ and `internal/authority/types.go`. Update them together. `src/builtin-change.ts`
 From the repository root, serve a project or the user-level configuration:
 
 ```sh
-go run ./cmd/agnostic-ai serve --dir internal/authority/testdata/demo-project --allow-origin http://127.0.0.1:5173
+go run ./cmd/agnostic-ai serve --api-only --dir internal/authority/testdata/demo-project --allow-origin http://127.0.0.1:5173
 # Or serve user configuration with the same development origin:
-go run ./cmd/agnostic-ai serve --global --allow-origin http://127.0.0.1:5173
+go run ./cmd/agnostic-ai serve --api-only --global --allow-origin http://127.0.0.1:5173
 ```
 
 Then, in `ui/`:
@@ -42,13 +42,26 @@ Open `http://127.0.0.1:5173`. Vite forwards `/api` to
 `AGNOSTIC_AI_API_URL` to use another backend address. Other browser
 origins need an exact `--allow-origin` on the Go server.
 
-The server can also host the built client itself, on the same port as
-the API:
+The bundled client runs on the same port as the API:
 
 ```sh
-(cd ui && npm run build)
-go run ./cmd/agnostic-ai serve --dir internal/authority/testdata/demo-project --ui ui/dist
+go run ./cmd/agnostic-ai serve --dir internal/authority/testdata/demo-project --open
 ```
+
+For an unbundled development build, run `npm run build` in `ui/` and pass `--ui ui/dist`. `--api-only` leaves the browser interface off.
+
+## Update the bundled client
+
+Use Node.js 22 from the repository root:
+
+```sh
+make ui-build
+make build
+```
+
+Commit `ui/embedded/` with changes to its inputs. The bundle records source and asset hashes; `make build` and Go tests reject stale files. CI and release preparation also rebuild from `package-lock.json` and compare every asset with the committed bundle. Plain Go builds and `go install` use the tracked bundle without Node.js.
+
+`npm run bundle` writes the embedded client with root-relative asset URLs and no default snapshot source. It ignores `.env` files and `VITE_DEFAULT_SOURCE`, so a developer's static-preview settings cannot enter a release. `npm run build` still produces the relative-path standalone client in `dist/`. The embedded `third-party-notices.txt` contains the client dependency and icon licenses.
 
 ## Run it without a server
 
@@ -95,7 +108,9 @@ The build uses relative asset paths, so `dist/` runs from any directory.
 | Script              | What it does |
 | ------------------- | ------------ |
 | `npm run dev`       | Vite dev server with `/api` forwarded to 4310 |
-| `npm run build`     | Production build into `dist/` |
+| `npm run build`     | Standalone production build into `dist/` |
+| `npm run bundle` | Regenerate tracked `embedded/` assets and their manifest |
+| `npm run bundle:check` | Rebuild in a temporary directory and reject stale bundled assets |
 | `npm run preview`   | Serves `dist/`, also forwarding `/api` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test`      | Model tests with Vitest |
@@ -112,7 +127,7 @@ real server output with `OVERVIEW_FIXTURE` (a path relative to `ui/`).
 and accepted/refused edit responses. The edit responses are mocked.
 
 **Live browser tests** (`e2e/live.spec.ts`) start the built Go server
-against temporary project and user sources. They use real API requests,
+against temporary project and user sources. They load the embedded client without `--ui`, use real API requests,
 reload persisted edits, enforce browser boundaries, list tools from a
 local fake MCP server, and exercise the Vite proxy. They do not read or
 change the user's configuration.
@@ -131,8 +146,9 @@ change the user's configuration.
 E2E_PREVIEW=1 E2E_MOCK=1 npm run e2e
 
 # From the repository root, build the real server and client:
-go build ./cmd/agnostic-ai
-(cd ui && npm run build && npm run e2e:live)
+make ui-build
+make build
+(cd ui && npm run e2e:live)
 ```
 
 Use `E2E_CHROMIUM_PATH` for an existing Chrome installation, or install

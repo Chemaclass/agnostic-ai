@@ -25,6 +25,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	webui "github.com/chemaclass/agnostic-ai/ui"
 )
 
 // defaultServeAddr keeps the server on the loopback interface.
@@ -32,28 +33,34 @@ const defaultServeAddr = "127.0.0.1:4310"
 
 func newServeCmd() *cobra.Command {
 	var (
-		addr, dir, uiDir          string
-		open, global, noInstalled bool
-		allowedOrigins            []string
+		addr, dir, uiDir                   string
+		open, global, noInstalled, apiOnly bool
+		allowedOrigins                     []string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve the Authority view and its JSON API on a local port.",
-		Long: "Serves the Authority view API under /api, and the built client from --ui when " +
-			"given. Specs load on every request, so an edited spec shows on the next refresh. " +
-			"The only writes are the overview's toggles: a built-in in the config file, or a " +
-			"boolean in a settings spec, each validated afterwards and undone when it adds a " +
-			"problem. Generated files are not synced. Stops on Ctrl-C.",
-		Example: `  # API only, on the default port
-  agnostic-ai serve
+		Short: "Open the local web interface and its JSON API.",
+		Long: "Serves the bundled web interface and its API under /api. Use --ui for a " +
+			"development client or --api-only to serve just the API. Specs load on every request. " +
+			"Project Caveman changes preview and apply source and generated files, with undo " +
+			"for the last change in this server session. Other switches save built-in choices " +
+			"or boolean settings without syncing generated files. Stops on Ctrl-C.",
+		Example: `  # Open the bundled interface
+  agnostic-ai serve --open
 
-  # With the built client, opened in a browser
+  # API only, on the default port
+  agnostic-ai serve --api-only
+
+  # Override the bundled interface during development
   agnostic-ai serve --ui ui/dist --open
 
   # The user-level configuration
   agnostic-ai serve --global`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if apiOnly && (cmd.Flags().Changed("ui") || open) {
+				return errs.Coded(errs.CodeFlagConflict, "--api-only cannot be combined with --ui or --open")
+			}
 			if err := validateServeAddr(addr); err != nil {
 				return err
 			}
@@ -83,6 +90,9 @@ func newServeCmd() *cobra.Command {
 			}
 			defer src.close()
 			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, AllowedOrigins: allowedOrigins}
+			if !apiOnly && uiDir == "" {
+				opts.UIFiles = webui.Files()
+			}
 			if !global && !noInstalled {
 				opts.Installed = func(target string, cfg *config.Config, b spec.Bundle) (authority.InstalledState, error) {
 					return installedState(target, cfg, b, src.root)
@@ -94,10 +104,10 @@ func newServeCmd() *cobra.Command {
 			}
 			url := "http://" + ln.Addr().String() + "/"
 			out := cmd.OutOrStdout()
-			_, _ = fmt.Fprintf(out, "Serving the Authority view at %s\n", url)
+			_, _ = fmt.Fprintf(out, "Serving agnostic-ai at %s\n", url)
 			_, _ = fmt.Fprintf(out, "API: %sapi/views/authority (schema at %sapi/views/authority/schema)\n", url, url)
-			if uiDir == "" {
-				_, _ = fmt.Fprintln(out, "No --ui directory given, so only the API is served.")
+			if apiOnly {
+				_, _ = fmt.Fprintln(out, "API-only mode; no web interface is served.")
 			}
 			_, _ = fmt.Fprintln(out, "Press Ctrl-C to stop.")
 			if open {
@@ -111,7 +121,8 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
 	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Address to listen on.")
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
-	cmd.Flags().StringVar(&uiDir, "ui", "", "Directory of the built client to serve, such as ui/dist.")
+	cmd.Flags().StringVar(&uiDir, "ui", "", "Override the bundled web interface with this directory.")
+	cmd.Flags().BoolVar(&apiOnly, "api-only", false, "Serve the JSON API without the web interface.")
 	cmd.Flags().BoolVar(&open, "open", false, "Open the served URL in a browser.")
 	cmd.Flags().BoolVar(&global, "global", false, "Serve the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")

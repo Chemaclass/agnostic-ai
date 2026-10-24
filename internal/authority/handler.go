@@ -1,15 +1,17 @@
 package authority
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,9 +29,11 @@ type HandlerOptions struct {
 	// Root is the project root, as Options.Root.
 	Root string
 	// UIDir, when set, serves the built client from this directory for
-	// every path outside /api, falling back to index.html so client-side
-	// routes load.
+	// paths outside /api. Client routes fall back to index.html; missing
+	// assets return 404.
 	UIDir string
+	// UIFiles serves an embedded client when UIDir is unset.
+	UIFiles fs.FS
 	// ConfigFiles lists the config files read, relative to Root.
 	ConfigFiles func() []string
 	// Installed compares the generated files of one target with disk.
@@ -76,7 +80,7 @@ var endpoints = []endpoint{
 }
 
 // NewHandler serves the Authority view as JSON, and the built client
-// when HandlerOptions.UIDir is set.
+// when HandlerOptions.UIDir or UIFiles is set.
 func NewHandler(load Loader, opts HandlerOptions) http.Handler {
 	h := &handler{load: load, opts: opts}
 	mux := http.NewServeMux()
@@ -172,32 +176,39 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 	}{OK: true, Revision: Revision(b, Options{Root: h.opts.Root, ConfigFiles: h.configFiles()})})
 }
 
-// ui serves the built client, or index.html for a path that names no
-// file, so a client-side route survives a reload.
 func (h *handler) ui(w http.ResponseWriter, r *http.Request) {
-	if h.opts.UIDir == "" {
+	files := h.opts.UIFiles
+	if h.opts.UIDir != "" {
+		files = os.DirFS(h.opts.UIDir)
+	}
+	if files == nil {
 		writeError(w, http.StatusNotFound, errors.New("no client is served here; the API lives under /api"))
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		allowMethod(w, r, http.MethodGet)
+		w.Header().Set("Allow", "GET, HEAD")
+		writeError(w, http.StatusMethodNotAllowed, errors.New("use GET or HEAD"))
 		return
 	}
-	dir := http.Dir(h.opts.UIDir)
-	if f, err := dir.Open(path.Clean("/" + r.URL.Path)); err == nil {
-		info, statErr := f.Stat()
-		_ = f.Close()
-		if statErr == nil && !info.IsDir() {
-			http.FileServer(dir).ServeHTTP(w, r)
-			return
-		}
+	name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+	if name == "" {
+		name = "index.html"
 	}
-	index := filepath.Join(h.opts.UIDir, "index.html")
-	if _, err := os.Stat(index); err != nil {
-		writeError(w, http.StatusNotFound, fmt.Errorf("no index.html in %s", h.opts.UIDir))
+	if info, err := fs.Stat(files, name); err == nil && !info.IsDir() {
+		http.FileServer(http.FS(files)).ServeHTTP(w, r)
 		return
 	}
-	http.ServeFile(w, r, index)
+	if path.Ext(name) != "" || name == "assets" || strings.HasPrefix(name, "assets/") {
+		http.NotFound(w, r)
+		return
+	}
+	index, err := fs.ReadFile(files, "index.html")
+	if err != nil {
+		writeError(w, http.StatusNotFound, errors.New("client index.html is missing"))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
 }
 
 // options builds the view options for one request.

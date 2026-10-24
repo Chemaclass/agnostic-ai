@@ -5,6 +5,8 @@ project_name: agnostic-ai
 before:
   hooks:
     - go mod tidy
+    - npm --prefix ui ci
+    - npm --prefix ui run bundle:check
 
 builds:
   - id: agnostic-ai

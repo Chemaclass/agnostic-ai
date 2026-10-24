@@ -314,7 +314,7 @@ agnostic-ai view overview --json
 
 ## serve
 
-Serve the views through a local JSON API. Pass the built web client directory with `--ui` to serve it too. Configuration reloads on every request.
+Serve the bundled web interface and a local JSON API. The interface works offline without a source checkout or frontend build. Use `--ui` for a development client, or `--api-only` to serve only the API. Configuration reloads on every request.
 
 In a project, the Caveman switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Other built-ins, global built-ins, and boolean settings save their source files without syncing.
 
@@ -325,8 +325,9 @@ Edits preserve unrelated text and private file permissions. A validation failure
 The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
 
 ```bash
-agnostic-ai serve --ui ui/dist --open
+agnostic-ai serve --open
 agnostic-ai serve --global
+agnostic-ai serve --api-only
 ```
 
 | Flag | Description |
@@ -334,7 +335,8 @@ agnostic-ai serve --global
 | `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
 | `--allow-origin` | Additional exact browser origin, such as `http://127.0.0.1:5173` for Vite. |
 | `--dir` | Project directory to read. Default: the current directory. |
-| `--ui` | Directory of the built client to serve, such as `ui/dist`. |
+| `--ui` | Override the bundled client with a built directory, such as `ui/dist`. |
+| `--api-only` | Serve only the JSON API. Cannot combine with `--ui` or `--open`. |
 | `--open` | Open the served URL in a browser. |
 | `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |

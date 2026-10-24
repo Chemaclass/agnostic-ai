@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "bundle": "node scripts/bundle.mjs",
+    "bundle:check": "node scripts/bundle.mjs --check",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
