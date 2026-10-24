@@ -30,7 +30,7 @@ func newMCPCmd() *cobra.Command {
 }
 
 // newMCPToolsCmd is `mcp tools`: connect to each configured MCP server,
-// list its tools, and cache the result for view overview and serve.
+// list its tools, and cache the result for view and serve.
 func newMCPToolsCmd() *cobra.Command {
 	var dir string
 	var global, asJSON bool
@@ -41,7 +41,7 @@ func newMCPToolsCmd() *cobra.Command {
 		Long: "Connects to every configured MCP server, the way a coding tool does, and asks it " +
 			"for its tools: stdio servers are started with their command, args, and env; http " +
 			"servers are called with their headers and headersHelper. The result is cached in " +
-			"the user cache directory, and view overview and serve show it without connecting. " +
+			"the user cache directory, and view and serve show it without connecting. " +
 			"This is the only command that connects to MCP servers. sse and ws servers are not probed.",
 		Example: `  # The project in the working directory
   agnostic-ai mcp tools
@@ -90,11 +90,11 @@ func mcpToolsScope(dir string, global bool) (string, []spec.Entry, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	leave, err := overviewEnterDir(dir)
+	src, err := openAuthoritySource(dir, false)
 	if err != nil {
 		return "", nil, err
 	}
-	defer leave()
+	defer src.close()
 	_, b, err := loadProject(".")
 	if err != nil {
 		return "", nil, err

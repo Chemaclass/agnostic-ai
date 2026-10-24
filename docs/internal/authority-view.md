@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Architecture](architecture.md)
 
-The Authority view resolves an agent or session's permissions for one coding tool. The server resolves rules, records their sources, and analyzes proposed changes. `view authority` prints text or JSON with `--json`; `serve` hosts the API. The [browser client](../../ui/README.md) displays the configuration overview, not the Authority analysis.
+The Authority view resolves an agent or session's permissions for one coding tool. The server resolves rules, records their sources, and analyzes proposed changes. `serve` hosts the versioned JSON document at `/api/views/authority`. The [browser client](../../ui/README.md) displays the configuration overview, including its Authority section.
 
 The contract lives in three places that change together: [`internal/authority/types.go`](../../internal/authority/types.go) (canonical), [`internal/overview/types.go`](../../internal/overview/types.go) (the overview), and [`ui/src/contract.ts`](../../ui/src/contract.ts) (the TypeScript mirror). A field changes meaning only with a schema version bump; adding an optional field keeps `authority/v1`.
 

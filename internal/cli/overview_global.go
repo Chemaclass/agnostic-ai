@@ -25,8 +25,8 @@ func newGlobalOverviewHandler() http.Handler {
 // globalOverviewInputs loads the global and global-local layers as
 // lint --global does, runs the read-only checks that apply to them, and
 // builds the snapshot the overview names. The snapshot uses the options
-// view authority --global uses, so both views report one revision for
-// the same sources.
+// the served Authority view uses for --global, so both report one
+// revision for the same sources.
 func globalOverviewInputs() (overview.Inputs, error) {
 	scope, err := loadCheckScope(true)
 	if err != nil {

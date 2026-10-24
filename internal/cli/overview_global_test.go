@@ -153,11 +153,11 @@ func TestServeMux_GlobalServesTheOverview(t *testing.T) {
 	}
 }
 
-func TestViewOverview_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
+func TestView_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
 	globalOverviewHome(t)
-	out, err := runCLI(t, "view", "overview", "--global", "--json")
+	out, err := runCLI(t, "view", "--global", "--json")
 	if err != nil {
-		t.Fatalf("view overview --global: %v\n%s", err, out)
+		t.Fatalf("view --global: %v\n%s", err, out)
 	}
 	var view overview.View
 	if err := json.Unmarshal([]byte(out), &view); err != nil {
@@ -167,7 +167,7 @@ func TestViewOverview_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
 		t.Errorf("snapshot = %+v", view.Snapshot)
 	}
 
-	if _, err := runCLI(t, "view", "overview", "--global", "--dir", "."); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+	if _, err := runCLI(t, "view", "--global", "--dir", "."); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
 		t.Errorf("--global --dir error = %v, want a flag conflict", err)
 	}
 }

@@ -1,6 +1,6 @@
 # Local configuration UI
 
-Inspect project or user configuration in a local browser. Installed binaries include the client: run `agnostic-ai serve --open` from a configured project, or add `--global` for user configuration.
+Inspect project or user configuration in a local browser. Installed binaries include the client: run `agnostic-ai view` from a project or any folder inside it. Outside a project it opens user configuration; `--global` selects that configuration explicitly.
 
 | Section | Shows |
 | --- | --- |
@@ -74,7 +74,7 @@ Commit `ui/embedded/` with changes to its inputs. The bundle records source and 
 project, with the checkout's absolute path replaced so no machine path is committed. Regenerate it after a contract change:
 
 ```sh
-go run ./cmd/agnostic-ai view overview --dir internal/authority/testdata/demo-project --json \
+go run ./cmd/agnostic-ai view --dir internal/authority/testdata/demo-project --json \
   | sed "s|$PWD/|/path/to/agnostic-ai/|g" > ui/src/fixtures/overview.mock.json
 ```
 

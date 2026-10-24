@@ -4,126 +4,137 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
-// newViewOverviewCmd is `view overview`: the harness overview of a
-// project, as text or as the overview/v1 JSON document.
-func newViewOverviewCmd() *cobra.Command {
-	var dir string
+func newViewCmd() *cobra.Command {
+	return newViewCmdWithBrowser(openBrowser)
+}
+
+func newViewCmdWithBrowser(browser func(string) error) *cobra.Command {
+	var dir, addr string
 	var asJSON, global bool
 	cmd := &cobra.Command{
-		Use:   "overview",
-		Short: "Show the harness overview: what each section holds, which tools support it, and what the checks report.",
-		Long: "Prints the harness sections (context, authority, tools, lifecycle, " +
-			"settings) with the items each holds, each item's lint and read-only " +
-			"doctor findings, and whether each target's generated files match what " +
-			"sync would write. Nothing is written. --json prints the overview/v1 " +
-			"document the UI reads.",
-		Example: `  # Summarize the project in the working directory
-  agnostic-ai view overview
+		Use:   "view",
+		Short: "Open your configuration in the local web interface.",
+		Long: "Opens the bundled web interface for the project in the current directory " +
+			"or a parent directory. Outside a project, reads the user-level configuration. " +
+			"Use --json to print the overview/v1 document without starting a server. " +
+			"The interface reloads configuration on every request. Stops on Ctrl-C.",
+		Example: `  # Open the project, or user configuration outside a project
+  agnostic-ai view
 
   # Print the overview document of another project
-  agnostic-ai view overview --dir ../service --json
+  agnostic-ai view --dir ../service --json
 
-  # Summarize the user-level configuration
-  agnostic-ai view overview --global`,
+  # Open the user-level configuration
+  agnostic-ai view --global`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if global && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
 			}
-			in, err := loadOverviewInputs(dir, global)
+			root, useGlobal, err := resolveViewSource(dir, global, cmd.Flags().Changed("dir"))
 			if err != nil {
 				return err
 			}
-			view := overview.Build(in)
 			if asJSON {
-				return writeIndentedJSON(cmd, view)
+				in, err := loadOverviewInputs(root, useGlobal)
+				if err != nil {
+					return err
+				}
+				return writeIndentedJSON(cmd, overview.Build(in))
 			}
-			printOverview(cmd, view)
-			return nil
+			src, err := openAuthoritySource(root, useGlobal)
+			if err != nil {
+				return err
+			}
+			_, _, err = src.load()
+			src.close()
+			if err != nil {
+				return err
+			}
+			serve := newServeCmdWithBrowser(browser)
+			serve.SetContext(cmd.Context())
+			serve.SetOut(cmd.OutOrStdout())
+			serve.SetErr(cmd.ErrOrStderr())
+			args := []string{"--open", "--addr", addr}
+			if useGlobal {
+				args = append(args, "--global")
+			} else {
+				args = append(args, "--dir", root)
+			}
+			serve.SetArgs(args)
+			return serve.Execute()
 		},
 	}
-	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to inspect.")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON on stdout.")
-	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
+	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Loopback address to listen on.")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON without opening the web interface.")
+	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	return cmd
 }
 
-// loadOverviewInputs builds the overview inputs of the project in dir,
-// or of the user-level configuration when global is set.
+func resolveViewSource(dir string, global, explicitDir bool) (string, bool, error) {
+	if global {
+		return "", true, nil
+	}
+	root, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false, fmt.Errorf("resolve project directory %s: %w", dir, err)
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		return "", false, fmt.Errorf("project directory %s: %w", root, err)
+	}
+	if !info.IsDir() {
+		return "", false, fmt.Errorf("project directory %s is not a directory", root)
+	}
+	if explicitDir {
+		return root, false, nil
+	}
+	root = canonicalDir(root)
+	var globalRoots []os.FileInfo
+	if source, err := globalSourceRoot(); err == nil {
+		for _, path := range globalConfigPaths(source) {
+			if info, err := os.Stat(filepath.Dir(path)); err == nil {
+				globalRoots = append(globalRoots, info)
+			}
+		}
+	}
+	for candidate := root; ; candidate = filepath.Dir(candidate) {
+		for _, globalRoot := range globalRoots {
+			if info, err := os.Stat(candidate); err == nil && os.SameFile(info, globalRoot) {
+				return "", true, nil
+			}
+		}
+		for _, name := range []string{config.ConfigFileName, config.LegacyConfigFileName, config.LocalOverrideFileName} {
+			path := filepath.Join(candidate, name)
+			if _, err := os.Lstat(path); err == nil {
+				return candidate, false, nil
+			} else if !os.IsNotExist(err) {
+				return "", false, fmt.Errorf("inspect %s: %w", path, err)
+			}
+		}
+		if filepath.Dir(candidate) == candidate {
+			return "", true, nil
+		}
+	}
+}
+
 func loadOverviewInputs(dir string, global bool) (overview.Inputs, error) {
 	if global {
 		return globalOverviewInputs()
 	}
-	leave, err := overviewEnterDir(dir)
+	src, err := openAuthoritySource(dir, false)
 	if err != nil {
 		return overview.Inputs{}, err
 	}
-	defer leave()
+	defer src.close()
 	return overviewInputs(".")
-}
-
-// overviewEnterDir changes into dir for the command and returns the
-// function that changes back. The checks resolve generated paths against
-// the working directory, so they run inside the project.
-func overviewEnterDir(dir string) (leave func(), err error) {
-	if dir == "" || filepath.Clean(dir) == "." {
-		return func() {}, nil
-	}
-	origin, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("--dir: %w", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		return nil, fmt.Errorf("--dir: %w", err)
-	}
-	return func() { _ = os.Chdir(origin) }, nil
-}
-
-// printOverview prints each target's sync state, then each section's
-// counts and the findings on its items.
-func printOverview(cmd *cobra.Command, v *overview.View) {
-	cmd.Printf("Harness overview of %s (revision %s)\n", v.Snapshot.Project.Name, v.Snapshot.Revision)
-	for _, t := range v.Targets {
-		cmd.Printf("  %s: %s\n", t.Label, syncWording(t.Sync))
-	}
-	for _, s := range v.Sections {
-		counts := make([]string, 0, len(s.Kinds))
-		for _, k := range s.Kinds {
-			counts = append(counts, fmt.Sprintf("%s %d", k.Label, k.Count))
-		}
-		cmd.Printf("\n%s — %s\n  %s\n", s.Label, s.Question, strings.Join(counts, " · "))
-		for _, it := range s.Items {
-			for _, f := range it.Findings {
-				cmd.Printf("  ! %s: %s\n", it.Label, findingLine(f))
-			}
-		}
-		for _, f := range s.Findings {
-			cmd.Printf("  ! %s\n", findingLine(f))
-		}
-	}
-}
-
-func syncWording(s overview.TargetSync) string {
-	switch s.State {
-	case overview.SyncInSync:
-		return "in sync"
-	case overview.SyncDrifted:
-		return fmt.Sprintf("out of sync (%d file(s))", len(s.Files))
-	}
-	return "not checked"
-}
-
-func findingLine(f overview.ItemFinding) string {
-	if f.Code != "" {
-		return fmt.Sprintf("%s [%s] %s", f.Code, f.Severity, f.Message)
-	}
-	return fmt.Sprintf("[%s] %s", f.Severity, f.Message)
 }

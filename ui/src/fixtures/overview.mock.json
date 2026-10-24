@@ -197,7 +197,6 @@
       "label": "Authority",
       "question": "What may the agent do?",
       "order": 2,
-      "deepView": "/authority",
       "kinds": [
         {
           "kind": "settings",

@@ -34,13 +34,10 @@ const (
 
 // Section is one harness domain: what it holds and who supports it.
 type Section struct {
-	ID       string `json:"id"`
-	Label    string `json:"label"`
-	Question string `json:"question"`
-	Order    int    `json:"order"`
-	// DeepView is the client route of a dedicated view (Authority), if
-	// one exists.
-	DeepView string        `json:"deepView,omitempty"`
+	ID       string        `json:"id"`
+	Label    string        `json:"label"`
+	Question string        `json:"question"`
+	Order    int           `json:"order"`
 	Kinds    []KindCount   `json:"kinds"`
 	Items    []SectionItem `json:"items"`
 	Support  []KindSupport `json:"support"`

@@ -291,32 +291,29 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-Print configuration as text or versioned JSON without changing files. See the [Authority API contract](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/authority-view.md).
+Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). Keep the terminal running and press Ctrl-C to stop.
 
-`view authority` shows an agent or session's permissions for one coding tool, with the rule and file behind each decision. It separates declared permissions, the tool's interpretation, and whether generated files match the sources. It does not observe runtime enforcement.
+Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
 
+The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
 ```bash
-agnostic-ai view authority --agent reviewer --target claude
-agnostic-ai view authority --json
-agnostic-ai view overview --json
+agnostic-ai view
+agnostic-ai view --json
+agnostic-ai view --global
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--agent` | The subject: an agent name, or `session` (default) for the tool itself before any agent narrows it. |
-| `--target` | The coding tool to resolve effects for. Default: the first in `agnostic-ai.yaml`. |
-| `--json` | The full view as JSON, schema `authority/v1` or `overview/v1`. |
-| `--dir` | Project directory to read. Default: the current directory. |
+| `--json` | The overview as JSON, schema `overview/v1`. |
+| `--dir` | Read this project directory instead of discovering a project from the current folder. |
+| `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
-| `--no-installed` | Skip comparing the generated files with disk. |
-
-`view overview` reports whether each target's generated files are in sync. It lists context, authority, tools, lifecycle, and settings, with the `lint` and `doctor` findings for each item. With `--global` it reads the user-level configuration: findings come from `lint --global`, drift compares the files `sync --global` would write, and the doctor checks are skipped.
 
 ## serve
 
 Serve the bundled web interface and a local JSON API. The interface works offline without a source checkout or frontend build. Use `--ui` for a development client, or `--api-only` to serve only the API. Configuration reloads on every request.
 
-Start with the [browser walkthrough](@/docs/inspect-configuration.md). The browser's **Authority** section lists permission files and rules. For per-agent decisions, use [`view authority`](#view); for permission proposal previews, use `POST /api/views/authority/impact`. The browser has no permission proposal editor.
+Start with the [browser walkthrough](@/docs/inspect-configuration.md). The browser's **Authority** section lists permission files and rules. For per-agent decisions, use `GET /api/views/authority?agentId=<id>&target=<tool>`; for permission proposal previews, use `POST /api/views/authority/impact`. The browser has no permission proposal editor.
 
 Each finding has **Copy fix prompt**. Expand **Details** to read the suggested fix, explanation, and full prompt before copying it into your coding agent. Native settings are grouped by tool, with the shared `x-<tool>` prefix shown once.
 
@@ -355,7 +352,7 @@ Caveman change endpoints: `GET /api/changes/builtin` returns the current session
 
 ## mcp tools
 
-Connect to each configured MCP server and list its tools, then cache the result so `view overview` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
+Connect to each configured MCP server and list its tools, then cache the result so `view` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
 
 ```bash
 agnostic-ai mcp tools
