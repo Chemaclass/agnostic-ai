@@ -14,6 +14,8 @@ make build
 ./agnostic-ai sync  # this repository's own tool config
 ```
 
+The web interface is embedded from tracked assets, so Go-only builds need no Node.js. After changing `ui/src/`, its build inputs, or dependencies, use Node.js 22 and run `make ui-build`, then commit the updated `ui/embedded/` files. `make build` checks that those assets match their sources.
+
 Setup is complete when the build succeeds and `sync` generates this repository's tool configuration. Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked to set up new checkouts. Edit the specs, then sync.
 
 ## Make a change

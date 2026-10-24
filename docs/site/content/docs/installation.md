@@ -15,6 +15,8 @@ Install the agnostic-ai command on macOS, Linux, or Windows. This does not insta
 
 {{ <install_picker /> }}
 
+The local web interface ships inside the binary. After setting up a project, run `agnostic-ai serve --open`; it needs no frontend build or runtime download. See [the serve reference](@/docs/cli-reference/inspect.md#serve).
+
 ## Verify the install
 
 ```bash

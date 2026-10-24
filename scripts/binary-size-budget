@@ -400,4 +400,7 @@
 # #2319 measured 22565024 on Go 1.27.3, up 1302528
 # from main 80e54f1f (21262496): local configuration views, safe edits,
 # MCP probes and process ownership. Linux amd64 release flags; no headroom.
-22565024
+# #2453 measured 22974624 on Go 1.27.3, up 409600
+# from main 48db905c (22565024): embedded web client, third-party
+# notices, and static asset serving. Linux amd64 release flags; no headroom.
+22974624

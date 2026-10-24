@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `serve --open` opens the bundled web interface; `--api-only` serves only the JSON API (#2453).
 - Inspect permissions with `view authority` and shared setup with `view overview` (#2319).
 - `serve` provides a local web interface to inspect configuration and change built-ins and boolean settings (#2319).
 - `mcp tools` lists server tools and saves them for the overview (#2319).
