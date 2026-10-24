@@ -102,7 +102,7 @@ Drop `-g` for a project install. `--include=optional` also overrides an `omit=op
 <details>
 <summary>How the npm package works</summary>
 
-[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It's a wrapper, and its optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
+[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It's a wrapper, and its optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). npm obtains the wrapper and matching platform package from its registry or cache. No install script makes a separate binary download, so `--ignore-scripts` does not block installation. Offline installs need both packages in the cache or mirror.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
 

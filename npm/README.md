@@ -1,6 +1,6 @@
 # agnostic-ai
 
-Keep one set of instructions and settings for your coding tools. Write source files (specs) once, then run sync to create the files Claude Code, Codex, Gemini, Cursor, Copilot, and 20 more tools read.
+Keep one set of instructions and settings for your coding tools. Write source files (specs) once, then run sync to create the files Claude Code, Codex, Gemini, Cursor, Copilot, and other supported tools read.
 
 ```bash
 npx agnostic-ai init --from all # import existing tool files; select the tools you use
@@ -31,7 +31,7 @@ Windows, Go, and manual download are covered in [all install options](https://ag
 
 This package is a launcher for the ready-to-run command. The binary ships inside a platform package (`@agnostic-ai/darwin-arm64` and five siblings), declared as optional dependencies. npm reads each one's `os` and `cpu` and installs only the one that matches your machine. Supported platforms are macOS, Linux, and Windows on x64 and arm64.
 
-Nothing is downloaded and no install script runs, so the package works under `--ignore-scripts`, behind a proxy, and from an offline npm mirror. To pin a version, pin the package: `npm install -g agnostic-ai@<version>`.
+npm obtains the wrapper and matching platform package from its registry or cache. No install script makes a separate binary download, so the package works under `--ignore-scripts` and through npm's proxy settings. Offline installs need both packages in the cache or mirror. To pin a version, pin the package: `npm install -g agnostic-ai@<version>`.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary this package does not ship, such as one you built yourself.
 

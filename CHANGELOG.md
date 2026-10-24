@@ -68,12 +68,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
-- The global guide lists all user-hook targets, and the OpenCode guide explains current MCP timeouts (#2444).
-
+- Target guides clarify global hooks, OpenCode timeouts, Antigravity MCP URLs, Trae context names, and Amp tool names (#2416, #2435, #2444).
 - Landing examples show the selected source's output and label excerpts from shared files (#2408).
 - The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
 - The Composer guide covers shared instructions, rules, and skills for its Claude Code and Codex providers (#2426).
-- Target guides correct Antigravity MCP URL fields, Trae context names, and Amp tool-name examples (#2416, #2435).
+- Docs correct tool counts, installation claims, and audit dates; the Go plugin example builds in a standalone module.
 
 ## v0.87.0 - 2026-10-22
 
