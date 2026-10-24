@@ -14,6 +14,23 @@ Release builds, editor packaging, vendor compatibility checks, and local experim
 
 These checks provide evidence for reviewing alerts, not records of dismissed alerts. For each dependency alert, record a confirmed fix or a reviewed exception backed by a fresh scan.
 
+## Check npm dependencies
+
+The [npm audit workflow](../../.github/workflows/npm-audit.yml) scans every tracked `package-lock.json` on pull requests, pushes to main, and daily. It includes development and optional dependencies, fails on any reported vulnerability, and reads the lockfiles without installing packages. Dependabot alerts and security updates are enabled for the repository.
+
+Repeat a scan locally with Node 22:
+
+```sh
+npm audit --prefix editors/vscode --package-lock-only --ignore-scripts --include=dev --include=optional --audit-level=low
+```
+
+Use the affected package directory in `--prefix`. Update compatible dependencies first, then run the package's tests and packaging checks before committing the manifest and lockfile together.
+
+Two scoped overrides replace vulnerable upstream selections:
+
+- VS Code packaging: `@azure/identity` uses `@azure/msal-node` 7.1.1 for [GHSA-xcx6-jx8p-x3h5](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5). Remove the override when its parent selects a patched version. Verify extension tests and VSIX packaging after changing it.
+- OpenCode compatibility tests: `@opencode-ai/plugin` uses `zod` 4.6.6 for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5). Remove the override when the plugin updates its exact Zod dependency. Run `make opencode-hooks-test` after changing it.
+
 ## Update the release npm toolchain
 
 `scripts/npm-toolchain-pin.json` records the npm version, archive URL, and SHA-512 integrity value together. The current 11.5.1 values come from [official npm registry metadata](https://registry.npmjs.org/npm/11.5.1). Update all three values together after checking the new version's official metadata and verifying the downloaded archive. The release jobs do not fetch a replacement checksum at runtime.

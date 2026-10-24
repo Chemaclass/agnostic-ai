@@ -18,5 +18,10 @@
     "@oven/bun-darwin-aarch64": "1.3.10",
     "@oven/bun-windows-x64": "1.3.10",
     "@oven/bun-linux-aarch64": "1.3.10"
+  },
+  "overrides": {
+    "@opencode-ai/plugin": {
+      "zod": "4.6.6"
+    }
   }
 }
