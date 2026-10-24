@@ -154,7 +154,7 @@ goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guid
 goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-goosehints.md	200	raw-github	5b0b1e94c5e8151346d80da3a182d6b24347550d94855de0857e2352da1c4895	2026-09-22
 goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md	200	raw-github	f521f1fedeb5720c3664b064620ea51faa8fa77407f430bef89050eb405b66c3	2026-09-22
 grok	changelog	https://x.ai/changelog/build	200	reader-proxy	9939cae39eb51395a63da66d90a500b115852d1af3716052268c3618aa3dfafc	2026-10-23
-grok	code	https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8	200	html	c807165aae4b174a6659b5969a197e6ec0f325370adf687941f8de4c850c576e	2026-10-23
+grok	code	https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8	200	html	86764bef2e804bdc366a7b8891629c8d17fc76b197ae8fb898d5471008d3c566	2026-10-24
 grok	docs	https://docs.x.ai/build/features/hooks	200	html	a2cd7f7c5c0a08c53e078330e4eaae975280aa9192baa4228e4edb80f43951b1	2026-10-23
 grok	docs	https://docs.x.ai/build/features/mcp-servers	200	html	fb2195cd2f7230c86346b220eb4bf502f6f46a1a840fc3ad43eedd0a5f9a5ed3	2026-10-23
 grok	docs	https://docs.x.ai/build/features/project-rules	200	html	518d96fa59dd0be98aca99f91195c00befa0c8625bb2d083c291b85178907bbc	2026-10-23
@@ -164,7 +164,7 @@ grok	docs	https://docs.x.ai/build/settings	200	html	76c2ce1e6ba4eacf48c210aab442
 jules	changelog	https://jules.google/docs/changelog/	200	html	94ba5b0ded038d5f50a722c7aec178ca276a00e6e16e7bc6900aaed8028051dc	2026-09-22
 jules	docs	https://jules.google/docs	200	html	c648501d2a6994eb5a16b74df1505bfd205ede672fa19b94e922135cbc5c4a0e	2026-09-22
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	526c09d918b2b262288b771097bfc03798377a910a5dd0e9c19d6ec827311c4f	2026-10-17
-junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	3b6e332c12f3fe2c4c4b12f8f6ce6fb3812e8e7389f9f97c7197cbd00cd713d0	2026-10-23
+junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	4424518cceba13afc560bda8b17fc9452fae11bf7063e3ae7e46e1afdc36414e	2026-10-24
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/automated-code-reviews.html	200	html	77840d1fdf89c4fd516af364381a68604b6093a06e06d3e85ae3527367fc8000	2026-10-19
