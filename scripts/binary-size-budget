@@ -409,4 +409,7 @@
 # #2460 measured 23154848 on Go 1.27.3, up 8192
 # from main 953125fb (23146656): native command groups and task help.
 # Linux amd64 release flags; no added headroom or dependencies.
-23154848
+# Tool logos, finding fix prompts, native settings layout, and bundled
+# license texts add 81920 bytes over main 8433ffb0 on Go 1.27.3.
+# Linux amd64 release flags; no added headroom or dependencies.
+23236768

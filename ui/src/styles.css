@@ -840,15 +840,67 @@ input:hover {
 
 .finding-body {
   display: grid;
-  gap: 4px;
+  gap: 8px;
+  width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.finding-head,
+.finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.finding-head {
+  justify-content: space-between;
+}
+
+.finding-meta,
+.finding-source {
+  font-size: 12px;
+}
+
+.finding-copy {
+  padding: 5px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.finding-message {
+  line-height: 1.5;
+}
+
+.finding-details summary {
+  width: fit-content;
+  color: var(--accent-strong);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.finding-details[open] summary {
+  margin-bottom: 8px;
+}
+
+.finding-evidence {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.finding-evidence strong,
+.finding-evidence span {
+  display: block;
 }
 
 .tool-list {
   display: inline-flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  vertical-align: middle;
 }
 
 
@@ -1097,10 +1149,63 @@ input:hover {
 .field-source {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .field-from {
   font-size: 12px;
+}
+
+.native-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.native-group {
+  container-type: inline-size;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.native-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--accent-strong);
+  font-size: 13px;
+}
+
+.native-group .values {
+  gap: 0;
+  margin: 0;
+}
+
+.native-group .value-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.native-group .value-row:last-child {
+  border-bottom: 0;
+}
+
+.native-group .value-row dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.native-group .value-row dt code {
+  font-family: var(--font-mono);
+}
+
+@container (max-width: 30rem) {
+  .native-group .value-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
 }
 
 .tool-listing {

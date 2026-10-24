@@ -4,6 +4,35 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import claudeIcon from '../assets/tools/claude.svg'
 import codexIcon from '../assets/tools/codex.svg'
 import cursorIcon from '../assets/tools/cursor.svg'
+import geminiIcon from '../assets/tools/gemini.svg'
+import qwenIcon from '../assets/tools/qwen.svg'
+import copilotIcon from '../assets/tools/copilot.svg'
+import aiderIcon from '../assets/tools/aider.png'
+import clineIcon from '../assets/tools/cline.svg'
+import windsurfIcon from '../assets/tools/windsurf.svg'
+import continueIcon from '../assets/tools/continue.svg'
+import ampIcon from '../assets/tools/amp.svg'
+import zedIcon from '../assets/tools/zed.svg'
+import warpIcon from '../assets/tools/warp.svg'
+import opencodeIcon from '../assets/tools/opencode.svg'
+import antigravityIcon from '../assets/tools/antigravity.svg'
+import junieIcon from '../assets/tools/junie.svg'
+import kiroIcon from '../assets/tools/kiro.svg'
+import crushIcon from '../assets/tools/crush.svg'
+import traeIcon from '../assets/tools/trae.svg'
+import julesIcon from '../assets/tools/jules.svg'
+import gooseIcon from '../assets/tools/goose.svg'
+import grokIcon from '../assets/tools/grok.svg'
+import augmentIcon from '../assets/tools/augment.svg'
+import qoderIcon from '../assets/tools/qoder.svg'
+import vibeIcon from '../assets/tools/vibe.svg'
+import kimiIcon from '../assets/tools/kimi.svg'
+import piIcon from '../assets/tools/pi.svg'
+import openhandsIcon from '../assets/tools/openhands.svg'
+import factoryIcon from '../assets/tools/factory.svg'
+import kiloIcon from '../assets/tools/kilo.svg'
+import ellipsisIcon from '../assets/tools/ellipsis.svg'
+import codebuddyIcon from '../assets/tools/codebuddy.svg'
 
 export type Tone = 'permitted' | 'approval' | 'blocked' | 'info' | 'neutral' | 'accent'
 
@@ -27,14 +56,47 @@ export function Switch({ on, label }: { on: boolean; label?: string }) {
   )
 }
 
-const TOOL_ICONS: Record<string, string> = { claude: claudeIcon, codex: codexIcon, cursor: cursorIcon }
+const TOOL_ICONS: Record<string, { icon: string; name: string }> = {
+  claude: { icon: claudeIcon, name: 'Claude Code' },
+  codex: { icon: codexIcon, name: 'Codex' },
+  cursor: { icon: cursorIcon, name: 'Cursor' },
+  gemini: { icon: geminiIcon, name: 'Gemini CLI' },
+  qwen: { icon: qwenIcon, name: 'Qwen Code' },
+  copilot: { icon: copilotIcon, name: 'GitHub Copilot' },
+  aider: { icon: aiderIcon, name: 'Aider' },
+  cline: { icon: clineIcon, name: 'Cline' },
+  windsurf: { icon: windsurfIcon, name: 'Windsurf / Devin' },
+  continue: { icon: continueIcon, name: 'Continue' },
+  amp: { icon: ampIcon, name: 'Amp' },
+  zed: { icon: zedIcon, name: 'Zed' },
+  warp: { icon: warpIcon, name: 'Warp' },
+  opencode: { icon: opencodeIcon, name: 'OpenCode' },
+  antigravity: { icon: antigravityIcon, name: 'Google Antigravity' },
+  junie: { icon: junieIcon, name: 'Junie' },
+  kiro: { icon: kiroIcon, name: 'Kiro' },
+  crush: { icon: crushIcon, name: 'Crush' },
+  trae: { icon: traeIcon, name: 'Trae' },
+  jules: { icon: julesIcon, name: 'Jules' },
+  goose: { icon: gooseIcon, name: 'Goose' },
+  grok: { icon: grokIcon, name: 'Grok Build' },
+  augment: { icon: augmentIcon, name: 'Augment' },
+  qoder: { icon: qoderIcon, name: 'Qoder' },
+  vibe: { icon: vibeIcon, name: 'Mistral Vibe' },
+  kimi: { icon: kimiIcon, name: 'Kimi Code CLI' },
+  pi: { icon: piIcon, name: 'Pi' },
+  openhands: { icon: openhandsIcon, name: 'OpenHands' },
+  factory: { icon: factoryIcon, name: 'Factory' },
+  kilo: { icon: kiloIcon, name: 'Kilo Code' },
+  ellipsis: { icon: ellipsisIcon, name: 'Ellipsis' },
+  codebuddy: { icon: codebuddyIcon, name: 'CodeBuddy Code' },
+}
 
-/** A coding tool's logo in a circle, or its initial when there is none; label is its tooltip. */
-export function ToolAvatar({ target, label }: { target: string; label: string }) {
-  const icon = TOOL_ICONS[target]
+export function ToolAvatar({ target, label }: { target: string; label?: string }) {
+  const tool = Object.hasOwn(TOOL_ICONS, target) ? TOOL_ICONS[target] : undefined
+  const name = label ?? tool?.name ?? target
   return (
-    <span className="tool-avatar" role="img" aria-label={label} title={label}>
-      {icon ? <img src={icon} alt="" width={18} height={18} /> : <span aria-hidden="true">{target.charAt(0).toUpperCase()}</span>}
+    <span className="tool-avatar" data-target={target} role="img" aria-label={name} title={name}>
+      {tool ? <img src={tool.icon} alt="" width={18} height={18} /> : <span aria-hidden="true">{target.charAt(0).toUpperCase()}</span>}
     </span>
   )
 }

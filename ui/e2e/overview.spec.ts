@@ -5,6 +5,85 @@ import { MOCK, openApp, saveScreenshot } from './helpers'
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
+  test('loads a logo for every registered target', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const capabilities = readFileSync(new URL('../../docs/site/data/capabilities.toml', import.meta.url), 'utf8')
+    const targets = capabilities.split('[[targets]]').slice(1).map((block) => ({
+      target: block.match(/id = "([^"]+)"/)?.[1],
+      label: block.match(/name = "([^"]+)"/)?.[1],
+      event: 'SessionStart',
+    }))
+    expect(targets.length).toBeGreaterThan(3)
+    data.sections.find((section: { id: string }) => section.id === 'lifecycle').stages[0].targets = targets
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=lifecycle')
+    const avatars = page.locator('.stage').first().locator('.tool-avatar')
+    await expect(avatars).toHaveCount(targets.length)
+    for (const target of targets) {
+      const avatar = page.locator('.stage').first().locator(`.tool-avatar[data-target="${target.target}"]`)
+      await expect(avatar).toHaveAttribute('title', `${target.label} - SessionStart`)
+      const image = avatar.locator('img')
+      await expect(image).toBeVisible()
+      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
+    }
+  })
+
+  test('uses named tool logos in every support table and configured target list', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    for (const view of ['context', 'authority', 'tools', 'lifecycle', 'settings']) {
+      await page.goto(`/?view=${view}`)
+      const tools = page.locator('.support-table .tool-avatar')
+      expect(await tools.count()).toBeGreaterThan(0)
+      for (const avatar of await tools.all()) {
+        await expect(avatar).toHaveAttribute('title', /Claude Code|Codex|Cursor/)
+        await expect(avatar.locator('img')).toBeVisible()
+      }
+    }
+    const targets = page.locator('.value-row', { hasText: 'targets' }).locator('.tool-avatar')
+    await expect(targets).toHaveCount(fixture.targets.length)
+    await expect(targets.first()).toHaveAttribute('title', 'Claude Code')
+  })
+
+  test('groups native keys, keeps edit keys, and copies a finding fix prompt', async ({ page, context }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    settings.fields.find((field: { key: string }) => field.key === 'x-').set = [{
+      spec: 'native', path: '.agnostic-ai/settings/native.yaml', values: [
+        { key: 'x-ellipsis.environment.repository.name', type: 'text', value: 'agnostic-ai' },
+        { key: 'x-ellipsis.pull_requests.draft', type: 'bool', value: 'false' },
+      ],
+    }]
+    settings.findings = [{
+      source: 'lint', severity: 'warn', code: 'LINT038', path: '.agnostic-ai/settings/permissions.yaml', line: 3,
+      message: 'Bare read covers every file.', explanation: 'This rule grants all file reads.', fix: 'Use read(src/**).',
+    }]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    let edit: unknown
+    await page.route('**/api/edit/value', (route) => {
+      edit = route.request().postDataJSON()
+      return route.fulfill({ json: { ok: true } })
+    })
+    await page.goto('/?view=settings')
+    const native = page.locator('.native-group', { hasText: 'x-ellipsis' })
+    await expect(native.locator('.native-group-title')).toHaveText('x-ellipsis')
+    await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
+    await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
+    expect(edit).toEqual({ path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true })
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding.getByText('This rule grants all file reads.')).not.toBeVisible()
+    await finding.getByText('Details', { exact: true }).click()
+    await expect(finding.getByText('This rule grants all file reads.')).toBeVisible()
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await finding.getByRole('button', { name: 'Copy fix prompt' }).click()
+    await expect(finding.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
+    const prompt = await page.evaluate(() => navigator.clipboard.readText())
+    expect(prompt).toContain('LINT038')
+    expect(prompt).toContain(`Configuration root: ${data.snapshot.project.root}`)
+    expect(prompt).toContain('.agnostic-ai/settings/permissions.yaml:3')
+    expect(prompt).toContain('Use read(src/**).')
+    expect(prompt).toContain('sync --check')
+  })
+
   test('opens on Context with five sections and an icon theme toggle', async ({ page }) => {
     await openApp(page)
     await expect(page.getByRole('heading', { level: 1, name: 'Context' })).toBeVisible()
@@ -45,7 +124,7 @@ test.describe('overview', () => {
     await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
     const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })
     await expect(config.getByRole('link', { name: /^Edit .+ in Cursor$/ })).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
-    await expect(config.locator('.value-row', { hasText: 'targets' }).locator('.chip').first()).toBeVisible()
+    await expect(config.locator('.value-row', { hasText: 'targets' }).locator('.tool-avatar').first()).toBeVisible()
     await saveScreenshot(page, '03-settings.png')
   })
 

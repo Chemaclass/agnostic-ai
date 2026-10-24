@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change } from '../builtin-change'
 import { useApp } from './app-context'
-import { Code, Switch, Toggle } from './ui'
+import { Code, Switch, Toggle, ToolAvatar } from './ui'
 
 type Pending = 'loading' | 'preparing' | 'applying' | 'undoing'
 
@@ -68,7 +68,7 @@ export function CavemanChange({ on, fallback }: { on: boolean; fallback: ReactNo
       </div>}
       {proposal && <section className="builtin-change-preview" aria-label="Caveman change preview" aria-busy={!!pending}>
         <h3>{change.enabled ? 'Enable' : 'Disable'} Caveman</h3>
-        <p>Update <Code>{change.config}</Code> and sync {change.targets.join(', ')}.</p>
+        <p>Update <Code>{change.config}</Code> and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
         <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
         <div className="builtin-change-files">
           {change.changes.map((file) => <details key={file.path}>

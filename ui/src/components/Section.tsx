@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { createContext, useContext, useState } from 'react'
 import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { CavemanChange } from './BuiltinChange'
 import { cursorUrl } from '../model/editor'
+import { findingFixPrompt } from '../model/finding-prompt'
 import type { Remote } from './Shell'
-import { Badge, Chip, Code, Icon, Switch, Toggle, ToolAvatar } from './ui'
+import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
+
+const ConfigurationRoot = createContext<string | undefined>(undefined)
 
 export function SectionPage({ sectionId, overview }: { sectionId: string; overview: Remote<OverviewView> }) {
   const data = overview.loaded?.data
@@ -32,7 +35,9 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
   return (
     <>
       <PageHeader title={section.label} subtitle={section.question} />
-      <SectionContents section={section} />
+      <ConfigurationRoot.Provider value={data.snapshot.project.root}>
+        <SectionContents section={section} />
+      </ConfigurationRoot.Provider>
       <SupportTable section={section} toolLabel={toolLabel} />
     </>
   )
@@ -44,8 +49,8 @@ export function SectionContents({ section }: { section: Section }) {
     <>
       {section.findings.length > 0 && (
         <section className="block" aria-labelledby={`${section.id}-unplaced`}>
-          <h2 id={`${section.id}-unplaced`}>Findings outside the configured items</h2>
-          <Findings findings={section.findings} showPath />
+          <h2 id={`${section.id}-unplaced`}>Other findings</h2>
+          <Findings findings={section.findings} />
         </section>
       )}
       {section.kinds.map((k) => {
@@ -76,7 +81,8 @@ function SettingsFields({ title, fields, files }: { title: string; fields: Setti
         {fields.map((f) => (
           <li key={f.key} className={`field-row${f.set.length ? ' is-set' : ''}`}>
             <div className="field-head">
-              <strong>{f.label}</strong> <code className="muted">{f.key === 'x-' ? 'x-<tool>' : f.key}</code>
+              <strong>{f.label}</strong>
+              {f.key !== 'x-' && <code className="muted">{f.key}</code>}
               <p className="muted">{f.description}</p>
             </div>
             {f.set.length === 0 ? (
@@ -84,7 +90,7 @@ function SettingsFields({ title, fields, files }: { title: string; fields: Setti
             ) : (
               f.set.map((src) => (
                 <div key={src.spec} className="field-source">
-                  <Values values={src.values} file={src.path} />
+                  {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
                   <p className="muted field-from">
                     from <Code>{src.path}</Code>
                   </p>
@@ -264,19 +270,44 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
   )
 }
 
-/** Each setting as its kind reads best: chips for a list, a switch for a boolean, text otherwise. */
-function Values({ values, file }: { values: Value[]; file?: string }) {
+function NativeValues({ values, file }: { values: Value[]; file: string }) {
+  const groups = new Map<string, Value[]>()
+  for (const value of values) {
+    const prefix = value.key.split('.')[0]
+    const group = groups.get(prefix) ?? []
+    group.push(value)
+    groups.set(prefix, group)
+  }
+  return (
+    <div className="native-groups">
+      {[...groups].map(([prefix, entries]) => (
+        <div key={prefix} className="native-group">
+          <h4 className="native-group-title"><ToolAvatar target={prefix.slice(2)} /><code>{prefix}</code></h4>
+          <Values values={entries} file={file} prefix={prefix} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Values({ values, file, prefix }: { values: Value[]; file?: string; prefix?: string }) {
   return (
     <dl className="values">
       {values.map((v) => (
         <div key={v.key} className="value-row">
           <dt>
-            <code>{v.key}</code>
+            <code title={prefix ? v.key : undefined}>
+              {(prefix && v.key.startsWith(`${prefix}.`) ? v.key.slice(prefix.length + 1) : v.key).split('.').map((part, i) => (
+                <span key={i}>{i > 0 && <>.<wbr /></>}{part}</span>
+              ))}
+            </code>
           </dt>
           <dd>
             {v.type === 'list' ? (
               <span className="value-chips">
-                {(v.list ?? []).length ? (v.list ?? []).map((entry, i) => <Chip key={`${i}-${entry}`}>{entry}</Chip>) : <span className="muted">Empty</span>}
+                {(v.list ?? []).length ? (v.list ?? []).map((entry, i) => v.key === 'targets'
+                  ? <ToolAvatar key={`${i}-${entry}`} target={entry} />
+                  : <Chip key={`${i}-${entry}`}>{entry}</Chip>) : <span className="muted">Empty</span>}
               </span>
             ) : v.type === 'bool' ? (
               file ? (
@@ -294,28 +325,36 @@ function Values({ values, file }: { values: Value[]; file?: string }) {
   )
 }
 
-function Findings({ findings, showPath }: { findings: ItemFinding[]; showPath?: boolean }) {
+function Findings({ findings }: { findings: ItemFinding[] }) {
+  const root = useContext(ConfigurationRoot)
   return (
     <ul className="findings">
       {findings.map((f, i) => (
         <li key={`${f.code ?? f.source}-${f.line ?? 0}-${i}`} className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
           <Icon name="warning" className="finding-icon" />
           <div className="finding-body">
-            <p>
-              <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>{' '}
-              {f.code && <Code>{f.code}</Code>} {f.line ? <span className="muted">Line {f.line}: </span> : null}
-              {f.message}
-            </p>
-            {showPath && f.path && (
-              <p className="muted">
-                <Code>{f.path}</Code>
+            <div className="finding-head">
+              <div className="finding-meta">
+                <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
+                {f.code && <Code>{f.code}</Code>}
+                <span className="muted">{f.source}</span>
+              </div>
+              <CopyButton text={findingFixPrompt(f, root)} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
+            </div>
+            <p className="finding-message">{f.message}</p>
+            {f.path ? (
+              <p className="finding-source muted">
+                <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
               </p>
-            )}
-            {f.explanation && <p className="muted">{f.explanation}</p>}
-            {f.fix && (
-              <p className="muted">
-                Fix: <Code>{f.fix}</Code>
-              </p>
+            ) : f.line ? <p className="finding-source muted">Line {f.line}</p> : null}
+            {(f.explanation || f.fix) && (
+              <details className="finding-details">
+                <summary>Details</summary>
+                <div className="finding-evidence muted">
+                  {f.explanation && <p>{f.explanation}</p>}
+                  {f.fix && <p><strong>Suggested fix</strong><span>{f.fix}</span></p>}
+                </div>
+              </details>
             )}
           </div>
         </li>
@@ -346,9 +385,7 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
                   {k.supported.length ? (
                     <span className="tool-list">
                       {k.supported.map((t) => (
-                        <Chip key={t} tone="permitted">
-                          {toolLabel(t)}
-                        </Chip>
+                        <ToolAvatar key={t} target={t} label={toolLabel(t)} />
                       ))}
                     </span>
                   ) : (
@@ -359,7 +396,7 @@ function SupportTable({ section, toolLabel }: { section: Section; toolLabel: (ta
                   {k.unsupported.length ? (
                     <span className="tool-list">
                       {k.unsupported.map((t) => (
-                        <Chip key={t}>{toolLabel(t)}</Chip>
+                        <ToolAvatar key={t} target={t} label={toolLabel(t)} />
                       ))}
                     </span>
                   ) : (
