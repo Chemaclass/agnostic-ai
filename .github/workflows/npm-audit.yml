@@ -1,0 +1,42 @@
+name: npm audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "37 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: npm dependency vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Audit every tracked npm lockfile
+        shell: bash
+        run: |
+          result=0
+          while IFS= read -r -d '' lock; do
+            directory=$(dirname "$lock")
+            echo "::group::$directory"
+            npm audit --prefix "$directory" --package-lock-only --ignore-scripts \
+              --include=dev --include=optional --audit-level=low || result=1
+            echo '::endgroup::'
+          done < <(git ls-files -z -- '**/package-lock.json' 'package-lock.json')
+          exit "$result"
