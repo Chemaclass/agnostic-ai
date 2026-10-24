@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useState, type ReactNode } from 'react'
+import { createContext, useContext, useId, useRef, useState, type ReactNode } from 'react'
 import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -36,15 +36,31 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
     <>
       <PageHeader title={section.label} subtitle={section.question} />
       <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-        <SectionContents section={section} />
+        <SectionContents key={section.id} section={section} />
       </ConfigurationRoot.Provider>
       <SupportTable section={section} toolLabel={toolLabel} />
     </>
   )
 }
 
-/** The section's items, kind by kind, with their findings. */
 export function SectionContents({ section }: { section: Section }) {
+  const [search, setSearch] = useState('')
+  const searchInput = useRef<HTMLInputElement>(null)
+  const searchId = useId()
+  const query = search.trim().toLowerCase()
+  const matches = (parts: (string | undefined)[]) => parts.some((part) => part?.toLowerCase().includes(query))
+  const matchingItems = new Set(section.items.filter((item) => matches([
+    item.name, item.label, item.path, item.description, ...searchValues(item.values),
+    ...(item.tools?.tools.flatMap((tool) => [tool.name, tool.title, tool.description]) ?? []),
+  ])))
+  const matchingFields = section.fields?.filter((field) => matches([
+    field.key, field.label, field.description,
+    ...field.set.flatMap((source) => [source.spec, source.path, ...searchValues(source.values)]),
+  ]))
+  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0)
+  const matchCount = matchingItems.size + (matchingFields?.length ?? 0)
+  const totalCount = section.items.length + (section.fields?.length ?? 0)
+  const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
   const warnings = section.findings.length - errors
   const findingsId = `${section.id}-findings`
@@ -57,29 +73,46 @@ export function SectionContents({ section }: { section: Section }) {
   )
   return (
     <>
+      <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
+        <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
+        <div className="section-search-controls">
+          <input ref={searchInput} id={searchId} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, path, description, or value" aria-describedby={`${searchId}-status`} />
+          {search && <button type="button" className="button button-quiet" onClick={() => {
+            setSearch('')
+            searchInput.current?.focus()
+          }}>Clear search</button>}
+        </div>
+        <p id={`${searchId}-status`} className="muted section-search-status" role="status">
+          {query ? `${matchCount} of ${totalCount} items${section.fields ? ' and fields' : ''} match.` : `${totalCount} items${section.fields ? ' and fields' : ''}`}
+          {query && retainedFindings && ' Items with findings stay visible.'}
+        </p>
+      </div>
       {section.findings.length > 0 && (
         <div className={`section-findings-summary${errors ? ' has-errors' : ''}`} role={errors ? 'alert' : undefined}>
           <Icon name="warning" />
           <strong>{findingCounts}</strong>
           <button type="button" className="button button-quiet" onClick={() => {
             const heading = document.getElementById(findingsId)
-            heading?.scrollIntoView({ block: 'start' })
-            heading?.focus({ preventScroll: true })
+            const main = document.getElementById('main')
+            if (heading && main) {
+              main.scrollTo({ top: main.scrollTop + heading.getBoundingClientRect().top - main.getBoundingClientRect().top - 16 })
+              heading.focus({ preventScroll: true })
+            }
           }}>Review {section.findings.length} finding{section.findings.length === 1 ? '' : 's'}</button>
         </div>
       )}
       {errors > 0 && otherFindings}
       {section.kinds.map((k) => {
-        const items = section.items.filter((it) => it.kind === k.kind)
-        if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} />
-        if (k.kind === 'settings' && section.fields) return <SettingsFields key={k.kind} title={k.label} fields={section.fields} files={items} />
+        const items = visibleItems.filter((it) => it.kind === k.kind)
+        if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} />
         const titleId = `${section.id}-${k.kind}`
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
             </h2>
-            {items.length === 0 ? <p className="muted">None configured.</p> : <GroupedItems items={items} />}
+            {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
       })}
@@ -88,17 +121,20 @@ export function SectionContents({ section }: { section: Section }) {
   )
 }
 
-/** Every field the section's settings can set, each with its value or "Not set", then the files that set them. */
-function SettingsFields({ title, fields, files }: { title: string; fields: SettingField[]; files: SectionItem[] }) {
+function searchValues(values: Value[]): string[] {
+  return values.flatMap((value) => [value.key, value.value ?? '', ...(value.list ?? [])])
+}
+
+function SettingsFields({ title, fields, files, filtering }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean }) {
   const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
   const configured = fields.filter((field) => field.set.length > 0)
   const unconfigured = fields.filter((field) => field.set.length === 0)
   return (
     <section className="block" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
-      {configured.length ? <FieldList fields={configured} /> : <p className="muted">No settings configured.</p>}
+      {configured.length ? <FieldList fields={configured} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
       {unconfigured.length > 0 && (
-        <details className="unconfigured-fields">
+        <details className="unconfigured-fields" open={filtering || undefined}>
           <summary>Unconfigured fields ({unconfigured.length})</summary>
           <FieldList fields={unconfigured} />
         </details>
@@ -141,8 +177,7 @@ function FieldList({ fields }: { fields: SettingField[] }) {
   )
 }
 
-/** Every stage of a session in order, each with its hooks or none. */
-function Lifecycle({ stages, hooks, count }: { stages: Stage[]; hooks: SectionItem[]; count: number }) {
+function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean }) {
   return (
     <section className="block" aria-labelledby="lifecycle-hooks">
       <h2 id="lifecycle-hooks">
@@ -156,7 +191,7 @@ function Lifecycle({ stages, hooks, count }: { stages: Stage[]; hooks: SectionIt
               <div className="stage-head">
                 <div className="stage-label">
                   <h3 className="stage-title">{st.label}</h3>
-                  {!here.length && <p className="muted stage-empty">No hook runs here.</p>}
+                  {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
                 </div>
                 {here.length ? <p className="muted stage-description">{st.description}</p> : (
                   <details className="stage-description">
@@ -229,10 +264,10 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
       <div className="item-main">
         <strong>{item.label}</strong>
         {item.description && <span className="muted item-description">{item.description}</span>}
+        {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
         {control}
-        {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
         {item.openPath && (
@@ -391,17 +426,17 @@ function Finding({ finding: f }: { finding: ItemFinding }) {
   const promptId = useId()
   return (
     <li className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
-      <Icon name="warning" className="finding-icon" />
       <div className="finding-body">
         <div className="finding-head">
           <div className="finding-meta">
+            <Icon name="warning" className="finding-icon" />
             <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
             {f.code && <Code>{f.code}</Code>}
             <span className="muted">{f.source}</span>
           </div>
           <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
         </div>
-        <p className="finding-message">{f.message}</p>
+        <FindingMessage message={f.message} />
         {f.path ? (
           <p className="finding-source muted">
             <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
@@ -421,6 +456,22 @@ function Finding({ finding: f }: { finding: ItemFinding }) {
         </details>
       </div>
     </li>
+  )
+}
+
+function FindingMessage({ message }: { message: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const messageId = useId()
+  const collapsible = message.length > 240
+  return (
+    <div className="finding-message-wrap">
+      <p id={messageId} className={`finding-message${collapsible && !expanded ? ' is-collapsed' : ''}`}>{message}</p>
+      {collapsible && (
+        <button type="button" className="finding-expand" aria-expanded={expanded} aria-controls={messageId} onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Show less' : 'Show full message'}
+        </button>
+      )}
+    </div>
   )
 }
 

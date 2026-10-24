@@ -117,6 +117,38 @@ test.describe('overview', () => {
     await expect(finding.getByText('Suggested fix', { exact: true })).toHaveCount(0)
   })
 
+  test('expands long findings and copies the complete message while collapsed', async ({ page, context }) => {
+    const data = structuredClone(fixture)
+    const message = 'The session-start hook keeps the first 6000 bytes of the memory indexes. ' +
+      'These entries exceed the current budget: ' + Array.from({ length: 24 }, (_, i) => `project-learning-${i + 1}.md`).join(', ') + '. Shorten the index to include these entries.'
+    data.sections.find((section: { id: string }) => section.id === 'settings').findings = [
+      { source: 'lint', severity: 'warn', code: 'LINT039', message, path: '.agnostic-ai/local/memory/MEMORY.md' },
+      { source: 'doctor', severity: 'error', message: 'The configuration file cannot be read.' },
+    ]
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.goto('/?view=settings')
+    const finding = page.locator('.finding', { hasText: 'LINT039' })
+    const text = finding.locator('.finding-message')
+    const expand = finding.getByRole('button', { name: 'Show full message', exact: true })
+    await expect(expand).toHaveAttribute('aria-expanded', 'false')
+    const collapsedHeight = await text.evaluate((element) => element.clientHeight)
+    expect(await text.evaluate((element) => element.scrollHeight)).toBeGreaterThan(collapsedHeight)
+    await finding.getByRole('button', { name: 'Copy fix prompt' }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(message)
+    await expand.click()
+    await expect(finding.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true')
+    expect(await text.evaluate((element) => element.clientHeight)).toBeGreaterThan(collapsedHeight)
+    await expect(text).toHaveText(message)
+    await finding.getByRole('button', { name: 'Show less' }).click()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expand.click()
+    expect(await page.locator('#main').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+    const short = page.locator('.finding-error')
+    await expect(short.getByRole('button', { name: 'Show full message' })).toHaveCount(0)
+    await expect(short.locator('.finding-message')).toHaveText('The configuration file cannot be read.')
+  })
+
   test('keeps configured settings visible and reveals unset fields on demand', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
     await page.goto('/?view=authority')
@@ -142,6 +174,8 @@ test.describe('overview', () => {
     await review.click()
     await expect(page.getByRole('heading', { name: 'Other findings', exact: true })).toBeFocused()
     await expect(page.getByText('The session context exceeds its budget.', { exact: true })).toBeInViewport()
+    await expect(page.locator('.topbar')).toBeInViewport({ ratio: 1 })
+    await expect(page.locator('.sidenav')).toBeInViewport({ ratio: 1 })
   })
 
   test('stacks mobile tool support groups without losing table labels', async ({ page }) => {

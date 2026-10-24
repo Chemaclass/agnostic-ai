@@ -70,6 +70,8 @@ agnostic-ai view                            # open project or user configuration
 agnostic-ai view --json                     # print the configuration overview
 ```
 
+Search within Context, Authority, Tools, Lifecycle, or Settings to find a source file or value. The browser supports light and dark themes and narrow screens.
+
 Use the [browser walkthrough](https://agnostic-ai.org/docs/inspect-configuration/) to find and fix a configuration warning. See [saving changes and undo](https://agnostic-ai.org/docs/cli-reference/inspect/#serve) for browser switches.
 
 When something looks wrong:
