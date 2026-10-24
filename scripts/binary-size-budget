@@ -417,4 +417,8 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # Caveman preview source boundaries add 8192 bytes over main bc4e1bd4
 # on Go 1.27.3. Linux amd64 release flags; no added headroom or dependencies.
-23249056
+# #2468 measured 23261344 on Go 1.27.3, 12288 over the prior budget:
+# all project built-ins share guarded preview, apply, and undo, including
+# pending owned outputs, merged settings release, and memory migration checks.
+# Linux amd64 release flags; no added headroom or dependencies.
+23261344
