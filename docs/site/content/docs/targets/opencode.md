@@ -99,7 +99,8 @@ One [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. T
 - Native V2 settings and portable MCP specs cannot both own the MCP configuration. Sync reports the conflicting spec paths. Use one representation for OpenCode.
 - Import replaces inline environment and header values with native environment references. It refuses credentials it cannot rewrite, including inline OAuth secrets. Use `{env:NAME}` references before importing those fields.
 - Sync manages each native server separately. Servers and defaults added by hand stay; a removed spec server stays when you have edited it.
-- Stdio becomes `{type: "local", command: [...], cwd}`, and HTTP or SSE becomes `{type: "remote", url, headers}`. `cwd` (relative to the workspace) and `timeout` (ms for fetching tools, default 5000) keep their names.
+- Stdio becomes `{type: "local", command: [...], cwd}`, and HTTP or SSE becomes `{type: "remote", url, headers}`. `cwd` (relative to the workspace) keeps its name.
+- `timeout` keeps its name and uses milliseconds for MCP requests, including tool calls. OpenCode defaults to `30000` ms when connecting and fetching tools.
 - `disabled: true` writes `"enabled": false` ([MCP docs](https://opencode.ai/docs/mcp-servers/)), and import reads `enabled: false` back. An enabled server gets no key.
 - Other documented fields, such as the `oauth` object for pre-registered remote servers, go through `x-opencode`.
 - Sync changes only `$schema` and `mcp`. `theme`, `model`, and other keys stay. They never show as drift in `sync --check` or `doctor`, and `doctor --fix` keeps them.

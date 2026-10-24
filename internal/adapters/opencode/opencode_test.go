@@ -424,11 +424,6 @@ func TestEmit_MCP_XOpencodePassthroughReachesOAuth(t *testing.T) {
 	}
 }
 
-// cwd is local-only ("Working directory for the MCP server process.
-// Relative paths resolve from the workspace."); timeout appears in both
-// option tables ("Timeout in ms for fetching tools from the MCP server.
-// Defaults to 5000 (5 seconds)."). Both names match the spec field
-// exactly, so both map top-level rather than through x-opencode (#641).
 func TestEmit_MCP_PassesThroughCwdAndTimeout(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
