@@ -36,12 +36,12 @@ func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 		t.Fatal(err)
 	}
 	var health struct {
-		OK       bool   `json:"ok"`
-		Revision string `json:"revision"`
+		OK   bool   `json:"ok"`
+		Root string `json:"root"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&health)
 	_ = resp.Body.Close()
-	if err != nil || resp.StatusCode != http.StatusOK || !health.OK || len(health.Revision) != 12 {
+	if err != nil || resp.StatusCode != http.StatusOK || !health.OK || health.Root == "" {
 		t.Fatalf("health = %d %+v (%v)", resp.StatusCode, health, err)
 	}
 
@@ -52,8 +52,8 @@ func TestServeMux_ServesHealthAndTheView(t *testing.T) {
 	var v authority.View
 	err = json.NewDecoder(resp.Body).Decode(&v)
 	_ = resp.Body.Close()
-	if err != nil || v.Agent.ID != "reviewer" || v.Snapshot.Revision != health.Revision {
-		t.Errorf("view = %s at %s, want reviewer at %s (%v)", v.Agent.ID, v.Snapshot.Revision, health.Revision, err)
+	if err != nil || v.Agent.ID != "reviewer" || len(v.Snapshot.Revision) != 12 {
+		t.Errorf("view = %s at %s, want reviewer (%v)", v.Agent.ID, v.Snapshot.Revision, err)
 	}
 
 	req, _ := http.NewRequest(http.MethodOptions, srv.URL+"/api/views/overview", nil)

@@ -47,12 +47,16 @@ type HandlerOptions struct {
 	AllowedOrigins []string
 }
 
+// HealthPath reports which configuration the server reads. It loads
+// nothing, so callers may answer it without waiting for other requests.
+const HealthPath = "/api/health"
+
 // Endpoint paths.
 const (
 	pathView   = "/api/views/authority"
 	pathImpact = "/api/views/authority/impact"
 	pathSchema = "/api/views/authority/schema"
-	pathHealth = "/api/health"
+	pathHealth = HealthPath
 )
 
 // maxProposalBytes bounds a proposal body.
@@ -63,7 +67,15 @@ type handler struct {
 	opts HandlerOptions
 	// mu serializes requests: loading specs and comparing generated
 	// files touch process-wide state.
-	mu sync.Mutex
+	mu       sync.Mutex
+	identity serverIdentity
+}
+
+type serverIdentity struct {
+	OK     bool   `json:"ok"`
+	Root   string `json:"root"`
+	Global bool   `json:"global"`
+	UI     bool   `json:"ui"`
 }
 
 // endpoint documents one route for the schema endpoint.
@@ -77,13 +89,13 @@ var endpoints = []endpoint{
 	{Method: http.MethodGet, Path: pathView + "?agentId=<id>&target=<tool>", Description: "The Authority view for one subject on one coding tool."},
 	{Method: http.MethodPost, Path: pathImpact, Description: "The impact of a proposed permission change, computed on a copy of the specs; nothing is written."},
 	{Method: http.MethodGet, Path: pathSchema, Description: "The schema version and these endpoints."},
-	{Method: http.MethodGet, Path: pathHealth, Description: "Whether the configuration loads, with its current revision."},
+	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, and whether it serves the web interface."},
 }
 
 // NewHandler serves the Authority view as JSON, and the built client
 // when HandlerOptions.UIDir or UIFiles is set.
 func NewHandler(load Loader, opts HandlerOptions) http.Handler {
-	h := &handler{load: load, opts: opts}
+	h := &handler{load: load, opts: opts, identity: serverIdentity{OK: true, Root: absoluteRoot(opts.Root), Global: opts.Global, UI: opts.UIDir != "" || opts.UIFiles != nil}}
 	mux := http.NewServeMux()
 	mux.HandleFunc(pathView, h.view)
 	mux.HandleFunc(pathImpact, h.impact)
@@ -94,6 +106,16 @@ func NewHandler(load Loader, opts HandlerOptions) http.Handler {
 	})
 	mux.HandleFunc("/", h.ui)
 	return CORS(mux, opts.AllowedOrigins...)
+}
+
+func absoluteRoot(root string) string {
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
+	return root
 }
 
 func (h *handler) view(w http.ResponseWriter, r *http.Request) {
@@ -164,27 +186,7 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodGet) {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	_, b, err := h.load()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	root, err := filepath.Abs(h.opts.Root)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("resolve project root: %w", err))
-		return
-	}
-	if real, err := filepath.EvalSymlinks(root); err == nil {
-		root = real
-	}
-	writeJSON(w, http.StatusOK, struct {
-		OK       bool   `json:"ok"`
-		Revision string `json:"revision"`
-		Root     string `json:"root"`
-		Global   bool   `json:"global"`
-	}{OK: true, Revision: Revision(b, Options{Root: h.opts.Root, ConfigFiles: h.configFiles()}), Root: root, Global: h.opts.Global})
+	writeJSON(w, http.StatusOK, h.identity)
 }
 
 func (h *handler) ui(w http.ResponseWriter, r *http.Request) {

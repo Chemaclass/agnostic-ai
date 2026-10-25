@@ -166,7 +166,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 func serializeAPI(next http.Handler) http.Handler {
 	var mu sync.Mutex
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath {
 			mu.Lock()
 			defer mu.Unlock()
 		}

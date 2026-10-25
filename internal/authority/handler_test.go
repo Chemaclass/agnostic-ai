@@ -2,6 +2,7 @@ package authority
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -136,15 +137,33 @@ func TestHandler_SchemaAndHealth(t *testing.T) {
 	}
 
 	var health struct {
-		OK       bool
-		Revision string
-		Root     string
-		Global   bool
+		OK     bool
+		Root   string
+		Global bool
+		UI     bool
 	}
 	getJSON(t, srv.URL+"/api/health", &health)
-	_, b := loadProject(t, demoRoot)
-	if !health.OK || health.Revision != Revision(b, Options{Root: demoRoot, ConfigFiles: []string{"agnostic-ai.yaml"}}) || health.Root != canonicalHealthRoot(t, demoRoot) || health.Global {
+	if !health.OK || health.Root != canonicalHealthRoot(t, demoRoot) || health.Global || health.UI {
 		t.Errorf("health = %+v", health)
+	}
+}
+
+func TestHandler_HealthAnswersWithoutLoadingSpecs(t *testing.T) {
+	loads := 0
+	broken := func() (*config.Config, spec.Bundle, error) {
+		loads++
+		return nil, spec.Bundle{}, errors.New("broken config")
+	}
+	srv := httptest.NewServer(NewHandler(broken, HandlerOptions{Root: demoRoot, UIFiles: fstest.MapFS{}}))
+	t.Cleanup(srv.Close)
+	var health struct {
+		OK   bool
+		Root string
+		UI   bool
+	}
+	resp := getJSON(t, srv.URL+"/api/health", &health)
+	if resp.StatusCode != http.StatusOK || loads != 0 || !health.OK || !health.UI || health.Root != canonicalHealthRoot(t, demoRoot) {
+		t.Errorf("health = %d %+v after %d loads", resp.StatusCode, health, loads)
 	}
 }
 

@@ -2,7 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
@@ -27,13 +30,19 @@ type viewServer struct {
 	OK     bool   `json:"ok"`
 	Root   string `json:"root"`
 	Global bool   `json:"global"`
+	UI     bool   `json:"ui"`
 }
+
+const (
+	viewProbeTimeout     = 400 * time.Millisecond
+	viewBusyProbeTimeout = 5 * time.Second
+)
 
 // probeViewServer treats absent, unhealthy, and unrelated services alike.
 // The listen error remains the source of truth when the port is occupied.
-func probeViewServer(addr string) *viewServer {
-	client := &http.Client{Timeout: 400 * time.Millisecond}
-	resp, err := client.Get("http://" + addr + "/api/health")
+func probeViewServer(addr string, timeout time.Duration) *viewServer {
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Get("http://" + addr + authority.HealthPath)
 	if err != nil {
 		return nil
 	}
@@ -48,7 +57,7 @@ func probeViewServer(addr string) *viewServer {
 	return &server
 }
 
-func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string) *viewServer) *cobra.Command {
+func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string, time.Duration) *viewServer) *cobra.Command {
 	var dir, addr string
 	var asJSON, global bool
 	cmd := &cobra.Command{
@@ -95,16 +104,19 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 			if err := validateServeAddr(addr); err != nil {
 				return err
 			}
-			if running := probe(addr); running != nil {
-				wantRoot := root
-				if useGlobal {
-					wantRoot, err = globalSourceRoot()
-					if err != nil {
-						return err
-					}
+			wantRoot := root
+			if useGlobal {
+				wantRoot, err = globalSourceRoot()
+				if err != nil {
+					return err
 				}
-				if canonicalDir(running.Root) != canonicalDir(wantRoot) || running.Global != useGlobal {
+			}
+			reuse := func(running *viewServer) error {
+				if !sameProjectRoot(running.Root, wantRoot) || running.Global != useGlobal {
 					return fmt.Errorf("%s serves %s (global: %t); use --addr for another project or scope", addr, running.Root, running.Global)
+				}
+				if !running.UI {
+					return fmt.Errorf("%s serves %s without the web interface; stop that server or use --addr", addr, running.Root)
 				}
 				url := "http://" + addr + "/"
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using agnostic-ai at %s\n", url)
@@ -113,10 +125,15 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 				}
 				return nil
 			}
+			if running := probe(addr, viewProbeTimeout); running != nil {
+				return reuse(running)
+			}
 			serve := newServeCmdWithBrowser(browser)
 			serve.SetContext(cmd.Context())
 			serve.SetOut(cmd.OutOrStdout())
 			serve.SetErr(cmd.ErrOrStderr())
+			serve.SilenceErrors = true
+			serve.SilenceUsage = true
 			args := []string{"--open", "--addr", addr}
 			if useGlobal {
 				args = append(args, "--global")
@@ -124,7 +141,14 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 				args = append(args, "--dir", root)
 			}
 			serve.SetArgs(args)
-			return serve.Execute()
+			err = serve.Execute()
+			var listenErr *net.OpError
+			if errors.As(err, &listenErr) && listenErr.Op == "listen" {
+				if running := probe(addr, viewBusyProbeTimeout); running != nil {
+					return reuse(running)
+				}
+			}
+			return err
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
@@ -132,6 +156,15 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON without opening the web interface.")
 	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	return cmd
+}
+
+func sameProjectRoot(a, b string) bool {
+	infoA, errA := os.Stat(a)
+	infoB, errB := os.Stat(b)
+	if errA != nil || errB != nil {
+		return canonicalDir(a) == canonicalDir(b)
+	}
+	return os.SameFile(infoA, infoB)
 }
 
 func resolveViewSource(dir string, global, explicitDir bool) (string, bool, error) {

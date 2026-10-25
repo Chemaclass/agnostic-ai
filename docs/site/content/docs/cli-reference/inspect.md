@@ -348,7 +348,7 @@ agnostic-ai serve --api-only
 | `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health` (returns `ok`, `revision`, absolute `root`, and `global`).
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health` (returns `ok`, absolute `root`, `global`, and whether the web interface is served as `ui`, without loading specs).
 
 Project built-in change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "handoff", enabled: true|false}` for any shipped built-in, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
 

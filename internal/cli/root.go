@@ -121,12 +121,33 @@ func NewRootCmd(version string) *cobra.Command {
 		newMemoryCmd(),
 		newHandoffCmd(),
 	)
+	root.ValidArgsFunction = completeCommandAliases
 	root.SetHelpCommandGroupID("maintenance")
 	root.SetCompletionCommandGroupID("maintenance")
 	root.InitDefaultCompletionCmd()
 	profileEachRun(root, &profilePath)
 	guidedUpgradeEachRun(root)
 	return root
+}
+
+// completeCommandAliases offers the aliases of visible commands, which
+// cobra leaves out of completion.
+func completeCommandAliases(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var aliases []cobra.Completion
+	for _, sub := range cmd.Commands() {
+		if !sub.IsAvailableCommand() {
+			continue
+		}
+		for _, alias := range sub.Aliases {
+			if strings.HasPrefix(alias, toComplete) {
+				aliases = append(aliases, cobra.CompletionWithDesc(alias, sub.Short))
+			}
+		}
+	}
+	return aliases, cobra.ShellCompDirectiveNoFileComp
 }
 
 func addCommandGroup(root *cobra.Command, id, title string, commands ...*cobra.Command) {

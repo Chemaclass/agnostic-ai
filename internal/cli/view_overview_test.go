@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,8 +16,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
+	webui "github.com/chemaclass/agnostic-ai/ui"
 )
 
 func runViewCmd(t *testing.T, args ...string) string {
@@ -359,18 +364,19 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 		wantOpen  bool
 		wantProbe bool
 	}{
-		{name: "same project", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}, wantOpen: true, wantProbe: true},
-		{name: "other project", server: &viewServer{OK: true, Root: other}, args: []string{"--dir", project}, wantError: other, wantProbe: true},
-		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true}, args: []string{"--dir", project}, wantError: project, wantProbe: true},
-		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true}, args: []string{"--global"}, wantOpen: true, wantProbe: true},
-		{name: "project on global port", server: &viewServer{OK: true, Root: project}, args: []string{"--global"}, wantError: project, wantProbe: true},
+		{name: "same project", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--dir", project}, wantOpen: true, wantProbe: true},
+		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}, wantError: other, wantProbe: true},
+		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true, UI: true}, args: []string{"--dir", project}, wantError: project, wantProbe: true},
+		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--global"}, wantOpen: true, wantProbe: true},
+		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global"}, wantError: project, wantProbe: true},
+		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}, wantError: "without the web interface", wantProbe: true},
 		{name: "no server", args: []string{"--dir", project, "--addr", "127.0.0.1:0"}, wantOpen: true, wantProbe: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			opened, probed := false, false
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cmd := newViewCmdWithBrowserAndProbe(func(string) error { opened = true; cancel(); return nil }, func(string) *viewServer { probed = true; return tc.server })
+			cmd := newViewCmdWithBrowserAndProbe(func(string) error { opened = true; cancel(); return nil }, func(string, time.Duration) *viewServer { probed = true; return tc.server })
 			cmd.SetContext(ctx)
 			var out bytes.Buffer
 			cmd.SetOut(&out)
@@ -393,6 +399,108 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 	}
 }
 
+func TestView_ReusesSameProjectSpelledInOtherCase(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "MyProj")
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	lower := filepath.Join(filepath.Dir(project), "myproj")
+	if _, err := os.Stat(lower); err != nil {
+		t.Skip("the file system is case-sensitive")
+	}
+	opened := false
+	cmd := newViewCmdWithBrowserAndProbe(func(string) error { opened = true; return nil }, func(string, time.Duration) *viewServer {
+		return &viewServer{OK: true, Root: lower, UI: true}
+	})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--dir", project})
+	if err := cmd.Execute(); err != nil || !opened {
+		t.Fatalf("opened=%t err=%v", opened, err)
+	}
+}
+
+func TestView_ProbesAgainWhenTheAddressIsTaken(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	for _, tc := range []struct {
+		name      string
+		late      *viewServer
+		wantError string
+	}{
+		{name: "slow matching server", late: &viewServer{OK: true, Root: project, UI: true}},
+		{name: "unrelated service", wantError: "listen on"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var timeouts []time.Duration
+			opened := false
+			cmd := newViewCmdWithBrowserAndProbe(func(string) error { opened = true; return nil }, func(_ string, timeout time.Duration) *viewServer {
+				timeouts = append(timeouts, timeout)
+				if len(timeouts) == 1 {
+					return nil
+				}
+				return tc.late
+			})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"--dir", project, "--addr", ln.Addr().String()})
+			err := cmd.Execute()
+			if len(timeouts) != 2 || timeouts[1] <= timeouts[0] {
+				t.Fatalf("probe timeouts = %v", timeouts)
+			}
+			if tc.wantError == "" && (err != nil || !opened) {
+				t.Errorf("opened=%t err=%v", opened, err)
+			}
+			if tc.wantError != "" && (err == nil || !strings.Contains(err.Error(), tc.wantError) || opened) {
+				t.Errorf("opened=%t err=%v", opened, err)
+			}
+		})
+	}
+}
+
+func TestProbeViewServer_ReadsTheRealHealthEndpoint(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	src, err := openAuthoritySource(project, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.close()
+	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, UIFiles: webui.Files()}))
+	defer srv.Close()
+	got := probeViewServer(strings.TrimPrefix(srv.URL, "http://"), time.Second)
+	if got == nil || got.Global || !got.UI || !sameProjectRoot(got.Root, project) {
+		t.Fatalf("probe = %+v", got)
+	}
+}
+
+func TestServeMux_HealthSkipsTheAPIQueue(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	srv := httptest.NewServer(serializeAPI(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/slow" {
+			close(started)
+			<-release
+		}
+	})))
+	defer srv.Close()
+	defer close(release)
+	go func() {
+		if resp, err := http.Get(srv.URL + "/api/slow"); err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	<-started
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get(srv.URL + authority.HealthPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+}
+
 func TestUIAlias_InHelpAndCompletion(t *testing.T) {
 	root := NewRootCmd("test")
 	cmd, _, err := root.Find([]string{"ui"})
@@ -411,6 +519,16 @@ func TestUIAlias_InHelpAndCompletion(t *testing.T) {
 	if !strings.Contains(out.String(), "alias: ui") {
 		t.Error("ui missing from root help")
 	}
+	out.Reset()
+	root = NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{cobra.ShellCompRequestCmd, "u"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(strings.Split(out.String(), "\n"), "ui\t"+cmd.Short) {
+		t.Errorf("completion for u = %q", out.String())
+	}
 }
 
 func TestProbeViewServer_IgnoresUnrelatedService(t *testing.T) {
@@ -418,7 +536,7 @@ func TestProbeViewServer_IgnoresUnrelatedService(t *testing.T) {
 		_, _ = io.WriteString(w, `{"ok":true}`)
 	}))
 	defer srv.Close()
-	if got := probeViewServer(strings.TrimPrefix(srv.URL, "http://")); got != nil {
+	if got := probeViewServer(strings.TrimPrefix(srv.URL, "http://"), time.Second); got != nil {
 		t.Errorf("probe = %+v", got)
 	}
 }
