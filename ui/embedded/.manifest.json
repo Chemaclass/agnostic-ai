@@ -52,7 +52,7 @@
     "src/components/Shell.tsx": "b631b5110cff243a52d1821527fd65449babb0d7e01f98acb863e64b87886500",
     "src/components/app-context.tsx": "c6105a905e4102ccce9ad1ee881dd9740d8bde20ce0024b7fa4876db2aae8b31",
     "src/components/ui.tsx": "276e2cf7533c2857508724fbaf4f5fb41e239e89b03c6321e1ffd056cdcc1f28",
-    "src/contract.ts": "707c0d2c732594b0d0cbef5a7ee96a603e7d1190d7b63b67051cdf359f4eae4f",
+    "src/contract.ts": "66b14d4b7b0be1f15e859618e1f3a946c6355c1bd5eacf761d61fccb5cf0474c",
     "src/fixtures/overview.mock.json": "a17e155036874069eb18511f072feb456ca4cde69c743ff552d79907398df39d",
     "src/main.tsx": "77aaa85d0a532963cd63d1c6171a833f73b608dd83b4085f855b279dbe922939",
     "src/model/editor.test.ts": "dd79ea2fca985317dd0c6ce01800e4c465e5e73d3e1611ce502c96e55bf5da45",

@@ -66,7 +66,7 @@ agnostic-ai status       # see selected tools and out-of-date files
 agnostic-ai sync --plan  # preview what will change
 agnostic-ai sync         # write the tool files
 agnostic-ai sync --check # confirm they match the sources
-agnostic-ai view                            # open project or user configuration in the browser
+agnostic-ai ui                              # open project or user configuration in the browser
 agnostic-ai view --json                     # print the configuration overview
 ```
 

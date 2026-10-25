@@ -39,7 +39,7 @@ agnostic-ai doctor
 | Generate or preview output | [sync](@/docs/cli-reference/sync.md#sync), [render](@/docs/cli-reference/inspect.md#render) |
 | Diagnose problems, then check a specific area | [doctor](@/docs/cli-reference/check.md#doctor), [validate](@/docs/cli-reference/check.md#validate), [lint](@/docs/cli-reference/check.md#lint), [status](@/docs/cli-reference/check.md#status), [verify](@/docs/cli-reference/check.md#verify) |
 | Find which specs each tool reads | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
-| Inspect tool permissions and settings | [view](@/docs/cli-reference/inspect.md#view), [serve](@/docs/cli-reference/inspect.md#serve) |
+| Inspect tool permissions and settings | [ui / view](@/docs/cli-reference/inspect.md#view), [serve](@/docs/cli-reference/inspect.md#serve) |
 | List each MCP server's tools for the overview | [mcp tools](@/docs/cli-reference/inspect.md#mcp-tools) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |

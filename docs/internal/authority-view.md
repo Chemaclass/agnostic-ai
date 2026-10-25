@@ -88,7 +88,7 @@ Read-only check results appear on affected items or sections, never in a separat
 | POST | `/api/views/authority/impact` | `ImpactResult` for the posted `Proposal` |
 | GET | `/api/views/authority/schema` | the schema version and endpoint list |
 | GET | `/api/views/overview` | `overview.View` |
-| GET | `/api/health` | `{ok, revision}` |
+| GET | `/api/health` | `{ok, root, global, ui}`, without loading specs |
 | POST | `/api/edit/builtin` | switches a built-in in the config file in effect; `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
 | POST | `/api/edit/value` | sets a boolean at a dotted key in a settings spec; same replies |
 | GET | `/api/changes/builtin` | the current Caveman preview and undo state for this server session |

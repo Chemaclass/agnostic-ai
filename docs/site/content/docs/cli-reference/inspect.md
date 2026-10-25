@@ -291,13 +291,13 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). Keep the terminal running and press Ctrl-C to stop.
+`ui` is an alias for `view` with the same flags. Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). A second run for the same project and scope opens the running server and exits. For another project or scope on the same port, use `--addr`. Keep the server terminal running and press Ctrl-C to stop.
 
 Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
 
 The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
 ```bash
-agnostic-ai view
+agnostic-ai ui
 agnostic-ai view --json
 agnostic-ai view --global
 ```
@@ -332,7 +332,7 @@ Edits preserve unrelated text and private file permissions. A validation failure
 The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
 
 ```bash
-agnostic-ai serve --open
+agnostic-ai ui                 # open the browser (or reuse a running server)
 agnostic-ai serve --global
 agnostic-ai serve --api-only
 ```
@@ -348,7 +348,7 @@ agnostic-ai serve --api-only
 | `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health`.
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health` (returns `ok`, absolute `root`, `global`, and whether the web interface is served as `ui`, without loading specs).
 
 Project built-in change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "handoff", enabled: true|false}` for any shipped built-in, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
 
