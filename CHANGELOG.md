@@ -4,22 +4,17 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
-### General
-
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
 
-- **Removed:** `view authority` and `view overview`; use `view` to open project or user configuration, or `view --json` for the overview (#2466).
-- Project built-in switches preview, apply, and undo generated files together, including pending source updates.
-- Vendor watch ignores known counter-only changes, labels dated archive additions, and detects edited GitHub release notes (#2456).
-- Caveman web previews ignore unrelated local working files, including tool symlinks, while checking source and output changes.
-- `verify --record` saves private command outcomes; `verify compare` reports outcome and elapsed-time changes for matching evaluations (#2455).
+## v0.88.0 - 2026-10-25
 
-- Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
-- `serve --open` adds search, warm light and dark themes, compact expandable findings, and a clearer lifecycle timeline.
-- `serve --open` shows compact settings with aligned switches, Caveman preview/apply/undo, and warning fixes with prompt previews (#2319, #2453, #2454).
-- The browser shows shared setup, native tool settings, and saved `mcp tools` results (#2319).
-- Global import keeps MCP specs whose native server names differ only by case (#2434).
-- Project checks skip built-in hooks that do not target the selected tools (#2438).
+### General
+
+- **Removed:** `view authority` and `view overview`; use `view` for project or user configuration, or `view --json` for the overview (#2466).
+- CLI help groups tasks; the browser adds search and built-in apply/undo (#2319, #2453, #2454, #2460, #2461, #2462, #2465, #2467, #2468).
+- `verify --record` saves private command outcomes; `verify compare` reports outcome and elapsed-time changes for matching evaluations (#2455, #2473).
+- Vendor watch filters counter-only changes, labels archive additions, and detects edited release notes (#2456, #2472).
+- Global import respects existing MCP names regardless of case, and project checks skip built-in hooks for unselected tools (#2434, #2438).
 
 ### By tool
 
@@ -77,13 +72,11 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
-- Caveman maintenance research compares shared-source options and records pack pinning, ownership, and global setup limits (#2458).
-
 - Target guides clarify global hooks, OpenCode timeouts, Antigravity MCP URLs, Trae context names, and Amp tool names (#2416, #2435, #2444).
 - Landing examples show the selected source's output and label excerpts from shared files (#2408).
-- The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
-- The Composer guide covers shared instructions, rules, and skills for its Claude Code and Codex providers (#2426).
-- Docs add a web walkthrough, derive tool counts, correct installation claims and audit dates, and fix the Go plugin example.
+- Guides explain shared configuration and Composer setup for its Claude Code and Codex providers (#2409, #2426).
+- Caveman maintenance research records pinning, ownership, and global setup limits (#2458, #2471).
+- Docs add a browser walkthrough, derive tool counts, and correct installation claims, audit dates, and the Go plugin example (#2451, #2464).
 
 ## v0.87.0 - 2026-10-22
 
