@@ -1,6 +1,6 @@
 # Recorded configuration and hook checks
 
-Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The final check script passed 56 checks. 4 sync checks exited 0. The script ran seven separate Claude-only test projects.
+Captured 2026-10-10 using `agnostic-ai version 0.81.0`, `rtk 0.51.0`. The final check script passed 56 checks. 4 sync checks exited 0. The script ran seven separate Claude-only test projects. The pack then held five more upstream files (license, notices, and README) beside `SKILL.md`; they were removed later, so a new run emits `SKILL.md` alone.
 
 ## Captured sync output
 
@@ -113,7 +113,7 @@ Already-prefixed `rtk git status` and unsupported `printf unsupported` both retu
 | Remove either pack while the other stays available | Passed |
 | Repeat sync and sync with an empty PATH retain output bytes | Passed |
 | Unrelated handwritten hook and environment survive all syncs | Passed |
-| Skill instructions from the fixed revision, license texts, notices, and copied README survive sync | Passed |
+| Skill instructions from the fixed revision survive sync | Passed |
 | Keep the existing RTK-managed hook by omitting its pack | Passed |
 | Move one selected RTK hook command to agnostic-ai, remove the pack, and restore the command | Passed |
 | Refuse duplicate restoration or an unmatched transfer without edits | Passed |

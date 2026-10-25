@@ -79,6 +79,11 @@ func TestBuiltinChanges_PreviewApplyUndoRestoresProject(t *testing.T) {
 	if err := before.check(root); err != nil {
 		t.Fatalf("preview wrote project: %v", err)
 	}
+	for _, change := range proposal.Changes {
+		if strings.Contains(change.Path, "skills/caveman/") && !strings.HasSuffix(change.Path, "/SKILL.md") {
+			t.Errorf("preview lists %s, want only SKILL.md in the caveman skill", change.Path)
+		}
+	}
 	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
 	if applied.Status != "applied" || !applied.UndoAvailable {
 		t.Fatalf("apply = %+v", applied)
@@ -600,7 +605,7 @@ func TestBuiltinChanges_ParentMovedOutsideIsNeverMutated(t *testing.T) {
 	if !moved {
 		t.Fatal("test did not move output parent")
 	}
-	if _, err := os.Stat(filepath.Join(outside, "LICENSE")); err != nil {
+	if _, err := os.Stat(filepath.Join(outside, "SKILL.md")); err != nil {
 		t.Errorf("apply mutated moved external output: %v", err)
 	}
 }
@@ -711,10 +716,8 @@ func TestBuiltinChanges_ParentMovedInsideProjectIsNeverMutated(t *testing.T) {
 			if !moved {
 				t.Fatalf("test did not create alias: %s", rec.Body)
 			}
-			for _, name := range []string{"LICENSE", "LICENSE-MIT", "SKILL.md"} {
-				if _, err := os.Stat(filepath.Join(destination, name)); err != nil {
-					t.Errorf("operation mutated moved output: %v", err)
-				}
+			if _, err := os.Stat(filepath.Join(destination, "SKILL.md")); err != nil {
+				t.Errorf("operation mutated moved output: %v", err)
 			}
 		})
 	}
@@ -725,13 +728,13 @@ func TestBuiltinChanges_DisableUndoKeepsReadOnlyAssets(t *testing.T) {
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, true)
 	builtinAction(t, h, builtinApplyPath, proposal.ID)
-	path := ".agents/skills/caveman/LICENSE"
+	path := ".agents/skills/caveman/SKILL.md"
+	if err := os.Chmod(path, 0o444); err != nil {
+		t.Fatal(err)
+	}
 	before, err := snapshotEditFile(path)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if before.info.Mode().Perm()&0o222 != 0 {
-		t.Fatalf("asset is writable: %v", before.info.Mode())
 	}
 	proposal = builtinProposal(t, h, false)
 	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
