@@ -9,6 +9,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits; fields with a fixed set of values, such as effort, offer them as a list (#2476).
 - **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope or an `--api-only` server on the port suggests `--addr`. `/api/health` answers without loading specs and returns the root, scope, and `ui`; it no longer returns `revision` (#2477).
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
+- Built-in toggles in the web interface work in a project that was never synced: the preview creates the outputs, and the project lock and its ignore entries that sync would add (#2484).
 
 ## v0.88.0 - 2026-10-25
 

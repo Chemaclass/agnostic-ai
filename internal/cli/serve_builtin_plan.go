@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -44,8 +45,9 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if err := builtinSafeParents(root, lockPath); err != nil {
 		return nil, err
 	}
-	if info, err := os.Lstat(lockPath); err != nil || !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s: project lock is unavailable; run agnostic-ai sync first", lockPath)
+	lockMissing, err := builtinLockMissing(lockPath)
+	if err != nil {
+		return nil, err
 	}
 	cfg, err := config.Load(".")
 	if err != nil {
@@ -69,7 +71,7 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if err != nil {
 		return nil, err
 	}
-	if previous.Version == 0 {
+	if previous.Version == 0 && initial.files[filepath.ToSlash(stateFilePath("."))].info != nil {
 		return nil, fmt.Errorf("run agnostic-ai sync before previewing a web change")
 	}
 	inputs, err := builtinProjectInputs(cfg)
@@ -247,6 +249,14 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 		outputs = append(outputs, adapters.AgnosticEntryPointPath)
 	}
 	outputs = finalizeLedger(outputs)
+	if lockMissing {
+		// Applying creates the project lock, so add the ignore entries sync writes with it.
+		existing, err := snapshotEditFile(".gitignore")
+		if err != nil {
+			return nil, err
+		}
+		desired[".gitignore"] = []byte(withRuntimeIgnores(string(existing.data)))
+	}
 	if resolveGitignore(cfg, "") {
 		block, err := syncManagedBlock(".", cfg, bundle, cfg.Targets, outputs)
 		if err != nil {
@@ -260,7 +270,11 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 		if err != nil {
 			return nil, err
 		}
-		desired[ignore] = []byte(replaceManagedBlock(stripLooseFixedDuplicates(string(existing.data)), block))
+		base := existing.data
+		if planned, ok := desired[ignore]; ok {
+			base = planned
+		}
+		desired[ignore] = []byte(replaceManagedBlock(stripLooseFixedDuplicates(string(base)), block))
 		existing, err = snapshotEditFile(worktreeIncludeFile)
 		if err != nil {
 			return nil, err
@@ -387,4 +401,18 @@ func builtinRelativePath(root, path string) (string, error) {
 		return "", fmt.Errorf("%s: web changes require paths inside this project; use the CLI", path)
 	}
 	return filepath.ToSlash(rel), nil
+}
+
+func builtinLockMissing(path string) (bool, error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return false, fmt.Errorf("%s: project lock is not a regular file; use the CLI", path)
+	}
+	return false, nil
 }

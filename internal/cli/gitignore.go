@@ -641,11 +641,22 @@ func ensureManagedGitignore(root string) error {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read runtime ignores: %w", err)
 	}
-	content := string(data)
+	content := withRuntimeIgnores(string(data))
+	if content == string(data) {
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write runtime ignores: %w", err)
+	}
+	return nil
+}
+
+// withRuntimeIgnores returns the root .gitignore content with the fixed
+// runtime entries, such as the project lock, listed in the managed block.
+func withRuntimeIgnores(content string) string {
 	start := strings.Index(content, gitignoreBlockStart)
 	if start < 0 {
-		cfg := &config.Config{}
-		return updateGitignore(root, cfg, buildManagedBlock(cfg, nil, nil))
+		return replaceManagedBlock(stripLooseFixedDuplicates(content), buildManagedBlock(&config.Config{}, nil, nil))
 	}
 	listed := normalizeAndSort(managedBlockLines(content))
 	var missing []string
@@ -655,20 +666,15 @@ func ensureManagedGitignore(root string) error {
 		}
 	}
 	if len(missing) == 0 {
-		return nil
+		return content
 	}
 	start += len(gitignoreBlockStart)
 	end := strings.Index(content[start:], gitignoreBlockEnd)
 	if end < 0 {
-		content = strings.TrimRight(content, "\n") + "\n" + strings.Join(missing, "\n") + "\n"
-	} else {
-		end += start
-		content = content[:end] + strings.Join(missing, "\n") + "\n" + content[end:]
+		return strings.TrimRight(content, "\n") + "\n" + strings.Join(missing, "\n") + "\n"
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("write runtime ignores: %w", err)
-	}
-	return nil
+	end += start
+	return content[:end] + strings.Join(missing, "\n") + "\n" + content[end:]
 }
 
 // updateGitignore rewrites the managed block in `<root>/.gitignore` (or

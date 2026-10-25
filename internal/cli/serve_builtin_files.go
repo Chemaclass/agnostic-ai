@@ -137,6 +137,20 @@ func builtinSafeParents(root, path string) error {
 	return nil
 }
 
+// adoptLockDir records the source folder that creating the project lock
+// added, so the preview's snapshot still matches the project.
+func (s builtinProjectSnapshot) adoptLockDir(root string) error {
+	if _, recorded := s.dirs[defaultBaseDir]; recorded {
+		return nil
+	}
+	info, err := os.Lstat(filepath.Join(root, defaultBaseDir))
+	if err != nil {
+		return fmt.Errorf("%s: %w", defaultBaseDir, err)
+	}
+	s.dirs[defaultBaseDir] = info
+	return nil
+}
+
 func (s builtinProjectSnapshot) sameContent(other builtinProjectSnapshot) bool {
 	if len(s.files) != len(other.files) || len(s.dirs) != len(other.dirs) {
 		return false
