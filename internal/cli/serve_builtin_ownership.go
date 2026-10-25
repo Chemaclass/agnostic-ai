@@ -242,27 +242,75 @@ func planBuiltinMemoryExclusion(root string, cfg *config.Config, desired map[str
 	if !ok {
 		return "", nil, unavailable
 	}
-	// A linked worktree keeps info/exclude in its main checkout's Git folder.
-	gitDir := filepath.Dir(filepath.Dir(exclude))
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", nil, fmt.Errorf("%s: %w", root, err)
-	}
-	rel, err := filepath.Rel(canonicalDir(absRoot), filepath.Join(canonicalDir(gitDir), "info", "exclude"))
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	rel, ok := builtinExcludeRel(root, exclude)
+	if !ok {
 		return "", nil, unavailable
 	}
-	rel = filepath.ToSlash(rel)
-	if err := builtinSafeParents(root, filepath.Join(root, filepath.FromSlash(rel))); err != nil {
-		return "", nil, unavailable
+	current, ok := desired[rel]
+	if !ok {
+		snap, err := snapshotEditFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			return "", nil, err
+		}
+		current = snap.data
 	}
-	current, err := snapshotEditFile(filepath.Join(root, filepath.FromSlash(rel)))
-	if err != nil {
-		return "", nil, err
-	}
-	updated, changed := adapters.WithGitExclusion(current.data, claude.AutoMemoryGitExclusion(dir))
+	updated, changed := adapters.WithGitExclusion(current, claude.AutoMemoryGitExclusion(dir))
 	if !changed {
 		return "", nil, nil
 	}
 	return rel, updated, nil
+}
+
+// builtinExcludeRel returns the project-relative path of info/exclude,
+// and false when it sits outside the project, as a linked worktree's
+// does in its main checkout's Git folder.
+func builtinExcludeRel(root, exclude string) (string, bool) {
+	gitDir := filepath.Dir(filepath.Dir(exclude))
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(canonicalDir(absRoot), filepath.Join(canonicalDir(gitDir), "info", "exclude"))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	rel = filepath.ToSlash(rel)
+	if err := builtinSafeParents(root, filepath.Join(root, filepath.FromSlash(rel))); err != nil {
+		return "", false
+	}
+	return rel, true
+}
+
+// planPersonalExcludes adds to desired the info/exclude update sync makes
+// for the outputs only the personal built-ins add. A file outside the
+// project blocks only a change that adds lines; a stale block waits for
+// the next CLI sync.
+func planPersonalExcludes(root string, personal []string, desired map[string][]byte) error {
+	exclude, prefix, ok := personalExcludeFile(root)
+	if !ok {
+		return nil
+	}
+	rel, inside := builtinExcludeRel(root, exclude)
+	var current []byte
+	if inside {
+		snap, err := snapshotEditFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			return err
+		}
+		current = snap.data
+	} else if data, err := os.ReadFile(exclude); err == nil {
+		current = data
+	}
+	updated := withPersonalExcludes(string(current), personalExcludeKey(root), prefix, personal)
+	if updated == string(current) {
+		return nil
+	}
+	if !inside {
+		if len(personal) > 0 {
+			return fmt.Errorf("%s: built-ins only you turn on need a Git exclusion outside this project; use agnostic-ai sync in the CLI", strings.TrimPrefix(personal[0], "/"))
+		}
+		return nil
+	}
+	desired[rel] = []byte(updated)
+	return nil
 }

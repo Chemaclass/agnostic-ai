@@ -547,6 +547,26 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	return cfg, sources, nil
 }
 
+// TeamBuiltins returns the built-ins the shared config in root turns
+// on, without agnostic-ai.local.yaml.
+func TeamBuiltins(root string) ([]string, error) {
+	path, _, err := ResolveConfigPath(root)
+	if err != nil {
+		return nil, err
+	}
+	var team struct {
+		Builtins []string `yaml:"builtins"`
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	if err := yaml.Unmarshal(data, &team); err != nil {
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+	}
+	return team.Builtins, nil
+}
+
 // ResolveConfigPath returns the path of the base config file in root.
 // It prefers ConfigFileName and falls back to LegacyConfigFileName;
 // legacy is true when the fallback won.

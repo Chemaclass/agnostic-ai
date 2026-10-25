@@ -790,14 +790,17 @@ type priorFile struct {
 	absent  bool
 }
 
-// priorIgnoreFiles saves the gitignore file and .worktreeinclude before
-// sync writes them, so a sync that fails afterwards can put them back
-// with restoreFiles. A file it cannot read is left out, since its writer
-// fails on the same read.
+// priorIgnoreFiles saves the gitignore file, .worktreeinclude, and
+// info/exclude before sync writes them, so a sync that fails afterwards
+// can put them back with restoreFiles. A file it cannot read is left
+// out, since its writer fails on the same read.
 func priorIgnoreFiles(root string, cfg *config.Config) []priorFile {
+	paths := []string{filepath.Join(root, gitignoreRel(cfg)), filepath.Join(root, worktreeIncludeFile)}
+	if exclude, _, ok := personalExcludeFile(root); ok {
+		paths = append(paths, exclude)
+	}
 	var out []priorFile
-	for _, rel := range []string{gitignoreRel(cfg), worktreeIncludeFile} {
-		path := filepath.Join(root, rel)
+	for _, path := range paths {
 		data, err := os.ReadFile(path)
 		switch {
 		case err == nil:

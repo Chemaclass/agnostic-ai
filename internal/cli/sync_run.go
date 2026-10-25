@@ -794,7 +794,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
+		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return err
 		}
@@ -802,6 +802,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		rel, changed, err := writeGitignoreBlock(root, cfg, block)
 		if err != nil {
 			return fmt.Errorf("gitignore: %w", err)
+		}
+		if err := writePersonalExcludes(root, personal); err != nil {
+			return fmt.Errorf("git exclude: %w", err)
 		}
 		if changed {
 			report.updated = append(report.updated, filepath.ToSlash(rel))
@@ -1314,13 +1317,16 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
+		block, personal, err := personalSplitBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return undoSweep(mainSess, nil, err)
 		}
 		prior := priorIgnoreFiles(root, cfg)
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
+		}
+		if err := writePersonalExcludes(root, personal); err != nil {
+			return undoSweep(mainSess, prior, fmt.Errorf("git exclude: %w", err))
 		}
 		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
 			return undoSweep(mainSess, widenIgnores(prior, filepath.Join(root, gitignoreRel(cfg)), block), fmt.Errorf("worktreeinclude: %w", err))

@@ -255,8 +255,17 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	}
 	desired[".gitignore"] = []byte(withRuntimeIgnores(string(rootIgnore.data)))
 	if resolveGitignore(cfg, "") {
-		block, err := syncManagedBlock(".", cfg, bundle, cfg.Targets, outputs)
+		team := cfg.Builtins
+		if configPath == config.LocalOverrideFileName {
+			if team, err = config.TeamBuiltins("."); err != nil {
+				return nil, err
+			}
+		}
+		block, personal, err := splitManagedBlock(".", cfg, bundle, team, cfg.Targets, outputs)
 		if err != nil {
+			return nil, err
+		}
+		if err := planPersonalExcludes(root, personal, desired); err != nil {
 			return nil, err
 		}
 		ignore, err := builtinRelativePath(root, gitignoreRel(cfg))

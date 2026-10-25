@@ -106,7 +106,7 @@ List several names together, such as `builtins: [handoff, handoff-hook]` or `bui
 
 Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
 
-The same list works in the [global home config](#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` there turns them all off. When you remove a name, the next sync removes the files and tool settings it manages, and keeps unrelated settings and project overrides.
+The same list works in the [global home config](#global-configuration). A `builtins` list in a local config replaces the shared list, and `builtins: []` there turns them all off. When you remove a name, the next sync removes the files and tool settings it manages, and keeps unrelated settings and project overrides. A local `builtins` list never changes the committed ignore files; see [block contents](#block-contents).
 
 When you enable built-ins, set `requires` to at least 0.80.0 so an older binary cannot skip them. An upgrade that changes built-in text makes `sync --check` fail until you sync.
 
@@ -595,6 +595,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.command-lock`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`. `init` seeds them even with `gitignore.enabled: false`.
 - A leftover file from a deleted spec stays ignored until you remove it.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings.
+- Built-ins come from `agnostic-ai.yaml` alone, so a `builtins` list in `agnostic-ai.local.yaml` leaves the block and `.worktreeinclude` unchanged. Outputs only the local list adds go in an `agnostic-ai (personal)` block in `.git/info/exclude`, which linked worktrees share; sync removes those lines when the local list stops adding them. Outputs the local list turns off stay in the block.
 
 ## Watched inputs
 
