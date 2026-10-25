@@ -99,6 +99,42 @@ class RecordingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'expected exit 0, got 1'):
             bench.execute(command)
 
+    def test_setup_failure_reports_the_tail_of_stderr(self):
+        script = 'import sys\nfor n in range(30): print("line", n, file=sys.stderr)\nraise SystemExit(1)'
+        with self.assertRaises(ValueError) as caught:
+            bench.execute([sys.executable, '-c', script])
+        message = str(caught.exception)
+        self.assertIn('line 29', message)
+        self.assertNotIn('line 1\n', message + '\n')
+        self.assertLess(len(message), 2000)
+
+    def test_timed_failure_reports_output_and_names_candidate_drift(self):
+        result = subprocess.CompletedProcess([], 1, stdout=b'drift\n  - CLAUDE.md\n', stderr=b'cause here\n')
+        plain = bench.timed_failure({'mode': 'synced', 'argv': ['status'], 'expected_exit': 0}, 'baseline', result)
+        self.assertIn('expected 0, got 1', plain)
+        self.assertIn('cause here', plain)
+        check = {'mode': 'synced', 'argv': ['sync', '--check'], 'expected_exit': 0}
+        self.assertNotIn('differs from the baseline', bench.timed_failure(check, 'baseline', result))
+        message = bench.timed_failure(check, 'candidate', result)
+        self.assertIn("candidate output differs from the baseline's", message)
+        self.assertIn('CLAUDE.md', message)
+
+    def test_isolated_environment_covers_windows_profile_locations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = bench.isolated_environment(Path(directory))
+            for name in ('USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'HOME'):
+                self.assertTrue(env[name].startswith(directory), name)
+
+    def test_comparison_rejects_valid_recordings_with_different_run_counts(self):
+        candidate = fixture('candidate')
+        for command in candidate['commands']:
+            command['samples'].append(dict(command['samples'][0]))
+        candidate['runs'] = 7
+        bench.validate(self.baseline)
+        bench.validate(candidate)
+        with self.assertRaisesRegex(ValueError, 'incomparable runs'):
+            bench.compare(self.baseline, candidate)
+
     def test_doctor_operational_failure_cannot_be_an_expected_sample(self):
         for output in (b'', b'config read failed', b'{"version":"1","command":"doctor","errors":[{"message":"read failed"}]}'):
             with self.subTest(output=output), self.assertRaises(ValueError):

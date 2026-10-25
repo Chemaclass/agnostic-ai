@@ -25,11 +25,27 @@ NO_LEDGER_WRITE = {'target': 'unledgered', 'path': '.vscode/settings.json',
                    'action': 'leftover', 'bytes': 0}
 
 
+def output_tail(*streams, lines=8, limit=1000):
+    text = b''.join(stream or b'' for stream in streams).decode(errors='replace').strip()
+    return '\n'.join(text.splitlines()[-lines:])[-limit:]
+
+
 def execute(argv, cwd=None, env=None, expected=0):
     result = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, timeout=600)
     if result.returncode != expected:
-        raise ValueError(f'{argv[0]} {argv[1:]}: expected exit {expected}, got {result.returncode}')
+        message = f'{argv[0]} {argv[1:]}: expected exit {expected}, got {result.returncode}'
+        tail = output_tail(result.stderr)
+        raise ValueError(message + (f'\nstderr tail:\n{tail}' if tail else ''))
     return result
+
+
+def timed_failure(item, role, result):
+    message = f"{item['mode']} {item['argv']} ({role}): expected {item['expected_exit']}, got {result.returncode}"
+    if item['argv'] == ['sync', '--check'] and role == 'candidate':
+        message += (" - the candidate output differs from the baseline's, which synced the fixture;"
+                    ' candidate output must match baseline')
+    tail = output_tail(result.stdout, result.stderr)
+    return message + (f'\noutput tail:\n{tail}' if tail else '')
 
 
 def shell_function(function, args, env=None):
@@ -194,7 +210,8 @@ def binary_identity(binary, revision, dirty):
 def isolated_environment(home):
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(('AGNOSTIC_AI_', 'CLAUDE_', 'CODEX_', 'GIT_'))}
-    for name, subdir in [('HOME', 'home'), ('XDG_CONFIG_HOME', 'config'),
+    for name, subdir in [('HOME', 'home'), ('USERPROFILE', 'home'), ('APPDATA', 'appdata'),
+                         ('LOCALAPPDATA', 'localappdata'), ('XDG_CONFIG_HOME', 'config'),
                          ('XDG_CACHE_HOME', 'cache'), ('XDG_DATA_HOME', 'data'),
                          ('CODEX_HOME', 'codex'), ('CLAUDE_CONFIG_DIR', 'claude'),
                          ('AGNOSTIC_AI_HOME', 'agnostic')]:
@@ -319,8 +336,8 @@ def record(args):
                             'active fixture differs from snapshot')
                     start = time.perf_counter_ns()
                     result = subprocess.run([str(binary), *item['argv']], cwd=active, env=env,
-                                            stdout=subprocess.PIPE if item['argv'] == ['doctor', '--json'] else subprocess.DEVNULL,
-                                            stderr=subprocess.DEVNULL,
+                                            stdout=subprocess.PIPE if item['argv'] in (['doctor', '--json'], ['sync', '--check']) else subprocess.DEVNULL,
+                                            stderr=subprocess.PIPE,
                                             timeout=600)
                     elapsed = (time.perf_counter_ns() - start) / 1_000_000
                     sample = {'milliseconds': elapsed, 'actual_exit': result.returncode}
@@ -328,8 +345,7 @@ def record(args):
                     if item['argv'] == ['doctor', '--json']:
                         sample['diagnostic'] = doctor_diagnostic(result.stdout, item['mode'])
                     if result.returncode != item['expected_exit']:
-                        raise ValueError(f"{item['mode']} {item['argv']} ({records[side]['role']}): "
-                                         f"expected {item['expected_exit']}, got {result.returncode}")
+                        raise ValueError(timed_failure(item, records[side]['role'], result))
         verify_binaries(binaries, records)
         for result in records:
             result['status'] = 'complete'
