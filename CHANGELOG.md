@@ -9,6 +9,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits (#2476).
 - **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope or an `--api-only` server on the port suggests `--addr`. `/api/health` answers without loading specs and returns the root, scope, and `ui`; it no longer returns `revision` (#2477).
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
+- The `caveman` built-in writes only `SKILL.md` into each tool's skill folder, in project and global sync. The next sync removes the license, notice, and readme files an earlier sync wrote there, and leaves files you wrote yourself.
 
 ## v0.88.0 - 2026-10-25
 

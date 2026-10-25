@@ -2,6 +2,8 @@
 
 **Recommendation:** Keep the built-in and example pack, with the existing parity check. Their duplicated source is seven files, 27,837 bytes per tree. Removing the built-in would lose working global setup and a required YAML switch. Generating both copies from one source remains an option if updates become frequent; this investigation does not justify adding that maintenance step today.
 
+**Update, 2026-10-25:** The maintainer decided that the built-in writes only `SKILL.md` into each tool's skill folder, for every target and for project and global sync. People asked for no license, notice, or readme files in their projects. The binary still embeds all six upstream files and the manifest, so provenance and the license texts stay with agnostic-ai; `load` in [builtins.go](../../../internal/builtins/builtins.go) leaves the five companion files out of what sync materializes. A sync after upgrading removes those files where an earlier sync owned them, and leaves same-named files a person wrote. The example pack still carries all six files, because a copied pack becomes the person's own source. The "keep all these assets together" advice below now applies to the embedded tree and the example pack, not to built-in output.
+
 **Status:** Proposed maintainer decision, 2026-10-25. [Issue #2458](https://github.com/Chemaclass/agnostic-ai/issues/2458). Checked source: `4621c815`. No shipped behavior or source assets change.
 
 ## Contract and inventory
@@ -10,7 +12,7 @@
 
 The copies are [embedded assets](../../../internal/builtins/data/caveman/) and the [example pack](../../examples/rtk-and-caveman/packs/caveman/). Both hold `UPSTREAM.json` plus six upstream files: `SKILL.md`, `UPSTREAM-README.md`, `LICENSE`, `LICENSE-MIT`, `NOTICE`, and `LICENSING.md`. Their current upstream revision is `2e08b9177c07bb7249a8a2d1a6758e5db281d002`. The manifest records source URLs and six content hashes. The [pinned upstream license explanation](https://github.com/JuliusBrussee/caveman/blob/2e08b9177c07bb7249a8a2d1a6758e5db281d002/LICENSING.md) names Apache-2.0 and retained historical MIT notices; keep all these assets together when copying or updating.
 
-`TestToolBuiltins_PreservePinnedPackSources` compares every example file against the materialized built-in, verifies all six manifest hashes and the expected revision, and checks that Caveman loads as one skill. A pin update currently means reviewing upstream content and notices, replacing both seven-file trees, updating the manifest and expected revision, and running this test and the built-in lifecycle checks. Maintainers review and ship that update in an agnostic-ai release.
+`TestToolBuiltins_PreservePinnedPackSources` compares every example file against the embedded built-in, verifies all six manifest hashes and the expected revision, checks that the materialized skill holds only `SKILL.md`, and checks that Caveman loads as one skill. A pin update currently means reviewing upstream content and notices, replacing both seven-file trees, updating the manifest and expected revision, and running this test and the built-in lifecycle checks. Maintainers review and ship that update in an agnostic-ai release.
 
 ## Options
 

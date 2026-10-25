@@ -79,7 +79,8 @@ func TestBuiltinTools_EnableAndRemoveIndependently(t *testing.T) {
 			for _, asset := range []string{"SKILL.md", "LICENSE", "LICENSE-MIT", "NOTICE", "LICENSING.md", "UPSTREAM-README.md"} {
 				path := filepath.Join(dir, target, "skills", "caveman", asset)
 				_, err := os.Stat(path)
-				if strings.Contains(names, "caveman") && err != nil || !strings.Contains(names, "caveman") && !os.IsNotExist(err) {
+				wanted := asset == "SKILL.md" && strings.Contains(names, "caveman")
+				if wanted && err != nil || !wanted && !os.IsNotExist(err) {
 					t.Errorf("%q %s: %v", names, path, err)
 				}
 			}

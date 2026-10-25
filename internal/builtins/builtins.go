@@ -15,6 +15,18 @@ var sourceFS embed.FS
 
 var names = []string{"caveman", "handoff", "handoff-hook", "memory", "rtk"}
 
+// The binary keeps the pinned upstream license, notice, and readme files
+// for provenance, but projects and homes receive only the skill itself.
+var embeddedOnly = map[string][]string{
+	"caveman": {
+		"skills/caveman/LICENSE",
+		"skills/caveman/LICENSE-MIT",
+		"skills/caveman/LICENSING.md",
+		"skills/caveman/NOTICE",
+		"skills/caveman/UPSTREAM-README.md",
+	},
+}
+
 type builtinFile struct {
 	path string
 	body []byte
@@ -42,14 +54,15 @@ func load(name string) ([]builtinFile, error) {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		if entry.IsDir() {
+		relative := strings.TrimPrefix(path, root+"/")
+		if entry.IsDir() || slices.Contains(embeddedOnly[name], relative) {
 			return nil
 		}
 		body, err := sourceFS.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		files = append(files, builtinFile{path: strings.TrimPrefix(path, root+"/"), body: body})
+		files = append(files, builtinFile{path: relative, body: body})
 		return nil
 	})
 	if err != nil {
