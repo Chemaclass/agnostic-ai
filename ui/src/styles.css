@@ -252,16 +252,40 @@ kbd {
 .topbar-context {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .project-name {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
   padding-left: 14px;
   border-left: 1px solid var(--line);
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
+}
+
+.project-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
   overflow-wrap: anywhere;
+}
+
+.project-root {
+  overflow: hidden;
+  max-width: min(56vw, 640px);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
 }
 
 select,
@@ -2086,23 +2110,27 @@ input:hover {
 
 .field-edit {
   grid-column: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
+  display: grid;
+  align-content: start;
   gap: 8px;
   min-width: 0;
 }
 
-.field-edit label {
-  display: grid;
-  gap: 4px;
-  min-width: min(100%, 220px);
-  font-size: 12px;
+.field-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-edit-row > input,
+.field-edit-row > select {
+  flex: 1 1 200px;
+  max-width: 320px;
 }
 
 .field-edit input,
 .field-edit select {
-  width: 100%;
   min-height: 36px;
   padding: 6px 9px;
   color: var(--text);
@@ -2111,10 +2139,28 @@ input:hover {
   border-radius: var(--radius-sm);
 }
 
+.field-edit-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field-edit-target select {
+  min-height: 30px;
+  max-width: 100%;
+  font-size: 12px;
+}
+
 .field-edit > p,
 .field-edit > .edit-error {
-  flex-basis: 100%;
   margin: 0;
+}
+
+.field-edit-hint {
+  font-size: 12px;
 }
 
 .unconfigured-fields .field-edit { grid-column: 1 / -1; }
