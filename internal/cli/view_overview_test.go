@@ -418,6 +418,22 @@ func TestView_ReusesSameProjectSpelledInOtherCase(t *testing.T) {
 	}
 }
 
+func TestView_ReusesGlobalServerForRelativeHome(t *testing.T) {
+	source := filepath.Join(globalOverviewHome(t), "source")
+	t.Chdir(filepath.Dir(source))
+	t.Setenv("AGNOSTIC_AI_HOME", filepath.Base(source))
+	opened := false
+	cmd := newViewCmdWithBrowserAndProbe(func(string) error { opened = true; return nil }, func(string, time.Duration) *viewServer {
+		return &viewServer{OK: true, Root: source, Global: true, UI: true}
+	})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--global"})
+	if err := cmd.Execute(); err != nil || !opened {
+		t.Fatalf("opened=%t err=%v", opened, err)
+	}
+}
+
 func TestView_ProbesAgainWhenTheAddressIsTaken(t *testing.T) {
 	project := t.TempDir()
 	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
