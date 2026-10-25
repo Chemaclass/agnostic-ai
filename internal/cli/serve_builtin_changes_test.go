@@ -1049,7 +1049,7 @@ func TestBuiltinChanges_LastHookReleasePreservesUserSettings(t *testing.T) {
 }
 
 func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
-	for _, kind := range []string{"native fact", "native fact BOM", "native index", "repo fact", "external store", "private exclusion"} {
+	for _, kind := range []string{"native fact", "native fact BOM", "native index", "repo fact", "external store", "tracked settings"} {
 		t.Run(kind, func(t *testing.T) {
 			root := builtinChangeProject(t)
 			switch kind {
@@ -1069,7 +1069,7 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 				} else {
 					mustWriteFile(t, filepath.Join(native, "MEMORY.md"), "A saved note in the index.\n")
 				}
-			case "repo fact", "external store", "private exclusion":
+			case "repo fact", "external store", "tracked settings":
 				if _, err := gitquery.LayoutAt(root); err == nil {
 					t.Fatal("fixture already belongs to a Git repository")
 				}
@@ -1084,8 +1084,9 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 					mustWriteFile(t, filepath.Join(store, "fact.md"), "A saved repository fact.\n")
 				case "external store":
 					mustWriteFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
-				case "private exclusion":
-					mustWriteFile(t, "agnostic-ai.local.yaml", "gitignore:\n  enabled: false\n")
+				case "tracked settings":
+					mustWriteFile(t, ".claude/settings.local.json", "{}\n")
+					git(t, root, "add", "--force", ".claude/settings.local.json")
 				}
 			}
 			before, err := snapshotBuiltinProject(root, nil)
@@ -1134,5 +1135,107 @@ func TestBuiltinChanges_UnchangedUserMemoryDirectoryDoesNotRequireNativeMigratio
 	}
 	if string(data) != `{"autoMemoryDirectory":"/user/memory"}`+"\n" {
 		t.Errorf("user memory setting changed: %s", data)
+	}
+}
+
+func TestBuiltinChanges_MemoryAddsSyncGitExclusion(t *testing.T) {
+	silence(t)
+	root := t.TempDir()
+	chdir(t, root)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	git(t, root, "init", "--quiet")
+	gitquery.Reset()
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff, rtk]\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	exclude := filepath.Join(root, ".git", "info", "exclude")
+	original, err := os.ReadFile(exclude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// serve passes its working directory as the root.
+	h := newBuiltinChangeHandler(".", false)
+	proposal := builtinNamedProposal(t, h, "memory", true)
+	var listed bool
+	for _, change := range proposal.Changes {
+		if change.Path == ".git/info/exclude" && strings.Contains(change.Diff, "+**/.claude/settings.local.json") {
+			listed = true
+		}
+	}
+	if !listed {
+		t.Fatalf("preview does not list the Git exclusion: %+v", proposal.Changes)
+	}
+	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+	settings, err := os.ReadFile(".claude/settings.local.json")
+	if err != nil || !strings.Contains(string(settings), "autoMemoryDirectory") {
+		t.Fatalf("memory settings = %q, %v", settings, err)
+	}
+	if status := git(t, root, "status", "--porcelain", "--untracked-files=all"); strings.Contains(status, "settings.local.json") {
+		t.Errorf("git status shows private settings:\n%s", status)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
+	}
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	if restored, err := os.ReadFile(exclude); err != nil || !bytes.Equal(restored, original) {
+		t.Errorf("undo left info/exclude = %q, %v; want %q", restored, err, original)
+	}
+}
+
+func memoryGitProject(t *testing.T, root, config string) {
+	t.Helper()
+	chdir(t, root)
+	gitquery.Reset()
+	mustWriteFile(t, "agnostic-ai.yaml", config)
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+}
+
+func TestBuiltinChanges_MemoryExclusionWithoutManagedGitignore(t *testing.T) {
+	silence(t)
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	git(t, root, "init", "--quiet")
+	memoryGitProject(t, root, "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff, rtk]\ngitignore:\n  enabled: false\n")
+	h := newBuiltinChangeHandler(".", false)
+	proposal := builtinNamedProposal(t, h, "memory", true)
+	for _, change := range proposal.Changes {
+		if change.Path == ".git/info/exclude" {
+			if !strings.Contains(change.Diff, "\n+**/.claude/settings.local.json\n") {
+				t.Fatalf("planned exclusion:\n%s", change.Diff)
+			}
+			return
+		}
+	}
+	t.Fatalf("preview does not change .git/info/exclude: %+v", proposal.Changes)
+}
+
+func TestBuiltinChanges_MemoryExclusionOutsideLinkedWorktreeRequiresCLI(t *testing.T) {
+	silence(t)
+	isolateGit(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	main := t.TempDir()
+	git(t, main, "init", "--quiet")
+	git(t, main, "commit", "--quiet", "--allow-empty", "-m", "start")
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(t, main, "worktree", "add", "--quiet", "-b", "linked", linked)
+	memoryGitProject(t, linked, "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff, rtk]\n")
+	exclude := filepath.Join(main, ".git", "info", "exclude")
+	before, err := os.ReadFile(exclude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newBuiltinChangeHandler(".", false)
+	rec := postEdit(t, h, builtinPreviewPath, `{"name":"memory","enabled":true}`, nil)
+	if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "need a Git exclusion outside this project; use agnostic-ai sync in the CLI") {
+		t.Fatalf("linked worktree preview: %d %s", rec.Code, rec.Body)
+	}
+	if after, err := os.ReadFile(exclude); err != nil || !bytes.Equal(after, before) {
+		t.Errorf("preview changed info/exclude: %q, %v", after, err)
 	}
 }
