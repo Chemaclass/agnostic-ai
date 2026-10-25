@@ -73,6 +73,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Site
 
+- Caveman maintenance research compares shared-source options and records pack pinning, ownership, and global setup limits (#2458).
+
 - Target guides clarify global hooks, OpenCode timeouts, Antigravity MCP URLs, Trae context names, and Amp tool names (#2416, #2435, #2444).
 - Landing examples show the selected source's output and label excerpts from shared files (#2408).
 - The "Why agnostic-ai?" guide explains when to use shared configuration (#2409).
