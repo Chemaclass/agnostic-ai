@@ -1,10 +1,10 @@
 # Caveman source maintenance
 
-**Recommendation:** Keep the built-in and example pack, with the existing parity check. Their duplicated source is seven files, 27,837 bytes per tree. Removing the built-in would lose working global setup and a required YAML switch. Generating both copies from one source remains an option if updates become frequent; this investigation does not justify adding that maintenance step today.
+**Recommendation:** Keep the built-in and example pack, with the existing parity check. Before the update below, their duplicated source was seven files, 27,837 bytes per tree. Removing the built-in would lose working global setup and a required YAML switch. Generating both copies from one source remains an option if updates become frequent; this investigation does not justify adding that maintenance step today.
 
 **Update, 2026-10-25:** The maintainer decided that Caveman ships as `SKILL.md` alone. The upstream license, notice, and readme files are removed from the repository, from both the built-in and the example pack, and both `UPSTREAM.json` manifests keep only the `SKILL.md` entry. People asked for no such files in their projects, and the skill works without them; the license and notices stay in the [upstream repository](https://github.com/JuliusBrussee/caveman). A sync after upgrading removes those files where an earlier sync owned them, and leaves same-named files a person wrote. The seven-file inventory, replay, and checks below describe the investigation before this change.
 
-**Status:** Proposed maintainer decision, 2026-10-25. [Issue #2458](https://github.com/Chemaclass/agnostic-ai/issues/2458). Checked source: `4621c815`. The investigation itself changed no shipped behavior or source assets; the update above records the later output change.
+**Status:** Decided, 2026-10-25. [Issue #2458](https://github.com/Chemaclass/agnostic-ai/issues/2458). Checked source: `4621c815`. The investigation itself changed no shipped behavior or source assets; the update above records the later output change.
 
 ## Contract and inventory
 

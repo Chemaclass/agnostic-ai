@@ -21,7 +21,7 @@ Then add the Caveman skill:
 
 ```text
   + skill caveman → 6 files in 1 target
-  + .claude/skills/caveman/SKILL.md  (+5 more)
+  + .claude/skills/caveman/SKILL.md  .claude/skills/caveman/LICENSE  .claude/skills/caveman/LICENSE-MIT  (+3 more)
 ✓ synced 1 target · 6 created · 19ms
 ```
 
