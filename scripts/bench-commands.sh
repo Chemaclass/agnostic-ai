@@ -75,6 +75,23 @@ bench_commands_run() {
   done < <(bench_commands_list "$mode")
 }
 
+bench_commands_prepare() {
+  local bin="$1" dir="$2" specs="$3"
+  (cd "$BENCH_COMMANDS_ROOT" && AGNOSTIC_AI_BENCH_FIXTURE="$dir" AGNOSTIC_AI_BENCH_SPECS="$specs" \
+    go test -count=1 -run '^TestWriteBenchFixture$' ./internal/cli/ >&2)
+  (cd "$dir" && git init -q && "$bin" sync -q && git add -A && git -c user.name=bench -c user.email=bench@localhost \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m fixture)
+}
+
+bench_commands_no_ledger() {
+  local dir="$1"
+  mkdir -p "$dir/.claude"
+  printf '{"version":"0.0.1","configurations":[]}\n' >"$dir/.claude/launch.json"
+  (cd "$dir" && git add -f .claude/launch.json && git -c user.name=bench -c user.email=bench@localhost \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m 'hand-written launch config')
+  mv "$dir/.agnostic-ai/.sync-state" "$dir/.bench-sync-state"
+}
+
 bench_commands_main() {
   local bin="$BENCH_COMMANDS_ROOT/agnostic-ai" specs=500 runs=3 dir
   while [ $# -gt 0 ]; do
@@ -94,20 +111,16 @@ bench_commands_main() {
   dir=$(mktemp -d)
   BENCH_COMMANDS_DIR="$dir"
   trap 'rm -rf "$BENCH_COMMANDS_DIR"' EXIT
-  (cd "$BENCH_COMMANDS_ROOT" && AGNOSTIC_AI_BENCH_FIXTURE="$dir" AGNOSTIC_AI_BENCH_SPECS="$specs" \
-    go test -count=1 -run '^TestWriteBenchFixture$' ./internal/cli/ >&2)
-  (cd "$dir" && git init -q && "$bin" sync -q && git add -A && git -c user.name=bench -c user.email=bench@localhost \
-    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m fixture)
+  bench_commands_prepare "$bin" "$dir" "$specs"
   printf '# %s specs, best of %s runs, %s\n' "$specs" "$runs" "$("$bin" --version)"
   bench_commands_run "$bin" "$dir" "$runs"
-  mkdir -p "$dir/.claude"
-  printf '{"version":"0.0.1","configurations":[]}\n' >"$dir/.claude/launch.json"
-  (cd "$dir" && git add -f .claude/launch.json && git -c user.name=bench -c user.email=bench@localhost \
-    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q --no-verify -m 'hand-written launch config')
-  mv "$dir/.agnostic-ai/.sync-state" "$dir/.bench-sync-state"
+  bench_commands_no_ledger "$dir"
   bench_commands_run "$bin" "$dir" "$runs" no-ledger
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-  bench_commands_main "$@"
+  case "${1:-}" in
+    --record|--compare) exec python3 "$BENCH_COMMANDS_ROOT/scripts/bench-recordings.py" "$@" ;;
+    *) bench_commands_main "$@" ;;
+  esac
 fi

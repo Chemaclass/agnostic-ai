@@ -49,6 +49,47 @@ without `.sync-state`, as in a fresh checkout. A tracked hand-written
 Claude launch configuration checks whether history identifies generated files without changing
 which files count as generated.
 
+## Record and compare built binaries
+
+The existing fastest-run table remains the default. Recording needs Python 3.9 or newer (standard library only), Git, Go, and two built binaries. `specs=500` means 500 rules, 500 agents, and 500 skills, plus five each of hooks, MCP servers, and commands. `--specs 100` uses 100 of each of those first three kinds. Fixture construction still uses `TestWriteBenchFixture`; recording reuses the command list and synced/no-ledger setup from the table. Recording adds `--json` to doctor so its expected diagnostic failure can be checked; the legacy table keeps human doctor output.
+
+Build the baseline from a known fetched main revision before measuring a candidate. Use the same compiler and build flags. Recordings check binary hashes and read Go's embedded compiler version, commit, and dirty flag. An embedded commit must match the supplied full revision. If build metadata lacks a commit, the revision is recorded as operator-supplied; provide `--baseline-dirty clean` or `--candidate-dirty dirty` when known, otherwise it stays `unknown`. A dirty binary records its commit plus its dirty state, not the full producing patch; retain that patch separately.
+
+For example, from the candidate checkout, using new unused paths:
+
+```sh
+git fetch origin main
+baseline_revision=$(git rev-parse origin/main)
+candidate_revision=$(git rev-parse HEAD)
+git worktree add --detach /tmp/agnostic-bench-main "$baseline_revision"
+(cd /tmp/agnostic-bench-main && go build -trimpath -o /tmp/agnostic-bench-baseline ./cmd/agnostic-ai)
+go build -trimpath -o /tmp/agnostic-bench-candidate ./cmd/agnostic-ai
+scripts/bench-commands.sh --record /tmp/agnostic-command-recording \
+  --baseline /tmp/agnostic-bench-baseline --baseline-revision "$baseline_revision" \
+  --candidate /tmp/agnostic-bench-candidate --candidate-revision "$candidate_revision" \
+  --machine local-desktop-1 --specs 500 --runs 6
+scripts/bench-commands.sh --compare \
+  /tmp/agnostic-command-recording/baseline.json \
+  /tmp/agnostic-command-recording/candidate.json
+```
+
+Supply a stable machine label without private information. The recorder saves only selected OS, architecture, compiler, and supplied machine metadata, not the host environment or credentials. Timed commands and fixture sync use isolated HOME, XDG, Codex, Claude, and agnostic-ai homes, ignore global/system Git configuration, and disable update checks. Before isolation, the recorder resolves the original GOCACHE, GOMODCACHE, and GOPATH. Only the fixture-generator subprocess receives those build paths; measured commands use isolated tool homes, including an existing private CODEX_HOME. Cache paths are not saved in recordings. No coding tool or model is started.
+
+One invocation records both binaries. For each command it runs baseline then candidate once as a warm-up, then alternates baseline and candidate for at least six measured pairs. Setup and restoration stay outside the timer. Both sides use the same active path and restored snapshot; restoration copies changed files only. Each command starts from the synced snapshot or the no-ledger snapshot with its tracked hand-written launch configuration. The retained fixture directory and content hashes identify the input. Before each call, restoration checks file contents even when size, time, and permissions match, restores directory permissions, and checks the active tree against its snapshot hash. Hashes cover directory permissions as well as file paths, types, permissions, and content. Both binary hashes are checked again before either recording can be marked complete. Binary timings include process startup and command execution; they exclude fixture construction and restoration. The warm-up timings remain in JSON but do not enter the summary.
+
+`baseline.json` and `candidate.json` retain every measured duration in milliseconds, command arguments, expected and actual exit codes, warm-ups, binary identity, fixture hashes, and environment metadata. Recorded `doctor --json` must exit 1 with a version 1 report, no reported errors or lint errors, and exactly the five untrusted fixture Codex hooks. The synced scenario must report no drift. The no-ledger scenario must report exactly one leftover, `.vscode/settings.json` under target `unledgered`, with zero bytes. Each doctor sample retains its scenario, checked hook count, and expected write records. Configuration/read failures, unknown hook trust, missing JSON, and unexpected hook findings abort. The other commands must exit 0. Unexpected exits, setup errors, and timeouts abort recording. Incomplete JSON records remain for diagnosis and cannot be compared. A failure is never inferred to be expected from its observed exit.
+
+Comparison requires matching schema, measurement method, paired-session identity, environment (including compiler), fixture, command list, warm-up policy, and sample count. It rejects missing or malformed data and unexpected exits. Keep the pair from one recording session together; separate sessions do not prove alternation. A comparison returns success when its inputs are valid, regardless of timing differences.
+
+Each row shows sample count, median, minimum and maximum (the spread), candidate minus baseline in milliseconds, and that difference as a percentage of the baseline median. Positive differences mean more elapsed time. The raw samples remain in the JSON files. A range or slow sample is evidence to investigate, not a confirmed regression. Rerun anomalous observations as another complete paired session and retain both pairs with their exact commands, revisions, build flags, and machine label. These local measurements add no CI latency threshold or performance claim.
+
+The normal shell tests run small synthetic recording controls, not the 500-spec benchmark:
+
+```sh
+python3 scripts/bench-recordings_test.py
+make test-shell
+```
+
 ## What it covers
 
 | Benchmark | Path |
