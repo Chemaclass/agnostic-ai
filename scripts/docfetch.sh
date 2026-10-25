@@ -575,6 +575,100 @@ delta_label() {
   ' "$2"
 }
 
+# Comparisons never alter the hashed text or the audit lock.
+source_change_label() {
+  local kind="$1" url="$2" old="$3" current="$4" a b
+  [ -r "$old" ] && [ -r "$current" ] || return 0
+  case "$url" in
+    'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20')
+      command -v jq >/dev/null 2>&1 || return 0
+      local filter='if length == 1 then .[0] else error("multiple JSON documents") end | if type == "array" and length > 0 and all(.[]; type == "object" and (.id | type) == "number" and (.version | type) == "string" and (.downloads | type) == "number" and .downloads >= 0 and (.downloads | floor) == .downloads) and (map(.id) | unique | length) == length then map(del(.downloads)) else error("unknown update layout") end'
+      a=$(jq -S -c -s "$filter" "$old" 2>/dev/null) || return 0
+      b=$(jq -S -c -s "$filter" "$current" 2>/dev/null) || return 0
+      if [ "$a" = "$b" ] && ! cmp -s "$old" "$current"; then
+        printf 'counter-only:junie-downloads:v1\n'
+      fi
+      return 0
+      ;;
+    https://github.com/xai-org/grok-build/tree/*)
+      [ "$kind" = code ] || return 0
+      local pin="${url##*/tree/}"
+      [ "${#pin}" = 40 ] || return 0
+      case "$pin" in *[!0-9a-f]*) return 0 ;; esac
+      a=$(tree_without_watchers "$old") || return 0
+      b=$(tree_without_watchers "$current") || return 0
+      if [ "$a" = "$b" ] && ! cmp -s "$old" "$current"; then
+        printf 'counter-only:github-watchers:v1\n'
+      fi
+      return 0
+      ;;
+  esac
+  [ "$kind" = changelog ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  a=$(changelog_index "$old") || return 0
+  b=$(changelog_index "$current") || return 0
+  jq -nr --argjson old "$a" --argjson current "$b" '
+    if $old.header != $current.header then empty
+    elif any($old.entries[]; . as $entry | all($current.entries[]; .heading != $entry.heading)) then empty
+    elif any($old.entries[]; . as $entry | any($current.entries[]; .heading == $entry.heading and . != $entry)) then "edited-entries:v1"
+    else [$current.entries[] | . as $entry | select(all($old.entries[]; .heading != $entry.heading))] as $added |
+      if ($added | length) == 0 then empty
+      elif all($added[]; .date < ($old.entries | map(.date) | min)) then "historical-additions:v1"
+      else "new-entries:v1" end
+    end' 2>/dev/null || true
+}
+
+tree_without_watchers() {
+  awk '
+    { text = text $0 "\n" }
+    END {
+      while (match(text, /Stars [0-9]+([.][0-9]+)?[kKmM]? stars Watchers [0-9]+ watching Forks [0-9]+([.][0-9]+)?[kKmM]? forks Report repository/)) {
+        value = substr(text, RSTART, RLENGTH)
+        counter = value
+        sub(/^.*Watchers /, "", counter)
+        sub(/ watching.*$/, "", counter)
+        if (++count > 2 || (previous != "" && previous != counter)) exit 1
+        previous = counter
+        sub(/Watchers [0-9]+ watching/, "Watchers <count> watching", value)
+        out = out substr(text, 1, RSTART - 1) value
+        text = substr(text, RSTART + RLENGTH)
+      }
+      if (count != 2) exit 1
+      printf "%s%s", out, text
+    }
+  ' "$1"
+}
+
+changelog_index() {
+  jq -e -Rs '
+    def valid_date:
+      (.date | strptime("%Y-%m-%d") | mktime | strftime("%Y-%m-%d")) == .date;
+    if startswith("# docfetch-release-index-v2\n") then
+      split("\n")[1:-1] as $lines |
+      if ($lines | length) == 0 or ($lines | length) % 3 != 0 then error("unknown release index") else
+        {header: "docfetch-release-index-v2", entries: [range(0; $lines | length; 3) as $i |
+          ("{" + ($lines[$i:$i+3] | join(",")) + "}" | fromjson) |
+          if (keys | sort) != ["body", "published_at", "tag_name"] or
+            (.tag_name | type) != "string" or (.body | type) != "string" or
+            (.published_at | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$")) == false
+          then error("unknown release entry") else
+            {heading: .tag_name, text: .body, published: .published_at, date: .published_at[0:10]} |
+            if valid_date then . else error("ambiguous release date") end
+          end]}
+      end
+    else
+      ("\n" + .) | split("\n## ") as $parts |
+      if ($parts | length) < 2 then error("unknown changelog layout") else
+        {header: $parts[0], entries: [$parts[1:][] |
+          split("\n") | {heading: .[0], text: (.[1:] | join("\n") | sub("\\n+$"; ""))} |
+          . + {date: (.heading | if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") then . else error("ambiguous date") end)} |
+          if valid_date and (.text | test("(?m)^(#{1,6} |```|~~~)") | not) then . else error("unknown entry layout") end]}
+      end
+    end |
+    if (.entries | length) == 0 or (.entries | map(.heading) | unique | length) != (.entries | length)
+    then error("missing or duplicate entry") else . end' "$1" 2>/dev/null
+}
+
 # write_deltas <run dir> writes <stem>.delta for every new or changed row
 # that has a snapshot, and deltas.tsv with one labelled row each, then
 # prints a one-line count by label.
@@ -597,12 +691,14 @@ write_deltas() {
     hashed=$(hashed_file "$dir" "$body")
     word_delta "$snap" "$hashed" >"${hashed%.*}.delta"
     moved_words "$snap" "$hashed" >"$vocab/moved"
-    # A releases row moves by tag; the notes behind a new tag are the news.
+    # New release notes supplement the full index diff, including edits.
     if [ -s "${hashed%.*}.entries.md" ]; then
       { printf '\n# new releases\n\n'; cat "${hashed%.*}.entries.md"; } >>"${hashed%.*}.delta"
       cat "${hashed%.*}.entries.md" >>"$vocab/moved"
     fi
-    label=$(delta_label "${hashed%.*}.delta" "$vocab/moved" "$vocab/$target")
+    label=$(source_change_label "$kind" "$url" "$snap" "$hashed")
+    [ -n "$label" ] || label=$(delta_label "${hashed%.*}.delta" "$vocab/moved" "$vocab/$target")
+    printf '\n# comparison: source-aware-v1; %s\n' "$label" >>"${hashed%.*}.delta"
     printf '%s\t%s\t%s\t%s\t%s\n' "$target" "$kind" "$url" "$label" "${hashed%.*}.delta" >>"$dir/deltas.tsv"
   done <"$dir/docfetch.tsv"
   rm -rf "$vocab"
@@ -610,8 +706,8 @@ write_deltas() {
     { l = $4; sub(/:.*/, "", l); n[l]++; total++ }
     END {
       out = ""
-      split("mentions prose chrome-only whitespace-only no-snapshot", order, " ")
-      for (i = 1; i <= 5; i++) if (n[order[i]]) out = out (out != "" ? ", " : "") n[order[i]] " " order[i]
+      split("mentions prose chrome-only whitespace-only no-snapshot counter-only historical-additions new-entries edited-entries", order, " ")
+      for (i = 1; i <= 9; i++) if (n[order[i]]) out = out (out != "" ? ", " : "") n[order[i]] " " order[i]
       printf "deltas: %d%s\n", total, (out != "" ? " (" out ")" : "")
     }
   ' "$dir/deltas.tsv"
@@ -726,18 +822,15 @@ json_text() {
   command -v jq >/dev/null 2>&1 && jq -S . "$1" >"$2" 2>/dev/null || rm -f "$2"
 }
 
-# release_index <body> prints one tag line and one date line per release,
-# the text a releases row hashes. Prereleases and drafts are left out: a
-# rolling "nightly" tag bumps its date every day with the same body, and an
-# alpha is not what users run. The API answers on one line, so without jq
-# the values are matched rather than the lines: a line filter would keep
-# the whole payload and hash its download counts.
+# Version 2 includes note edits. Old indexes deliberately compare as changed.
 release_index() {
-  if command -v jq >/dev/null 2>&1 && jq -e 'type == "array"' "$1" >/dev/null 2>&1; then
+  if command -v jq >/dev/null 2>&1 && jq -e -s 'length == 1 and (.[0] | type == "array" and all(.[]; type == "object" and (.tag_name | type) == "string" and (.published_at | type) == "string" and (.body == null or (.body | type) == "string") and (.prerelease == null or (.prerelease | type) == "boolean") and (.draft == null or (.draft | type) == "boolean")))' "$1" >/dev/null 2>&1; then
+    printf '# docfetch-release-index-v2\n'
     jq -r '.[] | select((.prerelease or .draft) | not) |
-      "\"tag_name\":\(.tag_name | tojson)", "\"published_at\":\(.published_at | tojson)"' "$1"
+      "\"tag_name\":\(.tag_name | tojson)", "\"published_at\":\(.published_at | tojson)",
+      "\"body\":\((.body // "") | tojson)"' "$1"
   else
-    grep -oE '"(tag_name|published_at)":"[^"]*"' "$1" || true
+    cat "$1"
   fi
 }
 

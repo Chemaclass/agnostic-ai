@@ -63,3 +63,13 @@ Design choices and their reasons. Add new decisions without removing earlier one
 **Decision:** Register `grok` as a supported target and offer it in explicit selection, while keeping it outside `DefaultTargets`. Require `gitignore.commit: [grok:instructions]` or an intentionally disabled ignore manager, and check the native rule paths against Grok's root and global ignore inputs before emission.
 
 **Why:** Default generation would otherwise create rule files Grok cannot read. Changing the user's ignore or trust policy silently would hide a real setup decision. This is an explicit exception to the adapter guide's default-target registration step. Setup and runtime limits live on the [Grok Build target page](../site/content/docs/targets/grok.md).
+
+## 007: Caveman source maintenance investigation
+
+**Date:** 2026-10-25
+
+**Status:** Proposed, awaiting maintainer acceptance.
+
+**Recommendation:** Retain the built-in and example pack with their current parity check. They duplicate seven pinned files; current packs cannot replace global built-in setup. No user setup or source asset changes.
+
+The [comparison and local proof](experiments/caveman-source-decision.md) record the existing contract, three options, pinning and ownership limits, and migration approval requirements for [#2458](https://github.com/Chemaclass/agnostic-ai/issues/2458).

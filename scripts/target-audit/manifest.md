@@ -77,3 +77,13 @@ Finalization saves `finalization.json` with the validated manifest digest and in
 ## Manual compatibility path
 
 `scripts/docfetch.sh --update-unvalidated <docfetch.tsv> [target...]` explicitly keeps the old manual update behavior, including failed-fetch preservation, URL pruning and snapshots. It prints that coverage was not checked. It can advance successfully fetched pages without review and has no shared-owner protection. Use it only when deliberately making an unvalidated manual lock update. Fetch-only watcher workflows never update the source lock.
+
+## Watcher comparisons
+
+Fetch-only runs retain raw `.body` responses and the comparison text. `deltas.tsv` records versioned source classifications, and each `.delta` records the comparison version `source-aware-v1`. The watcher suppresses an actionable alert only when valid old and current snapshots differ solely in Junie's top-level Marketplace `downloads` fields, or the watcher count in both repository metadata blocks of the pinned Grok GitHub tree layout. Other fields remain part of the comparison. Missing snapshots, malformed data, and unknown layouts keep the existing changed or unknown report.
+
+GitHub release indexes and changelogs whose level-two Markdown headings contain only an ISO date can be labeled `historical-additions:v1` when every old entry is unchanged and each added date precedes the oldest existing entry. Newer additions and edits to any existing entry have separate labels. Unknown dates, removed entries, changed surrounding text, or Markdown layouts with nested headings or fenced sections keep the existing report. Historical additions remain unreviewed and actionable. This classification neither writes the source lock nor changes a manifest disposition.
+
+GitHub release indexes now start with `# docfetch-release-index-v2` and retain note bodies as well as tags and publication dates, so edits to old release notes change the hash. Existing version-one lock rows deliberately report changed on the first fetch. Review that delta before advancing the lock through the normal validated audit. There is no automatic migration or baseline promotion. Without a valid API array or `jq`, the comparison retains the entire response rather than omitting possibly changed notes.
+
+Download the workflow's `vendor-watch-pages` artifact to inspect each reported `.delta`, its sibling `.body`, and its normalized `.txt` comparison. The issue report names raw delta paths, explains suppressed counters when other changes are reported, and marks historical additions as unreviewed. A counter-only run creates no actionable issue; its classification and raw evidence remain in the artifact. URL/hash deduplication and failed-fetch reporting are unchanged.
