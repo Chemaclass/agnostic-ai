@@ -574,15 +574,15 @@ func freeLoopbackAddrs(t *testing.T, n int) []string {
 
 func runViewOnPorts(t *testing.T, ports []string, servers map[string]*viewServer, args ...string) (string, string, error) {
 	t.Helper()
-	return runViewOnPortsWithProbe(t, ports, func(addr string, _ time.Duration) *viewServer { return servers[addr] }, args...)
+	return runViewOnPortsWithProbe(t, ports, func(addr string, _ time.Duration) *viewServer { return servers[addr] }, time.Now, args...)
 }
 
-func runViewOnPortsWithProbe(t *testing.T, ports []string, probe func(string, time.Duration) *viewServer, args ...string) (string, string, error) {
+func runViewOnPortsWithProbe(t *testing.T, ports []string, probe func(string, time.Duration) *viewServer, now func() time.Time, args ...string) (string, string, error) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	opened := ""
-	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, probe, ports)
+	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, probe, ports, now)
 	cmd.SetContext(ctx)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -736,7 +736,7 @@ func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
 					return tc.late
 				}
 				return nil
-			}, ports)
+			}, ports, time.Now)
 			cmd.SetContext(ctx)
 			var out bytes.Buffer
 			cmd.SetOut(&out)
@@ -804,7 +804,7 @@ func TestView_ScanWaitsForASlowServerOfTheSameConfiguration(t *testing.T) {
 			return &viewServer{OK: true, Root: project, UI: true}
 		}
 		return nil
-	}, ports)
+	}, ports, time.Now)
 	cmd.SetContext(ctx)
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -817,27 +817,63 @@ func TestView_ScanWaitsForASlowServerOfTheSameConfiguration(t *testing.T) {
 	}
 }
 
-func TestView_ScanSharesOneRecheckBudgetAcrossSilentPorts(t *testing.T) {
+type fakeClock struct{ now time.Time }
+
+func (c *fakeClock) Now() time.Time { return c.now }
+
+func TestView_ScanBoundsRechecksOfSlowOtherConfigurations(t *testing.T) {
 	project := t.TempDir()
 	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
-	held := heldLoopbackAddrs(t, 4)
+	other := t.TempDir()
+	held := heldLoopbackAddrs(t, 6)
 	ports := append(slices.Clone(held), freeLoopbackAddrs(t, 1)...)
+	clock := &fakeClock{now: time.Unix(0, 0)}
 	probes := map[string]int{}
 	var rechecks time.Duration
 	opened, _, err := runViewOnPortsWithProbe(t, ports, func(addr string, timeout time.Duration) *viewServer {
-		probes[addr]++
-		if probes[addr] > 1 {
-			rechecks += timeout
+		if probes[addr]++; probes[addr] == 1 {
+			return nil
 		}
-		return nil
-	}, "--dir", project)
+		clock.now = clock.now.Add(timeout)
+		rechecks += timeout
+		return &viewServer{OK: true, Root: other, UI: true}
+	}, clock.Now, "--dir", project)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "http://" + ports[4] + "/"; opened != want {
+	if want := "http://" + ports[len(held)] + "/"; opened != want {
 		t.Errorf("opened %q, want %s", opened, want)
 	}
 	if limit := viewBusyProbeTimeout + time.Duration(len(held)-1)*viewProbeTimeout; rechecks > limit {
 		t.Errorf("rechecks waited %v in total, want at most %v", rechecks, limit)
+	}
+}
+
+func TestView_ScanFastRejectKeepsTheBudgetForASlowMatch(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ports := append(heldLoopbackAddrs(t, 2), freeLoopbackAddrs(t, 1)...)
+	clock := &fakeClock{now: time.Unix(0, 0)}
+	probes := map[string]int{}
+	opened, out, err := runViewOnPortsWithProbe(t, ports, func(addr string, timeout time.Duration) *viewServer {
+		if probes[addr]++; probes[addr] == 1 {
+			return nil
+		}
+		if addr == ports[0] {
+			clock.now = clock.now.Add(time.Millisecond)
+			return nil
+		}
+		if timeout < 4*time.Second {
+			clock.now = clock.now.Add(timeout)
+			return nil
+		}
+		clock.now = clock.now.Add(4 * time.Second)
+		return &viewServer{OK: true, Root: project, UI: true}
+	}, clock.Now, "--dir", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[1] + "/"; opened != want || strings.Contains(out, "Serving") {
+		t.Errorf("opened %q, output %q, want reuse of %s", opened, out, want)
 	}
 }

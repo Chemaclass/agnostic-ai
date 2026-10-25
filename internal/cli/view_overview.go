@@ -59,7 +59,7 @@ func probeViewServer(addr string, timeout time.Duration) *viewServer {
 }
 
 func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string, time.Duration) *viewServer) *cobra.Command {
-	return newViewCmdWithPorts(browser, probe, viewPortCandidates())
+	return newViewCmdWithPorts(browser, probe, viewPortCandidates(), time.Now)
 }
 
 // viewPortScan bounds how far view looks past the default port for a
@@ -95,7 +95,7 @@ func serveView(cmd *cobra.Command, browser func(string) error, addr, root string
 	return serve.Execute()
 }
 
-func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Duration) *viewServer, ports []string) *cobra.Command {
+func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Duration) *viewServer, ports []string, now func() time.Time) *cobra.Command {
 	var dir, addr string
 	var asJSON, global bool
 	cmd := &cobra.Command{
@@ -190,8 +190,8 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 				}
 			}
 			// A failed bind means something listens, possibly a server still
-			// starting. Rechecks share one budget, so silent programs on
-			// several ports cannot multiply the wait.
+			// starting. Rechecks spend one shared budget by the time they
+			// take; once it runs out each still gets the short timeout.
 			budget := viewBusyProbeTimeout
 			var bindErr error
 			for _, candidate := range free {
@@ -201,11 +201,9 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 					return err
 				}
 				bindErr = err
-				recheck := max(budget, viewProbeTimeout)
-				running := probe(candidate, recheck)
-				if running == nil {
-					budget -= recheck
-				}
+				started := now()
+				running := probe(candidate, max(budget, viewProbeTimeout))
+				budget -= now().Sub(started)
 				if running != nil {
 					taken := mismatch(candidate, running)
 					if taken == nil {
