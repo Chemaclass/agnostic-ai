@@ -76,13 +76,10 @@ func TestBuiltinTools_EnableAndRemoveIndependently(t *testing.T) {
 			t.Errorf("%q lost unrelated settings: %s", names, data)
 		}
 		for _, target := range []string{".claude", ".agents"} {
-			for _, asset := range []string{"SKILL.md", "LICENSE", "LICENSE-MIT", "NOTICE", "LICENSING.md", "UPSTREAM-README.md"} {
-				path := filepath.Join(dir, target, "skills", "caveman", asset)
-				_, err := os.Stat(path)
-				wanted := asset == "SKILL.md" && strings.Contains(names, "caveman")
-				if wanted && err != nil || !wanted && !os.IsNotExist(err) {
-					t.Errorf("%q %s: %v", names, path, err)
-				}
+			skill := filepath.Join(dir, target, "skills", "caveman")
+			entries, err := os.ReadDir(skill)
+			if strings.Contains(names, "caveman") && (err != nil || len(entries) != 1 || entries[0].Name() != "SKILL.md") || !strings.Contains(names, "caveman") && !os.IsNotExist(err) {
+				t.Errorf("%q %s: %v %v", names, skill, entries, err)
 			}
 		}
 		if data, err := os.ReadFile(filepath.Join(dir, ".codex", "hooks.json")); err == nil && bytes.Contains(data, []byte("rtk hook")) {

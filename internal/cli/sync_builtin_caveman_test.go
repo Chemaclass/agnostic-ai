@@ -10,20 +10,17 @@ import (
 
 const cavemanTestTargets = "[claude, codex, copilot, cursor, gemini, windsurf, kiro, opencode]"
 
-var cavemanUpstreamExtras = []string{"LICENSE", "LICENSE-MIT", "LICENSING.md", "NOTICE", "UPSTREAM-README.md"}
-
-// writeCavemanSourceSkill stands in for an earlier release that wrote the
-// upstream license, notice, and readme files beside the caveman skill.
+// writeCavemanSourceSkill stands in for an earlier release that wrote
+// upstream license and notice files beside the caveman skill.
 func writeCavemanSourceSkill(t *testing.T, skills string) {
 	t.Helper()
-	embedded := filepath.Join(cavemanTestPackageDir, "..", "builtins", "data", "caveman", "skills", "caveman")
-	for _, name := range append([]string{"SKILL.md"}, cavemanUpstreamExtras...) {
-		body, err := os.ReadFile(filepath.Join(embedded, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		mustWriteGlobalTest(t, filepath.Join(skills, "caveman", name), string(body))
+	body, err := os.ReadFile(filepath.Join(cavemanTestPackageDir, "..", "builtins", "data", "caveman", "skills", "caveman", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	mustWriteGlobalTest(t, filepath.Join(skills, "caveman", "SKILL.md"), string(body))
+	mustWriteGlobalTest(t, filepath.Join(skills, "caveman", "LICENSE"), "Upstream license text.\n")
+	mustWriteGlobalTest(t, filepath.Join(skills, "caveman", "NOTICE"), "Upstream notice text.\n")
 }
 
 var cavemanTestPackageDir = func() string {

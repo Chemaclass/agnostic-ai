@@ -143,9 +143,6 @@ try:
           and not (skill(p).parent / 'megacave').exists())
     source_body = (source_skill / 'SKILL.md').read_text().split('---', 2)[2].strip()
     check('Default skill instruction body preserved', source_body in (skill(p) / 'SKILL.md').read_text())
-    for name in upstream['files']:
-        if name != 'SKILL.md':
-            check(f'Emitted {name} bytes preserved', (skill(p) / name).read_bytes() == (source_skill / name).read_bytes())
     before_all, before = snapshot(p), snapshot(p, False)
     sync(p)
     after_all = snapshot(p)

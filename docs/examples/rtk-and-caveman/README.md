@@ -122,7 +122,7 @@ python3 "$example/verify.py" \
 
 ## Source and sharing
 
-[UPSTREAM.json](packs/caveman/UPSTREAM.json) records the source repository, exact revision, download URLs, and SHA-256 hashes (file-content fingerprints). The original Caveman skill is copied without changes. Its README, license texts, licensing explanation, and notices travel with the skill. agnostic-ai writes the skill's opening settings in each tool's format and adds a header identifying its source while retaining the instruction body.
+[UPSTREAM.json](packs/caveman/UPSTREAM.json) records the source repository, exact revision, download URLs, and SHA-256 hashes (file-content fingerprints). The original Caveman skill is copied without changes. Its license and notices are in the [upstream repository](https://github.com/JuliusBrussee/caveman). agnostic-ai writes the skill's opening settings in each tool's format and adds a header identifying its source while retaining the instruction body.
 
 Local packs need no plugin or new project YAML setting. Their lock records a local path rather than a Git revision. To share this setup, commit the pack sources or publish each pack as its own Git repository and install a fixed tag or commit. Do not publish the combined parent directory as one pack: it holds two separate packs.
 

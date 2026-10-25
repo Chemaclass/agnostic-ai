@@ -21,7 +21,6 @@ func TestToolBuiltins_PreservePinnedPackSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	packs := filepath.Join(packageDir, "..", "..", "docs", "examples", "rtk-and-caveman", "packs")
-	embedded := filepath.Join(packageDir, "data")
 	for _, name := range []string{"rtk", "caveman"} {
 		t.Run(name, func(t *testing.T) {
 			cacheForTest(t)
@@ -46,7 +45,7 @@ func TestToolBuiltins_PreservePinnedPackSources(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				got, err := os.ReadFile(filepath.Join(embedded, name, relative))
+				got, err := os.ReadFile(filepath.Join(root, relative))
 				if err != nil {
 					return err
 				}
@@ -87,18 +86,18 @@ func TestToolBuiltins_PreservePinnedPackSources(t *testing.T) {
 			if len(skill) != 1 || skill[0].Name() != "SKILL.md" {
 				t.Errorf("materialized caveman skill holds %v, want only SKILL.md", skill)
 			}
-			data, err := os.ReadFile(filepath.Join(embedded, name, "UPSTREAM.json"))
+			data, err := os.ReadFile(filepath.Join(root, "UPSTREAM.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
 			if err := json.Unmarshal(data, &provenance); err != nil {
 				t.Fatal(err)
 			}
-			if provenance.Revision != "2e08b9177c07bb7249a8a2d1a6758e5db281d002" || len(provenance.Files) != 6 {
+			if provenance.Revision != "2e08b9177c07bb7249a8a2d1a6758e5db281d002" || len(provenance.Files) != 1 || provenance.Files["SKILL.md"].SHA256 == "" {
 				t.Fatalf("unexpected pinned provenance: %+v", provenance)
 			}
 			for file, source := range provenance.Files {
-				data, err := os.ReadFile(filepath.Join(embedded, name, "skills", "caveman", file))
+				data, err := os.ReadFile(filepath.Join(root, "skills", "caveman", file))
 				if err != nil {
 					t.Fatal(err)
 				}
