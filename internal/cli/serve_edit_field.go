@@ -24,6 +24,8 @@ import (
 // with the same YAML values. Only the former is removed when emptied.
 const fieldCreatedMarker = "# Created by agnostic-ai serve.\n"
 
+var errFieldNotInFile = errors.New("the field is not in this file")
+
 const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
 
 // fieldEdit resolves an editable source spec, never an arbitrary client path.
@@ -67,60 +69,67 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 			value = v
 		}
 	}
+	settings := scope.bundle.Settings
 	var candidates []spec.Entry
-	for _, e := range scope.bundle.Settings {
+	for _, e := range settings {
 		if overview.SettingsEditCandidate(e, key) {
 			candidates = append(candidates, e)
 		}
 	}
-	effective := overview.SettingsInEffect(candidates, key, scope.targets)
-	var file string
+	inEffect := overview.SettingsInEffect(settings, key, scope.targets)
+	target := overview.SettingsWriteTarget(settings, inEffect, key, scope.targets)
+	unreachable := inEffect >= 0 && target < 0
 	defaultFile := filepath.Join(h.root, "settings", "defaults.yaml")
 	if !h.global {
 		defaultFile = filepath.Join(config.ResolveSourcePath(h.root, scope.cfg.Sources.Settings), "defaults.yaml")
 	}
 	defaultShown := overviewDisplay(h.root, defaultFile)
+	var file string
+	var chosen spec.Entry
 	if shown != "" {
-		chosen := -1
-		for i, e := range candidates {
-			if overview.SpecPath(h.root, e) == shown {
-				chosen = i
-				file = e.Path
-				break
+		at := slices.IndexFunc(settings, func(e spec.Entry) bool {
+			return overview.SettingsEditCandidate(e, key) && overview.SpecPath(h.root, e) == shown
+		})
+		switch {
+		case at >= 0:
+			if j := overview.SettingsOverride(settings, at, key, scope.targets); j >= 0 {
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, settings[j]), key, shown)
 			}
-		}
-		if file == "" && shown != defaultShown {
-			return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
-		}
-		if j := overview.SettingsOverride(candidates, chosen, key, scope.targets); j >= 0 {
-			return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, candidates[j]), key, shown)
-		}
-		if file == "" && len(candidates) == 0 {
+			chosen, file = settings[at], settings[at].Path
+		case shown == defaultShown:
+			if j := overview.SettingsOverride(candidates, -1, key, scope.targets); j >= 0 {
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, candidates[j]), key, shown)
+			}
+			if len(candidates) > 0 && !unreachable {
+				return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
+			}
 			file = defaultFile
-		}
-		if file == "" {
+		default:
 			return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
 		}
-	} else if effective >= 0 {
-		file = candidates[effective].Path
+	} else if target >= 0 {
+		chosen, file = settings[target], settings[target].Path
+	} else if unreachable || len(candidates) == 0 {
+		file = defaultFile
 	} else if len(candidates) == 1 {
-		file = candidates[0].Path
-	} else if len(candidates) > 1 {
-		return "", nil, errors.New("several editable settings specs exist; choose a path")
+		chosen, file = candidates[0], candidates[0].Path
 	} else {
+		return "", nil, errors.New("several editable settings specs exist; choose a path")
+	}
+	if chosen.Path == "" {
 		if value == nil {
+			if unreachable {
+				return "", nil, fmt.Errorf("%s sets %s; clear it there", overview.SpecPath(h.root, settings[inEffect]), key)
+			}
 			return "", nil, errors.New("there is no field to clear")
 		}
-		file = defaultFile
-	}
-	if len(candidates) == 0 && file == defaultFile {
+		if at := slices.IndexFunc(settings, func(e spec.Entry) bool { return e.Name == "defaults" }); at >= 0 {
+			return "", nil, fmt.Errorf("%s is already the settings spec named defaults; edit it or choose another file", overview.SpecPath(h.root, settings[at]))
+		}
 		if _, err := os.Lstat(file); err == nil {
 			return "", nil, errors.New("defaults.yaml exists but is not a loaded settings spec")
 		} else if !os.IsNotExist(err) {
 			return "", nil, err
-		}
-		if value == nil {
-			return "", nil, errors.New("there is no field to clear")
 		}
 	}
 	return file, func(data []byte) ([]byte, error) {
@@ -128,6 +137,12 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 			data = []byte(fieldCreatedSpec)
 		}
 		out, err := setScalarField(data, key, value)
+		if errors.Is(err, errFieldNotInFile) {
+			if _, inherited := chosen.Meta[key]; inherited {
+				return nil, fmt.Errorf("this file inherits %s from the base spec named %q; clear it there", key, chosen.Name)
+			}
+			return nil, fmt.Errorf("this file does not set %s", key)
+		}
 		if err == nil && len(bytes.TrimSpace(out)) == 0 && !bytes.HasPrefix(data, []byte(fieldCreatedMarker)) {
 			return nil, errors.New("clearing would leave an empty spec; delete the file instead")
 		}
@@ -167,8 +182,8 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 		return nil, errors.New("flow-style or anchored settings are not safely editable")
 	}
 	for _, node := range mapping.Content {
-		if node.Anchor != "" || node.Kind == yaml.AliasNode || node.Style&yaml.FlowStyle != 0 {
-			return nil, errors.New("anchored or flow-style settings are not safely editable")
+		if node.Anchor != "" || node.Kind == yaml.AliasNode {
+			return nil, errors.New("anchored settings are not safely editable")
 		}
 	}
 	var old map[string]any
@@ -185,7 +200,7 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 	var out []byte
 	if node == nil {
 		if value == nil {
-			return data, nil
+			return nil, errFieldNotInFile
 		}
 		out, err = editYAMLPair(data, mapping, key, value)
 		if err != nil {

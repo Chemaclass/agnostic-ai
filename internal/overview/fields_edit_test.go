@@ -90,3 +90,18 @@ func TestSettingsFields_DefaultPathAndSyncCommandFollowTheScope(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsFields_PackValueLaterInOrderPointsAtTheDefaultSpec(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	pack := entry(spec.KindSettings, "model", ".agnostic-ai/packs/team/settings/model.yaml", map[string]any{"name": "model", "model": "sonnet"})
+	pack.Layer = "pack:team"
+	in := Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{
+		entry(spec.KindSettings, "base", ".agnostic-ai/settings/base.yaml", map[string]any{"name": "base", "effort": "high"}),
+		pack,
+	}}}
+	for _, f := range sectionByID(t, Build(in), SectionSettings).Fields {
+		if f.Key == "model" && (f.Editable == nil || f.Editable.Path != ".agnostic-ai/settings/defaults.yaml") {
+			t.Fatalf("model edit = %+v", f.Editable)
+		}
+	}
+}

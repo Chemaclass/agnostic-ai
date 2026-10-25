@@ -300,3 +300,79 @@ func TestEditField_AbsoluteSettingsSourceAndDescribedScaffold(t *testing.T) {
 		t.Fatalf("wrote under the project: %v", err)
 	}
 }
+
+func TestEditField_NeverShadowsASpecNamedDefaults(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "base.yaml"), "name: defaults\npermissions:\n  deny: [Bash]\n")
+	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"key":"model","value":"sonnet"}`, nil)
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "settings/base.yaml") {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(source, "settings", "defaults.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("defaults created: %v", err)
+	}
+}
+
+func TestEditField_PackValueLaterInOrderIsNotHiddenByAProjectSpec(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	mustWrite(t, ".agnostic-ai/packs/team/settings/base.yaml", "name: base\npermissions:\n  allow: [Read]\n")
+	mustWrite(t, ".agnostic-ai/packs/team/settings/model.yaml", "name: model\nmodel: sonnet\n")
+	base := ".agnostic-ai/settings/base.yaml"
+	mustWrite(t, base, "name: base\neffort: high\n")
+	h := newEditHandler(project, false)
+	if rec := postEdit(t, h, editFieldPath, `{"path":"`+base+`","key":"model","value":"opus"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "packs/team/settings/model.yaml") {
+		t.Fatalf("base path = %d %s", rec.Code, rec.Body)
+	}
+	rec := postEdit(t, h, editFieldPath, `{"key":"model","value":"opus"}`, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), ".agnostic-ai/settings/defaults.yaml") {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	if data, _ := os.ReadFile(base); string(data) != "name: base\neffort: high\n" {
+		t.Fatalf("base = %s", data)
+	}
+}
+
+func TestEditField_EditsASpecWithFlowStyleTargets(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	z := ".agnostic-ai/settings/z.yaml"
+	mustWrite(t, z, "name: z\ntargets: [codex]\nmodel: gpt-5\n")
+	h := newEditHandler(project, false)
+	if rec := postEdit(t, h, editFieldPath, `{"path":"`+z+`","key":"model","value":"o3"}`, nil); rec.Code != 200 {
+		t.Fatalf("update = %d %s", rec.Code, rec.Body)
+	}
+	if data, _ := os.ReadFile(z); string(data) != "name: z\ntargets: [codex]\nmodel: o3\n" {
+		t.Fatalf("z = %s", data)
+	}
+	if out, err := setScalarField([]byte("name: z\ntargets: [codex]\n"), "model", "o3"); err != nil || string(out) != "name: z\ntargets: [codex]\nmodel: o3\n" {
+		t.Fatalf("insert = %q %v", out, err)
+	}
+}
+
+func TestEditField_ClearRefusesAnInheritedLocalValue(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	local := ".agnostic-ai/local/settings/a.yaml"
+	mustWrite(t, local, "name: a\neffort: high\n")
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"path":"`+local+`","key":"model","value":null}`, nil)
+	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "inherits model") {
+		t.Fatalf("clear = %d %s", rec.Code, rec.Body)
+	}
+	if data, _ := os.ReadFile(local); string(data) != "name: a\neffort: high\n" {
+		t.Fatalf("local = %s", data)
+	}
+}

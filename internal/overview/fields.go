@@ -96,7 +96,6 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				}
 				slices.Sort(edit.Allowed)
 			}
-			var candidates []spec.Entry
 			paths := map[string]string{}
 			for _, it := range items {
 				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
@@ -104,24 +103,23 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 					edit.Paths = append(edit.Paths, it.Path)
 				}
 			}
-			for _, e := range entries {
-				if _, ok := paths[e.Name]; ok {
-					candidates = append(candidates, e)
-				}
+			defaultPath := "settings/defaults.yaml"
+			if !global {
+				defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
 			}
-			if i := SettingsInEffect(candidates, d.key, cfg.Targets); i >= 0 {
-				edit.Path = paths[candidates[i].Name]
-			}
-			if edit.Path == "" {
-				if len(edit.Paths) == 0 {
-					if global {
-						edit.Path = "settings/defaults.yaml"
-					} else {
-						edit.Path = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
-					}
-				} else if len(edit.Paths) == 1 {
-					edit.Path = edit.Paths[0]
+			inEffect := SettingsInEffect(entries, d.key, cfg.Targets)
+			if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
+				edit.Path = paths[entries[target].Name]
+			} else if inEffect >= 0 {
+				if _, taken := byName["defaults"]; taken {
+					edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
+				} else {
+					edit.Path = defaultPath
 				}
+			} else if len(edit.Paths) == 0 {
+				edit.Path = defaultPath
+			} else if len(edit.Paths) == 1 {
+				edit.Path = edit.Paths[0]
 			}
 			// Maps and other non-scalar shapes remain read-only in this slice.
 			for _, source := range f.Set {
@@ -155,40 +153,67 @@ func SettingsEditCandidate(e spec.Entry, key string) bool {
 	return !grantsAuthority(e) || hasField(e, key)
 }
 
-// SettingsInEffect is the index of the candidate whose key an edit should
-// change: the last one that sets it for every target and no later
-// candidate overrides, else the last one that sets it. -1 when none does.
-func SettingsInEffect(candidates []spec.Entry, key string, targets []string) int {
+// SettingsInEffect is the index in the ordered settings of the spec whose
+// key sync uses: the last one that sets it for every target and no later
+// spec overrides, else the last one that sets it. -1 when none does.
+func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
 	last := -1
-	for i := len(candidates) - 1; i >= 0; i-- {
-		if !hasField(candidates[i], key) {
+	for i := len(settings) - 1; i >= 0; i-- {
+		if !hasField(settings[i], key) {
 			continue
 		}
 		if last < 0 {
 			last = i
 		}
-		if !slices.ContainsFunc(targets, func(t string) bool { return !candidates[i].EmitsTo(t) }) && SettingsOverride(candidates, i, key, targets) < 0 {
+		if !slices.ContainsFunc(targets, func(t string) bool { return !settings[i].EmitsTo(t) }) && SettingsOverride(settings, i, key, targets) < 0 {
 			return i
 		}
 	}
 	return last
 }
 
-// SettingsOverride is the index of a candidate after i that sets key for
-// every target candidates[i] applies to, or -1. With i < 0 the edited spec
-// applies to every target and every candidate counts as later.
-func SettingsOverride(candidates []spec.Entry, i int, key string, targets []string) int {
-	var applies []string
-	for _, t := range targets {
-		if i < 0 || candidates[i].EmitsTo(t) {
-			applies = append(applies, t)
-		}
+// SettingsWriteTarget is the edit candidate an edit of key writes so it
+// takes effect: the spec in effect when it is a candidate, else the last
+// candidate after it that applies to every target it does. -1 when none.
+func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, targets []string) int {
+	if inEffect < 0 {
+		return -1
 	}
-	for j := len(candidates) - 1; j > i; j-- {
-		later := candidates[j]
-		if hasField(later, key) && (len(applies) == 0 || !slices.ContainsFunc(applies, func(t string) bool { return !later.EmitsTo(t) })) {
+	if SettingsEditCandidate(settings[inEffect], key) {
+		return inEffect
+	}
+	applies := appliesTo(settings, inEffect, targets)
+	for j := len(settings) - 1; j > inEffect; j-- {
+		if SettingsEditCandidate(settings[j], key) && coversTargets(settings[j], applies) {
 			return j
 		}
 	}
 	return -1
+}
+
+// SettingsOverride is the index of a spec after i that sets key for every
+// target settings[i] applies to, or -1. With i < 0 the edited spec applies
+// to every target and every spec counts as later.
+func SettingsOverride(settings []spec.Entry, i int, key string, targets []string) int {
+	applies := appliesTo(settings, i, targets)
+	for j := len(settings) - 1; j > i; j-- {
+		if hasField(settings[j], key) && coversTargets(settings[j], applies) {
+			return j
+		}
+	}
+	return -1
+}
+
+func appliesTo(settings []spec.Entry, i int, targets []string) []string {
+	var applies []string
+	for _, t := range targets {
+		if i < 0 || settings[i].EmitsTo(t) {
+			applies = append(applies, t)
+		}
+	}
+	return applies
+}
+
+func coversTargets(e spec.Entry, targets []string) bool {
+	return len(targets) == 0 || !slices.ContainsFunc(targets, func(t string) bool { return !e.EmitsTo(t) })
 }
