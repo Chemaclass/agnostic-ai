@@ -44,10 +44,8 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 		return nil
 	}
 	byName := map[string]spec.Entry{}
-	order := map[string]int{}
-	for i, e := range entries {
+	for _, e := range entries {
 		byName[e.Name] = e
-		order[e.Name] = i
 	}
 	fields := make([]SettingField, 0, len(defs))
 	for _, d := range defs {
@@ -95,24 +93,21 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				}
 				slices.Sort(edit.Allowed)
 			}
-			effective := -1
-			for _, source := range f.Set {
-				if i := order[source.Spec]; i > effective {
-					effective = i
-					edit.Path = source.Path
-				}
-			}
-			if effective >= 0 && entries[effective].Layer == "builtin" {
-				edit.Path = ""
-			}
+			var candidates []spec.Entry
+			paths := map[string]string{}
 			for _, it := range items {
-				if it.Kind != string(spec.KindSettings) || it.Layer == "builtin" {
-					continue
+				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
+					paths[it.Name] = it.Path
+					edit.Paths = append(edit.Paths, it.Path)
 				}
-				if grantsAuthority(byName[it.Name]) && !slices.ContainsFunc(f.Set, func(source FieldSource) bool { return source.Spec == it.Name }) {
-					continue
+			}
+			for _, e := range entries {
+				if _, ok := paths[e.Name]; ok {
+					candidates = append(candidates, e)
 				}
-				edit.Paths = append(edit.Paths, it.Path)
+			}
+			if i := SettingsInEffect(candidates, d.key, cfg.Targets); i >= 0 {
+				edit.Path = paths[candidates[i].Name]
 			}
 			if edit.Path == "" {
 				if len(edit.Paths) == 0 {
@@ -145,4 +140,52 @@ func (d fieldDef) matches(key string) bool {
 		return strings.HasPrefix(key, d.key)
 	}
 	return key == d.key || strings.HasPrefix(key, d.key+".")
+}
+
+// SettingsEditCandidate reports whether a field edit may write e. Built-in
+// and pack specs are replaced on update, and a spec under Authority takes
+// the edit only when it already sets key.
+func SettingsEditCandidate(e spec.Entry, key string) bool {
+	if e.Layer == builtinLayer || strings.HasPrefix(e.Layer, "pack:") {
+		return false
+	}
+	return !grantsAuthority(e) || hasField(e, key)
+}
+
+// SettingsInEffect is the index of the candidate whose key an edit should
+// change: the last one that sets it for every target and no later
+// candidate overrides, else the last one that sets it. -1 when none does.
+func SettingsInEffect(candidates []spec.Entry, key string, targets []string) int {
+	last := -1
+	for i := len(candidates) - 1; i >= 0; i-- {
+		if !hasField(candidates[i], key) {
+			continue
+		}
+		if last < 0 {
+			last = i
+		}
+		if !slices.ContainsFunc(targets, func(t string) bool { return !candidates[i].EmitsTo(t) }) && SettingsOverride(candidates, i, key, targets) < 0 {
+			return i
+		}
+	}
+	return last
+}
+
+// SettingsOverride is the index of a candidate after i that sets key for
+// every target candidates[i] applies to, or -1. With i < 0 the edited spec
+// applies to every target and every candidate counts as later.
+func SettingsOverride(candidates []spec.Entry, i int, key string, targets []string) int {
+	var applies []string
+	for _, t := range targets {
+		if i < 0 || candidates[i].EmitsTo(t) {
+			applies = append(applies, t)
+		}
+	}
+	for j := len(candidates) - 1; j > i; j-- {
+		later := candidates[j]
+		if hasField(later, key) && (len(applies) == 0 || !slices.ContainsFunc(applies, func(t string) bool { return !later.EmitsTo(t) })) {
+			return j
+		}
+	}
+	return -1
 }

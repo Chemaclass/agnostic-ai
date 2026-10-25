@@ -65,24 +65,12 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 		}
 	}
 	var candidates []spec.Entry
-	effective := -1
 	for _, e := range scope.bundle.Settings {
-		if e.Layer == "builtin" {
-			continue
+		if overview.SettingsEditCandidate(e, key) {
+			candidates = append(candidates, e)
 		}
-		// Match the overview: a spec under Authority is a candidate only
-		// when it sets the field, so it cannot hide the default scaffold.
-		_, permissions := e.Meta["permissions"]
-		_, protected := e.Meta["protected"]
-		_, sets := e.Meta[key]
-		if (permissions || protected) && !sets {
-			continue
-		}
-		if sets {
-			effective = len(candidates)
-		}
-		candidates = append(candidates, e)
 	}
+	effective := overview.SettingsInEffect(candidates, key, scope.targets)
 	var file string
 	defaultFile := filepath.Join(h.root, "settings", "defaults.yaml")
 	if !h.global {
@@ -98,10 +86,13 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 				break
 			}
 		}
-		if effective > chosen {
-			return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, candidates[effective]), key, shown)
+		if file == "" && shown != defaultShown {
+			return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
 		}
-		if file == "" && len(candidates) == 0 && shown == defaultShown {
+		if j := overview.SettingsOverride(candidates, chosen, key, scope.targets); j >= 0 {
+			return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, candidates[j]), key, shown)
+		}
+		if file == "" && len(candidates) == 0 {
 			file = defaultFile
 		}
 		if file == "" {

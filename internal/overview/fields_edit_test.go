@@ -52,3 +52,24 @@ func TestSettingsFields_EditTargetsTheSpecWhoseValueIsInEffect(t *testing.T) {
 		t.Fatalf("effort edit = %+v", effort.Editable)
 	}
 }
+
+func TestSettingsFields_TargetedAndPackSpecsDoNotTakeTheEdit(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude", "codex"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	pack := entry(spec.KindSettings, "pack", ".agnostic-ai/packs/team/settings/pack.yaml", map[string]any{"name": "pack", "effort": "high"})
+	pack.Layer = "pack:team"
+	in := Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{
+		pack,
+		entry(spec.KindSettings, "a", ".agnostic-ai/settings/a.yaml", map[string]any{"name": "a", "model": "sonnet"}),
+		entry(spec.KindSettings, "z", ".agnostic-ai/settings/z.yaml", map[string]any{"name": "z", "targets": []any{"codex"}, "model": "gpt-5"}),
+	}}}
+	byKey := map[string]SettingField{}
+	for _, f := range sectionByID(t, Build(in), SectionSettings).Fields {
+		byKey[f.Key] = f
+	}
+	if got := byKey["model"].Editable; got == nil || got.Path != ".agnostic-ai/settings/a.yaml" {
+		t.Fatalf("model edit = %+v", got)
+	}
+	if got := byKey["effort"].Editable; got == nil || slices.Contains(got.Paths, pack.Path) || got.Path == pack.Path {
+		t.Fatalf("effort edit = %+v", got)
+	}
+}

@@ -95,7 +95,7 @@ func TestEditField_ChoosesOnlyLoadedSpecAndPreservesOtherText(t *testing.T) {
 	if rec := postEdit(t, h, editFieldPath, `{"path":"settings/second.yaml","key":"model","value":"haiku"}`, nil); rec.Code != 200 {
 		t.Fatalf("chosen = %d %s", rec.Code, rec.Body)
 	}
-	if rec := postEdit(t, h, editFieldPath, `{"path":"../outside.yaml","key":"model","value":"haiku"}`, nil); rec.Code != 400 {
+	if rec := postEdit(t, h, editFieldPath, `{"path":"../outside.yaml","key":"model","value":"haiku"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "is not a settings spec") {
 		t.Fatalf("outside = %d %s", rec.Code, rec.Body)
 	}
 }
@@ -242,5 +242,41 @@ func TestEditField_ClearRefusesToEmptyAHandWrittenSpec(t *testing.T) {
 	}
 	if data, err := os.ReadFile(file); err != nil || string(data) != "model: sonnet\n" {
 		t.Fatalf("hand-written spec = %q %v", data, err)
+	}
+}
+
+func TestEditField_TargetedSpecOverridesOnlyItsTools(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, ".agnostic-ai/settings/a.yaml", "name: a\nmodel: sonnet\n")
+	mustWrite(t, ".agnostic-ai/settings/z.yaml", "name: z\ntargets: [codex]\nmodel: gpt-5\n")
+	h := newEditHandler(project, false)
+	if rec := postEdit(t, h, editFieldPath, `{"path":".agnostic-ai/settings/a.yaml","key":"model","value":"opus"}`, nil); rec.Code != 200 {
+		t.Fatalf("claude edit = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"key":"model","value":"haiku"}`, nil); rec.Code != 200 || !strings.Contains(rec.Body.String(), "a.yaml") {
+		t.Fatalf("default target = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"path":".agnostic-ai/settings/nowhere.yaml","key":"model","value":"opus"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "is not a settings spec") {
+		t.Fatalf("unknown path = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEditField_PackValueSavesToProjectDefault(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	pack := ".agnostic-ai/packs/team/settings/team.yaml"
+	mustWrite(t, pack, "name: team\nmodel: sonnet\n")
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"key":"model","value":"opus"}`, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), ".agnostic-ai/settings/defaults.yaml") {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	if data, _ := os.ReadFile(pack); string(data) != "name: team\nmodel: sonnet\n" {
+		t.Fatalf("pack changed: %s", data)
 	}
 }
