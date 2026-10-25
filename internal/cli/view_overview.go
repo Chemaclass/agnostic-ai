@@ -189,12 +189,10 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 					return err
 				}
 			}
-			// A scan probes up to twice per port, so a program that accepts
-			// connections and never answers costs only the short timeout.
-			recheck := viewProbeTimeout
-			if explicit {
-				recheck = viewBusyProbeTimeout
-			}
+			// A failed bind means something listens, possibly a server still
+			// starting. Rechecks share one budget, so silent programs on
+			// several ports cannot multiply the wait.
+			budget := viewBusyProbeTimeout
 			var bindErr error
 			for _, candidate := range free {
 				err := serveView(cmd, browser, candidate, root, useGlobal)
@@ -203,7 +201,12 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 					return err
 				}
 				bindErr = err
-				if running := probe(candidate, recheck); running != nil {
+				recheck := max(budget, viewProbeTimeout)
+				running := probe(candidate, recheck)
+				if running == nil {
+					budget -= recheck
+				}
+				if running != nil {
 					taken := mismatch(candidate, running)
 					if taken == nil {
 						return reuse(candidate)

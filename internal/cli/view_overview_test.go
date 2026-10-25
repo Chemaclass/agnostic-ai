@@ -574,12 +574,15 @@ func freeLoopbackAddrs(t *testing.T, n int) []string {
 
 func runViewOnPorts(t *testing.T, ports []string, servers map[string]*viewServer, args ...string) (string, string, error) {
 	t.Helper()
+	return runViewOnPortsWithProbe(t, ports, func(addr string, _ time.Duration) *viewServer { return servers[addr] }, args...)
+}
+
+func runViewOnPortsWithProbe(t *testing.T, ports []string, probe func(string, time.Duration) *viewServer, args ...string) (string, string, error) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	opened := ""
-	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, _ time.Duration) *viewServer {
-		return servers[addr]
-	}, ports)
+	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, probe, ports)
 	cmd.SetContext(ctx)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -726,10 +729,8 @@ func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			opened := ""
-			var timeouts []time.Duration
 			probes := map[string]int{}
-			cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, timeout time.Duration) *viewServer {
-				timeouts = append(timeouts, timeout)
+			cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, _ time.Duration) *viewServer {
 				probes[addr]++
 				if addr == ports[0] && probes[addr] > 1 {
 					return tc.late
@@ -750,11 +751,6 @@ func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
 			}
 			if probes[ports[0]] != 2 {
 				t.Errorf("probes = %v, want a recheck of %s", probes, ports[0])
-			}
-			for _, timeout := range timeouts {
-				if timeout > viewProbeTimeout {
-					t.Errorf("scan probe timeout = %v, want at most %v", timeout, viewProbeTimeout)
-				}
 			}
 		})
 	}
@@ -779,5 +775,69 @@ func TestView_ScanKeepsTheBindErrorWhenNoPortOpens(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--addr") || strings.Contains(err.Error(), "another configuration") {
 		t.Errorf("error = %v", err)
+	}
+}
+
+func heldLoopbackAddrs(t *testing.T, n int) []string {
+	t.Helper()
+	var addrs []string
+	for range n {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ln.Close() })
+		addrs = append(addrs, ln.Addr().String())
+	}
+	return addrs
+}
+
+func TestView_ScanWaitsForASlowServerOfTheSameConfiguration(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ports := append(heldLoopbackAddrs(t, 1), freeLoopbackAddrs(t, 1)...)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opened := ""
+	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, timeout time.Duration) *viewServer {
+		if addr == ports[0] && timeout >= 500*time.Millisecond {
+			return &viewServer{OK: true, Root: project, UI: true}
+		}
+		return nil
+	}, ports)
+	cmd.SetContext(ctx)
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--dir", project})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[0] + "/"; opened != want {
+		t.Errorf("opened %q, want reuse of the slow server at %s", opened, want)
+	}
+}
+
+func TestView_ScanSharesOneRecheckBudgetAcrossSilentPorts(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	held := heldLoopbackAddrs(t, 4)
+	ports := append(slices.Clone(held), freeLoopbackAddrs(t, 1)...)
+	probes := map[string]int{}
+	var rechecks time.Duration
+	opened, _, err := runViewOnPortsWithProbe(t, ports, func(addr string, timeout time.Duration) *viewServer {
+		probes[addr]++
+		if probes[addr] > 1 {
+			rechecks += timeout
+		}
+		return nil
+	}, "--dir", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[4] + "/"; opened != want {
+		t.Errorf("opened %q, want %s", opened, want)
+	}
+	if limit := viewBusyProbeTimeout + time.Duration(len(held)-1)*viewProbeTimeout; rechecks > limit {
+		t.Errorf("rechecks waited %v in total, want at most %v", rechecks, limit)
 	}
 }
