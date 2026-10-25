@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -58,6 +59,43 @@ func probeViewServer(addr string, timeout time.Duration) *viewServer {
 }
 
 func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string, time.Duration) *viewServer) *cobra.Command {
+	return newViewCmdWithPorts(browser, probe, viewPortCandidates())
+}
+
+// viewPortScan bounds how far view looks past the default port for a
+// running server or a free port.
+const viewPortScan = 10
+
+func viewPortCandidates() []string {
+	host, port, _ := net.SplitHostPort(defaultServeAddr)
+	first, _ := strconv.Atoi(port)
+	candidates := make([]string, viewPortScan)
+	for i := range candidates {
+		candidates[i] = net.JoinHostPort(host, strconv.Itoa(first+i))
+	}
+	return candidates
+}
+
+// serveView blocks while the server runs; a listen error means the port
+// was taken between the probe and the bind.
+func serveView(cmd *cobra.Command, browser func(string) error, addr, root string, global bool) error {
+	serve := newServeCmdWithBrowser(browser)
+	serve.SetContext(cmd.Context())
+	serve.SetOut(cmd.OutOrStdout())
+	serve.SetErr(cmd.ErrOrStderr())
+	serve.SilenceErrors = true
+	serve.SilenceUsage = true
+	args := []string{"--open", "--addr", addr}
+	if global {
+		args = append(args, "--global")
+	} else {
+		args = append(args, "--dir", root)
+	}
+	serve.SetArgs(args)
+	return serve.Execute()
+}
+
+func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Duration) *viewServer, ports []string) *cobra.Command {
 	var dir, addr string
 	var asJSON, global bool
 	cmd := &cobra.Command{
@@ -67,7 +105,10 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 		Long: "Opens the bundled web interface for the project in the current directory " +
 			"or a parent directory. Outside a project, reads the user-level configuration. " +
 			"Use --json to print the overview/v1 document without starting a server. " +
-			"The interface reloads configuration on every request. Stops on Ctrl-C.",
+			"When the default port serves another project or scope, opens on the next free " +
+			"loopback port up to 127.0.0.1:4319 and prints it; a later run for the same " +
+			"configuration reuses that server. The interface reloads configuration on every " +
+			"request. Stops on Ctrl-C.",
 		Example: `  # Open the project, or user configuration outside a project
   agnostic-ai view
 
@@ -111,13 +152,21 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 					return err
 				}
 			}
-			reuse := func(running *viewServer) error {
+			candidates := ports
+			explicit := cmd.Flags().Changed("addr")
+			if explicit {
+				candidates = []string{addr}
+			}
+			mismatch := func(addr string, running *viewServer) error {
 				if !sameProjectRoot(running.Root, wantRoot) || running.Global != useGlobal {
 					return fmt.Errorf("%s serves %s (global: %t); use --addr for another project or scope", addr, running.Root, running.Global)
 				}
 				if !running.UI {
 					return fmt.Errorf("%s serves %s without the web interface; stop that server or use --addr", addr, running.Root)
 				}
+				return nil
+			}
+			reuse := func(addr string) error {
 				url := "http://" + addr + "/"
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using agnostic-ai at %s\n", url)
 				if err := browser(url); err != nil {
@@ -125,34 +174,45 @@ func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string
 				}
 				return nil
 			}
-			if running := probe(addr, viewProbeTimeout); running != nil {
-				return reuse(running)
-			}
-			serve := newServeCmdWithBrowser(browser)
-			serve.SetContext(cmd.Context())
-			serve.SetOut(cmd.OutOrStdout())
-			serve.SetErr(cmd.ErrOrStderr())
-			serve.SilenceErrors = true
-			serve.SilenceUsage = true
-			args := []string{"--open", "--addr", addr}
-			if useGlobal {
-				args = append(args, "--global")
-			} else {
-				args = append(args, "--dir", root)
-			}
-			serve.SetArgs(args)
-			err = serve.Execute()
-			var listenErr *net.OpError
-			if errors.As(err, &listenErr) && listenErr.Op == "listen" {
-				if running := probe(addr, viewBusyProbeTimeout); running != nil {
-					return reuse(running)
+			var free []string
+			for _, candidate := range candidates {
+				running := probe(candidate, viewProbeTimeout)
+				if running == nil {
+					free = append(free, candidate)
+					continue
+				}
+				err := mismatch(candidate, running)
+				if err == nil {
+					return reuse(candidate)
+				}
+				if explicit {
+					return err
 				}
 			}
-			return err
+			for _, candidate := range free {
+				err := serveView(cmd, browser, candidate, root, useGlobal)
+				var listenErr *net.OpError
+				if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
+					return err
+				}
+				if running := probe(candidate, viewBusyProbeTimeout); running != nil {
+					taken := mismatch(candidate, running)
+					if taken == nil {
+						return reuse(candidate)
+					}
+					if explicit {
+						return taken
+					}
+				}
+				if explicit {
+					return err
+				}
+			}
+			return fmt.Errorf("every port from %s to %s is taken by another configuration or program; use --addr to choose one", candidates[0], candidates[len(candidates)-1])
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
-	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Loopback address to listen on.")
+	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Loopback address to listen on; when set, view never moves to another port.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON without opening the web interface.")
 	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	return cmd

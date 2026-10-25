@@ -365,11 +365,11 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 		wantProbe bool
 	}{
 		{name: "same project", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--dir", project}, wantOpen: true, wantProbe: true},
-		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}, wantError: other, wantProbe: true},
-		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true, UI: true}, args: []string{"--dir", project}, wantError: project, wantProbe: true},
+		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: other, wantProbe: true},
+		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
 		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--global"}, wantOpen: true, wantProbe: true},
-		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global"}, wantError: project, wantProbe: true},
-		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}, wantError: "without the web interface", wantProbe: true},
+		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global", "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
+		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: "without the web interface", wantProbe: true},
 		{name: "no server", args: []string{"--dir", project, "--addr", "127.0.0.1:0"}, wantOpen: true, wantProbe: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -554,5 +554,150 @@ func TestProbeViewServer_IgnoresUnrelatedService(t *testing.T) {
 	defer srv.Close()
 	if got := probeViewServer(strings.TrimPrefix(srv.URL, "http://"), time.Second); got != nil {
 		t.Errorf("probe = %+v", got)
+	}
+}
+
+func freeLoopbackAddrs(t *testing.T, n int) []string {
+	t.Helper()
+	var addrs []string
+	for range n {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		addrs = append(addrs, ln.Addr().String())
+		_ = ln.Close()
+	}
+	return addrs
+}
+
+func runViewOnPorts(t *testing.T, ports []string, servers map[string]*viewServer, args ...string) (string, string, error) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opened := ""
+	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, _ time.Duration) *viewServer {
+		return servers[addr]
+	}, ports)
+	cmd.SetContext(ctx)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return opened, out.String(), err
+}
+
+func TestView_OpensAnotherConfigurationOnTheNextFreePort(t *testing.T) {
+	globalOverviewHome(t)
+	globalRoot, err := globalSourceRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	mustWrite(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	for _, tc := range []struct {
+		name    string
+		running *viewServer
+		args    []string
+	}{
+		{name: "global after a project", running: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global"}},
+		{name: "project after global", running: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--dir", project}},
+		{name: "second project", running: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}},
+		{name: "api-only server of the same project", running: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ports := freeLoopbackAddrs(t, 2)
+			opened, out, err := runViewOnPorts(t, ports, map[string]*viewServer{ports[0]: tc.running}, tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "http://" + ports[1] + "/"
+			if opened != want || !strings.Contains(out, "Serving agnostic-ai at "+want) {
+				t.Errorf("opened %q, output %q, want %s", opened, out, want)
+			}
+		})
+	}
+}
+
+func TestView_ReusesMatchingServerOnALaterPort(t *testing.T) {
+	globalOverviewHome(t)
+	globalRoot, err := globalSourceRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ports := freeLoopbackAddrs(t, 3)
+	servers := map[string]*viewServer{
+		ports[1]: {OK: true, Root: project, UI: true},
+		ports[2]: {OK: true, Root: globalRoot, Global: true, UI: true},
+	}
+	opened, out, err := runViewOnPorts(t, ports, servers, "--global")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "http://" + ports[2] + "/"
+	if opened != want || !strings.Contains(out, "Using agnostic-ai at "+want) || strings.Contains(out, "Serving") {
+		t.Errorf("opened %q, output %q, want reuse of %s", opened, out, want)
+	}
+}
+
+func TestView_SkipsAPortHeldByAnotherProcess(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = held.Close() }()
+	ports := append([]string{held.Addr().String()}, freeLoopbackAddrs(t, 1)...)
+	opened, _, err := runViewOnPorts(t, ports, nil, "--dir", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[1] + "/"; opened != want {
+		t.Errorf("opened %q, want %s", opened, want)
+	}
+}
+
+func TestView_FailsWhenEveryPortServesAnotherConfiguration(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	ports := freeLoopbackAddrs(t, 2)
+	servers := map[string]*viewServer{
+		ports[0]: {OK: true, Root: other, UI: true},
+		ports[1]: {OK: true, Root: other, UI: true},
+	}
+	opened, _, err := runViewOnPorts(t, ports, servers, "--dir", project)
+	if err == nil || !strings.Contains(err.Error(), ports[0]) || !strings.Contains(err.Error(), ports[1]) || !strings.Contains(err.Error(), "--addr") {
+		t.Errorf("error = %v", err)
+	}
+	if opened != "" {
+		t.Errorf("opened %q", opened)
+	}
+}
+
+func TestView_ExplicitAddrDoesNotMoveToAnotherPort(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	ports := freeLoopbackAddrs(t, 2)
+	opened, _, err := runViewOnPorts(t, ports, map[string]*viewServer{ports[0]: {OK: true, Root: other, UI: true}}, "--dir", project, "--addr", ports[0])
+	if err == nil || !strings.Contains(err.Error(), other) {
+		t.Errorf("error = %v", err)
+	}
+	if opened != "" {
+		t.Errorf("opened %q", opened)
+	}
+}
+
+func TestViewPortCandidates_ScanAFixedLoopbackRange(t *testing.T) {
+	got := viewPortCandidates()
+	if len(got) != viewPortScan || got[0] != defaultServeAddr || got[len(got)-1] != fmt.Sprintf("127.0.0.1:%d", 4310+viewPortScan-1) {
+		t.Errorf("candidates = %v", got)
 	}
 }
