@@ -491,7 +491,7 @@ test('Caveman reload shows an external config change instead of historical apply
   }
 })
 
-test('live Settings edits an unset effort, validates, updates, and clears its new spec', async ({ page }) => {
+test('live Settings picks an unset effort from its levels, updates, and clears its new spec', async ({ page }) => {
   const f = await fixture()
   const created = join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml')
   try {
@@ -500,15 +500,14 @@ test('live Settings edits an unset effort, validates, updates, and clears its ne
     await page.goto(`${f.url}?view=settings`)
     await page.getByText('Unconfigured fields', { exact: false }).click()
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
-    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('high')
+    const level = effort.getByRole('combobox', { name: 'Reasoning effort value' })
+    await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveCount(0)
+    await expect(level.locator('option', { hasText: /^low$/ })).toHaveCount(1)
+    await level.selectOption('high')
     await effort.getByRole('button', { name: 'Save' }).click()
     await expect(effort).toContainText('from .agnostic-ai/settings/defaults.yaml')
     expect(await readFile(created, 'utf8')).toContain('effort: high')
-    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('turbo')
-    await effort.getByRole('button', { name: 'Update' }).click()
-    await expect(effort.getByRole('alert')).toContainText('effort must be a level')
-    expect(await readFile(created, 'utf8')).toContain('effort: high')
-    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+    await level.selectOption('low')
     await effort.getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => readFile(created, 'utf8')).toContain('effort: low')
     await effort.getByRole('button', { name: 'Clear' }).click()

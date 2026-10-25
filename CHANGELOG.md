@@ -7,7 +7,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Turning on the `memory` built-in in the web interface now previews and applies the `.git/info/exclude` line that keeps Claude Code's private settings out of Git, as `sync` does, instead of sending you to the CLI (#2486).
-- Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits (#2476).
+- Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits; fields with a fixed set of values, such as effort, offer them as a list, and each setting shows its value once beside its controls (#2476).
+- The web interface shows the full configuration path under the project name, and marks the user-level view as Global.
 - **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope or an `--api-only` server on the port suggests `--addr`. `/api/health` answers without loading specs and returns the root, scope, and `ui`; it no longer returns `revision` (#2477).
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
 

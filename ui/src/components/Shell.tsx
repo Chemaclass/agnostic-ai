@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import type { OverviewView } from '../contract'
+import { useEffect, useRef, useState } from 'react'
+import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
@@ -45,6 +45,16 @@ export function Header({
   const app = useApp()
   const snapshot = overview.loaded?.data.snapshot
   const projectName = snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
+  const [served, setServed] = useState<{ root: string; global: boolean }>()
+  useEffect(() => {
+    if (app.source.kind !== 'api') return
+    let live = true
+    fetch(API.health).then((response) => response.ok ? response.json() : undefined).then((health) => {
+      if (live && health && typeof health.root === 'string') setServed({ root: health.root, global: health.global === true })
+    }).catch(() => undefined)
+    return () => { live = false }
+  }, [app.source.kind])
+  const root = served?.root ?? (snapshot?.project.root && snapshot.project.root !== '.' ? snapshot.project.root : undefined)
 
   return (
     <header className="topbar">
@@ -66,9 +76,10 @@ export function Header({
       {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
         <div className="topbar-context">
           {projectName && (
-            <span className="project-name" title={snapshot?.project.root ? `Project root: ${snapshot.project.root}` : undefined}>
-              <span className="sr-only">Project </span>
-              {projectName}
+            <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
+              <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
+              <span className="project-title">{projectName}{served?.global && <span className="chip chip-source">Global</span>}</span>
+              {root && <code className="project-root"><bdi>{root}</bdi></code>}
             </span>
           )}
           {app.source.kind === 'static' && (
