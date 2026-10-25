@@ -283,7 +283,8 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 			desired[worktreeIncludeFile] = []byte(rendered)
 		}
 	}
-	if err := validateBuiltinMemoryExclusion(root, cfg, desired); err != nil {
+	excludePath, exclusion, err := planBuiltinMemoryExclusion(root, cfg, desired)
+	if err != nil {
 		return nil, err
 	}
 	baselineSums := specSums(cfg, bundle, cfg.Targets)
@@ -313,6 +314,9 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 		return nil, fmt.Errorf("%s: %w", stateFilePath("."), err)
 	}
 	desired[filepath.ToSlash(stateFilePath("."))] = state
+	if excludePath != "" {
+		desired[excludePath] = exclusion
+	}
 	for path := range desired {
 		inputs = append(inputs, path)
 	}

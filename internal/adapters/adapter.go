@@ -1102,6 +1102,16 @@ func MemoryFactFiles(dir string) ([]string, error) { return emit.MemoryFactFiles
 // (re-exported from the emit layer).
 func ExcludeFromGit(pattern string) error { return emit.ExcludeFromGit(pattern) }
 
+// GitExcludePath finds the info/exclude file ExcludeFromGit writes
+// (re-exported from the emit layer).
+func GitExcludePath() (string, bool) { return emit.GitExcludePath() }
+
+// WithGitExclusion returns info/exclude content holding pattern
+// (re-exported from the emit layer).
+func WithGitExclusion(data []byte, pattern string) ([]byte, bool) {
+	return emit.WithGitExclusion(data, pattern)
+}
+
 // AppendMemoryBlock appends the memory block to body, replacing any
 // earlier one (re-exported from the emit layer).
 func AppendMemoryBlock(body, block string) string {

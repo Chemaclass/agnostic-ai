@@ -75,7 +75,7 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 	// The file holds this checkout's absolute path, so it must never be
 	// committed, even when sync creates it before Claude Code ignores it.
 	if !dryRun && !sess.IsCapturing() {
-		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
+		if err := emit.ExcludeFromGit(AutoMemoryGitExclusion(dir)); err != nil {
 			return err
 		}
 		// Linked worktrees share native memory until the main checkout redirects it.
@@ -87,6 +87,12 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 	}
 	keys[autoMemoryDirectoryKey] = filepath.ToSlash(store)
 	return flush()
+}
+
+// AutoMemoryGitExclusion is the info/exclude pattern that keeps the local
+// settings in dir out of Git.
+func AutoMemoryGitExclusion(dir string) string {
+	return "**/" + filepath.ToSlash(filepath.Join(dir, "settings.local.json"))
 }
 
 func AutoMemoryLoadsPersonalIndex(cfg *config.Config) (bool, error) {
