@@ -110,14 +110,18 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			inEffect := SettingsInEffect(entries, d.key, cfg.Targets)
 			if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
 				edit.Path = paths[entries[target].Name]
-			} else if inEffect >= 0 {
-				if _, taken := byName["defaults"]; taken {
-					edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
+			} else if inEffect >= 0 || len(edit.Paths) == 0 {
+				if taken, ok := byName["defaults"]; ok {
+					edit.DisabledReason = SpecPath(root, taken) + " is already the settings spec named defaults; add the field to an editable settings spec."
+					if inEffect >= 0 {
+						edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
+					}
 				} else {
 					edit.Path = defaultPath
+					if len(edit.Paths) > 0 {
+						edit.Paths = append(edit.Paths, defaultPath)
+					}
 				}
-			} else if len(edit.Paths) == 0 {
-				edit.Path = defaultPath
 			} else if len(edit.Paths) == 1 {
 				edit.Path = edit.Paths[0]
 			}

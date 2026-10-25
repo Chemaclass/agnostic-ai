@@ -3,6 +3,7 @@ package overview
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -103,5 +104,31 @@ func TestSettingsFields_PackValueLaterInOrderPointsAtTheDefaultSpec(t *testing.T
 		if f.Key == "model" && (f.Editable == nil || f.Editable.Path != ".agnostic-ai/settings/defaults.yaml") {
 			t.Fatalf("model edit = %+v", f.Editable)
 		}
+	}
+}
+
+func TestSettingsFields_NewDefaultSpecIsAChoiceAndNeverShadows(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	pack := entry(spec.KindSettings, "model", ".agnostic-ai/packs/team/settings/model.yaml", map[string]any{"name": "model", "model": "sonnet"})
+	pack.Layer = "pack:team"
+	editOf := func(settings ...spec.Entry) *FieldEdit {
+		for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: settings}}), SectionSettings).Fields {
+			if f.Key == "model" {
+				return f.Editable
+			}
+		}
+		return nil
+	}
+	got := editOf(
+		entry(spec.KindSettings, "a", ".agnostic-ai/settings/a.yaml", map[string]any{"name": "a"}),
+		entry(spec.KindSettings, "b", ".agnostic-ai/settings/b.yaml", map[string]any{"name": "b"}),
+		pack,
+	)
+	if got == nil || got.Path != ".agnostic-ai/settings/defaults.yaml" || !slices.Contains(got.Paths, got.Path) {
+		t.Fatalf("pack value edit = %+v", got)
+	}
+	got = editOf(entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/base.yaml", map[string]any{"name": "defaults", "permissions": map[string]any{"deny": []any{"Bash"}}}))
+	if got == nil || got.Path != "" || !strings.Contains(got.DisabledReason, ".agnostic-ai/settings/base.yaml") {
+		t.Fatalf("taken defaults edit = %+v", got)
 	}
 }

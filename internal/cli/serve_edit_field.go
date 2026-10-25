@@ -97,8 +97,17 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 			}
 			chosen, file = settings[at], settings[at].Path
 		case shown == defaultShown:
-			if j := overview.SettingsOverride(candidates, -1, key, scope.targets); j >= 0 {
-				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, candidates[j]), key, shown)
+			later := candidates
+			if unreachable {
+				later = nil
+				for _, e := range settings[inEffect+1:] {
+					if overview.SettingsEditCandidate(e, key) {
+						later = append(later, e)
+					}
+				}
+			}
+			if j := overview.SettingsOverride(later, -1, key, scope.targets); j >= 0 {
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, later[j]), key, shown)
 			}
 			if len(candidates) > 0 && !unreachable {
 				return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)

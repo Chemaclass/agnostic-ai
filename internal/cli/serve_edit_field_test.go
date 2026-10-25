@@ -376,3 +376,21 @@ func TestEditField_ClearRefusesAnInheritedLocalValue(t *testing.T) {
 		t.Fatalf("local = %s", data)
 	}
 }
+
+func TestEditField_DefaultPathOverridesALaterPackValue(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWrite(t, "agnostic.packs.lock", "version: 1\npacks:\n  - name: team\n")
+	mustWrite(t, ".agnostic-ai/packs/team/settings/base.yaml", "name: base\neffort: high\n")
+	mustWrite(t, ".agnostic-ai/packs/team/settings/model.yaml", "name: model\nmodel: sonnet\n")
+	mustWrite(t, ".agnostic-ai/settings/base.yaml", "name: base\nmodel: haiku\n")
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	if rec.Code != 200 {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	if data, err := os.ReadFile(".agnostic-ai/settings/defaults.yaml"); err != nil || !strings.Contains(string(data), "model: opus") {
+		t.Fatalf("defaults = %s %v", data, err)
+	}
+}
