@@ -436,4 +436,8 @@
 # a7abfbdb (23343264): settings shown once beside their edit controls and the
 # configuration path in the header. Embedded client only; Linux amd64
 # release flags; no added headroom or dependencies.
-23347360
+# #2486 measured 23351456 on Go 1.27.3, up 4096 from main 872e180c
+# (23347360): the memory built-in preview adds the info/exclude line sync
+# writes for Claude's private settings. Same Linux amd64 release flags;
+# no added headroom or dependencies.
+23351456

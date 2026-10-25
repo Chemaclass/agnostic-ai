@@ -69,7 +69,7 @@ async function availablePort() {
   })
 }
 
-async function fixture(global = false, allowedOrigins: string[] = []) {
+async function fixture(global = false, allowedOrigins: string[] = [], gitRepository = false) {
   const temporary = await mkdtemp(join(tmpdir(), 'agnostic-ui-live-'))
   const project = join(temporary, 'project')
   const home = join(temporary, 'global')
@@ -126,6 +126,7 @@ createInterface({input:process.stdin}).on('line',line=>{
       await put(join(sources, 'mcps', 'fixture.yaml'), `name: fixture\ncommand: ${JSON.stringify(process.execPath)}\nargs: [fake-mcp.mjs]\n`)
       const listed = await run(binary, ['mcp', 'tools', '--dir', project, '--timeout', '3s', '--json'], { cwd: temporary, env, timeout: 10_000 })
       expect(listed.stdout).toContain('workspace-tool')
+      if (gitRepository) await run('git', ['init', '--quiet'], { cwd: project, env })
       await run(binary, ['sync'], { cwd: project, env })
     }
     const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--global'] : ['--dir', project])]
@@ -139,7 +140,7 @@ createInterface({input:process.stdin}).on('line',line=>{
 }
 
 test('live project views, inherited settings, MCP cache, and builtin changes survive reload', async ({ page }, testInfo) => {
-  const f = await fixture()
+  const f = await fixture(false, [], true)
   const browserErrors: string[] = []
   page.on('pageerror', (error) => browserErrors.push(error.message))
   try {
@@ -154,9 +155,12 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
     await memory.click()
     const memoryPreview = page.getByRole('region', { name: 'Memory change preview' })
     await expect(memory).toHaveAttribute('aria-checked', 'false')
+    await expect(memoryPreview).toContainText('.git/info/exclude')
     await memoryPreview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+    const status = await run('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: f.root, env: f.env })
+    expect(status.stdout).not.toContain('settings.local.json')
     await page.reload()
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     await memory.click()

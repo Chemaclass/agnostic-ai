@@ -14,7 +14,7 @@ import (
 // personal ignore list Git never commits, unless a line already holds it.
 // It does nothing outside a Git checkout.
 func ExcludeFromGit(pattern string) error {
-	path, ok := gitExcludePath()
+	path, ok := GitExcludePath()
 	if !ok {
 		return nil
 	}
@@ -22,26 +22,36 @@ func ExcludeFromGit(pattern string) error {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	if slices.Contains(strings.Split(string(data), "\n"), pattern) {
+	updated, changed := WithGitExclusion(data, pattern)
+	if !changed {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
 	}
-	text := string(data)
-	if text != "" && !strings.HasSuffix(text, "\n") {
-		text += "\n"
-	}
-	if err := os.WriteFile(path, []byte(text+pattern+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, updated, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
 }
 
-// gitExcludePath finds info/exclude in the common Git directory of the
+// WithGitExclusion returns info/exclude content holding pattern, and
+// whether that differs from data.
+func WithGitExclusion(data []byte, pattern string) ([]byte, bool) {
+	text := string(data)
+	if slices.Contains(strings.Split(text, "\n"), pattern) {
+		return data, false
+	}
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	return []byte(text + pattern + "\n"), true
+}
+
+// GitExcludePath finds info/exclude in the common Git directory of the
 // checkout holding the working directory, so a linked worktree shares
 // its main checkout's list.
-func gitExcludePath() (string, bool) {
+func GitExcludePath() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", false
