@@ -189,13 +189,21 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 					return err
 				}
 			}
+			// A scan probes up to twice per port, so a program that accepts
+			// connections and never answers costs only the short timeout.
+			recheck := viewProbeTimeout
+			if explicit {
+				recheck = viewBusyProbeTimeout
+			}
+			var bindErr error
 			for _, candidate := range free {
 				err := serveView(cmd, browser, candidate, root, useGlobal)
 				var listenErr *net.OpError
 				if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
 					return err
 				}
-				if running := probe(candidate, viewBusyProbeTimeout); running != nil {
+				bindErr = err
+				if running := probe(candidate, recheck); running != nil {
 					taken := mismatch(candidate, running)
 					if taken == nil {
 						return reuse(candidate)
@@ -208,7 +216,11 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 					return err
 				}
 			}
-			return fmt.Errorf("every port from %s to %s is taken by another configuration or program; use --addr to choose one", candidates[0], candidates[len(candidates)-1])
+			first, last := candidates[0], candidates[len(candidates)-1]
+			if bindErr != nil {
+				return fmt.Errorf("no port from %s to %s could be opened; use --addr to choose one: %w", first, last, bindErr)
+			}
+			return fmt.Errorf("every port from %s to %s serves another configuration; use --addr to choose one", first, last)
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")

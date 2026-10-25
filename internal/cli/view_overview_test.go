@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -699,5 +700,84 @@ func TestViewPortCandidates_ScanAFixedLoopbackRange(t *testing.T) {
 	got := viewPortCandidates()
 	if len(got) != viewPortScan || got[0] != defaultServeAddr || got[len(got)-1] != fmt.Sprintf("127.0.0.1:%d", 4310+viewPortScan-1) {
 		t.Errorf("candidates = %v", got)
+	}
+}
+
+func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	for _, tc := range []struct {
+		name     string
+		late     *viewServer
+		wantPort int
+		wantText string
+	}{
+		{name: "another configuration started", late: &viewServer{OK: true, Root: other, UI: true}, wantPort: 1, wantText: "Serving agnostic-ai at "},
+		{name: "the same configuration started", late: &viewServer{OK: true, Root: project, UI: true}, wantPort: 0, wantText: "Using agnostic-ai at "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			held, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = held.Close() }()
+			ports := append([]string{held.Addr().String()}, freeLoopbackAddrs(t, 1)...)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			opened := ""
+			var timeouts []time.Duration
+			probes := map[string]int{}
+			cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, timeout time.Duration) *viewServer {
+				timeouts = append(timeouts, timeout)
+				probes[addr]++
+				if addr == ports[0] && probes[addr] > 1 {
+					return tc.late
+				}
+				return nil
+			}, ports)
+			cmd.SetContext(ctx)
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"--dir", project})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			want := "http://" + ports[tc.wantPort] + "/"
+			if opened != want || !strings.Contains(out.String(), tc.wantText+want) {
+				t.Errorf("opened %q, output %q, want %s", opened, out.String(), want)
+			}
+			if probes[ports[0]] != 2 {
+				t.Errorf("probes = %v, want a recheck of %s", probes, ports[0])
+			}
+			for _, timeout := range timeouts {
+				if timeout > viewProbeTimeout {
+					t.Errorf("scan probe timeout = %v, want at most %v", timeout, viewProbeTimeout)
+				}
+			}
+		})
+	}
+}
+
+func TestView_ScanKeepsTheBindErrorWhenNoPortOpens(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	var ports []string
+	for range 2 {
+		held, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = held.Close() }()
+		ports = append(ports, held.Addr().String())
+	}
+	_, _, err := runViewOnPorts(t, ports, nil, "--dir", project)
+	var listenErr *net.OpError
+	if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
+		t.Fatalf("error = %v, want the wrapped listen error", err)
+	}
+	if !strings.Contains(err.Error(), "--addr") || strings.Contains(err.Error(), "another configuration") {
+		t.Errorf("error = %v", err)
 	}
 }
