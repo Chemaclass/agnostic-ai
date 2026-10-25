@@ -15,8 +15,10 @@ test.describe('overview', () => {
     await expect(page.locator('.project-name')).toHaveCount(0)
     await expect(page.locator('.topbar-context')).toHaveCount(0)
     data.snapshot.project.name = 'billing-service'
+    data.snapshot.project.root = '/work/clients/billing-service'
     await page.reload()
-    await expect(page.locator('.project-name')).toHaveText('Project billing-service')
+    await expect(page.locator('.project-title')).toHaveText('billing-service')
+    await expect(page.locator('.project-root')).toHaveText('/work/clients/billing-service')
     await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
   })
 
