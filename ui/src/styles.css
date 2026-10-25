@@ -252,7 +252,9 @@ kbd {
 .topbar-context {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .project-name {
@@ -694,6 +696,30 @@ input:hover {
   color: var(--accent-strong);
   border-color: var(--accent);
   background: var(--accent-wash);
+}
+
+/* Project / Global switch and the root on screen, in the top bar. */
+.scope-switch {
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  align-self: center;
+}
+
+.scope-switch button {
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+}
+
+.chip-root {
+  display: inline-block;
+  max-width: 42ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-weight: 500;
 }
 
 .chip-permitted {
@@ -1979,6 +2005,10 @@ input:hover {
   .project-name {
     padding-left: 0;
     border-left: 0;
+  }
+
+  .chip-root {
+    max-width: 100%;
   }
 
   .page {

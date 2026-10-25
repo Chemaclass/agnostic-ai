@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { OverviewView } from '../contract'
+import type { OverviewView, ScopeId, ScopesView } from '../contract'
 import type { Loaded } from '../api'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
@@ -29,14 +29,53 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
 
 const PRODUCT_NAME = 'agnostic-ai'
 
+const SCOPE_LABELS: Record<ScopeId, string> = { project: 'Project', global: 'Global' }
+
+/**
+ * Switches between the project and the user-level configuration when
+ * the server reads both, and names the root on screen. The choice lives
+ * in the URL, so a reload keeps it.
+ */
+function ScopeControl({ scopes }: { scopes: ScopesView }) {
+  const app = useApp()
+  const current = scopes.scopes.find((scope) => scope.id === (app.state.scope ?? scopes.default))
+  return (
+    <>
+      {scopes.scopes.length > 1 && (
+        <div className="segmented scope-switch" role="group" aria-label="Configuration">
+          {scopes.scopes.map((scope) => (
+            <button
+              key={scope.id}
+              type="button"
+              aria-pressed={scope.id === current?.id}
+              title={scope.root}
+              onClick={() => app.navigate({ scope: scope.id === scopes.default ? undefined : scope.id })}
+            >
+              {SCOPE_LABELS[scope.id]}
+            </button>
+          ))}
+        </div>
+      )}
+      {current && (
+        <span className="chip chip-root" title={current.root}>
+          <span className="sr-only">{SCOPE_LABELS[current.id]} root </span>
+          {current.root}
+        </span>
+      )}
+    </>
+  )
+}
+
 export function Header({
   overview,
+  scopes,
   inspectorOpen,
   onToggleInspector,
   theme,
   onToggleTheme,
 }: {
   overview: Remote<OverviewView>
+  scopes?: ScopesView
   inspectorOpen: boolean
   onToggleInspector: () => void
   theme: 'dark' | 'light'
@@ -63,7 +102,7 @@ export function Header({
         </svg>
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
-      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
+      {(projectName || scopes || app.source.kind === 'static' || app.source.kind === 'mock') && (
         <div className="topbar-context">
           {projectName && (
             <span className="project-name" title={snapshot?.project.root ? `Project root: ${snapshot.project.root}` : undefined}>
@@ -71,6 +110,7 @@ export function Header({
               {projectName}
             </span>
           )}
+          {scopes && <ScopeControl scopes={scopes} />}
           {app.source.kind === 'static' && (
             <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
               Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}

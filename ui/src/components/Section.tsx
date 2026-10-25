@@ -1,5 +1,5 @@
 import { createContext, useContext, useId, useRef, useState, type ReactNode } from 'react'
-import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
+import { API, type ItemFinding, type OverviewView, type ScopeId, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -246,7 +246,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
   return (
     <ul className="item-list">
       {items.map((item) => {
-        const control = item.enabled !== undefined && <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
+        const control = item.enabled !== undefined && <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on, scope) => postEdit(API.editBuiltin, { name: item.name, enabled: on }, scope)} />
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
           <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
@@ -324,7 +324,7 @@ function Tools({ listing }: { listing: ToolListing }) {
  * shows under the switch. Snapshots and the mock have no server, so the
  * switch only shows the value there.
  */
-function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean) => Promise<void> }) {
+function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on: boolean, scope?: ScopeId) => Promise<void> }) {
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
@@ -333,7 +333,7 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
     setPending(true)
     setError(undefined)
     try {
-      await save(!on)
+      await save(!on, app.scope)
       app.reload()
     } catch (err) {
       setError(err instanceof EditError ? err : new EditError(String(err)))
@@ -401,7 +401,7 @@ function Values({ values, file, prefix }: { values: Value[]; file?: string; pref
               </span>
             ) : v.type === 'bool' ? (
               file ? (
-                <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { path: file, key: v.key, value: on })} />
+                <EditSwitch on={v.value === 'true'} label={v.key} save={(on, scope) => postEdit(API.editValue, { path: file, key: v.key, value: on }, scope)} />
               ) : (
                 <Switch on={v.value === 'true'} />
               )

@@ -293,6 +293,8 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). Keep the terminal running and press Ctrl-C to stop.
 
+A project opens with a **Project** / **Global** switch in the header, so you can move to your user-level configuration and back without restarting. The header also shows the root on screen. See [switching configuration](#switch-between-project-and-global-configuration).
+
 Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
 
 The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
@@ -327,6 +329,10 @@ Run `agnostic-ai sync` before the first project preview. Pending source changes 
 
 External adapters, paths outside the project, linked skill folders, and memory changes that need fact migration or external storage setup require CLI sync. A changed input or output blocks apply or undo and asks for a fresh preview. Failed writes restore files still owned by the operation; a recovery error names the files it kept and directs you to `agnostic-ai doctor`. Undo expires when the server stops. A browser reload keeps it available.
 
+### Switch between project and global configuration
+
+A server started on a project also serves the user-level configuration. The header shows a **Project** / **Global** switch and the root on screen. The page URL keeps the choice as `?scope=global`, so a reload keeps it. Edits and built-in changes apply to the configuration on screen, and each one keeps its own undo. A server started with `--global` serves only the user-level configuration and shows no switch.
+
 Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
 
 The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
@@ -348,7 +354,9 @@ agnostic-ai serve --api-only
 | `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health`.
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), `GET /api/health`, and `GET /api/scopes`.
+
+Every `/api` request takes an optional `scope=project|global` query parameter. Without it, the server reads the configuration it started with. An unknown scope, or `project` on a `--global` server, returns 400 with a JSON error. `GET /api/scopes` returns `{default, scopes}`; each scope has an `id`, an absolute `root`, and, for the project, a `name`.
 
 Project built-in change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "handoff", enabled: true|false}` for any shipped built-in, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
 

@@ -355,6 +355,62 @@ test.describe('overview', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
   })
 
+  test('switches between the project and the global configuration', async ({ page }) => {
+    const requested: string[] = []
+    await page.route('**/api/scopes', (route) => route.fulfill({
+      json: { default: 'project', scopes: [{ id: 'project', name: 'demo-project', root: '/work/demo-project' }, { id: 'global', root: '/home/me/.agnostic-ai' }] },
+    }))
+    await page.route(/\/api\/changes\/builtin(\?|$)/, (route) => {
+      const search = new URL(route.request().url()).search
+      requested.push(`changes ${search}`)
+      return route.fulfill({
+        json: { schemaVersion: 'builtin-change/v1', name: 'caveman', status: 'idle', enabled: false, supported: search !== '?scope=global', undoAvailable: false, targets: [], changes: [], findings: [] },
+      })
+    })
+    await page.route(/\/api\/views\/overview(\?|$)/, async (route) => {
+      requested.push(new URL(route.request().url()).search)
+      await route.fulfill({ json: fixture })
+    })
+    await page.route(/\/api\/edit\/builtin(\?|$)/, async (route) => {
+      requested.push(`edit ${new URL(route.request().url()).search}`)
+      await route.fulfill({ json: { ok: true } })
+    })
+    await page.goto('./?view=settings')
+    const group = page.getByRole('group', { name: 'Configuration' })
+    await expect(group.getByRole('button', { name: 'Project' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.chip-root')).toContainText('/work/demo-project')
+    await expect.poll(() => requested).toContain('changes ')
+
+    await group.getByRole('button', { name: 'Global' }).click()
+    await expect(page).toHaveURL(/scope=global/)
+    await expect(group.getByRole('button', { name: 'Global' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.chip-root')).toContainText('/home/me/.agnostic-ai')
+    await expect.poll(() => requested).toContain('changes ?scope=global')
+    await page.getByRole('switch', { name: 'memory built-in' }).click()
+    await expect.poll(() => requested).toContain('edit ?scope=global')
+
+    await page.reload()
+    await expect(group.getByRole('button', { name: 'Global' })).toHaveAttribute('aria-pressed', 'true')
+    await group.getByRole('button', { name: 'Project' }).click()
+    await expect(page).not.toHaveURL(/scope=/)
+    await expect(page.locator('.chip-root')).toContainText('/work/demo-project')
+    const reads = requested.filter((search) => !search.includes(' '))
+    expect(reads[0]).toBe('')
+    expect(reads.at(-1)).toBe('')
+    expect(reads.slice(1, -1).every((search) => search === '?scope=global')).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(group).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+
+  test('shows no scope switch without a server', async ({ page }) => {
+    await page.goto('./?mock=1')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Configuration' })).toHaveCount(0)
+    await expect(page.locator('.chip-root')).toHaveCount(0)
+  })
+
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await openApp(page)

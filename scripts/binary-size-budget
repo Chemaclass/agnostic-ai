@@ -421,4 +421,8 @@
 # all project built-ins share guarded preview, apply, and undo, including
 # pending owned outputs, merged settings release, and memory migration checks.
 # Linux amd64 release flags; no added headroom or dependencies.
-23261344
+# The project / global scope switch measured 23273632 on Go 1.27.3, up
+# 12288 from main 1b969885 (23261344): per-scope API handlers, the scopes
+# listing, and the web interface switch. Linux amd64 release flags; 4096
+# bytes of headroom, no new dependencies.
+23277728

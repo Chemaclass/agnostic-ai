@@ -133,7 +133,7 @@ func TestServeMux_GlobalServesTheOverview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, Global: true}))
+	srv := httptest.NewServer(newServeMux(serveScope{ID: scopeGlobal, Root: src.root, load: src.load, opts: authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles, Global: true}}))
 	defer srv.Close()
 
 	for _, path := range []string{overview.OverviewPath} {

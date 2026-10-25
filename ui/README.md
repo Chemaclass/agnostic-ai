@@ -1,6 +1,6 @@
 # Local configuration UI
 
-Inspect project or user configuration in a local browser. Installed binaries include the client: run `agnostic-ai view` from a project or any folder inside it. Outside a project it opens user configuration; `--global` selects that configuration explicitly.
+Inspect project or user configuration in a local browser. Installed binaries include the client: run `agnostic-ai view` from a project or any folder inside it. Outside a project it opens user configuration; `--global` selects that configuration explicitly. A project server also serves the user configuration: the header's Project / Global switch sets `?scope=global`, and every API call carries it.
 
 | Section | Shows |
 | --- | --- |

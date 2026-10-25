@@ -23,7 +23,8 @@ func newViewCmdWithBrowser(browser func(string) error) *cobra.Command {
 		Use:   "view",
 		Short: "Open your configuration in the local web interface.",
 		Long: "Opens the bundled web interface for the project in the current directory " +
-			"or a parent directory. Outside a project, reads the user-level configuration. " +
+			"or a parent directory, with a switch to the user-level configuration. Outside a " +
+			"project, reads the user-level configuration. " +
 			"Use --json to print the overview/v1 document without starting a server. " +
 			"The interface reloads configuration on every request. Stops on Ctrl-C.",
 		Example: `  # Open the project, or user configuration outside a project

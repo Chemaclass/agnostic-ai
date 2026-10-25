@@ -1,15 +1,16 @@
 // Loading the overview. Three sources share one interface:
 //
-//   api     the running server: GET /api/views/overview
+//   api     the running server: GET /api/views/overview, for the scope
+//           the URL names (?scope=project|global) or the server default
 //   mock    the fixture bundled with the client (?mock=1)
 //   static  a committed snapshot directory or URL (?source=…), read with
 //           plain fetch
 //
 // Every response is normalized before the UI reads it.
 
-import { API, OVERVIEW_SCHEMA_VERSION, type OverviewView } from './contract'
+import { API, OVERVIEW_SCHEMA_VERSION, type OverviewView, type ScopeId, type ScopesView, type ServedScope } from './contract'
 import { normalizeOverviewView } from './model/normalize'
-import { staticOverviewUrl, type DataSource } from './model/url'
+import { scopedPath, staticOverviewUrl, type DataSource } from './model/url'
 
 export interface Loaded<T> {
   data: T
@@ -78,7 +79,7 @@ function schemaWarning(found: string, expected: string): string | undefined {
   return `This client renders ${expected}; the source declares ${found || 'no schema version'}. Fields it does not know are left out.`
 }
 
-export async function loadOverview(source: DataSource, signal?: AbortSignal): Promise<Loaded<OverviewView>> {
+export async function loadOverview(source: DataSource, signal?: AbortSignal, scope?: ScopeId): Promise<Loaded<OverviewView>> {
   switch (source.kind) {
     case 'invalid':
       throw new LoadError(source.reason, `Received: ${source.value}`)
@@ -93,9 +94,35 @@ export async function loadOverview(source: DataSource, signal?: AbortSignal): Pr
       return { data, endpoint: `Static file ${path}`, schemaWarning: schemaWarning(data.schemaVersion, OVERVIEW_SCHEMA_VERSION) }
     }
     case 'api': {
-      const data = normalizeOverviewView(await getJson(API.overview, signal, SERVER_HINT))
-      return { data, endpoint: `GET ${API.overview}`, schemaWarning: schemaWarning(data.schemaVersion, OVERVIEW_SCHEMA_VERSION) }
+      const path = scopedPath(API.overview, scope)
+      const data = normalizeOverviewView(await getJson(path, signal, SERVER_HINT))
+      return { data, endpoint: `GET ${path}`, schemaWarning: schemaWarning(data.schemaVersion, OVERVIEW_SCHEMA_VERSION) }
     }
+  }
+}
+
+function servedScope(value: unknown): value is ServedScope {
+  if (typeof value !== 'object' || value === null) return false
+  const scope = value as Record<string, unknown>
+  return (scope.id === 'project' || scope.id === 'global') && typeof scope.root === 'string' && (scope.name === undefined || typeof scope.name === 'string')
+}
+
+/** Parses GET /api/scopes; anything else means the server offers no switch. */
+export function parseScopes(value: unknown): ScopesView | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const view = value as Record<string, unknown>
+  if ((view.default !== 'project' && view.default !== 'global') || !Array.isArray(view.scopes) || !view.scopes.every(servedScope)) return undefined
+  const scopes = view.scopes as ServedScope[]
+  return scopes.some((scope) => scope.id === view.default) ? { default: view.default, scopes } : undefined
+}
+
+/** The scopes the server reads, or undefined when it does not say. */
+export async function loadScopes(signal?: AbortSignal): Promise<ScopesView | undefined> {
+  try {
+    return parseScopes(await getJson(API.scopes, signal, SERVER_HINT))
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw err
+    return undefined
   }
 }
 
@@ -110,10 +137,10 @@ export class EditError extends Error {
 }
 
 /** POSTs one toggle edit; the server validates it and restores the file when it fails. */
-export async function postEdit(path: string, body: unknown): Promise<void> {
+export async function postEdit(path: string, body: unknown, scope?: ScopeId): Promise<void> {
   let res: Response
   try {
-    res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
+    res = await fetch(scopedPath(path, scope), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
   } catch {
     throw new EditError('Could not reach the server to save the change.')
   }

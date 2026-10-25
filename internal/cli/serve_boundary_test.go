@@ -16,8 +16,8 @@ import (
 
 func TestServeMux_RefusesForeignHostsOnAllRoutes(t *testing.T) {
 	loads := 0
-	h := newServeMux(func() (*config.Config, spec.Bundle, error) { loads++; return nil, spec.Bundle{}, nil }, authority.HandlerOptions{})
-	for _, path := range []string{"/", "/api/health", "/api/views/authority", "/api/views/authority/schema", "/api/views/authority/impact", "/api/views/overview", editBuiltinPath, editValuePath} {
+	h := newServeMux(serveScope{ID: scopeProject, load: func() (*config.Config, spec.Bundle, error) { loads++; return nil, spec.Bundle{}, nil }})
+	for _, path := range []string{"/", "/api/health", "/api/views/authority", "/api/views/authority/schema", "/api/views/authority/impact", "/api/views/overview", editBuiltinPath, editValuePath, scopesPath, "/api/views/overview?scope=global"} {
 		req := httptest.NewRequest(http.MethodGet, "http://attacker.example"+path, nil)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -31,7 +31,7 @@ func TestServeMux_RefusesForeignHostsOnAllRoutes(t *testing.T) {
 }
 
 func TestServeMux_StalledBodyDoesNotHoldAPILock(t *testing.T) {
-	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{})
+	h := newServeMux(serveScope{ID: scopeProject, load: func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }})
 	reader, writer := io.Pipe()
 	started := make(chan struct{})
 	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/views/authority/impact", &bodyReadNotice{Reader: reader, started: started})
@@ -96,8 +96,8 @@ func (b *bodyReadNotice) Read(data []byte) (int, error) {
 }
 
 func TestServeMux_UsesOneOriginPolicyForReadsWritesAndPreflights(t *testing.T) {
-	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{AllowedOrigins: []string{"http://localhost:5173"}})
-	for _, path := range []string{"/", "/api/health", "/api/views/authority/schema", "/api/views/authority/impact", "/api/views/overview", editBuiltinPath, editValuePath} {
+	h := newServeMux(serveScope{ID: scopeProject, load: func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, opts: authority.HandlerOptions{AllowedOrigins: []string{"http://localhost:5173"}}})
+	for _, path := range []string{"/", "/api/health", "/api/views/authority/schema", "/api/views/authority/impact", "/api/views/overview", editBuiltinPath, editValuePath, scopesPath, builtinStatusPath + "?scope=bogus"} {
 		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodOptions} {
 			req := httptest.NewRequest(method, "http://127.0.0.1:4310"+path, strings.NewReader("{}"))
 			req.Header.Set("Origin", "http://127.0.0.1:5173")

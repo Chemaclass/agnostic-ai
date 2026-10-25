@@ -1,3 +1,6 @@
+import type { ScopeId } from './contract'
+import { scopedPath } from './model/url'
+
 export const BUILTIN_CHANGE_PATH = '/api/changes/builtin'
 
 export interface BuiltinFileChange {
@@ -61,10 +64,10 @@ export class BuiltinChangeError extends Error {
   constructor(message: string, readonly conflict = false) { super(message) }
 }
 
-export async function builtinChange(action?: 'preview' | 'apply' | 'undo', body?: unknown): Promise<BuiltinChange> {
+export async function builtinChange(action?: 'preview' | 'apply' | 'undo', body?: unknown, scope?: ScopeId): Promise<BuiltinChange> {
   let response: Response
   try {
-    response = await fetch(BUILTIN_CHANGE_PATH + (action ? `/${action}` : ''), action ? {
+    response = await fetch(scopedPath(BUILTIN_CHANGE_PATH + (action ? `/${action}` : ''), scope), action ? {
       method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body),
     } : { headers: { Accept: 'application/json' } })
   } catch {

@@ -32,14 +32,21 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const [cancelledId, setCancelledId] = useState<string>()
   const busy = useRef(false)
   const api = app.source.kind === 'api'
+  const scope = app.scope
+  // Each scope keeps its own change state on the server; a reply for the
+  // scope the page left is dropped.
+  const scopeRef = useRef(scope)
+  scopeRef.current = scope
 
   useEffect(() => {
+    setChange(undefined)
+    setCancelledId(undefined)
     if (!api || !active) return
     let current = true
     busy.current = true
     setPending('loading')
     setError(undefined)
-    builtinChange().then((value) => { if (current) setChange(value) }).catch((err: unknown) => {
+    builtinChange(undefined, undefined, scope).then((value) => { if (current) setChange(value) }).catch((err: unknown) => {
       if (current) setError({ message: err instanceof Error ? err.message : 'Could not load the change.', conflict: false })
     }).finally(() => {
       if (current) {
@@ -48,7 +55,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       }
     })
     return () => { current = false; busy.current = false }
-  }, [api, active])
+  }, [api, active, scope])
 
   const proposal = change?.status === 'proposed' && change.id !== cancelledId && !error
   const request = async (action?: Action, name?: string, enabled?: boolean) => {
@@ -57,17 +64,22 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : 'loading')
     setPendingName(name)
     setError(undefined)
+    const requested = scope
     try {
-      const value = await builtinChange(action, action === 'preview' ? { name, enabled } : action ? { id: action === 'apply' ? change?.id : change?.undoId } : undefined)
+      const value = await builtinChange(action, action === 'preview' ? { name, enabled } : action ? { id: action === 'apply' ? change?.id : change?.undoId } : undefined, requested)
+      if (scopeRef.current !== requested) return
       setChange(value)
       setCancelledId(undefined)
       if (action === 'apply' || action === 'undo' || !action) app.reload()
     } catch (err) {
+      if (scopeRef.current !== requested) return
       setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict })
     } finally {
-      busy.current = false
-      setPending(undefined)
-      setPendingName(undefined)
+      if (scopeRef.current === requested) {
+        busy.current = false
+        setPending(undefined)
+        setPendingName(undefined)
+      }
     }
   }
 

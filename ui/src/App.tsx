@@ -1,8 +1,8 @@
 // The application: URL-driven state, data loading, and page routing.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { OverviewView } from './contract'
-import { LoadError, loadOverview, type Loaded } from './api'
+import type { OverviewView, ScopesView } from './contract'
+import { LoadError, loadOverview, loadScopes, type Loaded } from './api'
 import { AppContext, type AppApi } from './components/app-context'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
@@ -66,10 +66,22 @@ export default function App() {
   }, [])
 
   const source = useMemo(() => resolveDataSource(state, import.meta.env.VITE_DEFAULT_SOURCE), [state.mock, state.source])
-  const sourceKey = JSON.stringify(source)
+  // Only the server reads a scope; a fixture or snapshot has one document.
+  const scope = source.kind === 'api' ? state.scope : undefined
+  const sourceKey = JSON.stringify([source, scope])
   const [reloads, setReloads] = useState(0)
   const reload = useCallback(() => setReloads((n) => n + 1), [])
-  const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
+  const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal, scope), sourceKey, [source, scope, reloads])
+
+  // The scopes the server reads, for the Project / Global switch.
+  const [scopes, setScopes] = useState<ScopesView>()
+  useEffect(() => {
+    setScopes(undefined)
+    if (source.kind !== 'api') return
+    const controller = new AbortController()
+    loadScopes(controller.signal).then((value) => { if (!controller.signal.aborted) setScopes(value) }, () => {})
+    return () => controller.abort()
+  }, [source])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
@@ -87,11 +99,12 @@ export default function App() {
     () => ({
       state,
       source,
+      scope,
       navigate,
       href: (patch) => serializeUrlState(nextState(state, patch)) || window.location.pathname,
       reload,
     }),
-    [state, source, navigate, reload],
+    [state, source, scope, navigate, reload],
   )
 
   // Move focus to the page heading after a navigation, for keyboard and
@@ -139,6 +152,7 @@ export default function App() {
         </a>
         <Header
           overview={overview}
+          scopes={scopes}
           inspectorOpen={inspectorOpen}
           onToggleInspector={() => setInspectorOpen((open) => !open)}
           theme={theme}

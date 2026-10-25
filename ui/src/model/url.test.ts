@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_STATE, nextState, parseUrlState, resolveDataSource, serializeUrlState, staticOverviewUrl } from './url'
+import { DEFAULT_STATE, nextState, parseUrlState, resolveDataSource, scopedPath, serializeUrlState, staticOverviewUrl } from './url'
 
 describe('URL state parsing', () => {
   it('defaults to the Context section', () => {
@@ -17,6 +17,27 @@ describe('URL state parsing', () => {
 
   it('keeps the data source across navigation', () => {
     expect(nextState(parseUrlState('?view=tools&mock=1'), { view: 'settings' })).toEqual({ view: 'settings', mock: true, source: undefined })
+  })
+})
+
+describe('scope', () => {
+  it('keeps a known scope in the URL and drops anything else', () => {
+    expect(parseUrlState('?scope=global').scope).toBe('global')
+    expect(parseUrlState('?scope=project').scope).toBe('project')
+    expect(parseUrlState('?scope=team').scope).toBeUndefined()
+    expect(parseUrlState('').scope).toBeUndefined()
+  })
+
+  it('round-trips the scope and keeps it across navigation', () => {
+    expect(serializeUrlState(parseUrlState('?view=settings&scope=global'))).toBe('?view=settings&scope=global')
+    expect(nextState(parseUrlState('?scope=global'), { view: 'tools' }).scope).toBe('global')
+    expect(serializeUrlState(nextState(parseUrlState('?scope=global'), { scope: undefined }))).toBe('')
+  })
+
+  it('adds the scope to server paths, and nothing for the server default', () => {
+    expect(scopedPath('/api/views/overview')).toBe('/api/views/overview')
+    expect(scopedPath('/api/views/overview', 'global')).toBe('/api/views/overview?scope=global')
+    expect(scopedPath('/api/views/authority?agentId=a', 'project')).toBe('/api/views/authority?agentId=a&scope=project')
   })
 })
 

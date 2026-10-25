@@ -102,7 +102,7 @@ The Caveman apply and undo endpoints also write generated files. See [prerequisi
 
 `serve` binds to an explicit loopback IP and reloads the configuration on every request. One shared Host/Origin guard protects every route. Other browser origins require an exact `--allow-origin`; no-Origin CLI requests remain allowed, while cross-site browser requests are refused. Bodies are bounded and read before the adapter serialization lock. Header, read, write and idle deadlines limit stalled clients.
 
-Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--global` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
+Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--global` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks. A project server also serves the user-level configuration. Each `/api` request picks one with `scope=project|global`, and `GET /api/scopes` lists both. Each scope has its own handlers and built-in change undo state. One Host/Origin guard and one serialization lock cover both scopes.
 
 ## Uncertainty codes
 

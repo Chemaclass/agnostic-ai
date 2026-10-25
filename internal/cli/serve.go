@@ -48,7 +48,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			"development client or --api-only to serve just the API. Specs load on every request. " +
 			"Project built-in changes preview and apply source and generated files, with undo " +
 			"for the last change in this server session. Global built-ins and boolean settings save source choices " +
-			" without syncing generated files. Stops on Ctrl-C.",
+			"without syncing generated files. A project server also serves the user-level configuration, " +
+			"which the page switches to with scope=global. Stops on Ctrl-C.",
 		Example: `  # Open the bundled interface
   agnostic-ai serve --open
 
@@ -93,14 +94,13 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				return err
 			}
 			defer src.close()
-			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, AllowedOrigins: allowedOrigins}
+			base := authority.HandlerOptions{UIDir: uiDir, AllowedOrigins: allowedOrigins}
 			if !apiOnly && uiDir == "" {
-				opts.UIFiles = webui.Files()
+				base.UIFiles = webui.Files()
 			}
-			if !global && !noInstalled {
-				opts.Installed = func(target string, cfg *config.Config, b spec.Bundle) (authority.InstalledState, error) {
-					return installedState(target, cfg, b, src.root)
-				}
+			scopes, err := serveScopes(src, base, !noInstalled)
+			if err != nil {
+				return err
 			}
 			ln, err := net.Listen("tcp", addr)
 			if err != nil {
@@ -109,6 +109,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			url := "http://" + ln.Addr().String() + "/"
 			out := cmd.OutOrStdout()
 			_, _ = fmt.Fprintf(out, "Serving agnostic-ai at %s\n", url)
+			if len(scopes) > 1 {
+				_, _ = fmt.Fprintf(out, "The page switches to the global configuration in %s with ?scope=global.\n", scopes[1].Root)
+			}
 			_, _ = fmt.Fprintf(out, "API: %sapi/views/authority (schema at %sapi/views/authority/schema)\n", url, url)
 			if apiOnly {
 				_, _ = fmt.Fprintln(out, "API-only mode; no web interface is served.")
@@ -119,7 +122,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMux(src.load, opts))
+			return serveUntilInterrupted(cmd.Context(), ln, newServeMux(scopes...))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -133,19 +136,128 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	return cmd
 }
 
-// newServeMux routes the API and the client. More specific patterns win
-// over "/", so a view mounted here bypasses the authority handler.
-//
-// The overview runs the read-only checks (lint, drift, doctor) in the
-// working directory, which serve has changed into for the project. For
-// --global it runs the global lint and compares the files sync --global
-// would write with disk, from any directory.
-func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
-	return authority.CORS(bufferAPIBody(serializeAPI(newScopeHandler(load, opts))), opts.AllowedOrigins...)
+// The configurations serve reads. Every /api request may name one with
+// the scope query parameter; without it the server's default applies.
+const (
+	scopeProject = "project"
+	scopeGlobal  = "global"
+	scopesPath   = "/api/scopes"
+)
+
+// serveScope is one configuration serve reads: the project it started
+// in, or the user-level configuration.
+type serveScope struct {
+	ID string `json:"id"`
+	// Name is the project directory's name; empty for the global scope.
+	Name string `json:"name,omitempty"`
+	// Root is the absolute project directory or global source root.
+	Root string `json:"root"`
+	load authority.Loader
+	opts authority.HandlerOptions
+}
+
+// serveScopes lists what serve reads, the default first. A project is
+// served with the user-level configuration beside it, so the page can
+// switch back to the global settings; the global configuration is
+// served alone. base carries the options every scope shares.
+func serveScopes(src *authoritySource, base authority.HandlerOptions, installed bool) ([]serveScope, error) {
+	global, err := globalServeScope(base)
+	if src.global {
+		return []serveScope{global}, err
+	}
+	root, rootErr := os.Getwd()
+	if rootErr != nil {
+		return nil, fmt.Errorf("resolve working directory: %w", rootErr)
+	}
+	opts := base
+	opts.Root, opts.ConfigFiles = src.root, src.configFiles
+	if installed {
+		opts.Installed = func(target string, cfg *config.Config, b spec.Bundle) (authority.InstalledState, error) {
+			return installedState(target, cfg, b, src.root)
+		}
+	}
+	scopes := []serveScope{{ID: scopeProject, Name: filepath.Base(root), Root: root, load: src.load, opts: opts}}
+	if err == nil {
+		scopes = append(scopes, global)
+	}
+	return scopes, nil
+}
+
+// globalServeScope is the user-level configuration. Its handlers read
+// absolute paths, so they work from the project serve changed into.
+func globalServeScope(base authority.HandlerOptions) (serveScope, error) {
+	src, err := openAuthoritySource("", true)
+	if err != nil {
+		return serveScope{}, err
+	}
+	root, err := filepath.Abs(src.root)
+	if err != nil {
+		return serveScope{}, fmt.Errorf("resolve %s: %w", src.root, err)
+	}
+	opts := base
+	opts.Root, opts.ConfigFiles, opts.Global = src.root, src.configFiles, true
+	return serveScope{ID: scopeGlobal, Root: root, load: src.load, opts: opts}, nil
+}
+
+// newServeMux serves each scope through its own handlers, so a Caveman
+// undo never crosses scopes, and dispatches each /api request by its
+// scope parameter. The first scope is the default and serves the
+// client. One guard and one API lock cover every scope.
+func newServeMux(scopes ...serveScope) http.Handler {
+	def := scopes[0]
+	handlers := make(map[string]http.Handler, len(scopes))
+	for _, s := range scopes {
+		handlers[s.ID] = newScopeHandler(s.load, s.opts)
+	}
+	listing := struct {
+		Default string       `json:"default"`
+		Scopes  []serveScope `json:"scopes"`
+	}{Default: def.ID, Scopes: scopes}
+	dispatch := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			handlers[def.ID].ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == scopesPath {
+			if r.Method != http.MethodGet {
+				w.Header().Set("Allow", http.MethodGet)
+				writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: "use GET"})
+				return
+			}
+			writeEditJSON(w, http.StatusOK, listing)
+			return
+		}
+		id := r.URL.Query().Get("scope")
+		if id == "" {
+			id = def.ID
+		}
+		h, ok := handlers[id]
+		if !ok {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: scopeRefusal(id)})
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+	return authority.CORS(bufferAPIBody(serializeAPI(dispatch)), def.opts.AllowedOrigins...)
+}
+
+// scopeRefusal explains a scope this server does not read.
+func scopeRefusal(id string) string {
+	if id == scopeProject {
+		return "this server reads the global configuration only; start serve in a project to read one"
+	}
+	return fmt.Sprintf("unknown scope %q; use project or global", id)
 }
 
 // newScopeHandler routes the API and the client of one configuration:
-// a project, or the user-level configuration with opts.Global set.
+// a project, or the user-level configuration with opts.Global set. More
+// specific patterns win over "/", so a view mounted here bypasses the
+// authority handler.
+//
+// The project overview runs the read-only checks (lint, drift, doctor)
+// in the working directory, which serve has changed into. The global
+// overview runs the global lint and compares the files sync --global
+// would write with disk, from any directory.
 func newScopeHandler(load authority.Loader, opts authority.HandlerOptions) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))

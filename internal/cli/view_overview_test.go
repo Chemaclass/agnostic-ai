@@ -274,7 +274,7 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 						result <- err
 						return
 					}
-					result <- nil
+					result <- checkViewScopes(client, url, tc.global)
 				}()
 				return nil
 			})
@@ -336,6 +336,38 @@ func checkViewDiscoveryScope(view overview.View, targets []string, global bool) 
 	}
 	if shared != global || local != global {
 		return fmt.Errorf("shared/local specs = %v/%v, want both %v", shared, local, global)
+	}
+	return nil
+}
+
+// checkViewScopes asks the server view started which configurations it
+// reads: a project with the global configuration to switch to, or the
+// global configuration alone.
+func checkViewScopes(client *http.Client, url string, global bool) error {
+	resp, err := client.Get(url + "api/scopes")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var listing struct {
+		Default string `json:"default"`
+		Scopes  []struct {
+			ID string `json:"id"`
+		} `json:"scopes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&listing); err != nil {
+		return fmt.Errorf("scopes: %w", err)
+	}
+	want := []string{scopeProject, scopeGlobal}
+	if global {
+		want = []string{scopeGlobal}
+	}
+	var got []string
+	for _, s := range listing.Scopes {
+		got = append(got, s.ID)
+	}
+	if listing.Default != want[0] || !slices.Equal(got, want) {
+		return fmt.Errorf("scopes = %s %v, want %s %v", listing.Default, got, want[0], want)
 	}
 	return nil
 }

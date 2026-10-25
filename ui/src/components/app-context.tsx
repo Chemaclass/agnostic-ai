@@ -2,11 +2,14 @@
 // pages do not thread them through every prop list.
 
 import { createContext, useContext, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
+import type { ScopeId } from '../contract'
 import type { DataSource, UrlState } from '../model/url'
 
 export interface AppApi {
   state: UrlState
   source: DataSource
+  /** The scope server requests name; undefined reads the server default, and fixtures have none. */
+  scope?: ScopeId
   navigate(patch: Partial<UrlState>, options?: { replace?: boolean }): void
   href(patch: Partial<UrlState>): string
   /** Loads the overview again, after an edit. */

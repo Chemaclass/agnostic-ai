@@ -567,6 +567,10 @@ export interface OverviewView {
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/health                                      → { ok, revision }
+//   GET  /api/scopes                                      → ScopesView
+//
+// Every /api request takes ?scope=project|global; without it the server
+// reads its default scope.
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
@@ -575,4 +579,21 @@ export const API = {
   editBuiltin: '/api/edit/builtin',
   editValue: '/api/edit/value',
   health: '/api/health',
+  scopes: '/api/scopes',
 } as const
+
+/** A configuration the server reads: the project it started in, or the user-level one. */
+export type ScopeId = 'project' | 'global'
+
+export interface ServedScope {
+  id: ScopeId
+  /** The project directory's name; absent for the global scope. */
+  name?: string
+  /** Absolute path of the project, or of the global source. */
+  root: string
+}
+
+export interface ScopesView {
+  default: ScopeId
+  scopes: ServedScope[]
+}

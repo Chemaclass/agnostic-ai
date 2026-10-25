@@ -2,6 +2,8 @@
 // reproduces the screen: `?view=lifecycle`. No router library: the app
 // parses location.search and pushes history.
 
+import type { ScopeId } from '../contract'
+
 export const SECTION_VIEWS = ['context', 'authority', 'tools', 'lifecycle', 'settings'] as const
 export type ViewId = (typeof SECTION_VIEWS)[number]
 
@@ -10,9 +12,15 @@ export interface UrlState {
   mock: boolean
   /** Static snapshot directory or URL. */
   source?: string
+  /** The configuration the server reads; absent means its default. */
+  scope?: ScopeId
 }
 
 export const DEFAULT_STATE: UrlState = { view: 'context', mock: false }
+
+function isScope(value: string | null): value is ScopeId {
+  return value === 'project' || value === 'global'
+}
 
 function isView(value: string | null): value is ViewId {
   return !!value && (SECTION_VIEWS as readonly string[]).includes(value)
@@ -22,10 +30,12 @@ export function parseUrlState(search: string): UrlState {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
   const view = params.get('view')
   const source = params.get('source')?.trim()
+  const scope = params.get('scope')
   return {
     view: isView(view) ? view : DEFAULT_STATE.view,
     mock: params.get('mock') === '1' || params.get('mock') === 'true',
     source: source && source.length <= 2048 ? source : undefined,
+    scope: isScope(scope) ? scope : undefined,
   }
 }
 
@@ -33,6 +43,7 @@ export function parseUrlState(search: string): UrlState {
 export function serializeUrlState(state: UrlState): string {
   const params = new URLSearchParams()
   if (state.view !== DEFAULT_STATE.view) params.set('view', state.view)
+  if (state.scope) params.set('scope', state.scope)
   if (state.source) params.set('source', state.source)
   else if (state.mock) params.set('mock', '1')
   const query = params.toString()
@@ -68,6 +79,12 @@ export function resolveDataSource(state: Pick<UrlState, 'mock' | 'source'>, defa
   }
   if (state.mock) return { kind: 'mock' }
   return { kind: 'api' }
+}
+
+/** Adds the scope to a server path; without one the server reads its default. */
+export function scopedPath(path: string, scope?: ScopeId): string {
+  if (!scope) return path
+  return `${path}${path.includes('?') ? '&' : '?'}scope=${scope}`
 }
 
 export function staticOverviewUrl(base: string): string {
