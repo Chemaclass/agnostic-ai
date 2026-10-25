@@ -358,7 +358,15 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 		if def.id == SectionLifecycle {
 			s.Stages = buildStages(s.Items, targets, newLabeler())
 		}
-		s.Fields = buildFields(def.id, s.Items, in.Bundle.Settings, in.Cfg, in.Global)
+		fieldItems := s.Items
+		if def.id == SectionSettings {
+			for _, prev := range sections {
+				if prev.ID == SectionAuthority {
+					fieldItems = append(slices.Clone(s.Items), prev.Items...)
+				}
+			}
+		}
+		s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Global)
 		if def.id == SectionTools {
 			attachTools(s.Items, in)
 		}

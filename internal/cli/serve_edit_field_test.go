@@ -89,7 +89,7 @@ func TestEditField_ChoosesOnlyLoadedSpecAndPreservesOtherText(t *testing.T) {
 	if err := os.WriteFile(second, []byte("name: second\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if rec := postEdit(t, h, editFieldPath, `{"key":"model","value":"haiku"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "choose a path") {
+	if rec := postEdit(t, h, editFieldPath, `{"key":"effort","value":"high"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "choose a path") {
 		t.Fatalf("ambiguous = %d %s", rec.Code, rec.Body)
 	}
 	if rec := postEdit(t, h, editFieldPath, `{"path":"settings/second.yaml","key":"model","value":"haiku"}`, nil); rec.Code != 200 {
@@ -192,5 +192,55 @@ func TestEditField_PermissionSpecDoesNotHideSettingsDefault(t *testing.T) {
 	}
 	if data, err := os.ReadFile(filepath.Join(source, "settings", "defaults.yaml")); err != nil || !strings.Contains(string(data), "model: sonnet") {
 		t.Fatalf("default = %s %v", data, err)
+	}
+}
+
+func TestEditField_EditsTheSpecWhoseValueIsInEffect(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	team := filepath.Join(source, "settings", "team.yaml")
+	if err := os.WriteFile(team, []byte("name: team\npermissions:\n  allow: [Read]\nmodel: opus\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	h := newEditHandler(source, true)
+	if rec := postEdit(t, h, editFieldPath, `{"path":"settings/defaults.yaml","key":"model","value":"sonnet"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "settings/team.yaml") {
+		t.Fatalf("default path = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"key":"model","value":"sonnet"}`, nil); rec.Code != 200 {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	if data, _ := os.ReadFile(team); !strings.Contains(string(data), "model: sonnet") {
+		t.Fatalf("team = %s", data)
+	}
+	if _, err := os.Stat(filepath.Join(source, "settings", "defaults.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("defaults created: %v", err)
+	}
+	early := filepath.Join(source, "settings", "early.yaml")
+	if err := os.WriteFile(early, []byte("name: early\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"path":"settings/early.yaml","key":"model","value":"haiku"}`, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "settings/team.yaml") {
+		t.Fatalf("overridden path = %d %s", rec.Code, rec.Body)
+	}
+	if data, _ := os.ReadFile(early); string(data) != "name: early\n" {
+		t.Fatalf("early = %s", data)
+	}
+}
+
+func TestEditField_ClearRefusesToEmptyAHandWrittenSpec(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	file := filepath.Join(source, "settings", "native.yaml")
+	if err := os.WriteFile(file, []byte("model: sonnet\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"key":"model","value":null}`, nil); rec.Code != 422 {
+		t.Fatalf("clear = %d %s", rec.Code, rec.Body)
+	}
+	if data, err := os.ReadFile(file); err != nil || string(data) != "model: sonnet\n" {
+		t.Fatalf("hand-written spec = %q %v", data, err)
 	}
 }

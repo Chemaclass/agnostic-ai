@@ -44,8 +44,10 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 		return nil
 	}
 	byName := map[string]spec.Entry{}
-	for _, e := range entries {
+	order := map[string]int{}
+	for i, e := range entries {
 		byName[e.Name] = e
+		order[e.Name] = i
 	}
 	fields := make([]SettingField, 0, len(defs))
 	for _, d := range defs {
@@ -93,19 +95,35 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 				}
 				slices.Sort(edit.Allowed)
 			}
-			for _, it := range items {
-				if it.Kind == string(spec.KindSettings) && it.Layer != "builtin" {
-					edit.Paths = append(edit.Paths, it.Path)
+			effective := -1
+			for _, source := range f.Set {
+				if i := order[source.Spec]; i > effective {
+					effective = i
+					edit.Path = source.Path
 				}
 			}
-			if len(edit.Paths) == 0 {
-				if global {
-					edit.Path = "settings/defaults.yaml"
-				} else {
-					edit.Path = filepath.ToSlash(filepath.Join(cfg.Sources.Settings, "defaults.yaml"))
+			if effective >= 0 && entries[effective].Layer == "builtin" {
+				edit.Path = ""
+			}
+			for _, it := range items {
+				if it.Kind != string(spec.KindSettings) || it.Layer == "builtin" {
+					continue
 				}
-			} else if len(edit.Paths) == 1 {
-				edit.Path = edit.Paths[0]
+				if grantsAuthority(byName[it.Name]) && !slices.ContainsFunc(f.Set, func(source FieldSource) bool { return source.Spec == it.Name }) {
+					continue
+				}
+				edit.Paths = append(edit.Paths, it.Path)
+			}
+			if edit.Path == "" {
+				if len(edit.Paths) == 0 {
+					if global {
+						edit.Path = "settings/defaults.yaml"
+					} else {
+						edit.Path = filepath.ToSlash(filepath.Join(cfg.Sources.Settings, "defaults.yaml"))
+					}
+				} else if len(edit.Paths) == 1 {
+					edit.Path = edit.Paths[0]
+				}
 			}
 			// Maps and other non-scalar shapes remain read-only in this slice.
 			for _, source := range f.Set {

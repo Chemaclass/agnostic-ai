@@ -65,13 +65,21 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 		}
 	}
 	var candidates []spec.Entry
+	effective := -1
 	for _, e := range scope.bundle.Settings {
-		// Match the overview's Settings section. Permission-only specs live
-		// under Authority and must not hide the Settings default scaffold.
+		if e.Layer == "builtin" {
+			continue
+		}
+		// Match the overview: a spec under Authority is a candidate only
+		// when it sets the field, so it cannot hide the default scaffold.
 		_, permissions := e.Meta["permissions"]
 		_, protected := e.Meta["protected"]
-		if e.Layer == "builtin" || permissions || protected {
+		_, sets := e.Meta[key]
+		if (permissions || protected) && !sets {
 			continue
+		}
+		if sets {
+			effective = len(candidates)
 		}
 		candidates = append(candidates, e)
 	}
@@ -82,11 +90,16 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 	}
 	defaultShown := overviewDisplay(h.root, defaultFile)
 	if shown != "" {
-		for _, e := range candidates {
+		chosen := -1
+		for i, e := range candidates {
 			if overview.SpecPath(h.root, e) == shown {
+				chosen = i
 				file = e.Path
 				break
 			}
+		}
+		if effective > chosen {
+			return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, candidates[effective]), key, shown)
 		}
 		if file == "" && len(candidates) == 0 && shown == defaultShown {
 			file = defaultFile
@@ -94,6 +107,8 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 		if file == "" {
 			return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
 		}
+	} else if effective >= 0 {
+		file = candidates[effective].Path
 	} else if len(candidates) == 1 {
 		file = candidates[0].Path
 	} else if len(candidates) > 1 {
@@ -118,7 +133,11 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 		if len(data) == 0 {
 			data = []byte(fieldCreatedMarker + newSpecTemplate(string(spec.KindSettings), "defaults"))
 		}
-		return setScalarField(data, key, value)
+		out, err := setScalarField(data, key, value)
+		if err == nil && len(bytes.TrimSpace(out)) == 0 && !bytes.HasPrefix(data, []byte(fieldCreatedMarker)) {
+			return nil, errors.New("clearing would leave an empty spec; delete the file instead")
+		}
+		return out, err
 	}, nil
 }
 
