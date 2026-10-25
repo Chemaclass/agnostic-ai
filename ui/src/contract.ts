@@ -537,7 +537,7 @@ export interface SettingField {
   label: string
   description: string
   set: { spec: string; path: string; values: Value[] }[]
-  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string }
+  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string; syncCommand?: string }
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'

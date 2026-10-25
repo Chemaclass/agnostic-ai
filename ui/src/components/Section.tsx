@@ -216,7 +216,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
     <button type="button" className="button" disabled={pending || !value.trim()} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
     {configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</span>}
-    <p className="muted">Saves the source file. Run <Code>agnostic-ai sync{field.key === 'session-retention-days' ? ' --global' : ''}</Code> to apply it.</p>
+    <p className="muted">Saves the source file. Run <Code>{edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`}</Code> to apply it.</p>
   </div>
 }
 

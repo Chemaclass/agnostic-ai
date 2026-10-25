@@ -379,7 +379,7 @@ test.describe('overview', () => {
         { spec: 'a', path: paths[0], values: [{ key: 'model', type: 'text', value: 'sonnet' }] },
         { spec: 'b', path: paths[1], values: [{ key: 'model', type: 'text', value: 'opus' }] },
       ],
-      editable: { kind: 'text', path: paths[1], paths },
+      editable: { kind: 'text', path: paths[1], paths, syncCommand: 'agnostic-ai sync --global' },
     })
     Object.assign(field('effort'), {
       set: [{ spec: 'a', path: paths[0], values: [{ key: 'effort.claude', type: 'text', value: 'high' }] }],
@@ -398,6 +398,7 @@ test.describe('overview', () => {
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.getByRole('combobox')).toHaveValue(paths[1])
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
+    await expect(model).toContainText('Run agnostic-ai sync --global to apply it.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => edit).toEqual({ path: paths[1], key: 'model', value: 'haiku' })
