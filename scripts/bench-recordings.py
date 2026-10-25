@@ -48,6 +48,15 @@ def timed_failure(item, role, result):
     return message + (f'\noutput tail:\n{tail}' if tail else '')
 
 
+def timed_diagnostic(item, role, result):
+    try:
+        return doctor_diagnostic(result.stdout, item['mode'])
+    except ValueError as error:
+        tail = output_tail(result.stderr)
+        message = f"{item['mode']} {item['argv']} ({role}): {error}"
+        raise ValueError(message + (f'\nstderr tail:\n{tail}' if tail else '')) from error
+
+
 def shell_function(function, args, env=None):
     return execute(['bash', '-c', 'source "$1"; shift; ' + function + ' "$@"',
                     'bench-recordings', str(SHELL), *map(str, args)], env=env)
@@ -343,7 +352,7 @@ def record(args):
                     sample = {'milliseconds': elapsed, 'actual_exit': result.returncode}
                     records[side]['commands'][index]['warmups' if iteration == 0 else 'samples'].append(sample)
                     if item['argv'] == ['doctor', '--json']:
-                        sample['diagnostic'] = doctor_diagnostic(result.stdout, item['mode'])
+                        sample['diagnostic'] = timed_diagnostic(item, records[side]['role'], result)
                     if result.returncode != item['expected_exit']:
                         raise ValueError(timed_failure(item, records[side]['role'], result))
         verify_binaries(binaries, records)

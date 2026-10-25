@@ -119,6 +119,15 @@ class RecordingTests(unittest.TestCase):
         self.assertIn("candidate output differs from the baseline's", message)
         self.assertIn('CLAUDE.md', message)
 
+    def test_rejected_doctor_report_includes_the_tail_of_stderr(self):
+        result = subprocess.CompletedProcess([], 1, stdout=b'', stderr=b'cannot read agnostic-ai.yaml\n')
+        with self.assertRaises(ValueError) as caught:
+            bench.timed_diagnostic({'mode': 'synced', 'argv': ['doctor', '--json'], 'expected_exit': 1}, 'candidate', result)
+        message = str(caught.exception)
+        self.assertIn('did not produce a diagnostic report', message)
+        self.assertIn('(candidate)', message)
+        self.assertIn('cannot read agnostic-ai.yaml', message)
+
     def test_isolated_environment_covers_windows_profile_locations(self):
         with tempfile.TemporaryDirectory() as directory:
             env = bench.isolated_environment(Path(directory))
