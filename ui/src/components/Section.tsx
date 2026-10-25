@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
@@ -164,22 +164,60 @@ function FieldList({ fields }: { fields: SettingField[] }) {
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
             <p className="muted">{f.description}</p>
           </div>
-          {f.set.length === 0 ? (
-            <p className="muted field-unset">Not set</p>
-          ) : (
-            f.set.map((src) => (
-              <div key={src.spec} className="field-source">
-                {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
-                <p className="muted field-from">
-                  from <Code>{src.path}</Code>
-                </p>
-              </div>
-            ))
-          )}
+          {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
+          {f.set.map((src) => (
+            <div key={src.spec} className="field-source">
+              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
+              <p className="muted field-from">
+                from <Code>{src.path}</Code>
+              </p>
+            </div>
+          ))}
+          <FieldEditControl field={f} />
         </li>
       ))}
     </ul>
   )
+}
+
+function FieldEditControl({ field }: { field: SettingField }) {
+  const app = useApp()
+  const edit = field.editable
+  const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
+  const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
+  const current = field.set.find((source) => source.path === path)?.values.find((entry) => entry.key === field.key)?.value ?? ''
+  const [value, setValue] = useState(current)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<EditError>()
+  useEffect(() => { setValue(current) }, [current, path])
+  if (!edit) return null
+  if (edit.disabledReason) return <p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p>
+  if (app.source.kind !== 'api') return null
+  const setSelectedPath = (next: string) => {
+    setPath(next)
+    setValue(field.set.find((source) => source.path === next)?.values.find((entry) => entry.key === field.key)?.value ?? '')
+    setError(undefined)
+  }
+  const save = async (clear: boolean) => {
+    setPending(true)
+    setError(undefined)
+    try {
+      await postEdit(API.editField, { path: path || undefined, key: field.key, value: clear ? null : edit.kind === 'number' ? Number(value) : value })
+      app.reload()
+    } catch (err) {
+      setError(err instanceof EditError ? err : new EditError(String(err)))
+    } finally { setPending(false) }
+  }
+  const configured = field.set.some((source) => source.path === path && source.values.some((entry) => entry.key === field.key))
+  return <div className="field-edit">
+    {paths.length > 1 && <label>Settings file <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
+    <label>{field.label} <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending} /></label>
+    {edit.allowed && edit.allowed.length > 0 && <p className="muted">Accepted values: {edit.allowed.join(', ')}</p>}
+    <button type="button" className="button" disabled={pending || !value.trim()} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
+    {configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
+    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</span>}
+    <p className="muted">Saves the source file. Run <Code>{edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`}</Code> to apply it.</p>
+  </div>
 }
 
 function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean }) {

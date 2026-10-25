@@ -1,8 +1,12 @@
 package overview
 
 import (
+	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -34,7 +38,7 @@ var settingsFields = map[string][]fieldDef{
 
 // buildFields lists every field of section with the values each settings
 // spec in items gives it.
-func buildFields(section string, items []SectionItem, entries []spec.Entry) []SettingField {
+func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, root string, global bool) []SettingField {
 	defs := settingsFields[section]
 	if defs == nil {
 		return nil
@@ -63,6 +67,74 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry) []Se
 				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values})
 			}
 		}
+		if section == SectionSettings && !d.prefix && cfg != nil {
+			edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
+			if global {
+				edit.SyncCommand = "agnostic-ai sync --global"
+			}
+			if d.key == "session-retention-days" {
+				edit.Kind = "number"
+				if !global {
+					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
+				}
+			}
+			if d.key == "effort" {
+				for _, target := range cfg.Targets {
+					adapter, err := adapters.Resolve(target)
+					if err != nil {
+						continue
+					}
+					accepter, ok := adapter.(adapters.SettingsEffortAccepter)
+					if !ok {
+						continue
+					}
+					for _, level := range accepter.SettingsEffortLevels() {
+						if !slices.Contains(edit.Allowed, level) {
+							edit.Allowed = append(edit.Allowed, level)
+						}
+					}
+				}
+				slices.Sort(edit.Allowed)
+			}
+			paths := map[string]string{}
+			for _, it := range items {
+				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
+					paths[it.Name] = it.Path
+					edit.Paths = append(edit.Paths, it.Path)
+				}
+			}
+			defaultPath := "settings/defaults.yaml"
+			if !global {
+				defaultPath = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
+			}
+			inEffect := SettingsInEffect(entries, d.key, cfg.Targets)
+			if target := SettingsWriteTarget(entries, inEffect, d.key, cfg.Targets); target >= 0 {
+				edit.Path = paths[entries[target].Name]
+			} else if inEffect >= 0 || len(edit.Paths) == 0 {
+				if taken, ok := byName["defaults"]; ok {
+					edit.DisabledReason = SpecPath(root, taken) + " is already the settings spec named defaults; add the field to an editable settings spec."
+					if inEffect >= 0 {
+						edit.DisabledReason = SpecPath(root, entries[inEffect]) + " sets this field and no editable spec loads after it."
+					}
+				} else {
+					edit.Path = defaultPath
+					if len(edit.Paths) > 0 {
+						edit.Paths = append(edit.Paths, defaultPath)
+					}
+				}
+			} else if len(edit.Paths) == 1 {
+				edit.Path = edit.Paths[0]
+			}
+			// Maps and other non-scalar shapes remain read-only in this slice.
+			for _, source := range f.Set {
+				for _, value := range source.Values {
+					if value.Key != d.key || value.Type != ValueText && d.key != "session-retention-days" {
+						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
+					}
+				}
+			}
+			f.Editable = edit
+		}
 		fields = append(fields, f)
 	}
 	return fields
@@ -73,4 +145,79 @@ func (d fieldDef) matches(key string) bool {
 		return strings.HasPrefix(key, d.key)
 	}
 	return key == d.key || strings.HasPrefix(key, d.key+".")
+}
+
+// SettingsEditCandidate reports whether a field edit may write e. Built-in
+// and pack specs are replaced on update, and a spec under Authority takes
+// the edit only when it already sets key.
+func SettingsEditCandidate(e spec.Entry, key string) bool {
+	if e.Layer == builtinLayer || strings.HasPrefix(e.Layer, "pack:") {
+		return false
+	}
+	return !grantsAuthority(e) || hasField(e, key)
+}
+
+// SettingsInEffect is the index in the ordered settings of the spec whose
+// key sync uses: the last one that sets it for every target and no later
+// spec overrides, else the last one that sets it. -1 when none does.
+func SettingsInEffect(settings []spec.Entry, key string, targets []string) int {
+	last := -1
+	for i := len(settings) - 1; i >= 0; i-- {
+		if !hasField(settings[i], key) {
+			continue
+		}
+		if last < 0 {
+			last = i
+		}
+		if !slices.ContainsFunc(targets, func(t string) bool { return !settings[i].EmitsTo(t) }) && SettingsOverride(settings, i, key, targets) < 0 {
+			return i
+		}
+	}
+	return last
+}
+
+// SettingsWriteTarget is the edit candidate an edit of key writes so it
+// takes effect: the spec in effect when it is a candidate, else the last
+// candidate after it that applies to every target it does. -1 when none.
+func SettingsWriteTarget(settings []spec.Entry, inEffect int, key string, targets []string) int {
+	if inEffect < 0 {
+		return -1
+	}
+	if SettingsEditCandidate(settings[inEffect], key) {
+		return inEffect
+	}
+	applies := appliesTo(settings, inEffect, targets)
+	for j := len(settings) - 1; j > inEffect; j-- {
+		if SettingsEditCandidate(settings[j], key) && coversTargets(settings[j], applies) {
+			return j
+		}
+	}
+	return -1
+}
+
+// SettingsOverride is the index of a spec after i that sets key for every
+// target settings[i] applies to, or -1. With i < 0 the edited spec applies
+// to every target and every spec counts as later.
+func SettingsOverride(settings []spec.Entry, i int, key string, targets []string) int {
+	applies := appliesTo(settings, i, targets)
+	for j := len(settings) - 1; j > i; j-- {
+		if hasField(settings[j], key) && coversTargets(settings[j], applies) {
+			return j
+		}
+	}
+	return -1
+}
+
+func appliesTo(settings []spec.Entry, i int, targets []string) []string {
+	var applies []string
+	for _, t := range targets {
+		if i < 0 || settings[i].EmitsTo(t) {
+			applies = append(applies, t)
+		}
+	}
+	return applies
+}
+
+func coversTargets(e spec.Entry, targets []string) bool {
+	return len(targets) == 0 || !slices.ContainsFunc(targets, func(t string) bool { return !e.EmitsTo(t) })
 }

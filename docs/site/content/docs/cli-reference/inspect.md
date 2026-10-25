@@ -321,7 +321,7 @@ Tool lists use logos. Hover over a logo for the tool's full name.
 
 Source files appear in compact lists with their paths and edit links. Settings shows configured fields first; expand **Unconfigured fields** for the rest. Empty lifecycle stages keep their tool logos and put their descriptions under **When this runs**. A findings summary links to the full warnings below the controls; errors stay above them.
 
-In a project, each built-in switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Previewing or cancelling another built-in keeps that undo; applying another replaces it. Global built-ins and boolean settings save their source files without syncing. Run `agnostic-ai sync --global` to apply global changes to your tools.
+In a project, each built-in switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Previewing or cancelling another built-in keeps that undo; applying another replaces it. Global built-ins and settings edits save their source files without syncing. In Settings, expand **Unconfigured fields** to set a default model or reasoning effort; configured scalar fields offer **Update** and **Clear**. Session retention is editable only when serving `--global`. Run `agnostic-ai sync` (or `agnostic-ai sync --global`) to apply source edits to your tools.
 
 Run `agnostic-ai sync` before the first project preview. Pending source changes appear in the same preview when files are missing or their current contents match sync's recorded checksums. Hand edits and files without ownership records require CLI review. Undo can restore the pending changes that existed before apply.
 
@@ -329,7 +329,7 @@ External adapters, paths outside the project, linked skill folders, and memory c
 
 Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
 
-The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false.
+The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false. `POST /api/edit/field` accepts `{path?, key, value}` for `model`, `effort`, and global `session-retention-days`; `null` clears a field. Omit `path` only when at most one editable settings spec exists. If none exists, a save creates `settings/defaults.yaml` in the selected source scope. The response names the edited file. Invalid values and YAML forms that cannot be spliced safely are refused without changing the file.
 
 ```bash
 agnostic-ai ui                 # open the browser (or reuse a running server)
@@ -348,7 +348,7 @@ agnostic-ai serve --api-only
 | `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
 | `--no-installed` | Skip comparing the generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health` (returns `ok`, absolute `root`, `global`, and whether the web interface is served as `ui`, without loading specs).
+Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), `POST /api/edit/field` (`{path?, key, value}`), and `GET /api/health` (returns `ok`, absolute `root`, `global`, and whether the web interface is served as `ui`, without loading specs).
 
 Project built-in change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "handoff", enabled: true|false}` for any shipped built-in, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
 

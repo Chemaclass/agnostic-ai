@@ -52,6 +52,7 @@ func globalOverviewInputs() (overview.Inputs, error) {
 	}, scope.source)
 	return overview.Inputs{
 		Cfg:            cfg,
+		Global:         true,
 		Bundle:         scope.bundle,
 		Snapshot:       snapshot,
 		Instructions:   instructions,

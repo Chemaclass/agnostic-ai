@@ -70,7 +70,7 @@ agnostic-ai ui                              # open project or user configuration
 agnostic-ai view --json                     # print the configuration overview
 ```
 
-Search within Context, Authority, Tools, Lifecycle, or Settings to find a source file or value. Project built-in switches preview, apply, and undo source and generated files together. The browser supports light and dark themes and narrow screens.
+Search within Context, Authority, Tools, Lifecycle, or Settings to find a source file or value. Project built-in switches preview, apply, and undo source and generated files together. Settings lets you save, update, and clear scalar model and effort choices (and global session retention); run `agnostic-ai sync` afterward to apply those source edits. The browser supports light and dark themes and narrow screens.
 
 Use the [browser walkthrough](https://agnostic-ai.org/docs/inspect-configuration/) to find and fix a configuration warning. See [saving changes and undo](https://agnostic-ai.org/docs/cli-reference/inspect/#serve) for browser switches.
 

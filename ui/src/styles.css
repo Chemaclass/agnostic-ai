@@ -2083,3 +2083,42 @@ input:hover {
   padding-left: 20px;
   overflow-wrap: anywhere;
 }
+
+.field-edit {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field-edit label {
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 220px);
+  font-size: 12px;
+}
+
+.field-edit input,
+.field-edit select {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 9px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
+.field-edit > p,
+.field-edit > .edit-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.unconfigured-fields .field-edit { grid-column: 1 / -1; }
+
+@media (max-width: 760px) {
+  .field-edit { grid-column: 1; }
+}

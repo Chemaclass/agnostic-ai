@@ -368,4 +368,44 @@ test.describe('overview', () => {
     await expect(drawer).toHaveCount(0)
     await expect(button).toBeFocused()
   })
+
+  test('starts a field edit on the spec in effect and links global instructions only for retention', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
+    const field = (key: string) => fields.find((f: { key: string }) => f.key === key)
+    const paths = ['.agnostic-ai/settings/a.yaml', '.agnostic-ai/settings/b.yaml']
+    Object.assign(field('model'), {
+      set: [
+        { spec: 'a', path: paths[0], values: [{ key: 'model', type: 'text', value: 'sonnet' }] },
+        { spec: 'b', path: paths[1], values: [{ key: 'model', type: 'text', value: 'opus' }] },
+      ],
+      editable: { kind: 'text', path: paths[1], paths, syncCommand: 'agnostic-ai sync --global' },
+    })
+    Object.assign(field('effort'), {
+      set: [{ spec: 'a', path: paths[0], values: [{ key: 'effort.claude', type: 'text', value: 'high' }] }],
+      editable: { kind: 'text', paths, disabledReason: 'This field has a non-scalar value; edit the spec directly.' },
+    })
+    Object.assign(field('session-retention-days'), {
+      editable: { kind: 'number', path: paths[0], disabledReason: 'Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global.' },
+    })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    let edit: unknown
+    await page.route('**/api/edit/field', (route) => {
+      edit = route.request().postDataJSON()
+      return route.fulfill({ json: { ok: true } })
+    })
+    await page.goto('/?view=settings')
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.getByRole('combobox')).toHaveValue(paths[1])
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
+    await expect(model).toContainText('Run agnostic-ai sync --global to apply it.')
+    await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
+    await model.getByRole('button', { name: 'Update' }).click()
+    await expect.poll(() => edit).toEqual({ path: paths[1], key: 'model', value: 'haiku' })
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await expect(effort).toContainText('edit the spec directly')
+    await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
+    const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
+    await expect(retention.locator('a', { hasText: 'Global view instructions' })).toHaveCount(1)
+  })
 })

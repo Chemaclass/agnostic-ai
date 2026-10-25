@@ -160,7 +160,7 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 		return nil, original.check(file)
 	}
 	var written editFileSnapshot
-	if restoreBaseline && !baseline.existed {
+	if (restoreBaseline && !baseline.existed) || len(edited) == 0 {
 		if err = original.check(file); err == nil {
 			err = os.Remove(file)
 		}
