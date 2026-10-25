@@ -1,0 +1,120 @@
+{
+  "checks": [
+    {
+      "name": "Both seven-file source trees are byte identical",
+      "passed": true
+    },
+    {
+      "name": "All six upstream files match the recorded digests",
+      "passed": true
+    },
+    {
+      "name": "Local-directory install has no Git pin",
+      "passed": true
+    },
+    {
+      "name": "Tagged Git install records ref and resolved commit",
+      "passed": true
+    },
+    {
+      "name": "Emitted skill retains the complete pinned instruction body",
+      "passed": true
+    },
+    {
+      "name": "All five bundled license, notice, and README files retain their bytes",
+      "passed": true
+    },
+    {
+      "name": "Repeat sync retains native bytes and lock",
+      "passed": true
+    },
+    {
+      "name": "Update at the retained tag keeps the same commit",
+      "passed": true
+    },
+    {
+      "name": "Update follows a moved tag rather than the previous recorded commit",
+      "passed": true
+    },
+    {
+      "name": "Pack removal disables and removes the owned skill",
+      "passed": true
+    },
+    {
+      "name": "Pack and builtin with the same name emit one project skill",
+      "passed": true
+    },
+    {
+      "name": "Removing the pack reveals the still-enabled builtin",
+      "passed": true
+    },
+    {
+      "name": "Removing the last configured supplier removes the owned output",
+      "passed": true
+    },
+    {
+      "name": "Project skill overrides pack and builtin without a second native skill",
+      "passed": true
+    },
+    {
+      "name": "Removing both suppliers retains the authored source and its output",
+      "passed": true
+    },
+    {
+      "name": "Global home refuses packs add",
+      "passed": true
+    },
+    {
+      "name": "Global home refuses packs update",
+      "passed": true
+    },
+    {
+      "name": "Global home refuses packs remove",
+      "passed": true
+    },
+    {
+      "name": "Refused global pack operations create no pack or lock",
+      "passed": true
+    },
+    {
+      "name": "Emitted skill retains the complete pinned instruction body",
+      "passed": true
+    },
+    {
+      "name": "All five bundled license, notice, and README files retain their bytes",
+      "passed": true
+    },
+    {
+      "name": "Global builtin repeat sync preserves output",
+      "passed": true
+    },
+    {
+      "name": "Disabling global builtin removes owned output",
+      "passed": true
+    },
+    {
+      "name": "Global builtin refuses a different handwritten skill and preserves it",
+      "passed": true
+    },
+    {
+      "name": "Disabled builtin leaves unowned global skill intact",
+      "passed": true
+    }
+  ],
+  "source_revision": "4621c8153e68f92bcbc69f2e72a6433eae3c6c27",
+  "binary_sha256": "053ca62973f354544c4d3fd0f638882d5baaaf11d70d95481b9c3e0ecb5ccbb6",
+  "environment": {
+    "python": "3.9.6",
+    "os": "Darwin",
+    "architecture": "arm64",
+    "go": "go1.27.3",
+    "date": "2026-10-25"
+  },
+  "upstream_revision": "2e08b9177c07bb7249a8a2d1a6758e5db281d002",
+  "asset_bytes_per_tree": 27837,
+  "fixture_sha": "f80aacf01dece061527c92b144848705784e35d0",
+  "status": "PASS",
+  "binary_inputs": "Built from source revision 4621c8153e68f92bcbc69f2e72a6433eae3c6c27 with documentation and replay-only edits. Native source and embedded assets are unchanged.",
+  "build_command": "go build -trimpath -ldflags='-s -w' -o /tmp/agnostic-ai-2458 ./cmd/agnostic-ai",
+  "method": "Temporary project, user home, cache, global configuration and empty Git configuration; localhost Git daemon; no vendor or model requests. Replay also passes with invalid inherited Git repository/configuration overrides."
+}
