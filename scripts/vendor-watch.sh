@@ -90,7 +90,10 @@ vendor_watch_report() {
       while ((getline line < known) > 0) fetched[line] = 1
       while ((getline line < deltas) > 0) {
         split(line, d, "\t")
-        if (d[3] != "" && d[4] != "") tag[d[3]] = d[4]
+        if (d[1] != "" && d[2] != "" && d[3] != "" && d[4] != "") {
+          rowkey = d[1] SUBSEP d[2] SUBSEP d[3]
+          tag[rowkey] = d[4]; delta[rowkey] = d[5]
+        }
       }
     }
     $8 != "new" && $8 != "changed" && $8 != "failed" { next }
@@ -98,9 +101,15 @@ vendor_watch_report() {
       key = $3 "\t" ($8 == "failed" ? "failed-" $4 : $6)
       if (key in done) next
       if ($8 == "changed" && (($3 "\t" $6) in fetched)) next
+      rowkey = $1 SUBSEP $2 SUBSEP $3
+      if ($8 == "changed" && delta[rowkey] != "" && tag[rowkey] ~ /^counter-only:(junie-downloads|github-watchers):v1$/) {
+        suppressed = suppressed "- " $3 " (`" tag[rowkey] "`); raw delta: `" delta[rowkey] "`\n"
+        next
+      }
       label = ($8 == "failed") ? "failed (HTTP " $4 ")" : $8
+      if ($8 != "failed" && tag[rowkey] == "historical-additions:v1") label = "historical additions (unreviewed)"
       if (!($1 in rows)) order[++n] = $1
-      rows[$1] = rows[$1] "- " label ": " $3 (($3 in tag) ? " (`" tag[$3] "`)" : "") "\n"
+      rows[$1] = rows[$1] "- " label ": " $3 ((rowkey in tag) ? " (`" tag[rowkey] "`)" : "") ((rowkey in delta) && delta[rowkey] != "" ? "; raw delta: `" delta[rowkey] "`" : "") "\n"
     }
     END {
       if (n == 0) exit
@@ -111,7 +120,9 @@ vendor_watch_report() {
         printf "### %s\n\n%s\n", order[i], rows[order[i]]
         targets = targets (i > 1 ? " " : "") order[i]
       }
+      if (suppressed != "") printf "### Suppressed counters\n\n%s\n", suppressed
       printf "Next: run `/target-audit %s`, then close this issue once the lock moves.\n", targets
+      printf "Inspect the saved raw response (.body) and delta in the vendor-watch-pages artifact. Comparison: source-aware-v1. Historical text still needs review.\n"
     }
   ' "$1"
 }

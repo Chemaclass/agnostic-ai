@@ -912,9 +912,7 @@ function test_fetch_one_hashes_the_indexed_page_not_the_index() {
   assert_not_equals "$(printf '%s' "$rules" | cut -f6)" "$(printf '%s' "$hooks" | cut -f6)"
 }
 
-function test_fetch_one_hashes_only_release_tags_and_dates() {
-  # The releases API answers on one line and carries download counters that
-  # move without a release. Only the tags and dates may reach the hash.
+function test_fetch_one_ignores_release_asset_download_counters() {
   local a b
   a='[{"tag_name":"v1.0.0","published_at":"2026-09-01T00:00:00Z","assets":[{"download_count":11}]}]'
   b='[{"tag_name":"v1.0.0","published_at":"2026-09-01T00:00:00Z","assets":[{"download_count":9312}]}]'
@@ -1335,4 +1333,158 @@ function test_a_corrupt_snapshot_at_the_lock_hash_reads_no_snapshot() {
   write_deltas "$FIXTURES/run" >/dev/null
   assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
   assert_file_not_exists "$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+}
+
+
+function test_source_change_label_ignores_only_junie_download_counters() {
+  printf '[{"id":1,"version":"1.0","downloads":12,"notes":"Hooks"}]' >"$FIXTURES/old"
+  printf '[{"id":1,"version":"1.0","downloads":13,"notes":"Hooks"}]' >"$FIXTURES/new"
+  assert_equals 'counter-only:junie-downloads:v1' "$(source_change_label changelog 'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20' "$FIXTURES/old" "$FIXTURES/new")"
+  printf '[{"id":1,"version":"1.0","downloads":13,"notes":"New hooks"}]' >"$FIXTURES/new"
+  assert_empty "$(source_change_label changelog 'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20' "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_source_change_label_keeps_malformed_and_changed_junie_layouts_visible() {
+  printf '[{"id":1,"version":"1.0","downloads":12}]' >"$FIXTURES/old"
+  for response in 'bad JSON' '[{"id":1,"version":"1.0","downloads":13}][{"id":1,"version":"1.0","downloads":13}]' '[{"id":1,"version":"1.0","downloads":13},{"id":1,"version":"1.0","downloads":13}]' '[{"id":1,"version":"1.0","downloads":-1}]' '[]' '[{"id":1,"version":"1.0","downloads":"13"}]' '[{"id":1,"version":"2.0","downloads":13}]' '{"downloads":13}'; do
+    printf '%s' "$response" >"$FIXTURES/new"
+    assert_empty "$(source_change_label changelog 'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20' "$FIXTURES/old" "$FIXTURES/new")"
+  done
+  assert_empty "$(source_change_label changelog 'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20' "$FIXTURES/missing" "$FIXTURES/new")"
+}
+
+function test_source_change_label_ignores_only_pinned_tree_watchers() {
+  printf 'Files README.md Stars 27.5k stars Watchers 8 watching Forks 5.2k forks Report repository About Stars 27.5k stars Watchers 8 watching Forks 5.2k forks Report repository\n' >"$FIXTURES/old"
+  printf 'Files README.md Stars 27.5k stars Watchers 9 watching Forks 5.2k forks Report repository About Stars 27.5k stars Watchers 9 watching Forks 5.2k forks Report repository\n' >"$FIXTURES/new"
+  local url='https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8'
+  assert_equals 'counter-only:github-watchers:v1' "$(source_change_label code "$url" "$FIXTURES/old" "$FIXTURES/new")"
+  assert_empty "$(source_change_label code https://github.com/xai-org/grok-build/tree/main "$FIXTURES/old" "$FIXTURES/new")"
+  sed 's/README.md/AGENTS.md/g' "$FIXTURES/old" >"$FIXTURES/new"
+  assert_empty "$(source_change_label code "$url" "$FIXTURES/old" "$FIXTURES/new")"
+  printf 'Files README.md Watchers unknown watching Forks 2 forks\n' >"$FIXTURES/new"
+  assert_empty "$(source_change_label code "$url" "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_source_change_label_separates_archive_additions_from_new_and_edited_entries() {
+  printf '# Changelog\n\n## 2026-10-20\nNew hooks.\n\n## 2026-10-10\nOld hooks.\n' >"$FIXTURES/old"
+  cp "$FIXTURES/old" "$FIXTURES/new"
+  printf '\n## 2026-01-01\nRestored archive.\n' >>"$FIXTURES/new"
+  assert_equals 'historical-additions:v1' "$(source_change_label changelog https://example.com/changelog "$FIXTURES/old" "$FIXTURES/new")"
+  printf '\n## 2026-10-21\nNew release.\n' >>"$FIXTURES/new"
+  assert_equals 'new-entries:v1' "$(source_change_label changelog https://example.com/changelog "$FIXTURES/old" "$FIXTURES/new")"
+  printf '# Changelog\n\n## 2026-10-20\nNew hooks.\n\n## 2026-10-10\nEdited old hooks.\n' >"$FIXTURES/new"
+  assert_equals 'edited-entries:v1' "$(source_change_label changelog https://example.com/changelog "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_source_change_label_falls_back_for_ambiguous_dates_and_unknown_layouts() {
+  printf '## 2026-10-20\nNotes.\n' >"$FIXTURES/old"
+  for heading in '## 01/02/2026' '## 2026-02-31' '## 2026-10-20 and 2026-10-21' '## 2026-01-011' '### 2026-01-01' '## Undated'; do
+    { cat "$FIXTURES/old"; printf '\n%s\nArchive.\n' "$heading"; } >"$FIXTURES/new"
+    assert_empty "$(source_change_label changelog https://example.com/changelog "$FIXTURES/old" "$FIXTURES/new")"
+  done
+}
+
+function test_release_index_v2_notices_edited_notes_and_migrates_without_hiding_changes() {
+  printf '[{"tag_name":"v1","published_at":"2026-09-01T00:00:00Z","body":"Original"}]' >"$FIXTURES/old"
+  release_index "$FIXTURES/old" >"$FIXTURES/index"
+  assert_contains '# docfetch-release-index-v2' "$(cat "$FIXTURES/index")"
+  printf '[{"tag_name":"v1","published_at":"2026-09-01T00:00:00Z","body":"Edited"}]' >"$FIXTURES/new"
+  assert_not_equals "$(cat "$FIXTURES/index")" "$(release_index "$FIXTURES/new")"
+  write_lock https://github.com/example/tool/releases "$(printf '\"tag_name\":\"v1\"\n\"published_at\":\"2026-09-01T00:00:00Z\"\n' | shasum -a 256 | awk '{print $1}')"
+  assert_equals changed "$(row_status https://github.com/example/tool/releases github-api "$(sha256_of "$FIXTURES/index")")"
+}
+
+
+function test_write_deltas_classifies_counter_replay_without_advancing_the_lock() {
+  local url='https://plugins.jetbrains.com/api/plugins/26104/updates?size=20'
+  seed_run "$FIXTURES/old" "$url" '[{"id":1,"version":"1.0","downloads":243,"notes":"Hooks."}]'
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  local before
+  before=$(cat "$LOCK")
+  seed_run "$FIXTURES/run" "$url" '[{"id":1,"version":"1.0","downloads":244,"notes":"Hooks."}]'
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals 'counter-only:junie-downloads:v1' "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+  assert_contains '# comparison: source-aware-v1' "$(cat "$FIXTURES/run/pages/cursor/docs-1-x.delta")"
+  assert_contains '244' "$(cat "$FIXTURES/run/pages/cursor/docs-1-x.delta")"
+  assert_equals "$before" "$(cat "$LOCK")"
+  assert_equals changed "$(cut -f8 "$FIXTURES/run/docfetch.tsv")"
+  assert_file_exists "$FIXTURES/run/pages/cursor/docs-1-x.body"
+}
+
+function test_source_change_label_keeps_every_non_counter_junie_field_visible() {
+  printf '[{"id":1,"version":"1.0","downloads":12,"notes":"Hooks","date":"2026-10-20","extra":{"downloads":3}}]' >"$FIXTURES/old"
+  for update in '.version = "2.0"' '.notes = "New notes"' '.date = "2026-10-21"' '.extra.downloads = 4' '.new = true'; do
+    jq "map($update | .downloads = 13)" "$FIXTURES/old" >"$FIXTURES/new"
+    assert_empty "$(source_change_label changelog 'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20' "$FIXTURES/old" "$FIXTURES/new")"
+  done
+}
+
+function test_release_index_keeps_malformed_responses_visible() {
+  printf '{"message":"layout changed","notes":"new"}' >"$FIXTURES/response"
+  assert_equals "$(cat "$FIXTURES/response")" "$(release_index "$FIXTURES/response")"
+}
+
+function test_source_change_label_keeps_watcher_text_in_other_repositories_visible() {
+  printf 'Files README.md Stars 27.5k stars Watchers 8 watching Forks 5.2k forks Report repository About Stars 27.5k stars Watchers 8 watching Forks 5.2k forks Report repository\n' >"$FIXTURES/old"
+  printf 'Files README.md Stars 27.5k stars Watchers 9 watching Forks 5.2k forks Report repository About Stars 27.5k stars Watchers 9 watching Forks 5.2k forks Report repository\n' >"$FIXTURES/new"
+  assert_empty "$(source_change_label code https://github.com/example/docs/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8 "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_source_change_label_rejects_unrecognized_pinned_tree_layouts() {
+  local url='https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8'
+  printf 'Stars 27.5k stars Watchers 8 watching Forks 5.2k forks Report repository Stars 27.5k stars Watchers 8 watching Forks 5.2k forks Report repository\n' >"$FIXTURES/old"
+  for current in \
+    'Stars 27.5k stars Watchers 9 watching Forks 5.2k forks Report repository' \
+    'Stars 27.5k stars Watchers 9 watching Forks 5.2k forks Report repository Stars 27.5k stars Watchers 10 watching Forks 5.2k forks Report repository' \
+    'Stars 27.6k stars Watchers 9 watching Forks 5.2k forks Report repository Stars 27.6k stars Watchers 9 watching Forks 5.2k forks Report repository' \
+    'Stars 27.5k stars Watchers 9 watching Forks 5.3k forks Report repository Stars 27.5k stars Watchers 9 watching Forks 5.3k forks Report repository'; do
+    printf '%s\n' "$current" >"$FIXTURES/new"
+    assert_empty "$(source_change_label code "$url" "$FIXTURES/old" "$FIXTURES/new")"
+  done
+  cp "$FIXTURES/old" "$FIXTURES/new"
+  assert_empty "$(source_change_label docs "$url" "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_source_change_label_classifies_github_release_archives_and_old_note_edits() {
+  local url='https://github.com/example/tool/releases'
+  printf '[{"tag_name":"v2","published_at":"2026-10-20T00:00:00Z","body":"Current notes."}]' >"$FIXTURES/releases"
+  release_index "$FIXTURES/releases" >"$FIXTURES/old"
+  jq '. + [{tag_name:"v1", published_at:"2026-01-01T00:00:00Z", body:"Archive notes."}]' "$FIXTURES/releases" >"$FIXTURES/archive"
+  release_index "$FIXTURES/archive" >"$FIXTURES/new"
+  assert_equals 'historical-additions:v1' "$(source_change_label changelog "$url" "$FIXTURES/old" "$FIXTURES/new")"
+  cp "$FIXTURES/new" "$FIXTURES/old"
+  jq '.[1].body = "Edited archive notes."' "$FIXTURES/archive" >"$FIXTURES/edited"
+  release_index "$FIXTURES/edited" >"$FIXTURES/new"
+  assert_equals 'edited-entries:v1' "$(source_change_label changelog "$url" "$FIXTURES/old" "$FIXTURES/new")"
+  jq '. + [{tag_name:"v3", published_at:"2026-10-21T00:00:00Z", body:"New notes."}]' "$FIXTURES/archive" >"$FIXTURES/latest"
+  release_index "$FIXTURES/latest" >"$FIXTURES/new"
+  assert_equals 'new-entries:v1' "$(source_change_label changelog "$url" "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_source_change_label_does_not_classify_removed_entries_or_header_edits() {
+  printf '# Changelog\n\n## 2026-10-20\nNotes.\n\n## 2026-01-01\nOld notes.\n' >"$FIXTURES/old"
+  printf '# Changelog\n\n## 2026-10-20\nNotes.\n' >"$FIXTURES/new"
+  assert_empty "$(source_change_label changelog https://example.com/changelog "$FIXTURES/old" "$FIXTURES/new")"
+  sed 's/# Changelog/# Updated changelog/' "$FIXTURES/old" >"$FIXTURES/new"
+  assert_empty "$(source_change_label changelog https://example.com/changelog "$FIXTURES/old" "$FIXTURES/new")"
+}
+
+function test_release_index_rejects_multiple_json_documents_and_invalid_field_types() {
+  for response in \
+    '[{"tag_name":"v1","published_at":"2026-10-20T00:00:00Z","body":false}]' \
+    '[{"tag_name":"v1","published_at":"2026-10-20T00:00:00Z","prerelease":"false"}]' \
+    '[][]'; do
+    printf '%s' "$response" >"$FIXTURES/response"
+    assert_equals "$response" "$(release_index "$FIXTURES/response")"
+  done
+}
+
+function test_fetch_one_notices_release_note_edits_without_a_new_tag() {
+  stub_curl 'https://api.github.com/*|200|[{"tag_name":"v1","published_at":"2026-09-01T00:00:00Z","body":"Original notes."}]'
+  local first second
+  first=$(fetch_one crush changelog https://github.com/charmbracelet/crush/releases "$FIXTURES/run" 1)
+  stub_curl 'https://api.github.com/*|200|[{"tag_name":"v1","published_at":"2026-09-01T00:00:00Z","body":"Edited notes."}]'
+  second=$(fetch_one crush changelog https://github.com/charmbracelet/crush/releases "$FIXTURES/run" 2)
+  assert_not_equals "$(printf '%s' "$first" | cut -f6)" "$(printf '%s' "$second" | cut -f6)"
+  assert_contains 'Edited notes.' "$(cat "$FIXTURES/run/pages/crush/changelog-2-github.com-charmbracelet-crush-releases.body")"
 }
