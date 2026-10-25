@@ -144,6 +144,29 @@ class RecordingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'binary changed'):
                 bench.verify_binaries([path], [{'binary': identity}])
 
+    def test_cached_snapshot_uses_initial_bytes_and_restores_git_and_symlinks(self):
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'snapshot'
+            active = Path(directory) / 'active'
+            source.mkdir()
+            (source / '.git').mkdir()
+            (source / '.git/index').write_bytes(b'index-before')
+            (source / 'body').write_bytes(b'initial')
+            (source / 'link').symlink_to('body')
+            snapshot = bench.Snapshot(source)
+            self.assertEqual(snapshot.identity, bench.restore_tree(snapshot, active))
+            (source / 'body').write_bytes(b'changed-source')
+            (active / 'body').write_bytes(b'changed')
+            (active / '.git/index').write_bytes(b'index-after')
+            (active / 'link').unlink()
+            (active / 'link').symlink_to('missing')
+            self.assertEqual(snapshot.identity, bench.restore_tree(snapshot, active))
+            self.assertEqual(b'initial', (active / 'body').read_bytes())
+            self.assertEqual(b'index-before', (active / '.git/index').read_bytes())
+            self.assertEqual('body', os.readlink(active / 'link'))
+            self.assertEqual(snapshot.identity, bench.tree_identity(active))
+
     def test_restore_same_stat_mutation_and_directory_permissions(self):
         import os
         with tempfile.TemporaryDirectory() as directory:
@@ -164,6 +187,7 @@ class RecordingTests(unittest.TestCase):
             self.assertNotEqual(bench.tree_identity(snapshot), bench.tree_identity(active))
             bench.restore_tree(snapshot, active)
             self.assertEqual('original', path.read_text())
+            self.assertEqual(before.st_mtime_ns, path.stat().st_mtime_ns)
             self.assertEqual(0o755, (active / 'folder').stat().st_mode & 0o777)
             self.assertEqual(bench.tree_identity(snapshot), bench.tree_identity(active))
 

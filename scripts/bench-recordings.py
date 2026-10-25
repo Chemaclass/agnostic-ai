@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Record paired command timings, or compare the resulting JSON files."""
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
 import math
@@ -10,6 +11,7 @@ import platform
 import re
 import shutil
 import statistics
+import stat
 import subprocess
 import sys
 import time
@@ -18,7 +20,7 @@ import uuid
 ROOT = Path(__file__).resolve().parent.parent
 SHELL = ROOT / 'scripts/bench-commands.sh'
 SCHEMA = 1
-METHOD = 'alternating-restored-tree-v2'
+METHOD = 'alternating-restored-tree-v3'
 NO_LEDGER_WRITE = {'target': 'unledgered', 'path': '.vscode/settings.json',
                    'action': 'leftover', 'bytes': 0}
 
@@ -39,55 +41,137 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def tree_identity(root):
+@dataclass(frozen=True)
+class SnapshotEntry:
+    name: str
+    kind: bytes
+    mode: int
+    atime_ns: int
+    mtime_ns: int
+    content: bytes
+    children: tuple
+
+
+def entry_kind(info):
+    if stat.S_ISLNK(info.st_mode):
+        return b'link'
+    if stat.S_ISDIR(info.st_mode):
+        return b'directory'
+    require(stat.S_ISREG(info.st_mode), 'fixture contains a special file')
+    return b'file'
+
+
+def snapshot_entries(root):
+    entries = []
+    with os.scandir(root) as children:
+        for child in sorted(children, key=lambda item: item.name):
+            info = child.stat(follow_symlinks=False)
+            kind = entry_kind(info)
+            content = (os.fsencode(os.readlink(child.path)) if kind == b'link' else
+                       Path(child.path).read_bytes() if kind == b'file' else b'')
+            descendants = snapshot_entries(child.path) if kind == b'directory' else ()
+            entries.append(SnapshotEntry(child.name, kind, stat.S_IMODE(info.st_mode),
+                                         info.st_atime_ns, info.st_mtime_ns, content, descendants))
+    return tuple(entries)
+
+
+def snapshot_identity(mode, entries):
     digest = hashlib.sha256()
-    digest.update(str(root.stat().st_mode & 0o777).encode())
-    for path in sorted(root.rglob('*')):
-        relative = path.relative_to(root)
-        if '.git' in relative.parts:
-            continue
-        kind = b'link' if path.is_symlink() else b'directory' if path.is_dir() else b'file'
-        content = (os.readlink(path).encode() if path.is_symlink() else
-                   b'' if path.is_dir() else path.read_bytes())
-        for item in (relative.as_posix().encode(), kind,
-                     str(path.lstat().st_mode & 0o777).encode(), content):
-            digest.update(len(item).to_bytes(8, 'big'))
-            digest.update(item)
+    digest.update(str(mode).encode())
+
+    def include(children, prefix=''):
+        for child in children:
+            if child.name == '.git':
+                continue
+            relative = prefix + child.name
+            for item in (relative.encode(), child.kind, str(child.mode).encode(), child.content):
+                digest.update(len(item).to_bytes(8, 'big'))
+                digest.update(item)
+            include(child.children, relative + '/')
+
+    include(entries)
     return digest.hexdigest()
 
 
-def restore_tree(snapshot, active):
-    if not active.exists():
-        shutil.copytree(snapshot, active, symlinks=True)
-        return
-    active.chmod(snapshot.stat().st_mode & 0o777)
-    for path in sorted(active.rglob('*'), reverse=True):
-        original = snapshot / path.relative_to(active)
-        if not original.exists() and not original.is_symlink():
-            if path.is_dir() and not path.is_symlink():
-                path.rmdir()
-            else:
-                path.unlink()
-    for original in snapshot.rglob('*'):
-        path = active / original.relative_to(snapshot)
-        if path.exists() or path.is_symlink():
-            require(path.is_symlink() == original.is_symlink() and
-                    path.is_dir() == original.is_dir(), 'fixture path changed type: ' + str(path))
-        if original.is_symlink():
-            if not path.is_symlink() or os.readlink(path) != os.readlink(original):
-                if path.exists() or path.is_symlink():
-                    path.unlink()
-                path.symlink_to(os.readlink(original))
-        elif original.is_dir():
-            path.mkdir(exist_ok=True)
-            path.chmod(original.stat().st_mode & 0o777)
+@dataclass(frozen=True)
+class Snapshot:
+    mode: int
+    atime_ns: int
+    mtime_ns: int
+    entries: tuple
+    identity: str
+
+    def __init__(self, root):
+        info = root.stat()
+        mode = stat.S_IMODE(info.st_mode)
+        entries = snapshot_entries(root)
+        object.__setattr__(self, 'mode', mode)
+        object.__setattr__(self, 'atime_ns', info.st_atime_ns)
+        object.__setattr__(self, 'mtime_ns', info.st_mtime_ns)
+        object.__setattr__(self, 'entries', entries)
+        object.__setattr__(self, 'identity', snapshot_identity(mode, entries))
+
+
+def tree_identity(root):
+    return Snapshot(root).identity
+
+
+def restore_entries(expected, parent):
+    with os.scandir(parent) as children:
+        actual = {child.name: child for child in children}
+    expected_names = {child.name for child in expected}
+    for name in actual.keys() - expected_names:
+        child = actual[name]
+        if child.is_dir(follow_symlinks=False):
+            print('Removing extra benchmark directory: ' + child.path, file=sys.stderr, flush=True)
+            shutil.rmtree(child.path)
         else:
-            expected = original.stat()
-            actual = path.stat() if path.exists() else None
-            changed = actual is None or (actual.st_size, actual.st_mtime_ns, actual.st_mode) != (
-                expected.st_size, expected.st_mtime_ns, expected.st_mode)
-            if changed or original.read_bytes() != path.read_bytes():
-                shutil.copy2(original, path)
+            os.unlink(child.path)
+    for child in expected:
+        path = parent / child.name
+        current = actual.get(child.name)
+        info = current.stat(follow_symlinks=False) if current else None
+        require(info is None or entry_kind(info) == child.kind, 'fixture path changed type: ' + str(path))
+        if child.kind == b'link':
+            target = os.fsdecode(child.content)
+            if info is None or os.readlink(path) != target:
+                if info is not None:
+                    path.unlink()
+                path.symlink_to(target)
+            require(os.fsencode(os.readlink(path)) == child.content and
+                    stat.S_IMODE(path.lstat().st_mode) == child.mode, 'fixture link differs: ' + str(path))
+            continue
+        restored = info is None
+        if child.kind == b'directory':
+            if info is None:
+                path.mkdir(mode=child.mode)
+            if info is None or stat.S_IMODE(info.st_mode) != child.mode:
+                path.chmod(child.mode)
+            restore_entries(child.children, path)
+        else:
+            if info is not None and stat.S_IMODE(info.st_mode) != child.mode:
+                path.chmod(child.mode)
+            if info is None or path.read_bytes() != child.content:
+                path.write_bytes(child.content)
+                restored = True
+                require(path.read_bytes() == child.content, 'fixture write differs: ' + str(path))
+            if info is None:
+                path.chmod(child.mode)
+        require(stat.S_IMODE(path.stat().st_mode) == child.mode, 'fixture permissions differ: ' + str(path))
+        if restored or child.kind == b'directory' or info.st_mtime_ns != child.mtime_ns:
+            os.utime(path, ns=(child.atime_ns, child.mtime_ns))
+
+
+def restore_tree(snapshot, active):
+    snapshot = snapshot if isinstance(snapshot, Snapshot) else Snapshot(snapshot)
+    if not active.exists():
+        active.mkdir(mode=snapshot.mode)
+    require(active.is_dir() and not active.is_symlink(), 'active fixture is not a directory')
+    active.chmod(snapshot.mode)
+    restore_entries(snapshot.entries, active)
+    os.utime(active, ns=(snapshot.atime_ns, snapshot.mtime_ns))
+    require(stat.S_IMODE(active.stat().st_mode) == snapshot.mode, 'active fixture permissions differ')
+    return snapshot.identity
 
 
 def binary_identity(binary, revision, dirty):
@@ -216,20 +300,23 @@ def record(args):
         no_ledger = output / 'no-ledger'
         shutil.copytree(fixture, no_ledger, symlinks=True)
         shell_function('bench_commands_no_ledger', [no_ledger], env)
-        identities = {mode: tree_identity(output / mode) for mode in ('synced', 'no-ledger')}
+        snapshots = {mode: Snapshot(output / mode) for mode in ('synced', 'no-ledger')}
+        identities = {mode: snapshot.identity for mode, snapshot in snapshots.items()}
         for result in records:
             result['fixture']['identities'] = identities
         active = output / 'active'
         current_mode = None
         for index, item in enumerate(plan):
+            print(f"[{index + 1}/{len(plan)}] {item['mode']} / {' '.join(item['argv'])}",
+                  file=sys.stderr, flush=True)
             if item['mode'] != current_mode:
                 if active.exists():
                     shutil.rmtree(active)
                 current_mode = item['mode']
             for iteration in range(args.runs + 1):
                 for side, binary in enumerate(binaries):
-                    restore_tree(output / item['mode'], active)
-                    require(tree_identity(active) == identities[item['mode']], 'active fixture differs from snapshot')
+                    require(restore_tree(snapshots[item['mode']], active) == identities[item['mode']],
+                            'active fixture differs from snapshot')
                     start = time.perf_counter_ns()
                     result = subprocess.run([str(binary), *item['argv']], cwd=active, env=env,
                                             stdout=subprocess.PIPE if item['argv'] == ['doctor', '--json'] else subprocess.DEVNULL,
