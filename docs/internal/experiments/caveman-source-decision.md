@@ -4,7 +4,7 @@
 
 **Update, 2026-10-25:** The maintainer decided that the built-in writes only `SKILL.md` into each tool's skill folder, for every target and for project and global sync. People asked for no license, notice, or readme files in their projects. The binary still embeds all six upstream files and the manifest, so provenance and the license texts stay with agnostic-ai; `load` in [builtins.go](../../../internal/builtins/builtins.go) leaves the five companion files out of what sync materializes. A sync after upgrading removes those files where an earlier sync owned them, and leaves same-named files a person wrote. The example pack still carries all six files, because a copied pack becomes the person's own source. The "keep all these assets together" advice below now applies to the embedded tree and the example pack, not to built-in output.
 
-**Status:** Proposed maintainer decision, 2026-10-25. [Issue #2458](https://github.com/Chemaclass/agnostic-ai/issues/2458). Checked source: `4621c815`. No shipped behavior or source assets change.
+**Status:** Proposed maintainer decision, 2026-10-25. [Issue #2458](https://github.com/Chemaclass/agnostic-ai/issues/2458). Checked source: `4621c815`. The investigation itself changed no shipped behavior or source assets; the update above records the later output change.
 
 ## Contract and inventory
 

@@ -82,13 +82,17 @@ def skill_files(root):
             for path in root.rglob('*') if path.is_file()}
 
 
-def assert_assets(native):
+def assert_assets(native, extras=True):
     original = (example / 'skills/caveman/SKILL.md').read_text().split('---', 2)[2].strip()
     check('Emitted skill retains the complete pinned instruction body',
           original in (native / 'SKILL.md').read_text())
-    check('All five bundled license, notice, and README files retain their bytes',
-          all(digest(path) == digest(native / path.name)
-              for path in (example / 'skills/caveman').iterdir() if path.name != 'SKILL.md'))
+    companions = [path for path in (example / 'skills/caveman').iterdir() if path.name != 'SKILL.md']
+    if extras:
+        check('All five bundled license, notice, and README files retain their bytes',
+              all(digest(path) == digest(native / path.name) for path in companions))
+    else:
+        check('The built-in writes only SKILL.md',
+              not any((native / path.name).exists() for path in companions))
 
 
 try:
@@ -195,7 +199,7 @@ try:
     configure(global_source, True)
     cli('sync', '--global', '-t', 'claude')
     global_native = claude / 'skills/caveman'
-    assert_assets(global_native)
+    assert_assets(global_native, extras=False)
     first = skill_files(global_native)
     cli('sync', '--global', '-t', 'claude')
     cli('sync', '--global', '-t', 'claude', '--check')
