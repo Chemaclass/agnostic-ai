@@ -141,6 +141,12 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 // --global it runs the global lint and compares the files sync --global
 // would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
+	return authority.CORS(bufferAPIBody(serializeAPI(newScopeHandler(load, opts))), opts.AllowedOrigins...)
+}
+
+// newScopeHandler routes the API and the client of one configuration:
+// a project, or the user-level configuration with opts.Global set.
+func newScopeHandler(load authority.Loader, opts authority.HandlerOptions) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".")
@@ -157,7 +163,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 	changes := newBuiltinChangeHandler(opts.Root, opts.Global)
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
-	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
+	return mux
 }
 
 // serializeAPI runs one API request at a time. Rendering adapters in
