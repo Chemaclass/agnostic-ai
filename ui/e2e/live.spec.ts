@@ -486,3 +486,29 @@ test('Caveman reload shows an external config change instead of historical apply
     await f.close()
   }
 })
+
+test('live Settings edits an unset effort, validates, updates, and clears its new spec', async ({ page }) => {
+  const f = await fixture()
+  const created = join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml')
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('high')
+    await effort.getByRole('button', { name: 'Save' }).click()
+    await expect(effort).toContainText('from .agnostic-ai/settings/defaults.yaml')
+    expect(await readFile(created, 'utf8')).toContain('effort: high')
+    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('turbo')
+    await effort.getByRole('button', { name: 'Update' }).click()
+    await expect(effort.getByRole('alert')).toContainText('effort must be a level')
+    expect(await readFile(created, 'utf8')).toContain('effort: high')
+    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+    await effort.getByRole('button', { name: 'Update' }).click()
+    await expect(effort).toContainText('low')
+    await effort.getByRole('button', { name: 'Clear' }).click()
+    await expect(effort).toContainText('Not set')
+    await expect(readFile(created)).rejects.toThrow()
+  } finally { await f.close() }
+})

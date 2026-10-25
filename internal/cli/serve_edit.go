@@ -27,6 +27,7 @@ import (
 const (
 	editBuiltinPath = "/api/edit/builtin"
 	editValuePath   = "/api/edit/value"
+	editFieldPath   = "/api/edit/field"
 )
 
 // editHandler switches a built-in in the config file, or a boolean field
@@ -106,6 +107,21 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		file, edit, err = h.settingsEdit(req.Path, req.Key, *req.Value)
+		if err != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			return
+		}
+	case editFieldPath:
+		var req struct {
+			Path  string          `json:"path"`
+			Key   string          `json:"key"`
+			Value json.RawMessage `json:"value"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil || req.Key == "" || len(req.Value) == 0 {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "key and value are required (null clears the field)"})
+			return
+		}
+		file, edit, err = h.fieldEdit(req.Path, req.Key, req.Value)
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return

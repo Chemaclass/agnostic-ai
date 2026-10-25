@@ -1,8 +1,12 @@
 package overview
 
 import (
+	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -34,7 +38,7 @@ var settingsFields = map[string][]fieldDef{
 
 // buildFields lists every field of section with the values each settings
 // spec in items gives it.
-func buildFields(section string, items []SectionItem, entries []spec.Entry) []SettingField {
+func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, global bool) []SettingField {
 	defs := settingsFields[section]
 	if defs == nil {
 		return nil
@@ -62,6 +66,56 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry) []Se
 			if len(values) > 0 {
 				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values})
 			}
+		}
+		if section == SectionSettings && !d.prefix && cfg != nil {
+			edit := &FieldEdit{Kind: "text"}
+			if d.key == "session-retention-days" {
+				edit.Kind = "number"
+				if !global {
+					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai serve --global."
+				}
+			}
+			if d.key == "effort" {
+				for _, target := range cfg.Targets {
+					adapter, err := adapters.Resolve(target)
+					if err != nil {
+						continue
+					}
+					accepter, ok := adapter.(adapters.SettingsEffortAccepter)
+					if !ok {
+						continue
+					}
+					for _, level := range accepter.SettingsEffortLevels() {
+						if !slices.Contains(edit.Allowed, level) {
+							edit.Allowed = append(edit.Allowed, level)
+						}
+					}
+				}
+				slices.Sort(edit.Allowed)
+			}
+			for _, it := range items {
+				if it.Kind == string(spec.KindSettings) && it.Layer != "builtin" {
+					edit.Paths = append(edit.Paths, it.Path)
+				}
+			}
+			if len(edit.Paths) == 0 {
+				if global {
+					edit.Path = "settings/defaults.yaml"
+				} else {
+					edit.Path = filepath.ToSlash(filepath.Join(cfg.Sources.Settings, "defaults.yaml"))
+				}
+			} else if len(edit.Paths) == 1 {
+				edit.Path = edit.Paths[0]
+			}
+			// Maps and other non-scalar shapes remain read-only in this slice.
+			for _, source := range f.Set {
+				for _, value := range source.Values {
+					if value.Key != d.key || value.Type != ValueText && d.key != "session-retention-days" {
+						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
+					}
+				}
+			}
+			f.Editable = edit
 		}
 		fields = append(fields, f)
 	}

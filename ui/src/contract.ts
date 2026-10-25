@@ -537,6 +537,7 @@ export interface SettingField {
   label: string
   description: string
   set: { spec: string; path: string; values: Value[] }[]
+  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string }
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'
@@ -574,5 +575,6 @@ export const API = {
   overview: '/api/views/overview',
   editBuiltin: '/api/edit/builtin',
   editValue: '/api/edit/value',
+  editField: '/api/edit/field',
   health: '/api/health',
 } as const

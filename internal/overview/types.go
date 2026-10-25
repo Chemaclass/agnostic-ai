@@ -61,7 +61,17 @@ type SettingField struct {
 	Description string `json:"description"`
 	// Set lists each spec that sets the field, with its values under the
 	// field's key. Empty when nothing sets it.
-	Set []FieldSource `json:"set"`
+	Set      []FieldSource `json:"set"`
+	Editable *FieldEdit    `json:"editable,omitempty"`
+}
+
+// FieldEdit describes the source-only edit available for a scalar field.
+type FieldEdit struct {
+	Path           string   `json:"path,omitempty"`
+	Paths          []string `json:"paths,omitempty"`
+	Kind           string   `json:"kind"`
+	Allowed        []string `json:"allowed,omitempty"`
+	DisabledReason string   `json:"disabledReason,omitempty"`
 }
 
 // FieldSource is one spec's values for a field.

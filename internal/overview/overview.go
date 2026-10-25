@@ -19,6 +19,7 @@ import (
 // same inputs always give the same view.
 type Inputs struct {
 	Cfg    *config.Config
+	Global bool
 	Bundle spec.Bundle
 	// Snapshot identifies the configuration the inputs came from.
 	Snapshot authority.Snapshot
@@ -357,7 +358,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 		if def.id == SectionLifecycle {
 			s.Stages = buildStages(s.Items, targets, newLabeler())
 		}
-		s.Fields = buildFields(def.id, s.Items, in.Bundle.Settings)
+		s.Fields = buildFields(def.id, s.Items, in.Bundle.Settings, in.Cfg, in.Global)
 		if def.id == SectionTools {
 			attachTools(s.Items, in)
 		}

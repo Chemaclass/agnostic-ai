@@ -424,4 +424,7 @@
 # #2455 result recording and comparison measured 23298208 bytes on Go 1.27.3,
 # 36864 over the prior budget. Private atomic records, identity checks,
 # and comparison output use Linux amd64 release flags, with no headroom or deps.
-23298208
+# #2476 measured 23322784 on Go 1.27.3, up 24576 from main
+# 87583607 (23298208): guarded scalar settings edits and embedded form.
+# Linux amd64 release flags; no added dependencies or headroom.
+23322784

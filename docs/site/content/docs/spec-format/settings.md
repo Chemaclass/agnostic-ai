@@ -220,3 +220,7 @@ When agnostic-ai also writes the same key:
 - Blocks with a fixed order (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events added at the end.
 
 Four keys take one type each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Any other type is skipped, the rules from your `permissions` are still written, and a sync note names the key.
+
+## Edit scalar settings in the browser
+
+Run `agnostic-ai serve --open` in a project, or `agnostic-ai serve --global --open` for user settings. The Settings view can save, update, and clear a single `model` or `effort` value; only the global view can edit `session-retention-days`. If no settings spec exists, the first save creates `settings/defaults.yaml` in the source directory. With several specs, choose the file to edit. Maps and native `x-*` keys remain source-editor tasks. Browser saves do not sync generated tool files: run `agnostic-ai sync` or `agnostic-ai sync --global` afterward.
