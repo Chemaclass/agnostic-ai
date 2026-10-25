@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits (#2476).
+- Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
 
 ## v0.88.0 - 2026-10-25
 

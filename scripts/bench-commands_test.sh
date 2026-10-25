@@ -51,3 +51,10 @@ function test_no_ledger_reports_read_only_commands() {
   assert_matches $'^[0-9]+\t1\tdoctor \(no ledger\)$' "$(printf '%s\n' "$out" | grep doctor)"
   assert_matches $'^[0-9]+\t0\tsync --dry-run \(no ledger\)$' "$(printf '%s\n' "$out" | grep sync)"
 }
+
+function test_recording_comparison_controls() {
+  local out
+  out="$(python3 "$SCRIPT_DIR/bench-recordings_test.py" 2>&1)"
+  assert_successful_code "$?"
+  assert_contains "OK" "$out"
+}
