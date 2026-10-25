@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 
 func TestSettingsFields_ExposeEditContract(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
-	fields := buildFields(SectionSettings, nil, nil, cfg, false)
+	fields := buildFields(SectionSettings, nil, nil, cfg, "", false)
 	byKey := map[string]SettingField{}
 	for _, f := range fields {
 		byKey[f.Key] = f
@@ -21,7 +22,7 @@ func TestSettingsFields_ExposeEditContract(t *testing.T) {
 	if got := byKey["session-retention-days"].Editable; got == nil || got.Kind != "number" || got.DisabledReason == "" {
 		t.Fatalf("project retention = %+v", got)
 	}
-	fields = buildFields(SectionSettings, nil, nil, cfg, true)
+	fields = buildFields(SectionSettings, nil, nil, cfg, "", true)
 	for _, f := range fields {
 		if f.Key == "session-retention-days" && (f.Editable == nil || f.Editable.Path != "settings/defaults.yaml" || f.Editable.DisabledReason != "") {
 			t.Fatalf("global retention = %+v", f.Editable)
@@ -71,5 +72,21 @@ func TestSettingsFields_TargetedAndPackSpecsDoNotTakeTheEdit(t *testing.T) {
 	}
 	if got := byKey["effort"].Editable; got == nil || slices.Contains(got.Paths, pack.Path) || got.Path == pack.Path {
 		t.Fatalf("effort edit = %+v", got)
+	}
+}
+
+func TestSettingsFields_DefaultPathAndSyncCommandFollowTheScope(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "settings")
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: outside}}
+	for _, f := range buildFields(SectionSettings, nil, nil, cfg, root, false) {
+		if f.Key == "model" && (f.Editable.Path != filepath.ToSlash(filepath.Join(outside, "defaults.yaml")) || f.Editable.SyncCommand != "agnostic-ai sync") {
+			t.Fatalf("project model = %+v", f.Editable)
+		}
+	}
+	for _, f := range buildFields(SectionSettings, nil, nil, cfg, root, true) {
+		if f.Key == "model" && f.Editable.SyncCommand != "agnostic-ai sync --global" {
+			t.Fatalf("global model = %+v", f.Editable)
+		}
 	}
 }

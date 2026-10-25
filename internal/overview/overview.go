@@ -366,7 +366,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 				}
 			}
 		}
-		s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Global)
+		s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.Global)
 		if def.id == SectionTools {
 			attachTools(s.Items, in)
 		}

@@ -38,7 +38,7 @@ var settingsFields = map[string][]fieldDef{
 
 // buildFields lists every field of section with the values each settings
 // spec in items gives it.
-func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, global bool) []SettingField {
+func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg *config.Config, root string, global bool) []SettingField {
 	defs := settingsFields[section]
 	if defs == nil {
 		return nil
@@ -68,7 +68,10 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}
 		}
 		if section == SectionSettings && !d.prefix && cfg != nil {
-			edit := &FieldEdit{Kind: "text"}
+			edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
+			if global {
+				edit.SyncCommand = "agnostic-ai sync --global"
+			}
 			if d.key == "session-retention-days" {
 				edit.Kind = "number"
 				if !global {
@@ -114,7 +117,7 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 					if global {
 						edit.Path = "settings/defaults.yaml"
 					} else {
-						edit.Path = filepath.ToSlash(filepath.Join(cfg.Sources.Settings, "defaults.yaml"))
+						edit.Path = displayPath(root, filepath.Join(config.ResolveSourcePath(root, cfg.Sources.Settings), "defaults.yaml"))
 					}
 				} else if len(edit.Paths) == 1 {
 					edit.Path = edit.Paths[0]

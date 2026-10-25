@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -22,6 +23,8 @@ import (
 // The marker distinguishes a server-created scaffold from a user-created one
 // with the same YAML values. Only the former is removed when emptied.
 const fieldCreatedMarker = "# Created by agnostic-ai serve.\n"
+
+const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
 
 // fieldEdit resolves an editable source spec, never an arbitrary client path.
 func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
@@ -74,7 +77,7 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 	var file string
 	defaultFile := filepath.Join(h.root, "settings", "defaults.yaml")
 	if !h.global {
-		defaultFile = filepath.Join(h.root, scope.cfg.Sources.Settings, "defaults.yaml")
+		defaultFile = filepath.Join(config.ResolveSourcePath(h.root, scope.cfg.Sources.Settings), "defaults.yaml")
 	}
 	defaultShown := overviewDisplay(h.root, defaultFile)
 	if shown != "" {
@@ -122,7 +125,7 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 	}
 	return file, func(data []byte) ([]byte, error) {
 		if len(data) == 0 {
-			data = []byte(fieldCreatedMarker + newSpecTemplate(string(spec.KindSettings), "defaults"))
+			data = []byte(fieldCreatedSpec)
 		}
 		out, err := setScalarField(data, key, value)
 		if err == nil && len(bytes.TrimSpace(out)) == 0 && !bytes.HasPrefix(data, []byte(fieldCreatedMarker)) {
@@ -240,7 +243,7 @@ func setScalarField(data []byte, key string, value any) ([]byte, error) {
 	if !reflect.DeepEqual(expected, actual) {
 		return nil, errors.New("the edit changes other values")
 	}
-	if value == nil && len(actual) == 2 && actual["name"] == "defaults" && actual["description"] == "TODO describe this settings group." && string(out) == fieldCreatedMarker+newSpecTemplate(string(spec.KindSettings), "defaults") {
+	if value == nil && string(out) == fieldCreatedSpec {
 		return nil, nil
 	}
 	return out, nil

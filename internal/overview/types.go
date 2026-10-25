@@ -72,6 +72,7 @@ type FieldEdit struct {
 	Kind           string   `json:"kind"`
 	Allowed        []string `json:"allowed,omitempty"`
 	DisabledReason string   `json:"disabledReason,omitempty"`
+	SyncCommand    string   `json:"syncCommand,omitempty"`
 }
 
 // FieldSource is one spec's values for a field.

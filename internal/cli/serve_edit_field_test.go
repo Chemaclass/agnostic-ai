@@ -280,3 +280,23 @@ func TestEditField_PackValueSavesToProjectDefault(t *testing.T) {
 		t.Fatalf("pack changed: %s", data)
 	}
 }
+
+func TestEditField_AbsoluteSettingsSourceAndDescribedScaffold(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	settings := filepath.Join(t.TempDir(), "settings")
+	testutil.Chdir(t, project)
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  settings: "+filepath.ToSlash(settings)+"\n")
+	shown := filepath.ToSlash(filepath.Join(settings, "defaults.yaml"))
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"path":"`+shown+`","key":"model","value":"sonnet"}`, nil)
+	if rec.Code != 200 {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	data, err := os.ReadFile(filepath.Join(settings, "defaults.yaml"))
+	if err != nil || !strings.Contains(string(data), "model: sonnet") || strings.Contains(string(data), "TODO") {
+		t.Fatalf("defaults = %s %v", data, err)
+	}
+	if _, err := os.Stat(filepath.Join(project, strings.TrimPrefix(settings, filepath.VolumeName(settings)))); !os.IsNotExist(err) {
+		t.Fatalf("wrote under the project: %v", err)
+	}
+}
