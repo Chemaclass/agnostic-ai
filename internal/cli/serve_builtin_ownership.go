@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
@@ -210,28 +211,58 @@ func builtinRedirectsMemory(root string, cfg *config.Config, reports []driftRepo
 	return false, nil
 }
 
-func validateBuiltinMemoryExclusion(root string, cfg *config.Config, desired map[string][]byte) error {
+// planBuiltinMemoryExclusion returns the info/exclude update sync makes
+// for private memory settings, or an empty path when none is needed.
+func planBuiltinMemoryExclusion(root string, cfg *config.Config, desired map[string][]byte) (string, []byte, error) {
 	if !slices.Contains(cfg.Builtins, "memory") || !slices.Contains(cfg.Targets, "claude") {
-		return nil
+		return "", nil, nil
 	}
-	path := filepath.ToSlash(filepath.Join(claudeLayoutFor(cfg).dir, "settings.local.json"))
+	dir := claudeLayoutFor(cfg).dir
+	path := filepath.ToSlash(filepath.Join(dir, "settings.local.json"))
 	data, planned := desired[path]
 	if !planned || !bytes.Contains(data, []byte(`"autoMemoryDirectory"`)) {
-		return nil
+		return "", nil, nil
 	}
 	if tracked, err := gitquery.Tracked(root, path); err == nil && tracked {
-		return fmt.Errorf("%s: private memory settings are tracked by Git; review them and use CLI sync", path)
+		return "", nil, fmt.Errorf("%s: private memory settings are tracked by Git; review them and use CLI sync", path)
 	}
 	if !gitWouldTrack(root, path) {
-		return nil
+		return "", nil, nil
 	}
 	if filepath.Clean(gitignoreRel(cfg)) == ".gitignore" {
 		for _, entry := range managedBlockLines(string(desired[".gitignore"])) {
 			entry = strings.TrimPrefix(entry, "/")
 			if entry == path || strings.HasSuffix(entry, "/") && strings.HasPrefix(path, entry) {
-				return nil
+				return "", nil, nil
 			}
 		}
 	}
-	return fmt.Errorf("%s: private memory settings need a Git exclusion outside this preview; use agnostic-ai sync in the CLI", path)
+	unavailable := fmt.Errorf("%s: private memory settings need a Git exclusion outside this project; use agnostic-ai sync in the CLI", path)
+	exclude, ok := adapters.GitExcludePath()
+	if !ok {
+		return "", nil, unavailable
+	}
+	// A linked worktree keeps info/exclude in its main checkout's Git folder.
+	gitDir := filepath.Dir(filepath.Dir(exclude))
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", nil, fmt.Errorf("%s: %w", root, err)
+	}
+	rel, err := filepath.Rel(canonicalDir(absRoot), filepath.Join(canonicalDir(gitDir), "info", "exclude"))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", nil, unavailable
+	}
+	rel = filepath.ToSlash(rel)
+	if err := builtinSafeParents(root, filepath.Join(root, filepath.FromSlash(rel))); err != nil {
+		return "", nil, unavailable
+	}
+	current, err := snapshotEditFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return "", nil, err
+	}
+	updated, changed := adapters.WithGitExclusion(current.data, claude.AutoMemoryGitExclusion(dir))
+	if !changed {
+		return "", nil, nil
+	}
+	return rel, updated, nil
 }

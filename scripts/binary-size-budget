@@ -432,4 +432,8 @@
 # 0503f2ba (23306400): guarded scalar settings edits that pick the spec in
 # effect across packs and targets, and the embedded form.
 # Linux amd64 release flags; no added dependencies or headroom.
-23343264
+# #2486 measured 23351456 on Go 1.27.3, up 8192 from main e2ab33bb
+# (23343264): the memory built-in preview adds the info/exclude line sync
+# writes for Claude's private settings. Same Linux amd64 release flags;
+# no added headroom or dependencies.
+23351456
