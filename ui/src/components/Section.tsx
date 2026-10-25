@@ -155,6 +155,7 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
 }
 
 function FieldList({ fields }: { fields: SettingField[] }) {
+  const app = useApp()
   return (
     <ul className="fields">
       {fields.map((f) => (
@@ -165,7 +166,7 @@ function FieldList({ fields }: { fields: SettingField[] }) {
             <p className="muted">{f.description}</p>
           </div>
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
-          {f.set.map((src) => (
+          {!(app.source.kind === 'api' && f.key !== 'x-' && f.set.length === 1 && f.editable && !f.editable.disabledReason) && f.set.map((src) => (
             <div key={src.spec} className="field-source">
               {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
               <p className="muted field-from">
@@ -209,14 +210,21 @@ function FieldEditControl({ field }: { field: SettingField }) {
     } finally { setPending(false) }
   }
   const configured = field.set.some((source) => source.path === path && source.values.some((entry) => entry.key === field.key))
+  const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   return <div className="field-edit">
-    {paths.length > 1 && <label>Settings file <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
-    <label>{field.label} <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending} /></label>
-    {edit.allowed && edit.allowed.length > 0 && <p className="muted">Accepted values: {edit.allowed.join(', ')}</p>}
-    <button type="button" className="button" disabled={pending || !value.trim()} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
-    {configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
+    <div className="field-edit-row">
+      {edit.allowed && edit.allowed.length > 0
+        ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending}>
+          {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
+          {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+        : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={pending} />}
+      <button type="button" className="button button-primary" disabled={pending || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
+      {configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
+    </div>
+    {paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</span>}
-    <p className="muted">Saves the source file. Run <Code>{edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`}</Code> to apply it.</p>
+    <p className="muted field-edit-hint">{configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}Run <Code>{syncCommand}</Code> to apply.</p>
   </div>
 }
 
