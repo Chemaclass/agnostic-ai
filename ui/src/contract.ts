@@ -567,7 +567,7 @@ export interface OverviewView {
 //   POST /api/views/authority/impact                      → ImpactResult (body: Proposal)
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
-//   GET  /api/health                                      → { ok, revision }
+//   GET  /api/health                                      → { ok, root, global, ui }
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
