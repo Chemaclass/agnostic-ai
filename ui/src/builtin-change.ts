@@ -9,12 +9,14 @@ export interface BuiltinFileChange {
 export interface BuiltinChange {
   status: 'idle' | 'proposed' | 'applied' | 'undone'
   id?: string
+  name?: string
   enabled: boolean
   config?: string
   targets: string[]
   changes: BuiltinFileChange[]
   findings: string[]
   undoId?: string
+  undoName?: string
   undoAvailable: boolean
   supported: boolean
 }
@@ -27,25 +29,31 @@ function strings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
+function nonempty(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
 function fileChange(value: unknown): value is BuiltinFileChange {
   return object(value) && typeof value.path === 'string' && typeof value.diff === 'string'
     && (value.action === 'create' || value.action === 'update' || value.action === 'delete')
 }
 
 export function parseBuiltinChange(value: unknown): BuiltinChange {
-  if (!object(value) || value.schemaVersion !== 'builtin-change/v1' || value.name !== 'caveman'
+  if (!object(value) || value.schemaVersion !== 'builtin-change/v1'
     || (value.status !== 'idle' && value.status !== 'proposed' && value.status !== 'applied' && value.status !== 'undone')
     || typeof value.enabled !== 'boolean' || typeof value.supported !== 'boolean' || typeof value.undoAvailable !== 'boolean'
     || !strings(value.targets) || !strings(value.findings) || !Array.isArray(value.changes) || !value.changes.every(fileChange)
-    || (value.id !== undefined && typeof value.id !== 'string') || (value.config !== undefined && typeof value.config !== 'string')
-    || (value.undoId !== undefined && typeof value.undoId !== 'string')
+    || (value.name !== undefined && !nonempty(value.name)) || (value.status !== 'idle' && !nonempty(value.name))
+    || (value.id !== undefined && !nonempty(value.id)) || (value.config !== undefined && typeof value.config !== 'string')
+    || (value.undoId !== undefined && (!nonempty(value.undoId) || !value.undoAvailable))
+    || (value.undoName !== undefined && (!nonempty(value.undoName) || !value.undoAvailable || !value.undoId))
     || (value.status === 'proposed' && !value.id) || (value.undoAvailable && !value.undoId)) {
     throw new Error('The server returned an invalid change. Reload before trying again.')
   }
   return {
-    status: value.status, id: value.id, enabled: value.enabled, config: value.config,
+    status: value.status, id: value.id, name: value.name, enabled: value.enabled, config: value.config,
     targets: value.targets, changes: value.changes, findings: value.findings,
-    undoId: value.undoId, undoAvailable: value.undoAvailable, supported: value.supported,
+    undoId: value.undoId, undoName: value.undoName, undoAvailable: value.undoAvailable, supported: value.supported,
   }
 }
 

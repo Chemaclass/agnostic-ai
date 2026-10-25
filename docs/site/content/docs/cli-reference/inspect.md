@@ -321,9 +321,11 @@ Tool lists use logos. Hover over a logo for the tool's full name.
 
 Source files appear in compact lists with their paths and edit links. Settings shows configured fields first; expand **Unconfigured fields** for the rest. Empty lifecycle stages keep their tool logos and put their descriptions under **When this runs**. A findings summary links to the full warnings below the controls; errors stay above them.
 
-In a project, the Caveman switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Other built-ins, global built-ins, and boolean settings save their source files without syncing.
+In a project, each built-in switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Previewing or cancelling another built-in keeps that undo; applying another replaces it. Global built-ins and boolean settings save their source files without syncing. Run `agnostic-ai sync --global` to apply global changes to your tools.
 
-Run `agnostic-ai sync` before the first Caveman preview. Existing drift, external adapters, paths outside the project, and linked skill folders require the CLI. A changed input or output blocks apply or undo and asks for a fresh preview. Failed writes restore files still owned by the operation; a recovery error names the files it kept and directs you to `agnostic-ai doctor`. Undo expires when the server stops. A browser reload keeps it available.
+Run `agnostic-ai sync` before the first project preview. Pending source changes appear in the same preview when files are missing or their current contents match sync's recorded checksums. Hand edits and files without ownership records require CLI review. Undo can restore the pending changes that existed before apply.
+
+External adapters, paths outside the project, linked skill folders, and memory changes that need fact migration or external storage setup require CLI sync. A changed input or output blocks apply or undo and asks for a fresh preview. Failed writes restore files still owned by the operation; a recovery error names the files it kept and directs you to `agnostic-ai doctor`. Undo expires when the server stops. A browser reload keeps it available.
 
 Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
 
@@ -348,7 +350,7 @@ agnostic-ai serve --api-only
 
 Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{name, enabled}`), `POST /api/edit/value` (`{path, key, value}`), and `GET /api/health`.
 
-Caveman change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "caveman", enabled: true|false}`, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
+Project built-in change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{name: "handoff", enabled: true|false}` for any shipped built-in, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
 
 ## mcp tools
 

@@ -14,12 +14,27 @@ describe('builtin change contract', () => {
 
   it.each([
     { schemaVersion: 'builtin-change/v2' }, { id: undefined }, { changes: [{}] },
+    { name: '' }, { name: '  ' }, { name: undefined }, { undoName: '' }, { undoName: 'handoff' },
+    { undoId: '' }, { undoId: 'orphan' }, { undoName: 1 },
     { undoAvailable: true }, { targets: [1] }, { findings: 'warning' }, { status: 'applied-anyway' },
   ])('refuses an unsafe response %j', (change) => {
     expect(() => parseBuiltinChange({ ...proposal, ...change })).toThrow('invalid change')
   })
 
-  it('keeps the previous successful undo while a new change is proposed', () => {
+  it('keeps the selected built-in and the previous successful undo owner', () => {
+    expect(parseBuiltinChange({ ...proposal, name: 'handoff', undoAvailable: true, undoId: 'previous', undoName: 'caveman' }))
+      .toMatchObject({ name: 'handoff', undoId: 'previous', undoName: 'caveman' })
+  })
+
+  it('accepts a new server built-in without maintaining a client catalog', () => {
+    expect(parseBuiltinChange({ ...proposal, name: 'new-builtin' }).name).toBe('new-builtin')
+  })
+
+  it('accepts idle state without a selected built-in', () => {
+    expect(parseBuiltinChange({ ...proposal, status: 'idle', name: undefined, id: undefined }).status).toBe('idle')
+  })
+
+  it('accepts older undo metadata without an owner', () => {
     expect(parseBuiltinChange({ ...proposal, undoAvailable: true, undoId: 'previous' }).undoId).toBe('previous')
   })
 })

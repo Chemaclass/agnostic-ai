@@ -11,6 +11,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/builtins"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
 func builtinChangeProject(t *testing.T) string {
@@ -30,7 +35,12 @@ func builtinChangeProject(t *testing.T) string {
 
 func builtinProposal(t *testing.T, h http.Handler, enabled bool) builtinChangeView {
 	t.Helper()
-	body, _ := json.Marshal(map[string]any{"name": "caveman", "enabled": enabled})
+	return builtinNamedProposal(t, h, "caveman", enabled)
+}
+
+func builtinNamedProposal(t *testing.T, h http.Handler, name string, enabled bool) builtinChangeView {
+	t.Helper()
+	body, _ := json.Marshal(map[string]any{"name": name, "enabled": enabled})
 	rec := postEdit(t, h, builtinPreviewPath, string(body), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
@@ -130,45 +140,49 @@ func TestBuiltinChanges_UndoKeepsInterveningOutputEdit(t *testing.T) {
 }
 
 func TestBuiltinChanges_EnableDisableMatchesOrdinarySync(t *testing.T) {
-	root := builtinChangeProject(t)
-	h := newBuiltinChangeHandler(root, false)
-	for _, enabled := range []bool{true, false} {
-		proposal := builtinProposal(t, h, enabled)
-		builtinAction(t, h, builtinApplyPath, proposal.ID)
-		before, err := snapshotBuiltinProject(root, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		state := readStateFile(".")
-		if out, err := runCLI(t, "sync"); err != nil {
-			t.Fatalf("sync: %v\n%s", err, out)
-		}
-		after, err := snapshotBuiltinProject(root, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		delete(before.files, filepath.ToSlash(stateFilePath(".")))
-		delete(after.files, filepath.ToSlash(stateFilePath(".")))
-		if !before.sameContent(after) {
-			t.Errorf("enabled %v: ordinary sync changed planned native files", enabled)
-			for path, a := range before.files {
-				b := after.files[path]
-				if !bytes.Equal(a.data, b.data) {
-					t.Logf("content changed %s: before len %d after len %d", path, len(a.data), len(b.data))
+	for _, name := range builtins.Names() {
+		t.Run(name, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			h := newBuiltinChangeHandler(root, false)
+			for _, enabled := range []bool{true, false} {
+				proposal := builtinNamedProposal(t, h, name, enabled)
+				builtinAction(t, h, builtinApplyPath, proposal.ID)
+				before, err := snapshotBuiltinProject(root, nil)
+				if err != nil {
+					t.Fatal(err)
 				}
-				if a.info != nil && b.info != nil && a.info.Mode() != b.info.Mode() {
-					t.Logf("mode changed %s: %v -> %v", path, a.info.Mode(), b.info.Mode())
+				state := readStateFile(".")
+				if out, err := runCLI(t, "sync"); err != nil {
+					t.Fatalf("sync: %v\n%s", err, out)
+				}
+				after, err := snapshotBuiltinProject(root, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				delete(before.files, filepath.ToSlash(stateFilePath(".")))
+				delete(after.files, filepath.ToSlash(stateFilePath(".")))
+				if !before.sameContent(after) {
+					t.Errorf("enabled %v: ordinary sync changed planned native files", enabled)
+					for path, a := range before.files {
+						b := after.files[path]
+						if !bytes.Equal(a.data, b.data) {
+							t.Logf("content changed %s: before len %d after len %d", path, len(a.data), len(b.data))
+						}
+						if a.info != nil && b.info != nil && a.info.Mode() != b.info.Mode() {
+							t.Logf("mode changed %s: %v -> %v", path, a.info.Mode(), b.info.Mode())
+						}
+					}
+				}
+				stateAfter := readStateFile(".")
+				state.SyncedAt = stateAfter.SyncedAt
+				state.FilesChanged = stateAfter.FilesChanged
+				a, _ := json.Marshal(state)
+				b, _ := json.Marshal(stateAfter)
+				if !bytes.Equal(a, b) {
+					t.Errorf("enabled %v: ledger differs from sync\nbefore: %s\nafter: %s", enabled, a, b)
 				}
 			}
-		}
-		stateAfter := readStateFile(".")
-		state.SyncedAt = stateAfter.SyncedAt
-		state.FilesChanged = stateAfter.FilesChanged
-		a, _ := json.Marshal(state)
-		b, _ := json.Marshal(stateAfter)
-		if !bytes.Equal(a, b) {
-			t.Errorf("enabled %v: ledger differs from sync\nbefore: %s\nafter: %s", enabled, a, b)
-		}
+		})
 	}
 }
 
@@ -359,7 +373,7 @@ func TestBuiltinChanges_RejectsUnsafeProjectsBeforeWriting(t *testing.T) {
 		{"external adapter", "version: 1\ntargets: [external-tool]\nbuiltins: []\n"},
 		{"external output", "version: 1\ntargets: [claude]\nbuiltins: []\noutputs:\n  claude:\n    rules-file: ../outside.md\n"},
 		{"linked skills", "version: 1\ntargets: [claude]\nbuiltins: []\nsync:\n  shared-skills: true\n"},
-		{"unsupported skill", "version: 1\ntargets: [aider]\nbuiltins: []\non-unsupported: error\n"},
+		{"unsupported skill", "version: 1\ntargets: [jules]\nbuiltins: []\non-unsupported: error\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := builtinChangeProject(t)
@@ -489,7 +503,7 @@ func TestBuiltinChanges_RequestBoundaries(t *testing.T) {
 			}
 		})
 	}
-	for _, body := range []string{`{"name":"caveman"}`, `{"name":"memory","enabled":true}`, `{"name":"caveman","enabled":true,"unknown":1}`, `{"name":"caveman","enabled":true} {}`} {
+	for _, body := range []string{`{"name":"caveman"}`, `{"name":"unknown","enabled":true}`, `{"name":"caveman","enabled":true,"unknown":1}`, `{"name":"caveman","enabled":true} {}`} {
 		rec := postEdit(t, h, builtinPreviewPath, body, nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("invalid body = %d: %s", rec.Code, rec.Body)
@@ -783,7 +797,7 @@ func TestBuiltinChanges_NativePathsUseRecordedSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := planBuiltinChange(root, true)
+	plan, err := planBuiltinChange(root, "caveman", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -849,5 +863,273 @@ func TestBuiltinChanges_AnchoredSnapshotRejectsIdenticalReplacement(t *testing.T
 	}
 	if err := checkBuiltinFile(anchored, path, before); err == nil {
 		t.Error("accepted replacement with different identity despite equal bytes, mode, and time")
+	}
+}
+
+func TestBuiltinChanges_AllBuiltinsEnableDisableUndo(t *testing.T) {
+	for _, name := range builtins.Names() {
+		t.Run(name, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			h := newBuiltinChangeHandler(root, false)
+			for _, enabled := range []bool{true, false} {
+				before, err := snapshotBuiltinProject(root, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				proposal := builtinNamedProposal(t, h, name, enabled)
+				if proposal.Name != name {
+					t.Errorf("name = %q", proposal.Name)
+				}
+				applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+				if applied.UndoName != name {
+					t.Errorf("undo name = %q", applied.UndoName)
+				}
+				if out, err := runCLI(t, "sync", "--check"); err != nil {
+					t.Fatalf("check: %v\n%s", err, out)
+				}
+				builtinAction(t, h, builtinUndoPath, applied.ID)
+				after, err := snapshotBuiltinProject(root, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !before.sameContent(after) {
+					t.Fatal("undo changed original bytes/modes")
+				}
+				builtinAction(t, h, builtinApplyPath, builtinNamedProposal(t, h, name, enabled).ID)
+			}
+		})
+	}
+}
+
+func TestBuiltinChanges_PendingHandoffIncludedAndUndoRestoresDrift(t *testing.T) {
+	root := builtinChangeProject(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [handoff]\n")
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newBuiltinChangeHandler(root, false)
+	proposal := builtinProposal(t, h, true)
+	if !strings.Contains(strings.Join(proposal.Findings, " "), "pending source changes") {
+		t.Error("missing pending update finding")
+	}
+	if err := before.check(root); err != nil {
+		t.Fatalf("preview wrote: %v", err)
+	}
+	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
+	}
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	after, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !before.sameContent(after) {
+		t.Error("undo did not restore pending drift")
+	}
+}
+
+func TestBuiltinChanges_RefusesUnprovenOutputWrites(t *testing.T) {
+	for _, kind := range []string{"edited", "missing checksum", "new collision", "edited manifest"} {
+		t.Run(kind, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			path := "AGENTS.md"
+			switch kind {
+			case "new collision":
+				path = ".claude/skills/caveman/SKILL.md"
+				mustWriteFile(t, path, "User file.\n")
+			case "edited manifest":
+				mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: []\nsync:\n  output-manifest: true\n")
+				if out, err := runCLI(t, "sync"); err != nil {
+					t.Fatalf("sync: %v\n%s", err, out)
+				}
+				path = outputManifestPath
+				mustWriteFile(t, path, "User file.\n")
+			case "edited":
+				mustWriteFile(t, path, "User file.\n")
+			case "missing checksum":
+				state := readStateFile(".")
+				delete(state.OutputSums, path)
+				data, err := json.Marshal(state)
+				if err != nil {
+					t.Fatal(err)
+				}
+				mustWriteFile(t, stateFilePath("."), string(data))
+			}
+			mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "Changed source.\n")
+			before, err := snapshotBuiltinProject(root, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := newBuiltinChangeHandler(root, false)
+			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), path) {
+				t.Fatalf("unproven write: %d %s", rec.Code, rec.Body)
+			}
+			if err := before.check(root); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestBuiltinChanges_HandoffThenCavemanKeepsOneUndoOwner(t *testing.T) {
+	root := builtinChangeProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	first := builtinAction(t, h, builtinApplyPath, builtinNamedProposal(t, h, "handoff", true).ID)
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := builtinProposal(t, h, true)
+	if second.Name != "caveman" || second.UndoName != "handoff" || second.UndoID != first.ID {
+		t.Fatalf("proposal owners = %+v", second)
+	}
+	applied := builtinAction(t, h, builtinApplyPath, second.ID)
+	if applied.UndoName != "caveman" || applied.UndoID != second.ID {
+		t.Fatalf("applied owners = %+v", applied)
+	}
+	rec := postEdit(t, h, builtinUndoPath, `{"id":"`+first.ID+`"}`, nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("old undo: %d %s", rec.Code, rec.Body)
+	}
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	after, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !before.sameContent(after) {
+		t.Error("undo did not retain first built-in")
+	}
+}
+
+func TestBuiltinChanges_LastHookReleasePreservesUserSettings(t *testing.T) {
+	for _, name := range []string{"rtk", "handoff-hook"} {
+		t.Run(name, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			original := "{\n  \"theme\": \"dark\"\n}\n"
+			mustWriteFile(t, ".claude/settings.json", original)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: ["+name+"]\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			before, err := snapshotBuiltinProject(root, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := newBuiltinChangeHandler(root, false)
+			applied := builtinAction(t, h, builtinApplyPath, builtinNamedProposal(t, h, name, false).ID)
+			data, err := os.ReadFile(".claude/settings.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != original {
+				t.Errorf("user settings changed: %s", data)
+			}
+			if _, ok := readStateFile(".").Merged[".claude/settings.json"]; ok {
+				t.Error("released settings still claimed")
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Fatalf("check: %v\n%s", err, out)
+			}
+			builtinAction(t, h, builtinUndoPath, applied.ID)
+			after, err := snapshotBuiltinProject(root, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !before.sameContent(after) {
+				t.Error("undo changed hook settings")
+			}
+		})
+	}
+}
+
+func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
+	for _, kind := range []string{"native fact", "native fact BOM", "native index", "repo fact", "external store", "private exclusion"} {
+		t.Run(kind, func(t *testing.T) {
+			root := builtinChangeProject(t)
+			switch kind {
+			case "native fact", "native fact BOM", "native index":
+				if kind == "native fact BOM" {
+					mustWriteFile(t, ".claude/settings.local.json", "\xef\xbb\xbf{}\n")
+					if out, err := runCLI(t, "sync"); err != nil {
+						t.Fatalf("sync: %v\n%s", err, out)
+					}
+				}
+				native, _, err := adapters.NativeMemoryDir("claude", root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if kind == "native fact" || kind == "native fact BOM" {
+					mustWriteFile(t, filepath.Join(native, "fact.md"), "A saved fact.\n")
+				} else {
+					mustWriteFile(t, filepath.Join(native, "MEMORY.md"), "A saved note in the index.\n")
+				}
+			case "repo fact", "external store", "private exclusion":
+				if _, err := gitquery.LayoutAt(root); err == nil {
+					t.Fatal("fixture already belongs to a Git repository")
+				}
+				git(t, root, "init", "--quiet")
+				gitquery.Reset()
+				switch kind {
+				case "repo fact":
+					store, err := adapters.PersonalMemoryDir(&config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}, root)
+					if err != nil {
+						t.Fatal(err)
+					}
+					mustWriteFile(t, filepath.Join(store, "fact.md"), "A saved repository fact.\n")
+				case "external store":
+					mustWriteFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+				case "private exclusion":
+					mustWriteFile(t, "agnostic-ai.local.yaml", "gitignore:\n  enabled: false\n")
+				}
+			}
+			before, err := snapshotBuiltinProject(root, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			home, err := snapshotBuiltinProject(os.Getenv("HOME"), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := newBuiltinChangeHandler(root, false)
+			rec := postEdit(t, h, builtinPreviewPath, `{"name":"memory","enabled":true}`, nil)
+			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "CLI") {
+				t.Fatalf("unsafe memory preview: %d %s", rec.Code, rec.Body)
+			}
+			if kind == "native fact BOM" && !strings.Contains(rec.Body.String(), "existing memory needs migration") {
+				t.Fatalf("BOM settings bypassed memory migration check: %d %s", rec.Code, rec.Body)
+			}
+			if err := before.check(root); err != nil {
+				t.Error(err)
+			}
+			if err := home.check(os.Getenv("HOME")); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestBuiltinChanges_UnchangedUserMemoryDirectoryDoesNotRequireNativeMigration(t *testing.T) {
+	root := builtinChangeProject(t)
+	mustWriteFile(t, ".claude/settings.local.json", `{"autoMemoryDirectory":"/user/memory"}`+"\n")
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nbuiltins: [memory]\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	native, _, err := adapters.NativeMemoryDir("claude", root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(native, "fact.md"), "A saved native fact.\n")
+	h := newBuiltinChangeHandler(root, false)
+	builtinAction(t, h, builtinApplyPath, builtinProposal(t, h, true).ID)
+	data, err := os.ReadFile(".claude/settings.local.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"autoMemoryDirectory":"/user/memory"}`+"\n" {
+		t.Errorf("user memory setting changed: %s", data)
 	}
 }

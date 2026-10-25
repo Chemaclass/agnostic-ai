@@ -3,7 +3,7 @@ import { API, type ItemFinding, type OverviewView, type Section, type SectionIte
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
-import { CavemanChange } from './BuiltinChange'
+import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
 import { cursorUrl } from '../model/editor'
 import { findingFixPrompt } from '../model/finding-prompt'
 import type { Remote } from './Shell'
@@ -44,6 +44,10 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
 }
 
 export function SectionContents({ section }: { section: Section }) {
+  return <BuiltinChangeProvider active={section.items.some((item) => item.kind === 'builtin')}><SectionContentsBody section={section} /></BuiltinChangeProvider>
+}
+
+function SectionContentsBody({ section }: { section: Section }) {
   const [search, setSearch] = useState('')
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
@@ -112,6 +116,7 @@ export function SectionContents({ section }: { section: Section }) {
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
             </h2>
+            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
@@ -245,8 +250,8 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
           <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
-            {item.name === 'caveman' && item.enabled !== undefined
-              ? <CavemanChange on={item.enabled} fallback={control} renderHeading={heading} />
+            {item.kind === 'builtin' && item.enabled !== undefined
+              ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} fallback={control} renderHeading={heading} />
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
             {item.tools && <Tools listing={item.tools} />}

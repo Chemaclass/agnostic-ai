@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -33,11 +34,18 @@ type builtinChangePlan struct {
 	changes []builtinFileChange
 }
 
-func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
+func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, error) {
 	defer adapters.SetAsideNotes()()
 	initial, err := snapshotBuiltinProject(root, []string{config.ConfigFileName, config.LegacyConfigFileName, config.LocalOverrideFileName, stateFilePath(".")})
 	if err != nil {
 		return nil, err
+	}
+	lockPath := filepath.Join(root, ".agnostic-ai", projectLockName)
+	if err := builtinSafeParents(root, lockPath); err != nil {
+		return nil, err
+	}
+	if info, err := os.Lstat(lockPath); err != nil || !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s: project lock is unavailable; run agnostic-ai sync first", lockPath)
 	}
 	cfg, err := config.Load(".")
 	if err != nil {
@@ -48,11 +56,14 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 			return nil, fmt.Errorf("%s: web changes require built-in adapters; use the CLI to change this project", target)
 		}
 	}
-	if cfg.Sync.SharedSkills {
-		return nil, fmt.Errorf("sync.shared-skills: web changes do not replace linked skill folders; use the CLI to change Caveman")
+	if err := validateBuiltinConfigPaths(root, cfg); err != nil {
+		return nil, err
 	}
-	if slices.Contains(cfg.Builtins, "caveman") == enabled {
-		return nil, fmt.Errorf("caveman already has the requested value; refresh the overview")
+	if cfg.Sync.SharedSkills {
+		return nil, fmt.Errorf("sync.shared-skills: web changes do not replace linked skill folders; use the CLI to change built-ins")
+	}
+	if slices.Contains(cfg.Builtins, name) == enabled {
+		return nil, fmt.Errorf("%s already has the requested value; refresh the overview", name)
 	}
 	previous, err := readStateFileStrict(".")
 	if err != nil {
@@ -90,8 +101,8 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	if err != nil {
 		return nil, err
 	}
-	if slices.ContainsFunc(baseline, func(r driftReport) bool { return r.hasDrift() }) {
-		return nil, fmt.Errorf("generated files differ from the sources; run agnostic-ai doctor and sync before previewing a web change")
+	if err := validateBuiltinOutputs(root, baseline, previous); err != nil {
+		return nil, err
 	}
 	edit := &editHandler{root: root}
 	configPath, err := builtinRelativePath(root, edit.builtinsFile())
@@ -102,15 +113,15 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	if err != nil {
 		return nil, err
 	}
-	edited, err := setBuiltin(original.data, "caveman", enabled)
+	edited, err := setBuiltin(original.data, name, enabled)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
 	cfg.Builtins = slices.Clone(cfg.Builtins)
 	if enabled {
-		cfg.Builtins = append(cfg.Builtins, "caveman")
+		cfg.Builtins = append(cfg.Builtins, name)
 	} else {
-		cfg.Builtins = slices.DeleteFunc(cfg.Builtins, func(name string) bool { return name == "caveman" })
+		cfg.Builtins = slices.DeleteFunc(cfg.Builtins, func(current string) bool { return current == name })
 	}
 	layers, err := resolveLayers(".", cfg)
 	if err != nil {
@@ -134,10 +145,35 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateBuiltinMemory(root, cfg, reports); err != nil {
+		return nil, err
+	}
+	outputBefore, err := snapshotBuiltinProject(root, driftGeneratedPaths(reports))
+	if err != nil {
+		return nil, err
+	}
+	if err := validateBuiltinOutputs(root, reports, previous); err != nil {
+		return nil, err
+	}
+	if slices.Contains(cfg.Targets, "codex") {
+		hooksPath := codex.HooksFilePath(cfg)
+		for _, report := range reports {
+			for _, files := range [][]adapters.CapturedFile{report.Current, report.Missing, report.Stale, report.Edited} {
+				for _, file := range files {
+					if file.Path == hooksPath {
+						codex.NoteHookTrust(hooksPath, []byte(file.Content))
+					}
+				}
+			}
+		}
+	}
 	if _, err := applyCoverageAccept(cfg, cfg.Targets); err != nil {
 		return nil, err
 	}
-	plan := &builtinChangePlan{view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: "caveman", Enabled: enabled, Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
+	plan := &builtinChangePlan{view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: name, Enabled: enabled, Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
+	if slices.ContainsFunc(baseline, func(r driftReport) bool { return r.hasDrift() }) {
+		plan.view.Findings = append(plan.view.Findings, "This preview also applies pending source changes.")
+	}
 	for _, drop := range append(adapters.PendingCapabilityWarnings(), adapters.PendingCoverageNotes()...) {
 		plan.view.Findings = append(plan.view.Findings, preview.RedactText(drop.Target+": "+drop.Message))
 	}
@@ -147,9 +183,6 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	merged := map[string]mergedOutput{}
 	var outputs []string
 	for _, report := range reports {
-		if len(report.Blocking) > 0 || len(report.Orphaned) > 0 || report.Unledgered {
-			return nil, fmt.Errorf("%s: output ownership needs manual review; run agnostic-ai doctor before changing Caveman", report.Target)
-		}
 		for _, files := range [][]adapters.CapturedFile{report.Current, report.Missing, report.Stale, report.Edited} {
 			for _, file := range files {
 				path, err := builtinRelativePath(root, file.Path)
@@ -161,13 +194,26 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 				}
 				desired[path] = []byte(file.Content)
 				if file.Mode != 0 {
+					if old := modes[path]; old != 0 && old != file.Mode {
+						return nil, fmt.Errorf("%s: conflicting planned permissions", path)
+					}
 					modes[path] = file.Mode
 				}
 				inputs = append(inputs, path)
 				sum := adapters.ContentSum(file.Content)
 				sums[file.Path] = sum
 				outputs = append(outputs, file.Path)
-				recordMergedWrites([]adapters.WrittenFile{{Path: file.Path, Action: "skip", Sum: sum, Merged: file.Merged, Keys: file.Keys, Released: file.Released}}, merged)
+				snap, err := snapshotEditFile(filepath.Join(root, path))
+				if err != nil {
+					return nil, err
+				}
+				action := "skip"
+				if snap.info == nil {
+					action = "create"
+				} else if !bytes.Equal(snap.data, []byte(file.Content)) {
+					action = "update"
+				}
+				recordMergedWrites([]adapters.WrittenFile{{Path: file.Path, Action: action, Sum: sum, Merged: file.Merged, Keys: file.Keys, Released: file.Released}}, merged)
 			}
 		}
 		for _, path := range report.Leftover {
@@ -182,10 +228,18 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 			if current.info == nil || previous.OutputSums[path] != adapters.ContentSum(string(current.data)) {
 				return nil, fmt.Errorf("%s: sync cannot prove ownership; use agnostic-ai doctor", rel)
 			}
-			if _, isMerged := previous.Merged[path]; isMerged {
-				return nil, fmt.Errorf("%s: removing merged configuration requires a CLI sync", rel)
+			if ownership, isMerged := previous.Merged[path]; isMerged {
+				data, write, err := captureBuiltinMergedRelease(path, ownership)
+				if err != nil {
+					return nil, err
+				}
+				if write {
+					desired[rel] = data
+				}
+			} else {
+				desired[rel] = nil
 			}
-			desired[rel] = nil
+
 			inputs = append(inputs, rel)
 		}
 	}
@@ -217,6 +271,9 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 		} else if rendered != "" {
 			desired[worktreeIncludeFile] = []byte(rendered)
 		}
+	}
+	if err := validateBuiltinMemoryExclusion(root, cfg, desired); err != nil {
+		return nil, err
 	}
 	baselineSums := specSums(cfg, bundle, cfg.Targets)
 	next := previous
@@ -250,6 +307,9 @@ func planBuiltinChange(root string, enabled bool) (*builtinChangePlan, error) {
 	}
 	plan.inputs, err = snapshotBuiltinProject(root, inputs)
 	if err != nil {
+		return nil, err
+	}
+	if err := outputBefore.check(root); err != nil {
 		return nil, err
 	}
 	if err := before.check(root); err != nil {
