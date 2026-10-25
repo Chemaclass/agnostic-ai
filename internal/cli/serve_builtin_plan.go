@@ -45,8 +45,7 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if err := builtinSafeParents(root, lockPath); err != nil {
 		return nil, err
 	}
-	lockMissing, err := builtinLockMissing(lockPath)
-	if err != nil {
+	if _, err := builtinLockMissing(lockPath); err != nil {
 		return nil, err
 	}
 	cfg, err := config.Load(".")
@@ -249,14 +248,12 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 		outputs = append(outputs, adapters.AgnosticEntryPointPath)
 	}
 	outputs = finalizeLedger(outputs)
-	if lockMissing {
-		// Applying creates the project lock, so add the ignore entries sync writes with it.
-		existing, err := snapshotEditFile(".gitignore")
-		if err != nil {
-			return nil, err
-		}
-		desired[".gitignore"] = []byte(withRuntimeIgnores(string(existing.data)))
+	// Sync adds these ignore entries every time it takes the project lock.
+	rootIgnore, err := snapshotEditFile(".gitignore")
+	if err != nil {
+		return nil, err
 	}
+	desired[".gitignore"] = []byte(withRuntimeIgnores(string(rootIgnore.data)))
 	if resolveGitignore(cfg, "") {
 		block, err := syncManagedBlock(".", cfg, bundle, cfg.Targets, outputs)
 		if err != nil {

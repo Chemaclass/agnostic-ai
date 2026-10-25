@@ -1228,3 +1228,32 @@ func TestBuiltinChanges_UnsyncedProjectRespectsRunningSync(t *testing.T) {
 		t.Fatalf("apply wrote while sync held the lock: %v", err)
 	}
 }
+
+func TestBuiltinChanges_PreviewAfterUndoKeepsLockIgnored(t *testing.T) {
+	root := unsyncedBuiltinProject(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\ngitignore:\n  enabled: false\n")
+	h := newBuiltinChangeHandler(root, false)
+	first := builtinProposal(t, h, true)
+	applied := builtinAction(t, h, builtinApplyPath, first.ID)
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	if _, err := os.Lstat(filepath.Join(root, ".agnostic-ai", projectLockName)); err != nil {
+		t.Fatalf("undo removed the project lock: %v", err)
+	}
+	again := builtinProposal(t, h, true)
+	var ignore *builtinFileChange
+	for i := range again.Changes {
+		if again.Changes[i].Path == ".gitignore" {
+			ignore = &again.Changes[i]
+		}
+	}
+	if ignore == nil || !strings.Contains(ignore.Diff, ".agnostic-ai/"+projectLockName) {
+		t.Fatalf("preview after undo does not ignore the project lock: %+v", again.Changes)
+	}
+	builtinAction(t, h, builtinApplyPath, again.ID)
+	status := git(t, root, "status", "--porcelain", "--untracked-files=all")
+	for _, path := range []string{".agnostic-ai/" + projectLockName, ".agnostic-ai/.sync-state"} {
+		if strings.Contains(status, path) {
+			t.Errorf("%s is not ignored:\n%s", path, status)
+		}
+	}
+}
