@@ -257,3 +257,44 @@ function test_workflow_records_pages_only_after_a_successful_publish() {
   assert_contains "vendor_watch_record" "$step"
   assert_not_contains "if:" "$step"
 }
+
+
+function test_report_explains_suppressed_counters_without_an_actionable_alert() {
+  row junie 'https://plugins.jetbrains.com/api/plugins/26104/updates?size=20' aaa changed >"$FIXTURES/docfetch.tsv"
+  printf 'junie\tdocs\thttps://plugins.jetbrains.com/api/plugins/26104/updates?size=20\tcounter-only:junie-downloads:v1\tpages/junie.delta\n' >"$FIXTURES/deltas.tsv"
+  assert_empty "$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)"
+  row cursor https://cursor.com/docs/rules bbb changed >>"$FIXTURES/docfetch.tsv"
+  local out
+  out=$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)
+  assert_contains 'Suppressed counters' "$out"
+  assert_contains 'counter-only:junie-downloads:v1' "$out"
+  assert_contains 'pages/junie.delta' "$out"
+  assert_not_contains '/target-audit cursor junie' "$out"
+}
+
+function test_report_keeps_historical_entries_and_failed_rows_actionable() {
+  row junie https://example.com/changelog aaa changed >"$FIXTURES/docfetch.tsv"
+  printf 'junie\tdocs\thttps://example.com/changelog\thistorical-additions:v1\tpages/history.delta\n' >"$FIXTURES/deltas.tsv"
+  row zed https://zed.dev/docs - failed 403 >>"$FIXTURES/docfetch.tsv"
+  local out
+  out=$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)
+  assert_contains 'historical additions (unreviewed)' "$out"
+  assert_contains 'failed (HTTP 403)' "$out"
+  assert_contains 'pages/history.delta' "$out"
+}
+
+function test_report_does_not_suppress_a_counter_tag_for_a_different_source_row() {
+  row grok https://example.com/shared aaa changed >"$FIXTURES/docfetch.tsv"
+  printf 'grok\tcode\thttps://example.com/shared\tcounter-only:github-watchers:v1\tpages/tree.delta\n' >"$FIXTURES/deltas.tsv"
+  assert_contains '- changed: https://example.com/shared' "$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)"
+}
+
+function test_report_keeps_unknown_counter_versions_and_missing_delta_evidence_visible() {
+  row junie https://example.com/updates aaa changed >"$FIXTURES/docfetch.tsv"
+  for classification in 'counter-only:junie-downloads:v2' 'counter-only:unknown:v1'; do
+    printf 'junie\tdocs\thttps://example.com/updates\t%s\tpages/junie.delta\n' "$classification" >"$FIXTURES/deltas.tsv"
+    assert_contains '- changed: https://example.com/updates' "$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)"
+  done
+  printf 'junie\tdocs\thttps://example.com/updates\tcounter-only:junie-downloads:v1\t\n' >"$FIXTURES/deltas.tsv"
+  assert_contains '- changed: https://example.com/updates' "$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)"
+}
