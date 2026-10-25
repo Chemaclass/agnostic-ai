@@ -89,6 +89,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				}
 				uiDir = abs
 			}
+			if err := pinGlobalRoot(); err != nil {
+				return err
+			}
 			src, err := openAuthoritySource(dir, global)
 			if err != nil {
 				return err
@@ -181,6 +184,21 @@ func serveScopes(src *authoritySource, base authority.HandlerOptions, installed 
 		scopes = append(scopes, global)
 	}
 	return scopes, nil
+}
+
+// pinGlobalRoot makes a relative $AGNOSTIC_AI_HOME absolute. It names a
+// path from where serve started, and the global scope reads it again on
+// every request, after serve has changed into the project.
+func pinGlobalRoot() error {
+	source := os.Getenv(envUserGlobalRoot)
+	if source == "" || filepath.IsAbs(source) {
+		return nil
+	}
+	abs, err := filepath.Abs(source)
+	if err != nil {
+		return fmt.Errorf("resolve %s %s: %w", envUserGlobalRoot, source, err)
+	}
+	return os.Setenv(envUserGlobalRoot, abs)
 }
 
 // globalServeScope is the user-level configuration. Its handlers read

@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -168,4 +171,34 @@ func TestServeScopes_CavemanUndoStaysInItsScope(t *testing.T) {
 	if undone := builtinAction(t, h, builtinUndoPath+"?scope=project", applied.ID); undone.Status != "undone" {
 		t.Errorf("project undo = %+v", undone)
 	}
+}
+
+func TestServe_ARelativeGlobalHomeStaysWhereServeStarted(t *testing.T) {
+	home := globalOverviewHome(t)
+	project := t.TempDir()
+	writeBareReadProject(t, project)
+	chdir(t, home)
+	t.Setenv("AGNOSTIC_AI_HOME", "source")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var out bytes.Buffer
+	cmd := newServeCmdWithBrowser(func(string) error { return nil })
+	cmd.SetContext(ctx)
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--dir", project, "--addr", "127.0.0.1:0", "--api-only"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range []string{home, resolved} {
+		if strings.Contains(out.String(), "global configuration in "+filepath.Join(root, "source")+" with") {
+			return
+		}
+	}
+	t.Errorf("the global scope does not name %s:\n%s", filepath.Join(home, "source"), out.String())
 }
