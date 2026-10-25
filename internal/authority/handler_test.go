@@ -303,7 +303,11 @@ func canonicalHealthRoot(t *testing.T, root string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return abs
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
 }
 
 func TestHandler_HealthIdentifiesGlobalScope(t *testing.T) {
