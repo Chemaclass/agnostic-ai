@@ -75,7 +75,7 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if d.key == "session-retention-days" {
 				edit.Kind = "number"
 				if !global {
-					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai serve --global."
+					edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
 				}
 			}
 			if d.key == "effort" {

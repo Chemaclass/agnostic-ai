@@ -386,7 +386,7 @@ test.describe('overview', () => {
       editable: { kind: 'text', paths, disabledReason: 'This field has a non-scalar value; edit the spec directly.' },
     })
     Object.assign(field('session-retention-days'), {
-      editable: { kind: 'number', path: paths[0], disabledReason: 'Session retention is written only by sync --global. Open Settings in agnostic-ai serve --global.' },
+      editable: { kind: 'number', path: paths[0], disabledReason: 'Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global.' },
     })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     let edit: unknown
