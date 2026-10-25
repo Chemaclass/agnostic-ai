@@ -506,7 +506,7 @@ test('live Settings edits an unset effort, validates, updates, and clears its ne
     expect(await readFile(created, 'utf8')).toContain('effort: high')
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Update' }).click()
-    await expect(effort).toContainText('low')
+    await expect.poll(() => readFile(created, 'utf8')).toContain('effort: low')
     await effort.getByRole('button', { name: 'Clear' }).click()
     await expect(effort).toContainText('Not set')
     await expect(readFile(created)).rejects.toThrow()

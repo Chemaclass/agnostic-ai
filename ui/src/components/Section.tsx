@@ -184,14 +184,14 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const app = useApp()
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
-  const [path, setPath] = useState(paths[0] ?? '')
+  const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
   const current = field.set.find((source) => source.path === path)?.values.find((entry) => entry.key === field.key)?.value ?? ''
   const [value, setValue] = useState(current)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError>()
   useEffect(() => { setValue(current) }, [current, path])
   if (!edit) return null
-  if (edit.disabledReason) return <p className="muted">{edit.disabledReason} <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></p>
+  if (edit.disabledReason) return <p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p>
   if (app.source.kind !== 'api') return null
   const setSelectedPath = (next: string) => {
     setPath(next)
