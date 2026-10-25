@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -170,10 +171,20 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	root, err := filepath.Abs(h.opts.Root)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("resolve project root: %w", err))
+		return
+	}
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
 	writeJSON(w, http.StatusOK, struct {
 		OK       bool   `json:"ok"`
 		Revision string `json:"revision"`
-	}{OK: true, Revision: Revision(b, Options{Root: h.opts.Root, ConfigFiles: h.configFiles()})})
+		Root     string `json:"root"`
+		Global   bool   `json:"global"`
+	}{OK: true, Revision: Revision(b, Options{Root: h.opts.Root, ConfigFiles: h.configFiles()}), Root: root, Global: h.opts.Global})
 }
 
 func (h *handler) ui(w http.ResponseWriter, r *http.Request) {

@@ -4,6 +4,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### General
+
+- **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope on the port suggests `--addr` (#2477).
+
 ## v0.88.0 - 2026-10-25
 
 ### General

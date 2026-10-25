@@ -138,10 +138,12 @@ func TestHandler_SchemaAndHealth(t *testing.T) {
 	var health struct {
 		OK       bool
 		Revision string
+		Root     string
+		Global   bool
 	}
 	getJSON(t, srv.URL+"/api/health", &health)
 	_, b := loadProject(t, demoRoot)
-	if !health.OK || health.Revision != Revision(b, Options{Root: demoRoot, ConfigFiles: []string{"agnostic-ai.yaml"}}) {
+	if !health.OK || health.Revision != Revision(b, Options{Root: demoRoot, ConfigFiles: []string{"agnostic-ai.yaml"}}) || health.Root != canonicalHealthRoot(t, demoRoot) || health.Global {
 		t.Errorf("health = %+v", health)
 	}
 }
@@ -273,5 +275,26 @@ func TestHandler_ServesEmbeddedFilesAndClientRoutes(t *testing.T) {
 		if check.method == http.MethodHead && len(body) != 0 {
 			t.Errorf("HEAD returned a body: %q", body)
 		}
+	}
+}
+
+func canonicalHealthRoot(t *testing.T, root string) string {
+	t.Helper()
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
+}
+
+func TestHandler_HealthIdentifiesGlobalScope(t *testing.T) {
+	srv := demoServer(t, HandlerOptions{Global: true})
+	var health struct {
+		Root   string
+		Global bool
+	}
+	getJSON(t, srv.URL+"/api/health", &health)
+	if !health.Global || health.Root != canonicalHealthRoot(t, demoRoot) {
+		t.Errorf("health = %+v", health)
 	}
 }

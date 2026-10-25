@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,11 +20,41 @@ func newViewCmd() *cobra.Command {
 }
 
 func newViewCmdWithBrowser(browser func(string) error) *cobra.Command {
+	return newViewCmdWithBrowserAndProbe(browser, probeViewServer)
+}
+
+type viewServer struct {
+	OK     bool   `json:"ok"`
+	Root   string `json:"root"`
+	Global bool   `json:"global"`
+}
+
+// probeViewServer treats absent, unhealthy, and unrelated services alike.
+// The listen error remains the source of truth when the port is occupied.
+func probeViewServer(addr string) *viewServer {
+	client := &http.Client{Timeout: 400 * time.Millisecond}
+	resp, err := client.Get("http://" + addr + "/api/health")
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	var server viewServer
+	if err := json.NewDecoder(http.MaxBytesReader(nil, resp.Body, 4096)).Decode(&server); err != nil || !server.OK || server.Root == "" {
+		return nil
+	}
+	return &server
+}
+
+func newViewCmdWithBrowserAndProbe(browser func(string) error, probe func(string) *viewServer) *cobra.Command {
 	var dir, addr string
 	var asJSON, global bool
 	cmd := &cobra.Command{
-		Use:   "view",
-		Short: "Open your configuration in the local web interface.",
+		Use:     "view",
+		Aliases: []string{"ui"},
+		Short:   "Open your configuration in the local web interface (alias: ui).",
 		Long: "Opens the bundled web interface for the project in the current directory " +
 			"or a parent directory. Outside a project, reads the user-level configuration. " +
 			"Use --json to print the overview/v1 document without starting a server. " +
@@ -58,6 +91,27 @@ func newViewCmdWithBrowser(browser func(string) error) *cobra.Command {
 			src.close()
 			if err != nil {
 				return err
+			}
+			if err := validateServeAddr(addr); err != nil {
+				return err
+			}
+			if running := probe(addr); running != nil {
+				wantRoot := root
+				if useGlobal {
+					wantRoot, err = globalSourceRoot()
+					if err != nil {
+						return err
+					}
+				}
+				if canonicalDir(running.Root) != canonicalDir(wantRoot) || running.Global != useGlobal {
+					return fmt.Errorf("%s serves %s (global: %t); use --addr for another project or scope", addr, running.Root, running.Global)
+				}
+				url := "http://" + addr + "/"
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using agnostic-ai at %s\n", url)
+				if err := browser(url); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
+				}
+				return nil
 			}
 			serve := newServeCmdWithBrowser(browser)
 			serve.SetContext(cmd.Context())

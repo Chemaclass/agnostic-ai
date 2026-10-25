@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -338,4 +339,86 @@ func checkViewDiscoveryScope(view overview.View, targets []string, global bool) 
 		return fmt.Errorf("shared/local specs = %v/%v, want both %v", shared, local, global)
 	}
 	return nil
+}
+
+func TestView_ReusesOnlyMatchingServer(t *testing.T) {
+	globalOverviewHome(t)
+	globalRoot, err := globalSourceRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	mustWrite(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	for _, tc := range []struct {
+		name      string
+		server    *viewServer
+		args      []string
+		wantError string
+		wantOpen  bool
+		wantProbe bool
+	}{
+		{name: "same project", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}, wantOpen: true, wantProbe: true},
+		{name: "other project", server: &viewServer{OK: true, Root: other}, args: []string{"--dir", project}, wantError: other, wantProbe: true},
+		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true}, args: []string{"--dir", project}, wantError: project, wantProbe: true},
+		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true}, args: []string{"--global"}, wantOpen: true, wantProbe: true},
+		{name: "project on global port", server: &viewServer{OK: true, Root: project}, args: []string{"--global"}, wantError: project, wantProbe: true},
+		{name: "no server", args: []string{"--dir", project, "--addr", "127.0.0.1:0"}, wantOpen: true, wantProbe: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opened, probed := false, false
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			cmd := newViewCmdWithBrowserAndProbe(func(string) error { opened = true; cancel(); return nil }, func(string) *viewServer { probed = true; return tc.server })
+			cmd.SetContext(ctx)
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tc.args)
+			err := cmd.Execute()
+			if tc.wantError == "" && err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantError != "" && (err == nil || !strings.Contains(err.Error(), tc.wantError) || !strings.Contains(err.Error(), "--addr")) {
+				t.Errorf("error = %v", err)
+			}
+			if opened != tc.wantOpen || probed != tc.wantProbe {
+				t.Errorf("opened=%t probed=%t", opened, probed)
+			}
+			if tc.server != nil && tc.wantOpen && !strings.Contains(out.String(), "Using agnostic-ai at") {
+				t.Errorf("output = %q", out.String())
+			}
+		})
+	}
+}
+
+func TestUIAlias_InHelpAndCompletion(t *testing.T) {
+	root := NewRootCmd("test")
+	cmd, _, err := root.Find([]string{"ui"})
+	if err != nil || cmd.Name() != "view" {
+		t.Fatalf("ui resolves to %v, %v", cmd, err)
+	}
+	if !slices.Contains(cmd.Aliases, "ui") {
+		t.Errorf("aliases = %v", cmd.Aliases)
+	}
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{"--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "alias: ui") {
+		t.Error("ui missing from root help")
+	}
+}
+
+func TestProbeViewServer_IgnoresUnrelatedService(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"ok":true}`)
+	}))
+	defer srv.Close()
+	if got := probeViewServer(strings.TrimPrefix(srv.URL, "http://")); got != nil {
+		t.Errorf("probe = %+v", got)
+	}
 }
