@@ -15,8 +15,10 @@ test.describe('overview', () => {
     await expect(page.locator('.project-name')).toHaveCount(0)
     await expect(page.locator('.topbar-context')).toHaveCount(0)
     data.snapshot.project.name = 'billing-service'
+    data.snapshot.project.root = '/work/clients/billing-service'
     await page.reload()
-    await expect(page.locator('.project-name')).toHaveText('Project billing-service')
+    await expect(page.locator('.project-title')).toHaveText('billing-service')
+    await expect(page.locator('.project-root')).toHaveText('/work/clients/billing-service')
     await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
   })
 
@@ -398,7 +400,7 @@ test.describe('overview', () => {
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.getByRole('combobox')).toHaveValue(paths[1])
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
-    await expect(model).toContainText('Run agnostic-ai sync --global to apply it.')
+    await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => edit).toEqual({ path: paths[1], key: 'model', value: 'haiku' })
