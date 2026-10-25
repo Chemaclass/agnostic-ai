@@ -424,7 +424,8 @@
 # #2455 result recording and comparison measured 23298208 bytes on Go 1.27.3,
 # 36864 over the prior budget. Private atomic records, identity checks,
 # and comparison output use Linux amd64 release flags, with no headroom or deps.
-# #2477 measured 23302304 bytes on Go 1.27.3, up 4096 for the
-# loopback health probe and running-server reuse. Same Linux amd64 release
-# flags; no added headroom or dependencies.
-23302304
+# #2477 measured 23306400 bytes on Go 1.27.3, up 8192 from main
+# f6b405c7 (23298208): loopback health probe, running-server reuse, alias
+# completion, and the second probe after an address-in-use error. Same
+# Linux amd64 release flags; no added headroom or dependencies.
+23306400
