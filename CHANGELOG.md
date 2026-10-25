@@ -11,6 +11,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The web interface shows the full configuration path under the project name, and marks the user-level view as Global.
 - **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope or an `--api-only` server on the port suggests `--addr`. `/api/health` answers without loading specs and returns the root, scope, and `ui`; it no longer returns `revision` (#2477).
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
+- Built-in toggles in the web interface work in a project that was never synced: the preview creates the outputs, and the project lock and its ignore entries that sync would add (#2484).
 - The `caveman` built-in and example pack now hold only `SKILL.md`, so sync writes only that file into each tool's skill folder, in project and global sync. The next sync removes the license, notice, and readme files an earlier sync wrote there, and leaves files you wrote yourself. If you edited one of those files, sync keeps it and `sync --check` reports it as unowned until you delete it, run `doctor --fix` in a terminal, or list it under `sync.unmanaged`.
 
 ## v0.88.0 - 2026-10-25

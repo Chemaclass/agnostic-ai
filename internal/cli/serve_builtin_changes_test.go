@@ -1138,6 +1138,130 @@ func TestBuiltinChanges_UnchangedUserMemoryDirectoryDoesNotRequireNativeMigratio
 	}
 }
 
+func unsyncedBuiltinProject(t *testing.T) string {
+	t.Helper()
+	silence(t)
+	root := t.TempDir()
+	chdir(t, root)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	gitInit(t, root)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	return root
+}
+
+func TestBuiltinChanges_UnsyncedProjectPreviewsAndApplies(t *testing.T) {
+	root := unsyncedBuiltinProject(t)
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newBuiltinChangeHandler(root, false)
+	proposal := builtinProposal(t, h, true)
+	if err := before.check(root); err != nil {
+		t.Fatalf("preview wrote project: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(root, ".agnostic-ai", projectLockName)); !os.IsNotExist(err) {
+		t.Fatalf("preview created the project lock: %v", err)
+	}
+	var ignore *builtinFileChange
+	for i := range proposal.Changes {
+		if proposal.Changes[i].Path == ".gitignore" {
+			ignore = &proposal.Changes[i]
+		}
+	}
+	if ignore == nil || !strings.Contains(ignore.Diff, ".agnostic-ai/"+projectLockName) {
+		t.Fatalf("preview does not show the ignored project lock: %+v", proposal.Changes)
+	}
+	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
+	if applied.Status != "applied" {
+		t.Fatalf("apply = %+v", applied)
+	}
+	for _, path := range []string{".claude/skills/caveman/SKILL.md", ".agents/skills/caveman/SKILL.md", ".agnostic-ai/" + projectLockName} {
+		if _, err := os.Stat(path); err != nil {
+			t.Error(err)
+		}
+	}
+	if output, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("check: %v\n%s", err, output)
+	}
+}
+
+func TestBuiltinChanges_UnsyncedProjectRefusesUnsafeLock(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, root string)
+	}{
+		{"lock is a directory", func(t *testing.T, root string) {
+			if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai", projectLockName), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"symlinked parent", func(t *testing.T, root string) {
+			if err := os.Symlink(t.TempDir(), filepath.Join(root, ".agnostic-ai")); err != nil {
+				t.Skip(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := unsyncedBuiltinProject(t)
+			tc.setup(t, root)
+			h := newBuiltinChangeHandler(root, false)
+			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			if rec.Code == http.StatusOK {
+				t.Fatalf("unsafe preview accepted: %s", rec.Body)
+			}
+		})
+	}
+}
+
+func TestBuiltinChanges_UnsyncedProjectRespectsRunningSync(t *testing.T) {
+	root := unsyncedBuiltinProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	proposal := builtinProposal(t, h, true)
+	lock, err := acquireProjectLock(root, "sync")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = lock.Close() }()
+	rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("apply: %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude/skills/caveman/SKILL.md")); !os.IsNotExist(err) {
+		t.Fatalf("apply wrote while sync held the lock: %v", err)
+	}
+}
+
+func TestBuiltinChanges_PreviewAfterUndoKeepsLockIgnored(t *testing.T) {
+	root := unsyncedBuiltinProject(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\ngitignore:\n  enabled: false\n")
+	h := newBuiltinChangeHandler(root, false)
+	first := builtinProposal(t, h, true)
+	applied := builtinAction(t, h, builtinApplyPath, first.ID)
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	if _, err := os.Lstat(filepath.Join(root, ".agnostic-ai", projectLockName)); err != nil {
+		t.Fatalf("undo removed the project lock: %v", err)
+	}
+	again := builtinProposal(t, h, true)
+	var ignore *builtinFileChange
+	for i := range again.Changes {
+		if again.Changes[i].Path == ".gitignore" {
+			ignore = &again.Changes[i]
+		}
+	}
+	if ignore == nil || !strings.Contains(ignore.Diff, ".agnostic-ai/"+projectLockName) {
+		t.Fatalf("preview after undo does not ignore the project lock: %+v", again.Changes)
+	}
+	builtinAction(t, h, builtinApplyPath, again.ID)
+	status := git(t, root, "status", "--porcelain", "--untracked-files=all")
+	for _, path := range []string{".agnostic-ai/" + projectLockName, ".agnostic-ai/.sync-state"} {
+		if strings.Contains(status, path) {
+			t.Errorf("%s is not ignored:\n%s", path, status)
+		}
+	}
+}
+
 func TestBuiltinChanges_MemoryAddsSyncGitExclusion(t *testing.T) {
 	silence(t)
 	root := t.TempDir()

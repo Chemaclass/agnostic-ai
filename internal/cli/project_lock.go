@@ -12,6 +12,19 @@ import (
 const projectLockName = ".command-lock"
 
 func acquireProjectLock(root, command string) (*os.File, error) {
+	file, err := openProjectLock(root, command)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureManagedGitignore(root); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("ignore project lock: %w", err)
+	}
+	return file, nil
+}
+
+// openProjectLock creates and holds the lock without touching ignore files.
+func openProjectLock(root, command string) (*os.File, error) {
 	dir := filepath.Join(root, defaultBaseDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("%s: %w", dir, err)
@@ -34,10 +47,6 @@ func acquireProjectLock(root, command string) (*os.File, error) {
 	if _, err := file.WriteAt([]byte(metadata), 1); err != nil {
 		_ = file.Close()
 		return nil, fmt.Errorf("write lock holder %s: %w", path, err)
-	}
-	if err := ensureManagedGitignore(root); err != nil {
-		_ = file.Close()
-		return nil, fmt.Errorf("ignore project lock: %w", err)
 	}
 	return file, nil
 }

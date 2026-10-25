@@ -158,29 +158,56 @@ func (e *builtinConflict) Unwrap() error { return e.err }
 func builtinChanged(err error) error     { return &builtinConflict{err: err} }
 
 // Reuse the CLI's OS lock without changing ignore files or lock metadata.
-func lockBuiltinChange(root string) (*os.File, error) {
+// A project that was never synced gets the lock sync would create; its
+// ignore entries are part of the previewed changes.
+func lockBuiltinChange(root string) (lock *os.File, created bool, err error) {
 	path := filepath.Join(root, ".agnostic-ai", projectLockName)
 	if err := builtinSafeParents(root, path); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s: project lock is unavailable; run agnostic-ai sync first", path)
+	missing, err := builtinLockMissing(path)
+	if err != nil {
+		return nil, false, err
+	}
+	if missing {
+		file, err := openProjectLock(root, "ui")
+		if err != nil {
+			return nil, false, err
+		}
+		if err := builtinSameLock(root, path, file); err != nil {
+			_ = file.Close()
+			return nil, false, err
+		}
+		return file, true, nil
 	}
 	file, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, false, fmt.Errorf("%s: %w", path, err)
 	}
-	opened, err := file.Stat()
-	if err != nil || !os.SameFile(info, opened) {
+	if err := builtinSameLock(root, path, file); err != nil {
 		_ = file.Close()
-		return nil, fmt.Errorf("%s: project lock changed", path)
+		return nil, false, err
 	}
 	if err := tryLockProjectFile(file); err != nil {
 		_ = file.Close()
-		return nil, fmt.Errorf("%s: another command is changing this project; retry when it finishes: %w", path, err)
+		return nil, false, fmt.Errorf("%s: another command is changing this project; retry when it finishes: %w", path, err)
 	}
-	return file, nil
+	return file, false, nil
+}
+
+func builtinSameLock(root, path string, file *os.File) error {
+	if err := builtinSafeParents(root, path); err != nil {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("%s: project lock changed", path)
+	}
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return fmt.Errorf("%s: project lock changed", path)
+	}
+	return nil
 }
 
 func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
@@ -188,11 +215,16 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 		return builtinChangeView{}, builtinChanged(fmt.Errorf("proposal is no longer available; preview again"))
 	}
 	plan := h.plan
-	lock, err := lockBuiltinChange(h.root)
+	lock, created, err := lockBuiltinChange(h.root)
 	if err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
 	defer func() { _ = lock.Close() }()
+	if created {
+		if err := plan.inputs.adoptLockDir(h.root); err != nil {
+			return builtinChangeView{}, builtinChanged(err)
+		}
+	}
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
@@ -241,7 +273,7 @@ func (h *builtinChangeHandler) restore(id string) (builtinChangeView, error) {
 	if h.after == nil || h.applied == nil || h.applied.ID != id || id == "" {
 		return builtinChangeView{}, builtinChanged(fmt.Errorf("undo is no longer available in this server session"))
 	}
-	lock, err := lockBuiltinChange(h.root)
+	lock, _, err := lockBuiltinChange(h.root)
 	if err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
