@@ -50,6 +50,7 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		{path: filepath.Join(scope.source, "AGNOSTIC_AI.md"), layer: "global"},
 		{path: filepath.Join(scope.source, "local", "AGNOSTIC_AI.md"), layer: "global-local"},
 	}, scope.source)
+	team, local := overviewBuiltins(scope.source, true)
 	return overview.Inputs{
 		Cfg:            cfg,
 		Global:         true,
@@ -60,6 +61,8 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		Compared:       checks.compared,
 		MCPTools:       mcpprobe.LoadCache(scope.source),
 		RefreshCommand: "agnostic-ai mcp tools --global",
+		BuiltinsTeam:   team,
+		BuiltinsLocal:  local,
 	}, nil
 }
 

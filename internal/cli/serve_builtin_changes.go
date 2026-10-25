@@ -85,6 +85,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var request struct {
+		Scope   string `json:"scope"`
 		Name    string `json:"name"`
 		Enabled *bool  `json:"enabled"`
 		ID      string `json:"id"`
@@ -99,7 +100,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send exactly one JSON object"})
 		return
 	}
-	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.ID == "") {
+	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Scope != "" || request.ID == "") {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "apply and undo require only a proposal id"})
 		return
 	}
@@ -113,8 +114,13 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires a known built-in name and an enabled boolean"})
 			return
 		}
+		scope, scopeErr := parseEditScope(request.Scope)
+		if scopeErr != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: scopeErr.Error()})
+			return
+		}
 		var plan *builtinChangePlan
-		plan, err = planBuiltinChange(h.root, request.Name, *request.Enabled)
+		plan, err = planBuiltinChange(h.root, request.Name, *request.Enabled, scope)
 		if err == nil {
 			var token [24]byte
 			if _, err = rand.Read(token[:]); err == nil {
@@ -228,7 +234,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
-	if _, err := planBuiltinChange(h.root, plan.view.Name, plan.view.Enabled); err != nil {
+	if _, err := planBuiltinChange(h.root, plan.view.Name, plan.view.Enabled, plan.scope); err != nil {
 		return builtinChangeView{}, err
 	}
 	if err := plan.inputs.check(h.root); err != nil {

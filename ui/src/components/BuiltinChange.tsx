@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change } from '../builtin-change'
 import { useApp } from './app-context'
+import { useEditScope, type EditScope } from './EditScope'
 import { Code, Switch, Toggle, ToolAvatar } from './ui'
 
 type Action = 'preview' | 'apply' | 'undo'
@@ -11,7 +12,7 @@ interface Controller {
   pendingName?: string
   error?: { message: string; conflict: boolean }
   proposal: boolean
-  request: (action?: Action, name?: string, enabled?: boolean) => Promise<void>
+  request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<void>
   cancel: () => void
 }
 
@@ -32,6 +33,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const [cancelledId, setCancelledId] = useState<string>()
   const busy = useRef(false)
   const api = app.source.kind === 'api'
+  const pageScope = useEditScope()
 
   useEffect(() => {
     if (!api || !active) return
@@ -51,14 +53,14 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   }, [api, active])
 
   const proposal = change?.status === 'proposed' && change.id !== cancelledId && !error
-  const request = async (action?: Action, name?: string, enabled?: boolean) => {
+  const request = async (action?: Action, name?: string, enabled?: boolean, scope: EditScope = pageScope) => {
     if (busy.current) return
     busy.current = true
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : 'loading')
     setPendingName(name)
     setError(undefined)
     try {
-      const value = await builtinChange(action, action === 'preview' ? { name, enabled } : action ? { id: action === 'apply' ? change?.id : change?.undoId } : undefined)
+      const value = await builtinChange(action, action === 'preview' ? { scope, name, enabled } : action ? { id: action === 'apply' ? change?.id : change?.undoId } : undefined)
       setChange(value)
       setCancelledId(undefined)
       if (action === 'apply' || action === 'undo' || !action) app.reload()
@@ -105,10 +107,11 @@ export function BuiltinChangeControls({ labels }: { labels: { name: string; labe
   </div>
 }
 
-export function BuiltinChange({ name, label, on, fallback, renderHeading }: {
+export function BuiltinChange({ name, label, on, local, fallback, renderHeading }: {
   name: string
   label: string
   on: boolean
+  local: boolean
   fallback: ReactNode
   renderHeading: (control: ReactNode) => ReactNode
 }) {
@@ -119,7 +122,10 @@ export function BuiltinChange({ name, label, on, fallback, renderHeading }: {
   const selected = proposal && change?.name === name
   const title = label.charAt(0).toUpperCase() + label.slice(1)
   return <>
-    {renderHeading(<Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || !!error} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />)}
+    {renderHeading(<>
+      <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || !!error} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
+      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to team value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'local') }}>Reset to team value</button>}
+    </>)}
     {selected && change && <section className="builtin-change builtin-change-preview" aria-label={`${title} change preview`} aria-busy={!!pending}>
       <h3>{change.enabled ? 'Enable' : 'Disable'} {title}</h3>
       <p>Update <Code>{change.config}</Code> and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>

@@ -12,7 +12,7 @@ import (
 func loadExtending(t *testing.T, base, local string) Bundle {
 	t.Helper()
 	src := defaultsForTest().Sources
-	src.MCPs = "mcps"
+	src.MCPs, src.Settings = "mcps", "settings"
 	b, err := LoadLayered([]Layer{
 		{Name: "project", Root: base, Sources: src},
 		{Name: "project-user", Root: local, Sources: src, Extends: true},
@@ -285,5 +285,24 @@ func TestLoadLayered_UnreadableLocalSkillFolderFails(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "scripts") {
 		t.Fatalf("err = %v, want a failure naming the unreadable folder", err)
+	}
+}
+
+func TestLoadLayered_LocalLayerRecordsTheSharedSpecAndItsOwnKeys(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	shared := filepath.Join(base, "settings", "defaults.yaml")
+	mustWrite(t, shared, "name: defaults\ndescription: Shared\nmodel: sonnet\neffort: high\n")
+	mustWrite(t, filepath.Join(local, "settings", "defaults.yaml"), "name: defaults\nmodel: opus\n")
+
+	got := loadExtending(t, base, local).Settings[0]
+	if got.Base == nil || got.Base.Path != shared || got.Base.Meta["model"] != "sonnet" {
+		t.Fatalf("base = %+v, want the shared spec", got.Base)
+	}
+	if want := map[string]any{"name": "defaults", "model": "opus"}; !reflect.DeepEqual(got.LocalMeta, want) {
+		t.Errorf("local keys = %v, want %v", got.LocalMeta, want)
+	}
+	if got.Meta["effort"] != "high" || got.Meta["model"] != "opus" {
+		t.Errorf("merged meta = %v", got.Meta)
 	}
 }

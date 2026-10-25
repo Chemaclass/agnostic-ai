@@ -37,6 +37,10 @@ type Inputs struct {
 	// RefreshCommand lists the MCP servers' tools again for this
 	// configuration.
 	RefreshCommand string
+	// BuiltinsTeam is the committed config's builtins list, and
+	// BuiltinsLocal whether the personal config replaces it.
+	BuiltinsTeam  []string
+	BuiltinsLocal bool
 }
 
 // builtinLayer is the layer name the loader gives a built-in spec. Its
@@ -325,7 +329,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			case kindInstructions:
 				items = instructionItems(in.Instructions)
 			case kindBuiltin:
-				items = builtinItems(in.Cfg)
+				items = builtinItems(in)
 			case kindConfig:
 				items = configItems(in.Cfg, in.Snapshot.Project.Root, in.Snapshot.ConfigFiles)
 			default:
@@ -433,11 +437,12 @@ var builtinDescriptions = map[string]string{
 }
 
 // builtinItems lists every built-in agnostic-ai ships, each marked on
-// when the config enables it.
-func builtinItems(cfg *config.Config) []SectionItem {
+// when the config enables it and local when the personal config's list
+// decides it differently from the team's.
+func builtinItems(in Inputs) []SectionItem {
 	var enabled []string
-	if cfg != nil {
-		enabled = cfg.Builtins
+	if in.Cfg != nil {
+		enabled = in.Cfg.Builtins
 	}
 	names := builtins.Names()
 	for _, name := range enabled {
@@ -452,7 +457,8 @@ func builtinItems(cfg *config.Config) []SectionItem {
 			description = "Built-in feature."
 		}
 		on := slices.Contains(enabled, name)
-		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: name, Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on})
+		local := in.BuiltinsLocal && on != slices.Contains(in.BuiltinsTeam, name)
+		items = append(items, SectionItem{Kind: kindBuiltin, Name: name, Label: name, Description: description, Path: "builtin:" + name, Layer: builtinLayer, Enabled: &on, Local: local})
 	}
 	return items
 }

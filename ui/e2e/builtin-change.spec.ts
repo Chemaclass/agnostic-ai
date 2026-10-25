@@ -72,7 +72,7 @@ test('shares a proposal and keeps undo through filtering, cancellation, and relo
   await expect(page.getByText('Last applied: handoff.')).toBeVisible()
   await toggle(page, 'caveman').evaluate((button: HTMLButtonElement) => { button.click(); button.click() })
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toBeVisible()
-  expect(server.previews).toEqual([{ name: 'handoff', enabled: true }, { name: 'caveman', enabled: true }])
+  expect(server.previews).toEqual([{ scope: 'team', name: 'handoff', enabled: true }, { scope: 'team', name: 'caveman', enabled: true }])
   await expect(toggle(page, 'handoff')).toBeDisabled()
   await expect(page.getByRole('region', { name: 'Handoff change preview' })).toHaveCount(0)
   await page.getByRole('searchbox', { name: 'Search settings', exact: true }).fill('handoff')

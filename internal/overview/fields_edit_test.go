@@ -132,3 +132,98 @@ func TestSettingsFields_NewDefaultSpecIsAChoiceAndNeverShadows(t *testing.T) {
 		t.Fatalf("taken defaults edit = %+v", got)
 	}
 }
+
+func localOverlay(shared spec.Entry, path string, own map[string]any) spec.Entry {
+	merged := shared
+	merged.Path, merged.Layer = path, "project-user"
+	merged.Meta = map[string]any{}
+	for k, v := range shared.Meta {
+		merged.Meta[k] = v
+	}
+	for k, v := range own {
+		merged.Meta[k] = v
+	}
+	base := shared
+	merged.Base, merged.LocalMeta = &base, own
+	return merged
+}
+
+func TestSettingsFields_LocalOverlayShowsItsValueBesideTheTeamValue(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	shared := entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/defaults.yaml", map[string]any{"name": "defaults", "model": "sonnet", "effort": "high"})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/defaults.yaml", map[string]any{"name": "defaults", "model": "opus"})
+	byKey := map[string]SettingField{}
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionSettings).Fields {
+		byKey[f.Key] = f
+	}
+	model := byKey["model"]
+	if len(model.Set) != 2 {
+		t.Fatalf("model set = %+v, want the local and the team value", model.Set)
+	}
+	if got := model.Set[0]; !got.Local || got.Path != ".agnostic-ai/local/settings/defaults.yaml" || got.Values[0].Value != "opus" {
+		t.Errorf("local source = %+v", got)
+	}
+	if got := model.Set[1]; got.Local || got.Path != ".agnostic-ai/settings/defaults.yaml" || got.Values[0].Value != "sonnet" {
+		t.Errorf("team source = %+v", got)
+	}
+	if got := model.Editable; got == nil || got.Path != ".agnostic-ai/settings/defaults.yaml" || got.LocalPath != ".agnostic-ai/local/settings/defaults.yaml" {
+		t.Errorf("model edit = %+v", got)
+	}
+	effort := byKey["effort"]
+	if len(effort.Set) != 1 || effort.Set[0].Local || effort.Set[0].Path != ".agnostic-ai/settings/defaults.yaml" {
+		t.Errorf("inherited effort set = %+v, want the team file", effort.Set)
+	}
+}
+
+func TestSettingsFields_LocalPathNamesTheOverlayOfTheEditedSpec(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	team := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "model": "sonnet"})
+	for _, tc := range []struct {
+		name     string
+		settings []spec.Entry
+		global   bool
+		want     string
+	}{
+		{"shared spec", []spec.Entry{team}, false, ".agnostic-ai/local/settings/team.yaml"},
+		{"no spec", nil, false, ".agnostic-ai/local/settings/defaults.yaml"},
+		{"global", nil, true, "local/settings/defaults.yaml"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Global: tc.global, Bundle: spec.Bundle{Settings: tc.settings}}), SectionSettings).Fields {
+				if f.Key == "model" && (f.Editable == nil || f.Editable.LocalPath != tc.want) {
+					t.Errorf("model edit = %+v, want local path %s", f.Editable, tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestBuiltinItems_MarkTheChoicesTheLocalConfigChanges(t *testing.T) {
+	cfg := &config.Config{Builtins: []string{"memory", "caveman"}}
+	in := Inputs{Cfg: cfg, BuiltinsTeam: []string{"memory", "handoff"}, BuiltinsLocal: true}
+	local := map[string]bool{}
+	for _, item := range sectionByID(t, Build(in), SectionSettings).Items {
+		if item.Kind == kindBuiltin {
+			local[item.Name] = item.Local
+		}
+	}
+	if !local["handoff"] || !local["caveman"] || local["memory"] || local["rtk"] {
+		t.Errorf("local built-ins = %v, want handoff and caveman", local)
+	}
+	in.BuiltinsLocal = false
+	for _, item := range sectionByID(t, Build(in), SectionSettings).Items {
+		if item.Local {
+			t.Errorf("%s is local without a local builtins list", item.Name)
+		}
+	}
+}
+
+func TestSettingsFields_LocalPathFollowsTheSpecNameNotItsFileName(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	base := entry(spec.KindSettings, "base", ".agnostic-ai/settings/defaults.yaml", map[string]any{"name": "base", "model": "sonnet"})
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{base}}}), SectionSettings).Fields {
+		if f.Key == "model" && (f.Editable == nil || f.Editable.LocalPath != ".agnostic-ai/local/settings/base.yaml") {
+			t.Errorf("model edit = %+v", f.Editable)
+		}
+	}
+}

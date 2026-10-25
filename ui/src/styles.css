@@ -2168,3 +2168,27 @@ input:hover {
 @media (max-width: 760px) {
   .field-edit { grid-column: 1; }
 }
+
+.edit-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 20px;
+}
+
+.edit-scope-label {
+  font-weight: 650;
+}
+
+.edit-scope-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .edit-scope .segmented button {
+    min-height: 44px;
+  }
+}

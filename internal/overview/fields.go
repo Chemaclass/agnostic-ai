@@ -1,6 +1,7 @@
 package overview
 
 import (
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -57,14 +58,24 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			if _, ok := byName[it.Name]; !ok {
 				continue
 			}
-			var values []Value
-			for _, v := range it.Values {
-				if d.matches(v.Key) {
-					values = append(values, v)
-				}
+			e := byName[it.Name]
+			values := d.values(it.Values)
+			if len(values) == 0 {
+				continue
 			}
-			if len(values) > 0 {
-				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values})
+			if e.Base == nil || d.prefix {
+				local := LocalLayer(e) && (e.Base == nil || slices.ContainsFunc(slices.Collect(maps.Keys(e.LocalMeta)), d.matches))
+				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: local})
+				continue
+			}
+			team := SpecPath(root, *e.Base)
+			if !LocalSets(e, d.key) {
+				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: values})
+				continue
+			}
+			f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: it.Path, Values: values, Local: true})
+			if shared := d.values(settingsValues(*e.Base)); len(shared) > 0 {
+				f.Set = append(f.Set, FieldSource{Spec: it.Name, Path: team, Values: shared})
 			}
 		}
 		if section == SectionSettings && !d.prefix && cfg != nil {
@@ -99,8 +110,8 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			paths := map[string]string{}
 			for _, it := range items {
 				if e, ok := byName[it.Name]; ok && it.Kind == string(spec.KindSettings) && SettingsEditCandidate(e, d.key) {
-					paths[it.Name] = it.Path
-					edit.Paths = append(edit.Paths, it.Path)
+					paths[it.Name] = SettingsTeamPath(root, e)
+					edit.Paths = append(edit.Paths, paths[it.Name])
 				}
 			}
 			defaultPath := "settings/defaults.yaml"
@@ -125,6 +136,14 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			} else if len(edit.Paths) == 1 {
 				edit.Path = edit.Paths[0]
 			}
+			if at := slices.IndexFunc(entries, func(e spec.Entry) bool { return edit.Path != "" && SettingsTeamPath(root, e) == edit.Path }); at >= 0 {
+				edit.LocalPath = SettingsOverlayPath(global, entries[at].Name)
+				if LocalLayer(entries[at]) {
+					edit.LocalPath = SpecPath(root, entries[at])
+				}
+			} else if edit.Path == defaultPath {
+				edit.LocalPath = SettingsOverlayPath(global, "defaults")
+			}
 			// Maps and other non-scalar shapes remain read-only in this slice.
 			for _, source := range f.Set {
 				for _, value := range source.Values {
@@ -138,6 +157,53 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+func (d fieldDef) values(all []Value) []Value {
+	var out []Value
+	for _, v := range all {
+		if d.matches(v.Key) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// LocalLayer reports whether e comes from a personal, git-ignored layer.
+func LocalLayer(e spec.Entry) bool {
+	return e.Layer == "project-user" || e.Layer == "global-local"
+}
+
+// LocalSets reports whether a personal file itself sets key for e, not
+// the shared spec it extends.
+func LocalSets(e spec.Entry, key string) bool {
+	if !LocalLayer(e) {
+		return false
+	}
+	if e.Base == nil {
+		return hasField(e, key)
+	}
+	_, ok := e.LocalMeta[key]
+	return ok
+}
+
+// SettingsTeamPath is the shown path of the committed file behind e: its
+// own, or the shared spec a local overlay extends.
+func SettingsTeamPath(root string, e spec.Entry) string {
+	if e.Base != nil {
+		return SpecPath(root, *e.Base)
+	}
+	return SpecPath(root, e)
+}
+
+// SettingsOverlayPath is the personal file, relative to the project or
+// global source root, that overlays the settings spec named name.
+func SettingsOverlayPath(global bool, name string) string {
+	dir := config.SourceBaseDir + "/local/settings"
+	if global {
+		dir = "local/settings"
+	}
+	return dir + "/" + name + ".yaml"
 }
 
 func (d fieldDef) matches(key string) bool {

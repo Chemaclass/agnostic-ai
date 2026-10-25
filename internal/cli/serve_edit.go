@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,8 +17,6 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
-	"github.com/chemaclass/agnostic-ai/internal/config"
-	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
@@ -83,6 +80,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case editBuiltinPath:
 		var req struct {
+			Scope   string `json:"scope"`
 			Name    string `json:"name"`
 			Enabled *bool  `json:"enabled"`
 		}
@@ -94,10 +92,17 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
 			return
 		}
-		file = h.builtinsFile()
-		edit = func(data []byte) ([]byte, error) { return setBuiltin(data, req.Name, *req.Enabled) }
+		scope, err := parseEditScope(req.Scope)
+		if err == nil {
+			file, edit, err = h.builtinsEdit(scope, req.Name, *req.Enabled)
+		}
+		if err != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			return
+		}
 	case editValuePath:
 		var req struct {
+			Scope string `json:"scope"`
 			Path  string `json:"path"`
 			Key   string `json:"key"`
 			Value *bool  `json:"value"`
@@ -106,13 +111,17 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean value are required"})
 			return
 		}
-		file, edit, err = h.settingsEdit(req.Path, req.Key, *req.Value)
+		scope, err := parseEditScope(req.Scope)
+		if err == nil {
+			file, edit, err = h.settingsEdit(scope, req.Path, req.Key, *req.Value)
+		}
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}
 	case editFieldPath:
 		var req struct {
+			Scope string          `json:"scope"`
 			Path  string          `json:"path"`
 			Key   string          `json:"key"`
 			Value json.RawMessage `json:"value"`
@@ -121,7 +130,10 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "key and value are required (null clears the field)"})
 			return
 		}
-		file, edit, err = h.fieldEdit(req.Path, req.Key, req.Value)
+		scope, err := parseEditScope(req.Scope)
+		if err == nil {
+			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value)
+		}
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
@@ -154,34 +166,14 @@ func editRequestGuard(r *http.Request) (int, string) {
 	return 0, ""
 }
 
-// builtinsFile is the config file whose builtins list is in effect: the
-// local layer's when it sets builtins, else the shared one.
-func (h *editHandler) builtinsFile() string {
-	var shared, local string
-	if h.global {
-		paths := globalConfigPaths(h.root)
-		shared, local = paths[0], paths[1]
-	} else {
-		shared = filepath.Join(h.root, config.ConfigFileName)
-		if path, _, err := config.ResolveConfigPath(h.root); err == nil {
-			shared = path
-		}
-		local = filepath.Join(h.root, config.LocalOverrideFileName)
-	}
-	if data, err := os.ReadFile(local); err == nil && yamlHasKey(data, "builtins") {
-		return local
-	}
-	return shared
-}
-
 // Only a boolean present in the loaded settings can gain a local override.
-func (h *editHandler) settingsEdit(shown, key string, value bool) (string, func([]byte) ([]byte, error), error) {
+func (h *editHandler) settingsEdit(where editScope, shown, key string, value bool) (string, func([]byte) ([]byte, error), error) {
 	scope, err := loadCheckScope(h.global)
 	if err != nil {
 		return "", nil, err
 	}
 	for _, e := range scope.bundle.Settings {
-		if overview.SpecPath(h.root, e) != shown || e.Layer == "builtin" {
+		if !h.matchesShownSpec(e, shown) || e.Layer == "builtin" {
 			continue
 		}
 		var current any = e.Meta
@@ -195,7 +187,16 @@ func (h *editHandler) settingsEdit(shown, key string, value bool) (string, func(
 		if _, ok := current.(bool); !ok {
 			return "", nil, fmt.Errorf("%s is not a boolean", key)
 		}
-		return e.Path, func(data []byte) ([]byte, error) { return setBoolOverride(data, key, value) }, nil
+		file, scaffold, err := h.scopedSettingsFile(e, key, where)
+		if err != nil {
+			return "", nil, err
+		}
+		return file, func(data []byte) ([]byte, error) {
+			if len(data) == 0 {
+				data = []byte(scaffold)
+			}
+			return setBoolOverride(data, key, value)
+		}, nil
 	}
 	return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
 }

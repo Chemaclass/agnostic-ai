@@ -114,7 +114,10 @@ func (s editFileSnapshot) replace(path string, data []byte, modes ...os.FileMode
 	return editFileSnapshot{data: slices.Clone(data), info: info}, nil
 }
 
-func sameEditValues(a, b []byte) bool {
+// sameEditValues compares two config or spec texts by value. Outside the
+// personal config an empty builtins list means the same as none; there
+// it turns every team built-in off.
+func sameEditValues(a, b []byte, emptyBuiltinsIsUnset bool) bool {
 	var left, right map[string]any
 	if yaml.Unmarshal(a, &left) != nil || yaml.Unmarshal(b, &right) != nil {
 		return false
@@ -125,7 +128,7 @@ func sameEditValues(a, b []byte) bool {
 	if len(right) == 0 {
 		right = map[string]any{}
 	}
-	if _, present := left["builtins"]; !present {
+	if _, present := left["builtins"]; !present && emptyBuiltinsIsUnset {
 		if list, ok := right["builtins"].([]any); ok && len(list) == 0 {
 			delete(right, "builtins")
 		}
@@ -152,7 +155,8 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 	if !tracked || !bytes.Equal(original.data, baseline.last) {
 		baseline = editBaseline{original: slices.Clone(original.data), existed: original.info != nil}
 	}
-	restoreBaseline := sameEditValues(baseline.original, edited)
+	_, localConfig := h.builtinsConfigFiles()
+	restoreBaseline := sameEditValues(baseline.original, edited, file != localConfig)
 	if restoreBaseline {
 		edited = slices.Clone(baseline.original)
 	}

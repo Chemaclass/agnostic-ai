@@ -317,6 +317,7 @@ func overviewInputs(root string) (overview.Inputs, error) {
 	if err != nil {
 		return overview.Inputs{}, err
 	}
+	team, local := overviewBuiltins(".", false)
 	return overview.Inputs{
 		Cfg:            cfg,
 		Bundle:         b,
@@ -326,6 +327,8 @@ func overviewInputs(root string) (overview.Inputs, error) {
 		Compared:       checks.compared,
 		MCPTools:       mcpprobe.LoadCache("."),
 		RefreshCommand: "agnostic-ai mcp tools",
+		BuiltinsTeam:   team,
+		BuiltinsLocal:  local,
 	}, nil
 }
 
