@@ -74,6 +74,33 @@ The command in [`verify.command`](@/docs/configuration.md#verify) runs once per 
 | `cli` | Optional. Detected CLI command, resolved path, and `--version` output. Omitted when the binary is missing. |
 | `harness_fingerprint` | SHA-256 checksum of the tool's specs and generated files. It identifies the setup. |
 
+### Record and compare runs
+
+Recording is optional. Choose a private destination and an evaluation identifier that names the same task suite, dataset revision, and evaluation rules for both runs:
+
+```bash
+agnostic-ai verify --target codex --evaluation smoke-v1 --record before.json
+# Change an instruction, then regenerate the tool configuration.
+agnostic-ai sync
+agnostic-ai verify --target codex --evaluation smoke-v1 --record after.json
+agnostic-ai verify compare before.json after.json
+agnostic-ai verify compare before.json after.json --json
+```
+
+A passing run followed by a failing run reports `regression`. A failing run followed by a passing run reports `recovery`. Matching outcomes report `unchanged`; a target present in only one file reports `missing_target`. Changed harness fingerprints identify the configuration change and do not themselves mean failure. Elapsed differences are candidate duration minus baseline duration, measured in nanoseconds in JSON. One comparison does not establish a statistical improvement.
+
+| Flag | Effect |
+|------|--------|
+| `--record <path>` | Save one run at this explicit destination. Parent directories must exist. |
+| `--evaluation <identifier>` | Name the task suite and dataset revision. Required with `--record`. |
+| `--overwrite` | Allow an existing result file to be replaced. Requires `--record`. |
+
+The files use schema `version: 1`. Run fields are `started_at` (UTC RFC 3339), `evaluation`, `verifier_identity`, and `targets`. Each target contains the input fields above, `elapsed_ns`, `outcome`, and an optional `exit_code`. Outcomes are `passed` (exit 0), `failed` (non-zero evaluation exit), `execution_error` (launch, cancellation, or context preparation failure), and `skipped` (not attempted after an earlier failure). Skipped targets have no measured context or exit code; their duration is `0`. CLI and configured model fields remain optional; they do not establish the runtime model.
+
+`verifier_identity` hashes the resolved executable bytes and configured arguments. For known interpreters, a direct script argument also contributes its code bytes; options before the script, module loading, and inline-code forms leave the identity unknown. Other file arguments are evaluation inputs or outputs and their contents do not change verifier identity. Raw arguments, verifier output, and environment values are not saved. Detected CLI and configured model metadata use credential redaction. Keep credentials out of the evaluation identifier; recording rejects an identifier that contains a detected credential. You must change the evaluation identifier when tasks, datasets, remote dependencies, or evaluation rules change without changing the executable, arguments, or recognized script. An unknown or changed verifier identity, different evaluation identifier, or skipped target reports `non_comparable`. Launch failures report `execution_error`. Both human and JSON comparison are reports and exit 0 when valid files can be read, including regressions and non-comparable runs. Invalid or unsupported result files exit 1.
+
+Result files are installed atomically with mode `0600`; an existing file requires `--overwrite`. Use a filesystem that supports hard links when creating a new file. The drift check stops before a verifier runs or a result is written. Evaluation failures keep their original exit code even when saving also fails; saving errors are reported separately. A successful evaluation with a recording error exits 1. No task pass rates, token use, or cost are inferred from command exits.
+
 ## doctor
 
 ```bash

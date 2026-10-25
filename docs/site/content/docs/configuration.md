@@ -396,7 +396,7 @@ verify:
     - --strict
 ```
 
-See the [`verify` command](@/docs/cli-reference/check.md#verify) for the drift check, input, and exit codes.
+See the [`verify` command](@/docs/cli-reference/check.md#verify) for the drift check, input, exit codes, and optional result recording and comparison. Recording uses command flags and needs no additional configuration.
 
 ## `import`
 

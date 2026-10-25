@@ -421,4 +421,7 @@
 # all project built-ins share guarded preview, apply, and undo, including
 # pending owned outputs, merged settings release, and memory migration checks.
 # Linux amd64 release flags; no added headroom or dependencies.
-23261344
+# #2455 result recording and comparison measured 23298208 bytes on Go 1.27.3,
+# 36864 over the prior budget. Private atomic records, identity checks,
+# and comparison output use Linux amd64 release flags, with no headroom or deps.
+23298208
