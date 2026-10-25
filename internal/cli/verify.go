@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -56,6 +57,8 @@ func (e *verifierExitError) ExitCode() int { return e.err.ExitCode() }
 
 func newVerifyCmd() *cobra.Command {
 	var targets []string
+	var record, evaluation string
+	var overwrite bool
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Run an external behavior gate against the current AI harness.",
@@ -66,6 +69,9 @@ func newVerifyCmd() *cobra.Command {
   # Verify one target after changing its model or CLI version
   agnostic-ai verify --target codex`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateVerifyRecording(record, evaluation, overwrite); err != nil {
+				return err
+			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err
@@ -81,6 +87,14 @@ func newVerifyCmd() *cobra.Command {
 					return err
 				}
 			}
+			selected := make(map[string]bool, len(effective))
+			effective = slices.DeleteFunc(slices.Clone(effective), func(target string) bool {
+				if selected[target] {
+					return true
+				}
+				selected[target] = true
+				return false
+			})
 			entryPointTargets := configuredEntryPointConsumers(cfg, effective)
 			reports, err := collectDriftWithEntryPointTargets(effective, entryPointTargets)
 			if err != nil {
@@ -90,19 +104,56 @@ func newVerifyCmd() *cobra.Command {
 				return fmt.Errorf("verify: %w", err)
 			}
 
+			run := verifyRun{Version: 1, StartedAt: time.Now().UTC(), Evaluation: evaluation, Targets: []verifyTargetResult{}}
+			if record != "" {
+				run.Verifier = verifierIdentity(cfg.Verify.Command)
+			}
+			var verifyErr error
 			for _, target := range effective {
+				if verifyErr != nil {
+					run.Targets = append(run.Targets, verifyTargetResult{verifyContext: verifyContext{Version: 1, Target: target}, Outcome: "skipped"})
+					continue
+				}
 				verification, err := buildVerifyContext(cfg, b, target)
 				if err != nil {
-					return err
+					verifyErr = err
+					run.Targets = append(run.Targets, verifyTargetResult{verifyContext: verifyContext{Version: 1, Target: target}, Outcome: "execution_error"})
+					continue
 				}
-				if err := runVerifier(cmd, cfg.Verify.Command, verification); err != nil {
-					return err
+				started := time.Now()
+				err = runVerifier(cmd, cfg.Verify.Command, verification)
+				result := verifyTargetResult{verifyContext: verification, ElapsedNS: time.Since(started).Nanoseconds(), Outcome: "passed"}
+				code := 0
+				result.ExitCode = &code
+				if err != nil {
+					verifyErr = err
+					var exitErr *verifierExitError
+					if errors.As(err, &exitErr) && exitErr.ExitCode() >= 0 {
+						result.Outcome = "failed"
+						code = exitErr.ExitCode()
+					} else {
+						result.Outcome = "execution_error"
+						result.ExitCode = nil
+					}
 				}
+				run.Targets = append(run.Targets, result)
+			}
+			if record != "" {
+				if err := writeVerifyRun(record, run, overwrite); err != nil {
+					return errors.Join(verifyErr, err)
+				}
+			}
+			if verifyErr != nil {
+				return verifyErr
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to verify (default: all in config)")
+	cmd.Flags().StringVar(&record, "record", "", "Write a private JSON result to this explicit path")
+	cmd.Flags().StringVar(&evaluation, "evaluation", "", "Evaluation suite and dataset revision (required with --record)")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace an existing recorded result")
+	cmd.AddCommand(newVerifyCompareCmd())
 	registerTargetCompletion(cmd)
 	return cmd
 }
@@ -379,11 +430,14 @@ func runVerifier(cmd *cobra.Command, argv []string, context verifyContext) error
 	if err != nil {
 		return fmt.Errorf("verify %s: encode context: %w", context.Target, err)
 	}
-	child := exec.Command(argv[0], argv[1:]...)
+	child := exec.CommandContext(cmd.Context(), argv[0], argv[1:]...)
 	child.Stdin = strings.NewReader(string(payload) + "\n")
 	child.Stdout = cmd.OutOrStdout()
 	child.Stderr = cmd.ErrOrStderr()
 	if err := child.Run(); err != nil {
+		if cmd.Context().Err() != nil {
+			return fmt.Errorf("verify %s: %w", context.Target, cmd.Context().Err())
+		}
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return &verifierExitError{target: context.Target, err: exitErr}

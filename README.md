@@ -83,6 +83,8 @@ agnostic-ai why AGENTS.md  # trace an output to its source
 
 Follow doctor's suggested next step. Choose `agnostic-ai doctor --fix` when you want it to repair generated files. See [troubleshooting](https://agnostic-ai.org/docs/troubleshooting/).
 
+`agnostic-ai verify --evaluation smoke-v1 --record run.json` saves an external check for [comparison after configuration changes](https://agnostic-ai.org/docs/cli-reference/check/#record-and-compare-runs).
+
 `agnostic-ai explain <spec> --layers` shows which built-in, pack, project, and personal sources replace or extend a spec.
 
 The [command reference](https://agnostic-ai.org/docs/cli-reference/) covers import, compare, explain, upgrade, and the other commands.

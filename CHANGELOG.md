@@ -10,6 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Project built-in switches preview, apply, and undo generated files together, including pending source updates.
 - Vendor watch ignores known counter-only changes, labels dated archive additions, and detects edited GitHub release notes (#2456).
 - Caveman web previews ignore unrelated local working files, including tool symlinks, while checking source and output changes.
+- `verify --record` saves private command outcomes; `verify compare` reports outcome and elapsed-time changes for matching evaluations (#2455).
 
 - Root help groups commands by task and starts troubleshooting with read-only `doctor` diagnosis (#2460).
 - `serve --open` adds search, warm light and dark themes, compact expandable findings, and a clearer lifecycle timeline.
