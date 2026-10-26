@@ -80,6 +80,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var file string
 	var edit func([]byte) ([]byte, error)
 	var sourceGuard func() error
+	var scope editScope
 	switch r.URL.Path {
 	case editBuiltinPath:
 		var req struct {
@@ -101,7 +102,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
+		scope, err = parseEditScope(req.Scope)
 		if err == nil && len(req.Expected) > 0 {
 			err = h.checkBuiltinExpected(req.Name, req.Reset, req.Expected)
 		}
@@ -144,7 +145,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean or null value are required"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
+		scope, err = parseEditScope(req.Scope)
 		if err == nil && len(req.Expected) > 0 {
 			err = h.checkBooleanExpected(req.Path, req.Key, req.Expected)
 		}
@@ -195,7 +196,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var chosen spec.Entry
-		scope, err := parseEditScope(req.Scope)
+		scope, err = parseEditScope(req.Scope)
 		if err == nil {
 			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value, &chosen)
 		}
@@ -219,10 +220,25 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
 	}
+	var prepare func() (func(bool) error, error)
+	if scope == scopeLocal {
+		prepare = func() (func(bool) error, error) {
+			finish, err := h.preparePersonalOutOfGit(file)
+			if err != nil {
+				return nil, personalGitError{err}
+			}
+			return finish, nil
+		}
+	}
 	if sourceGuard == nil {
 		sourceGuard = func() error { return nil }
 	}
-	if problems, err := h.applyValidated(file, edit, sourceGuard); err != nil {
+	if problems, err := h.applyValidatedWithPrepare(file, edit, prepare, sourceGuard); err != nil {
+		var protection personalGitError
+		if errors.As(err, &protection) {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			return
+		}
 		var stale staleFieldError
 		var staleValue staleToggleError
 		if errors.As(err, &staleValue) {

@@ -37,23 +37,23 @@ test.describe('overview', () => {
       sent = route.request().postDataJSON()
       settings.fields.find((field: { key: string }) => field.key === 'x-').set[0].values[0].value = 'true'
       failRefresh = true
-      return route.fulfill({ status: 409, json: { error: 'The value changed.' } })
+      return route.fulfill({ status: 409, json: { error: 'The value changed. Git protection was kept.' } })
     })
     await page.goto('/?view=settings')
     const toggle = page.getByRole('switch', { name: 'x-claude.verbose' })
     await toggle.click()
-    await expect(page.getByRole('alert')).toContainText('The value changed.')
+    await expect(page.getByRole('alert')).toContainText('The value changed. Git protection was kept.')
     await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(sent).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-claude.verbose', value: true, expected: false })
     await page.getByRole('button', { name: 'Reload saved values' }).click()
     await expect(page.getByText('The overview could not be refreshed.')).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    await expect(page.getByText('The value changed.')).toBeVisible()
+    await expect(page.getByText('The value changed. Git protection was kept.')).toBeVisible()
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('The overview could not be refreshed.')).toHaveCount(0)
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    await expect(page.getByText('The value changed.')).toHaveCount(0)
+    await expect(page.getByText('The value changed. Git protection was kept.')).toHaveCount(0)
   })
 
   test('offers reload when a built-in save is stale', async ({ page }) => {

@@ -11,10 +11,14 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -271,10 +275,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 // through every link, inside the personal folder (or is the personal
 // config itself), outside every team source, and is not tracked by Git.
 func (h *editHandler) checkPersonalTarget(file string) error {
-	localRoot := filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x"))))
-	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
-		localRoot = personalConfig
-	}
+	localRoot, _ := h.personalRoot(file)
 	team, err := h.teamSourcePaths()
 	if err != nil {
 		return err
@@ -295,6 +296,120 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 		return refuse("is tracked by Git")
 	}
 	return nil
+}
+
+// personalRoot is the personal folder a Just me write of file must stay
+// in, or the personal config when file is that config.
+func (h *editHandler) personalRoot(file string) (root string, folder bool) {
+	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
+		return personalConfig, false
+	}
+	return filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x")))), true
+}
+
+// keepPersonalOutOfGit makes sure Git ignores file before a Just me write
+// creates it. When no rule ignores it yet, the personal folder, or the
+// personal config, goes into the repository's info/exclude, which a
+// linked worktree shares with its main checkout. Outside a work tree
+// nothing can stage the file.
+var personalGitMu sync.Mutex
+
+func (h *editHandler) preparePersonalOutOfGit(file string) (func(bool) error, error) {
+	personalGitMu.Lock()
+	layout, layoutErr := gitquery.LayoutAtFresh(h.root)
+	ex, ok := personalExcludeLayout(layout, layoutErr)
+	if !ok {
+		if err := h.keepPersonalOutOfGit(file); err != nil {
+			personalGitMu.Unlock()
+			return nil, err
+		}
+		return func(bool) error { personalGitMu.Unlock(); return nil }, nil
+	}
+	release, err := gitexclude.Lock(ex.path)
+	if err != nil {
+		personalGitMu.Unlock()
+		return nil, err
+	}
+	unlock := func() { release(); personalGitMu.Unlock() }
+	before, err := snapshotEditFile(ex.path)
+	if err != nil {
+		unlock()
+		return nil, err
+	}
+	keepErr := h.keepPersonalOutOfGit(file)
+	after, err := snapshotEditFile(ex.path)
+	if err != nil {
+		unlock()
+		return nil, err
+	}
+	finish := func(rollback bool) error {
+		defer unlock()
+		if !rollback || (before.info == nil) == (after.info == nil) && bytes.Equal(before.data, after.data) {
+			return nil
+		}
+		return fmt.Errorf("%s: kept the new Git exclusion to protect personal files", ex.path)
+	}
+	if keepErr != nil {
+		if undoErr := finish(true); undoErr != nil {
+			return nil, fmt.Errorf("%s; restore Git exclusion: %w", keepErr, undoErr)
+		}
+		return nil, keepErr
+	}
+	return finish, nil
+}
+
+func (h *editHandler) keepPersonalOutOfGit(file string) error {
+	target := resolvedAbs(file)
+	dir := existingAncestor(filepath.Dir(target))
+	layout, err := gitquery.LayoutAtFresh(dir)
+	if err != nil {
+		if outsideGit(dir) {
+			return nil
+		}
+		return fmt.Errorf("%s: could not check Git before saving this personal file: %w", overviewDisplay(h.root, file), err)
+	}
+	if !layout.HasToplevel || gitIgnores(dir, target) {
+		return nil
+	}
+	display := overviewDisplay(h.root, file)
+	personal, folder := h.personalRoot(file)
+	rel, err := filepath.Rel(h.root, personal)
+	rootLayout, layoutErr := gitquery.LayoutAtFresh(h.root)
+	ex, ok := personalExcludeLayout(rootLayout, layoutErr)
+	if err != nil || !ok {
+		return fmt.Errorf("%s: Git would track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
+	}
+	pattern := "/" + ex.prefix + filepath.ToSlash(rel)
+	if folder {
+		pattern += "/"
+	}
+	if err := gitexclude.Update(ex.path, func(content string) string {
+		out, _ := adapters.WithGitExclusion([]byte(content), pattern)
+		return string(out)
+	}); err != nil {
+		return fmt.Errorf("%s: could not keep this personal file out of Git: %w", display, err)
+	}
+	if !gitIgnores(dir, target) {
+		return fmt.Errorf("%s: Git would still track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
+	}
+	return nil
+}
+
+func outsideGit(dir string) bool {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree")
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.HasPrefix(string(out), "fatal: not a git repository") {
+		return false
+	}
+	for path := dir; ; path = filepath.Dir(path) {
+		if _, err := os.Lstat(filepath.Join(path, ".git")); !os.IsNotExist(err) {
+			return false
+		}
+		if filepath.Dir(path) == path {
+			return true
+		}
+	}
 }
 
 // teamSourcePaths are the committed config files and spec folders an

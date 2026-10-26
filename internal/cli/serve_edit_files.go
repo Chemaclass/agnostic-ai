@@ -146,6 +146,10 @@ func sameEditValues(a, b []byte, emptyBuiltinsIsUnset bool) bool {
 }
 
 func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, error), guards ...func() error) ([]string, error) {
+	return h.applyValidatedWithPrepare(file, edit, nil, guards...)
+}
+
+func (h *editHandler) applyValidatedWithPrepare(file string, edit func([]byte) ([]byte, error), prepare func() (func(bool) error, error), guards ...func() error) ([]string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	before, beforeErr := h.validationProblems()
@@ -177,11 +181,48 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 		}
 		return nil
 	}
-	if bytes.Equal(original.data, edited) {
-		if err := checkSources(); err != nil {
+	if err := checkSources(); err != nil {
+		return nil, err
+	}
+	if err := original.check(file); err != nil {
+		return nil, err
+	}
+	var finish func(bool) error
+	if prepare != nil {
+		finish, err = prepare()
+		if err != nil {
 			return nil, err
 		}
-		return nil, original.check(file)
+	}
+	rollback := func(err error) error {
+		if finish == nil {
+			return err
+		}
+		if checkErr := original.check(file); checkErr != nil {
+			_ = finish(false)
+			finish = nil
+			return fmt.Errorf("%w; %s: kept the Git exclusion because the personal file changed: %w", err, file, checkErr)
+		}
+		finishErr := finish(true)
+		finish = nil
+		if finishErr != nil {
+			return fmt.Errorf("%w; %w", err, finishErr)
+		}
+		return err
+	}
+	defer func() {
+		if finish != nil {
+			_ = finish(false)
+		}
+	}()
+	if bytes.Equal(original.data, edited) {
+		if err := checkSources(); err != nil {
+			return nil, rollback(err)
+		}
+		if err := original.check(file); err != nil {
+			return nil, rollback(err)
+		}
+		return nil, nil
 	}
 	var written editFileSnapshot
 	if (restoreBaseline && !baseline.existed) || len(edited) == 0 {
@@ -194,7 +235,7 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 		written, err = original.replaceGuarded(file, edited, checkSources)
 	}
 	if err != nil {
-		return nil, err
+		return nil, rollback(err)
 	}
 	after, afterErr := h.validationProblems()
 	var added []string
@@ -220,13 +261,24 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 	if err := written.check(file); err != nil {
 		return added, fmt.Errorf("the edit did not validate; could not restore the file: %w", err)
 	}
+	var restored editFileSnapshot
 	if original.info == nil {
 		err = os.Remove(file)
 	} else {
-		_, err = written.replace(file, original.data, original.info.Mode().Perm())
+		restored, err = written.replace(file, original.data, original.info.Mode().Perm())
 	}
 	if err != nil {
 		return added, fmt.Errorf("the edit did not validate; could not restore the file: %w", err)
+	}
+	if finish != nil {
+		if err := restored.check(file); err != nil {
+			return added, fmt.Errorf("the edit did not validate; kept the Git exclusion because the restored file changed: %w", err)
+		}
+		finishErr := finish(true)
+		finish = nil
+		if finishErr != nil {
+			return added, fmt.Errorf("the edit did not validate; could not restore the Git exclusion: %w", finishErr)
+		}
 	}
 	return added, fmt.Errorf("%s: the edit did not validate, so the file was restored", file)
 }

@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+type personalGitError struct{ err error }
+
+func (e personalGitError) Error() string { return e.err.Error() }
+func (e personalGitError) Unwrap() error { return e.err }
+
 type staleToggleError struct{ key string }
 
 func (e staleToggleError) Error() string {

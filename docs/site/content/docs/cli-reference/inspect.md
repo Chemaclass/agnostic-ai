@@ -312,6 +312,8 @@ The top of **Settings** picks where edits go, and the browser remembers it. **Te
 
 A value from a local file shows a **local** badge in both modes. **Reset to team value** removes your override, and the local file once it is empty. Team mode asks you to reset a local value before changing the team value. Your first personal built-in change copies the team list into `agnostic-ai.local.yaml`, since that list replaces the team one whole; **Reset built-ins to the team list** drops it. A personal list set through a YAML merge (`<<`) is refused; edit it by hand. A Just me save is refused when its file resolves, through links, outside the local folder, into a team config or source folder, or to a file Git tracks.
 
+Before a Just me save writes its file, the server checks that Git ignores it. When no rule does yet, as in a project that never ran `sync`, it adds the local folder (or `agnostic-ai.local.yaml`) to `.git/info/exclude`, which linked worktrees share. Your other lines in that file stay. If Git still would not ignore the file, the save is refused and the personal file is not written; add the path to `.gitignore` and save again. A new `.git/info/exclude` rule remains if it was added before a refusal or stale conflict, to protect personal files. Outside a Git repository there is nothing to ignore, so the save writes the file directly.
+
 In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first personal change keeps the `memory.personal` mode inherited from the main checkout, and a reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
 
 ### API
@@ -325,8 +327,8 @@ Edit and impact requests take JSON. Every edit and preview names its `scope`: `t
 | `GET /api/views/authority` | `?agentId=<id>&target=<tool>` for per-agent decisions. |
 | `POST /api/views/authority/impact` | A permission proposal to preview. |
 | `GET /api/views/authority/schema` | None. |
-| `POST /api/edit/builtin` | `{scope, name, enabled, expected?}`, or `{scope: "local", reset: true, expected?}` to drop the personal list. `expected` is the shown boolean, or the shown list for reset; a changed value returns 409. |
-| `POST /api/edit/value` | `{scope, path, key, value, expected?}`, where `value` is a boolean, or `null` with `scope: local` to reset. `expected` is the shown boolean; a changed value returns 409. |
+| `POST /api/edit/builtin` | `{scope, name, enabled, expected?}`, or `{scope: "local", reset: true, expected?}` to drop the personal list. `expected` is the shown boolean, or the shown list for reset; a changed value returns 409 without saving the requested change. |
+| `POST /api/edit/value` | `{scope, path, key, value, expected?}`, where `value` is a boolean, or `null` with `scope: local` to reset. `expected` is the shown boolean; a changed value returns 409 without saving the requested change. |
 | `POST /api/edit/field` | `{scope, path?, key, value, expected?}` for `model`, `effort`, and global `session-retention-days`. `null` clears the field, or resets your override with `scope: local`. `expected` is the value the page showed for the file being written, or `null` if that file did not set it. If the file now holds another value, or a personal file now sets the field for a team save, the answer is 409 and nothing is written. A file that already holds the new value counts as saved. |
 | `GET /api/changes/builtin` | None. Returns the session's change state. |
 | `POST /api/changes/builtin/preview` | `{scope, name, enabled}` for any shipped built-in, `{scope: "local", reset: true}`, or `{scope, setting: {path?, key, value, expected?}}` for `model` or `effort`, with the fields `/api/edit/field` takes. A setting plan carries `key` and a `title` such as `effort set to high`; undo state names it in `undoTitle`. |
