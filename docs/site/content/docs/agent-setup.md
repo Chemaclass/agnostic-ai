@@ -70,11 +70,19 @@ Ask the user whether Git should track the generated files. Pass `--gitignore=on`
 Replace `claude,codex` with the project's tools:
 
 ```bash
-# existing tool files
+# macOS or Linux, existing tool files
 printf '%s\n' 'claude,codex' | agnostic-ai init --from all --gitignore=on
 
-# fresh project
+# macOS or Linux, fresh project
 printf '%s\n' 'claude,codex' | agnostic-ai init --gitignore=on
+```
+
+```powershell
+# Windows PowerShell, existing tool files
+'claude,codex' | agnostic-ai init --from all --gitignore=on
+
+# Windows PowerShell, fresh project
+'claude,codex' | agnostic-ai init --gitignore=on
 ```
 
 `--from all` adds each source's missing sections to `.agnostic-ai/AGNOSTIC_AI.md` and names them. Check that file for duplicates before you sync. Import tells you when a section needs a manual merge. See [Migration](@/docs/migration.md).
