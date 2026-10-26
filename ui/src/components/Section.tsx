@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type ToolListing, type Value } from '../contract'
+import { API, type ItemFinding, type OverviewView, type Section, type SectionItem, type SettingField, type Stage, type TargetSupport, type TargetValue, type ToolListing, type Value } from '../contract'
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
@@ -7,12 +7,14 @@ import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeErro
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { cursorUrl } from '../model/editor'
 import { findingFixPrompt } from '../model/finding-prompt'
+import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import type { Remote } from './Shell'
 import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
 const ConfigurationRoot = createContext<string | undefined>(undefined)
+const ConfiguredTools = createContext<TargetSupport[]>([])
 
 export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
   const data = overview.loaded?.data
@@ -40,9 +42,11 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
       <PageHeader title={section.label} subtitle={section.question} />
       <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
         <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-          <EditScopeProvider key={section.id} enabled={section.id === 'settings'}>
-            <SectionContents section={section} />
-          </EditScopeProvider>
+          <ConfiguredTools.Provider value={data.targets}>
+            <EditScopeProvider key={section.id} enabled={section.id === 'settings'}>
+              <SectionContents section={section} />
+            </EditScopeProvider>
+          </ConfiguredTools.Provider>
         </ConfigurationRoot.Provider>
         <SupportTable section={section} toolLabel={toolLabel} />
       </fieldset>
@@ -210,9 +214,40 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
             </div>
           ))}
           <FieldEditControl key={scope} field={f} />
+          {f.resolved && f.resolved.length > 0 && <FieldResolution label={f.label} resolved={f.resolved} />}
         </FieldRow>
       ))}
     </ul>
+  )
+}
+
+function FieldResolution({ label, resolved }: { label: string; resolved: TargetValue[] }) {
+  const tools = useContext(ConfiguredTools)
+  const [selected, setSelected] = useState(resolved[0].target)
+  const current = resolved.find((r) => r.target === selected) ?? resolved[0]
+  const groups = valueGroups(resolved)
+  return (
+    <details className="field-resolution">
+      <summary>What each tool gets</summary>
+      <ul className="field-resolution-groups" aria-label={`${label} by tool`}>
+        {groups.map((g) => <li key={g.value ?? ''}>{g.labels.join(', ')}: {g.value ? <Code>{g.value}</Code> : <span className="muted">no value written</span>}</li>)}
+      </ul>
+      {resolved.length > 1 && <label className="field-resolution-tool">Tool <select value={current.target} onChange={(event) => setSelected(event.target.value)}>
+        {resolved.map((r) => <option key={r.target} value={r.target}>{r.label}</option>)}
+      </select></label>}
+      <div className="field-resolution-detail" aria-live="polite">
+        <p>{generatedAnswer(current)}</p>
+        {current.from && <p className="muted">From <Code>{current.from.path}</Code>{current.from.local && ', your personal file'}{!current.from.spec && ' in the config'}</p>}
+        {current.others.length > 0 && <>
+          <p className="muted">Values that do not win:</p>
+          <ul className="field-resolution-others">
+            {current.others.map((o, i) => <li key={`${o.path}:${i}`}>{o.value ? <Code>{o.value}</Code> : 'No value'} in <Code>{o.path}</Code>: {o.reason}</li>)}
+          </ul>
+        </>}
+        {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. Sync writes that native key as is, so check the generated file for the value {current.label} reads.</p>)}
+        <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. Other <Code>{`x-${current.target}`}</Code> keys and imported native settings files are not covered here.</p>
+      </div>
+    </details>
   )
 }
 

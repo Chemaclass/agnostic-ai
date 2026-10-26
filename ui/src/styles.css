@@ -1481,6 +1481,34 @@ input:hover {
   font-size: 12px;
 }
 
+.field-resolution {
+  font-size: 13px;
+}
+
+.field-resolution > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.field-resolution-groups,
+.field-resolution-others {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.field-resolution-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-resolution-detail {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
 .native-groups {
   display: grid;
   gap: 16px;
