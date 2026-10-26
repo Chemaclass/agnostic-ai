@@ -997,6 +997,8 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 		"## What the agent does",
 		"### Setup rules",
 		"agnostic-ai init --from all",
+		"# Windows PowerShell, existing tool files\n'claude,codex' | agnostic-ai init --from all --gitignore=on\n",
+		"# Windows PowerShell, fresh project\n'claude,codex' | agnostic-ai init --gitignore=on\n",
 		"agnostic-ai sync --check",
 		"https://agnostic-ai.org/docs/installation/",
 	} {
