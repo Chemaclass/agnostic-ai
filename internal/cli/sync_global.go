@@ -74,11 +74,9 @@ type globalState struct {
 	PermissionRules  map[string]map[string][]string     `json:"permissionRules,omitempty"`
 	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
 	// SettingsParents records, per target, the JSON objects sync created
-	// above the settings keys it owns. Removal takes away only these
+	// as settings or above the settings keys it owns. Removal takes away only these
 	// once empty, so an object the user wrote stays.
 	SettingsParents map[string][]string `json:"settingsParents,omitempty"`
-	// legacySettingsParents marks state from before SettingsParents.
-	legacySettingsParents bool
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
 	MCP map[string]map[string]any `json:"mcp,omitempty"`
@@ -774,7 +772,6 @@ func loadGlobalState(path string) (globalState, error) {
 	}
 	state.ClaudeHooks, state.CursorHooks = nil, nil
 	state.legacyHookContainers = state.Version < 6
-	state.legacySettingsParents = state.Version < 9
 	state.Version = globalStateVersion
 	return state, nil
 }
@@ -844,24 +841,6 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 	for target, parents := range old.SettingsParents {
 		if !slices.Contains(targets, target) {
 			next.SettingsParents[target] = slices.Clone(parents)
-		}
-	}
-	if old.legacySettingsParents {
-		for _, target := range slices.Concat(slices.Collect(maps.Keys(old.Settings)), slices.Collect(maps.Keys(old.PermissionRules))) {
-			if slices.Contains(targets, target) || globalTargets[target].settings.format != "json" {
-				continue
-			}
-			owned := maps.Clone(old.Settings[target])
-			if owned == nil {
-				owned = map[string]any{}
-			}
-			for list := range old.PermissionRules[target] {
-				owned["permissions."+list] = true
-			}
-			parents, _ := settingsParents(jsonParents{legacy: true}, nil, owned, nil, nil, owned, nil)
-			if len(parents) > 0 {
-				next.SettingsParents[target] = parents
-			}
 		}
 	}
 	for target, rules := range old.PermissionRules {
@@ -1319,7 +1298,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if saved, present := old.SessionRetention[target]; present {
 				original = &saved
 			}
-			parents := jsonParents{created: old.SettingsParents[target], legacy: old.legacySettingsParents}
+			parents := jsonParents{created: old.SettingsParents[target]}
 			// Keys recorded in a file the root no longer resolves to go
 			// from that file, and the new one starts unowned.
 			if moved := old.SettingsPaths[target]; moved != "" && moved != path {

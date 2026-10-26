@@ -148,9 +148,6 @@ func mergeGlobalStringLists(path string, data []byte, want, previous map[string]
 	}
 	for _, list := range lists {
 		for _, parent := range jsonParentKeys(prefix + list) {
-			if parents.legacy && len(previous[list]) > 0 {
-				created[parent] = true
-			}
 			if _, present := settingsLookup(values, parent, "json"); !present && len(want[list]) > 0 {
 				created[parent] = true
 			}

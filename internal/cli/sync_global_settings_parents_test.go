@@ -91,6 +91,52 @@ func TestSyncGlobal_SettingsPartialRemovalKeepsTheParentForTheRest(t *testing.T)
 	}
 }
 
+func TestSyncGlobal_SettingsParentOwnershipSurvivesEmptyObjectBecomingChild(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	original := "{\"theme\":\"dark\"}\n"
+	mustWriteGlobalTest(t, path, original)
+	settings := filepath.Join(source, "settings", "defaults.yaml")
+	for _, value := range []string{"env: {}", "env:\n    DEMO: hello"} {
+		mustWriteGlobalTest(t, settings, "name: defaults\nx-claude:\n  "+value+"\n")
+		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			t.Fatalf("sync %q: %v\n%s", value, err, warnings)
+		}
+	}
+	if err := os.Remove(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("removal: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("add then remove must restore the original bytes: %q, want %q", got, original)
+	}
+}
+
+func TestSyncGlobal_AdoptedEmptyObjectSurvivesBecomingChild(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	original := "{\"env\":{}}\n"
+	mustWriteGlobalTest(t, path, original)
+	settings := filepath.Join(source, "settings", "defaults.yaml")
+	for _, value := range []string{"env: {}", "env:\n    DEMO: hello"} {
+		mustWriteGlobalTest(t, settings, "name: defaults\nx-claude:\n  "+value+"\n")
+		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			t.Fatalf("sync %q: %v\n%s", value, err, warnings)
+		}
+	}
+	if err := os.Remove(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("removal: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("add then remove must restore the adopted object: %q, want %q", got, original)
+	}
+}
+
 func TestSyncGlobal_SettingsRemovalKeepsAParentTheUserFilled(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
@@ -112,7 +158,7 @@ func TestSyncGlobal_SettingsRemovalKeepsAParentTheUserFilled(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_SettingsParentsFromOlderStateStillGo(t *testing.T) {
+func TestSyncGlobal_SettingsParentsFromOlderStateStayWhenOwnershipIsUnknown(t *testing.T) {
 	for _, first := range [][]string{nil, {"--only", "codex"}} {
 		t.Run(strings.Join(first, " "), func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
@@ -131,10 +177,27 @@ func TestSyncGlobal_SettingsParentsFromOlderStateStillGo(t *testing.T) {
 			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
 				t.Fatalf("removal: %v\n%s", err, warnings)
 			}
-			if got, want := readGlobalTest(t, path), "{\"theme\":\"dark\"}\n"; got != want {
-				t.Errorf("a parent recorded before created parents were tracked must go as before: %q, want %q", got, want)
+			if got, want := readGlobalTest(t, path), "{\"theme\":\"dark\",\"env\":{}}\n"; got != want {
+				t.Errorf("a parent with unknown ownership must stay: %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+func TestSyncGlobal_PermissionParentsFromOlderStateStayWhenOwnershipIsUnknown(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	mustWriteGlobalTest(t, path, "{\"permissions\":{\"allow\":[\"Read\"]}}\n")
+	recorded, err := json.Marshal(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, filepath.Join(source, "state", "global.json"), `{"version":8,"files":[],"permissionRules":{"claude":{"allow":["Read"]}},"settingsPaths":{"claude":`+string(recorded)+`}}`)
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("removal: %v\n%s", err, warnings)
+	}
+	if got, want := readGlobalTest(t, path), "{\"permissions\":{}}\n"; got != want {
+		t.Errorf("a parent with unknown ownership must stay: %q, want %q", got, want)
 	}
 }
 

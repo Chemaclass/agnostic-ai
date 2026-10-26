@@ -300,9 +300,6 @@ type globalSettingsMerge struct {
 type jsonParents struct {
 	// created lists the parents sync added; removal keeps the others.
 	created []string
-	// legacy marks state from before created was recorded, which counts
-	// every parent of a recorded key as created.
-	legacy bool
 	// keep is the text to restore per parent removal leaves empty.
 	keep map[string]string
 }
@@ -386,6 +383,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 		if wanted[key] {
 			continue
 		}
+		if object, ok := previous[key].(map[string]any); ok && len(object) == 0 {
+			if slices.ContainsFunc(want, func(setting globalSetting) bool { return strings.HasPrefix(setting.key, key+".") }) {
+				continue
+			}
+		}
 		// A value changed since sync wrote it is the user's now.
 		if have, ok := settingsLookup(current, key, format); ok && equal(have, previous[key]) {
 			m.changes = append(m.changes, "remove "+key)
@@ -400,7 +402,7 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 	var keep map[string]string
 	if parents != nil && format == "json" {
 		keep = maps.Clone(parents.keep)
-		m.parents, keep = settingsParents(*parents, current, previous, set, remove, m.owned, keep)
+		m.parents, keep = settingsParents(*parents, current, set, remove, m.owned, keep)
 	}
 	if len(set) == 0 && len(remove) == 0 {
 		return m, nil
@@ -445,19 +447,17 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 // settingsParents works out which parents of the owned keys sync
 // created, adding the ones setting a key creates now, and marks in keep
 // every parent of a removed key that the user wrote.
-func settingsParents(parents jsonParents, current, previous, set map[string]any, remove []string, owned map[string]any, keep map[string]string) ([]string, map[string]string) {
+func settingsParents(parents jsonParents, current, set map[string]any, remove []string, owned map[string]any, keep map[string]string) ([]string, map[string]string) {
 	created := map[string]bool{}
 	for _, parent := range parents.created {
 		created[parent] = true
 	}
-	if parents.legacy {
-		for key := range previous {
-			for _, parent := range jsonParentKeys(key) {
-				created[parent] = true
+	for key, value := range set {
+		if object, ok := value.(map[string]any); ok && len(object) == 0 {
+			if _, present := settingsLookup(current, key, "json"); !present {
+				created[key] = true
 			}
 		}
-	}
-	for key := range set {
 		for _, parent := range jsonParentKeys(key) {
 			if _, present := settingsLookup(current, parent, "json"); !present {
 				created[parent] = true
@@ -476,6 +476,9 @@ func settingsParents(parents jsonParents, current, previous, set map[string]any,
 	}
 	var out []string
 	for key := range owned {
+		if created[key] && !slices.Contains(out, key) {
+			out = append(out, key)
+		}
 		for _, parent := range jsonParentKeys(key) {
 			if created[parent] && !slices.Contains(out, parent) {
 				out = append(out, parent)
