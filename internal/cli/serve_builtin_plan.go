@@ -132,8 +132,7 @@ func planBuiltinChange(root string, req builtinRequest, where editScope) (*built
 	cfg.Builtins = slices.Clone(cfg.Builtins)
 	switch {
 	case req.reset:
-		team, _ := (&editHandler{root: root}).builtinsConfigFiles()
-		if cfg.Builtins, err = readBuiltinsList(team); err != nil {
+		if cfg.Builtins, err = config.TeamBuiltins(root); err != nil {
 			return nil, err
 		}
 	case req.enabled:

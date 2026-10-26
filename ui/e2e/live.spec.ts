@@ -193,6 +193,38 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
   }
 })
 
+test('live just-me built-in outside the team block goes to info/exclude and resets cleanly', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    await put(f.config, f.configBytes.replace('builtins: []', 'builtins: []\ngitignore:\n    enabled: true'))
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const git = (...args: string[]) => run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: f.root, env: f.env })
+    await git('add', '-A')
+    await git('commit', '--quiet', '-m', 'Team setup')
+    const exclude = join(f.root, '.git', 'info', 'exclude')
+    const personalBlock = '# >>> agnostic-ai (personal)'
+
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    const caveman = page.getByRole('switch', { name: 'caveman built-in' })
+    await caveman.click()
+    await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'true')
+    await stat(join(f.root, '.claude', 'skills', 'caveman', 'SKILL.md'))
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    expect(await readFile(exclude, 'utf8')).toContain(personalBlock)
+
+    await page.locator('.item-row').filter({ has: caveman }).getByRole('button', { name: 'Reset caveman to team value' }).click()
+    await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'false')
+    await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    expect(await readFile(exclude, 'utf8').catch(() => '')).not.toContain(personalBlock)
+  } finally {
+    await f.close()
+  }
+})
+
 test('live just-me edits stay out of Git, reach sync, and reset to the team value', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
@@ -222,7 +254,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     const handoffRow = page.locator('.item-row').filter({ has: handoff })
     await expect(handoffRow.locator('.badge', { hasText: 'local' })).toBeVisible()
 
-    expect((await git('status', '--porcelain', '--untracked-files=all', '--', 'agnostic-ai.yaml', '.agnostic-ai')).stdout).toBe('')
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     for (const personal of ['agnostic-ai.local.yaml', '.agnostic-ai/local/settings/defaults.yaml']) await git('check-ignore', '--quiet', personal)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
     expect(JSON.parse(await readFile(join(f.root, '.claude', 'settings.json'), 'utf8')).model).toBe('opus')

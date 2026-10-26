@@ -187,3 +187,17 @@ test('drops a restored proposal saved for another scope', async ({ page }) => {
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
 })
+
+test('shows why a linked worktree needs the CLI for a personal built-in', async ({ page }) => {
+  const message = '.claude/skills/caveman/SKILL.md: built-ins only you turn on stay untracked in a linked worktree; use agnostic-ai sync in the CLI'
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
+  await page.route('**/api/changes/builtin/preview', (route) => route.fulfill({ status: 400, json: { error: message } }))
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await toggle(page, 'caveman').click()
+  await expect(page.getByRole('alert')).toContainText(message)
+  await page.getByRole('button', { name: 'Reload change state' }).click()
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect(toggle(page, 'caveman')).toHaveAttribute('aria-checked', 'false')
+})

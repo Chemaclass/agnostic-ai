@@ -82,7 +82,7 @@ func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string,
 	if err := h.checkPersonalTarget(local); err != nil {
 		return "", nil, err
 	}
-	teamList, err := readBuiltinsList(team)
+	teamList, err := h.teamBuiltins()
 	if err != nil {
 		return "", nil, err
 	}
@@ -126,7 +126,7 @@ func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string,
 				return nil, err
 			}
 		}
-		if !req.reset && !sameNameSet(*personal, teamList) {
+		if !req.reset && !sameBuiltins(*personal, teamList) {
 			return out, nil
 		}
 		if out, err = removeYAMLPath(out, "builtins"); err != nil {
@@ -200,36 +200,23 @@ func inheritedPersonalMemory(root string) (string, error) {
 	return git.Personal, err
 }
 
-func readBuiltinsList(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return nil, nil
+// teamBuiltins is the committed builtins list; a global source without a
+// config turns none on.
+func (h *editHandler) teamBuiltins() ([]string, error) {
+	if team, _ := h.builtinsConfigFiles(); h.global {
+		if _, err := os.Stat(team); os.IsNotExist(err) {
+			return nil, nil
+		}
 	}
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	var parsed struct {
-		Builtins []string `yaml:"builtins"`
-	}
-	if err := yaml.Unmarshal(data, &parsed); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	return parsed.Builtins, nil
-}
-
-func sameNameSet(a, b []string) bool {
-	a, b = slices.Clone(a), slices.Clone(b)
-	slices.Sort(a)
-	slices.Sort(b)
-	return slices.Equal(slices.Compact(a), slices.Compact(b))
+	return config.TeamBuiltins(h.root)
 }
 
 // overviewBuiltins reports the team builtins list and whether the
 // personal config replaces it, for the overview's local badges.
 func overviewBuiltins(root string, global bool) ([]string, bool) {
 	h := &editHandler{root: root, global: global}
-	team, local := h.builtinsConfigFiles()
-	list, err := readBuiltinsList(team)
+	_, local := h.builtinsConfigFiles()
+	list, err := h.teamBuiltins()
 	if err != nil {
 		return nil, false
 	}
