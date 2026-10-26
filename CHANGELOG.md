@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync --global` now applies a settings spec's `target`, `targets`, and `targets-exclude` to its model, effort, and `x-<tool>` values, as it already did for permission mode and session retention. Before, a spec limited to Codex could set Claude Code's default model and native settings. `explain --global`, `lint --global`, and `import --global` follow the same rule (#2525).
 - `sync --global --backup` now keeps `<path>.bak` for a file it removes, such as a hand-edited skill whose source you deleted, as it already did for a file it overwrites. Before, following the hint to rerun with `--backup` deleted the edit with no copy. A `.bak` path that is a symlink or other non-regular file now stops the run instead of being written through (#2516).
 - The web interface's Settings page shows, for the default model and reasoning effort, the value sync writes for each configured tool, where it comes from, and why other values lose, including model tiers, personal overrides, per-tool values, and tools that have no place for the value. It tells this apart from installed-file status and does not claim what a running tool uses (#2512).
 - The web interface searches every section from **Search** or `Cmd+K` / `Ctrl+K`, including settings, servers, and findings. Each result opens with its own link that survives a reload and browser history; a link to an entry that is gone says so (#2514).
