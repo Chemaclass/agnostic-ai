@@ -123,3 +123,53 @@ func TestApplyGlobalChanges_SymlinkRemovalBackupKeepsTargetBytesBesideTheLink(t 
 		t.Errorf("the backup goes beside the link, as for writes: %v", err)
 	}
 }
+
+func TestSyncGlobal_ReaddedSkillSyncsBesideItsBackup(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
+	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(home, ".claude", "skills", "tidy", "SKILL.md")
+	edited := editGlobalFile(t, out, "Tidy.\n", "Tidy, my way.\n")
+	if err := os.RemoveAll(filepath.Dir(src)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+		t.Fatal(err)
+	}
+
+	mustWriteGlobalTest(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy, my way.\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("a skill put back in the source must sync beside its backup: %v", err)
+	}
+	if got := readGlobalTest(t, out); !strings.Contains(got, "Tidy, my way.") {
+		t.Errorf("skill = %q", got)
+	}
+	if got := readGlobalTest(t, out+".bak"); got != edited {
+		t.Errorf("the backup must stay: %q", got)
+	}
+}
+
+func TestApplyGlobalChanges_RollbackRestoresAnEarlierBackup(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.json")
+	changed := filepath.Join(dir, "settings.json")
+	mustWriteGlobalTest(t, first, "{}\n")
+	mustWriteGlobalTest(t, first+".bak", "kept by the user\n")
+	mustWriteGlobalTest(t, changed, "{\"a\": 1}\n")
+	guards := map[string]*diskSnapshot{changed: {data: []byte("{}\n")}}
+	if _, err := applyGlobalChanges(nil, []string{first, changed}, true, guards); err == nil {
+		t.Fatal("a changed file must stop the removal")
+	}
+	if got := readGlobalTest(t, first); got != "{}\n" {
+		t.Errorf("first = %q", got)
+	}
+	if got := readGlobalTest(t, first+".bak"); got != "kept by the user\n" {
+		t.Errorf("an earlier backup must come back: %q", got)
+	}
+	if _, err := os.Stat(changed + ".bak"); !os.IsNotExist(err) {
+		t.Errorf("no backup may stay for a file that was kept: %v", err)
+	}
+}

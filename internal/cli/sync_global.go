@@ -2771,8 +2771,9 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 }
 
 // globalFolderMatches reports whether every file in dir is one this run
-// writes, with the same bytes. Files the run adds are allowed; a file of
-// any other content, or one the run does not write, is not.
+// writes, with the same bytes. Files the run adds are allowed, and so is
+// the .bak copy that --backup keeps of one of them; a file of any other
+// content, or one the run does not write, is not.
 func globalFolderMatches(dir string, planned map[string][]byte) (bool, error) {
 	same := true
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -2780,6 +2781,9 @@ func globalFolderMatches(dir string, planned map[string][]byte) (bool, error) {
 			return err
 		}
 		if d.IsDir() {
+			return nil
+		}
+		if _, ok := planned[strings.TrimSuffix(path, ".bak")]; ok && strings.HasSuffix(path, ".bak") {
 			return nil
 		}
 		want, ok := planned[path]
@@ -2863,18 +2867,6 @@ func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data 
 	return nil
 }
 
-func writeGlobalBackup(path string, data []byte, mode fs.FileMode) error {
-	if err := os.WriteFile(path+".bak", data, mode.Perm()); err != nil {
-		return fmt.Errorf("backup %s: %w", path, err)
-	}
-	// An existing .bak keeps its own mode on write; the copy of a
-	// private file must be private too.
-	if err := os.Chmod(path+".bak", mode.Perm()); err != nil {
-		return fmt.Errorf("backup %s: %w", path, err)
-	}
-	return nil
-}
-
 // applyGlobalChanges writes and removes files, rolling everything back
 // on the first failure. It returns a note for each symlink it wrote
 // through or removed.
@@ -2899,8 +2891,31 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 				_ = os.Remove(p.path)
 			} else {
 				_ = os.WriteFile(p.path, p.data, p.mode)
+				_ = os.Chmod(p.path, p.mode.Perm())
 			}
 		}
+	}
+	keepBackup := func(path string, data []byte, mode fs.FileMode) error {
+		bak := path + ".bak"
+		old, err := os.ReadFile(bak)
+		absent := os.IsNotExist(err)
+		if err != nil && !absent {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		oldMode := mode
+		if info, err := os.Stat(bak); err == nil {
+			oldMode = info.Mode()
+		}
+		done = append(done, prior{path: bak, data: old, mode: oldMode, absent: absent})
+		if err := os.WriteFile(bak, data, mode.Perm()); err != nil {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		// An existing .bak keeps its own mode on write; the copy of a
+		// private file must be private too.
+		if err := os.Chmod(bak, mode.Perm()); err != nil {
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		return nil
 	}
 	for _, w := range writes {
 		old, err := os.ReadFile(w.path)
@@ -2935,7 +2950,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 			return nil, fmt.Errorf("create directory for %s: %w", w.path, err)
 		}
 		if backup && !absent {
-			if err := writeGlobalBackup(w.path, old, mode); err != nil {
+			if err := keepBackup(w.path, old, mode); err != nil {
 				rollback()
 				return nil, err
 			}
@@ -2993,7 +3008,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 					return nil, err
 				}
 				if backup {
-					if err := writeGlobalBackup(path, data, targetInfo.Mode()); err != nil {
+					if err := keepBackup(path, data, targetInfo.Mode()); err != nil {
 						rollback()
 						return nil, err
 					}
@@ -3030,7 +3045,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 			return nil, fmt.Errorf("stat managed %s: %w", path, err)
 		}
 		if backup {
-			if err := writeGlobalBackup(path, data, info.Mode()); err != nil {
+			if err := keepBackup(path, data, info.Mode()); err != nil {
 				rollback()
 				return nil, err
 			}
