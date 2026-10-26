@@ -96,32 +96,39 @@ func absKey(dir string) string {
 func LayoutAt(dir string) (Layout, error) {
 	key := absKey(dir)
 	r := layouts.get(key, func() layoutResult {
-		const base = "--path-format=absolute"
-		out, err := exec.Command("git", "-C", key, "rev-parse", base, "--show-toplevel", "--git-dir", "--git-common-dir", "--show-prefix").Output()
-		hasTop := err == nil
-		if err != nil {
-			// A bare repository has no top level, so the query without it still answers.
-			out, err = exec.Command("git", "-C", key, "rev-parse", base, "--git-dir", "--git-common-dir", "--show-prefix").Output()
-		}
-		if err != nil {
-			return layoutResult{err: err}
-		}
-		parts := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
-		for i := range parts {
-			parts[i] = strings.TrimSuffix(parts[i], "\r")
-		}
-		var l Layout
-		switch {
-		case hasTop && len(parts) == 4:
-			l = Layout{Toplevel: parts[0], HasToplevel: true, GitDir: parts[1], CommonDir: parts[2], Prefix: parts[3]}
-		case !hasTop && len(parts) == 3:
-			l = Layout{GitDir: parts[0], CommonDir: parts[1], Prefix: parts[2]}
-		default:
-			return layoutResult{err: errNoAnswer}
-		}
-		return layoutResult{layout: l}
+		layout, err := LayoutAtFresh(key)
+		return layoutResult{layout: layout, err: err}
 	})
 	return r.layout, r.err
+}
+
+// LayoutAtFresh reads the current repository layout without using the run cache.
+func LayoutAtFresh(dir string) (Layout, error) {
+	key := absKey(dir)
+	const base = "--path-format=absolute"
+	out, err := exec.Command("git", "-C", key, "rev-parse", base, "--show-toplevel", "--git-dir", "--git-common-dir", "--show-prefix").Output()
+	hasTop := err == nil
+	if err != nil {
+		// A bare repository has no top level, so the query without it still answers.
+		out, err = exec.Command("git", "-C", key, "rev-parse", base, "--git-dir", "--git-common-dir", "--show-prefix").Output()
+	}
+	if err != nil {
+		return Layout{}, err
+	}
+	parts := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+	for i := range parts {
+		parts[i] = strings.TrimSuffix(parts[i], "\r")
+	}
+	var l Layout
+	switch {
+	case hasTop && len(parts) == 4:
+		l = Layout{Toplevel: parts[0], HasToplevel: true, GitDir: parts[1], CommonDir: parts[2], Prefix: parts[3]}
+	case !hasTop && len(parts) == 3:
+		l = Layout{GitDir: parts[0], CommonDir: parts[1], Prefix: parts[2]}
+	default:
+		return Layout{}, errNoAnswer
+	}
+	return l, nil
 }
 
 // Toplevel returns the work tree root around dir.

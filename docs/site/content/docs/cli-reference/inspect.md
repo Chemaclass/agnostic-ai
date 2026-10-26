@@ -312,6 +312,8 @@ The top of **Settings** picks where edits go, and the browser remembers it. **Te
 
 A value from a local file shows a **local** badge in both modes. **Reset to team value** removes your override, and the local file once it is empty. Team mode asks you to reset a local value before changing the team value. Your first personal built-in change copies the team list into `agnostic-ai.local.yaml`, since that list replaces the team one whole; **Reset built-ins to the team list** drops it. A personal list set through a YAML merge (`<<`) is refused; edit it by hand. A Just me save is refused when its file resolves, through links, outside the local folder, into a team config or source folder, or to a file Git tracks.
 
+Before a Just me save writes its file, the server checks that Git ignores it. When no rule does yet, as in a project that never ran `sync`, it adds the local folder (or `agnostic-ai.local.yaml`) to `.git/info/exclude`, which linked worktrees share. Your other lines in that file stay. If Git still would not ignore the file, the save is refused and nothing is written; add the path to `.gitignore` and save again. Outside a Git repository there is nothing to ignore, so the save writes the file directly.
+
 In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first personal change keeps the `memory.personal` mode inherited from the main checkout, and a reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
 
 ### API
