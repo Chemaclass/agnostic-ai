@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func TestSyncGlobal_RemovesAUserFileItCreatedOnceEmpty(t *testing.T) {
@@ -123,5 +127,132 @@ func TestApplyGlobalChanges_RemovalStopsWhenFileChangedSincePlan(t *testing.T) {
 	}
 	if got := readGlobalTest(t, path); got != "{\"a\": 1}\n" {
 		t.Errorf("file = %q", got)
+	}
+}
+
+func symlinkedGlobalTestFile(t *testing.T, body string) (link, target string) {
+	t.Helper()
+	dir := t.TempDir()
+	target = filepath.Join(dir, "dotfiles", "settings.json")
+	mustWriteGlobalTest(t, target, body)
+	link = filepath.Join(dir, "settings.json")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	return link, target
+}
+
+func TestApplyGlobalChanges_SymlinkRemovalStopsWhenTargetChangedSincePlan(t *testing.T) {
+	link, target := symlinkedGlobalTestFile(t, "{\"theme\":\"dark\"}\n")
+	guards := map[string]*diskSnapshot{link: {data: []byte("{}\n")}}
+	if _, err := applyGlobalChanges(nil, []string{link}, false, guards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+		t.Fatalf("a changed target must not be removed: %v", err)
+	}
+	if got := readGlobalTest(t, target); got != "{\"theme\":\"dark\"}\n" {
+		t.Errorf("target = %q", got)
+	}
+	if got, err := os.Readlink(link); err != nil || got != target {
+		t.Errorf("the symlink must stay: %q, %v", got, err)
+	}
+}
+
+func TestApplyGlobalChanges_SymlinkRemovalKeepsUnchangedTargetBehavior(t *testing.T) {
+	link, target := symlinkedGlobalTestFile(t, "{}\n")
+	resolved, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guards := map[string]*diskSnapshot{link: {data: []byte("{}\n")}}
+	linked, err := applyGlobalChanges(nil, []string{link}, false, guards)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{target, link} {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Errorf("%s must be gone: %v", path, err)
+		}
+	}
+	if len(linked) != 1 || linked[0] != "removed "+resolved+" and its symlink "+link {
+		t.Errorf("linked = %q", linked)
+	}
+}
+
+func TestApplyGlobalChanges_BrokenSymlinkRemovalTouchesOnlyTheLink(t *testing.T) {
+	link, target := symlinkedGlobalTestFile(t, "{}\n")
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(filepath.Dir(target), "other.json")
+	mustWriteGlobalTest(t, other, "{}\n")
+	guards := map[string]*diskSnapshot{link: {data: []byte("{}\n")}}
+	if _, err := applyGlobalChanges(nil, []string{link}, false, guards); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(link); !os.IsNotExist(err) {
+		t.Errorf("the broken link must go: %v", err)
+	}
+	if got := readGlobalTest(t, other); got != "{}\n" {
+		t.Errorf("an unrelated file must stay: %q", got)
+	}
+}
+
+func TestApplyGlobalChanges_LaterRefusalRestoresRemovedSymlinkAndTarget(t *testing.T) {
+	link, target := symlinkedGlobalTestFile(t, "{}\n")
+	changed := filepath.Join(t.TempDir(), "settings.json")
+	mustWriteGlobalTest(t, changed, "{\"a\": 1}\n")
+	guards := map[string]*diskSnapshot{link: {data: []byte("{}\n")}, changed: {data: []byte("{}\n")}}
+	if _, err := applyGlobalChanges(nil, []string{link, changed}, false, guards); err == nil {
+		t.Fatal("a changed file must stop the removal")
+	}
+	if got := readGlobalTest(t, target); got != "{}\n" {
+		t.Errorf("target = %q", got)
+	}
+	if got, err := os.Readlink(link); err != nil || got != target {
+		t.Errorf("the symlink must come back: %q, %v", got, err)
+	}
+	if got := readGlobalTest(t, changed); got != "{\"a\": 1}\n" {
+		t.Errorf("changed file = %q", got)
+	}
+}
+
+func TestSyncGlobal_PlannedGuardStopsRemovingAChangedSymlinkedFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	link := filepath.Join(home, ".claude", "settings.json")
+	target := filepath.Join(home, "dotfiles", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(link, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	old, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writes, next, err := buildGlobalWrites(home, source, []string{"claude"}, nil, spec.NewBundle(nil), old, nil, io.Discard, "warn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removals := removedGlobalFiles(old.Files, next.Files)
+	if !strings.Contains(strings.Join(removals, "\n"), link) || next.removalGuards[link] == nil {
+		t.Fatalf("the plan must remove %s under a guard: removals %q, guards %v", link, removals, next.removalGuards)
+	}
+	edited := "{\n  \"theme\": \"dark\"\n}\n"
+	mustWriteGlobalTest(t, target, edited)
+	if _, err := applyGlobalChanges(writes, removals, false, next.removalGuards); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+		t.Fatalf("stale plan accepted: %v", err)
+	}
+	if got := readGlobalTest(t, target); got != edited {
+		t.Errorf("the edit must survive: %q", got)
+	}
+	if got, err := os.Readlink(link); err != nil || got != target {
+		t.Errorf("the symlink must stay: %q, %v", got, err)
 	}
 }

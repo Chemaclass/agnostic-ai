@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - A Settings save in the web interface no longer overwrites a value that changed after the page loaded, in another tab or outside the browser. The server refuses the stale save and writes nothing; the page keeps your draft and offers to reload the saved values before you save again (#2518).
+- `sync --global` no longer deletes a symlinked user file, or the file the link points at, when that file changed while sync ran; it stops and keeps both, as it already did for a regular file (#2517).
 - The README and the first documentation pages give one path for new users: why, install, then set up your project. Everyday commands moved from the README to the setup guide, and the guides in the sidebar are ordered by when you need them (#2522).
 - `sync --global` refuses a rule whose `x-<target>` block sets `globs`, `paths`, or `scope` for a target being synced, as it does for those keys at the top level, instead of writing the rule into that tool's global instructions for every file; `lint --global` and `validate --global` report it too (#2508).
 - `compare` finishes in about a second at 500 specs instead of several minutes; its report is unchanged (#2498).
