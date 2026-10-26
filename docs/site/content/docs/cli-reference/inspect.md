@@ -10,13 +10,11 @@ group = "Reference"
 
 # Inspect and preview
 
-Start with the item you know: `explain <spec>` finds a spec's output, `why <file>` finds a generated file's source, and `render <spec>` previews file contents. Use `compare` before changing tools and `graph` for an overview. These commands help a coding agent find the source to edit.
+Start with the item you know: `explain <spec>` finds a spec's output, `why <file>` finds a generated file's source, and `render <spec>` previews file contents. Use `compare` before changing tools and `graph` for an overview.
 
 ## explain
 
-List every output file and section one spec contributes to. It works backward from the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions that apply to one source file instead.
-
-Given an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/docs/cli-reference/check.md#lint) such as `LINT011`, it prints the code's cause and fix. A lint code also shows its severity and any `lint` config key that tunes it. `--json` adds `severity` and `config` fields.
+List every output file and section one spec contributes to, read from the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions that apply to one source file instead. Given an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/docs/cli-reference/check.md#lint) such as `LINT011`, print its cause and fix; a lint code adds its severity and any `lint` config key that tunes it (`severity` and `config` in JSON).
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
@@ -26,25 +24,20 @@ agnostic-ai explain builtin:handoff --json
 | Flag | Description |
 |------|-------------|
 | `--json` | Stable JSON for editor extensions and scripts. |
-| `--layers` | Show which project source layers replace or extend a spec. Add `--json` for the same ordered sources. |
+| `--layers` | Show which project source layers replace or extend a spec. See [below](#debug-a-replaced-spec). |
 | `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
+| `--file <path>` | Explain a source file. See [below](#explain-a-source-file). |
+| `--context` | Rank startup context. See [below](#rank-context-contributions). |
+| `--inputs` | List generator inputs. See [below](#list-generator-inputs). |
+
+Contributions are grouped by configured target, each tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools. With `--global`, an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in the hooks file, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
+
+A spec that sets `model` or `effort` also lists its [tier](@/docs/spec-format/agents.md#model-tiers) and the model and effort it resolves to per target; `tool default` means the target writes no model. A target with no key for it, such as Codex skills, drops it and `sync` prints a coverage note.
+
+For an agent's `can` or `tools`, and settings `permissions`, it lists each target's native names, unsupported rules included. A widening line names extra access a target grants (for Codex, from the merged permissions and any explicit command policy source); `explain` shows it even with `on-unsupported: error`, where `sync` fails. Tool-specific overrides show their values and the field that wins.
 
 <details>
-<summary>Read contribution paths, model resolution, and explain JSON</summary>
-
-Contributions are grouped by configured target. A "would emit if enabled" list covers tools that are not enabled. Each entry is tagged `(full file)` or `(section "<name>")`.
-
-With `--global`, contributions read like this:
-
-| Spec | Contribution |
-|------|--------------|
-| Agent or skill | A whole file. |
-| Rule | A section of the instructions file. |
-| Hook | Its event in the hooks file. |
-| MCP server | Its key in the user MCP file. |
-| Settings | Each key it sets, tagged `(key "<key>")`. |
-
-A spec that sets `model` or `effort` also lists the [tier](@/docs/spec-format/agents.md#model-tiers) it names and the model and effort it resolves to on each configured target it reaches. `tool default` means the target writes no model. A target with no model or effort key for that kind, such as Codex skills, drops it and `sync` prints a coverage note.
+<summary>Read explain JSON</summary>
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
@@ -53,29 +46,13 @@ A spec that sets `model` or `effort` also lists the [tier](@/docs/spec-format/ag
  "model_tier": "strong", "models": [{"target": "...", "model": "...", "effort": "..."}]}
 ```
 
-`model_tier` and `models` are omitted when the spec sets neither `model` nor `effort`.
-
-</details>
-
-For an agent's `can` or `tools`, and for settings `permissions`, the report lists each configured target's native names. Unsupported rules stay visible. A widening line names the extra access a target grants. Tool-specific overrides show their values and name the field that wins. For Codex, the report calculates extra access from the merged permissions and any explicit command policy source.
-
-```bash
-agnostic-ai explain agents/reviewer.md
-agnostic-ai explain settings/permissions.yaml --json
-```
-
-`explain` still shows translations with `on-unsupported: error`. `sync` fails on widening.
-
-<details>
-<summary>Read capability JSON fields</summary>
-
-The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, and `supported`. `widening` lists extra access when present. `override` names a native field or policy source that replaces the portable rule. The array is omitted for specs without these fields.
+`model_tier` and `models` are omitted when the spec sets neither `model` nor `effort`. The `capabilities` array, omitted for specs without capability fields, holds `target`, `field`, `capability`, `native`, and `supported`; `widening` lists extra access when present, and `override` names a native field or policy source that replaces the portable rule.
 
 </details>
 
 ### Claude skill overrides
 
-For a skill that sync writes for Claude Code, `explain` lists each Claude settings file whose `skillOverrides` names the skill. It checks the files [`doctor` reads](@/docs/cli-reference/check.md#claude-skill-overrides), highest precedence first; managed settings and `--settings` are not read. A line that does not take effect is marked, so the first unmarked line is the value Claude Code applies:
+For a skill sync writes for Claude Code, `explain` lists each Claude settings file whose `skillOverrides` names the skill, highest precedence first. It reads the same files and applies the same rules as [`doctor`](@/docs/cli-reference/check.md#claude-skill-overrides), including how rejected values, duplicate keys, and files that are not strict JSON show. A line that does not take effect is marked, so the first unmarked line is the value Claude Code applies:
 
 ```text
 claude overrides:
@@ -83,13 +60,11 @@ claude overrides:
   ~/.claude/settings.json: name-only (not applied: a higher file sets it)
 ```
 
-A value Claude Code rejects, such as `"Off"` or `false`, shows as rejected. Claude Code may then skip the whole file, so its other lines say so and overrule nothing. Two keys in one file that name the skill with different values are both marked as conflicting, since Claude Code does not say which applies. The file still overrules lower files. A file that is not strict JSON shows as skipped by Claude Code, even when no other file names the skill. The block is omitted when no file names the skill and every file reads. `--json` adds the same entries, or omits the key:
+The block is omitted when no file names the skill and every file reads. `--json` adds the same entries under `overrides`, with `rejected`, `conflict`, `uncertain`, or `problem` as in doctor:
 
 ```json
 "overrides": [{"target": "claude", "path": ".claude/settings.local.json", "scope": "local", "value": "off", "effective": true}]
 ```
-
-A rejected value adds `"rejected": true`, a conflicting key `"conflict": true`, and another line in a file with a rejected value `"uncertain": true`. A skipped file has `problem` and no `value`.
 
 ### Debug a replaced spec
 
@@ -107,28 +82,24 @@ rule conventional-commits
 effective source: .agnostic-ai/local/rules/conventional-commits.md
 ```
 
-The project replaces the pack rule, and the personal file extends the project rule. Edit either contributor to change the effective spec. Passing the replaced pack path gives the same report.
+Edit either contributor to change the effective spec. Passing the replaced pack path gives the same report. Sources follow sync's order: enabled built-ins, installed packs, project specs, then project-local overrides. `base` starts a spec, `replace` discards the earlier chain, and `extend` merges with it. `contributor` means the source survives resolution; it does not attribute fields or body text, which an extension can replace.
 
-Sources follow sync's resolution order: enabled built-ins, installed packs, project specs, then project-local overrides. `base` starts a spec, `replace` discards the earlier chain, and `extend` merges with it. `contributor` means the source survives resolution, without attributing individual fields or body text. An extension can replace body text or metadata while still participating in the merge.
-
-With `--json`, `spec` identifies the effective source and `sources` lists each candidate's `source`, `operation`, and final `role`. Built-ins use a symbolic `builtin` name and version instead of a cache path. The view reads installed sources offline. It supports project specs only and cannot be combined with the other explain views or `--target`.
+With `--json`, `spec` is the effective source and `sources` lists each candidate's `source`, `operation`, and final `role`. Built-ins show a symbolic `builtin` name and version, not a cache path. The view reads installed sources offline, supports project specs only, and cannot combine with the other explain views or `--target`.
 
 ### Explain a source file
 
-Start from a project file instead of a spec. The report lists configured instructions from the planned sync output, with their source, output path, file or directory condition, and reason. Claude Code, Codex, and Cursor are supported.
+List the instructions planned for one project file, with their source, output path, file or directory condition, and reason. Claude Code, Codex, and Cursor are supported.
 
 ```bash
 agnostic-ai explain --file services/payments/handler.go --target cursor
-agnostic-ai explain --file services/payments/handler.go --target claude
-agnostic-ai explain --file services/payments/handler.go --target codex
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--file <path>` | Project file to inspect. The file does not have to exist. Cannot combine with a spec or error code argument. |
-| `--target <name>` | Required with `--file`. Must be a configured target. Supported: `cursor`, `claude`, `codex`. |
+| `--file <path>` | Project file to inspect. It does not have to exist. Cannot combine with a spec or code argument. |
+| `--target <name>` | Required with `--file`. A configured target: `cursor`, `claude`, or `codex`. |
 
-The report describes planned project configuration, not the instructions the model has loaded. It does not inspect user instructions, the session launch directory, import approval, or session settings that disable project instructions.
+The report reads planned sync output, not what the model loaded. It does not see user instructions, the session launch directory, import approval, or session settings that turn off project instructions.
 
 <details>
 <summary>Read instruction statuses, native discovery rules, and JSON</summary>
@@ -144,11 +115,11 @@ The report describes planned project configuration, not the instructions the mod
 | `excluded` | Target selection (`target`, `targets`, `target-exclude`) leaves the target out. |
 | `not-emitted` | The rule selects the target but sync writes no instruction for it. |
 
-A root `AGENTS.md` written for another tool such as Codex reaches Cursor too. Cursor reports `unknown` for braces, character classes, negation, or unreadable frontmatter.
-
-For Codex, root `AGENTS.md` and `AGENTS.override.md` instructions have no file condition. When both are planned in one directory, the override takes priority. Nested instructions report `unknown` and state whether the file is under their directory. Codex discovers instructions from the project root to its session launch directory, which this command cannot establish. Custom filenames also report `unknown` because their discovery needs a fallback filename or session setting. See [Codex's instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
-
-For Claude Code, the report reads the generated `paths` values, including tool-specific overrides, and discovers Markdown rules recursively under `.claude/rules/`. Nested `CLAUDE.md` files cover files beneath their directory. For other files, loading depends on the directory where the session starts, so the result is `unknown`. Imported instructions and outputs outside native discovery also report `unknown` when session approval or settings are needed. Complex path patterns the command cannot evaluate, including brace expansion and character classes, name that limit in their reason. See [Claude Code's instruction discovery](https://code.claude.com/docs/en/memory).
+| Tool | Discovery the report models |
+|------|-----------------------------|
+| Cursor | A root `AGENTS.md` written for another tool reaches Cursor too. Braces, character classes, negation, or unreadable frontmatter report `unknown`. |
+| Codex | Root `AGENTS.md` and `AGENTS.override.md` have no file condition; in one directory the override wins. Nested instructions report `unknown` and say whether the file is under their directory, since [Codex discovers](https://learn.chatgpt.com/docs/agent-configuration/agents-md) from the root to the session launch directory. Custom filenames report `unknown` because they need a fallback filename or session setting. |
+| Claude Code | Reads generated `paths`, including tool-specific overrides, and Markdown rules under `.claude/rules/`. A nested `CLAUDE.md` covers files beneath it; elsewhere it depends on the session start directory, so `unknown`. Imports and outputs outside native discovery that need session approval or settings, and patterns it cannot evaluate (braces, character classes), report `unknown` with the reason. See [Claude Code's instruction discovery](https://code.claude.com/docs/en/memory). |
 
 ```json
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
@@ -159,22 +130,21 @@ For Claude Code, the report reads the generated `paths` values, including tool-s
 
 ### Rank context contributions
 
-Use `--context --target <name>` to see which sources add the most text when a session starts, even when no lint warning appears. The report uses the same whitespace-separated word accounting as `lint`, with bytes beside each count. It needs a configured project target, takes no spec argument, and writes nothing.
+`--context --target <name>` ranks the sources that add the most text at session start, counting words like `lint` does, with bytes. It needs a configured target, takes no spec argument, and writes nothing.
 
 ```bash
-agnostic-ai explain --context --target codex
 agnostic-ai explain --context --target claude --json
 agnostic-ai explain --context --target cursor --file src/main.go
 ```
 
-These are estimates from planned output and spec text, not model tokens or observed context. Runtime context, external imports, user-owned files, and host truncation are unknown. Inlined imports retain their source paths; unresolved imports are not expanded or read by this report.
+Counts are estimates from planned output and spec text, not model tokens; runtime context, external imports, user-owned files, and host truncation are not counted. Inlined imports keep their source paths; unresolved ones are not read.
 
 <details>
 <summary>Read context accounting groups and JSON</summary>
 
-Entry-point layers, marked rule and review sections, inlined imports, always-on rules, and individual skill and agent descriptions used to find skills and agents are counted separately. Generated framing has its own contribution so the startup word total stays consistent with lint. Sources sharing a generated document are counted once for the selected target.
+Entry-point layers, marked rule and review sections, inlined imports, always-on rules, each skill and agent description, and generated framing count separately, so the startup total matches lint. Sources sharing a document count once.
 
-Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup totals. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope`, with a separate additional total. Unmatched or uncertain rule bodies remain on demand. Entries sort by loading group, descending words and bytes, then source path and category.
+Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup total. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope` with their own total; unmatched or uncertain ones stay on demand. Entries sort by group, then words and bytes (descending), then source path and category. Text and JSON use the same numbers.
 
 ```json
 {"version": "1", "command": "explain", "target": "claude", "note": "...",
@@ -183,7 +153,7 @@ Skill and agent bodies and conditional rule bodies appear under `on-demand`, out
  "category": "skill discovery", "load": "startup", "words": 40, "bytes": 220}]}
 ```
 
-`file` is present when requested. `load` is `startup`, `file-scope`, or `on-demand`. The text and JSON reports use the same contributions and totals.
+`file` is present when requested. `load` is `startup`, `file-scope`, or `on-demand`.
 
 </details>
 
@@ -193,19 +163,11 @@ Skill and agent bodies and conditional rule bodies appear under `on-demand`, out
 agnostic-ai explain --inputs
 ```
 
-`--inputs` lists the files and directories that can affect generated output, one per line. Use `--json` for an array. Paths are relative to the repository root. Run it without a spec argument or `--file`. See [git hooks](@/docs/git-hooks.md#check-staged-files). It lists:
-
-- the config files
-- `.agnostic-ai/**`
-- source directories outside `.agnostic-ai/`
-- files that reviews pull in with `@path` (and the entry point's, with `sync.resolve-imports: inline`)
-- `agnostic.packs.lock`
-- `.gitignore`
-- `builtin:<name>@<content-hash>` for each enabled built-in
+List the files and directories that can affect generated output, one per line relative to the repository root (`--json` for an array). Takes no spec argument or `--file`. Used by [git hooks](@/docs/git-hooks.md#check-staged-files). It lists the config files, `.agnostic-ai/**`, source directories outside `.agnostic-ai/`, files reviews pull in with `@path` (and the entry point's, with `sync.resolve-imports: inline`), `agnostic.packs.lock`, `.gitignore`, and `builtin:<name>@<content-hash>` for each enabled built-in.
 
 ## compare
 
-Compare how two built-in targets handle the project's agent and skill fields, rule activation, hook configuration, MCP connections, and portable permissions, before you switch or add a tool.
+Compare how two built-in targets handle the project's agent and skill fields, rule activation, hooks, MCP connections, and portable permissions, before you switch or add a tool. The [compare targets](@/docs/compare.md) page shows sample paths for any pair.
 
 ```bash
 agnostic-ai compare claude cursor
@@ -215,26 +177,26 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable JSON for scripts. |
 
-`preserved` describes the written file. It does not prove the tools behave the same, that a hook ran, or that an MCP server connects. Hook results use current event mappings and written handlers. A field the tool ignores keeps that reason even when its native key remains in the output. Required output options, such as `outputs.zed.tasks-file`, appear in the next step. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
+Each field gets one result per target, with the output paths or the reason, and a `next:` step when known, such as a required `outputs.zed.tasks-file`. `(differs)` marks a field whose results differ.
+
+| Result | Meaning |
+|---|---|
+| `preserved` | Written under the same key with the same values. This describes the file, not that the tools behave the same, a hook ran, or an MCP server connects. |
+| `translated` | Written under another key or file, with rewritten values, or only in part. |
+| `unsupported` | The target has no place for the field or the kind. A field the tool ignores keeps that reason even when its native key is written. |
+| `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
+| `unknown` | The written files do not show either way. |
 
 The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
 <details>
-<summary>Read compared fields, result labels, permission mappings, and JSON</summary>
+<summary>Read compared fields, permission mappings, and JSON</summary>
 
-It covers agent and skill fields, rule `scope`, `paths`, `globs`, and `alwaysApply`, and hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`. MCP coverage includes transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry. Portable settings permissions are compared one source rule at a time, including allow, ask, deny, and default-mode. Other settings, spec kinds, and hook fields are outside this comparison. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex's separate policy files. Each field gets one result per target:
+It covers agent and skill fields; rule `scope`, `paths`, `globs`, and `alwaysApply`; hook `on`, `match`, `event`, `matcher`, `command`, `args`, `timeout`, and `failClosed`, using current event mappings and written handlers; MCP transport (`type`), `command`, `args`, `url`, and each `env` and `headers` entry; and portable settings permissions one source rule at a time (allow, ask, deny, default-mode). Other settings, kinds, and hook fields are out of scope. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are judged from the files each adapter writes, including Codex's separate policy files.
 
-| Result | Meaning |
-|---|---|
-| `preserved` | Written under the same key with the same values. |
-| `translated` | Written under another key or file, with rewritten values, or only in part. |
-| `unsupported` | The target has no place for the field or the kind. |
-| `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
-| `unknown` | The written files do not show either way. |
+MCP results never show command, argument, URL, environment, or header values, defaults, or reference text. A server whose URL or argument reference the tool cannot represent may be omitted whole; no explicit transport gives `unknown`.
 
-MCP comparison names fields and output paths without showing command, argument, URL, environment or header values, including defaults and unknown reference text. If the tool's configuration cannot represent a reference in the server URL or arguments, the whole server can be omitted. If the native file has no explicit transport, the result is `unknown`.
-
-Permission rows use the source list index, such as `permissions.deny[0]`, name the rule, and show native override values and partial mappings. Recognized credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries. Filename patterns and ordinary permission actions remain visible. Matching and comparison still use the original values. Codex shell permissions require `outputs.codex.exec-policies-from-permissions: true`. Portable default-mode applies to global sync, so project comparison reports it as unsupported. Differences include effective decisions and partial support, even when both results are translated.
+Permission rows use the source index, such as `permissions.deny[0]`, and show native override values and partial mappings. Recognized credentials in native records, such as Augment webhook policies, are hidden in output but compared as written. Codex shell permissions need `outputs.codex.exec-policies-from-permissions: true`. Default-mode applies only to global sync, so project comparison reports it unsupported. A difference in effective decision or partial support counts, even when both results are translated.
 
 ```json
 {"version": "1", "command": "compare", "targets": ["claude", "cursor"], "coverage": "...", "caveat": "...",
@@ -257,13 +219,11 @@ agnostic-ai render rules/no-console-log.md --target claude,codex
 |------|-------------|
 | `-t, --target <list>` | Targets to render, repeated or comma-separated. Default: all in `agnostic-ai.yaml`. |
 
-Each file prints as `# target: <name>: <output path>` and its body. A target that writes nothing for that kind prints a note.
-
-Known credential values are hidden in the displayed body. See [credential previews](@/docs/cli-reference/sync.md#credential-previews).
+Each file prints as `# target: <name>: <output path>` and its body. A target that writes nothing for that kind prints a note. Known credential values are hidden; see [credential previews](@/docs/cli-reference/sync.md#credential-previews).
 
 ## graph
 
-Show which targets and files each spec feeds (spec → target → file). It is read-only. See the [graph](@/docs/graph.md) guide.
+Show which targets and files each spec feeds (spec → target → file). Read-only. The [graph](@/docs/graph.md) guide shows each format.
 
 ```bash
 agnostic-ai graph --format mermaid --target claude
@@ -278,7 +238,7 @@ agnostic-ai graph --format mermaid --target claude
 
 ## why
 
-Show a generated file's adapter, source specs, `outputs.<target>.*` keys, and last sync time. See the [why](@/docs/trace.md) guide.
+Show a generated file's adapter, source specs, `outputs.<target>.*` keys, and last sync time. The [why](@/docs/trace.md) guide explains each field.
 
 ```bash
 agnostic-ai why .claude/rules/no-console-log.md --format json
@@ -291,11 +251,8 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-`ui` is an alias for `view` with the same flags. Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). A second run for the same project and scope opens the running server and exits. When the default port serves another project or scope, an `--api-only` server, or is held by another program, `view` moves on to the next free loopback port, up to `127.0.0.1:4319`, and prints that address; a later run for the same configuration finds and reuses that server. Keep the server terminal running and press Ctrl-C to stop.
+Open the bundled web interface in your browser; `ui` is an alias. From a project folder or any folder inside it, `view` reads that project. Outside a project, it reads the user configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). Keep the terminal running; Ctrl-C stops it. See the [browser walkthrough](@/docs/inspect-configuration.md).
 
-Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
-
-The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
 ```bash
 agnostic-ai ui
 agnostic-ai view --json
@@ -304,43 +261,20 @@ agnostic-ai view --global
 
 | Flag | Description |
 |------|-------------|
-| `--json` | The overview as JSON, schema `overview/v1`. |
-| `--dir` | Read this project directory instead of discovering a project from the current folder. |
+| `--json` | Print the overview as JSON (schema `overview/v1`) without starting a server or opening a browser. |
+| `--dir` | Read this project directory instead of discovering one. |
 | `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. When set, `view` stays on this port and fails if another configuration serves it. |
-| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
+| `--global` | Read the user configuration instead of a project. Cannot combine with `--dir`. |
+
+A second run for the same project and scope opens the running server and exits. When the default port serves another project or scope, an `--api-only` server, or another program, `view` takes the next free loopback port up to `127.0.0.1:4319` and prints it; later runs find that server. An invalid project configuration reports an error.
+
+The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of lists and counts. Browser features are under [serve](#serve).
 
 ## serve
 
-Serve the bundled web interface and a local JSON API. The interface works offline without a source checkout or frontend build. Use `--ui` for a development client, or `--api-only` to serve only the API. Configuration reloads on every request.
-
-Start with the [browser walkthrough](@/docs/inspect-configuration.md). The browser's **Authority** section lists permission files and rules. For per-agent decisions, use `GET /api/views/authority?agentId=<id>&target=<tool>`; for permission proposal previews, use `POST /api/views/authority/impact`. The browser has no permission proposal editor.
-
-Each finding has **Copy fix prompt**. Expand **Details** to read the suggested fix, explanation, and full prompt before copying it into your coding agent. Native settings are grouped by tool, with the shared `x-<tool>` prefix shown once.
-
-Tool lists use logos. Hover over a logo for the tool's full name.
-
-Source files appear in compact lists with their paths and edit links. Settings shows configured fields first; expand **Unconfigured fields** for the rest. Empty lifecycle stages keep their tool logos and put their descriptions under **When this runs**. A findings summary links to the full warnings below the controls; errors stay above them.
-
-In a project, each built-in switch opens a preview of the config edit, generated files, and findings for every configured target. **Apply change** writes the reviewed change. **Undo last change** restores the files and permissions from before the last successful apply in this server session. Turning on `memory` in a Git checkout also lists and applies the line sync adds to `.git/info/exclude`, so Git ignores Claude Code's private `settings.local.json`. Previewing or cancelling another built-in keeps that undo; applying another replaces it. Global built-ins and settings edits save their source files without syncing. In Settings, expand **Unconfigured fields** to set a default model or reasoning effort; configured scalar fields offer **Update** and **Clear**. Session retention is editable only when serving `--global`. Run `agnostic-ai sync` (or `agnostic-ai sync --global`) to apply source edits to your tools.
-
-### Save for the team or for yourself {#edit-scope}
-
-The top of **Settings** chooses where its edits go. **Team (committed)**, the default, writes the shared files. **Just me (not committed)** writes [local overrides](@/docs/local-overrides.md) that Git ignores: built-ins go to `agnostic-ai.local.yaml`, and a settings field goes to `.agnostic-ai/local/settings/<name>.yaml`, which overlays the shared settings spec of the same name. In the global view, the same edits go to `local/agnostic-ai.yaml` and `local/settings/<name>.yaml` in the global source. The browser remembers the choice.
-
-A field, boolean, or built-in whose value comes from a local file shows a **local** badge in both modes. **Reset to team value** removes your override, and deletes the local file once it holds nothing else. While a local value overrides a field, Team mode asks you to reset it before changing the team value. Your first personal built-in change copies the team list into `agnostic-ai.local.yaml`, because that list replaces the team one whole; in a linked worktree it also keeps the `memory.personal` mode inherited from the main checkout. **Reset built-ins to the team list** drops your whole list. A personal list set through a YAML merge (`<<`) is refused; edit that file by hand. A Just me save is refused when its file resolves, through links, outside the local folder, into a team config or source folder, or to a file Git tracks. A reset keeps the memory mode in effect: in a linked worktree it leaves `memory.personal: checkout` behind rather than switch back to the main checkout's mode.
-
-Just me edits stay out of committed files: the outputs a personal built-in adds go to `.git/info/exclude`, not the shared `.gitignore` block. In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI.
-
-A project that was never synced needs no sync first: the preview also lists the generated files, the sync state, and the `.gitignore` entries for the project lock that apply creates. Pending source changes appear in the same preview when files are missing or their current contents match sync's recorded checksums. Hand edits and files without ownership records require CLI review. Undo can restore the pending changes that existed before apply.
-
-External adapters, paths outside the project, linked skill folders, and memory changes that need fact migration or external storage setup require CLI sync. A changed input or output blocks apply or undo and asks for a fresh preview. Failed writes restore files still owned by the operation; a recovery error names the files it kept and directs you to `agnostic-ai doctor`. Undo expires when the server stops. A browser reload keeps it available.
-
-Edits preserve unrelated text and private file permissions. A validation failure restores the edit unless another process has changed the file; that conflict is reported instead of overwriting the newer change.
-
-The server accepts loopback hosts and same-origin browser requests. A development server on another port needs an explicit `--allow-origin`. Edits and impact requests require JSON. A boolean edit must include its `enabled` or `value` field, including when false. Every edit and preview request names its `scope`: `team` or `local`. `POST /api/edit/field` accepts `{scope, path?, key, value}` for `model`, `effort`, and global `session-retention-days`; `null` clears a field, and with `scope: local` it resets your override. `POST /api/edit/value` takes `null` with `scope: local` to reset a personal boolean. `POST /api/edit/builtin` and the built-in preview take `{scope: "local", reset: true}` to drop the personal list. Omit `path` only when at most one editable settings spec exists. If none exists, a save creates `settings/defaults.yaml` in the selected source scope. The response names the edited file. Invalid values and YAML forms that cannot be spliced safely are refused without changing the file.
+Serve the bundled web interface and a local JSON API. It works offline without a source checkout or frontend build, and reloads configuration on every request.
 
 ```bash
-agnostic-ai ui                 # open the browser (or reuse a running server)
 agnostic-ai serve --global
 agnostic-ai serve --api-only
 ```
@@ -348,36 +282,70 @@ agnostic-ai serve --api-only
 | Flag | Description |
 |------|-------------|
 | `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
-| `--allow-origin` | Additional exact browser origin, such as `http://127.0.0.1:5173` for Vite. |
+| `--allow-origin` | Additional exact browser origin, such as `http://127.0.0.1:5173` for Vite. The server accepts loopback hosts and same-origin requests otherwise. |
 | `--dir` | Project directory to read. Default: the current directory. |
-| `--ui` | Override the bundled client with a built directory, such as `ui/dist`. |
+| `--ui` | Serve a built client directory, such as `ui/dist`, instead of the bundled one. |
 | `--api-only` | Serve only the JSON API. Cannot combine with `--ui` or `--open`. |
 | `--open` | Open the served URL in a browser. |
-| `--global` | Serve the user-level configuration. Its overview shows `lint --global` findings and drift against the files `sync --global` would write; the doctor checks are skipped. |
-| `--no-installed` | Skip comparing the generated files with disk. |
+| `--global` | Serve the user configuration. Its overview shows `lint --global` findings and drift against what `sync --global` would write; doctor checks are skipped. |
+| `--no-installed` | Skip comparing generated files with disk. |
 
-Endpoints: `GET /api/views/authority?agentId=<id>&target=<tool>`, `POST /api/views/authority/impact`, `GET /api/views/authority/schema`, `GET /api/views/overview`, `POST /api/edit/builtin` (`{scope, name, enabled}`, or `{scope: "local", reset: true}`), `POST /api/edit/value` (`{scope, path, key, value}`, where `value` is a boolean or `null`), `POST /api/edit/field` (`{scope, path?, key, value}`), and `GET /api/health` (returns `ok`, absolute `root`, `global`, and whether the web interface is served as `ui`, without loading specs).
+In the browser:
 
-Project built-in change endpoints: `GET /api/changes/builtin` returns the current session state, `POST /api/changes/builtin/preview` takes `{scope: "team"|"local", name: "handoff", enabled: true|false}` for any shipped built-in, and `POST /api/changes/builtin/apply` and `/undo` take `{id}` from that state. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews). Preview uses local sources without running MCP servers, hooks, or external adapters.
+- **Authority** lists permission files and rules. Permission proposals have no editor; use the [API](#api).
+- Each finding has **Copy fix prompt**; **Details** shows the suggested fix, explanation, and full prompt.
+- **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort. Configured scalar fields offer **Update** and **Clear**. Session retention is editable only with `--global`.
+- In a project, each built-in switch previews the config edit, generated files, and findings for every target. **Apply change** writes it; **Undo last change** restores the files and permissions from before the last apply. Undo survives a browser reload, expires when the server stops, and is replaced by the next apply. Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
+- Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --global`) to apply them.
+
+Apply needs no earlier sync: the preview lists the generated files, sync state, and lock `.gitignore` entries it creates. It includes pending source changes when files are missing or match sync's recorded checksums, and undo can restore them. These need the CLI: hand edits, files without ownership records, external adapters, paths outside the project, linked skill folders, and memory changes that need fact migration or external storage. A changed input or output blocks apply or undo until a fresh preview. A failed write restores the files the operation owns; a recovery error names any it kept and points to `agnostic-ai doctor`.
+
+Edits keep unrelated text and private file permissions. A validation failure restores the edit, unless another process changed the file; that is reported as a conflict.
+
+### Save for the team or for yourself {#edit-scope}
+
+The top of **Settings** picks where edits go, and the browser remembers it. **Team (committed)**, the default, writes the shared files. **Just me (not committed)** writes git-ignored [local overrides](@/docs/local-overrides.md): built-ins go to `agnostic-ai.local.yaml`, and a settings field to `.agnostic-ai/local/settings/<name>.yaml`, which overlays the shared spec of that name. In the global view they go to `local/agnostic-ai.yaml` and `local/settings/<name>.yaml`. Outputs a personal built-in adds go to `.git/info/exclude`, not the shared `.gitignore` block.
+
+A value from a local file shows a **local** badge in both modes. **Reset to team value** removes your override, and the local file once it is empty. Team mode asks you to reset a local value before changing the team value. Your first personal built-in change copies the team list into `agnostic-ai.local.yaml`, since that list replaces the team one whole; **Reset built-ins to the team list** drops it. A personal list set through a YAML merge (`<<`) is refused; edit it by hand. A Just me save is refused when its file resolves, through links, outside the local folder, into a team config or source folder, or to a file Git tracks.
+
+In a linked worktree, a built-in only you turn on needs `agnostic-ai sync` in the CLI. The first personal change keeps the `memory.personal` mode inherited from the main checkout, and a reset leaves `memory.personal: checkout` behind rather than switch to the main checkout's mode.
+
+### API
+
+Edit and impact requests take JSON. Every edit and preview names its `scope`: `team` or `local`. A boolean edit must include its `enabled` or `value` field, even when false. Invalid values and YAML that cannot be spliced safely are refused without changing the file. Previews hide recognized credentials using the [credential preview rules](@/docs/cli-reference/sync.md#credential-previews), and run no MCP servers, hooks, or external adapters.
+
+| Endpoint | Body or query |
+|----------|---------------|
+| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. |
+| `GET /api/views/overview` | None. |
+| `GET /api/views/authority` | `?agentId=<id>&target=<tool>` for per-agent decisions. |
+| `POST /api/views/authority/impact` | A permission proposal to preview. |
+| `GET /api/views/authority/schema` | None. |
+| `POST /api/edit/builtin` | `{scope, name, enabled}`, or `{scope: "local", reset: true}` to drop the personal list. |
+| `POST /api/edit/value` | `{scope, path, key, value}`, where `value` is a boolean, or `null` with `scope: local` to reset. |
+| `POST /api/edit/field` | `{scope, path?, key, value}` for `model`, `effort`, and global `session-retention-days`. `null` clears the field, or resets your override with `scope: local`. |
+| `GET /api/changes/builtin` | None. Returns the session's change state. |
+| `POST /api/changes/builtin/preview` | `{scope, name, enabled}` for any shipped built-in, or `{scope: "local", reset: true}`. |
+| `POST /api/changes/builtin/apply`, `.../undo` | `{id}` from the change state. |
+
+Omit `path` only when at most one editable settings spec exists; with none, a save creates `settings/defaults.yaml` in the selected scope. The response names the edited file.
 
 ## mcp tools
 
-Connect to each configured MCP server and list its tools, then cache the result so `view` and `serve` show each server's tools without connecting. It is the only command that connects to MCP servers.
+Connect to each configured MCP server, list its tools, and cache the result so `view` and `serve` show them without connecting. It is the only command that connects to MCP servers.
 
 ```bash
 agnostic-ai mcp tools
 agnostic-ai mcp tools --global
 ```
 
-Stdio servers start with their `command`, `args`, and `env`; HTTP servers use their headers and optional `headersHelper`. Relative and omitted working directories use the selected configuration root. `${NAME}` references resolve from the environment; `${workspaceFolder}` means that root. An unset reference is reported without connecting. SSE, WebSocket, and disabled servers are not probed.
-
-Up to four servers are checked at once. Each server's timeout includes its header helper. Cancellation closes its pipes and stops its owned processes. Errors and tool descriptions are redacted before display or caching.
-
-The cache lives in the native user cache directory, outside the repository. Directory aliases share a listing. Changed specs mark their listing stale. Refresh older listings with `mcp tools` before they appear in the overview.
-
 | Flag | Description |
 |------|-------------|
 | `--dir` | Project directory to read. Default: the current directory. |
-| `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
+| `--global` | Read the user configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). |
 | `--json` | Print the cached result as JSON. |
 | `--timeout` | Maximum probe time per server, including its header helper. Default `20s`. Process cleanup is bounded separately. |
+
+Stdio servers start with their `command`, `args`, and `env`, with relative or omitted working directories resolved against the configuration root; HTTP servers use their headers and optional `headersHelper`. `${NAME}` resolves from the environment and `${workspaceFolder}` is the root; an unset reference is reported without connecting. SSE, WebSocket, and disabled servers are not probed. Up to four servers run at once; cancellation stops owned processes. Errors and tool descriptions are redacted before display or caching.
+
+The cache lives in the user cache directory, shared across directory aliases. Changed specs mark a listing stale; rerun `mcp tools` to show it in the overview.

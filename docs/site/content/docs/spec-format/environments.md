@@ -17,7 +17,7 @@ group = "Reference"
 agnostic-ai new environment development
 ```
 
-It creates `.agnostic-ai/environments/development.yaml`, a plain YAML file with no commands. Replace the description, add the commands you have reviewed, and create any script they call before syncing:
+It creates `.agnostic-ai/environments/development.yaml` with no commands. Add the commands you have reviewed, and create any script they call before syncing:
 
 ```yaml
 name: dev
@@ -31,7 +31,7 @@ dev-commands:
     auto-port: true
 ```
 
-A sandbox that installs once and keeps a terminal open, as Cursor, OpenHands, and Amp read it:
+A sandbox that installs once and keeps a terminal open (Cursor, OpenHands, Amp):
 
 ```yaml
 install: go mod download
@@ -47,42 +47,40 @@ terminals:
 - `install` and `terminals`: a sandbox's install step and its long-running processes.
 - `dev-commands`: dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words). `cwd` (relative to the project root), `port`, `auto-port`, `env`, `url`, and `icon` (the Codex button icon, `run` by default) are optional.
 
-A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`. On Windows that needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
-
-Specs merge by top-level key, and the last value wins. A field that no enabled tool uses gets a note that it has no effect.
-
-`lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a value of the wrong type (LINT016).
+- A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
+- Specs merge by top-level key, and the last value wins. A field that no enabled tool uses gets a no-effect note.
+- `lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a value of the wrong type (LINT016).
 
 ## Support by target
 
-- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the spec metadata and tool-selection fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a note that they have no effect. `import cursor` reads both files back.
-- [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a note that they have no effect. `import codex` reads the file back.
-- [Claude Code](@/docs/targets/claude.md): `setup` runs from generated hooks (see [Claude Code worktree setup](#claude-code-worktree-setup)). `dev-commands` goes to `.claude/launch.json`. Claude Code reads a relative `cwd` there from the project root, so the spec needs no `${workspaceFolder}`. Every other field, `setup-windows` and `cleanup` included, gets a note that it has no effect.
-- [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note that `setup`, `cleanup`, and `dev-commands` have no effect.
-- [Ellipsis](@/docs/targets/ellipsis.md): `install` runs as `hooks.build_base` and `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, in `.ellipsis/environments/<name>.yaml`. Sync writes the file only for the environment that `x-ellipsis.environment` selects. `setup-windows`, `cleanup`, `dev-commands`, and `terminals` get a note that they have no effect. `import ellipsis` reads the file back.
-- Other tools report the spec as unsupported.
+Fields a tool does not use get a no-effect note. Other tools report the spec as unsupported. Each tool's page has the key mapping.
 
-A successful install does not check the generated files. Before starting a cached environment, run the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync.
+| Target | Uses | Writes |
+|---|---|---|
+| [Cursor](@/docs/targets/cursor.md) | `setup`, `setup-windows`; every other key except `name`, `scope`, `description`, the target fields, `dev-commands`, and `cleanup` | `.cursor/worktrees.json`, `.cursor/environment.json` |
+| [Codex](@/docs/targets/codex.md) | `setup`, `setup-windows`, `cleanup`, `dev-commands` (as scripts and action buttons) | `.codex/environments/environment.toml` |
+| [Claude Code](@/docs/targets/claude.md) | `setup` ([worktree setup](#claude-code-worktree-setup)), `dev-commands` (a relative `cwd` reads from the project root, so no `${workspaceFolder}`) | `.claude/hooks/agnostic-ai-worktree-setup.sh`, `.claude/launch.json` |
+| [OpenHands](@/docs/targets/openhands.md) | `install` (a setup script) | `.openhands/setup.sh` |
+| [Amp](@/docs/targets/amp.md) | `install` (a setup script), `terminals` (services) | `.agents/setup`, `.amp/services.yaml` |
+| [Ellipsis](@/docs/targets/ellipsis.md) | `install` as `hooks.build_base`, `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, only for the environment `x-ellipsis.environment` selects | `.ellipsis/environments/<name>.yaml` |
+
+`import cursor`, `import codex`, and `import ellipsis` read their files back. A successful install does not check the generated files: run the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) after installation and sync, before starting a cached environment.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 
-Claude Code has no setup step for a worktree it creates ([worktrees](https://code.claude.com/docs/en/worktrees#set-up-the-worktree-environment)). So sync writes `setup` into `.claude/hooks/agnostic-ai-worktree-setup.sh` and runs that script from three hooks in `.claude/settings.json`:
+Claude Code has no setup step for a worktree it creates ([worktrees](https://code.claude.com/docs/en/worktrees#set-up-the-worktree-environment)), so sync writes `setup` into `.claude/hooks/agnostic-ai-worktree-setup.sh` and runs it from three hooks in `.claude/settings.json`:
 
 - `SessionStart` with matcher `startup`, for `claude --worktree` and Desktop worktree sessions.
 - `SubagentStart`, for a subagent with `isolation: worktree`. `SessionStart` does not fire for a subagent.
 - `PostToolUse` with matcher `EnterWorktree`, for a worktree Claude enters during a session.
 
-Each hook sets `shell: bash`. On Windows the script needs Git Bash, or the hook fails and setup does not run. A checkout without the script, such as a worktree created before the first sync, skips the hook.
-
-Claude Code runs matching hooks in parallel. Delete a hand-written `SessionStart` hook that installs the same dependencies, or it runs alongside setup.
+Each hook sets `shell: bash`, so on Windows the script needs Git Bash, or setup does not run. A checkout without the script, such as a worktree created before the first sync, skips the hook. Claude Code runs matching hooks in parallel, so delete a hand-written `SessionStart` hook that installs the same dependencies.
 
 How the script runs:
 
 - It takes the worktree from the `cwd` in the hook's event data, because `$CLAUDE_PROJECT_DIR` stays at the directory the session started in.
-- It runs `setup` from the worktree root through `sh`, only in a linked Git worktree and never in the main checkout.
-- A successful run leaves a marker in the worktree's own Git directory, so later sessions in that worktree skip setup.
-- A failed run leaves no marker. The next new session, subagent, or worktree entry tries again.
-- A linked worktree made before the first sync with `setup` has no marker either, so setup runs there once.
+- It runs `setup` from the worktree root through `sh`, only in a linked Git worktree, never in the main checkout.
+- A successful run leaves a marker in the worktree's own Git directory, so later sessions there skip setup. A failed run, or a worktree made before the first sync with `setup`, has no marker, so the next session, subagent, or worktree entry runs it.
 - Claude Code stops a command hook after 600 seconds by default, so a longer setup fails and runs again next time.
 - Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context.
 - The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads the hooks in `.claude/settings.json`, such as Cursor, then does not run setup a second time.
@@ -95,7 +93,7 @@ After changing setup or dependencies, sync one worktree and rerun its Claude set
 agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
 ```
 
-The helper checks repository ownership and the current generated setup script, including `outputs.claude.dir`. It resets only that linked worktree's completion marker and runs setup again. A failure leaves no marker, so a later attempt can recover. It refuses the main checkout and unregistered paths, and installs dependencies only if your setup command does. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for the command requirements.
+It resets only that linked worktree's marker and runs setup again. It refuses the main checkout and unregistered paths. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for its checks.
 
 ### Include setup in new worktrees
 
@@ -118,4 +116,4 @@ x-claude:
 
 ## Import
 
-When several tools keep their own environment file, `import` limits each spec it writes to its tool with `targets: [<tool>]`. The next sync then writes every file back as it was, without mixing one tool's dev commands or setup into the others. Remove the line to share a spec across tools. A project with one tool's environment file gets one shared spec.
+When several tools keep their own environment file, `import` limits each spec to its tool with `targets: [<tool>]`, so the next sync writes every file back as it was. Remove the line to share a spec. A project with one tool's environment file gets one shared spec.
