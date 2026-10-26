@@ -37,3 +37,19 @@ func TestSyncGlobal_OtherTargetOverrideConditionDoesNotBlock(t *testing.T) {
 		t.Errorf("QWEN.md missing rule body: %s", got)
 	}
 }
+
+func TestLintGlobal_RuleWithTargetOverrideConditionExitsOne(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	rule := filepath.Join(source, "rules", "go.md")
+	mustWriteGlobalTest(t, rule, "---\nname: go\nx-claude:\n  globs: ['*.go']\n---\nGo only.\n")
+
+	for _, command := range []string{"lint", "validate"} {
+		out, _, err := runGlobalCheck(command)
+		if err == nil {
+			t.Fatalf("%s --global must exit non-zero on a rule sync --global rejects:\n%s", command, out)
+		}
+		if !strings.Contains(out, rule) || !strings.Contains(out, "scoped or conditional") {
+			t.Errorf("%s: expected the x-claude rule reported on %s, got:\n%s", command, rule, out)
+		}
+	}
+}

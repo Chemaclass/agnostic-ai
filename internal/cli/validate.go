@@ -82,7 +82,7 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	entries := b.All()
 	var scopeIssues []validationIssue
 	if scope.global {
-		scopeIssues = lintGlobalRules(b.Rules)
+		scopeIssues = lintGlobalRules(b.Rules, scope.targets)
 		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 	} else {
 		scopeIssues = lintEntryPointFences(".", scope.cfg)

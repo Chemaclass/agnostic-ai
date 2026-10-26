@@ -286,10 +286,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
 			return fmt.Errorf("global rule %q is conditional for codebuddy; global rules must apply unconditionally", rule.Name)
 		}
-		conditional := slices.ContainsFunc(targets, func(target string) bool {
-			return hasGlobalRuleCondition(adapters.ResolveMeta(rule.Meta, target))
-		})
-		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) || conditional {
+		if globalRuleConditional(rule, targets) {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
 	}
@@ -721,6 +718,15 @@ func pruneEmptyGlobalDirs(removals, trees []string) {
 			}
 		}
 	}
+}
+
+func globalRuleConditional(rule spec.Entry, targets []string) bool {
+	if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
+		return true
+	}
+	return slices.ContainsFunc(targets, func(target string) bool {
+		return hasGlobalRuleCondition(adapters.ResolveMeta(rule.Meta, target))
+	})
 }
 
 func hasGlobalRuleCondition(meta map[string]any) bool {
