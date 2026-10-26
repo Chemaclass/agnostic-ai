@@ -664,6 +664,9 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
     await expect(model.getByRole('status')).toContainText('is now opus. Your draft is kept')
     await expect(model.getByRole('alert')).toHaveCount(0)
     await expect(input).toHaveValue('haiku')
+    let releaseOverview = () => {}
+    const overviewHeld = new Promise<void>((resolve) => { releaseOverview = resolve })
+    await page.route('**/api/views/overview', async (route) => { await overviewHeld; await route.continue() })
     await model.getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: haiku\neffort: high\n')
     await expect(input).toHaveValue('haiku')
@@ -671,6 +674,10 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
 
     await input.fill('sonnet')
     await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    const refreshed = page.waitForResponse('**/api/views/overview')
+    releaseOverview()
+    await refreshed
+    await page.unroute('**/api/views/overview')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
     await effort.getByRole('button', { name: 'Update' }).click()
