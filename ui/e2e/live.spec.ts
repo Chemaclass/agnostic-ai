@@ -630,6 +630,9 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
     await expect(model.getByRole('status')).toContainText('is now opus. Your draft is kept')
     await expect(model.getByRole('alert')).toHaveCount(0)
     await expect(input).toHaveValue('haiku')
+    let releaseOverview = () => {}
+    const overviewHeld = new Promise<void>((resolve) => { releaseOverview = resolve })
+    await page.route('**/api/views/overview', async (route) => { await overviewHeld; await route.continue() })
     await model.getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: haiku\neffort: high\n')
     await expect(input).toHaveValue('haiku')
@@ -637,6 +640,10 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
 
     await input.fill('sonnet')
     await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    const refreshed = page.waitForResponse('**/api/views/overview')
+    releaseOverview()
+    await refreshed
+    await page.unroute('**/api/views/overview')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
     await effort.getByRole('button', { name: 'Update' }).click()
@@ -664,5 +671,47 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
       await expect(mine(page).getByRole('alert')).toContainText('is now haiku')
       expect(await readFile(f.localSettings, 'utf8')).toContain('model: haiku')
     } finally { await other.close() }
+  } finally { await f.close() }
+})
+
+test('live generated-file status shows a save as needing sync and refreshes after an external sync without losing the page', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.settings, 'name: native\nmodel: sonnet\neffort: high\n')
+    await rm(f.localSettings)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const status = page.locator('section.sync-status')
+    await expect(status).toContainText('Generated files match the source for 1 tool.')
+    await expect(status.locator('.sync-status-time')).toHaveText(/^Checked /)
+
+    await page.getByRole('searchbox').fill('default')
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await model.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
+    await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
+    await effort.getByRole('button', { name: 'Update' }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: sonnet\neffort: low\n')
+    await expect(status).toContainText('Saved to the source configuration.')
+    await expect(status).toContainText('Claude Code needs sync.')
+    await status.getByText('1 configured tool').click()
+    await expect(status.locator('.sync-status-tool')).toContainText('Needs sync')
+    await status.locator('.sync-status-tool').getByText(/^\d+ files?$/).click()
+    await expect(status.locator('.sync-status-files')).toContainText('.claude/settings.json')
+
+    await put(f.settings, 'name: native\nmodel: opus\neffort: low\n')
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const main = page.locator('#main')
+    await main.evaluate((element) => { element.scrollTop = 100 })
+    expect(await main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await status.getByRole('button', { name: 'Refresh' }).evaluate((button: HTMLButtonElement) => button.click())
+    await expect(status).toContainText('Generated files match the source for 1 tool.')
+    await expect(status).not.toContainText('Saved to the source configuration.')
+    await expect(status.locator('.sync-status-tool')).toContainText('Matches source')
+    await expect(page).toHaveURL(/view=settings/)
+    await expect(page.getByRole('searchbox')).toHaveValue('default')
+    expect(await main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('my-draft')
+    await expect(model.getByRole('status')).toContainText('The saved value changed after you started editing and is now opus')
   } finally { await f.close() }
 })
