@@ -12,7 +12,7 @@ var modelAliases = map[string]map[string]string{
 		"sol":   "gpt-6.1-sol",
 		"luna":  "gpt-6-luna",
 		"astra": "gpt-6-astra",
-		"terra": "gpt-5.6-terra",
+		"terra": "gpt-6.1-terra",
 	},
 }
 

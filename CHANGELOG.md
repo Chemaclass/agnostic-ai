@@ -32,6 +32,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+#### Codex
+
+- The `terra` model alias now resolves to `gpt-6.1-terra`.
+
 #### Qwen Code
 
 - Rules with `globs` go to `.qwen/rules/<name>.md` with `paths:`, so Qwen loads them only for matching files; import reads them back (#2502).
