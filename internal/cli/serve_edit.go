@@ -79,6 +79,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var file string
 	var edit func([]byte) ([]byte, error)
+	var scope editScope
 	switch r.URL.Path {
 	case editBuiltinPath:
 		var req struct {
@@ -99,7 +100,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "enabled must be a boolean"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
+		scope, err = parseEditScope(req.Scope)
 		if err == nil {
 			file, edit, err = h.builtinsEdit(scope, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
 		}
@@ -119,7 +120,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean or null value are required"})
 			return
 		}
-		scope, err := parseEditScope(req.Scope)
+		scope, err = parseEditScope(req.Scope)
 		if err == nil {
 			file, edit, err = h.settingsEdit(scope, req.Path, req.Key, value)
 		}
@@ -145,7 +146,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var chosen spec.Entry
-		scope, err := parseEditScope(req.Scope)
+		scope, err = parseEditScope(req.Scope)
 		if err == nil {
 			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value, &chosen)
 		}
@@ -168,6 +169,12 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
+	}
+	if scope == scopeLocal {
+		if err := h.keepPersonalOutOfGit(file); err != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			return
+		}
 	}
 	if problems, err := h.applyValidated(file, edit); err != nil {
 		var stale staleFieldError
