@@ -470,4 +470,8 @@
 # (23490720): the web interface shows whether each configured tool's
 # generated files match the source, with the check time and Refresh.
 # Same Linux amd64 release flags; no added headroom or dependencies.
-23498912
+# #2512 measured 23527584 on Go 1.27.3, up 28672 from 23498912: the web
+# Settings page explains which model and effort value each configured
+# tool gets, from where, and why other values lose. Same Linux amd64
+# release flags; no added headroom or dependencies.
+23527584
