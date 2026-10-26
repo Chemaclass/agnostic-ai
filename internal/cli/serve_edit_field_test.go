@@ -394,3 +394,54 @@ func TestEditField_DefaultPathOverridesALaterPackValue(t *testing.T) {
 		t.Fatalf("defaults = %s %v", data, err)
 	}
 }
+
+func TestEditField_RejectsAStaleExpectedValue(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	native := filepath.Join(source, "settings", "native.yaml")
+	created := filepath.Join(source, "settings", "defaults.yaml")
+	overlay := filepath.Join(source, "local", "settings", "native.yaml")
+	mustWriteGlobalTest(t, native, "name: native\nmodel: opus\n")
+	h := newEditHandler(source, true)
+	for _, tc := range []struct {
+		name, body string
+		status     int
+		file, want string
+	}{
+		{"team value changed outside", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"sonnet"}`, 409, native, "name: native\nmodel: opus\n"},
+		{"team clear of a changed value", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"sonnet"}`, 409, native, "name: native\nmodel: opus\n"},
+		{"team save over the current value", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"opus"}`, 200, native, "name: native\nmodel: haiku\n"},
+		{"retry of a save that already landed", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"opus"}`, 200, native, "name: native\nmodel: haiku\n"},
+		{"just me, first tab", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"high","expected":null}`, 200, overlay, "effort: high"},
+		{"just me, second tab", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"low","expected":null}`, 409, overlay, "effort: high"},
+		{"just me reset of a changed value", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"low"}`, 409, overlay, "effort: high"},
+		{"just me reset", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"high"}`, 200, overlay, ""},
+		{"expected must be text or null", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"opus","expected":5}`, 400, native, "name: native\nmodel: haiku\n"},
+	} {
+		rec := postEdit(t, h, editFieldPath, tc.body, nil)
+		if rec.Code != tc.status {
+			t.Fatalf("%s = %d %s", tc.name, rec.Code, rec.Body)
+		}
+		if tc.status == 409 && !strings.Contains(rec.Body.String(), "changed after this page loaded") {
+			t.Errorf("%s: conflict body = %s", tc.name, rec.Body)
+		}
+		got := readOptional(t, tc.file)
+		if tc.want == "" && got != "" || !strings.Contains(got, tc.want) || strings.HasPrefix(tc.want, "name:") && got != tc.want {
+			t.Errorf("%s: %s = %q, want %q", tc.name, tc.file, got, tc.want)
+		}
+	}
+
+	if err := os.Remove(native); err != nil {
+		t.Fatal(err)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"settings/defaults.yaml","key":"model","value":"sonnet","expected":null}`, nil); rec.Code != 200 {
+		t.Fatalf("first tab creates the spec = %d %s", rec.Code, rec.Body)
+	}
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"settings/defaults.yaml","key":"model","value":"haiku","expected":null}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "now sonnet") {
+		t.Fatalf("second tab over the new spec = %d %s", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, created); !strings.Contains(got, "model: sonnet") {
+		t.Errorf("new spec = %q", got)
+	}
+}

@@ -102,10 +102,13 @@ export async function loadOverview(source: DataSource, signal?: AbortSignal): Pr
 /** An edit the server refused, with the validation problems it found. */
 export class EditError extends Error {
   readonly problems: string[]
-  constructor(message: string, problems: string[] = []) {
+  /** 409 means the file changed after the page loaded; nothing was written. */
+  readonly status?: number
+  constructor(message: string, problems: string[] = [], status?: number) {
     super(message)
     this.name = 'EditError'
     this.problems = problems
+    this.status = status
   }
 }
 
@@ -124,5 +127,5 @@ export async function postEdit(path: string, body: unknown): Promise<void> {
   } catch {
     // Not JSON; fall back to the status.
   }
-  throw new EditError(reply.error ?? `The server answered ${res.status}.`, reply.problems ?? [])
+  throw new EditError(reply.error ?? `The server answered ${res.status}.`, reply.problems ?? [], res.status)
 }

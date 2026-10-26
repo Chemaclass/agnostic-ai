@@ -213,6 +213,57 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, val
 	return file, scalarFieldEdit(spec.Entry{}, key, value, fieldCreatedMarker+string(scaffold)), nil
 }
 
+type staleFieldError struct {
+	key     string
+	current *string
+}
+
+func (e staleFieldError) Error() string {
+	now := "not set"
+	if e.current != nil {
+		now = "now " + *e.current
+	}
+	return fmt.Sprintf("%s changed after this page loaded and is %s. Reload to review it, then save again", e.key, now)
+}
+
+// expectFieldValue refuses edit unless the file still holds the value the
+// page showed, or already holds the one the edit writes, as after a save
+// whose follow-up reload failed.
+func expectFieldValue(key string, expected *string, edit func([]byte) ([]byte, error)) func([]byte) ([]byte, error) {
+	return func(data []byte) ([]byte, error) {
+		current, err := shownFieldValue(data, key)
+		if err != nil {
+			return nil, err
+		}
+		if sameShownValue(current, expected) {
+			return edit(data)
+		}
+		if out, err := edit(data); err == nil {
+			if written, err := shownFieldValue(out, key); err == nil && sameShownValue(written, current) {
+				return data, nil
+			}
+		}
+		return nil, staleFieldError{key: key, current: current}
+	}
+}
+
+func shownFieldValue(data []byte, key string) (*string, error) {
+	var values map[string]any
+	if err := yaml.Unmarshal(data, &values); err != nil {
+		return nil, fmt.Errorf("parse: %w", err)
+	}
+	v, ok := values[key]
+	if !ok {
+		return nil, nil
+	}
+	shown := overview.ShownText(key, v)
+	return &shown, nil
+}
+
+func sameShownValue(a, b *string) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
 // scalarFieldEdit sets or clears key in a settings file. A new file starts
 // from scaffold, and is removed again when clearing leaves only that.
 func scalarFieldEdit(chosen spec.Entry, key string, value any, scaffold string) func([]byte) ([]byte, error) {

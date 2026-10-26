@@ -203,7 +203,18 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const [value, setValue] = useState(current)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError>()
-  useEffect(() => { setValue(current) }, [current, path])
+  const [reloaded, setReloaded] = useState(false)
+  const loaded = useRef(current)
+  const conflict = useRef(false)
+  useEffect(() => {
+    setValue((draft) => draft === loaded.current ? current : draft)
+    loaded.current = current
+    if (conflict.current) {
+      conflict.current = false
+      setError(undefined)
+      setReloaded(true)
+    }
+  }, [current, path])
   if (!edit) return null
   if (edit.disabledReason) return <p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p>
   if (app.source.kind !== 'api') return null
@@ -211,20 +222,26 @@ function FieldEditControl({ field }: { field: SettingField }) {
     setPath(next)
     setValue(valueOf(field.set.find((source) => source.path === next && !source.local)) ?? '')
     setError(undefined)
+    setReloaded(false)
+    conflict.current = false
   }
   const target = specPath
-  const post = async (body: Record<string, unknown>) => {
+  const post = async (body: Record<string, unknown>, expected: string | undefined) => {
     setPending(true)
     setError(undefined)
+    setReloaded(false)
+    conflict.current = false
     try {
-      await postEdit(API.editField, { path: target || undefined, key: field.key, ...body })
+      await postEdit(API.editField, { path: target || undefined, key: field.key, ...body, expected: expected ?? null })
       app.reload()
     } catch (err) {
-      setError(err instanceof EditError ? err : new EditError(String(err)))
+      const failure = err instanceof EditError ? err : new EditError(String(err))
+      conflict.current = failure.status === 409
+      setError(failure)
     } finally { setPending(false) }
   }
-  const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value })
-  const reset = () => post({ scope: 'local', value: null })
+  const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, scope === 'local' ? localCurrent : teamCurrent)
+  const reset = () => post({ scope: 'local', value: null }, localCurrent)
   const overridden = scope === 'team' && localCurrent !== undefined
   const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
@@ -247,7 +264,9 @@ function FieldEditControl({ field }: { field: SettingField }) {
         {resetButton}
       </div>}
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
-    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</span>}
+    {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
+      {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={app.reload}>Reload saved values</button></>}</span>}
+    {reloaded && <p className="muted" role="status">Reloaded. The saved value is {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
       {scope === 'team' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}

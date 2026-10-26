@@ -600,3 +600,53 @@ test('live Settings picks an unset effort from its levels, updates, and clears i
     await expect(readFile(created)).rejects.toThrow()
   } finally { await f.close() }
 })
+
+test('live Settings refuses a stale save, keeps the newer value and the draft, and saves after a reload', async ({ page, browser }) => {
+  const f = await fixture()
+  try {
+    await put(f.settings, 'name: native\nmodel: sonnet\neffort: high\n')
+    await rm(f.localSettings)
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const input = model.getByRole('textbox', { name: 'Default model value' })
+    await expect(input).toHaveValue('sonnet')
+
+    await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    await input.fill('haiku')
+    await model.getByRole('button', { name: 'Update' }).click()
+    await expect(model.getByRole('alert')).toContainText('model changed after this page loaded and is now opus')
+    expect(await readFile(f.settings, 'utf8')).toBe('name: native\nmodel: opus\neffort: high\n')
+    await expect(input).toHaveValue('haiku')
+    const overviewLoads = page.waitForRequest('**/api/views/overview')
+    await page.route('**/api/views/overview', (route) => route.abort())
+    await model.getByRole('button', { name: 'Reload saved values' }).click()
+    await overviewLoads
+    await expect(model.getByRole('alert')).toContainText('is now opus')
+    await expect(model.getByRole('status')).toHaveCount(0)
+    await page.unroute('**/api/views/overview')
+    await model.getByRole('button', { name: 'Reload saved values' }).click()
+    await expect(model.getByRole('status')).toContainText('The saved value is opus. Your draft is kept')
+    await expect(model.getByRole('alert')).toHaveCount(0)
+    await expect(input).toHaveValue('haiku')
+    await model.getByRole('button', { name: 'Update' }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: haiku\neffort: high\n')
+    await expect(input).toHaveValue('haiku')
+    await expect(model.getByRole('status')).toHaveCount(0)
+
+    const other = await browser.newPage()
+    try {
+      for (const tab of [page, other]) {
+        await tab.goto(`${f.url}?view=settings`)
+        await tab.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+      }
+      const mine = (tab: typeof page) => tab.locator('.field-row').filter({ has: tab.getByText('Default model', { exact: true }) })
+      await mine(other).getByRole('textbox', { name: 'Default model value' }).fill('opus')
+      await mine(other).getByRole('button', { name: 'Save' }).click()
+      await expect(mine(other).locator('.badge', { hasText: 'local' })).toBeVisible()
+      await mine(page).getByRole('textbox', { name: 'Default model value' }).fill('sonnet')
+      await mine(page).getByRole('button', { name: 'Save' }).click()
+      await expect(mine(page).getByRole('alert')).toContainText('is now opus')
+      expect(await readFile(f.localSettings, 'utf8')).toContain('model: opus')
+    } finally { await other.close() }
+  } finally { await f.close() }
+})

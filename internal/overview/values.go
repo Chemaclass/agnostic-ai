@@ -50,7 +50,7 @@ func specValues(meta map[string]any) []Value {
 		case bool:
 			out = append(out, Value{Key: prefix, Type: ValueBool, Value: scalar(t)})
 		default:
-			out = append(out, Value{Key: prefix, Type: ValueText, Value: safeValue(prefix, scalar(t))})
+			out = append(out, Value{Key: prefix, Type: ValueText, Value: ShownText(prefix, t)})
 		}
 	}
 	keys := make([]string, 0, len(meta))
@@ -74,6 +74,11 @@ func joinKey(prefix, key string) string {
 		return key
 	}
 	return prefix + "." + key
+}
+
+// ShownText is the text a view shows for the scalar under key.
+func ShownText(key string, v any) string {
+	return safeValue(key, scalar(v))
 }
 
 // scalar renders one value: a string as written (an empty one as ""),
