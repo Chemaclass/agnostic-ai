@@ -449,4 +449,8 @@
 # the web interface, with local badges, resets, and one guard that keeps
 # personal writes out of team and tracked files. Same Linux amd64 release
 # flags; no added headroom or dependencies.
-23462048
+# #2498 measured 23466144 on Go 1.27.3, up 4096 from main 9e00f17c
+# (23462048): compare reads the sync state once per run, split from the
+# report loop so a test can check both give the same report. Same Linux
+# amd64 release flags; no added headroom or dependencies.
+23466144
