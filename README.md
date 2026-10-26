@@ -25,7 +25,7 @@ agnostic-ai init
 
 Select the tools you use, for example Claude Code and Codex. If the project already has files such as `CLAUDE.md` or `AGENTS.md`, accept the offer to import them so their instructions are kept. If the project already has `agnostic-ai.yaml`, skip `init` and run `agnostic-ai sync`.
 
-Create or open `.agnostic-ai/AGNOSTIC_AI.md` and add one project note, for example:
+`init` also creates `.agnostic-ai/AGNOSTIC_AI.md`, the note every selected tool reads. Open it and replace the placeholder comment with one project note, or add it below any imported instructions, for example:
 
 ```markdown
 Run the project tests before finishing a change.

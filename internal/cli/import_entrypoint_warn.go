@@ -67,9 +67,10 @@ func importingAll() bool {
 
 // foldRootAgentsMainFile appends to AGNOSTIC_AI.md the sections of a
 // hand-written root AGENTS.md that it does not hold yet, seeding it when
-// absent, and reports whether it wrote. `import all` never detects codex
-// from AGENTS.md alone, since many tools read that file, so without this
-// its text would be left for sync to overwrite.
+// absent or still the placeholder, and reports whether it wrote. `import
+// all` never detects codex from AGENTS.md alone, since many tools read
+// that file, so without this its text would be left for sync to
+// overwrite.
 func foldRootAgentsMainFile(root string) (bool, error) {
 	data, err := readEntryFile(root, filepath.Join(root, claudeAgentsMainFile))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -83,7 +84,7 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 	}
 	dst := filepath.Join(root, agnosticMainFile)
 	existing, err := os.ReadFile(dst)
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) || err == nil && isEntryPointSeed(header.Strip(string(existing))) {
 		result, err := mirrorMainFile(root, claudeAgentsMainFile)
 		return result == mirrorWritten, err
 	}
