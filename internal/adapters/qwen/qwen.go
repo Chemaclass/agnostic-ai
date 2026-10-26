@@ -1,4 +1,9 @@
 // Package qwen emits native Qwen Code configuration for released CLI v0.26.0.
+//
+// Unscoped rules are inlined into QWEN.md. A rule with file globs goes to
+// `.qwen/rules/<name>.md` with `paths:` frontmatter, which Qwen keeps out of
+// the prompt until a tool reads or edits a matching file
+// (packages/core/src/config/rulesDiscovery.ts at v0.26.0).
 package qwen
 
 import (
@@ -14,6 +19,7 @@ const (
 	defaultAgentsDir    = ".qwen/agents"
 	defaultSkillsDir    = ".qwen/skills"
 	defaultCommandsDir  = ".qwen/commands"
+	defaultRulesDir     = ".qwen/rules"
 	defaultIgnoreFile   = ".qwenignore"
 )
 
@@ -45,6 +51,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: defaultOutFile}, dryRun); err != nil {
+		return err
+	}
+	if err := emitPathRules(sess, b.Rules, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := emitSettings(sess, b, cfg, dryRun); err != nil {

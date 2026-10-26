@@ -103,6 +103,7 @@ func TestEmit_OutputOverrides(t *testing.T) {
 func kitSinkBundle() spec.Bundle {
 	return spec.NewBundle([]spec.Entry{
 		{Kind: spec.KindRule, Name: "style", Body: "Use small functions."},
+		{Kind: spec.KindRule, Name: "react", Body: "Use function components.", Meta: map[string]any{"globs": []any{"src/**/*.tsx"}}},
 		{Kind: spec.KindAgent, Name: "review", Body: "Review", Meta: map[string]any{"tools": []any{"Read", "Edit", "Bash"}, "maxTurns": 3}},
 		{Kind: spec.KindSkill, Name: "check", Body: "Check", Meta: map[string]any{"description": "Check the build", "x-qwen": map[string]any{"model": "custom-skill-model"}}},
 		{Kind: spec.KindCommand, Name: "deploy", Body: "Ship {{args}}", Meta: map[string]any{"description": "Ship"}},
@@ -112,6 +113,31 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{"model": "custom-model", "permissions": map[string]any{"deny": []any{"write"}}}},
 		{Kind: spec.KindIgnore, Name: "secret", Body: ".env"},
 	})
+}
+
+func TestEmit_PathRulesWriteNativeRulesDirectory(t *testing.T) {
+	testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "style", Body: "Use small functions.\n"},
+		{Kind: spec.KindRule, Name: "react", Body: "Use function components.\n", Meta: map[string]any{"description": "React", "globs": "src/**/*.tsx,src/**/*.jsx"}},
+		{Kind: spec.KindRule, Name: "always", Body: "Always.\n", Meta: map[string]any{"globs": "src/**", "alwaysApply": true}},
+	})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(".qwen/rules/react.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := emit.WithHeader("---\ndescription: React\npaths:\n  - src/**/*.tsx\n  - src/**/*.jsx\n---\n\nUse function components.\n", emit.FormatMarkdown)
+	if string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	for _, name := range []string{"style", "always"} {
+		if _, err := os.Stat(".qwen/rules/" + name + ".md"); !os.IsNotExist(err) {
+			t.Errorf("%s belongs in QWEN.md: %v", name, err)
+		}
+	}
 }
 
 func TestKitSink_GoldenSnapshot(t *testing.T) {
