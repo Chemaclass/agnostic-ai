@@ -303,3 +303,49 @@ test('shows why a linked worktree needs the CLI for a personal built-in', async 
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(toggle(page, 'caveman')).toHaveAttribute('aria-checked', 'false')
 })
+
+test('previews an effort change with pending source changes and shows a stale value at the field', async ({ page }) => {
+  const view = structuredClone(fixture)
+  const team = '.agnostic-ai/settings/defaults.yaml'
+  const effortField = view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((field: { key: string }) => field.key === 'effort')
+  Object.assign(effortField, { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' } })
+  const idle = { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: [], changes: [], findings: [] }
+  const previews: unknown[] = []
+  let stale = false
+  await page.route('**/api/views/overview', (route) => {
+    const now = structuredClone(view)
+    now.sections.find((section: { id: string }) => section.id === 'settings').fields.find((field: { key: string }) => field.key === 'effort').set[0].values[0].value = stale ? 'medium' : 'high'
+    return route.fulfill({ json: now })
+  })
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: idle }))
+  await page.route('**/api/changes/builtin/preview', (route) => {
+    previews.push(route.request().postDataJSON())
+    if (stale && (route.request().postDataJSON() as { setting: { expected: string } }).setting.expected === 'high') return route.fulfill({ status: 409, json: { error: `${team}: effort changed after this page loaded and is now medium. Reload to review it, then save again` } })
+    return route.fulfill({ json: {
+      ...idle, status: 'proposed', id: 'p1', name: 'effort', key: 'effort', title: 'effort set to low', scope: 'team', config: team, targets: ['claude', 'codex'],
+      changes: [{ path: team, action: 'update', diff: '-effort: high\n+effort: low' }, { path: '.claude/agents/reviewer.md', action: 'update', diff: '+Review one change.' }],
+      findings: ['This preview also applies pending source changes.'],
+    } })
+  })
+  await page.goto('/?view=settings')
+  const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+  await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+  await effort.getByRole('button', { name: 'Preview and apply' }).click()
+  const preview = effort.getByRole('region', { name: 'Reasoning effort change preview' })
+  await expect(preview.getByRole('heading', { name: 'Effort set to low' })).toBeVisible()
+  await expect(preview.getByRole('note')).toContainText('This preview also applies pending source changes.')
+  await expect(preview).toContainText('.claude/agents/reviewer.md')
+  expect(previews.at(-1)).toEqual({ scope: 'team', setting: { path: team, key: 'effort', value: 'low', expected: 'high' } })
+
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+  stale = true
+  await effort.getByRole('button', { name: 'Preview and apply' }).click()
+  await expect(effort.getByRole('alert')).toContainText('effort changed after this page loaded and is now medium')
+  await expect(effort).toContainText('The saved value changed after you started editing and is now medium.')
+  await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
+  await effort.getByRole('button', { name: 'Preview and apply' }).click()
+  await expect(preview).toBeVisible()
+  expect(previews.at(-1)).toEqual({ scope: 'team', setting: { path: team, key: 'effort', value: 'low', expected: 'medium' } })
+  await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toBeDisabled()
+  await expect(page.getByRole('heading', { name: /^Built-ins/ }).locator('..').getByRole('alert')).toHaveCount(0)
+})

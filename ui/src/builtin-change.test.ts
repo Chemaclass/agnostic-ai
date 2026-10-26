@@ -43,4 +43,12 @@ describe('builtin change contract', () => {
   it('accepts older undo metadata without an owner', () => {
     expect(parseBuiltinChange({ ...proposal, undoAvailable: true, undoId: 'previous' }).undoId).toBe('previous')
   })
+
+  it('keeps a setting change and the title that names it for undo', () => {
+    const setting = { ...proposal, name: 'effort', key: 'effort', title: 'effort set to high', undoAvailable: true, undoId: 'proposal', undoName: 'effort', undoTitle: 'effort set to high' }
+    expect(parseBuiltinChange(setting)).toMatchObject({ key: 'effort', title: 'effort set to high', undoTitle: 'effort set to high' })
+    for (const unsafe of [{ key: 'permissions' }, { key: 'model' }, { title: undefined }, { title: ' ' }, { undoTitle: '' }, { undoTitle: 'x', undoId: undefined, undoName: undefined, undoAvailable: false }]) {
+      expect(() => parseBuiltinChange({ ...setting, ...unsafe })).toThrow('invalid change')
+    }
+  })
 })

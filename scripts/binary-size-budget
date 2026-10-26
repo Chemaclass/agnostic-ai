@@ -486,4 +486,8 @@
 # (23539872): the web interface opens files and findings in Cursor or VS
 # Code, and findings carry the path of the file they name. Same Linux
 # amd64 release flags; no added headroom or dependencies.
-23548064
+# #2511 measured 23572640 on Go 1.27.3, up 24576 from main 60245961
+# (23548064): the web interface previews, applies, and undoes a model or
+# effort change, loading planned settings bytes without writing them.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+23572640

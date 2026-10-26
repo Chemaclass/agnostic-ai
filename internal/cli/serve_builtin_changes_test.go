@@ -1369,17 +1369,6 @@ func TestBuiltinChanges_MemoryExclusionOutsideLinkedWorktreeRequiresCLI(t *testi
 	}
 }
 
-func builtinStatus(t *testing.T, h http.Handler) builtinChangeView {
-	t.Helper()
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+builtinStatusPath, nil))
-	var view builtinChangeView
-	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
-		t.Fatal(err)
-	}
-	return view
-}
-
 func TestBuiltinChanges_CancelDiscardsOnlyTheNamedProposalAndKeepsUndo(t *testing.T) {
 	root := builtinChangeProject(t)
 	h := newBuiltinChangeHandler(root, false)
@@ -1417,5 +1406,25 @@ func TestBuiltinChanges_CancelDiscardsOnlyTheNamedProposalAndKeepsUndo(t *testin
 	builtinAction(t, h, builtinUndoPath, applied.ID)
 	if config, _ := os.ReadFile("agnostic-ai.yaml"); strings.Contains(string(config), "handoff") {
 		t.Error("undo after cancel did not restore the config")
+	}
+}
+
+func TestBuiltinChanges_CancelDiscardsASettingPreview(t *testing.T) {
+	root := builtinChangeProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal := settingProposal(t, h, scopeTeam, map[string]any{"key": "effort", "value": "high", "expected": nil}, http.StatusOK)
+	builtinAction(t, h, builtinCancelPath, proposal.ID)
+	if status := builtinStatus(t, h); status.Status == "proposed" {
+		t.Errorf("setting preview survived cancel: %s", status.ID)
+	}
+	if rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("apply after cancel: %d %s", rec.Code, rec.Body)
+	}
+	if err := before.check(root); err != nil {
+		t.Errorf("cancel changed project files: %v", err)
 	}
 }

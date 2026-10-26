@@ -50,6 +50,12 @@ type importSpecFileFilter interface {
 // syncedSpecFileSums records only files a target rendered, retaining
 // unchanged provenance for targets this sync did not cover.
 func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle, targets []string, cfg *config.Config) map[string]specFileSum {
+	return syncedSpecFileSumsFrom(root, prev, b, targets, cfg, os.ReadFile)
+}
+
+// syncedSpecFileSumsFrom reads spec bytes through read, which a web
+// preview points at its planned source files.
+func syncedSpecFileSumsFrom(root string, prev map[string]specFileSum, b spec.Bundle, targets []string, cfg *config.Config, read func(string) ([]byte, error)) map[string]specFileSum {
 	next := map[string]specFileSum{}
 	lister := newSpecFileLister(root)
 	for _, target := range targets {
@@ -71,7 +77,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 			for _, path := range lister.files(e, include) {
 				rec, ok := next[path]
 				if !ok {
-					data, err := os.ReadFile(config.ResolveSourcePath(root, filepath.FromSlash(path)))
+					data, err := read(config.ResolveSourcePath(root, filepath.FromSlash(path)))
 					if err != nil {
 						continue
 					}
@@ -102,7 +108,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 			next[path] = old
 		case !ok && old.By == specSumBySync:
 			kept := uncovered(old)
-			data, err := os.ReadFile(config.ResolveSourcePath(root, filepath.FromSlash(path)))
+			data, err := read(config.ResolveSourcePath(root, filepath.FromSlash(path)))
 			if len(kept) > 0 && err == nil && sha256Hex(data) == old.Sum {
 				old.Targets = kept
 				next[path] = old

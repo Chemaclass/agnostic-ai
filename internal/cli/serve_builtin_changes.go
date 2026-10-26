@@ -33,6 +33,8 @@ type builtinChangeView struct {
 	Status        string              `json:"status"`
 	ID            string              `json:"id,omitempty"`
 	Name          string              `json:"name,omitempty"`
+	Key           string              `json:"key,omitempty"`
+	Title         string              `json:"title,omitempty"`
 	Enabled       bool                `json:"enabled"`
 	Reset         bool                `json:"reset,omitempty"`
 	Scope         string              `json:"scope,omitempty"`
@@ -42,6 +44,7 @@ type builtinChangeView struct {
 	Findings      []string            `json:"findings"`
 	UndoName      string              `json:"undoName,omitempty"`
 	UndoID        string              `json:"undoId,omitempty"`
+	UndoTitle     string              `json:"undoTitle,omitempty"`
 	UndoAvailable bool                `json:"undoAvailable"`
 	Supported     bool                `json:"supported"`
 }
@@ -87,6 +90,12 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Enabled *bool  `json:"enabled"`
 		Reset   bool   `json:"reset"`
 		ID      string `json:"id"`
+		Setting *struct {
+			Path     string          `json:"path"`
+			Key      string          `json:"key"`
+			Value    json.RawMessage `json:"value"`
+			Expected json.RawMessage `json:"expected"`
+		} `json:"setting"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(r.Body, 8193))
 	decoder.DisallowUnknownFields()
@@ -98,7 +107,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send exactly one JSON object"})
 		return
 	}
-	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.Scope != "" || request.ID == "") {
+	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.Scope != "" || request.Setting != nil || request.ID == "") {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "apply, undo, and cancel require only a proposal id"})
 		return
 	}
@@ -108,11 +117,20 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	switch r.URL.Path {
 	case builtinPreviewPath:
-		toggle := slices.Contains(builtins.Names(), request.Name) && request.Enabled != nil && !request.Reset
-		reset := request.Reset && request.Name == "" && request.Enabled == nil
-		if toggle == reset || request.ID != "" {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires a known built-in name and an enabled boolean, or reset alone"})
+		toggle := slices.Contains(builtins.Names(), request.Name) && request.Enabled != nil && !request.Reset && request.Setting == nil
+		reset := request.Reset && request.Name == "" && request.Enabled == nil && request.Setting == nil
+		setting := request.Setting != nil && request.Name == "" && request.Enabled == nil && !request.Reset
+		if !setting && toggle == reset || request.ID != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires a known built-in name and an enabled boolean, reset alone, or a setting"})
 			return
+		}
+		change := projectChange{builtin: builtinRequest{name: request.Name, enabled: toggle && *request.Enabled, reset: reset}}
+		if setting {
+			if (request.Setting.Key != "model" && request.Setting.Key != "effort") || len(request.Setting.Value) == 0 {
+				writeEditJSON(w, http.StatusBadRequest, editError{Error: "a setting preview requires key model or effort and a value (null clears it)"})
+				return
+			}
+			change.setting = &settingRequest{path: request.Setting.Path, key: request.Setting.Key, value: request.Setting.Value, expected: request.Setting.Expected}
 		}
 		scope, scopeErr := parseEditScope(request.Scope)
 		if scopeErr != nil {
@@ -120,7 +138,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		var plan *builtinChangePlan
-		plan, err = planBuiltinChange(h.root, builtinRequest{name: request.Name, enabled: toggle && *request.Enabled, reset: reset}, scope)
+		plan, err = planProjectChange(h.root, change, scope)
 		if err == nil {
 			var token [24]byte
 			if _, err = rand.Read(token[:]); err == nil {
@@ -154,7 +172,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if h.applied != nil {
-		view.UndoAvailable, view.UndoID, view.UndoName = h.after != nil, h.applied.ID, h.applied.Name
+		view.UndoAvailable, view.UndoID, view.UndoName, view.UndoTitle = h.after != nil, h.applied.ID, h.applied.Name, h.applied.Title
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }
@@ -166,7 +184,7 @@ func (h *builtinChangeHandler) status() builtinChangeView {
 	}
 	view.UndoAvailable = h.after != nil
 	if h.applied != nil {
-		view.UndoID, view.UndoName = h.applied.ID, h.applied.Name
+		view.UndoID, view.UndoName, view.UndoTitle = h.applied.ID, h.applied.Name, h.applied.Title
 	}
 	return view
 }
@@ -264,7 +282,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
-	if _, err := planBuiltinChange(h.root, builtinRequest{name: plan.view.Name, enabled: plan.view.Enabled, reset: plan.view.Reset}, plan.scope); err != nil {
+	if _, err := planProjectChange(h.root, plan.change, plan.scope); err != nil {
 		return builtinChangeView{}, err
 	}
 	if err := plan.inputs.check(h.root); err != nil {
@@ -309,7 +327,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 
 	h.undo, h.after, h.plan = journal, &after, nil
 	view := plan.view
-	view.Status, view.UndoAvailable, view.UndoID, view.UndoName = "applied", true, view.ID, view.Name
+	view.Status, view.UndoAvailable, view.UndoID, view.UndoName, view.UndoTitle = "applied", true, view.ID, view.Name, view.Title
 	h.last, h.applied = &view, &view
 	return view, nil
 }
@@ -350,7 +368,7 @@ func (h *builtinChangeHandler) restore(id string) (builtinChangeView, error) {
 	}
 	cleanup := h.undo.removeCreatedDirs(h.root)
 	view := *h.applied
-	view.UndoID, view.UndoName = "", ""
+	view.UndoID, view.UndoName, view.UndoTitle = "", "", ""
 	view.Status, view.UndoAvailable = "undone", false
 	if cleanup != nil {
 		view.Findings = append(view.Findings, "Files restored; directory cleanup: "+cleanup.Error())
