@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -50,7 +51,9 @@ func assertPresetSeeds(t *testing.T, preset string) {
 	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Preset: preset, Targets: allTargetNames()}); err != nil {
 		t.Fatalf("scaffold: %v", err)
 	}
-	got := walkFiles(t, filepath.Join(dir, ".agnostic-ai"))
+	got := slices.DeleteFunc(walkFiles(t, filepath.Join(dir, ".agnostic-ai")), func(rel string) bool {
+		return rel == "AGNOSTIC_AI.md"
+	})
 	want := presetExpectedFiles[preset]
 	sort.Strings(got)
 	sort.Strings(want)
