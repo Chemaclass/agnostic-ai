@@ -70,7 +70,7 @@
     "src/model/testing.ts": "f90c0eaab647a088e35ce7bdf3be3fc64b63170bee97193675fbe49ea49bcee6",
     "src/model/url.test.ts": "ef9122e4659196e617042f4633a3b3b4bbf097d93ee0e223bffd317156f270f1",
     "src/model/url.ts": "c6142fa833aac9e57db9e4c0b10838b2859a5cf4029ff79c62e878356fe32b29",
-    "src/styles.css": "e0ccdeeb86e71c7bf70975d4f6b617c152854924183188ceea694edf0860b6d5",
+    "src/styles.css": "2b6f9a21b748bb894ce2f7901f602be0fe1df6ba03e5edb4addc48d3dbc63280",
     "src/vite-env.d.ts": "2ead27e0f654eb53926df1439827e24aba232f3c3a413847b5862ee447b3f122",
     "tsconfig.json": "92730f301e12c45bbf33095c177dbd538b6f1b79bed1ed96a917a875c5a991e7",
     "vite.config.ts": "6cfab071d9e75b181655bb6657eb94753a8083a68936ea5018253b7fbc704b22"
@@ -78,12 +78,12 @@
   "files": {
     "assets/antigravity-DgAQAdn3.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-DM8eSegL.js": "5b1b19603a3b4e26e62db13c7a2fc626fcff2a47ab586cf5640bb82901d9d304",
-    "assets/index-gikw8AUF.css": "a0ab3659a26fb3976bd7ae1e630b3d772548e19554e6839a67d3ccc4d2324901",
+    "assets/index-Dp3F2-KI.css": "0fffd9e15532ba93ad29e5455d7f987c88dae75b9bff6b300918f94bdd7d450d",
+    "assets/index-JMiRy2e_.js": "5b1b19603a3b4e26e62db13c7a2fc626fcff2a47ab586cf5640bb82901d9d304",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DjAdxIE5.js": "321ed80aa0699bea6303b13151138bb1e74074c5cd464669640ff9175368974a",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "e3ebfaf9124a1d3d0a92aca783827d837a69db80a267219814c320ab63c238ed",
+    "index.html": "2d262bbeef01aae3448dcde0f04b8c8b06769632db0e0c3437c95ddf5d42ef04",
     "third-party-notices.txt": "a323be697d4e49da32e67813843982098f6331c7872fc0c181e0f60451e71438"
   }
 }

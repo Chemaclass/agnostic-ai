@@ -2251,8 +2251,12 @@ input:hover {
   }
 }
 
+/* A phone cannot open a desktop editor; links keep the stored choice. */
 @media (max-width: 760px) {
-  .editor-choice .segmented button,
+  .editor-choice {
+    display: none;
+  }
+
   .editor-open,
   .editor-copy {
     min-height: 44px;
