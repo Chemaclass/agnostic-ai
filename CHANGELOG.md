@@ -20,6 +20,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - Built-in toggles in the web interface work in a project that was never synced: the preview creates the outputs, and the project lock and its ignore entries that sync would add (#2484).
 - The `caveman` built-in and example pack now hold only `SKILL.md`, so sync writes only that file into each tool's skill folder, in project and global sync. The next sync removes the license, notice, and readme files an earlier sync wrote there, and leaves files you wrote yourself. If you edited one of those files, sync keeps it and `sync --check` reports it as unowned until you delete it, run `doctor --fix` in a terminal, or list it under `sync.unmanaged`.
 
+### By tool
+
+#### Qwen Code
+
+- Rules with `globs` go to `.qwen/rules/<name>.md` with `paths:`, so Qwen loads them only for matching files; import reads them back (#2502).
+
 ## v0.88.0 - 2026-10-25
 
 ### General
