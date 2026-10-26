@@ -11,7 +11,7 @@ interface Controller {
   change?: Change
   pending?: Pending
   pendingName?: string
-  error?: { message: string; conflict: boolean; field?: string; setting?: boolean; action?: Action; title?: string }
+  error?: { message: string; conflict: boolean; field?: string; setting?: boolean; action?: Action; title?: string; retryCancel?: boolean }
   proposal: boolean
   notice?: string
   request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<boolean>
@@ -27,12 +27,6 @@ function useBuiltinChanges(): Controller {
   const value = useContext(BuiltinChanges)
   if (!value) throw new Error('Built-in controls need a BuiltinChangeProvider')
   return value
-}
-
-// A proposal this page hides for good is also discarded on the server, so a
-// remount does not restore it. A failure leaves it hidden here only.
-function discard(id?: string) {
-  if (id) builtinChange('cancel', { id }).catch(() => undefined)
 }
 
 // A proposal restored from the server is shown only on the scope it saves to.
@@ -53,12 +47,23 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const pageScope = useEditScope()
   const shownScope = useRef(pageScope)
 
+  const discard = async (id?: string) => {
+    if (!id) return
+    setPending('cancelling')
+    try {
+      setChange(await builtinChange('cancel', { id }))
+    } catch (err) {
+      setError({ action: 'cancel', retryCancel: true, conflict: err instanceof BuiltinChangeError && err.conflict, message: err instanceof Error ? err.message : 'The change failed.' })
+    }
+  }
+
   useEffect(() => {
     if (shownScope.current === pageScope) return
     shownScope.current = pageScope
-    if (change?.status !== 'proposed' || change.id === cancelledId) return
+    if (busy.current || change?.status !== 'proposed' || change.id === cancelledId) return
     setCancelledId(change.id)
-    discard(change.id)
+    busy.current = true
+    void discard(change.id).finally(() => { busy.current = false; setPending(undefined) })
   }, [pageScope, change, cancelledId])
 
   useEffect(() => {
@@ -98,7 +103,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       // A preview that answers after the page switched scope targets the old files.
       const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
       setCancelledId(stale ? value.id : undefined)
-      if (stale && action === 'preview') discard(value.id)
+      if (stale && action === 'preview') await discard(value.id)
       if (action === 'cancel') setNotice('Preview discarded.')
       if (action === 'apply' || action === 'undo' || !action) app.reload(true)
       return false
@@ -171,6 +176,7 @@ export function ChangeError() {
   return <div className="builtin-change-error" role="alert">
     <strong>{error.title ?? (error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.')}</strong>
     <p>{error.message}</p>
+    {error.retryCancel && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('cancel') }}>Retry cancellation</button>}
     <button className="button" type="button" disabled={!!pending} onClick={() => { void request() }}>Reload change state</button>
   </div>
 }

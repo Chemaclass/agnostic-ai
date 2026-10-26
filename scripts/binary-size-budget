@@ -490,4 +490,7 @@
 # (23548064): the web interface previews, applies, and undoes a model or
 # effort change, loading planned settings bytes without writing them.
 # Same Linux amd64 release flags; no added headroom or dependencies.
-23572640
+# #2552 measured 23576736 on Go 1.27.3: cancelling a built-in preview
+# persists across reloads, with recovery when cancellation fails.
+# Linux amd64 release flags; no added headroom or dependencies.
+23576736
