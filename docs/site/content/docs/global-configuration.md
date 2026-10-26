@@ -55,7 +55,7 @@ targets: [claude, codex, cursor]
 - Targets without global agent output warn and skip agents.
 - Output is real files, never symlinks. A user file that is itself a symlink, such as a dotfiles-managed `CLAUDE.md`, is written through. A symlink inside a skills, agents, or rules directory stops the run.
 - Sync records what it wrote in `$AGNOSTIC_AI_HOME/state/global.json` and removes only those files and settings for the targets in the run. With `--only`, other targets' output stays in place.
-- A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block never counts.
+- A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite or remove it and keep `<path>.bak`. Text outside the managed block never counts.
 - A file or hook that already matches what sync would write is adopted. The run stops on one that differs by even one byte, an unmanaged agent, skill, or rule collision, a damaged marker, invalid native JSON, corrupt state, or state recorded under another `HOME`.
 - Without `--only`, explicit targets, or a home `targets` list, a target with a relative root variable or an invalid agent name is skipped with a warning. Naming it makes that an error.
 - Sync Goose and OpenHands together to update their shared agent file.

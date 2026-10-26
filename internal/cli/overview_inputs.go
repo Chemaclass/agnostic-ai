@@ -42,6 +42,21 @@ type overviewChecks struct {
 	findings []overview.Finding
 	compared []string
 	skipped  []string
+	// fieldNotes are the settings model and effort notes the drift
+	// render raised.
+	fieldNotes []overview.FieldNote
+}
+
+// settingsFieldNotes keeps the model and effort notes on settings specs
+// from the notes a render buffered.
+func settingsFieldNotes(notes []adapters.Note) []overview.FieldNote {
+	var out []overview.FieldNote
+	for _, n := range notes {
+		if n.Shape == adapters.NoteField && n.Kind == spec.KindSettings && (n.Field == "model" || n.Field == "effort") {
+			out = append(out, overview.FieldNote{Target: n.Target, Field: n.Field, Reason: n.Reason})
+		}
+	}
+	return out
 }
 
 // runOverviewChecks runs the read-only checks the overview shows on the
@@ -61,7 +76,9 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 	defer holdCaptureState(readStateFile("."))()
 	var out overviewChecks
 	out.findings = append(out.findings, overviewLintFindings(cfg, b)...)
+	adapters.DrainNotes()
 	drift, compared, skipped := overviewDriftFindings(cfg, b)
+	out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
 	out.findings = append(out.findings, drift...)
 	out.compared, out.skipped = compared, skipped
 	out.findings = append(out.findings, overviewDoctorFindings(root, cfg, b)...)
@@ -364,6 +381,7 @@ func overviewInputs(root string) (overview.Inputs, error) {
 		Instructions:   instructionDocuments([]instructionFile{{path: adapters.AgnosticEntryPointPath, layer: "project"}}, "."),
 		Findings:       checks.findings,
 		Compared:       checks.compared,
+		FieldNotes:     checks.fieldNotes,
 		MCPTools:       mcpprobe.LoadCache("."),
 		RefreshCommand: "agnostic-ai mcp tools",
 		BuiltinsTeam:   team,

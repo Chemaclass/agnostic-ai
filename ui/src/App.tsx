@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OverviewView } from './contract'
 import { LoadError, loadOverview, type Loaded } from './api'
 import { AppContext, type AppApi } from './components/app-context'
+import { GlobalSearch } from './components/GlobalSearch'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
 import { SyncStatus } from './components/SyncStatus'
+import { APPLE_PLATFORM } from './components/ui'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
 // The theme follows the system until the person picks one with the
@@ -102,8 +104,12 @@ export default function App() {
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
-    if (options?.replace) window.history.replaceState(null, '', url)
-    else window.history.pushState(null, '', url)
+    try {
+      if (options?.replace) window.history.replaceState(null, '', url)
+      else window.history.pushState(null, '', url)
+    } catch {
+      // Browsers limit history updates per second; the screen still follows the state.
+    }
     stateRef.current = next
     setState(next)
   }, [])
@@ -111,6 +117,26 @@ export default function App() {
   const navigate = useCallback((patch: Partial<UrlState>, options?: { replace?: boolean }) => go(nextState(stateRef.current, patch), options), [go])
 
   const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchOpener = useRef<HTMLElement | null>(null)
+  const openSearch = useCallback(() => {
+    searchOpener.current = document.activeElement as HTMLElement | null
+    setSearchOpen(true)
+  }, [])
+  const closeSearch = useCallback((navigated: boolean) => {
+    setSearchOpen(false)
+    if (!navigated) searchOpener.current?.focus?.()
+  }, [])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((APPLE_PLATFORM ? event.metaKey : event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        if (!searchOpen) openSearch()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [searchOpen, openSearch])
 
   const app: AppApi = useMemo(
     () => ({
@@ -131,6 +157,7 @@ export default function App() {
       firstPlace.current = false
       return
     }
+    if (stateRef.current.entry) return
     document.getElementById('main')?.scrollTo({ top: 0 })
     document.getElementById('page-title')?.focus({ preventScroll: true })
   }, [state.view])
@@ -172,6 +199,7 @@ export default function App() {
           onToggleInspector={() => setInspectorOpen((open) => !open)}
           theme={theme}
           onToggleTheme={toggleTheme}
+          onOpenSearch={openSearch}
         />
         <div className="shell">
           <Nav overview={overview} />
@@ -184,6 +212,7 @@ export default function App() {
             </div>
           </main>
         </div>
+        {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
         {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
       </div>
     </AppContext.Provider>

@@ -547,6 +547,36 @@ export interface SettingField {
   set: { spec: string; path: string; values: Value[]; local?: boolean }[]
   /** `localPath` is the personal file a "just me" edit of `path` writes. */
   editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string; syncCommand?: string; localPath?: string }
+  /** For model and effort: the value sync writes for each configured tool, and why. */
+  resolved?: TargetValue[]
+}
+
+/** Where a value comes from: a settings spec, or a config key when `spec` is absent. `reason` says why a losing value does not win. */
+export interface ValueOrigin {
+  spec?: string
+  path: string
+  value?: string
+  tier?: string
+  local?: boolean
+  reason?: string
+}
+
+/**
+ * The value sync writes for one tool. An absent `value` means sync writes none and the tool keeps a default agnostic-ai does not know.
+ * `dropped` is the sync note when the tool's files have no place for the value; `checked` is false when sync did not render the tool.
+ */
+export interface TargetValue {
+  target: string
+  label: string
+  value?: string
+  alias?: string
+  tier?: string
+  from?: ValueOrigin
+  dropped?: string
+  checked: boolean
+  others: ValueOrigin[]
+  /** Specs that also set `x-<target>.model`, a native key sync writes as is. */
+  native?: ValueOrigin[]
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'
