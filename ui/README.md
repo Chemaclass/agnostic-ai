@@ -21,8 +21,8 @@ Source lists use aligned rows. Unconfigured fields stay in a disclosure, empty l
 Values render by type: a list as chips, a boolean as a switch, anything
 else as text. Project built-in switches preview and apply changes across the configured targets, with one shared undo for the last successful apply. Previews check source and output files; unrelated local working folders do not block them. Global built-ins and boolean switches save their source files after validation. See [web changes and undo](../docs/site/content/docs/cli-reference/inspect.md#serve) for prerequisites and recovery. Lifecycle shows each tool that
 runs a stage as its icon (`src/assets/tools/`, see its README). A Markdown or YAML item has an edit icon that opens
-it in Cursor (`cursor://file/<absolute path>`). Each item carries the lint and doctor findings that name
-its file. The JSON overview also reports whether generated files match
+it in the editor picked in the header, Cursor or VS Code (`cursor://file/<absolute path>` or `vscode://file/<absolute path>`); the browser remembers the choice and Cursor is the default. Each item carries the lint and doctor findings that name
+its file. A finding whose file is on the server's disk opens at its line when it has one, from the `openPath` the server sends. Every open link has Copy path beside it, since a browser cannot tell whether the editor opened. Mock and static data name no local files, so they show paths without open links. The JSON overview also reports whether generated files match
 what `sync` would write.
 
 `src/contract.ts` mirrors the Go types in `internal/overview/types.go`

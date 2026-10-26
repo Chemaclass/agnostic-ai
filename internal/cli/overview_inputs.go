@@ -68,7 +68,46 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 	for i := range out.findings {
 		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
 	}
+	setFindingOpenPaths(out.findings, root)
 	return out
+}
+
+// setFindingOpenPaths gives each lint and doctor finding the absolute
+// path of the file it names under base, the project root or global
+// source. Drift findings name files the overview lists elsewhere.
+func setFindingOpenPaths(findings []overview.Finding, base string) {
+	for i := range findings {
+		if findings[i].Source != overview.SourceDrift {
+			findings[i].OpenPath = findingOpenPath(base, findings[i].Path)
+		}
+	}
+}
+
+// findingOpenPath is the absolute, slash-separated path of a regular file
+// at path, resolved against base when relative, or "" when no such file
+// exists under base. A built-in spec's file lives in a cache outside
+// base, where an edit changes nothing, so it gets no path, as its source
+// row gets none.
+func findingOpenPath(base, path string) string {
+	if path == "" {
+		return ""
+	}
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return ""
+	}
+	full := filepath.FromSlash(path)
+	if !filepath.IsAbs(full) {
+		full = filepath.Join(absBase, full)
+	}
+	rel, err := filepath.Rel(absBase, full)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	if info, err := os.Stat(full); err != nil || !info.Mode().IsRegular() {
+		return ""
+	}
+	return filepath.ToSlash(full)
 }
 
 // overviewLintFindings is what `lint` reports for the project, each with

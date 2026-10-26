@@ -99,6 +99,7 @@ func runGlobalOverviewChecks(scope checkScope) overviewChecks {
 	display := func(path string) string { return globalOverviewPath(scope.source, path) }
 	var out overviewChecks
 	out.findings = append(out.findings, overviewScopeLintFindings(scope, globalConfigPaths(scope.source)[0], display)...)
+	setFindingOpenPaths(out.findings, scope.source)
 	drift, compared, skipped := globalOverviewDriftFindings(scope)
 	out.findings = append(out.findings, drift...)
 	out.compared, out.skipped = compared, skipped

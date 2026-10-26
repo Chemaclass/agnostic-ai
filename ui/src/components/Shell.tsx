@@ -3,6 +3,7 @@ import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
+import { EditorChoice } from './EditorLink'
 import { Icon, ToolAvatar } from './ui'
 
 export interface Remote<T> {
@@ -97,6 +98,7 @@ export function Header({
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
       </button>
+      <EditorChoice />
       <button
         type="button"
         className="button button-quiet button-icon"

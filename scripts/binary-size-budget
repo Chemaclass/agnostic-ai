@@ -466,4 +466,8 @@
 # server refuses a stale one with a conflict, and the page keeps the draft
 # and offers a reload. Same Linux amd64 release flags; no added headroom
 # or dependencies.
-23490720
+# #2513 measured 23494816 on Go 1.27.3, up 4096 from main 20ed4cee
+# (23490720): the web interface opens files and findings in Cursor or VS
+# Code, and findings carry the path of the file they name. Same Linux
+# amd64 release flags; no added headroom or dependencies.
+23494816

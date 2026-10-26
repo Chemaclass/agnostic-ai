@@ -582,3 +582,11 @@ func TestBuild_OnlyListsSpecsForConfiguredTargetsAndKeepsTheirFindings(t *testin
 		}
 	}
 }
+
+func TestBuild_KeepsAFindingsOpenPath(t *testing.T) {
+	v := Build(Inputs{Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "x.yaml", Line: 4, OpenPath: "/work/x.yaml"}}})
+	got := sectionByID(t, v, SectionSettings).Findings
+	if len(got) != 1 || got[0].OpenPath != "/work/x.yaml" || got[0].Line != 4 {
+		t.Errorf("settings findings = %+v, want the open path and line kept", got)
+	}
+}

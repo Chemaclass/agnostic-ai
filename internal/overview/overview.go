@@ -248,7 +248,7 @@ func placeFindings(sections []Section, findings []Finding) {
 		if f.Source == SourceDrift {
 			continue
 		}
-		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, Fix: f.Fix, Explanation: f.Explanation}
+		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, OpenPath: f.OpenPath, Fix: f.Fix, Explanation: f.Explanation}
 		placed := false
 		for si := range sections {
 			for ii := range sections[si].Items {
