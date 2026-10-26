@@ -291,7 +291,7 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 ## view
 
-`ui` is an alias for `view` with the same flags. Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). A second run for the same project and scope opens the running server and exits. For another project or scope on the same port, use `--addr`. Keep the server terminal running and press Ctrl-C to stop.
+`ui` is an alias for `view` with the same flags. Open the bundled web interface in your browser. From a project folder or any folder inside it, `view` reads that project's configuration. Outside a project, it reads the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`). A second run for the same project and scope opens the running server and exits. When the default port serves another project or scope, an `--api-only` server, or is held by another program, `view` moves on to the next free loopback port, up to `127.0.0.1:4319`, and prints that address; a later run for the same configuration finds and reuses that server. Keep the server terminal running and press Ctrl-C to stop.
 
 Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
 
@@ -306,7 +306,7 @@ agnostic-ai view --global
 |------|-------------|
 | `--json` | The overview as JSON, schema `overview/v1`. |
 | `--dir` | Read this project directory instead of discovering a project from the current folder. |
-| `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. |
+| `--addr` | Explicit loopback IP and port. Default `127.0.0.1:4310`. When set, `view` stays on this port and fails if another configuration serves it. |
 | `--global` | Read the user-level configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) instead of a project. |
 
 ## serve

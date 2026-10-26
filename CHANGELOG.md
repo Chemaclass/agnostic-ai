@@ -8,6 +8,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - **Breaking:** web edit and built-in preview requests must send `scope` (`team` or `local`); the server no longer guesses the file from which ones exist.
 - The web interface's Settings page saves for the team or just you: Just me writes Git-ignored local files, and local values show a badge and a reset. A Just me built-in change still updates the committed `.gitignore` block until #2494.
+- `ui` opens another project or scope on the next free port up to 4319 and reuses it later, instead of failing; an explicit `--addr` stays put (#2492).
+- A `builtins` list in `agnostic-ai.local.yaml` no longer changes the committed `.gitignore` block; its extra outputs go to `.git/info/exclude` (#2494).
 - Turning on the `memory` built-in in the web interface now previews and applies the `.git/info/exclude` line that keeps Claude Code's private settings out of Git, as `sync` does, instead of sending you to the CLI (#2486).
 - Set, update, and clear scalar model, effort, and global session-retention settings in the web interface, with validated source-only edits; fields with a fixed set of values, such as effort, offer them as a list, and each setting shows its value once beside its controls (#2476).
 - The web interface shows the full configuration path under the project name, and marks the user-level view as Global.

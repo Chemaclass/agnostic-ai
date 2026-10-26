@@ -1,13 +1,12 @@
 package emit
 
 import (
-	"errors"
-	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
 )
 
 // ExcludeFromGit adds pattern to the repository's info/exclude, the
@@ -18,21 +17,10 @@ func ExcludeFromGit(pattern string) error {
 	if !ok {
 		return nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	updated, changed := WithGitExclusion(data, pattern)
-	if !changed {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, updated, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
+	return gitexclude.Update(path, func(content string) string {
+		updated, _ := WithGitExclusion([]byte(content), pattern)
+		return string(updated)
+	})
 }
 
 // WithGitExclusion returns info/exclude content holding pattern, and

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -365,11 +366,11 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 		wantProbe bool
 	}{
 		{name: "same project", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--dir", project}, wantOpen: true, wantProbe: true},
-		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}, wantError: other, wantProbe: true},
-		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true, UI: true}, args: []string{"--dir", project}, wantError: project, wantProbe: true},
+		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: other, wantProbe: true},
+		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
 		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--global"}, wantOpen: true, wantProbe: true},
-		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global"}, wantError: project, wantProbe: true},
-		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}, wantError: "without the web interface", wantProbe: true},
+		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global", "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
+		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: "without the web interface", wantProbe: true},
 		{name: "no server", args: []string{"--dir", project, "--addr", "127.0.0.1:0"}, wantOpen: true, wantProbe: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -554,5 +555,325 @@ func TestProbeViewServer_IgnoresUnrelatedService(t *testing.T) {
 	defer srv.Close()
 	if got := probeViewServer(strings.TrimPrefix(srv.URL, "http://"), time.Second); got != nil {
 		t.Errorf("probe = %+v", got)
+	}
+}
+
+func freeLoopbackAddrs(t *testing.T, n int) []string {
+	t.Helper()
+	var addrs []string
+	for range n {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		addrs = append(addrs, ln.Addr().String())
+		_ = ln.Close()
+	}
+	return addrs
+}
+
+func runViewOnPorts(t *testing.T, ports []string, servers map[string]*viewServer, args ...string) (string, string, error) {
+	t.Helper()
+	return runViewOnPortsWithProbe(t, ports, func(addr string, _ time.Duration) *viewServer { return servers[addr] }, time.Now, args...)
+}
+
+func runViewOnPortsWithProbe(t *testing.T, ports []string, probe func(string, time.Duration) *viewServer, now func() time.Time, args ...string) (string, string, error) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opened := ""
+	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, probe, ports, now)
+	cmd.SetContext(ctx)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return opened, out.String(), err
+}
+
+func TestView_OpensAnotherConfigurationOnTheNextFreePort(t *testing.T) {
+	globalOverviewHome(t)
+	globalRoot, err := globalSourceRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	mustWrite(t, filepath.Join(other, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	for _, tc := range []struct {
+		name    string
+		running *viewServer
+		args    []string
+	}{
+		{name: "global after a project", running: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global"}},
+		{name: "project after global", running: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--dir", project}},
+		{name: "second project", running: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}},
+		{name: "api-only server of the same project", running: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ports := freeLoopbackAddrs(t, 2)
+			opened, out, err := runViewOnPorts(t, ports, map[string]*viewServer{ports[0]: tc.running}, tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "http://" + ports[1] + "/"
+			if opened != want || !strings.Contains(out, "Serving agnostic-ai at "+want) {
+				t.Errorf("opened %q, output %q, want %s", opened, out, want)
+			}
+		})
+	}
+}
+
+func TestView_ReusesMatchingServerOnALaterPort(t *testing.T) {
+	globalOverviewHome(t)
+	globalRoot, err := globalSourceRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ports := freeLoopbackAddrs(t, 3)
+	servers := map[string]*viewServer{
+		ports[1]: {OK: true, Root: project, UI: true},
+		ports[2]: {OK: true, Root: globalRoot, Global: true, UI: true},
+	}
+	opened, out, err := runViewOnPorts(t, ports, servers, "--global")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "http://" + ports[2] + "/"
+	if opened != want || !strings.Contains(out, "Using agnostic-ai at "+want) || strings.Contains(out, "Serving") {
+		t.Errorf("opened %q, output %q, want reuse of %s", opened, out, want)
+	}
+}
+
+func TestView_SkipsAPortHeldByAnotherProcess(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = held.Close() }()
+	ports := append([]string{held.Addr().String()}, freeLoopbackAddrs(t, 1)...)
+	opened, _, err := runViewOnPorts(t, ports, nil, "--dir", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[1] + "/"; opened != want {
+		t.Errorf("opened %q, want %s", opened, want)
+	}
+}
+
+func TestView_FailsWhenEveryPortServesAnotherConfiguration(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	ports := freeLoopbackAddrs(t, 2)
+	servers := map[string]*viewServer{
+		ports[0]: {OK: true, Root: other, UI: true},
+		ports[1]: {OK: true, Root: other, UI: true},
+	}
+	opened, _, err := runViewOnPorts(t, ports, servers, "--dir", project)
+	if err == nil || !strings.Contains(err.Error(), ports[0]) || !strings.Contains(err.Error(), ports[1]) || !strings.Contains(err.Error(), "--addr") {
+		t.Errorf("error = %v", err)
+	}
+	if opened != "" {
+		t.Errorf("opened %q", opened)
+	}
+}
+
+func TestView_ExplicitAddrDoesNotMoveToAnotherPort(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	ports := freeLoopbackAddrs(t, 2)
+	opened, _, err := runViewOnPorts(t, ports, map[string]*viewServer{ports[0]: {OK: true, Root: other, UI: true}}, "--dir", project, "--addr", ports[0])
+	if err == nil || !strings.Contains(err.Error(), other) {
+		t.Errorf("error = %v", err)
+	}
+	if opened != "" {
+		t.Errorf("opened %q", opened)
+	}
+}
+
+func TestViewPortCandidates_ScanAFixedLoopbackRange(t *testing.T) {
+	got := viewPortCandidates()
+	if len(got) != viewPortScan || got[0] != defaultServeAddr || got[len(got)-1] != fmt.Sprintf("127.0.0.1:%d", 4310+viewPortScan-1) {
+		t.Errorf("candidates = %v", got)
+	}
+}
+
+func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	for _, tc := range []struct {
+		name     string
+		late     *viewServer
+		wantPort int
+		wantText string
+	}{
+		{name: "another configuration started", late: &viewServer{OK: true, Root: other, UI: true}, wantPort: 1, wantText: "Serving agnostic-ai at "},
+		{name: "the same configuration started", late: &viewServer{OK: true, Root: project, UI: true}, wantPort: 0, wantText: "Using agnostic-ai at "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			held, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = held.Close() }()
+			ports := append([]string{held.Addr().String()}, freeLoopbackAddrs(t, 1)...)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			opened := ""
+			probes := map[string]int{}
+			cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, _ time.Duration) *viewServer {
+				probes[addr]++
+				if addr == ports[0] && probes[addr] > 1 {
+					return tc.late
+				}
+				return nil
+			}, ports, time.Now)
+			cmd.SetContext(ctx)
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"--dir", project})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			want := "http://" + ports[tc.wantPort] + "/"
+			if opened != want || !strings.Contains(out.String(), tc.wantText+want) {
+				t.Errorf("opened %q, output %q, want %s", opened, out.String(), want)
+			}
+			if probes[ports[0]] != 2 {
+				t.Errorf("probes = %v, want a recheck of %s", probes, ports[0])
+			}
+		})
+	}
+}
+
+func TestView_ScanKeepsTheBindErrorWhenNoPortOpens(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	var ports []string
+	for range 2 {
+		held, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = held.Close() }()
+		ports = append(ports, held.Addr().String())
+	}
+	_, _, err := runViewOnPorts(t, ports, nil, "--dir", project)
+	var listenErr *net.OpError
+	if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
+		t.Fatalf("error = %v, want the wrapped listen error", err)
+	}
+	if !strings.Contains(err.Error(), "--addr") || strings.Contains(err.Error(), "another configuration") {
+		t.Errorf("error = %v", err)
+	}
+}
+
+func heldLoopbackAddrs(t *testing.T, n int) []string {
+	t.Helper()
+	var addrs []string
+	for range n {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ln.Close() })
+		addrs = append(addrs, ln.Addr().String())
+	}
+	return addrs
+}
+
+func TestView_ScanWaitsForASlowServerOfTheSameConfiguration(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ports := append(heldLoopbackAddrs(t, 1), freeLoopbackAddrs(t, 1)...)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opened := ""
+	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, timeout time.Duration) *viewServer {
+		if addr == ports[0] && timeout >= 500*time.Millisecond {
+			return &viewServer{OK: true, Root: project, UI: true}
+		}
+		return nil
+	}, ports, time.Now)
+	cmd.SetContext(ctx)
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--dir", project})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[0] + "/"; opened != want {
+		t.Errorf("opened %q, want reuse of the slow server at %s", opened, want)
+	}
+}
+
+type fakeClock struct{ now time.Time }
+
+func (c *fakeClock) Now() time.Time { return c.now }
+
+func TestView_ScanBoundsRechecksOfSlowOtherConfigurations(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	other := t.TempDir()
+	held := heldLoopbackAddrs(t, 6)
+	ports := append(slices.Clone(held), freeLoopbackAddrs(t, 1)...)
+	clock := &fakeClock{now: time.Unix(0, 0)}
+	probes := map[string]int{}
+	var rechecks time.Duration
+	opened, _, err := runViewOnPortsWithProbe(t, ports, func(addr string, timeout time.Duration) *viewServer {
+		if probes[addr]++; probes[addr] == 1 {
+			return nil
+		}
+		clock.now = clock.now.Add(timeout)
+		rechecks += timeout
+		return &viewServer{OK: true, Root: other, UI: true}
+	}, clock.Now, "--dir", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[len(held)] + "/"; opened != want {
+		t.Errorf("opened %q, want %s", opened, want)
+	}
+	if limit := viewBusyProbeTimeout + time.Duration(len(held)-1)*viewProbeTimeout; rechecks > limit {
+		t.Errorf("rechecks waited %v in total, want at most %v", rechecks, limit)
+	}
+}
+
+func TestView_ScanFastRejectKeepsTheBudgetForASlowMatch(t *testing.T) {
+	project := t.TempDir()
+	mustWrite(t, filepath.Join(project, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	ports := append(heldLoopbackAddrs(t, 2), freeLoopbackAddrs(t, 1)...)
+	clock := &fakeClock{now: time.Unix(0, 0)}
+	probes := map[string]int{}
+	opened, out, err := runViewOnPortsWithProbe(t, ports, func(addr string, timeout time.Duration) *viewServer {
+		if probes[addr]++; probes[addr] == 1 {
+			return nil
+		}
+		if addr == ports[0] {
+			clock.now = clock.now.Add(time.Millisecond)
+			return nil
+		}
+		if timeout < 4*time.Second {
+			clock.now = clock.now.Add(timeout)
+			return nil
+		}
+		clock.now = clock.now.Add(4 * time.Second)
+		return &viewServer{OK: true, Root: project, UI: true}
+	}, clock.Now, "--dir", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "http://" + ports[1] + "/"; opened != want || strings.Contains(out, "Serving") {
+		t.Errorf("opened %q, output %q, want reuse of %s", opened, out, want)
 	}
 }
