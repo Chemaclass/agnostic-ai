@@ -14,9 +14,9 @@ interface Controller {
   pendingName?: string
   error?: { message: string; conflict: boolean; field?: string }
   proposal: boolean
-  request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<void>
-  resetList: () => Promise<void>
-  previewSetting: (setting: SettingPreview, scope: EditScope) => Promise<void>
+  request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<boolean>
+  resetList: () => Promise<boolean>
+  previewSetting: (setting: SettingPreview, scope: EditScope) => Promise<boolean>
   cancel: () => void
 }
 
@@ -74,8 +74,9 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   }, [api, active])
 
   const proposal = change?.status === 'proposed' && change.id !== cancelledId && !error
+  // Resolves true when the server refused the request as a conflict.
   const request = async (action?: Action, name?: string, enabled?: boolean, scope: EditScope = pageScope, reset = false, setting?: SettingPreview) => {
-    if (busy.current) return
+    if (busy.current) return false
     busy.current = true
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : 'loading')
     setPendingName(name)
@@ -88,8 +89,11 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
       setCancelledId(stale ? value.id : undefined)
       if (action === 'apply' || action === 'undo' || !action) app.reload(true)
+      return false
     } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict, field: setting?.key })
+      const conflict = err instanceof BuiltinChangeError && err.conflict
+      setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict, field: setting?.key ?? (action === 'apply' ? change?.key : undefined) })
+      return conflict
     } finally {
       busy.current = false
       setPending(undefined)
@@ -107,10 +111,13 @@ function capitalized(text: string) {
 }
 
 /** Undo, progress, and errors shared by built-in and settings changes. */
-export function ChangeStatus({ labels }: { labels: { name: string; label: string }[] }) {
+// A section with built-ins shows the status there, unless the latest change is a setting.
+export function ChangeStatus({ labels, settings, builtins }: { labels: { name: string; label: string }[]; settings: boolean; builtins: boolean }) {
   const app = useApp()
-  const { change, pending, error, proposal, request } = useBuiltinChanges()
+  const { change, pending, error: anyError, proposal, request } = useBuiltinChanges()
   if (app.source.kind !== 'api' || (change && !change.supported)) return null
+  if (settings ? builtins && !change?.key : !!change?.key) return null
+  const error = anyError?.field ? undefined : anyError
   const label = (name?: string) => name ? labels.find((item) => item.name === name)?.label ?? name : 'Built-in list'
   const undoTitle = change?.undoTitle ?? (change?.undoName ? label(change.undoName) : undefined)
   return <div className="builtin-change change-status">
@@ -126,7 +133,7 @@ export function ChangeStatus({ labels }: { labels: { name: string; label: string
       {!pending && !error && change?.status === 'applied' && `${change.title ? capitalized(change.title) : `${label(change.name)} change`}: applied and verified in the generated files. Undo is available until this server stops or the files change.`}
       {!pending && !error && change?.status === 'undone' && 'Previous files restored.'}
     </div>
-    {error && !error.field && <ChangeError />}
+    {error && <ChangeError />}
     {!proposal && !error && change?.status === 'undone' && change.findings.length > 0 && <ul className="builtin-change-findings">{change.findings.map((finding, index) => <li key={index}>{finding}</li>)}</ul>}
   </div>
 }
@@ -181,7 +188,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
   return <section className="builtin-change builtin-change-preview" aria-label={`${title} preview`} aria-busy={!!pending}>
     <h3>{heading}</h3>
     <p>Update <Code>{change.config}</Code> {change.scope === 'local' ? 'for you only' : 'for the team'} and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
-    {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>Applying also writes other source changes that were not synced yet.</strong> Every affected file is listed below.</p>}
+    {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     <div className="builtin-change-files">
       {change.changes.map((file) => <details key={file.path}>
@@ -207,13 +214,14 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
 }) {
   const app = useApp()
   const { change, pending, pendingName, error, proposal, request } = useBuiltinChanges()
+  const blocked = !!error && !error.field
   if (app.source.kind !== 'api') return renderHeading(<Switch on={on} />)
   if (change && !change.supported) return renderHeading(fallback)
   const selected = proposal && change?.name === name
   const title = label.charAt(0).toUpperCase() + label.slice(1)
   return <>
     {renderHeading(<>
-      <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || !!error} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
+      <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || blocked} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
       {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to team value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'local') }}>Reset to team value</button>}
     </>)}
     {selected && change && <Preview change={change} title={`${title} change`} heading={`${change.enabled ? 'Enable' : 'Disable'} ${title}`} />}

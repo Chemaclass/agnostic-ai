@@ -141,7 +141,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {section.kinds.map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && !section.kinds.some((other) => other.kind === 'builtin') && <ChangeStatus labels={section.items} />} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && <ChangeStatus labels={section.items} settings builtins={section.kinds.some((other) => other.kind === 'builtin')} />} />
         const titleId = `${section.id}-${k.kind}`
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
@@ -149,7 +149,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
               {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
             </h2>
-            {k.kind === 'builtin' && <ChangeStatus labels={section.items} />}
+            {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
             {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
@@ -339,13 +339,25 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const overridden = scope === 'team' && localCurrent !== undefined
   const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
-  const resetButton = localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={pending} onClick={reset}>Reset to team value</button>
+  // A shown preview keeps its draft, so the applied value becomes the new basis.
+  const locked = pending || !!transaction.proposal
+  const resetButton = localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>Reset to team value</button>
   const previewing = pending || !transaction.ready
-  const preview = (next: string | null, where: 'team' | 'local') => {
+  const preview = async (next: string | null, where: 'team' | 'local') => {
     setError(undefined)
     setReloaded(false)
     conflict.current = false
-    void transaction.previewSetting({ path: target || undefined, key: field.key as 'model' | 'effort', value: next, expected: (where === 'local' ? basis.current.local : basis.current.team) ?? null }, where)
+    const stale = await transaction.previewSetting({ path: target || undefined, key: field.key as 'model' | 'effort', value: next, expected: (where === 'local' ? basis.current.local : basis.current.team) ?? null }, where)
+    // As a source-only save does, a stale preview moves the basis to the newer saved value.
+    if (stale) {
+      const now = latest.current
+      const shown = basis.current
+      if (now.current !== shown.current || now.local !== shown.local || now.team !== shown.team) {
+        basis.current = now
+        setReloaded(true)
+      } else conflict.current = true
+      app.reload()
+    }
   }
   return <div className="field-edit">
     {overridden
@@ -355,13 +367,13 @@ function FieldEditControl({ field }: { field: SettingField }) {
       </div>
       : <div className="field-edit-row">
         {edit.allowed && edit.allowed.length > 0
-          ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending}>
+          ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
             {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
             {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={pending} />}
-        <button type="button" className="button button-primary" disabled={pending || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
-        {scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
+          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={locked} />}
+        <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
+        {scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>Clear</button>}
         {resetButton}
       </div>}
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
@@ -369,9 +381,9 @@ function FieldEditControl({ field }: { field: SettingField }) {
       {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
     {transaction.supported && <div className="field-edit-row field-edit-apply">
       <span className="muted">Apply to your tools now:</span>
-      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => preview(value, scope)}>Preview and apply</button>}
-      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => preview(null, 'team')}>Preview removal</button>}
-      {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => preview(null, 'local')}>Preview personal reset</button>}
+      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, scope) }}>Preview and apply</button>}
+      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'team') }}>Preview removal</button>}
+      {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'local') }}>Preview personal reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
     {transaction.error && <ChangeError />}
