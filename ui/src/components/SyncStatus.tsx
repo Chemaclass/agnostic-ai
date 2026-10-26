@@ -1,6 +1,7 @@
 // Whether each configured tool's generated files match the source, with
 // an explicit refresh. It reads the overview the page already loaded.
 
+import type { ReactNode } from 'react'
 import type { OverviewView, SyncState } from '../contract'
 import { syncSummary } from '../model/sync-status'
 import { plural } from '../model/format'
@@ -23,24 +24,24 @@ export function SyncStatus({ overview, snapshot, saved, onRefresh }: { overview:
   const data = overview.loaded?.data
   if (!data) return null
   const refreshing = overview.status === 'loading'
-  const failed = overview.status === 'error'
+  const failed = overview.error !== undefined
   const summary = syncSummary(data.targets)
   const at = data.snapshot.generatedAt
-  const time = at ? <time dateTime={at}>{checkedAt(at)}</time> : 'an unknown time'
+  const time = at ? <time dateTime={at}>{checkedAt(at)}</time> : undefined
+  const checking = refreshing ? <> Checking again…</> : undefined
+  let line: ReactNode
+  if (snapshot) line = <>{time ? <>Snapshot from {time}.</> : 'Snapshot time unavailable.'} Not a live check of your files.{failed && !refreshing && <> The latest reload failed.</>}{checking}</>
+  else if (failed) line = <>{time ? <>Last successful check {time}.</> : 'Check time unavailable.'}{refreshing ? checking : <> The latest refresh failed, so these results may be out of date.</>}</>
+  else if (refreshing) line = <>Checking again…</>
+  else line = time ? <>Checked {time}.</> : 'Check time unavailable.'
   return (
-    <section className="sync-status" aria-labelledby="sync-status-title" data-tone={failed ? 'unknown' : summary.tone} aria-busy={refreshing || undefined}>
+    <section className="sync-status" aria-labelledby="sync-status-title" data-tone={failed || !time ? 'unknown' : summary.tone} aria-busy={refreshing || undefined}>
       <div className="sync-status-row">
         <div className="sync-status-text">
           <h2 id="sync-status-title" className="sync-status-title">{snapshot ? 'Generated files at snapshot time' : 'Generated files'}</h2>
           {saved && !snapshot && <p className="sync-status-saved">Saved to the source configuration. Generated files change only when you run sync.</p>}
           <p className="sync-status-headline">{summary.headline}{summary.detail && <> {summary.detail}</>}</p>
-          <p className="muted sync-status-time" role="status">
-            {snapshot
-              ? <>Snapshot from {time}. Not a live check of your files.</>
-              : failed
-                ? <>Last successful check {time}. The latest refresh failed, so these results may be out of date.</>
-                : refreshing ? <>Checking again…</> : <>Checked {time}.</>}
-          </p>
+          <p className="muted sync-status-time" role="status">{line}</p>
         </div>
         <button type="button" className="button" disabled={refreshing} onClick={onRefresh}>
           {snapshot ? 'Reload snapshot' : refreshing ? 'Refreshing…' : 'Refresh'}

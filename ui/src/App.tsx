@@ -71,23 +71,34 @@ export default function App() {
   const [reloads, setReloads] = useState(0)
   const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
   const [savedSinceRefresh, setSavedSinceRefresh] = useState(false)
+  const refreshRequested = useRef(false)
   const reload = useCallback((saved = false) => {
     if (saved) {
       setSavedBeforeRefresh(true)
       setSavedSinceRefresh(true)
+      refreshRequested.current = false
     }
     setReloads((n) => n + 1)
   }, [])
   const retry = useCallback(() => setReloads((n) => n + 1), [])
   const refresh = useCallback(() => {
-    setSavedSinceRefresh(false)
+    refreshRequested.current = true
     setReloads((n) => n + 1)
   }, [])
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
   const stale = overview.loaded !== undefined && overview.error !== undefined
   useEffect(() => {
-    if (overview.status === 'ready') setSavedBeforeRefresh(false)
+    if (overview.status !== 'ready') return
+    setSavedBeforeRefresh(false)
+    if (refreshRequested.current) {
+      refreshRequested.current = false
+      setSavedSinceRefresh(false)
+    }
   }, [overview.status])
+  useEffect(() => {
+    refreshRequested.current = false
+    setSavedSinceRefresh(false)
+  }, [sourceKey])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`

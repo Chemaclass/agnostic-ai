@@ -5,7 +5,7 @@
     "package-lock.json": "a2bb3f02d849acc68a6d75746fa2e68d881d3cc66e4a2b3cf4f4bde188789b09",
     "package.json": "496609c3c61cf9c5b174e65f95d3b6002d22f50a0717908fae5ddf737ec7f180",
     "scripts/bundle.mjs": "bde1130c6382a7731d4850d252a77799295b54096ba0085dfacfe7e5d20dad4a",
-    "src/App.tsx": "809ff345c678ade33dde775ebdd4df8950945925a59e520ae6e0dde388f2c4f8",
+    "src/App.tsx": "317425683166a9261e06b7bf64e8078c913a97b62479b3242e28d01f7357fe14",
     "src/api.ts": "9c23ecdf6147591c690e55fd00c999eb1c82453dd997b8b0db3ba05eaee527d7",
     "src/assets/tools/LICENSE": "add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a",
     "src/assets/tools/LICENSE-APACHE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -51,7 +51,7 @@
     "src/components/JsonInspector.tsx": "bba406ce05c8f856bd57ee2c013c7f22a486115dff0ad955facd4927f796e3f3",
     "src/components/Section.tsx": "7b700fa459b02ed7ab037c051e77ea6365599133d89f91b0f0c301568af3ae23",
     "src/components/Shell.tsx": "f6ccbdf838aaeb58c141bf043dfb25f1f5c0481ff2092da402cca855be92b66e",
-    "src/components/SyncStatus.tsx": "59b0fd9a5332c2f8ce9e5757bdcd91d81d94626c485460f8e06a9bb98bc6db24",
+    "src/components/SyncStatus.tsx": "99de3bd192f222aff6f2b88fa29d0081f4150022f0df92a7901f5febc9c51ef5",
     "src/components/app-context.tsx": "7580d13b863f5423d219bb111152e6e0e1d8fbf3371e12be95e8e7dbfe6ee7bc",
     "src/components/ui.tsx": "276e2cf7533c2857508724fbaf4f5fb41e239e89b03c6321e1ffd056cdcc1f28",
     "src/contract.ts": "e91a859df3c96e1897772e259e73be0a0ff065a8e4da6b36b9083887d5c27077",
@@ -77,12 +77,12 @@
   "files": {
     "assets/antigravity-DgAQAdn3.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
-    "assets/index-CbSmnDD8.js": "81925a6bcad7c4670a1b185854a0e6bd8c83a5f0b078f1d1970877c2cd5aea0e",
     "assets/index-Yjw1iOU_.css": "0edf8c51a1c82427153ad7f385b31ac5e653e167c043f3d4e188233e7966f913",
+    "assets/index-uagSmCrC.js": "bb3ab346c1d3f4067a1063332038d177bc740102d513dc5185d169255611213a",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-DjAdxIE5.js": "321ed80aa0699bea6303b13151138bb1e74074c5cd464669640ff9175368974a",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "e0646baeeae3bb9c22447758c72b7a313af89a162cc73b7dc660cec7774e284e",
+    "index.html": "fcfc65549829749b92de1c434a08e163f7999ba482cc22f7ee14d7d6879b2840",
     "third-party-notices.txt": "a323be697d4e49da32e67813843982098f6331c7872fc0c181e0f60451e71438"
   }
 }

@@ -655,7 +655,11 @@ test.describe('generated-file status', () => {
 
   test('keeps the previous results after a failed refresh without calling them checked', async ({ page }) => {
     let failing = false
-    await page.route('**/api/views/overview', (route) => failing ? route.fulfill({ status: 500, json: { error: 'down' } }) : route.fulfill({ json: withSync([{ target: 'claude', label: 'Claude Code', state: 'in-sync' }]) }))
+    let hold: Promise<void> | undefined
+    await page.route('**/api/views/overview', async (route) => {
+      if (hold) await hold
+      return failing ? route.fulfill({ status: 500, json: { error: 'down' } }) : route.fulfill({ json: withSync([{ target: 'claude', label: 'Claude Code', state: 'in-sync' }]) })
+    })
     await page.goto('/?view=context')
     await expect(status(page)).toContainText('Generated files match the source for 1 tool.')
     failing = true
@@ -664,7 +668,13 @@ test.describe('generated-file status', () => {
     await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check /)
     await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
     failing = false
+    let release = () => {}
+    hold = new Promise((done) => { release = done })
     await status(page).getByRole('button', { name: 'Refresh' }).click()
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check .* Checking again…$/)
+    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
+    hold = undefined
+    release()
     await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
     await expect(status(page)).toHaveAttribute('data-tone', 'match')
   })
