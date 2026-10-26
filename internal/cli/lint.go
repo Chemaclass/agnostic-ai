@@ -252,7 +252,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 	if scope.global {
 		findings = slices.DeleteFunc(findings, func(f lintFinding) bool { return f.Code == "LINT038" })
-		findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
+		findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules, scope.targets)...)
 		findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
 	}
 	findings = append(findings, budget...)
