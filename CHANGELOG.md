@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `compare` finishes in about a second at 500 specs instead of several minutes; its report is unchanged (#2498).
 - **Breaking:** web edit and built-in preview requests must send `scope` (`team` or `local`); the server no longer guesses the file from which ones exist.
 - The web interface's Settings page saves for the team or just you: Just me writes Git-ignored local files, and local values show a badge and a reset.
 - `ui` opens another project or scope on the next free port up to 4319 and reuses it later, instead of failing; an explicit `--addr` stays put (#2492).

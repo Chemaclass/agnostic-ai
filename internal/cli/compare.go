@@ -166,7 +166,16 @@ func checkCompareTargets(targets []string) error {
 // Cross-target reader checks (sync's ValidateScopedRules) are skipped on
 // purpose: they guard targets written side by side, and compare writes
 // nothing. An invalid spec still fails, from inside the emission.
+//
+// Every field of every spec costs one emit per target, and each emit asks
+// the prior-state hooks, so the state file is read once and held: read
+// per emit, it made the command quadratic in the spec count.
 func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compareOutput, error) {
+	defer holdStateFile(".")()
+	return compareEntriesAcross(cfg, b, targets)
+}
+
+func compareEntriesAcross(cfg *config.Config, b spec.Bundle, targets []string) (compareOutput, error) {
 	view := *cfg
 	view.OnUnsupported = "warn"
 	adapters.SetWarner(io.Discard)
