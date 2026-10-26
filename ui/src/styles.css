@@ -2258,3 +2258,19 @@ input:hover {
     min-height: 44px;
   }
 }
+
+.banner .button {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.stale-guard {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.stale-guard[data-stale] {
+  opacity: 0.6;
+}
