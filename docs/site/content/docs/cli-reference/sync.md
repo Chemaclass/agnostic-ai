@@ -25,7 +25,7 @@ agnostic-ai sync --only claude,cursor
 | `--except <list>` | Write all configured targets except these. Errors on unknown names. Not with `--only`. |
 | `--all` | Write every configured target without the [first-sync picker](#first-sync-target-picker). |
 | `--dry-run` | Print to stdout instead of writing. Does not preview leftover deletions. |
-| `--plan` | Print added and changed counts per target without writing. Exits 0, or 1 on drift with `--check`, so CI can gate on the short report. Ignores `--diff` and `--format`. Not with `--global`. |
+| `--plan` | Print added and changed counts per target without writing. Exits 0, or 1 on drift with `--check`, so CI can gate on the short report. Ignores `--diff` and `--format`. |
 | `--check` | Exit non-zero if files on disk differ from what sync would write. Writes nothing. |
 | `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there, not the working tree. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
 | `--diff` | With `--check`, print a diff per changed file, on disk vs what sync would write. Fails without `--check` or `--dry-run`. |
