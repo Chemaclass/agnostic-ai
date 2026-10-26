@@ -461,4 +461,8 @@
 # (23474336): sync, lint and validate --global refuse a rule whose
 # x-<target> block sets a condition. Same Linux amd64 release flags; no
 # added headroom or dependencies.
-23478432
+# #2516 measured 23482528 on Go 1.27.3, up 4096 from 23478432: sync
+# --global --backup keeps a .bak of each file it removes and rollback
+# restores an earlier .bak. Same Linux amd64 release flags; no added
+# headroom or dependencies.
+23482528
