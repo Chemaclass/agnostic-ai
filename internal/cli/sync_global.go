@@ -2856,6 +2856,13 @@ func removedGlobalFiles(old, next []string) []string {
 	return out
 }
 
+func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data []byte) error {
+	if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+		return fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
+	}
+	return nil
+}
+
 // applyGlobalChanges writes and removes files, rolling everything back
 // on the first failure. It returns a note for each symlink it wrote
 // through or removed.
@@ -2975,6 +2982,10 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 					rollback()
 					return nil, fmt.Errorf("read managed %s: %w", target, errors.Join(readErr, statErr))
 				}
+				if err := removalChangedSincePlan(guards, path, data); err != nil {
+					rollback()
+					return nil, err
+				}
 				done = append(done, prior{path: target, data: data, mode: targetInfo.Mode()})
 				if err := os.Remove(target); err != nil {
 					rollback()
@@ -2997,9 +3008,9 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 			rollback()
 			return nil, fmt.Errorf("read managed %s: %w", path, err)
 		}
-		if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+		if err := removalChangedSincePlan(guards, path, data); err != nil {
 			rollback()
-			return nil, fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
+			return nil, err
 		}
 		info, err := os.Stat(path)
 		if err != nil {
