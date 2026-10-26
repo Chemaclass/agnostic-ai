@@ -268,7 +268,7 @@ agnostic-ai view --global
 
 A second run for the same project and scope opens the running server and exits. When the default port serves another project or scope, an `--api-only` server, or another program, `view` takes the next free loopback port up to `127.0.0.1:4319` and prints it; later runs find that server. An invalid project configuration reports an error.
 
-The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of lists and counts. Browser features are under [serve](#serve).
+The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of lists and counts. Search within a section to find a source file or value. The browser has light and dark themes and works on narrow screens. Other browser features are under [serve](#serve).
 
 ## serve
 

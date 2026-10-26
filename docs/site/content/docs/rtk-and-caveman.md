@@ -1,7 +1,7 @@
 +++
 title = "Use RTK and Caveman with agnostic-ai"
 description = "Turn on RTK for shorter command output and Caveman for shorter answers, and what each one costs."
-weight = 71
+weight = 78
 
 [extra]
 nav_title = "RTK and Caveman"

@@ -1,7 +1,7 @@
 +++
 title = "Git hooks"
 description = "Check for out-of-date generated files at commit time, and regenerate them after checkout or pull."
-weight = 60
+weight = 65
 
 [extra]
 group = "Workflows"

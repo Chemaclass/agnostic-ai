@@ -49,7 +49,7 @@ scope: services/payments
 Use integer minor units for monetary values.
 ```
 
-Claude Code gets a rule that applies only there. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. [Directory-specific instructions](@/docs/scoped-context.md) lists every tool and the selector limits.
+Claude Code gets a rule that applies only there. Codex gets `services/payments/AGENTS.md`. Cursor gets its own `.mdc` rule, unless a tool like Codex needs the shared `AGENTS.md`, which Cursor then reads too. Gemini gets `services/payments/GEMINI.md`. [Directory-specific instructions](@/docs/scoped-context.md) lists every tool and the selector limits.
 
 ## Headings in merged files
 

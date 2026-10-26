@@ -1,7 +1,7 @@
 +++
 title = "Trace generated files"
 description = "Find which specs and which tool produced a generated file."
-weight = 90
+weight = 55
 aliases = ["/docs/why/"]
 
 [extra]
