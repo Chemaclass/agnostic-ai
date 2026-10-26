@@ -324,7 +324,7 @@ Edit and impact requests take JSON. Every edit and preview names its `scope`: `t
 | `GET /api/views/authority/schema` | None. |
 | `POST /api/edit/builtin` | `{scope, name, enabled}`, or `{scope: "local", reset: true}` to drop the personal list. |
 | `POST /api/edit/value` | `{scope, path, key, value}`, where `value` is a boolean, or `null` with `scope: local` to reset. |
-| `POST /api/edit/field` | `{scope, path?, key, value}` for `model`, `effort`, and global `session-retention-days`. `null` clears the field, or resets your override with `scope: local`. |
+| `POST /api/edit/field` | `{scope, path?, key, value, expected?}` for `model`, `effort`, and global `session-retention-days`. `null` clears the field, or resets your override with `scope: local`. `expected` is the value the page showed for the file being written, or `null` if that file did not set it. If the file now holds another value, or a personal file now sets the field for a team save, the answer is 409 and nothing is written. A file that already holds the new value counts as saved. |
 | `GET /api/changes/builtin` | None. Returns the session's change state. |
 | `POST /api/changes/builtin/preview` | `{scope, name, enabled}` for any shipped built-in, or `{scope: "local", reset: true}`. |
 | `POST /api/changes/builtin/apply`, `.../undo` | `{id}` from the change state. |

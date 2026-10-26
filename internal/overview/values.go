@@ -44,13 +44,13 @@ func specValues(meta map[string]any) []Value {
 		case []any:
 			list := make([]string, 0, len(t))
 			for _, item := range t {
-				list = append(list, safeValue(prefix, scalar(item)))
+				list = append(list, safeValue(prefix, Scalar(item)))
 			}
 			out = append(out, Value{Key: prefix, Type: ValueList, List: list})
 		case bool:
-			out = append(out, Value{Key: prefix, Type: ValueBool, Value: scalar(t)})
+			out = append(out, Value{Key: prefix, Type: ValueBool, Value: Scalar(t)})
 		default:
-			out = append(out, Value{Key: prefix, Type: ValueText, Value: safeValue(prefix, scalar(t))})
+			out = append(out, Value{Key: prefix, Type: ValueText, Value: ShownText(prefix, t)})
 		}
 	}
 	keys := make([]string, 0, len(meta))
@@ -76,9 +76,14 @@ func joinKey(prefix, key string) string {
 	return prefix + "." + key
 }
 
-// scalar renders one value: a string as written (an empty one as ""),
+// ShownText is the text a view shows for the scalar under key.
+func ShownText(key string, v any) string {
+	return safeValue(key, Scalar(v))
+}
+
+// Scalar renders one value: a string as written (an empty one as ""),
 // anything else as JSON.
-func scalar(v any) string {
+func Scalar(v any) string {
 	switch t := v.(type) {
 	case string:
 		if t == "" {
@@ -144,7 +149,7 @@ func configValues(cfg *config.Config) []Value {
 			list = append(list, target+": "+tier.Models[target])
 		}
 		if tier.Effort != nil {
-			list = append(list, "effort: "+scalar(tier.Effort))
+			list = append(list, "effort: "+Scalar(tier.Effort))
 		}
 		out = append(out, Value{Key: "models." + name, Type: ValueList, List: list})
 	}

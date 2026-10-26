@@ -398,7 +398,7 @@ test.describe('overview', () => {
     await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
     await expect(model).toContainText('Your local value overrides the team value.')
     await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
@@ -412,7 +412,7 @@ test.describe('overview', () => {
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low' })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true })
@@ -458,7 +458,7 @@ test.describe('overview', () => {
     await model.getByRole('combobox').selectOption(b)
     await expect(model).toContainText('Your local value overrides the team value.')
     await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null, expected: 'opus' })
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
@@ -507,7 +507,7 @@ test.describe('overview', () => {
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku' })
+    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
