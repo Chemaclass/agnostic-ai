@@ -2783,7 +2783,7 @@ func globalFolderMatches(dir string, planned map[string][]byte) (bool, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if _, ok := planned[strings.TrimSuffix(path, ".bak")]; ok && strings.HasSuffix(path, ".bak") {
+		if _, ok := planned[strings.TrimSuffix(path, ".bak")]; ok && strings.HasSuffix(path, ".bak") && d.Type().IsRegular() {
 			return nil
 		}
 		want, ok := planned[path]
@@ -2897,6 +2897,9 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 	}
 	keepBackup := func(path string, data []byte, mode fs.FileMode) error {
 		bak := path + ".bak"
+		if info, err := os.Lstat(bak); err == nil && !info.Mode().IsRegular() {
+			return fmt.Errorf("backup %s: %s is not a regular file; move it aside and rerun", path, bak)
+		}
 		old, err := os.ReadFile(bak)
 		absent := os.IsNotExist(err)
 		if err != nil && !absent {

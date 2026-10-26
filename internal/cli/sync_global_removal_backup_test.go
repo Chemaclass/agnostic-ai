@@ -173,3 +173,41 @@ func TestApplyGlobalChanges_RollbackRestoresAnEarlierBackup(t *testing.T) {
 		t.Errorf("no backup may stay for a file that was kept: %v", err)
 	}
 }
+
+func TestApplyGlobalChanges_RefusesABackupPathThatIsASymlink(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	mustWriteGlobalTest(t, path, "{}\n")
+	elsewhere := filepath.Join(dir, "elsewhere.json")
+	if err := os.Symlink(elsewhere, path+".bak"); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if _, err := applyGlobalChanges(nil, []string{path}, true, nil); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("a symlinked backup path must stop the run: %v", err)
+	}
+	if got := readGlobalTest(t, path); got != "{}\n" {
+		t.Errorf("file = %q", got)
+	}
+	if _, err := os.Lstat(elsewhere); !os.IsNotExist(err) {
+		t.Errorf("nothing may be written through the link: %v", err)
+	}
+	if got, err := os.Readlink(path + ".bak"); err != nil || got != elsewhere {
+		t.Errorf("the link must stay: %q, %v", got, err)
+	}
+}
+
+func TestGlobalFolderMatches_SymlinkedBackupIsACollision(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "tidy")
+	skill := filepath.Join(dir, "SKILL.md")
+	mustWriteGlobalTest(t, skill, "Tidy.\n")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "private"), skill+".bak"); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	same, err := globalFolderMatches(dir, map[string][]byte{skill: []byte("Tidy.\n")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if same {
+		t.Error("a symlinked .bak in the folder must not be adopted")
+	}
+}
