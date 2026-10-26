@@ -261,7 +261,7 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 				return nil, err
 			}
 		}
-		block, personal, err := splitManagedBlock(".", cfg, bundle, team, cfg.Targets, outputs)
+		block, personal, err := splitManagedBlock(".", cfg, bundle, team, previousPersonal(root), cfg.Targets, outputs)
 		if err != nil {
 			return nil, err
 		}

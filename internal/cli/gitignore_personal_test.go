@@ -6,9 +6,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
+
+func crlf(s string) string { return strings.ReplaceAll(s, "\n", "\r\n") }
 
 func TestWithPersonalExcludes(t *testing.T) {
 	gone := filepath.ToSlash(filepath.Join(t.TempDir(), "gone"))
@@ -28,6 +32,11 @@ func TestWithPersonalExcludes(t *testing.T) {
 		{"keeps another project's block", block(kept, "/k"), "", nil, block(kept, "/k")},
 		{"drops the block of a project that is gone", "a\n" + block(gone, "/g"), "", nil, "a\n"},
 		{"leaves a file without blocks alone", "a\n", "", nil, "a\n"},
+		{"keeps lines after its begin marker when the end is missing", "# >>> agnostic-ai (personal) /p >>>\n/keep\n", "", nil, "# >>> agnostic-ai (personal) /p >>>\n/keep\n"},
+		{"keeps lines after a foreign marker", "# >>> agnostic-ai (personal) notes >>>\n/keep\n# <<< agnostic-ai (personal) notes <<<\n", "", nil, "# >>> agnostic-ai (personal) notes >>>\n/keep\n# <<< agnostic-ai (personal) notes <<<\n"},
+		{"keeps user lines between a stray begin and its block", "# >>> agnostic-ai (personal) /p >>>\n/keep\n" + block("/p", "/old"), "", nil, "# >>> agnostic-ai (personal) /p >>>\n/keep\n"},
+		{"removes a CRLF block", "a\r\n" + crlf(block("/p", "/old")) + "b\r\n", "", nil, "a\r\nb\r\n"},
+		{"replaces a CRLF block in the file's style", "a\r\n" + crlf(block("/p", "/old")), "", []string{"/new"}, "a\r\n" + crlf(block("/p", "/new"))},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -117,5 +126,68 @@ func TestBuiltinChanges_PersonalToggleKeepsCommittedIgnores(t *testing.T) {
 	}
 	if again, _ := os.ReadFile(filepath.Join(".git", "info", "exclude")); string(again) != string(exclude) {
 		t.Errorf("sync changed the planned info/exclude:\n%s\nwant:\n%s", again, exclude)
+	}
+}
+
+func excludeRepo(t *testing.T) (root, exclude string) {
+	t.Helper()
+	silence(t)
+	root = t.TempDir()
+	chdir(t, root)
+	git(t, root, "init", "--quiet")
+	gitquery.Reset()
+	return root, filepath.Join(root, ".git", "info", "exclude")
+}
+
+func TestWritePersonalExcludes_WaitsForAnotherWriter(t *testing.T) {
+	root, exclude := excludeRepo(t)
+	held, err := os.OpenFile(filepath.Join(filepath.Dir(exclude), "agnostic-ai-exclude.lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tryLockProjectFile(held); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(exclude)
+	done := make(chan error, 1)
+	go func() { done <- writePersonalExcludes(root, []string{"/.claude/x.md"}) }()
+	time.Sleep(200 * time.Millisecond)
+	if during, _ := os.ReadFile(exclude); string(during) != string(before) {
+		t.Errorf("info/exclude changed while another writer held the lock:\n%s", during)
+	}
+	_ = held.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := os.ReadFile(exclude); !strings.Contains(string(after), "/.claude/x.md") {
+		t.Errorf("info/exclude after the lock was released = %q", after)
+	}
+}
+
+func TestPriorIgnoreFiles_RestoresOnlyThisProjectsBlock(t *testing.T) {
+	root, exclude := excludeRepo(t)
+	if err := writePersonalExcludes(root, []string{"/old.md"}); err != nil {
+		t.Fatal(err)
+	}
+	prior := priorIgnoreFiles(root, &config.Config{})
+	if err := writePersonalExcludes(root, []string{"/new.md"}); err != nil {
+		t.Fatal(err)
+	}
+	other := t.TempDir()
+	data, _ := os.ReadFile(exclude)
+	if err := os.WriteFile(exclude, []byte(withPersonalExcludes(string(data), personalExcludeKey(other), "", []string{"/other.md"})+"/mine.txt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := restoreFiles(prior); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(exclude)
+	for _, want := range []string{"/old.md", "/other.md", "/mine.txt"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("restored info/exclude lacks %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(string(got), "/new.md") {
+		t.Errorf("restored info/exclude keeps the failed sync's line:\n%s", got)
 	}
 }

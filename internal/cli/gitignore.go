@@ -788,19 +788,21 @@ type priorFile struct {
 	path    string
 	content []byte
 	absent  bool
+	// restore, when set, puts the file back in place of content.
+	restore func() error
 }
 
-// priorIgnoreFiles saves the gitignore file, .worktreeinclude, and
-// info/exclude before sync writes them, so a sync that fails afterwards
+// priorIgnoreFiles saves the gitignore file, .worktreeinclude, and the
+// project's info/exclude block before sync writes them, so a sync that fails afterwards
 // can put them back with restoreFiles. A file it cannot read is left
 // out, since its writer fails on the same read.
 func priorIgnoreFiles(root string, cfg *config.Config) []priorFile {
-	paths := []string{filepath.Join(root, gitignoreRel(cfg)), filepath.Join(root, worktreeIncludeFile)}
-	if exclude, _, ok := personalExcludeFile(root); ok {
-		paths = append(paths, exclude)
-	}
 	var out []priorFile
-	for _, path := range paths {
+	if prior, ok := priorPersonalExclude(root); ok {
+		out = append(out, prior)
+	}
+	for _, rel := range []string{gitignoreRel(cfg), worktreeIncludeFile} {
+		path := filepath.Join(root, rel)
 		data, err := os.ReadFile(path)
 		switch {
 		case err == nil:
@@ -848,6 +850,12 @@ func widenIgnores(files []priorFile, path string, block []string) []priorFile {
 func restoreFiles(files []priorFile) error {
 	var errs []error
 	for _, f := range files {
+		if f.restore != nil {
+			if err := f.restore(); err != nil {
+				errs = append(errs, err)
+			}
+			continue
+		}
 		if f.absent {
 			if err := os.Remove(f.path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				errs = append(errs, err)

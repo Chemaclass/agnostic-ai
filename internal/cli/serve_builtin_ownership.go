@@ -282,35 +282,27 @@ func builtinExcludeRel(root, exclude string) (string, bool) {
 }
 
 // planPersonalExcludes adds to desired the info/exclude update sync makes
-// for the outputs only the personal built-ins add. A file outside the
-// project blocks only a change that adds lines; a stale block waits for
-// the next CLI sync.
+// for the outputs only the personal built-ins add. A linked worktree's
+// file is shared with every checkout and sits outside the project, so a
+// change that needs lines there goes through the CLI.
 func planPersonalExcludes(root string, personal []string, desired map[string][]byte) error {
-	exclude, prefix, ok := personalExcludeFile(root)
+	ex, ok := personalExcludeFile(root)
 	if !ok {
 		return nil
 	}
-	rel, inside := builtinExcludeRel(root, exclude)
-	var current []byte
-	if inside {
-		snap, err := snapshotEditFile(filepath.Join(root, filepath.FromSlash(rel)))
-		if err != nil {
-			return err
-		}
-		current = snap.data
-	} else if data, err := os.ReadFile(exclude); err == nil {
-		current = data
-	}
-	updated := withPersonalExcludes(string(current), personalExcludeKey(root), prefix, personal)
-	if updated == string(current) {
-		return nil
-	}
-	if !inside {
+	rel, inside := builtinExcludeRel(root, ex.path)
+	if ex.linked || !inside {
 		if len(personal) > 0 {
-			return fmt.Errorf("%s: built-ins only you turn on need a Git exclusion outside this project; use agnostic-ai sync in the CLI", strings.TrimPrefix(personal[0], "/"))
+			return fmt.Errorf("%s: built-ins only you turn on stay untracked in a linked worktree; use agnostic-ai sync in the CLI", strings.TrimPrefix(personal[0], "/"))
 		}
 		return nil
 	}
-	desired[rel] = []byte(updated)
+	snap, err := snapshotEditFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return err
+	}
+	if updated := withPersonalExcludes(string(snap.data), personalExcludeKey(root), ex.prefix, personal); updated != string(snap.data) {
+		desired[rel] = []byte(updated)
+	}
 	return nil
 }

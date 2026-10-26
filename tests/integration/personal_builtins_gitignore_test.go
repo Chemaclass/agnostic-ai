@@ -123,16 +123,51 @@ func TestSync_PersonalBuiltinsLeaveCommittedIgnoresAlone(t *testing.T) {
 		}
 	})
 
-	t.Run("a linked worktree writes the common info/exclude", func(t *testing.T) {
+	t.Run("removing the personal file with --keep-edits keeps an edited output personal", func(t *testing.T) {
+		dir := project(t, "[]")
+		must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.local.yaml"), []byte("builtins: [handoff]\n"), 0o644))
+		run(t, dir, "sync")
+		skill := ".claude/skills/handoff/SKILL.md"
+		must(t, os.WriteFile(filepath.Join(dir, skill), []byte("# my edit\n"), 0o644))
+		must(t, os.Remove(filepath.Join(dir, "agnostic-ai.local.yaml")))
+		run(t, dir, "sync", "--keep-edits")
+		if _, err := os.Stat(filepath.Join(dir, skill)); err != nil {
+			t.Fatalf("edited skill not kept: %v", err)
+		}
+		if status := git(t, dir, "status", "--porcelain", "--untracked-files=all"); status != "" {
+			t.Fatalf("git status is not clean:\n%s", status)
+		}
+		if by := ignoredBy(t, dir, skill); !strings.Contains(by, "info/exclude") {
+			t.Errorf("%s is ignored by %q, want info/exclude", skill, by)
+		}
+	})
+
+	t.Run("a linked worktree leaves the shared info/exclude alone and warns", func(t *testing.T) {
 		main := project(t, "[]")
+		before := exclude(t, main)
 		worktree := filepath.Join(t.TempDir(), "wt")
 		git(t, main, "worktree", "add", "-q", worktree)
 		must(t, os.WriteFile(filepath.Join(worktree, "agnostic-ai.local.yaml"), []byte("builtins: [handoff]\n"), 0o644))
-		run(t, worktree, "sync")
-		clean(t, worktree, "worktree personal on")
-		if by := ignoredBy(t, worktree, ".claude/skills/handoff/SKILL.md"); !strings.Contains(by, "info/exclude") {
-			t.Errorf("worktree skill is ignored by %q, want info/exclude", by)
+		skill := ".claude/skills/handoff/SKILL.md"
+		out := run(t, worktree, "sync")
+		warned := false
+		for _, line := range strings.Split(out, "\n") {
+			warned = warned || strings.Contains(line, "untracked") && strings.Contains(line, skill)
 		}
-		clean(t, main, "main checkout after worktree sync")
+		if !warned {
+			t.Errorf("sync output does not warn that %s stays untracked:\n%s", skill, out)
+		}
+		if got := exclude(t, main); got != before {
+			t.Errorf("a linked worktree changed the shared info/exclude:\n%s", got)
+		}
+		status := git(t, worktree, "status", "--porcelain", "--untracked-files=all")
+		if strings.Contains(status, ".gitignore") || strings.Contains(status, ".worktreeinclude") {
+			t.Errorf("worktree sync changed committed ignore files:\n%s", status)
+		}
+		must(t, os.MkdirAll(filepath.Join(main, filepath.Dir(skill)), 0o755))
+		must(t, os.WriteFile(filepath.Join(main, skill), []byte("# main\n"), 0o644))
+		if status := git(t, main, "status", "--porcelain", "--untracked-files=all"); !strings.Contains(status, skill) {
+			t.Errorf("a new file in the main checkout is hidden by the worktree's personal outputs:\n%s", status)
+		}
 	})
 }

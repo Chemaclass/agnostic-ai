@@ -595,7 +595,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.command-lock`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`. `init` seeds them even with `gitignore.enabled: false`.
 - A leftover file from a deleted spec stays ignored until you remove it.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings.
-- Built-ins come from `agnostic-ai.yaml` alone, so a `builtins` list in `agnostic-ai.local.yaml` leaves the block and `.worktreeinclude` unchanged. Outputs only the local list adds go in an `agnostic-ai (personal)` block in `.git/info/exclude`, which linked worktrees share; sync removes those lines when the local list stops adding them. Outputs the local list turns off stay in the block.
+- Built-ins come from `agnostic-ai.yaml` alone, so a `builtins` list in `agnostic-ai.local.yaml` leaves the block and `.worktreeinclude` unchanged. Outputs only the local list adds go in an `agnostic-ai (personal)` block in `.git/info/exclude`, and sync removes those lines when the local list stops adding them. Outputs the local list turns off stay in the block. A linked worktree shares `.git/info/exclude` with every checkout, so there sync leaves those outputs untracked and names them in a warning.
 
 ## Watched inputs
 
