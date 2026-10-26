@@ -10,7 +10,7 @@ group = "Start"
 
 # Import existing tool configuration
 
-Keep your current instructions while moving their editable sources into `.agnostic-ai/`. Start from the project root with a clean Git working tree so you can review and undo the import. [Install agnostic-ai](@/docs/installation.md) first.
+Import moves your current tool setup into editable sources in `.agnostic-ai/`, so you keep your current instructions. [Install agnostic-ai](@/docs/installation.md) first, then start from the project root with a clean Git working tree so you can review and undo the import.
 
 ## Import the existing setup {#1-import}
 
@@ -20,20 +20,20 @@ For a project not yet using agnostic-ai:
 agnostic-ai init --from claude
 ```
 
-Use `--from all` to detect every tool. Select only the coding tools the project uses. Already configured? Preview an import before writing:
+Use `--from all` to detect every tool, then select only the coding tools the project uses. In a project already using agnostic-ai, preview an import before writing:
 
 ```bash
 agnostic-ai import claude --dry-run --diff
 agnostic-ai import claude
 ```
 
-Import writes source specs. It does not sync. The separate `import` command does not change selected targets.
+Import writes source specs and does not sync. The `import` command does not change selected targets.
 
 ## Review what was imported {#review-what-was-imported}
 
 Compare `.agnostic-ai/AGNOSTIC_AI.md` and imported specs with the original files. With several tools, [review their import order](#2-review) before syncing. A hand-written root `AGENTS.md` contributes missing sections with `--from all`.
 
-Check scripts called by hooks and settings, and inspect MCP connection variables before committing. Skill folders and some tool scripts are imported; other referenced scripts must remain available in your project. [MCP import details](@/docs/spec-format/mcp-import.md) explain credential references and connection differences.
+Before committing, check scripts called by hooks and settings, and MCP connection variables. Skill folders and some tool scripts are imported; other referenced scripts must stay in your project. [MCP import details](@/docs/spec-format/mcp-import.md) explain credential references and connection differences.
 
 ## Generate and check {#3-generate}
 
@@ -43,19 +43,19 @@ agnostic-ai sync --backup
 agnostic-ai sync --check
 ```
 
-Review the diff for content. The first sync adds generated headers and replaces root instruction files with the shared instructions. Read the resulting native files before starting a fresh coding-tool session.
+The first sync adds generated headers and replaces root instruction files with the shared instructions. Read the resulting native files before starting a new coding-tool session.
 
 ## Commit or ignore outputs {#4-commit-or-ignore-outputs}
 
 Choose a [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit outputs, keep the first sync in its own commit.
 
-Ignoring files Git already tracks needs an explicit step: `sync --untrack` runs `git rm --cached`, keeping your working copy. Other clones lose those files on the next pull. Teammates must run `agnostic-ai sync` after pulling, or install [checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) first.
+To ignore files Git already tracks, run `sync --untrack`. It runs `git rm --cached`, keeping your working copy, but other clones lose those files on the next pull. Teammates must run `agnostic-ai sync` after pulling, or install [checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) first.
 
-From now on, edit `.agnostic-ai/` sources and sync. Use [Daily use](@/docs/getting-started.md#daily-use) for the normal workflow.
+From now on, edit `.agnostic-ai/` sources and sync, as [Daily use](@/docs/getting-started.md#daily-use) shows.
 
 ## Review imports from several tools {#2-review}
 
-Preview several tools at once with `agnostic-ai import claude codex --dry-run --diff`. Imports can merge shared instructions and retain conflicting versions. Review the sources against the original files and resolve differences before generating files.
+Preview several tools at once with `agnostic-ai import claude codex --dry-run --diff`. Imports can merge shared instructions and keep conflicting versions, so resolve differences against the original files before generating files.
 
 <details>
 <summary>Re-import after editing a native tool file</summary>
@@ -70,7 +70,6 @@ Re-running import with no edits leaves every spec as it is. After you edit a too
 ## Keep directory-specific instructions
 
 `import codex` and `import gemini` keep nested instruction directories as `scope`. `import claude` imports `.claude/rules/` when that directory exists. Otherwise, it imports nested `CLAUDE.md` files as directory-scoped rules. If `.claude/rules/` exists alongside nested `CLAUDE.md` files, create a rule with `agnostic-ai new rule <name> --scope <directory>` and copy each nested file’s text into it.
-
 
 For directory-specific instruction files, sync replaces a hand-written file only when the specs contain all its text. Otherwise it stops and quotes the missing line. Move that line into a spec, or set the original aside:
 
@@ -93,7 +92,7 @@ Keep the saved copy until you have checked the output. `--backup` does not bypas
 agnostic-ai revert
 ```
 
-It restores the backups. It never undoes spec edits; use Git for a lasting copy. When done, `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
+It restores the backups but never undoes spec edits; use Git for a lasting copy. `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
 
 </details>
 
@@ -102,7 +101,7 @@ It restores the backups. It never undoes spec edits; use Git for a lasting copy.
 
 ## Upgrading from older versions
 
-After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec forms it can rewrite for you, then `agnostic-ai migrate` to apply them. See [migrate](@/docs/cli-reference/upgrades.md#migrate). The changes below need more than `migrate`.
+After an upgrade, `agnostic-ai migrate --dry-run` shows which old spec forms it can rewrite, and `agnostic-ai migrate` applies them. See [migrate](@/docs/cli-reference/upgrades.md#migrate). The changes below need more than `migrate`.
 
 ### Unmarked MCP literals
 
@@ -112,7 +111,7 @@ After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec form
 
 **Breaking change:** `scope` plus `globs` or `paths` now applies to both, not their overlap. Remove `scope` when a rule should match only its patterns, and remove `globs: "**/*"` when it should match only its scope. Preview with `agnostic-ai render`. See [scoped context](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 
-An upgrade can move or skip files that older versions wrote for scoped rules. Run `sync`, then `sync --check`, to remove the old files.
+An upgrade can move or skip files that older versions wrote for scoped rules. Run `sync`, then `sync --check`, to remove them.
 
 ### Codex skills moved in 0.75
 

@@ -9,25 +9,14 @@ group = "Reference"
 
 # Error codes
 
-Find the `[AAI-NNN]` code from your terminal below. For a symptom without a code, use [Troubleshooting](@/docs/troubleshooting.md). Each error prints its fix:
+Each agnostic-ai error starts with an `[AAI-NNN]` code and ends with its fix. Find the code below for the cause. For a symptom without a code, use [Troubleshooting](@/docs/troubleshooting.md).
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
   fix: Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
 
-`agnostic-ai explain` prints the cause and fix of a code. Pass `--json` for JSON output.
-
-```
-$ agnostic-ai explain AAI-003
-AAI-003: Config file missing
-
-Cause:
-  Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the project root.
-
-Fix:
-  Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
-```
+`agnostic-ai explain AAI-003` prints the same cause and fix as the entry below. Pass `--json` for JSON output.
 
 ## Numbering
 
@@ -44,13 +33,13 @@ Codes keep their number across releases. New codes are added at the end.
 
 ### AAI-001: Spec parse failed
 
-A spec file could not be read. Markdown specs use YAML frontmatter; hooks and MCPs are plain YAML. The error gives the path and, when known, the line and column. A review `@path` include that cannot be read reports here too.
+A spec file, or a review `@path` include, could not be read. Markdown specs use YAML frontmatter; hooks and MCPs are plain YAML. The error gives the path and, when known, the line and column.
 
-**Fix:** open the file at the reported position. Check that `---` lines wrap the frontmatter and that the YAML is valid: correct indentation, no tabs, quotes where needed. For an include, create the file or use a path inside the project.
+**Fix:** at the reported position, check that `---` lines wrap the frontmatter and that the YAML is valid: correct indentation, no tabs, quotes where needed. For an include, create the file or use a path inside the project.
 
 ### AAI-002: Spec kind not supported by target
 
-A spec kind (hook, mcp, command, ...) is in your project, but the tool does not support it. By default this logs a warning. `on-unsupported: error` makes it a hard failure.
+Your project has a spec kind (hook, mcp, command, ...) that the tool does not support. This is a warning by default, and a failure with `on-unsupported: error`.
 
 **Fix:** remove the spec, use a tool that supports the kind, or set `on-unsupported: warn` (or `silent`) in `agnostic-ai.yaml`.
 
@@ -62,28 +51,28 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file was found, but it is not valid YAML or has keys the config does not accept. Each unknown key is named with its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)`. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
+The config file is not valid YAML or has keys the config does not accept. Each unknown key is named with its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)`. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
 
-**Fix:** rename or remove each unknown key the message names. Use its did-you-mean suggestion when there is one. Otherwise check the file against `docs/schemas/config.schema.json`. Check indentation and that list keys such as `targets:` hold a YAML list. Run `agnostic-ai doctor` for a full diagnosis.
+**Fix:** rename or remove each unknown key the message names, using its did-you-mean suggestion when there is one, or check the file against `docs/schemas/config.schema.json`. Check indentation and that list keys such as `targets:` hold a YAML list. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-005: Installed version outside requires
 
-The config's `requires` key names the agnostic-ai releases your specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
+The installed binary is outside the releases the config's [`requires`](@/docs/configuration.md#requires) key allows. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
 
 ```
 [AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
 ```
 
-**Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets `requires` and the schema tag to the installed release, then syncs. For a package-manager install, run it through the manager, such as `pnpm exec agnostic-ai upgrade --requires`.
+**Fix:** to adopt a newer installed release, run `agnostic-ai upgrade --requires` from the project root (through your package manager for a project install, such as `pnpm exec agnostic-ai upgrade --requires`). It sets `requires` and the schema tag to the installed release, then syncs.
 
-- **Installed release is older:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. For a project install through a package manager, the message names the install command, such as `pnpm install`.
-- **You want to keep an older pin:** install the release it names through your package manager or `upgrade --version`. The latter also downgrades a standalone binary.
+- **Installed release is older:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. For a package-manager install, the message names the install command, such as `pnpm install`.
+- **You want to keep an older pin:** install the release it names through your package manager or `upgrade --version`, which also downgrades a standalone binary.
 - **Global home config:** edit `requires` in the named file to adopt the installed release. `upgrade --requires` changes project config only.
 - **The version does not change:** `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
 
 ### AAI-102: Tools write to the same file {#aai-102-targets-emit-to-the-same-output-path}
 
-Two or more enabled targets would write different content to the same path. Sync stops instead of letting the last one win.
+Two or more enabled targets would write different content to the same path, so sync stops instead of letting the last one win.
 
 **Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`.
 
@@ -91,9 +80,9 @@ Two or more enabled targets would write different content to the same path. Sync
 
 ### AAI-103: Hand-written ignore file would lose patterns {#aai-103-hand-authored-ignore-file-would-lose-patterns}
 
-Replacing a tool's ignore file that has no agnostic-ai header would remove or reorder patterns, or add a negation. These changes can make excluded files readable, so sync refuses.
+Replacing a tool's ignore file that has no agnostic-ai header would remove or reorder patterns, or add a negation. That can make excluded files readable, so sync refuses. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest.
 
-**Fix:** run `agnostic-ai import <target>` to copy the imported file's patterns into an ignore spec. When a tool reads several ignore files, combine their patterns in the spec, in the same order, before syncing. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest. Deleting the file also clears the error, at the cost of those patterns.
+**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. When a tool reads several ignore files, combine their patterns in the spec, in the same order, before syncing. Deleting the file also clears the error, at the cost of those patterns.
 
 See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 
@@ -107,9 +96,7 @@ The tool name passed to `agnostic-ai import` is not supported.
 
 `import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote.
 
-It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec, and `import --dry-run` fails the same way.
-
-The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose.
+It also stops when a tool edit would replace a spec that holds `::target` blocks, or a key or comment it could not carry back. The import writes no spec, and `import --dry-run` fails the same way. The message lists each spec, the tool its current content came from, the tool that wanted it, and what the spec would lose.
 
 **Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it. When the message names what the spec would lose, make the tool's edit in the spec instead to keep it.
 
@@ -125,6 +112,6 @@ A known target that is not in this run (`sync --only codex` with `targets: [clau
 
 ### AAI-302: Mutually exclusive flags
 
-You passed two conflicting flags together, such as `--only` with `--except`, or `--watch` with `--check`. Or you passed a flag without the one it needs, such as `--diff` without `--dry-run`.
+You passed two conflicting flags, such as `--only` with `--except` or `--watch` with `--check`, or a flag without the one it needs, such as `--diff` without `--dry-run`.
 
-**Fix:** the message names both flags. Drop one when they conflict; add the missing one when a flag needs another.
+**Fix:** the message names both flags. Drop one when they conflict, or add the missing one.

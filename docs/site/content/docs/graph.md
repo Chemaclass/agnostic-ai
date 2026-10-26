@@ -9,9 +9,7 @@ group = "Workflows"
 
 # graph
 
-Use `graph` to check whether a rule, skill, or other spec reaches the tools you selected. Start with `agnostic-ai graph --spec <name>` when one spec appears to be missing.
-
-Read the row for your spec. A `-` means that tool receives no file; check its supported kinds and your spec's target filters. Output is sorted by spec name, then target.
+`graph` shows whether a rule, skill, or other spec reaches each tool you selected. When one spec seems missing, run `agnostic-ai graph --spec <name>` and read its row. A `-` means that tool gets no file; check the tool's supported kinds and the spec's target filters. Output is sorted by spec name, then target.
 
 ## Synopsis
 
@@ -44,7 +42,7 @@ For the flags, see [graph](@/docs/cli-reference/inspect.md#graph) in the CLI ref
 
 ### text (default)
 
-A table with specs as rows and targets as columns. Each cell holds the kind the target writes for that spec, or `-` when it writes nothing.
+Specs as rows, targets as columns. Each cell holds the kind the target writes for that spec, or `-`.
 
 ```text
 spec           | claude cursor codex

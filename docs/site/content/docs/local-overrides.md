@@ -9,30 +9,22 @@ group = "Workflows"
 
 # Local overrides
 
-Keep personal instructions in `.agnostic-ai/local/` without changing the team's source files. For example, create `.agnostic-ai/local/AGNOSTIC_AI.md`:
+Put personal specs and instructions in `.agnostic-ai/local/` to layer them on top of the team's shared setup. Git ignores the folder, so your preferences and experiments stay on your machine. For example, create `.agnostic-ai/local/AGNOSTIC_AI.md`:
 
 ```markdown
 Answer in Spanish.
 ```
 
-Then run `agnostic-ai sync`. The text extends the shared project instructions. Your local folder and generated instruction files are ignored by default. If the project commits generated instruction files, your personal text appears there too; review before committing.
+Then run `agnostic-ai sync`. The text extends the shared project instructions. Generated instruction files are ignored by default; if your project commits them, your personal text appears there too, so review before committing.
 
-For personal configuration values, use `agnostic-ai.local.yaml`. To alter a shared skill or rule, add a local spec with the same kind and name and write only the fields you want to change.
-
-In `agnostic-ai ui`, pick **Just me (not committed)** on **Settings** to save built-ins and settings fields here instead of in the shared files. See [saving for yourself](@/docs/cli-reference/inspect.md#edit-scope).
-
-## Why use it
-
-Personal preferences and experiments stay on your machine. The team keeps one shared setup.
+For personal configuration values, use `agnostic-ai.local.yaml` (see [configuration](@/docs/configuration.md#local-overrides)). In `agnostic-ai ui`, **Just me (not committed)** on **Settings** saves built-ins and settings fields as local overrides; see [saving for yourself](@/docs/cli-reference/inspect.md#edit-scope).
 
 ## Add a spec
 
-A new local spec name adds a spec for your machine. Run `agnostic-ai sync`, then `agnostic-ai list` to check which source won.
+A local spec with a new name adds a spec for your machine. A local spec with the same kind and name as a shared one [changes only the fields you write](#override-fields). Run `agnostic-ai sync`, then `agnostic-ai list` to check which source won.
 
 <details>
 <summary>Choose project-local or machine-wide personal sources</summary>
-
-There are two `local/` folders:
 
 | Name | Folder | Loaded by | Inspect with |
 |---|---|---|---|
@@ -67,7 +59,7 @@ For the global folder’s supported kinds and layout, see [global configuration]
 
 ## Override fields
 
-A local spec with the same kind and name as a shared one merges into it. Write only what changes. When the team edits the shared spec, the next sync keeps your changes on top.
+A local spec with the same kind and name as a shared one merges into it. Write only what changes; when the team edits the shared spec, the next sync keeps your changes on top.
 
 Shared, committed:
 
@@ -92,7 +84,7 @@ model:
 ---
 ```
 
-After sync, Claude uses `opus`; the description, body, and Codex model stay as shared. A personal change replaces only the fields it names.
+After sync, Claude uses `opus`; the description, body, and Codex model stay as shared.
 
 Frontmatter (the YAML fields between `---` lines) merges key by key, the same way `agnostic-ai.local.yaml` merges over `agnostic-ai.yaml`:
 
@@ -107,11 +99,11 @@ So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. I
 
 The local file's location sets its scope. `local/rules/style.md` applies to the whole project even when the shared `rules/backend/style.md` applies to `backend/` only.
 
-YAML specs (hooks, MCP servers, settings, environments) follow the same rules. A local `mcps/docs.yaml` can change `env.PORT` and keep the shared command and args.
+YAML specs (hooks, MCP servers, settings, environments) follow the same rules: a local `mcps/docs.yaml` can change `env.PORT` and keep the shared command and args.
 
 ## Turn a shared spec off
 
-Exclude the targets you do not want:
+List the targets you do not want in `targets-exclude`:
 
 ```md
 ---
@@ -121,8 +113,6 @@ targets-exclude: [claude, codex, cursor]
 ```
 
 ## Extend the body
-
-The body follows three rules:
 
 - **Empty local body.** The shared body stays.
 - **A `::parent` line.** The shared body goes there. Put your text before it, after it, or around it.
@@ -159,7 +149,7 @@ A local skill folder with only a `SKILL.md` keeps the shared folder's supporting
 
 Only personal overrides merge field by field. A project spec replaces a [pack](@/docs/packs.md) spec with the same kind and name in full.
 
-Two files with the same name in one folder are a mistake. One wins, and `agnostic-ai lint` reports the other (LINT003).
+Two files with the same name in one folder are a mistake: one wins, and `agnostic-ai lint` reports the other (LINT003).
 
 ## Extend the instructions
 
@@ -180,7 +170,7 @@ In the global folder, `local/AGNOSTIC_AI.md` comes last in the managed instructi
 
 ## Import
 
-`agnostic-ai import` never writes your local specs into `.agnostic-ai/`. Sync writes local specs into the native files that import reads, such as a local rule inlined into `AGENTS.md`. Import skips every name your local folder declares. A shared spec that your local folder extends keeps its own content. The run lists what it skipped.
+`agnostic-ai import` never writes your local specs into `.agnostic-ai/`, even though sync puts them in the native files import reads (such as a local rule inlined into `AGENTS.md`). Import skips every name your local folder declares and lists what it skipped. A shared spec your local folder extends keeps its own content.
 
 Hooks are matched by event, matcher, and handler. A local handler is removed from the imported hook, and a script that only local hooks run stays out of `.agnostic-ai/scripts/`.
 
@@ -197,8 +187,6 @@ If `~/.agnostic-ai/` is a Git repository, add this line to its `.gitignore`:
 ```gitignore
 /local/
 ```
-
-See [configuration](@/docs/configuration.md#local-overrides) for how `agnostic-ai.local.yaml` merges config values.
 
 ## See what wins
 
