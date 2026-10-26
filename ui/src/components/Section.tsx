@@ -221,10 +221,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
       setReloaded(true)
     } else if (!clean) {
       const was = basis.current
-      if (current !== was.current || localCurrent !== was.local || teamCurrent !== was.team) {
-        basis.current = { current, local: localCurrent, team: teamCurrent }
-        setReloaded(true)
-      }
+      if (current !== was.current || localCurrent !== was.local || teamCurrent !== was.team) setReloaded(true)
       return
     }
     basis.current = { current, local: localCurrent, team: teamCurrent }
@@ -250,7 +247,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
     conflict.current = false
     try {
       await postEdit(API.editField, { path: target || undefined, key: field.key, ...body, expected: expected ?? null })
-      app.reload()
+      app.reload(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
       const now = latest.current
@@ -291,7 +288,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
       </div>}
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
-      {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={app.reload}>Reload saved values</button></>}</span>}
+      {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
@@ -458,7 +455,7 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
     setError(undefined)
     try {
       await save(!on)
-      app.reload()
+      app.reload(true)
     } catch (err) {
       setError(err instanceof EditError ? err : new EditError(String(err)))
     } finally {
@@ -495,7 +492,7 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
     setError(undefined)
     try {
       await reset()
-      app.reload()
+      app.reload(true)
     } catch (err) {
       setError(err instanceof EditError ? err : new EditError(String(err)))
     } finally {

@@ -69,8 +69,8 @@ export default function App() {
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
   const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
-  const reload = useCallback(() => {
-    setSavedBeforeRefresh(true)
+  const reload = useCallback((saved = false) => {
+    if (saved) setSavedBeforeRefresh(true)
     setReloads((n) => n + 1)
   }, [])
   const retry = useCallback(() => setReloads((n) => n + 1), [])
