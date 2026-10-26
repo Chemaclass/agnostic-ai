@@ -68,6 +68,12 @@ async function session(page: Page) {
     previews, cancels, reads: () => statusReads, edits: () => sourceEdits, failApply: () => { failApply = true }, failCancel: (fail: boolean) => { failCancel = fail },
     otherTabPreview: () => { state = { ...state, status: 'proposed', id: `proposal-${++nextId}` } },
     otherTabCancel: () => { state = settled },
+    otherTabApply: () => {
+      before = { ...enabled }
+      appliedName = state.name!
+      enabled[appliedName] = state.enabled
+      state = { ...state, status: 'applied', undoAvailable: true, undoId: state.id, undoName: appliedName }
+    },
   }
 }
 
@@ -145,6 +151,17 @@ test('cancel from a stale tab leaves a newer preview and says so', async ({ page
   await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(preview).toHaveCount(0)
   expect(server.cancels).toEqual(['proposal-1', 'proposal-2'])
+})
+
+test('cancel of a preview another tab applied shows the applied change', async ({ page }) => {
+  const server = await session(page)
+  await toggle(page, 'caveman').click()
+  server.otherTabApply()
+  await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByText('Another tab applied this preview.')).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(toggle(page, 'caveman')).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('button', { name: 'Undo last change' })).toBeEnabled()
 })
 
 test('cancel of a preview another tab already closed just closes it', async ({ page }) => {
@@ -258,10 +275,19 @@ test('drops a restored proposal saved for another scope', async ({ page }) => {
   await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.edit-scope', 'local'))
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'team-1', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } }))
+  const cancels: unknown[] = []
+  await page.route('**/api/changes/builtin/cancel', (route) => {
+    cancels.push(route.request().postDataJSON())
+    return route.fulfill({ status: 409, json: { error: 'unexpected' } })
+  })
   await page.goto('/?view=settings')
   await expect(page.getByRole('button', { name: 'Just me (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Team (committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.waitForTimeout(300)
+  expect(cancels).toEqual([])
 })
 
 test('shows why a linked worktree needs the CLI for a personal built-in', async ({ page }) => {

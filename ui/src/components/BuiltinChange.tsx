@@ -9,9 +9,9 @@ interface Controller {
   change?: Change
   pending?: Pending
   pendingName?: string
-  error?: { message: string; conflict: boolean; action?: Action }
+  error?: { message: string; conflict: boolean; action?: Action; title?: string }
   proposal: boolean
-  discarded: boolean
+  notice?: string
   request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<void>
   resetList: () => Promise<void>
   cancel: () => Promise<void>
@@ -43,7 +43,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const [pendingName, setPendingName] = useState<string>()
   const [error, setError] = useState<Controller['error']>()
   const [cancelledId, setCancelledId] = useState<string>()
-  const [discarded, setDiscarded] = useState(false)
+  const [notice, setNotice] = useState<string>()
   const busy = useRef(false)
   const api = app.source.kind === 'api'
   const pageScope = useEditScope()
@@ -51,11 +51,12 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
 
   useEffect(() => {
     if (shownScope.current === pageScope) return
+    const previous = shownScope.current
     shownScope.current = pageScope
-    if (change?.status !== 'proposed') return
+    if (change?.status !== 'proposed' || change.id === cancelledId) return
     setCancelledId(change.id)
-    discard(change.id)
-  }, [pageScope, change])
+    if (change.scope === undefined || change.scope === previous) discard(change.id)
+  }, [pageScope, change, cancelledId])
 
   useEffect(() => {
     if (!api || !active) return
@@ -85,7 +86,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : action === 'cancel' ? 'cancelling' : 'loading')
     setPendingName(name)
     setError(undefined)
-    setDiscarded(false)
+    setNotice(undefined)
     const requestedIn = shownScope.current
     try {
       const value = await builtinChange(action, action === 'preview' ? (reset ? { scope: 'local', reset } : { scope, name, enabled }) : action ? { id: action === 'undo' ? change?.undoId : change?.id } : undefined)
@@ -94,17 +95,21 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
       setCancelledId(stale ? value.id : undefined)
       if (stale && action === 'preview') discard(value.id)
-      setDiscarded(action === 'cancel')
+      if (action === 'cancel') setNotice('Preview discarded.')
       if (action === 'apply' || action === 'undo' || !action) app.reload()
     } catch (err) {
       if (action === 'cancel' && err instanceof BuiltinChangeError && err.conflict) {
         const now = await builtinChange().catch(() => undefined)
-        if (now && now.status !== 'proposed') {
+        if (now) {
           setChange(now)
-          setDiscarded(true)
+          app.reload()
+          if (now.status === 'proposed') {
+            setError({ title: 'Another tab opened a newer preview.', message: 'Reload the change state to review it.', conflict: true, action })
+          } else {
+            setNotice(now.status === 'applied' && now.id === change?.id ? 'Another tab applied this preview.' : 'Preview discarded.')
+          }
           return
         }
-        if (now) err = new BuiltinChangeError('Another tab opened a newer preview. Reload the change state to review it.', true)
       }
       setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict, action })
     } finally {
@@ -115,12 +120,12 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   }
 
   const resetList = () => request('preview', undefined, undefined, 'local', true)
-  return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, discarded, request, resetList, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
+  return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, notice, request, resetList, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
 }
 
 export function BuiltinChangeControls({ labels, local, resetSource }: { labels: { name: string; label: string }[]; local: boolean; resetSource: ReactNode }) {
   const app = useApp()
-  const { change, pending, error, proposal, discarded, request, resetList } = useBuiltinChanges()
+  const { change, pending, error, proposal, notice, request, resetList } = useBuiltinChanges()
   if (app.source.kind !== 'api') return null
   if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
   const label = (name?: string) => name ? labels.find((item) => item.name === name)?.label ?? name : 'Built-in list'
@@ -139,12 +144,12 @@ export function BuiltinChangeControls({ labels, local, resetSource }: { labels: 
       {pending === 'undoing' && 'Restoring the previous files…'}
       {pending === 'cancelling' && 'Discarding the preview…'}
       {pending === 'loading' && 'Checking the server…'}
-      {!pending && !error && discarded && 'Preview discarded.'}
-      {!pending && !error && !discarded && change?.status === 'applied' && `${label(change.name)} change applied. Undo is available until this server stops or the files change.`}
-      {!pending && !error && !discarded && change?.status === 'undone' && 'Previous files restored.'}
+      {!pending && !error && notice}
+      {!pending && !error && !notice && change?.status === 'applied' && `${label(change.name)} change applied. Undo is available until this server stops or the files change.`}
+      {!pending && !error && !notice && change?.status === 'undone' && 'Previous files restored.'}
     </div>
     {error && <div className="builtin-change-error" role="alert">
-      <strong>{error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.'}</strong>
+      <strong>{error.title ?? (error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.')}</strong>
       <p>{error.message}</p>
       <button className="button" type="button" disabled={!!pending} onClick={() => { void request() }}>Reload change state</button>
     </div>}
