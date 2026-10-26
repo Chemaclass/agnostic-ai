@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -40,11 +41,12 @@ func previousPersonal(root string) []string {
 	if !ok {
 		return nil
 	}
-	data, err := os.ReadFile(ex.path)
-	if err != nil {
-		return nil
-	}
-	return personalPatternsOf(string(data), personalExcludeKey(root), ex.prefix)
+	var prev []string
+	_ = updateGitExclude(ex.state, func(content string) string {
+		prev = personalPatternsOf(content, personalExcludeKey(root), ex.prefix)
+		return content
+	})
+	return prev
 }
 
 // splitManagedBlock returns the managed block a sync with the team's
@@ -150,6 +152,10 @@ func blockCovers(block []string, entry string) bool {
 type gitExclude struct {
 	path, prefix string
 	linked       bool
+	// state holds the personal set sync last classified: info/exclude in
+	// the main checkout, and a file in a linked worktree's own Git dir,
+	// which its untracked personal outputs never reach.
+	state string
 }
 
 // personalExcludeFile returns the info/exclude for the project at root;
@@ -159,11 +165,16 @@ func personalExcludeFile(root string) (gitExclude, bool) {
 	if err != nil || !layout.HasToplevel || layout.CommonDir == "" {
 		return gitExclude{}, false
 	}
-	return gitExclude{
+	ex := gitExclude{
 		path:   filepath.Join(layout.CommonDir, "info", "exclude"),
 		prefix: filepath.ToSlash(layout.Prefix),
 		linked: filepath.Clean(layout.GitDir) != filepath.Clean(layout.CommonDir),
-	}, true
+	}
+	ex.state = ex.path
+	if ex.linked {
+		ex.state = filepath.Join(layout.GitDir, "agnostic-ai-personal")
+	}
+	return ex, true
 }
 
 // personalExcludeKey names the project a personal block belongs to, so
@@ -333,19 +344,44 @@ func projectGone(dir string) bool {
 // its info/exclude update, as a worktree and its main checkout may.
 const excludeLockWait = 10 * time.Second
 
-// updateGitExclude rewrites the info/exclude at path with edit, holding a
-// lock beside it so concurrent syncs never lose each other's blocks.
-func updateGitExclude(path string, edit func(string) string) error {
+// heldExcludeLocks counts this process's holds on each info/exclude
+// lock, so a web change that holds one can revalidate through code that
+// takes it again. A second descriptor would block on its own process.
+var heldExcludeLocks = struct {
+	sync.Mutex
+	files  map[string]*os.File
+	counts map[string]int
+}{files: map[string]*os.File{}, counts: map[string]int{}}
+
+// lockGitExclude takes the lock beside the info/exclude at path, waiting
+// for another process up to excludeLockWait, so concurrent syncs and web
+// changes never lose each other's blocks. Call release when done.
+func lockGitExclude(path string) (release func(), err error) {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", dir, err)
-	}
 	lockPath := filepath.Join(dir, "agnostic-ai-exclude.lock")
+	held := &heldExcludeLocks
+	held.Lock()
+	defer held.Unlock()
+	unlock := func() {
+		held.Lock()
+		defer held.Unlock()
+		if held.counts[lockPath]--; held.counts[lockPath] == 0 {
+			_ = held.files[lockPath].Close()
+			delete(held.files, lockPath)
+			delete(held.counts, lockPath)
+		}
+	}
+	if held.counts[lockPath] > 0 {
+		held.counts[lockPath]++
+		return unlock, nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("create %s: %w", dir, err)
+	}
 	lock, err := os.OpenFile(lockPath, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
-		return fmt.Errorf("%s: %w", lockPath, err)
+		return nil, fmt.Errorf("%s: %w", lockPath, err)
 	}
-	defer func() { _ = lock.Close() }()
 	deadline := time.Now().Add(excludeLockWait)
 	for {
 		err := tryLockProjectFile(lock)
@@ -353,10 +389,33 @@ func updateGitExclude(path string, edit func(string) string) error {
 			break
 		}
 		if !projectLockContended(err) || time.Now().After(deadline) {
-			return fmt.Errorf("lock %s: %w", lockPath, err)
+			_ = lock.Close()
+			return nil, fmt.Errorf("lock %s: %w", lockPath, err)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	held.files[lockPath], held.counts[lockPath] = lock, 1
+	return unlock, nil
+}
+
+// lockProjectGitExclude takes the info/exclude lock of the repository
+// holding root; outside a work tree there is none to take.
+func lockProjectGitExclude(root string) (release func(), err error) {
+	ex, ok := personalExcludeFile(root)
+	if !ok {
+		return func() {}, nil
+	}
+	return lockGitExclude(ex.path)
+}
+
+// updateGitExclude reads and rewrites the file at path with edit under
+// its lock. Every read goes through it, so none sees a half-written file.
+func updateGitExclude(path string, edit func(string) string) error {
+	release, err := lockGitExclude(path)
+	if err != nil {
+		return err
+	}
+	defer release()
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
@@ -374,40 +433,55 @@ func updateGitExclude(path string, edit func(string) string) error {
 // writePersonalExcludes updates the project's block in info/exclude.
 // Outside a work tree there is nothing to ignore. A linked worktree's
 // patterns would hide those paths in every checkout, so its personal
-// outputs stay untracked and sync says so.
+// outputs stay untracked, sync says so, and the set goes to its state.
 func writePersonalExcludes(root string, patterns []string) error {
 	ex, ok := personalExcludeFile(root)
 	if !ok {
 		return nil
 	}
-	if ex.linked && len(patterns) > 0 {
+	key := personalExcludeKey(root)
+	write := func(path string, patterns []string) error {
+		return updateGitExclude(path, func(content string) string {
+			return withPersonalExcludes(content, key, ex.prefix, patterns)
+		})
+	}
+	if !ex.linked {
+		return write(ex.path, patterns)
+	}
+	if len(patterns) > 0 {
 		names := make([]string, len(patterns))
 		for i, p := range patterns {
 			names[i] = strings.TrimPrefix(p, "/")
 		}
 		summaryf("%s untracked in this linked worktree: %s. Its info/exclude is shared with every checkout, so sync ignores personal outputs only in the main checkout.\n", bang(), strings.Join(names, ", "))
-		patterns = nil
 	}
-	key := personalExcludeKey(root)
-	return updateGitExclude(ex.path, func(content string) string {
-		return withPersonalExcludes(content, key, ex.prefix, patterns)
-	})
+	if err := write(ex.state, patterns); err != nil {
+		return err
+	}
+	return write(ex.path, nil)
 }
 
-// priorPersonalExclude saves the project's block so a failed sync puts
-// back that block alone, keeping what other projects wrote meanwhile.
-func priorPersonalExclude(root string) (priorFile, bool) {
+// priorPersonalExcludes saves the project's blocks so a failed sync puts
+// back those blocks alone, keeping what other projects wrote meanwhile.
+func priorPersonalExcludes(root string) []priorFile {
 	ex, ok := personalExcludeFile(root)
 	if !ok {
-		return priorFile{}, false
-	}
-	data, err := os.ReadFile(ex.path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return priorFile{}, false
+		return nil
 	}
 	key := personalExcludeKey(root)
-	saved := personalBlockOf(string(data), key)
-	return priorFile{path: ex.path, restore: func() error {
-		return updateGitExclude(ex.path, func(content string) string { return withPersonalBlock(content, key, saved) })
-	}}, true
+	var out []priorFile
+	for _, path := range slices.Compact([]string{ex.path, ex.state}) {
+		var saved []string
+		err := updateGitExclude(path, func(content string) string {
+			saved = personalBlockOf(content, key)
+			return content
+		})
+		if err != nil {
+			continue
+		}
+		out = append(out, priorFile{path: path, restore: func() error {
+			return updateGitExclude(path, func(content string) string { return withPersonalBlock(content, key, saved) })
+		}})
+	}
+	return out
 }

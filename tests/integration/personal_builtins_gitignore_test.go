@@ -170,4 +170,20 @@ func TestSync_PersonalBuiltinsLeaveCommittedIgnoresAlone(t *testing.T) {
 			t.Errorf("a new file in the main checkout is hidden by the worktree's personal outputs:\n%s", status)
 		}
 	})
+
+	t.Run("a linked worktree keeps an edited personal output out of the committed block", func(t *testing.T) {
+		main := project(t, "[]")
+		worktree := filepath.Join(t.TempDir(), "wt")
+		git(t, main, "worktree", "add", "-q", worktree)
+		must(t, os.WriteFile(filepath.Join(worktree, "agnostic-ai.local.yaml"), []byte("builtins: [handoff]\n"), 0o644))
+		run(t, worktree, "sync")
+		skill := ".claude/skills/handoff/SKILL.md"
+		must(t, os.WriteFile(filepath.Join(worktree, skill), []byte("# my edit\n"), 0o644))
+		must(t, os.Remove(filepath.Join(worktree, "agnostic-ai.local.yaml")))
+		run(t, worktree, "sync", "--keep-edits")
+		status := git(t, worktree, "status", "--porcelain")
+		if strings.Contains(status, ".gitignore") || strings.Contains(status, ".worktreeinclude") {
+			t.Errorf("worktree sync moved the kept personal output into committed ignore files:\n%s", status)
+		}
+	})
 }

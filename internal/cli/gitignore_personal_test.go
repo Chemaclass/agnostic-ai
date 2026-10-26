@@ -191,3 +191,60 @@ func TestPriorIgnoreFiles_RestoresOnlyThisProjectsBlock(t *testing.T) {
 		t.Errorf("restored info/exclude keeps the failed sync's line:\n%s", got)
 	}
 }
+
+func holdExcludeLock(t *testing.T, exclude string) *os.File {
+	t.Helper()
+	held, err := os.OpenFile(filepath.Join(filepath.Dir(exclude), "agnostic-ai-exclude.lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tryLockProjectFile(held); err != nil {
+		t.Fatal(err)
+	}
+	return held
+}
+
+func TestPriorIgnoreFiles_ReadsTheBlockUnderTheLock(t *testing.T) {
+	root, exclude := excludeRepo(t)
+	if err := writePersonalExcludes(root, []string{"/old.md"}); err != nil {
+		t.Fatal(err)
+	}
+	held := holdExcludeLock(t, exclude)
+	done := make(chan []priorFile, 1)
+	go func() { done <- priorIgnoreFiles(root, &config.Config{}) }()
+	select {
+	case <-done:
+		t.Fatal("priorIgnoreFiles read info/exclude while another writer held the lock")
+	case <-time.After(200 * time.Millisecond):
+	}
+	_ = held.Close()
+	<-done
+}
+
+func TestBuiltinChanges_ApplyHoldsTheGitExcludeLock(t *testing.T) {
+	personalProject(t, "[]")
+	root, _ := os.Getwd()
+	git(t, root, "init", "--quiet")
+	gitquery.Reset()
+	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	h := newBuiltinChangeHandler(".", false)
+	proposal := builtinNamedProposal(t, h, "caveman", true)
+	held := holdExcludeLock(t, filepath.Join(root, ".git", "info", "exclude"))
+	done := make(chan error, 1)
+	go func() {
+		_, err := h.apply(proposal.ID)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("apply finished while another writer held the info/exclude lock: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	_ = held.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}

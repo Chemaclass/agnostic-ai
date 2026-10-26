@@ -797,10 +797,7 @@ type priorFile struct {
 // can put them back with restoreFiles. A file it cannot read is left
 // out, since its writer fails on the same read.
 func priorIgnoreFiles(root string, cfg *config.Config) []priorFile {
-	var out []priorFile
-	if prior, ok := priorPersonalExclude(root); ok {
-		out = append(out, prior)
-	}
+	out := priorPersonalExcludes(root)
 	for _, rel := range []string{gitignoreRel(cfg), worktreeIncludeFile} {
 		path := filepath.Join(root, rel)
 		data, err := os.ReadFile(path)
