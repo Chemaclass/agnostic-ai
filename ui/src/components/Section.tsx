@@ -204,23 +204,29 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError>()
   const [reloaded, setReloaded] = useState(false)
-  const loaded = useRef(current)
+  // A draft keeps the values it started from, so a save after another reload still detects the change.
+  const basis = useRef({ current, local: localCurrent, team: teamCurrent })
+  const draft = useRef(value)
+  draft.current = value
   const conflict = useRef(false)
   useEffect(() => {
-    setValue((draft) => draft === loaded.current ? current : draft)
-    loaded.current = current
+    const clean = draft.current === basis.current.current || draft.current === current
     if (conflict.current) {
       conflict.current = false
       setError(undefined)
       setReloaded(true)
-    }
-  }, [current, path])
+    } else if (!clean) return
+    basis.current = { current, local: localCurrent, team: teamCurrent }
+    if (clean) setValue(current)
+  }, [current, localCurrent, teamCurrent])
   if (!edit) return null
   if (edit.disabledReason) return <p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p>
   if (app.source.kind !== 'api') return null
   const setSelectedPath = (next: string) => {
+    const team = valueOf(field.set.find((source) => source.path === next && !source.local))
     setPath(next)
-    setValue(valueOf(field.set.find((source) => source.path === next && !source.local)) ?? '')
+    setValue(team ?? '')
+    basis.current = { current: team ?? '', local: localCurrent, team }
     setError(undefined)
     setReloaded(false)
     conflict.current = false
@@ -240,8 +246,8 @@ function FieldEditControl({ field }: { field: SettingField }) {
       setError(failure)
     } finally { setPending(false) }
   }
-  const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, scope === 'local' ? localCurrent : teamCurrent)
-  const reset = () => post({ scope: 'local', value: null }, localCurrent)
+  const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, scope === 'local' ? basis.current.local : basis.current.team)
+  const reset = () => post({ scope: 'local', value: null }, basis.current.local)
   const overridden = scope === 'team' && localCurrent !== undefined
   const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`

@@ -19,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // Source-only edit endpoints.
@@ -143,16 +144,17 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "expected must be the value the page showed, as text, or null when it was not set"})
 			return
 		}
+		var chosen spec.Entry
 		scope, err := parseEditScope(req.Scope)
 		if err == nil {
-			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value)
+			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value, &chosen)
 		}
 		if err != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}
 		if len(req.Expected) > 0 {
-			edit = expectFieldValue(req.Key, expected, edit)
+			edit = expectFieldValue(req.Key, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(scope, chosen, file, req.Key), edit)
 		}
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})

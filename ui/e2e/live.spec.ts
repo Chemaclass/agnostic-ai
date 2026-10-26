@@ -633,6 +633,17 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
     await expect(input).toHaveValue('haiku')
     await expect(model.getByRole('status')).toHaveCount(0)
 
+    await input.fill('sonnet')
+    await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
+    await effort.getByRole('button', { name: 'Update' }).click()
+    await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: opus\neffort: low\n')
+    await expect(input).toHaveValue('sonnet')
+    await model.getByRole('button', { name: 'Update' }).click()
+    await expect(model.getByRole('alert')).toContainText('is now opus')
+    expect(await readFile(f.settings, 'utf8')).toBe('name: native\nmodel: opus\neffort: low\n')
+
     const other = await browser.newPage()
     try {
       for (const tab of [page, other]) {
@@ -640,13 +651,13 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
         await tab.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
       }
       const mine = (tab: typeof page) => tab.locator('.field-row').filter({ has: tab.getByText('Default model', { exact: true }) })
-      await mine(other).getByRole('textbox', { name: 'Default model value' }).fill('opus')
+      await mine(other).getByRole('textbox', { name: 'Default model value' }).fill('haiku')
       await mine(other).getByRole('button', { name: 'Save' }).click()
       await expect(mine(other).locator('.badge', { hasText: 'local' })).toBeVisible()
       await mine(page).getByRole('textbox', { name: 'Default model value' }).fill('sonnet')
       await mine(page).getByRole('button', { name: 'Save' }).click()
-      await expect(mine(page).getByRole('alert')).toContainText('is now opus')
-      expect(await readFile(f.localSettings, 'utf8')).toContain('model: opus')
+      await expect(mine(page).getByRole('alert')).toContainText('is now haiku')
+      expect(await readFile(f.localSettings, 'utf8')).toContain('model: haiku')
     } finally { await other.close() }
   } finally { await f.close() }
 })

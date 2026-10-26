@@ -416,6 +416,9 @@ func TestEditField_RejectsAStaleExpectedValue(t *testing.T) {
 		{"just me, second tab", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"low","expected":null}`, 409, overlay, "effort: high"},
 		{"just me reset of a changed value", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"low"}`, 409, overlay, "effort: high"},
 		{"just me reset", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"high"}`, 200, overlay, ""},
+		{"team clear", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"haiku"}`, 200, native, "name: native\n"},
+		{"retry of a clear that already landed", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"haiku"}`, 200, native, "name: native\n"},
+		{"team save after the clear", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":null}`, 200, native, "name: native\nmodel: haiku\n"},
 		{"expected must be text or null", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"opus","expected":5}`, 400, native, "name: native\nmodel: haiku\n"},
 	} {
 		rec := postEdit(t, h, editFieldPath, tc.body, nil)
@@ -443,5 +446,45 @@ func TestEditField_RejectsAStaleExpectedValue(t *testing.T) {
 	}
 	if got := readOptional(t, created); !strings.Contains(got, "model: sonnet") {
 		t.Errorf("new spec = %q", got)
+	}
+}
+
+func TestEditField_RefusesAnExpectedValueThePageHides(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	native := filepath.Join(source, "settings", "native.yaml")
+	original := "name: native\nmodel: abcdefghijklmnopqrstuvwxyz0123456789ABCD\n"
+	mustWriteGlobalTest(t, native, original)
+	h := newEditHandler(source, true)
+	for _, body := range []string{
+		`{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"abcdefghijklmnopqrstuvwxyz0123456789ABCE"}`,
+		`{"scope":"team","path":"settings/native.yaml","key":"model","value":"abcdefghijklmnopqrstuvwxyz0123456789ABCE","expected":"abcdefghijklmnopqrstuvwxyz0123456789ABCD"}`,
+	} {
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code == 200 {
+			t.Errorf("%s = %d %s", body, rec.Code, rec.Body)
+		}
+		if got := readOptional(t, native); got != original {
+			t.Fatalf("file = %q", got)
+		}
+	}
+}
+
+func TestEditField_ExpectsTheEffortAModelTierGives(t *testing.T) {
+	project := scopeProject(t)
+	spec := ".agnostic-ai/settings/defaults.yaml"
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nmodels:\n  fast:\n    claude: haiku\n    effort: low\n")
+	mustWrite(t, spec, "name: defaults\nmodel: fast\n")
+	h := newEditHandler(project, false)
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":"high","expected":"medium"}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "is now low") {
+		t.Fatalf("stale = %d %s", rec.Code, rec.Body)
+	}
+	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":null,"expected":"low"}`, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "inherits effort") {
+		t.Fatalf("clear = %d %s", rec.Code, rec.Body)
+	}
+	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":"high","expected":"low"}`, nil)
+	if rec.Code != 200 || !strings.Contains(readOptional(t, spec), "effort: high") {
+		t.Fatalf("save = %d %s %q", rec.Code, rec.Body, readOptional(t, spec))
 	}
 }
