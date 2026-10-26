@@ -67,10 +67,12 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : 'loading')
     setPendingName(name)
     setError(undefined)
+    const requestedIn = shownScope.current
     try {
       const value = await builtinChange(action, action === 'preview' ? (reset ? { scope: 'local', reset } : { scope, name, enabled }) : action ? { id: action === 'apply' ? change?.id : change?.undoId } : undefined)
       setChange(value)
-      setCancelledId(undefined)
+      // A preview that answers after the page switched scope targets the old files.
+      setCancelledId(action === 'preview' && shownScope.current !== requestedIn ? value.id : undefined)
       if (action === 'apply' || action === 'undo' || !action) app.reload()
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict })

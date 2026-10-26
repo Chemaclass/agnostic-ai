@@ -490,8 +490,12 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 	}
 	if e.Kind == spec.KindSettings {
 		item.Values = settingsValues(e)
-		if e.Base != nil && LocalLayer(e) {
-			for _, v := range specValues(e.LocalMeta) {
+		if LocalLayer(e) {
+			own := e.LocalMeta
+			if e.Base == nil {
+				own = e.Meta
+			}
+			for _, v := range specValues(own) {
 				item.LocalKeys = append(item.LocalKeys, v.Key)
 			}
 		}

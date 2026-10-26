@@ -148,8 +148,8 @@ type SectionItem struct {
 	// Local is set for a built-in the personal config turns on or off
 	// against the team's list.
 	Local bool `json:"local,omitempty"`
-	// LocalKeys are the dotted keys a personal overlay of a settings spec
-	// sets itself, so each can be reset to the team value.
+	// LocalKeys are the dotted keys a personal settings file sets itself,
+	// so each can be reset.
 	LocalKeys []string `json:"localKeys,omitempty"`
 	// Tools is set for an MCP server: what `agnostic-ai mcp tools` last
 	// listed. The overview reads that cache and never connects.

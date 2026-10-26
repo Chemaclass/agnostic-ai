@@ -96,7 +96,7 @@ Read-only check results appear on affected items or sections, never in a separat
 | POST | `/api/changes/builtin/apply` | writes the reviewed config and generated files for `{id}` |
 | POST | `/api/changes/builtin/undo` | restores the files and permissions from before the last successful apply for `{id}` |
 
-`/api/edit/builtin` and `/api/edit/value` write source files without syncing. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. A team edit writes the committed file; a local edit writes the Git-ignored overlay and never follows a link out of the local folder. An empty local built-in list disables shared built-ins.
+`/api/edit/builtin` and `/api/edit/value` write source files without syncing. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. A team edit writes the committed file; a local edit writes the Git-ignored overlay, and is refused when its file resolves outside the local folder, into a team source, or to a tracked file. An empty local built-in list disables shared built-ins.
 
 The Caveman apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/inspect.md#serve).
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -65,7 +66,8 @@ type builtinRequest struct {
 func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string, func([]byte) ([]byte, error), error) {
 	team, local := h.builtinsConfigFiles()
 	localData, err := os.ReadFile(local)
-	if err != nil && !os.IsNotExist(err) {
+	localMissing := os.IsNotExist(err)
+	if err != nil && !localMissing {
 		return "", nil, fmt.Errorf("%s: %w", local, err)
 	}
 	if scope == scopeTeam {
@@ -77,12 +79,15 @@ func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string,
 		}
 		return team, func(data []byte) ([]byte, error) { return setBuiltin(data, req.name, req.enabled) }, nil
 	}
+	if err := h.checkPersonalTarget(local); err != nil {
+		return "", nil, err
+	}
 	teamList, err := readBuiltinsList(team)
 	if err != nil {
 		return "", nil, err
 	}
 	inherited := ""
-	if len(localData) == 0 && !h.global {
+	if !h.global {
 		if inherited, err = inheritedPersonalMemory(h.root); err != nil {
 			return "", nil, err
 		}
@@ -106,7 +111,11 @@ func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string,
 			return data, nil
 		default:
 			if personal == nil {
-				if data, err = seedPersonalBuiltins(data, teamList, inherited); err != nil {
+				seed := ""
+				if localMissing {
+					seed = inherited
+				}
+				if data, err = seedPersonalBuiltins(data, teamList, seed); err != nil {
 					return nil, err
 				}
 			}
@@ -123,26 +132,31 @@ func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string,
 		if out, err = removeYAMLPath(out, "builtins"); err != nil {
 			return nil, err
 		}
-		if onlyPersonalMemory(out, inherited) {
-			return nil, nil
-		}
-		return out, nil
+		return personalConfigRest(out, inherited), nil
 	}, nil
 }
 
 // personalBuiltins is the builtins list a config sets, merges included,
-// or nil when it sets none.
+// or nil when it sets none. A null list counts as set and empty.
 func personalBuiltins(data []byte) (*[]string, error) {
+	var doc map[string]any
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, err
+	}
+	if _, set := doc["builtins"]; !set {
+		return nil, nil
+	}
 	var parsed struct {
-		Builtins *[]string `yaml:"builtins"`
+		Builtins []string `yaml:"builtins"`
 	}
 	if err := yaml.Unmarshal(data, &parsed); err != nil {
 		return nil, err
 	}
-	if parsed.Builtins == nil && yamlHasKey(data, "builtins") {
-		parsed.Builtins = &[]string{}
+	list := parsed.Builtins
+	if list == nil {
+		list = []string{}
 	}
-	return parsed.Builtins, nil
+	return &list, nil
 }
 
 // seedPersonalBuiltins starts a personal list from the team list. A new
@@ -159,17 +173,23 @@ func seedPersonalBuiltins(data []byte, teamList []string, inherited string) ([]b
 	return editYAMLPair(data, mapping, "builtins", slices.Clone(teamList))
 }
 
-// onlyPersonalMemory reports whether data sets nothing but the
-// memory.personal the checkout inherits anyway, so the file can go.
-func onlyPersonalMemory(data []byte, inherited string) bool {
-	if len(bytes.TrimSpace(data)) == 0 {
-		return true
+// personalConfigRest is the personal config once its builtins list is
+// gone, or nil when deleting the file keeps the same effective config.
+// Any personal config stops a linked worktree inheriting memory.personal
+// from the main checkout, so an empty one keeps the checkout mode in
+// writing instead of being deleted.
+func personalConfigRest(out []byte, inherited string) []byte {
+	if len(bytes.TrimSpace(out)) == 0 {
+		if inherited == "" || inherited == config.PersonalMemoryCheckout {
+			return nil
+		}
+		return []byte("memory:\n  personal: " + config.PersonalMemoryCheckout + "\n")
 	}
 	var doc map[string]any
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return false
+	if err := yaml.Unmarshal(out, &doc); err == nil && inherited != "" && reflect.DeepEqual(doc, map[string]any{"memory": map[string]any{"personal": inherited}}) {
+		return nil
 	}
-	return inherited != "" && reflect.DeepEqual(doc, map[string]any{"memory": map[string]any{"personal": inherited}})
+	return out
 }
 
 func inheritedPersonalMemory(root string) (string, error) {
@@ -260,26 +280,78 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 	return e.Base.Path, "", nil
 }
 
-// checkPersonalTarget refuses a personal file whose folders resolve,
-// through links, outside the personal folder, or a personal folder that
-// holds the team sources, so a Just me save never rewrites a team file.
+// checkPersonalTarget refuses a Just me write unless file resolves,
+// through every link, inside the personal folder (or is the personal
+// config itself), outside every team source, and is not tracked by Git.
 func (h *editHandler) checkPersonalTarget(file string) error {
-	localDir := filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x"))))
-	teamDir := h.root
-	if !h.global {
-		teamDir = filepath.Join(h.root, defaultBaseDir)
+	localRoot := filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x"))))
+	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
+		localRoot = personalConfig
 	}
-	abs := func(path string) string {
-		if out, err := filepath.Abs(path); err == nil {
-			return resolveExisting(out)
+	team, err := h.teamSourcePaths()
+	if err != nil {
+		return err
+	}
+	target := resolvedAbs(file)
+	refuse := func(why string) error {
+		return fmt.Errorf("%s %s; personal files must stay in %s", overviewDisplay(h.root, file), why, overviewDisplay(h.root, localRoot))
+	}
+	if !withinDir(target, resolvedAbs(localRoot)) {
+		return refuse("resolves outside the personal folder")
+	}
+	for _, path := range team {
+		if withinDir(target, resolvedAbs(path)) {
+			return refuse("resolves to the team source " + overviewDisplay(h.root, path))
 		}
-		return path
 	}
-	realLocal, realTeam, realDir := abs(localDir), abs(teamDir), abs(filepath.Dir(file))
-	if !withinDir(realDir, realLocal) || withinDir(realTeam, realLocal) {
-		return fmt.Errorf("%s resolves outside %s; personal files must stay in that folder", overviewDisplay(h.root, file), overviewDisplay(h.root, localDir))
+	if gitTracks(target) {
+		return refuse("is tracked by Git")
 	}
 	return nil
+}
+
+// teamSourcePaths are the committed config files and spec folders an
+// edit must never reach through a personal path.
+func (h *editHandler) teamSourcePaths() ([]string, error) {
+	sources, base := globalSources, h.root
+	paths := []string{filepath.Join(h.root, config.ConfigFileName), filepath.Join(h.root, config.LegacyConfigFileName)}
+	if !h.global {
+		cfg, err := config.Load(h.root)
+		if err != nil {
+			return nil, err
+		}
+		sources = cfg.Sources
+	}
+	for _, dir := range []string{sources.Agents, sources.Skills, sources.Rules, sources.Hooks, sources.MCPs, sources.Commands, sources.Settings, sources.Reviews, sources.Environments, sources.Ignore} {
+		if dir != "" {
+			paths = append(paths, config.ResolveSourcePath(base, dir))
+		}
+	}
+	return paths, nil
+}
+
+func resolvedAbs(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return resolveExisting(abs)
+}
+
+// gitTracks reports whether the Git repository around path tracks it.
+func gitTracks(path string) bool {
+	dir := filepath.Dir(path)
+	for {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			break
+		}
+		if parent := filepath.Dir(dir); parent != dir {
+			dir = parent
+		} else {
+			return false
+		}
+	}
+	return exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", path).Run() == nil
 }
 
 func withinDir(path, dir string) bool {

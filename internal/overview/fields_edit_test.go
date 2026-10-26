@@ -279,3 +279,14 @@ func TestSettingsItem_ListsTheKeysItsOverlaySets(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsItem_ListsTheKeysOfAPersonalOnlySpec(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	mine := entry(spec.KindSettings, "mine", ".agnostic-ai/local/settings/mine.yaml", map[string]any{"name": "mine", "x-claude": map[string]any{"verbose": true}})
+	mine.Layer = "project-user"
+	for _, item := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{mine}}}), SectionSettings).Items {
+		if item.Name == "mine" && !slices.Equal(item.LocalKeys, []string{"x-claude.verbose"}) {
+			t.Errorf("local keys = %v", item.LocalKeys)
+		}
+	}
+}

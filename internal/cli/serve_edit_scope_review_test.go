@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -171,5 +172,46 @@ func TestBuiltinChanges_PreviewNamesItsScopeAndResetsAPersonalList(t *testing.T)
 	builtinAction(t, h, builtinApplyPath, reset.ID)
 	if _, err := os.Stat("agnostic-ai.local.yaml"); !os.IsNotExist(err) {
 		t.Errorf("reset kept the local config: %q", readOptional(t, "agnostic-ai.local.yaml"))
+	}
+}
+
+func TestEditBuiltin_ResetInALinkedWorktreeKeepsTheMemoryModeInEffect(t *testing.T) {
+	for _, body := range []string{`{"scope":"local","name":"handoff","enabled":false}`, `{"scope":"local","reset":true}`} {
+		t.Run(body, func(t *testing.T) {
+			silence(t)
+			isolateGit(t)
+			main := t.TempDir()
+			git(t, main, "init", "-q")
+			mustWrite(t, filepath.Join(main, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
+			mustWrite(t, filepath.Join(main, "agnostic-ai.local.yaml"), "memory:\n  personal: repo\n")
+			git(t, main, "add", "agnostic-ai.yaml")
+			git(t, main, "commit", "-qm", "base")
+			linked := filepath.Join(t.TempDir(), "linked")
+			git(t, main, "worktree", "add", "-q", "--detach", linked)
+			testutil.Chdir(t, linked)
+			mustWrite(t, "agnostic-ai.local.yaml", "builtins:\n  - memory\n  - handoff\n")
+			if rec := postEdit(t, newEditHandler(linked, false), editBuiltinPath, body, nil); rec.Code != 200 {
+				t.Fatalf("reset = %d %s", rec.Code, rec.Body)
+			}
+			cfg, err := config.Load(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.RepoPersonalMemory() || len(cfg.Builtins) != 1 {
+				t.Errorf("after reset: repo memory = %v, builtins = %v, local = %q", cfg.RepoPersonalMemory(), cfg.Builtins, readOptional(t, "agnostic-ai.local.yaml"))
+			}
+		})
+	}
+}
+
+func TestEditBuiltin_RefusesAMergedBuiltinsNull(t *testing.T) {
+	project := scopeProject(t)
+	local := "<<: {builtins: null}\n"
+	mustWrite(t, "agnostic-ai.local.yaml", local)
+	if rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true}`, nil); rec.Code < 400 {
+		t.Errorf("save = %d %s, want a refusal", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, "agnostic-ai.local.yaml"); got != local {
+		t.Errorf("local = %q", got)
 	}
 }
