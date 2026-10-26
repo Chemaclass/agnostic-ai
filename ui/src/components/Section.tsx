@@ -6,7 +6,7 @@ import { ErrorPanel } from './Banner'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { OpenInEditor } from './EditorLink'
-import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, useGoneFinding, useRechecks } from './Recheck'
+import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
@@ -66,6 +66,7 @@ function SectionContentsBody({ section }: { section: Section }) {
   const entry = app.state.entry
   const rechecked = useRechecks().rechecked
   const sectionPlace = `section:${section.id}`
+  const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
@@ -91,14 +92,14 @@ function SectionContentsBody({ section }: { section: Section }) {
   const warnings = section.findings.length - errors
   const findingsId = `${section.id}-findings`
   const findingCounts = [errors ? `${errors} error${errors === 1 ? '' : 's'}` : '', warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
-  const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace) && (
+  const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace || orphan !== undefined) && (
     <section className="block" aria-labelledby={findingsId}>
       <h2 id={findingsId} tabIndex={-1}>Other findings</h2>
-      <Findings findings={section.findings} place={sectionPlace} />
+      <Findings findings={section.findings} place={sectionPlace} orphanPlace={orphan} />
     </section>
   )
   return (
-    <>
+    <RecheckSection.Provider value={section.id}>
       <EditScopeSwitch />
       {entryMissing && (
         <div className="entry-missing" role="status">
@@ -152,7 +153,7 @@ function SectionContentsBody({ section }: { section: Section }) {
         )
       })}
       {errors === 0 && otherFindings}
-    </>
+    </RecheckSection.Provider>
   )
 }
 
@@ -632,16 +633,16 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
   )
 }
 
-function Findings({ findings, owner, place }: { findings: ItemFinding[]; owner?: string; place: string }) {
+function Findings({ findings, owner, place, orphanPlace }: { findings: ItemFinding[]; owner?: string; place: string; orphanPlace?: string }) {
   const ids = findingEntryIds(findings, owner)
-  const gone = useGoneFinding(place, ids)
+  const gone = useGoneFinding(place, ids, orphanPlace)
   if (!findings.length && !gone) return null
   return (
     <ul className="findings">
       {findings.map((f, i) => (
         <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} />
       ))}
-      {gone && <GoneFinding rechecked={gone} />}
+      {gone && (gone.result.state === 'incomplete' ? <Finding key={gone.id} finding={gone.finding} entryId={gone.id} place={place} /> : <GoneFinding rechecked={gone} />)}
     </ul>
   )
 }

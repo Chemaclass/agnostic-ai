@@ -620,7 +620,8 @@ input:hover {
   justify-content: center;
 }
 
-.button:disabled {
+.button:disabled,
+.finding-recheck[aria-disabled] {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -1018,7 +1019,7 @@ input:hover {
 }
 
 .finding-copy:hover,
-.finding-recheck:not(:disabled):hover {
+.finding-recheck:not(:disabled, [aria-disabled]):hover {
   border-color: var(--line);
   background: var(--panel);
 }

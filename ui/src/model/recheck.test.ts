@@ -50,6 +50,18 @@ describe('recheck', () => {
     expect(recheckMessage(result, read)).toBe('Lint stopped before it finished, so this recheck cannot tell whether the finding is fixed. The last known finding is shown.')
   })
 
+  it('keeps a finding that moved from its item to the section', () => {
+    const result = recheckResult(target(read, [read]), view([read]), view([], [{ ...read, line: 5 }]))
+    expect(result).toEqual({ state: 'remaining', id: findingEntryIds([read])[0], added: [] })
+  })
+
+  it('does not confirm a doctor fix, because doctor checks skip unreadable files', () => {
+    const trust: ItemFinding = { source: 'doctor', code: 'codex-hook-trust', severity: 'error', message: 'Codex hook is untrusted.', path: '.codex/hooks.json' }
+    const result = recheckResult(target(trust, [trust]), view([trust]), view([]))
+    expect(result.state).toBe('unconfirmed')
+    expect(recheckMessage(result, trust)).toBe('This doctor finding no longer appears, but this check skips files it cannot read, so this does not confirm a fix.')
+  })
+
   it('says a failed refresh proves nothing', () => {
     expect(recheckMessage({ state: 'failed', added: [] }, read)).toBe('The recheck did not finish, so this finding may still apply.')
   })

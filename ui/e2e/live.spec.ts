@@ -802,5 +802,16 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
     await expect(page.getByRole('alert').filter({ hasText: 'The overview could not be refreshed.' })).toBeVisible()
     await expect(edit.locator('.finding-recheck-result')).toHaveText('The recheck did not finish, so this finding may still apply.')
     await expect(edit).toContainText('bare edit now covers every file edit')
+
+    await page.unroute('**/api/views/overview')
+    await page.getByRole('alert').getByRole('button', { name: 'Retry' }).click()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(edit.locator('.finding-recheck-result')).toHaveText('')
+
+    await rm(permissions)
+    await edit.getByRole('button', { name: 'Recheck' }).click()
+    const other = page.locator('section.block', { has: page.getByRole('heading', { name: 'Other findings' }) })
+    await expect(other.locator('.finding-rechecked .finding-recheck-result')).toHaveText('This lint finding no longer appears.')
+    await expect(other.locator('.finding-rechecked')).toBeFocused()
   } finally { await f.close() }
 })
