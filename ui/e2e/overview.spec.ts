@@ -207,8 +207,9 @@ test.describe('overview', () => {
     await theme.click()
     await expect(theme).not.toHaveAttribute('aria-label', before ?? '')
     await expect(page.getByRole('combobox')).toHaveCount(0)
-    const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Edit .+ in Cursor$/ })
-    await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
+    const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Open .+ in Cursor$/ })
+    if (MOCK) await expect(open).toHaveCount(0)
+    else await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)
     await saveScreenshot(page, '01-context.png')
   })
 
@@ -232,7 +233,9 @@ test.describe('overview', () => {
     await expect(builtins).toHaveCount(5)
     await expect(builtins.filter({ hasText: 'memory' }).locator('.switch-text')).toHaveText(/On|Off/)
     const config = page.locator('.item-row', { hasText: 'agnostic-ai.yaml' })
-    await expect(config.getByRole('link', { name: /^Edit .+ in Cursor$/ })).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
+    const open = config.getByRole('link', { name: /^Open .+ in Cursor$/ })
+    if (MOCK) await expect(open).toHaveCount(0)
+    else await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.yaml$/)
     await expect(config.locator('.value-row', { hasText: 'targets' }).locator('.tool-avatar').first()).toBeVisible()
     await saveScreenshot(page, '03-settings.png')
   })
@@ -244,11 +247,64 @@ test.describe('overview', () => {
     const permissions = page.locator('.item-row', { hasText: 'permissions.yaml' }).first()
     await expect(permissions).toHaveClass(/has-findings/)
     await expect(permissions.locator('.finding')).toContainText('LINT038')
+    await expect(permissions.locator('.finding-source')).toContainText('Files open in an editor only from a running agnostic-ai serve.')
+    await expect(permissions.getByRole('button', { name: 'Copy path of .agnostic-ai/settings/permissions.yaml' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Open files in' })).toHaveCount(0)
     await expect(page.locator('.field-row', { hasText: 'Allowed without asking' }).locator('.chip').first()).toBeVisible()
     await expect(page.locator('.field-row', { hasText: 'Default permission mode' })).toContainText('Not set')
     await expect(page.getByText('Capability domains')).toHaveCount(0)
     await expect(page.getByText('Uncertainties')).toHaveCount(0)
     await saveScreenshot(page, '04-authority.png')
+  })
+
+  test('opens a finding at its line in the chosen editor, with Copy path beside it', async ({ page, context }) => {
+    const path = 'C:/Users/Some One/project #1/.agnostic-ai/settings/permissions.yaml'
+    const data = structuredClone(fixture)
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const item = authority.items.find((it: { name: string }) => it.name === 'permissions')
+    item.findings = [
+      { ...item.findings[0], path, line: 7, openPath: path },
+      { source: 'doctor', code: 'gone', severity: 'warn', message: 'Names a file that is not on disk', path: 'missing.yaml' },
+    ]
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding.locator('.finding-source')).toContainText(`${path}:7`)
+    const open = finding.getByRole('link', { name: `Open ${path} in Cursor at line 7` })
+    await expect(open).toHaveAttribute('href', 'cursor://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
+
+    const choice = page.getByRole('group', { name: 'Open files in' })
+    await expect(choice.getByRole('button', { name: 'Cursor' })).toHaveAttribute('aria-pressed', 'true')
+    await choice.getByRole('button', { name: 'VS Code' }).focus()
+    await page.keyboard.press('Space')
+    await expect(choice.getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
+    const vscode = finding.getByRole('link', { name: `Open ${path} in VS Code at line 7` })
+    await expect(vscode).toHaveAttribute('href', 'vscode://file/C:/Users/Some%20One/project%20%231/.agnostic-ai/settings/permissions.yaml:7')
+    await expect(page.locator('.item-row', { hasText: 'protected' }).first().getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', /^vscode:\/\/file\/.+protected\.yaml$/)
+
+    await page.evaluate(() => document.addEventListener('click', (event) => {
+      if ((event.target as Element).closest('a[href^="vscode:"]')) event.preventDefault()
+    }, true))
+    await vscode.focus()
+    await page.keyboard.press('Enter')
+    await expect(finding.getByRole('status')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await choice.getByRole('button', { name: 'Cursor' }).click()
+    await expect(finding.getByRole('status')).toHaveText('Sent to VS Code. If it did not open, copy the path.')
+    await choice.getByRole('button', { name: 'VS Code' }).click()
+    await finding.getByRole('button', { name: `Copy path of ${path}` }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('C:\\Users\\Some One\\project #1\\.agnostic-ai\\settings\\permissions.yaml')
+
+    const gone = page.locator('.finding', { hasText: 'Names a file that is not on disk' })
+    await expect(gone.locator('.finding-source')).toContainText('missing.yaml')
+    await expect(gone.locator('.finding-source')).toContainText('This path is not a file on disk, so it cannot be opened in an editor.')
+    await expect(gone.getByRole('button', { name: 'Copy path of missing.yaml' })).toBeVisible()
+    await expect(gone.getByRole('link')).toHaveCount(0)
+    await saveScreenshot(page, '04b-finding-editor.png')
+
+    await page.reload()
+    await expect(page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.finding', { hasText: 'LINT038' }).getByRole('link', { name: `Open ${path} in VS Code at line 7` })).toBeVisible()
   })
 
   test('lists each MCP server with its cached tools or how to list them', async ({ page }) => {
@@ -292,6 +348,7 @@ test.describe('overview', () => {
     await page.route('**/api/changes/builtin/preview', (route) => route.fulfill(refuse
       ? { status: 422, json: { error: 'The snapshot contains a symbolic link.' } }
       : { json: { ...state, status: 'proposed', id: 'preview', enabled: true, config: 'agnostic-ai.yaml', targets: ['claude'] } }))
+    await page.route('**/api/changes/builtin/cancel', (route) => route.fulfill({ json: state }))
     await page.goto('/?view=settings')
     const row = page.locator('.item-row', { has: page.getByRole('switch', { name: 'caveman built-in', exact: true }) })
     const toggle = row.locator('.item-heading').getByRole('switch', { name: 'caveman built-in', exact: true })

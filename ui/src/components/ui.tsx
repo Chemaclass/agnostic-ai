@@ -162,7 +162,7 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, className }: { text: string; label: string; copiedLabel?: string; onCopied?: (ok: boolean) => void; className?: string }) {
+export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, className, ariaLabel }: { text: string; label: string; copiedLabel?: string; onCopied?: (ok: boolean) => void; className?: string; ariaLabel?: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(timer.current), [])
@@ -170,6 +170,7 @@ export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, clas
     <button
       type="button"
       className={`button button-quiet${className ? ` ${className}` : ''}`}
+      aria-label={state === 'idle' ? ariaLabel : undefined}
       onClick={async () => {
         const ok = await copyText(text)
         setState(ok ? 'copied' : 'failed')

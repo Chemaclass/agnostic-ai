@@ -73,9 +73,11 @@ type globalSetting struct {
 }
 
 // globalSettingsFor resolves the settings specs for target into the
-// native keys its user settings file takes. Unsupported fields raise a coverage note.
+// native keys its user settings file takes, from the specs that emit to
+// target. Unsupported fields raise a coverage note.
 func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []globalSetting {
 	f := g.settings
+	settings = slices.DeleteFunc(slices.Clone(settings), func(entry spec.Entry) bool { return !entry.EmitsTo(target) })
 	models, efforts, custom, protected := 0, 0, 0, 0
 	for _, entry := range settings {
 		if _, ok := entry.Meta["protected"]; ok {
@@ -604,7 +606,7 @@ func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIss
 			if mode, present := permissions["default-mode"]; present && entry.EmitsTo(target) && f.permissionMode != "" && !acceptsGlobalPermissionMode(mode) {
 				out = append(out, validationIssue{Path: entry.Path, Field: "permissions.default-mode", Message: fmt.Sprintf("%s: %s does not accept permissions.default-mode %v; it takes %s", target, f.permissionMode, mode, strings.Join(globalPermissionModes, ", "))})
 			}
-			if f.path == "" || f.effort == "" {
+			if f.path == "" || f.effort == "" || !entry.EmitsTo(target) {
 				continue
 			}
 			effort := adapters.SettingsEffort([]spec.Entry{entry}, target)
