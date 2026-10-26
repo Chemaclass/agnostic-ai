@@ -478,8 +478,12 @@
 # (23507104): the web Settings page explains which model and effort value
 # each configured tool gets, from where, and why other values lose. Same
 # Linux amd64 release flags; no added headroom or dependencies.
-# #2511 measured 23564448 on Go 1.27.3, up 28672 from main 4fa3f4db
-# (23535776): the web interface previews, applies, and undoes a model or
+# #2516 measured 23539872 on Go 1.27.3, up 4096 from main 4fa3f4db
+# (23535776): sync --global --backup keeps a .bak of each file it
+# removes, and rollback restores an earlier .bak. Same Linux amd64
+# release flags; no added headroom or dependencies.
+# #2511 measured 23564448 on Go 1.27.3, up 24576 from main cf9ea2b5
+# (23539872): the web interface previews, applies, and undoes a model or
 # effort change, loading planned settings bytes without writing them.
 # Same Linux amd64 release flags; no added headroom or dependencies.
 23564448
