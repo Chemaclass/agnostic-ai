@@ -421,6 +421,46 @@ test.describe('overview', () => {
     await expect(justMe).toHaveAttribute('aria-pressed', 'true')
   })
 
+  test('resets a personal boolean and the override of the spec chosen to save to', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+    const nativeLocal = '.agnostic-ai/local/settings/native.yaml'
+    Object.assign(field('x-'), { set: [{ spec: 'native', path: nativeLocal, local: true, values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }, { key: 'x-claude.theme', type: 'text', value: 'dark' }] }] })
+    settings.items.push({ kind: 'settings', name: 'native', label: 'native', path: nativeLocal, layer: 'project-user', localKeys: ['x-claude.verbose'], values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }], findings: [] })
+    const [a, b, localB] = ['.agnostic-ai/settings/a.yaml', '.agnostic-ai/settings/b.yaml', '.agnostic-ai/local/settings/b.yaml']
+    Object.assign(field('model'), {
+      set: [
+        { spec: 'b', path: localB, local: true, values: [{ key: 'model', type: 'text', value: 'opus' }] },
+        { spec: 'b', path: b, values: [{ key: 'model', type: 'text', value: 'sonnet' }] },
+        { spec: 'a', path: a, values: [{ key: 'model', type: 'text', value: 'haiku' }] },
+      ],
+      editable: { kind: 'text', path: a, paths: [a, b], localPath: '.agnostic-ai/local/settings/a.yaml', syncCommand: 'agnostic-ai sync' },
+    })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const posted: unknown[] = []
+    for (const path of ['**/api/edit/field', '**/api/edit/value']) {
+      await page.route(path, (route) => {
+        posted.push(route.request().postDataJSON())
+        return route.fulfill({ json: { ok: true } })
+      })
+    }
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+
+    const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
+    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to team value' })).toHaveCount(1)
+    await native.getByRole('button', { name: 'Reset x-claude.verbose to team value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: nativeLocal, key: 'x-claude.verbose', value: null })
+
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.getByRole('button', { name: 'Reset to team value' })).toHaveCount(0)
+    await model.getByRole('combobox').selectOption(b)
+    await expect(model).toContainText('Your local value overrides the team value.')
+    await model.getByRole('button', { name: 'Reset to team value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null })
+  })
+
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await openApp(page)

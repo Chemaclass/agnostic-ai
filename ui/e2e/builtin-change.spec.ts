@@ -126,3 +126,36 @@ test('recovers retained undo after a failed apply without a source-only fallback
   await expect(toggle(page, 'caveman')).toBeEnabled()
   expect(server.edits()).toBe(0)
 })
+
+test('drops a proposal when the save scope changes and resets the whole personal list', async ({ page }) => {
+  const server = await session(page)
+  await toggle(page, 'caveman').click()
+  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for the team')
+  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await toggle(page, 'caveman').click()
+  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for you only')
+  expect(server.previews.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: true })
+})
+
+test('resets a personal built-in list that matches the team list', async ({ page }) => {
+  const previews: unknown[] = []
+  await page.route('**/api/views/overview', (route) => {
+    const view = structuredClone(fixture)
+    const settings = view.sections.find((section: { id: string }) => section.id === 'settings')
+    for (const kind of settings.kinds) if (kind.kind === 'builtin') kind.local = true
+    return route.fulfill({ json: view })
+  })
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
+  await page.route('**/api/changes/builtin/preview', (route) => {
+    previews.push(route.request().postDataJSON())
+    return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'reset-1', enabled: false, reset: true, scope: 'local', supported: true, undoAvailable: false, config: 'agnostic-ai.local.yaml', targets: ['claude'], changes: [], findings: [] } })
+  })
+  await page.goto('/?view=settings')
+  const block = page.locator('section.block').filter({ has: page.getByRole('heading', { name: /Built-ins/ }) })
+  await expect(block.locator('.badge', { hasText: 'local' })).toBeVisible()
+  await block.getByRole('button', { name: 'Reset built-ins to the team list' }).click()
+  await expect.poll(() => previews.at(-1)).toEqual({ scope: 'local', reset: true })
+  await expect(page.getByRole('region', { name: 'Built-in list reset preview' })).toContainText('agnostic-ai.local.yaml')
+})

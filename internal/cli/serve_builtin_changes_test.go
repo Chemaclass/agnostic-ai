@@ -805,7 +805,7 @@ func TestBuiltinChanges_NativePathsUseRecordedSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := planBuiltinChange(root, "caveman", true, scopeTeam)
+	plan, err := planBuiltinChange(root, builtinRequest{name: "caveman", enabled: true}, scopeTeam)
 	if err != nil {
 		t.Fatal(err)
 	}

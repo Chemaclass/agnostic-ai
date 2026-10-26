@@ -109,6 +109,9 @@ type KindCount struct {
 	Kind  string `json:"kind"`
 	Label string `json:"label"`
 	Count int    `json:"count"`
+	// Local is set on the built-ins row when the personal config replaces
+	// the team list.
+	Local bool `json:"local,omitempty"`
 }
 
 // KindSupport lists which configured targets emit a spec kind natively,
@@ -145,6 +148,9 @@ type SectionItem struct {
 	// Local is set for a built-in the personal config turns on or off
 	// against the team's list.
 	Local bool `json:"local,omitempty"`
+	// LocalKeys are the dotted keys a personal overlay of a settings spec
+	// sets itself, so each can be reset to the team value.
+	LocalKeys []string `json:"localKeys,omitempty"`
 	// Tools is set for an MCP server: what `agnostic-ai mcp tools` last
 	// listed. The overview reads that cache and never connects.
 	Tools *ToolListing `json:"tools,omitempty"`

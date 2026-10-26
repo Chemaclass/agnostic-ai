@@ -119,8 +119,9 @@ function SectionContentsBody({ section }: { section: Section }) {
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
+              {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
             </h2>
-            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} />}
+            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
@@ -141,11 +142,11 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
   return (
     <section className="block" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
-      {configured.length ? <FieldList fields={configured} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
+      {configured.length ? <FieldList fields={configured} files={files} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
       {unconfigured.length > 0 && (
         <details className="unconfigured-fields" open={filtering || undefined}>
           <summary>Unconfigured fields ({unconfigured.length})</summary>
-          <FieldList fields={unconfigured} />
+          <FieldList fields={unconfigured} files={files} />
         </details>
       )}
       {files.length > 0 && (
@@ -158,7 +159,7 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
   )
 }
 
-function FieldList({ fields }: { fields: SettingField[] }) {
+function FieldList({ fields, files }: { fields: SettingField[]; files: SectionItem[] }) {
   const app = useApp()
   const scope = useEditScope()
   return (
@@ -174,7 +175,7 @@ function FieldList({ fields }: { fields: SettingField[] }) {
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
           {!(app.source.kind === 'api' && f.key !== 'x-' && f.set.length === 1 && f.editable && !f.editable.disabledReason) && f.set.map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
-              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
+              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
@@ -194,7 +195,9 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
   const valueOf = (source?: SettingField['set'][number]) => source?.values.find((entry) => entry.key === field.key)?.value
-  const localCurrent = valueOf(field.set.find((source) => source.local && source.path === edit?.localPath))
+  const specPath = scope === 'local' ? edit?.path ?? path : path
+  const specName = field.set.find((source) => source.path === specPath)?.spec
+  const localCurrent = valueOf(field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath)))
   const teamCurrent = valueOf(field.set.find((source) => source.path === path && !source.local))
   const current = (scope === 'local' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
   const [value, setValue] = useState(current)
@@ -209,7 +212,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
     setValue(valueOf(field.set.find((source) => source.path === next && !source.local)) ?? '')
     setError(undefined)
   }
-  const target = scope === 'local' ? edit.path ?? path : path
+  const target = specPath
   const post = async (body: Record<string, unknown>) => {
     setPending(true)
     setError(undefined)
@@ -328,7 +331,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
             {item.kind === 'builtin' && item.enabled !== undefined
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
-            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} />}
+            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
             {item.findings.length > 0 && <Findings findings={item.findings} />}
           </li>
@@ -462,7 +465,7 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   )
 }
 
-function NativeValues({ values, file }: { values: Value[]; file: string }) {
+function NativeValues({ values, file, localKeys }: { values: Value[]; file: string; localKeys?: string[] }) {
   const groups = new Map<string, Value[]>()
   for (const value of values) {
     const prefix = value.key.split('.')[0]
@@ -475,14 +478,14 @@ function NativeValues({ values, file }: { values: Value[]; file: string }) {
       {[...groups].map(([prefix, entries]) => (
         <div key={prefix} className="native-group">
           <h4 className="native-group-title"><ToolAvatar target={prefix.slice(2)} /><code>{prefix}</code></h4>
-          <Values values={entries} file={file} prefix={prefix} />
+          <Values values={entries} file={file} prefix={prefix} localKeys={localKeys} />
         </div>
       ))}
     </div>
   )
 }
 
-function Values({ values, file, prefix, personal }: { values: Value[]; file?: string; prefix?: string; personal?: boolean }) {
+function Values({ values, file, prefix, personal, localKeys }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[] }) {
   const scope = usePageScope() ?? (personal ? 'local' : 'team')
   return (
     <dl className="values">
@@ -504,7 +507,10 @@ function Values({ values, file, prefix, personal }: { values: Value[]; file?: st
               </span>
             ) : v.type === 'bool' ? (
               file ? (
-                <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { scope, path: file, key: v.key, value: on })} />
+                <>
+                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { scope, path: file, key: v.key, value: on })} />
+                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to team value`} reset={() => postEdit(API.editValue, { scope: 'local', path: file, key: v.key, value: null })} />}
+                </>
               ) : (
                 <Switch on={v.value === 'true'} />
               )

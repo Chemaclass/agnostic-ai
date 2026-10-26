@@ -29,8 +29,10 @@ type builtinChangeView struct {
 	SchemaVersion string              `json:"schemaVersion"`
 	Status        string              `json:"status"`
 	ID            string              `json:"id,omitempty"`
-	Name          string              `json:"name"`
+	Name          string              `json:"name,omitempty"`
 	Enabled       bool                `json:"enabled"`
+	Reset         bool                `json:"reset,omitempty"`
+	Scope         string              `json:"scope,omitempty"`
 	Config        string              `json:"config,omitempty"`
 	Targets       []string            `json:"targets"`
 	Changes       []builtinFileChange `json:"changes"`
@@ -88,6 +90,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Scope   string `json:"scope"`
 		Name    string `json:"name"`
 		Enabled *bool  `json:"enabled"`
+		Reset   bool   `json:"reset"`
 		ID      string `json:"id"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(r.Body, 8193))
@@ -100,7 +103,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send exactly one JSON object"})
 		return
 	}
-	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Scope != "" || request.ID == "") {
+	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.Scope != "" || request.ID == "") {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "apply and undo require only a proposal id"})
 		return
 	}
@@ -110,8 +113,10 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	switch r.URL.Path {
 	case builtinPreviewPath:
-		if !slices.Contains(builtins.Names(), request.Name) || request.Enabled == nil || request.ID != "" {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires a known built-in name and an enabled boolean"})
+		toggle := slices.Contains(builtins.Names(), request.Name) && request.Enabled != nil && !request.Reset
+		reset := request.Reset && request.Name == "" && request.Enabled == nil
+		if toggle == reset || request.ID != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "preview requires a known built-in name and an enabled boolean, or reset alone"})
 			return
 		}
 		scope, scopeErr := parseEditScope(request.Scope)
@@ -120,7 +125,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		var plan *builtinChangePlan
-		plan, err = planBuiltinChange(h.root, request.Name, *request.Enabled, scope)
+		plan, err = planBuiltinChange(h.root, builtinRequest{name: request.Name, enabled: toggle && *request.Enabled, reset: reset}, scope)
 		if err == nil {
 			var token [24]byte
 			if _, err = rand.Read(token[:]); err == nil {
@@ -234,7 +239,7 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}
-	if _, err := planBuiltinChange(h.root, plan.view.Name, plan.view.Enabled, plan.scope); err != nil {
+	if _, err := planBuiltinChange(h.root, builtinRequest{name: plan.view.Name, enabled: plan.view.Enabled, reset: plan.view.Reset}, plan.scope); err != nil {
 		return builtinChangeView{}, err
 	}
 	if err := plan.inputs.check(h.root); err != nil {

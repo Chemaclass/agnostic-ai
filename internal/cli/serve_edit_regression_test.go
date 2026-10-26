@@ -316,7 +316,7 @@ func TestEditBuiltinNewFileRoundTripRestoresAbsence(t *testing.T) {
 	file := filepath.Join(source, "local", "agnostic-ai.yaml")
 	h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
 	for _, enabled := range []bool{true, false} {
-		target, edit, err := h.builtinsEdit(scopeLocal, "memory", enabled)
+		target, edit, err := h.builtinsEdit(scopeLocal, builtinRequest{name: "memory", enabled: enabled})
 		if err != nil || target != file {
 			t.Fatalf("target %s: %v", target, err)
 		}

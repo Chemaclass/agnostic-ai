@@ -11,6 +11,8 @@ export interface BuiltinChange {
   id?: string
   name?: string
   enabled: boolean
+  reset?: boolean
+  scope?: 'team' | 'local'
   config?: string
   targets: string[]
   changes: BuiltinFileChange[]
@@ -43,7 +45,8 @@ export function parseBuiltinChange(value: unknown): BuiltinChange {
     || (value.status !== 'idle' && value.status !== 'proposed' && value.status !== 'applied' && value.status !== 'undone')
     || typeof value.enabled !== 'boolean' || typeof value.supported !== 'boolean' || typeof value.undoAvailable !== 'boolean'
     || !strings(value.targets) || !strings(value.findings) || !Array.isArray(value.changes) || !value.changes.every(fileChange)
-    || (value.name !== undefined && !nonempty(value.name)) || (value.status !== 'idle' && !nonempty(value.name))
+    || (value.name !== undefined && !nonempty(value.name)) || (value.status !== 'idle' && !nonempty(value.name) && value.reset !== true)
+    || (value.reset !== undefined && typeof value.reset !== 'boolean') || (value.scope !== undefined && value.scope !== 'team' && value.scope !== 'local')
     || (value.id !== undefined && !nonempty(value.id)) || (value.config !== undefined && typeof value.config !== 'string')
     || (value.undoId !== undefined && (!nonempty(value.undoId) || !value.undoAvailable))
     || (value.undoName !== undefined && (!nonempty(value.undoName) || !value.undoAvailable || !value.undoId))
@@ -51,7 +54,7 @@ export function parseBuiltinChange(value: unknown): BuiltinChange {
     throw new Error('The server returned an invalid change. Reload before trying again.')
   }
   return {
-    status: value.status, id: value.id, name: value.name, enabled: value.enabled, config: value.config,
+    status: value.status, id: value.id, name: value.name, enabled: value.enabled, reset: value.reset, scope: value.scope, config: value.config,
     targets: value.targets, changes: value.changes, findings: value.findings,
     undoId: value.undoId, undoName: value.undoName, undoAvailable: value.undoAvailable, supported: value.supported,
   }

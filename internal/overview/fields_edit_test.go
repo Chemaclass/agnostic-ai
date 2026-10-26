@@ -227,3 +227,55 @@ func TestSettingsFields_LocalPathFollowsTheSpecNameNotItsFileName(t *testing.T) 
 		}
 	}
 }
+
+func TestSettingsFields_LocalOverlayThatClearsAFieldShowsAsPersonal(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	shared := entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/defaults.yaml", map[string]any{"name": "defaults", "model": "sonnet"})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/defaults.yaml", map[string]any{"name": "defaults", "model": nil})
+	delete(overlay.Meta, "model")
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionSettings).Fields {
+		if f.Key != "model" {
+			continue
+		}
+		if len(f.Set) != 2 || !f.Set[0].Local || f.Set[0].Values[0].Value != "null" || f.Set[1].Values[0].Value != "sonnet" {
+			t.Errorf("model set = %+v, want the personal null beside the team value", f.Set)
+		}
+	}
+}
+
+func TestAuthorityFields_LocalOverlayMarksANestedPermissionAsPersonal(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	shared := entry(spec.KindSettings, "defaults", ".agnostic-ai/settings/defaults.yaml", map[string]any{"name": "defaults", "permissions": map[string]any{"allow": []any{"Bash(ls)"}}})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/defaults.yaml", map[string]any{"name": "defaults", "permissions": map[string]any{"allow": []any{"Bash(go test)"}}})
+	if !LocalSets(overlay, "permissions.allow") || LocalSets(overlay, "permissions.deny") {
+		t.Errorf("LocalSets misreads the nested key")
+	}
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionAuthority).Fields {
+		if f.Key == "permissions.allow" && (len(f.Set) == 0 || !f.Set[0].Local) {
+			t.Errorf("allow set = %+v, want a personal source", f.Set)
+		}
+	}
+}
+
+func TestBuiltinKind_MarksAPersonalListEvenWhenItMatchesTheTeamList(t *testing.T) {
+	in := Inputs{Cfg: &config.Config{Builtins: []string{"memory"}}, BuiltinsTeam: []string{"memory"}, BuiltinsLocal: true}
+	for _, local := range []bool{true, false} {
+		in.BuiltinsLocal = local
+		for _, k := range sectionByID(t, Build(in), SectionSettings).Kinds {
+			if k.Kind == kindBuiltin && k.Local != local {
+				t.Errorf("builtin kind local = %v, want %v", k.Local, local)
+			}
+		}
+	}
+}
+
+func TestSettingsItem_ListsTheKeysItsOverlaySets(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	shared := entry(spec.KindSettings, "native", ".agnostic-ai/settings/native.yaml", map[string]any{"name": "native", "x-claude": map[string]any{"verbose": false, "theme": "dark"}})
+	overlay := localOverlay(shared, ".agnostic-ai/local/settings/native.yaml", map[string]any{"name": "native", "x-claude": map[string]any{"verbose": true}})
+	for _, item := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionSettings).Items {
+		if item.Name == "native" && !slices.Equal(item.LocalKeys, []string{"x-claude.verbose"}) {
+			t.Errorf("local keys = %v", item.LocalKeys)
+		}
+	}
+}

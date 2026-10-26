@@ -447,6 +447,7 @@ export interface KindCount {
   kind: string
   label: string
   count: number
+  local?: boolean
 }
 
 export interface KindSupport {
@@ -486,6 +487,8 @@ export interface SectionItem {
   enabled?: boolean
   /** For a built-in: the personal config turns it on or off against the team's list. */
   local?: boolean
+  /** For a settings overlay: the dotted keys the personal file sets itself. */
+  localKeys?: string[]
   /** For an MCP server: the tools `agnostic-ai mcp tools` last listed. */
   tools?: ToolListing
   findings: ItemFinding[]

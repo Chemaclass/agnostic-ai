@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -129,6 +130,9 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 	if where == scopeLocal {
 		return h.localFieldEdit(chosen, key, value)
 	}
+	if chosen.Path != "" && overview.LocalLayer(chosen) && chosen.Base == nil {
+		return h.newTeamFieldSpec(chosen, filepath.Dir(defaultFile), key, value)
+	}
 	if chosen.Path != "" {
 		var err error
 		if file, _, err = h.scopedSettingsFile(chosen, key, scopeTeam); err != nil {
@@ -163,7 +167,7 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, key string, value any) (
 		if _, inherited := chosen.Meta[key]; inherited {
 			return "", nil, fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)
 		}
-		return "", nil, errors.New("there is no personal value to reset")
+		return "", nil, fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), key)
 	}
 	if chosen.Path != "" {
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, scopeLocal)
@@ -178,7 +182,35 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, key string, value any) (
 	} else if !os.IsNotExist(err) {
 		return "", nil, fmt.Errorf("%s: %w", file, err)
 	}
+	if err := h.checkPersonalTarget(file); err != nil {
+		return "", nil, err
+	}
 	return file, scalarFieldEdit(chosen, key, value, fieldCreatedSpec), nil
+}
+
+// newTeamFieldSpec starts the shared spec under a personal one that has
+// none, so a Team save lands in the committed settings.
+func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, value any) (string, func([]byte) ([]byte, error), error) {
+	if value == nil {
+		return "", nil, fmt.Errorf("%s: there is no team %s to clear", overview.SpecPath(h.root, personal), key)
+	}
+	if overview.LocalSets(personal, key) {
+		return "", nil, fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), key)
+	}
+	file := filepath.Join(dir, personal.Name+".yaml")
+	if _, err := os.Lstat(file); err == nil {
+		return "", nil, fmt.Errorf("%s exists but is not the settings spec named %q", overviewDisplay(h.root, file), personal.Name)
+	} else if !os.IsNotExist(err) {
+		return "", nil, fmt.Errorf("%s: %w", file, err)
+	}
+	scaffold, err := yaml.Marshal(struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}{personal.Name, "Shared settings."})
+	if err != nil {
+		return "", nil, err
+	}
+	return file, scalarFieldEdit(spec.Entry{}, key, value, fieldCreatedMarker+string(scaffold)), nil
 }
 
 // scalarFieldEdit sets or clears key in a settings file. A new file starts

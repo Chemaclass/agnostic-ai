@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -49,55 +50,134 @@ func (h *editHandler) builtinsConfigFiles() (team, local string) {
 	return team, filepath.Join(h.root, config.LocalOverrideFileName)
 }
 
-// builtinsEdit turns one built-in on or off. A local edit copies the team
-// list into the personal config first, since that list replaces the team
-// one whole, and drops it again once it matches the team list.
-func (h *editHandler) builtinsEdit(scope editScope, name string, enabled bool) (string, func([]byte) ([]byte, error), error) {
+// builtinRequest switches one built-in, or with reset drops the personal
+// builtins list so the team list applies again.
+type builtinRequest struct {
+	name    string
+	enabled bool
+	reset   bool
+}
+
+// builtinsEdit applies req to the team or the personal builtins list. A
+// local edit copies the team list into the personal config first, since
+// that list replaces the team one whole, and drops it again once it
+// matches the team list.
+func (h *editHandler) builtinsEdit(scope editScope, req builtinRequest) (string, func([]byte) ([]byte, error), error) {
 	team, local := h.builtinsConfigFiles()
 	localData, err := os.ReadFile(local)
 	if err != nil && !os.IsNotExist(err) {
 		return "", nil, fmt.Errorf("%s: %w", local, err)
 	}
 	if scope == scopeTeam {
-		if yamlHasKey(localData, "builtins") {
-			return "", nil, fmt.Errorf("%s sets builtins for you; reset it before changing the team list", overviewDisplay(h.root, local))
+		if req.reset {
+			return "", nil, fmt.Errorf("%s: reset applies to your personal list; send scope local", overviewDisplay(h.root, local))
 		}
-		return team, func(data []byte) ([]byte, error) { return setBuiltin(data, name, enabled) }, nil
+		if personal, err := personalBuiltins(localData); err != nil || personal != nil {
+			return "", nil, cmp.Or(err, fmt.Errorf("%s sets builtins for you; reset it before changing the team list", overviewDisplay(h.root, local)))
+		}
+		return team, func(data []byte) ([]byte, error) { return setBuiltin(data, req.name, req.enabled) }, nil
 	}
 	teamList, err := readBuiltinsList(team)
 	if err != nil {
 		return "", nil, err
 	}
-	return local, func(data []byte) ([]byte, error) {
-		if !yamlHasKey(data, "builtins") {
-			if slices.Contains(teamList, name) == enabled {
-				return data, nil
-			}
-			_, mapping, err := yamlDocument(data)
-			if err != nil {
-				return nil, err
-			}
-			if data, err = editYAMLPair(data, mapping, "builtins", append([]string{}, teamList...)); err != nil {
-				return nil, err
-			}
+	inherited := ""
+	if len(localData) == 0 && !h.global {
+		if inherited, err = inheritedPersonalMemory(h.root); err != nil {
+			return "", nil, err
 		}
-		out, err := setBuiltin(data, name, enabled)
+	}
+	display := overviewDisplay(h.root, local)
+	return local, func(data []byte) ([]byte, error) {
+		personal, err := personalBuiltins(data)
 		if err != nil {
 			return nil, err
 		}
-		var parsed struct {
-			Builtins []string `yaml:"builtins"`
+		if personal != nil && !yamlHasKey(data, "builtins") {
+			return nil, fmt.Errorf("%s sets builtins through a YAML merge; edit that file by hand", display)
 		}
-		if err := yaml.Unmarshal(out, &parsed); err != nil {
-			return nil, err
-		}
-		if sameNameSet(parsed.Builtins, teamList) {
-			if out, err = removeYAMLPair(out, "builtins"); err != nil || len(bytes.TrimSpace(out)) == 0 {
+		var out []byte
+		switch {
+		case req.reset && personal == nil:
+			return nil, fmt.Errorf("%s: there is no personal builtins list to reset", display)
+		case req.reset:
+			out = data
+		case personal == nil && slices.Contains(teamList, req.name) == req.enabled:
+			return data, nil
+		default:
+			if personal == nil {
+				if data, err = seedPersonalBuiltins(data, teamList, inherited); err != nil {
+					return nil, err
+				}
+			}
+			if out, err = setBuiltin(data, req.name, req.enabled); err != nil {
+				return nil, err
+			}
+			if personal, err = personalBuiltins(out); err != nil {
 				return nil, err
 			}
 		}
+		if !req.reset && !sameNameSet(*personal, teamList) {
+			return out, nil
+		}
+		if out, err = removeYAMLPath(out, "builtins"); err != nil {
+			return nil, err
+		}
+		if onlyPersonalMemory(out, inherited) {
+			return nil, nil
+		}
 		return out, nil
 	}, nil
+}
+
+// personalBuiltins is the builtins list a config sets, merges included,
+// or nil when it sets none.
+func personalBuiltins(data []byte) (*[]string, error) {
+	var parsed struct {
+		Builtins *[]string `yaml:"builtins"`
+	}
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		return nil, err
+	}
+	if parsed.Builtins == nil && yamlHasKey(data, "builtins") {
+		parsed.Builtins = &[]string{}
+	}
+	return parsed.Builtins, nil
+}
+
+// seedPersonalBuiltins starts a personal list from the team list. A new
+// personal config in a linked worktree also keeps the memory.personal it
+// inherited from the main checkout, which any local config would end.
+func seedPersonalBuiltins(data []byte, teamList []string, inherited string) ([]byte, error) {
+	if len(bytes.TrimSpace(data)) == 0 && inherited != "" {
+		data = []byte("memory:\n  personal: " + inherited + "\n")
+	}
+	_, mapping, err := yamlDocument(data)
+	if err != nil {
+		return nil, err
+	}
+	return editYAMLPair(data, mapping, "builtins", slices.Clone(teamList))
+}
+
+// onlyPersonalMemory reports whether data sets nothing but the
+// memory.personal the checkout inherits anyway, so the file can go.
+func onlyPersonalMemory(data []byte, inherited string) bool {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return true
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return false
+	}
+	return inherited != "" && reflect.DeepEqual(doc, map[string]any{"memory": map[string]any{"personal": inherited}})
+}
+
+func inheritedPersonalMemory(root string) (string, error) {
+	if git, ok := config.ProjectGitFor(root); ok {
+		return git.Personal, nil
+	}
+	git, _, err := config.ReadProjectGit(root)
+	return git.Personal, err
 }
 
 func readBuiltinsList(path string) ([]string, error) {
@@ -134,7 +214,11 @@ func overviewBuiltins(root string, global bool) ([]string, bool) {
 		return nil, false
 	}
 	data, err := os.ReadFile(local)
-	return list, err == nil && yamlHasKey(data, "builtins")
+	if err != nil {
+		return list, false
+	}
+	personal, err := personalBuiltins(data)
+	return list, err == nil && personal != nil
 }
 
 // scopedSettingsFile is the file an edit of key in the loaded settings
@@ -144,19 +228,22 @@ func overviewBuiltins(root string, global bool) ([]string, bool) {
 func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editScope) (string, string, error) {
 	local := overview.LocalLayer(e)
 	if scope == scopeLocal {
-		if local && e.Base != nil {
-			return e.Path, settingsOverlayScaffold(e.Name), nil
+		file, scaffold := e.Path, fieldCreatedSpec
+		switch {
+		case local && e.Base != nil:
+			scaffold = settingsOverlayScaffold(e.Name)
+		case !local:
+			file, scaffold = filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name)), settingsOverlayScaffold(e.Name)
+			if _, err := os.Lstat(file); err == nil {
+				return "", "", fmt.Errorf("%s exists but does not overlay the settings spec named %q", overviewDisplay(h.root, file), e.Name)
+			} else if !os.IsNotExist(err) {
+				return "", "", fmt.Errorf("%s: %w", file, err)
+			}
 		}
-		if local {
-			return e.Path, fieldCreatedSpec, nil
+		if err := h.checkPersonalTarget(file); err != nil {
+			return "", "", err
 		}
-		file := filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name))
-		if _, err := os.Lstat(file); err == nil {
-			return "", "", fmt.Errorf("%s exists but does not overlay the settings spec named %q", overviewDisplay(h.root, file), e.Name)
-		} else if !os.IsNotExist(err) {
-			return "", "", fmt.Errorf("%s: %w", file, err)
-		}
-		return file, settingsOverlayScaffold(e.Name), nil
+		return file, scaffold, nil
 	}
 	if !local {
 		return e.Path, "", nil
@@ -164,7 +251,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 	if e.Base == nil {
 		return "", "", fmt.Errorf("%s is a personal spec with no team value; switch to Just me to edit it", overview.SpecPath(h.root, e))
 	}
-	if localSetsPath(e, key) {
+	if overview.LocalSets(e, key) {
 		return "", "", fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, e), key)
 	}
 	if e.Base.Layer == layerNameBuiltin || strings.HasPrefix(e.Base.Layer, "pack:") {
@@ -173,30 +260,39 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 	return e.Base.Path, "", nil
 }
 
-// localSetsPath reports whether the personal file behind e sets the
-// dotted key itself.
-func localSetsPath(e spec.Entry, key string) bool {
-	if !overview.LocalLayer(e) {
-		return false
+// checkPersonalTarget refuses a personal file whose folders resolve,
+// through links, outside the personal folder, or a personal folder that
+// holds the team sources, so a Just me save never rewrites a team file.
+func (h *editHandler) checkPersonalTarget(file string) error {
+	localDir := filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x"))))
+	teamDir := h.root
+	if !h.global {
+		teamDir = filepath.Join(h.root, defaultBaseDir)
 	}
-	var current any = e.LocalMeta
-	if e.Base == nil {
-		current = e.Meta
-	}
-	for _, part := range strings.Split(key, ".") {
-		m, ok := current.(map[string]any)
-		if !ok {
-			return false
+	abs := func(path string) string {
+		if out, err := filepath.Abs(path); err == nil {
+			return resolveExisting(out)
 		}
-		if current, ok = m[part]; !ok {
-			return false
-		}
+		return path
 	}
-	return true
+	realLocal, realTeam, realDir := abs(localDir), abs(teamDir), abs(filepath.Dir(file))
+	if !withinDir(realDir, realLocal) || withinDir(realTeam, realLocal) {
+		return fmt.Errorf("%s resolves outside %s; personal files must stay in that folder", overviewDisplay(h.root, file), overviewDisplay(h.root, localDir))
+	}
+	return nil
+}
+
+func withinDir(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func settingsOverlayScaffold(name string) string {
-	return fieldCreatedMarker + "name: " + name + "\n"
+	out, err := yaml.Marshal(map[string]string{"name": name})
+	if err != nil {
+		panic(err)
+	}
+	return fieldCreatedMarker + string(out)
 }
 
 // matchesShownSpec reports whether shown names e, by its own path or by
@@ -205,21 +301,36 @@ func (h *editHandler) matchesShownSpec(e spec.Entry, shown string) bool {
 	return overview.SpecPath(h.root, e) == shown || overview.SettingsTeamPath(h.root, e) == shown
 }
 
-// removeYAMLPair deletes a top-level key and its value through a byte
-// splice, then checks that nothing else changed.
-func removeYAMLPair(data []byte, key string) ([]byte, error) {
-	_, mapping, err := yamlDocument(data)
+// removeYAMLPath deletes a dotted key and its value through a byte splice,
+// and the parent keys it leaves empty, then checks that nothing else
+// changed.
+func removeYAMLPath(data []byte, key string) ([]byte, error) {
+	_, parent, err := yamlDocument(data)
 	if err != nil {
 		return nil, err
 	}
-	at, value := yamlMapValue(mapping, key)
+	parts := strings.Split(key, ".")
+	for _, part := range parts[:len(parts)-1] {
+		_, value := yamlMapValue(parent, part)
+		if value == nil {
+			return data, nil
+		}
+		if value.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("%s is not safely removable", key)
+		}
+		parent = value
+	}
+	at, value := yamlMapValue(parent, parts[len(parts)-1])
 	if value == nil {
 		return data, nil
 	}
-	if mapping.Style&yaml.FlowStyle != 0 || value.Anchor != "" {
+	if len(parts) > 1 && len(parent.Content) == 2 {
+		return removeYAMLPath(data, strings.Join(parts[:len(parts)-1], "."))
+	}
+	if parent.Style&yaml.FlowStyle != 0 || parent.Anchor != "" || value.Anchor != "" {
 		return nil, fmt.Errorf("%s is not safely removable", key)
 	}
-	start, err := yamlNodeOffset(data, mapping.Content[at])
+	start, err := yamlNodeOffset(data, parent.Content[at])
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +356,11 @@ func removeYAMLPair(data []byte, key string) ([]byte, error) {
 	if err := yaml.Unmarshal(out, &after); err != nil {
 		return nil, fmt.Errorf("the edit does not parse: %w", err)
 	}
-	delete(before, key)
+	m := before
+	for _, part := range parts[:len(parts)-1] {
+		m, _ = m[part].(map[string]any)
+	}
+	delete(m, parts[len(parts)-1])
 	if len(before) == 0 && len(after) == 0 {
 		return out, nil
 	}

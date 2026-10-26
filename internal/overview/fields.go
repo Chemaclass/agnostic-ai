@@ -60,6 +60,10 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			}
 			e := byName[it.Name]
 			values := d.values(it.Values)
+			if len(values) == 0 && e.Base != nil && !d.prefix && LocalSets(e, d.key) {
+				// A personal null clears the team value; show it so it can be reset.
+				values = []Value{{Key: d.key, Type: ValueText, Value: "null"}}
+			}
 			if len(values) == 0 {
 				continue
 			}
@@ -174,17 +178,26 @@ func LocalLayer(e spec.Entry) bool {
 	return e.Layer == "project-user" || e.Layer == "global-local"
 }
 
-// LocalSets reports whether a personal file itself sets key for e, not
-// the shared spec it extends.
+// LocalSets reports whether a personal file itself sets the dotted key
+// for e, not the shared spec it extends.
 func LocalSets(e spec.Entry, key string) bool {
 	if !LocalLayer(e) {
 		return false
 	}
+	var current any = e.LocalMeta
 	if e.Base == nil {
-		return hasField(e, key)
+		current = e.Meta
 	}
-	_, ok := e.LocalMeta[key]
-	return ok
+	for _, part := range strings.Split(key, ".") {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return false
+		}
+		if current, ok = m[part]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // SettingsTeamPath is the shown path of the committed file behind e: its

@@ -354,7 +354,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 					}
 				}
 			}
-			s.Kinds = append(s.Kinds, KindCount{Kind: r.id(), Label: r.title(), Count: count})
+			s.Kinds = append(s.Kinds, KindCount{Kind: r.id(), Label: r.title(), Count: count, Local: r.special == kindBuiltin && in.BuiltinsLocal})
 			if r.special == "" {
 				s.Support = append(s.Support, kindSupport(r.kind, r.title(), targets, caps))
 			}
@@ -490,6 +490,11 @@ func sectionItem(root string, e spec.Entry) SectionItem {
 	}
 	if e.Kind == spec.KindSettings {
 		item.Values = settingsValues(e)
+		if e.Base != nil && LocalLayer(e) {
+			for _, v := range specValues(e.LocalMeta) {
+				item.LocalKeys = append(item.LocalKeys, v.Key)
+			}
+		}
 	}
 	if e.Layer != builtinLayer {
 		item.OpenPath = editablePath(e.Path)
