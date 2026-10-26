@@ -359,7 +359,7 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
       app.reload()
     }
   }
-  const shown = overridden ? undefined : scope === 'local' && localCurrent !== undefined ? localSource?.path : teamCurrent !== undefined ? teamSource?.path : undefined
+  const shown = overridden ? undefined : scope === 'local' ? (localCurrent !== undefined ? localSource?.path : undefined) : teamCurrent !== undefined ? teamSource?.path : undefined
   return <>{sources(shown)}<div className="field-edit">
     {overridden
       ? <div className="field-edit-row">

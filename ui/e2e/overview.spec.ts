@@ -653,6 +653,8 @@ test.describe('overview', () => {
     await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
     await expect(effort.locator('.field-source')).toHaveCount(0)
     await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(retention.getByRole('spinbutton', { name: 'Session retention value' })).toHaveValue('30')
+    await expect(retention.locator('.field-source')).toContainText(`from ${team}`)
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
