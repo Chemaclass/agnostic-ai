@@ -1,7 +1,7 @@
 +++
 title = "CI"
 description = "Fail CI when generated files no longer match your specs."
-weight = 50
+weight = 60
 
 [extra]
 group = "Workflows"

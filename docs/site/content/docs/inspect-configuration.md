@@ -1,7 +1,7 @@
 +++
 title = "Inspect your configuration"
 description = "Find a warning in the browser, edit its source, and sync the fix."
-weight = 85
+weight = 50
 
 [extra]
 group = "Workflows"

@@ -1,7 +1,7 @@
 +++
 title = "Shared memory"
 description = "One project memory that every AI tool reads and writes, so what one tool learns the others know next session."
-weight = 79
+weight = 72
 
 [extra]
 group = "Workflows"

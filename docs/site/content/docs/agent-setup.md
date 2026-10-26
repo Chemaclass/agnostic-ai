@@ -1,10 +1,10 @@
 +++
 title = "Set up agnostic-ai with a coding agent"
 description = "Paste one prompt into your coding agent and it sets up agnostic-ai for you."
-weight = 15
+weight = 20
 
 [extra]
-nav_title = "Set up with agents"
+nav_title = "Set up with an agent"
 group = "Start"
 +++
 

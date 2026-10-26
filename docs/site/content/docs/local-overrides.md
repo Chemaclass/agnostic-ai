@@ -1,7 +1,7 @@
 +++
 title = "Local overrides"
 description = "Keep personal specs and instructions on top of the shared ones, out of Git, per project or per machine."
-weight = 75
+weight = 45
 
 [extra]
 group = "Workflows"

@@ -295,7 +295,7 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 
 Use `--dir` to select a project or `--global` to select user configuration explicitly. These flags cannot be combined. An invalid project configuration reports an error. `--json` prints the `overview/v1` document without starting a server or opening a browser.
 
-The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
+The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of the lists and counts. Search within a section to find a source file or value. The browser has light and dark themes and works on narrow screens. See the [browser walkthrough](@/docs/inspect-configuration.md) and [server options](#serve).
 ```bash
 agnostic-ai ui
 agnostic-ai view --json
