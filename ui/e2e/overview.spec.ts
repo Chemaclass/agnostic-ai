@@ -393,6 +393,7 @@ test.describe('overview', () => {
     await page.route('**/api/changes/builtin/preview', (route) => route.fulfill(refuse
       ? { status: 422, json: { error: 'The snapshot contains a symbolic link.' } }
       : { json: { ...state, status: 'proposed', id: 'preview', enabled: true, config: 'agnostic-ai.yaml', targets: ['claude'] } }))
+    await page.route('**/api/changes/builtin/cancel', (route) => route.fulfill({ json: state }))
     await page.goto('/?view=settings')
     const row = page.locator('.item-row', { has: page.getByRole('switch', { name: 'caveman built-in', exact: true }) })
     const toggle = row.locator('.item-heading').getByRole('switch', { name: 'caveman built-in', exact: true })

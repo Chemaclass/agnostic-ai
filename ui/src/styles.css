@@ -2244,6 +2244,20 @@ input:hover {
   overflow-wrap: anywhere;
 }
 
+.builtin-change-pending {
+  padding: 8px 12px;
+  border-left: 3px solid var(--approval);
+  background: var(--approval-wash);
+}
+
+.change-status:not(:has(> *:not(:empty))) {
+  display: none;
+}
+
+.field-edit-apply {
+  font-size: 13px;
+}
+
 .field-edit {
   grid-column: 2;
   display: grid;
