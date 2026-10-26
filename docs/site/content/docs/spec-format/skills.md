@@ -9,16 +9,11 @@ group = "Reference"
 
 # Skills
 
-`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, investigate a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files only when the skill applies.
-
-Use a [rule](@/docs/spec-format/rules.md) for what applies to every task, and a skill for a procedure some tasks need.
+`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, investigate a bug report. The tool keeps each skill's `description` in view and reads the body and bundled files only when the skill applies. Use a [rule](@/docs/spec-format/rules.md) for what applies to every task.
 
 ## Write one
 
-`agnostic-ai new skill yaml-validator` creates a starter under `.agnostic-ai/skills/`. Two layouts:
-
-- **Flat:** `skills/yaml-validator.md`
-- **Nested**, for skills with attached files: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
+`agnostic-ai new skill yaml-validator` creates a starter under `.agnostic-ai/skills/`. Use a flat `skills/yaml-validator.md`, or a nested `skills/yaml-validator/SKILL.md` when the skill has files, such as `schema.yaml` beside it.
 
 ```markdown
 ---
@@ -33,28 +28,7 @@ description: Validate YAML against a schema. Use when a YAML file changes or the
 3. Report violations as `path: message`
 ```
 
-This manual-only release skill runs on a stronger model in Claude Code and ships its own script:
-
-```
-skills/cut-release/
-├── SKILL.md
-└── scripts/bump-version.sh
-```
-
-```markdown
----
-name: cut-release
-description: Cut a release. Run only when the user asks to release or tag.
-disable-model-invocation: true
-model: {claude: opus}
----
-
-1. Run `make ci-local` and stop on any failure.
-2. Run `scripts/bump-version.sh <version>` from this skill's folder.
-3. Commit `chore(release): v<version>` and tag it.
-```
-
-After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Then ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file and its schema. In the nested layout, put the schema the body names beside `SKILL.md`.
+Run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync --check`. Then ask Claude Code to use `/yaml-validator`, or Codex to use `$yaml-validator`, with a YAML file and its schema.
 
 ## Fields
 
@@ -72,12 +46,7 @@ After editing, run `agnostic-ai lint`, `agnostic-ai sync`, and `agnostic-ai sync
 
 A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` puts the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
-Sync reports each skill field a tool leaves out, including `argument-hint`, `model`, and `effort`.
-
-- A field that is kept in the tool's own frontmatter, in a command copy of the skill, or in a policy file gets no note.
-- `agnostic-ai compare claude codex` shows which skill fields each tool keeps, translates, or drops.
-- Use `{claude: opus}` to choose a model only for Claude.
-- Global sync works the same way. Shared global directories leave out per-target overrides.
+Sync, including global sync, prints a note for each skill field a tool leaves out, such as `argument-hint`, `model`, or `effort`; a field kept in the tool's frontmatter, a command copy of the skill, or a policy file gets none. `agnostic-ai compare claude codex` shows which fields each tool keeps, translates, or drops. Shared global directories leave out per-target overrides.
 
 ## Allowed tools {#allowed-tools}
 
@@ -87,11 +56,9 @@ Write `allowed-tools` with the same [capabilities](@/docs/spec-format/agents.md#
 allowed-tools: [read(src/**), edit(src/**), shell(git diff *), mcp:github]
 ```
 
-The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each tool gets its own names where it supports this field. A tool that drops a restriction or grants more access raises a sync note. `on-unsupported: error` fails when a tool would grant more access.
+Unlike an agent's tool list, `allowed-tools` keeps paths and patterns, so `shell(git diff *)` pre-approves only those commands. Each tool gets its own names where it supports this field. A tool that drops a restriction or grants more access raises a sync note, and `on-unsupported: error` fails when a tool would grant more access.
 
-Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. So do scoped names such as `Read(src/**)` and `Bash(git diff *)`. A list can mix neutral and Claude Code names. For Claude Code, `mcp:<server>` for a server name that contains `__` or ends in `_` becomes `mcp__<server>__*`, as in an agent's `can`.
-
-`agnostic-ai migrate --only capabilities` rewrites Claude Code names that map exactly, including an adjacent `WebFetch, WebSearch` pair as `web`. `import` writes neutral names where the tool's own names map one to one. Neither guesses a narrower restriction from a tool's bundle of tools. `lint --suggest-capabilities` suggests neutral names for Claude Code names (LINT037). It suggests nothing by default.
+Claude Code names, scoped ones such as `Read(src/**)` and `Bash(git diff *)` included, work as aliases, and a list can mix both. `migrate --only capabilities`, `import`, and `lint --suggest-capabilities` (LINT037) convert names as they do for [agents](@/docs/spec-format/agents.md#capabilities). Neither `migrate` nor `import` guesses a narrower restriction from a tool's bundle of tools.
 
 ## Bundled files and output
 
@@ -109,13 +76,13 @@ Claude Code replaces some syntax in a skill body before the model reads it ([ski
 - `$ARGUMENTS` becomes the text typed after the skill name.
 - `$0`, `$1`, ... and `$ARGUMENTS[N]` become one argument each.
 
-Other targets do not expand this syntax in project skills. Kilo also supports inline shell placeholders in trusted user skills; see [Kilo shell commands](@/docs/targets/kilo.md#shell-commands-in-global-skills). Sync copies the body as written. It prints one note per tool and syntax, naming each line:
+Other targets do not expand this syntax in project skills. Sync copies the body as written and prints one note per tool and syntax, naming each line:
 
 ```
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` checks the user-level destination. Kilo inline shell placeholders in documented trusted user directories pass this check; argument placeholders and Claude dynamic code blocks still raise notes. It reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root. There, Kilo's [inline shell placeholders](@/docs/targets/kilo.md#shell-commands-in-global-skills) in trusted user skill directories pass; argument placeholders and Claude dynamic code blocks still raise notes.
 
 Put the Claude line in a fence and give other tools their own text:
 
@@ -134,19 +101,19 @@ A `$1` or `` !`command` `` inside a fenced code block counts as an example and i
 
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
-Without the field, every tool below lets the model use the skill on its own. Only the listed tools were checked.
+Without the field, every tool lets the model use the skill on its own. Each target page gives the native details and links the vendor docs.
 
 | Target | Behavior |
 |--------|----------|
-| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
-| [Copilot](@/docs/targets/copilot.md) | Written to `SKILL.md`, with `argument-hint`. Both are dropped when another target also writes Copilot's skills folder |
-| [OpenCode](@/docs/targets/opencode.md) | Written to `SKILL.md`. V2 2.0.26 honors it; V1 does not. Native `metadata.opencode/autoinvoke` takes precedence |
-| [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit value in `x-codex.policy` or a bundled `agents/openai.yaml` wins |
-| [Zed](@/docs/targets/zed.md) | Written to `SKILL.md` |
-| [Windsurf](@/docs/targets/windsurf.md) | Written as `triggers: [user]` to `SKILL.md`. An explicit `x-windsurf.triggers` wins |
-| [Crush](@/docs/targets/crush.md) | Written to `SKILL.md` with `user-invocable: true`, which keeps the skill in Crush's command palette |
-| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` and, when another target writes `.agents/skills`, `outputs.factory.skills-dir: .factory/skills` |
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md), [Zed](@/docs/targets/zed.md) | Written to `SKILL.md` |
+| [Copilot](@/docs/targets/copilot.md) | Written to `SKILL.md`, with `argument-hint` |
+| [OpenCode](@/docs/targets/opencode.md) | Written to `SKILL.md`. V2 honors it; V1 does not |
+| [Codex](@/docs/targets/codex.md) | `allow_implicit_invocation: false` in `agents/openai.yaml` |
+| [Windsurf](@/docs/targets/windsurf.md) | `triggers: [user]` in `SKILL.md` |
+| [Crush](@/docs/targets/crush.md) | Written to `SKILL.md` with `user-invocable: true` |
+| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
+| Cline, Amp, Warp, Antigravity, Continue, Goose, OpenHands | Dropped with a note: no documented field keeps a skill user-only |
 
-Zed, Windsurf, and Crush write it only while no other target writes the same skills folder, since every writer of a shared `SKILL.md` must agree on its bytes. Otherwise the field is dropped with a note; point the tool's `skills-dir` at a folder of its own to keep it. Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-factory` key, plus the `skills-dir` override above whenever another target writes `.agents/skills`; otherwise sync stops with `AAI-102`. A manual-only skill that the model can use crosses a safety boundary.
+Copilot, Zed, Windsurf, and Crush write it only while no other target writes the same skills folder, since every writer of a shared `SKILL.md` must agree on its bytes. Otherwise the field is dropped with a note; point the tool's `skills-dir` at a folder of its own to keep it.
 
-These tools were checked and document no field that keeps a skill user-only, so the field is dropped with a note: Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands. Each target page links the vendor docs. OpenHands' SDK reads the field, but such a skill then runs only on a `triggers` keyword, so sync does not write it.
+Factory skills go in the shared `.agents/skills/` folder, where the key would reach tools that ignore it and let their models use a manual-only skill. So while another target writes that folder, `x-factory.disable-model-invocation` also needs `outputs.factory.skills-dir: .factory/skills`; otherwise sync stops with `AAI-102`.

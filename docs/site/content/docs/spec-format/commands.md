@@ -9,7 +9,7 @@ group = "Reference"
 
 # Commands
 
-`commands/` holds slash commands: saved prompts a person starts by name, such as `/deploy` or `/review-pr`. The body is the prompt the tool sends when someone runs it.
+`commands/` holds slash commands: saved prompts a person starts by name, such as `/deploy`. The body is the prompt the tool sends.
 
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
 
@@ -19,12 +19,14 @@ Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick t
 agnostic-ai new command review-changes
 ```
 
-It creates `.agnostic-ai/commands/review-changes.md`. Replace the description and prompt as below, run `agnostic-ai sync`, then type `/review-changes` in a supported tool.
+It creates `.agnostic-ai/commands/review-changes.md`. Write the prompt, run `agnostic-ai sync`, then type `/review-changes` in a supported tool.
 
 ```markdown
 ---
 name: review-changes
 description: Review the current branch against main.
+x-claude:
+  allowed-tools: [Bash(git diff:*), Read, Grep]
 ---
 
 Diff the branch against `main` and report bugs with `file:line`, most severe first.
@@ -38,37 +40,22 @@ Diff the branch against `main` and report bugs with `file:line`, most severe fir
 | `description` | no | empty | One-liner shown in slash-command pickers. |
 | `argument-hint` | no | empty | Hint shown after the command in Claude Code, Augment, and Factory. |
 
-Other frontmatter is kept. Put keys for one tool under `x-<target>`, for example `x-claude.allowed-tools`:
-
-```markdown
----
-name: review-pr
-description: Review the current branch against main.
-x-claude:
-  allowed-tools: [Bash(git diff:*), Read, Grep]
----
-
-Diff the branch against `main` and list bugs with `file:line`, most severe first.
-```
+Other frontmatter is kept. Put keys for one tool under `x-<target>`, like `x-claude.allowed-tools` above.
 
 ## Output
 
-- Gemini writes each command as a `.toml` file named after `name`.
-- Codex without `outputs.codex.commands-dir`, Copilot, Zed, Windsurf, and Crush get each command as a skill. See [tools without commands](#tools-without-commands).
-- Other tools without command support log a note and skip them.
-
-Each target page lists the exact directory.
+Each target page lists the exact directory. Gemini writes each command as a `.toml` file named after `name`. Codex without `outputs.codex.commands-dir`, Copilot, Zed, Windsurf, and Crush get each command as a skill ([below](#tools-without-commands)). Other tools without command support skip it with a note.
 
 ## Tools without commands {#tools-without-commands}
 
-A tool that has skills but no commands gets each command as a skill only the user starts, when the tool can keep the model from starting it. Today that is [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. The skill:
+A tool that has skills but no commands gets each command as a skill only the user starts, when the tool can keep the model from starting it: [Codex](@/docs/targets/codex.md), [Copilot](@/docs/targets/copilot.md), [Zed](@/docs/targets/zed.md), [Windsurf](@/docs/targets/windsurf.md), and [Crush](@/docs/targets/crush.md). All but Codex qualify only while no other tool writes their skills folder, since a shared `SKILL.md` cannot keep the field. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no such switch, so they skip commands. The skill:
 
 - is written at the top level of the skills folder, whatever folder the command sits in under `commands/`;
 - sets `disable-model-invocation: true`, which Codex reads as `allow_implicit_invocation: false` in `agents/openai.yaml`, Copilot and Zed keep in `SKILL.md`, Windsurf writes as `triggers: [user]`, and Crush writes with `user-invocable: true`;
 - keeps `name`, `description`, the target fields, and `argument-hint` where the tool reads it, and notes any other field it leaves out. A target field that decides who starts the skill, `disable-model-invocation`, `triggers`, or `user-invocable`, is left out, so the skill stays user-run;
 - opens with one line asking the model to run it only when called, and to treat the text typed after its name as its arguments, since these tools do not fill in `$ARGUMENTS` in a skill. Sync notes each `$ARGUMENTS` or `$1` line, and `on-unsupported: error` does not fail on them.
 
-A skill spec with the same name wins, ignoring case, and so does a hand-written skill folder of that name in a skills folder the tool reads. Sync notes the skipped command. Another tool that reads the same skills folder, such as Gemini CLI reading `.agents/skills`, also sees the skill; sync notes that it lists the command twice, or that its model can start it. Cline, Amp, Warp, Antigravity, Continue, Goose, and OpenHands document no switch that keeps a skill user-only, so they skip commands. `target-exclude` stops sync from writing a command for a tool, but a tool that reads another tool's skills folder still sees the skill written there, such as Gemini CLI reading the copy Codex writes to `.agents/skills`.
+A skill spec with the same name (ignoring case), or a hand-written skill folder of that name the tool reads, wins, and sync notes the skipped command. A tool that reads the same skills folder, such as Gemini CLI reading the copy Codex writes to `.agents/skills`, also sees the skill, even with `target-exclude`; sync notes that it lists the command twice, or that its model can start it.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 
@@ -83,6 +70,4 @@ A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$AR
 | [Kiro CLI V3](@/docs/targets/kiro.md#commands) | no | yes | no |
 | Cursor, Gemini, Junie, Kilo, Qoder, Trae | no | no | no |
 
-A tool that reads the syntax as plain text gets a note naming each line. `on-unsupported: error` fails the sync, and `lint` reports LINT019. Gemini has its own argument and shell placeholders ([custom commands](https://geminicli.com/docs/cli/custom-commands)). Write them in a `::target gemini` fence.
-
-Kiro uses `${1}` through `${10}` and `${@}` for its arguments. Put them in a `::target kiro` fence. Sync keeps them as written and does not map a bare `$1`.
+A tool that reads the syntax as plain text gets a note naming each line; `on-unsupported: error` fails the sync, and `lint` reports LINT019. Write a tool's own placeholders in a `::target` fence: Gemini's argument and shell forms ([custom commands](https://geminicli.com/docs/cli/custom-commands)), or Kiro's `${1}` through `${10}` and `${@}`, which sync keeps as written (it does not map a bare `$1`).

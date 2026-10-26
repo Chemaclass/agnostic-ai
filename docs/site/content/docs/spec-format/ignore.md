@@ -9,9 +9,9 @@ group = "Reference"
 
 # Ignore
 
-`ignore/` lists paths supported tools leave out of context or indexing, such as generated code, copied dependencies, and large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each one.
+`ignore/` lists paths supported tools leave out of context or indexing, such as generated code or large fixtures. An ignore spec writes the same patterns into each tool's own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. Claude Code and Codex get none; the [target support table](@/docs/targets/_index.md#capability-matrix) lists who does.
 
-Claude Code and Codex get no ignore output. In other tools, an ignore file covers reads, indexing, or shell commands, depending on the tool. It is not an access restriction on its own: to block access, use [permissions](@/docs/spec-format/settings.md#support-by-target). The [target support table](@/docs/targets/_index.md#capability-matrix) lists which tools get an ignore file. Use exact paths or narrow patterns.
+Depending on the tool, an ignore file covers reads, indexing, or shell commands. It does not block access on its own; use [permissions](@/docs/spec-format/settings.md#support-by-target) for that.
 
 ## Write one
 
@@ -19,7 +19,7 @@ Claude Code and Codex get no ignore output. In other tools, an ignore file cover
 agnostic-ai new ignore generated-files
 ```
 
-The template excludes nothing. Replace its description and the comment inside the `gitignore` fence with your patterns. Write one file per group, with optional YAML settings between `---` lines at the top and gitignore-syntax patterns in the body.
+The template excludes nothing. Put gitignore-syntax patterns in the body, one file per group, using exact paths or narrow patterns.
 
 ````markdown
 Paths to leave out of context or indexing.
@@ -31,7 +31,7 @@ dist/
 ```
 ````
 
-With fenced code blocks, only the lines inside them are patterns. The text around them is prose that formatters such as Prettier can rewrite. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`.
+With fenced code blocks, only the lines inside them are patterns, and the text around them is prose. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`. Comment and blank lines exclude nothing; `#` starts a comment only at the start of a line.
 
 ## Output
 
@@ -39,14 +39,8 @@ Specs are joined into each tool's ignore file under a `#` header naming the sour
 
 ## Overwrite behaviour
 
-Sync replaces an ignore file that has no agnostic-ai generated-file header only when every existing pattern stays, unchanged and in order.
+Sync replaces an ignore file that has no agnostic-ai generated-file header only when every existing pattern stays, unchanged and in order. Extra patterns are fine. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with [`AAI-103`](@/docs/errors.md#aai-103-hand-authored-ignore-file-would-lose-patterns) and leave the file untouched, even when the rewrite means the same thing.
 
-- Extra patterns are allowed.
-- Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched.
-- The check is strict, so a rewrite that means the same thing can still fail.
+Run `agnostic-ai import <target>` to copy the patterns into `ignore/<target>.md` as a fenced block, with comments, order, and whitespace kept and a leading UTF-8 byte-order mark dropped. The spec sets `target: <target>`; remove it to share the patterns with every tool, and check the combined order if other specs add negations or reorder patterns.
 
-Run `agnostic-ai import <target>` to copy the patterns into `ignore/<target>.md` as a fenced block. Comments, order, and whitespace stay as they were, and a leading UTF-8 byte-order mark is dropped. The spec sets `target: <target>`. Remove that line to share the patterns with every tool that has an ignore file. Check the combined order if other specs add negations or reorder patterns.
-
-Comment and blank lines exclude nothing. `#` starts a comment only at the start of a line.
-
-`outputs.<target>.provenance-header: false` removes the marker and turns this check off. A dry run skips the check. `sync --check` still reports unsafe overwrites.
+`outputs.<target>.provenance-header: false` removes the header and turns this check off. A dry run skips the check; `sync --check` still reports unsafe overwrites.
