@@ -206,7 +206,7 @@ Some tools' docs leave out part of how a command runs. `hook run` runs those com
 
 ### Counted and assumed results
 
-A `not counted` result is a reply the tool's docs give no meaning, as named in the replies above. It stays out of `--expect` and the comparison even with `--include-assumed`, though with that flag a timeout or error from another of that tool's commands still fails the run.
+A `not counted` result is one the replies above mark `not counted`. It stays out of `--expect` and the comparison even with `--include-assumed`, though with that flag a timeout or error from another of that tool's commands still fails the run.
 
 Kiro is not run for an `agent` action, which runs no command; a hook with `confirm`, which asks the user first; and every trigger but `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop`, whose event data the docs do not show.
 
@@ -251,7 +251,7 @@ The Cline VS Code extension does not read stdout when the script exits non-zero,
 
 ## Sample event inputs
 
-A tool that lacks the input a flag needs is not run, and the other tools still run. In each row, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Where a flag lists several tools, `hook run` calls the first one the matcher matches. Unless a section says otherwise, the matcher is an unanchored regular expression.
+A tool that lacks the input a flag needs is not run, and the other tools still run. In each row, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Where a section lists several tool names, `hook run` calls the first one the matcher matches. Gemini, Trae, Goose, Cursor, Crush, Windsurf, and Augment read the matcher as an unanchored regular expression.
 
 ### Claude Code sample events
 

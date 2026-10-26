@@ -107,7 +107,7 @@ The files use schema `version: 1` with `started_at` (UTC RFC 3339), `evaluation`
 
 `verifier_identity` hashes the resolved executable and the configured arguments. For a known interpreter, a direct script argument adds its code; options before the script, module loading, and inline code leave the identity unknown. Other file arguments do not change it. Change the evaluation identifier when tasks, datasets, remote dependencies, or rules change without changing the executable, arguments, or script.
 
-Raw arguments, verifier output, and environment values are not saved; CLI and model metadata are redacted, and an evaluation identifier holding a detected credential is rejected. Files are written in one step with mode `0600`, which needs a filesystem with hard links for a new file. If saving fails, a failed evaluation keeps its exit code and a passing one exits 1; the save error is reported separately. Pass rates, token use, and cost are not inferred.
+Raw arguments, verifier output, and environment values are not saved; credentials in CLI and model metadata are redacted, and an evaluation identifier holding a detected credential is rejected. Files are written in one step with mode `0600`, which needs a filesystem with hard links for a new file. If saving fails, a failed evaluation keeps its exit code and a passing one exits 1; the save error is reported separately. Pass rates, token use, and cost are not inferred.
 
 ## doctor
 

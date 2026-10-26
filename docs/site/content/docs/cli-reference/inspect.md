@@ -196,7 +196,7 @@ It covers agent and skill fields; rule `scope`, `paths`, `globs`, and `alwaysApp
 
 MCP results never show command, argument, URL, environment, or header values, defaults, or reference text. A server whose URL or argument reference the tool cannot represent may be omitted whole; no explicit transport gives `unknown`.
 
-Permission rows use the source index, such as `permissions.deny[0]`, and show native override values and partial mappings. Recognized credentials in native records, such as Augment webhook policies, are hidden in output but compared as written. Codex shell permissions need `outputs.codex.exec-policies-from-permissions: true`. Default-mode applies only to global sync, so project comparison reports it unsupported. A difference in effective decision or partial support counts, even when both results are translated.
+Permission rows use the source index, such as `permissions.deny[0]`, name the rule, and show native override values and partial mappings. Recognized credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries but compared as written; filename patterns and ordinary permission actions stay visible. Codex shell permissions need `outputs.codex.exec-policies-from-permissions: true`. Default-mode applies only to global sync, so project comparison reports it unsupported. A difference in effective decision or partial support counts, even when both results are translated.
 
 ```json
 {"version": "1", "command": "compare", "targets": ["claude", "cursor"], "coverage": "...", "caveat": "...",
@@ -293,7 +293,8 @@ agnostic-ai serve --api-only
 In the browser:
 
 - **Authority** lists permission files and rules. Permission proposals have no editor; use the [API](#api).
-- Each finding has **Copy fix prompt**; **Details** shows the suggested fix, explanation, and full prompt.
+- Each finding has **Copy fix prompt**; **Details** shows the suggested fix, explanation, and full prompt. A findings summary links to the warnings below the controls; errors stay above them.
+- Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links. Empty lifecycle stages put their descriptions under **When this runs**. Native settings are grouped by tool, with the `x-<tool>` prefix shown once.
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort. Configured scalar fields offer **Update** and **Clear**. Session retention is editable only with `--global`.
 - In a project, each built-in switch previews the config edit, generated files, and findings for every target. **Apply change** writes it; **Undo last change** restores the files and permissions from before the last apply. Undo survives a browser reload, expires when the server stops, and is replaced by the next apply. Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
 - Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --global`) to apply them.

@@ -63,7 +63,7 @@ agnostic-ai sync
 | `--demo` | Add example specs, one per source folder plus the `memory-curator` skill and two [spec guard hooks](@/docs/spec-format/hook-reference.md#spec-guard). The [`no-force-push` hook](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. Never overwrites files. |
 | `--preset <name>` | Add starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
-| `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block; `off` commits them. `true` and `false` work too. Write the value after `=`: `--gitignore off` would read `off` as the folder. |
+| `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block; `off` commits them. `true` and `false` work too, here and on `sync`. Write the value after `=`: `--gitignore off` stops with a hint, since `off` would read as the folder. |
 | `--from <cli>` | Then import existing config from this [import source](#import), or `all`. |
 | `--dry-run` | List the files it, and with `--from` the import, would write. |
 

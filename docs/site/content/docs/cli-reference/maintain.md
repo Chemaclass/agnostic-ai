@@ -167,11 +167,11 @@ Rerun Claude Code's configured environment setup in one registered linked worktr
 agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
 ```
 
-`--repo` is a checkout of the owning repository and `--worktree` the linked checkout. Run `agnostic-ai sync` in that worktree first when setup changes: the helper resets the completion marker only when the generated setup script matches current source. See [refresh an existing worktree](@/docs/spec-format/environments.md#refresh-an-existing-worktree) for what it refuses and how markers work.
+`--repo` is a checkout of the owning repository and `--worktree` the linked checkout. The helper checks that the worktree is registered to that repository and refuses the main checkout. Run `agnostic-ai sync` in that worktree first when setup changes: it resets the completion marker only when the generated setup script matches current source, including output-path overrides such as `outputs.claude.dir`. See [refresh an existing worktree](@/docs/spec-format/environments.md#refresh-an-existing-worktree) for how markers work.
 
 - Setup runs from the worktree with a 600-second limit; output and failures pass through. Cancellation stops the setup processes it owns; a successful setup can leave background services running. Other worktrees keep their markers.
 - On Windows it needs Git Bash, from `CLAUDE_CODE_GIT_BASH_PATH` or the Git for Windows install, never a `bash` launcher from PATH.
-- It does not check application health or change other tools' setup.
+- It installs dependencies only if your setup command does. It does not check application health or change other tools' setup, and normal Claude setup hooks still run once per worktree.
 
 ## hook run
 

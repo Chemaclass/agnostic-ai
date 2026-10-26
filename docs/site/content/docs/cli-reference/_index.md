@@ -24,7 +24,7 @@ To troubleshoot, start with [`doctor`](@/docs/cli-reference/check.md#doctor) and
 
 ## Find a command
 
-A fresh project can follow this path:
+Root help groups commands into setup, daily generation, diagnosis and inspection, and maintenance. A fresh project can follow this path:
 
 ```bash
 echo "claude,codex" | agnostic-ai init

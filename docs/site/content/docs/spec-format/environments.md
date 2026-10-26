@@ -93,7 +93,7 @@ After changing setup or dependencies, sync one worktree and rerun its Claude set
 agnostic-ai hook worktree-refresh --repo /path/to/main --worktree "/path/to/linked worktree"
 ```
 
-It resets only that linked worktree's marker and runs setup again. It refuses the main checkout and unregistered paths. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for its checks.
+It resets only that linked worktree's marker and runs setup again; a failure leaves no marker. See [worktree refresh](@/docs/cli-reference/maintain.md#hook-worktree-refresh) for what it checks and refuses.
 
 ### Include setup in new worktrees
 
