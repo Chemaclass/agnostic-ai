@@ -8,6 +8,7 @@ import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
 import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
+import { SyncStatus } from './components/SyncStatus'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
 // The theme follows the system until the person picks one with the
@@ -69,11 +70,19 @@ export default function App() {
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
   const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
+  const [savedSinceRefresh, setSavedSinceRefresh] = useState(false)
   const reload = useCallback((saved = false) => {
-    if (saved) setSavedBeforeRefresh(true)
+    if (saved) {
+      setSavedBeforeRefresh(true)
+      setSavedSinceRefresh(true)
+    }
     setReloads((n) => n + 1)
   }, [])
   const retry = useCallback(() => setReloads((n) => n + 1), [])
+  const refresh = useCallback(() => {
+    setSavedSinceRefresh(false)
+    setReloads((n) => n + 1)
+  }, [])
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
   const stale = overview.loaded !== undefined && overview.error !== undefined
   useEffect(() => {
@@ -159,6 +168,7 @@ export default function App() {
             <div className="page">
               {sourceError && <ErrorPanel error={sourceError} />}
               {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
+              <SyncStatus overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
               <SectionPage sectionId={state.view} overview={overview} stale={stale} />
             </div>
           </main>

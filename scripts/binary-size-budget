@@ -466,4 +466,8 @@
 # server refuses a stale one with a conflict, and the page keeps the draft
 # and offers a reload. Same Linux amd64 release flags; no added headroom
 # or dependencies.
-23490720
+# #2510 measured 23494816 on Go 1.27.3, up 4096 from main 6b4fd7d9
+# (23490720): the web interface shows whether each configured tool's
+# generated files match the source, with the check time and Refresh.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+23494816
