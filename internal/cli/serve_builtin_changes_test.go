@@ -1394,12 +1394,12 @@ func TestBuiltinChanges_CancelDiscardsOnlyTheNamedProposalAndKeepsUndo(t *testin
 		t.Fatalf("cancel of a replaced proposal: %d %s", rec.Code, rec.Body)
 	}
 	if status := builtinStatus(t, h); status.Status != "proposed" || status.ID != newer.ID {
-		t.Fatalf("cancelling a replaced proposal discarded the newer one: %s %s", status.Status, status.ID)
+		t.Fatalf("a cancel of a replaced proposal discarded the newer one: %s %s", status.Status, status.ID)
 	}
-	cancelled := builtinAction(t, h, builtinCancelPath, newer.ID)
-	for _, view := range []builtinChangeView{cancelled, builtinStatus(t, h)} {
+	closed := builtinAction(t, h, builtinCancelPath, newer.ID)
+	for _, view := range []builtinChangeView{closed, builtinStatus(t, h)} {
 		if view.Status == "proposed" || view.ID == newer.ID {
-			t.Errorf("cancelled proposal is still offered: %s %s", view.Status, view.ID)
+			t.Errorf("discarded proposal is still offered: %s %s", view.Status, view.ID)
 		}
 		if !view.UndoAvailable || view.UndoID != applied.ID || view.UndoName != "handoff" {
 			t.Errorf("cancel dropped the previous undo: %+v", view)
