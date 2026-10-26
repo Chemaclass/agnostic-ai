@@ -116,7 +116,7 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
   const app = useApp()
   const { change, pending, error: anyError, proposal, request } = useBuiltinChanges()
   if (app.source.kind !== 'api' || (change && !change.supported)) return null
-  const settingChange = anyError ? !!anyError.setting : !!change?.key
+  const settingChange = anyError && !anyError.field ? !!anyError.setting : !!change?.key
   if (settings ? builtins && !settingChange : settingChange) return null
   const error = anyError?.field ? undefined : anyError
   const label = (name?: string) => name ? labels.find((item) => item.name === name)?.label ?? name : 'Built-in list'
@@ -215,7 +215,7 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
 }) {
   const app = useApp()
   const { change, pending, pendingName, error, proposal, request } = useBuiltinChanges()
-  const blocked = !!error && !error.field
+  const blocked = !!error && !error.field && !error.setting
   if (app.source.kind !== 'api') return renderHeading(<Switch on={on} />)
   if (change && !change.supported) return renderHeading(fallback)
   const selected = proposal && change?.name === name
