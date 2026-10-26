@@ -493,4 +493,10 @@
 # #2552 measured 23576736 on Go 1.27.3: cancelling a built-in preview
 # persists across reloads, with recovery when cancellation fails.
 # Linux amd64 release flags; no added headroom or dependencies.
-23576736
+# #2556 measured 23580832 on Go 1.27.3: personal saves check Git
+# exclusions before writing and retry Git layout checks after failures.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2557 measured 23601312 on Go 1.27.3: global settings retain user-owned
+# empty objects and track sync-created parents across changes.
+# Linux amd64 release flags; no added headroom or dependencies.
+23601312
