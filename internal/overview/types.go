@@ -256,6 +256,9 @@ type ItemFinding struct {
 	Message  string `json:"message"`
 	Path     string `json:"path,omitempty"`
 	Line     int    `json:"line,omitempty"`
+	// OpenPath is the absolute path of the file Path names, when that
+	// file is on disk, so a local client can open it in an editor.
+	OpenPath string `json:"openPath,omitempty"`
 	// Fix is the command or edit that resolves it, when known.
 	Fix string `json:"fix,omitempty"`
 	// Explanation says why it matters, when known.
@@ -311,6 +314,8 @@ type Finding struct {
 	Message  string
 	Path     string
 	Line     int
+	// OpenPath is the absolute path of the file Path names, when it is on disk.
+	OpenPath string
 	// Target names the coding tool a drift finding concerns.
 	Target string
 	// Fix is the command or edit that resolves the finding, when known.

@@ -5,7 +5,7 @@ import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
-import { cursorUrl } from '../model/editor'
+import { OpenInEditor } from './EditorLink'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
@@ -463,11 +463,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
-        {item.openPath && (
-          <a className="edit-link" href={cursorUrl(item.openPath)} aria-label={`Edit ${item.label} in Cursor`} title="Edit in Cursor">
-            <Icon name="edit" />
-          </a>
-        )}
+        <OpenInEditor path={item.openPath} label={item.label} compact />
       </div>
     </div>
   )
@@ -663,9 +659,10 @@ function Finding({ finding: f, entryId }: { finding: ItemFinding; entryId: strin
         </div>
         <FindingMessage message={f.message} />
         {f.path ? (
-          <p className="finding-source muted">
+          <div className="finding-source muted">
             <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
-          </p>
+            <OpenInEditor path={f.openPath} line={f.line} label={f.path} shownPath={f.path} />
+          </div>
         ) : f.line ? <p className="finding-source muted">Line {f.line}</p> : null}
         <details className="finding-details">
           <summary>Details</summary>

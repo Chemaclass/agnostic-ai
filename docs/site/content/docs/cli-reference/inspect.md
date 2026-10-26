@@ -293,6 +293,7 @@ agnostic-ai serve --api-only
 In the browser:
 
 - **Authority** lists permission files and rules. Permission proposals have no editor; use the [API](#api).
+- **Open files in** in the header picks Cursor or VS Code for every edit link, and the browser remembers it. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
 - Each finding has **Copy fix prompt**; **Details** shows the suggested fix, explanation, and full prompt. A findings summary links to the warnings below the controls; errors stay above them.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links. Empty lifecycle stages put their descriptions under **When this runs**. Native settings are grouped by tool, with the `x-<tool>` prefix shown once.
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort. Configured scalar fields offer **Update** and **Clear**. Session retention is editable only with `--global`.
