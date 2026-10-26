@@ -276,6 +276,34 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
   }
 })
 
+test('live first just-me save before any ignore rule stays out of Git', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    const overlay = '.agnostic-ai/local/settings/defaults.yaml'
+    await rm(f.localSettings)
+    await rm(join(f.root, '.gitignore'))
+    await put(join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml'), 'name: defaults\ndescription: Team defaults.\nmodel: sonnet\n')
+    const git = (...args: string[]) => run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: f.root, env: f.env })
+    await git('add', '-A')
+    await git('commit', '--quiet', '-m', 'Team setup')
+
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
+    await model.getByRole('button', { name: 'Save' }).click()
+    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
+
+    expect(await readFile(join(f.root, overlay), 'utf8')).toContain('model: opus')
+    expect(await readFile(join(f.root, '.git', 'info', 'exclude'), 'utf8')).toContain('/.agnostic-ai/local/\n')
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    await git('add', '-A')
+    expect((await git('ls-files', '--', overlay)).stdout).toBe('')
+  } finally {
+    await f.close()
+  }
+})
+
 test('live global edits keep the last local builtin disabled and enforce browser boundaries', async ({ page, request }) => {
   const f = await fixture(true)
   const nativeBefore = await projectFiles(f.userHome)
