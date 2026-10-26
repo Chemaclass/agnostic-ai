@@ -142,6 +142,7 @@ func overviewScopeLintFindings(scope checkScope, configPath string, display func
 	if err != nil {
 		return []overview.Finding{{
 			Source:      overview.SourceLint,
+			Code:        overview.CodeLintIncomplete,
 			Severity:    lintError.String(),
 			Path:        display(configPath),
 			Message:     servedFindingMessage("Lint stopped before it finished: " + err.Error()),

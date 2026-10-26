@@ -768,3 +768,39 @@ test('live generated-file status shows a save as needing sync and refreshes afte
     await expect(model.getByRole('status')).toContainText('The saved value changed after you started editing and is now opus')
   } finally { await f.close() }
 })
+
+test('live Recheck tells a fixed finding from a remaining, new, or unchecked one without leaving the page', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const permissions = join(f.root, '.agnostic-ai', 'settings', 'permissions.yaml')
+    await put(permissions, 'permissions:\n  allow: [read, edit]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const finding = (word: string) => page.locator('.finding:not(.finding-rechecked)', { hasText: `bare ${word} now covers` })
+    const read = finding('read')
+    await expect(read.getByRole('link', { name: /^Open .+ in Cursor$/ })).toBeVisible()
+    await expect(read.getByRole('button', { name: 'Copy fix prompt' })).toBeVisible()
+    await page.getByRole('searchbox').fill('permissions')
+    const url = page.url()
+
+    await put(permissions, 'permissions:\n  allow: ["read(src/**)", edit, shell]\n')
+    await read.getByRole('button', { name: 'Recheck' }).click()
+    const gone = page.locator('.finding-rechecked')
+    await expect(gone.getByRole('status')).toHaveText('This lint finding no longer appears. 1 new lint finding appears in .agnostic-ai/settings/permissions.yaml.')
+    await expect(gone).toBeFocused()
+    await expect(read).toHaveCount(0)
+    await expect(finding('shell').getByText('New since recheck')).toBeVisible()
+    await expect(page.getByRole('searchbox')).toHaveValue('permissions')
+    expect(page.url()).toBe(url)
+
+    const edit = finding('edit')
+    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await expect(edit.locator('.finding-recheck-result')).toHaveText('This finding still appears after the recheck.')
+    await expect(gone).toHaveCount(0)
+
+    await page.route('**/api/views/overview', (route) => route.abort())
+    await edit.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'The overview could not be refreshed.' })).toBeVisible()
+    await expect(edit.locator('.finding-recheck-result')).toHaveText('The recheck did not finish, so this finding may still apply.')
+    await expect(edit).toContainText('bare edit now covers every file edit')
+  } finally { await f.close() }
+})

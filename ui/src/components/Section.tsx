@@ -6,6 +6,7 @@ import { ErrorPanel } from './Banner'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { OpenInEditor } from './EditorLink'
+import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
@@ -63,6 +64,8 @@ function SectionContentsBody({ section }: { section: Section }) {
   const search = app.state.q ?? ''
   const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
   const entry = app.state.entry
+  const rechecked = useRechecks().rechecked
+  const sectionPlace = `section:${section.id}`
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
@@ -70,7 +73,7 @@ function SectionContentsBody({ section }: { section: Section }) {
   const matchingItems = new Set(section.items.filter((item) => matches(itemSearchText(item))))
   const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
   const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
-  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry)
+  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === rechecked?.place)
   const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
   useEffect(() => {
     if (!entry) return
@@ -88,10 +91,10 @@ function SectionContentsBody({ section }: { section: Section }) {
   const warnings = section.findings.length - errors
   const findingsId = `${section.id}-findings`
   const findingCounts = [errors ? `${errors} error${errors === 1 ? '' : 's'}` : '', warnings ? `${warnings} warning${warnings === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')
-  const otherFindings = section.findings.length > 0 && (
+  const otherFindings = (section.findings.length > 0 || rechecked?.place === sectionPlace) && (
     <section className="block" aria-labelledby={findingsId}>
       <h2 id={findingsId} tabIndex={-1}>Other findings</h2>
-      <Findings findings={section.findings} />
+      <Findings findings={section.findings} place={sectionPlace} />
     </section>
   )
   return (
@@ -437,7 +440,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
-            {item.findings.length > 0 && <Findings findings={item.findings} owner={itemEntryId(item)} />}
+            <Findings findings={item.findings} owner={itemEntryId(item)} place={itemEntryId(item)} />
           </ItemRow>
         )
       })}
@@ -629,19 +632,23 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
   )
 }
 
-function Findings({ findings, owner }: { findings: ItemFinding[]; owner?: string }) {
+function Findings({ findings, owner, place }: { findings: ItemFinding[]; owner?: string; place: string }) {
   const ids = findingEntryIds(findings, owner)
+  const gone = useGoneFinding(place, ids)
+  if (!findings.length && !gone) return null
   return (
     <ul className="findings">
       {findings.map((f, i) => (
-        <Finding key={ids[i]} finding={f} entryId={ids[i]} />
+        <Finding key={ids[i]} finding={f} entryId={ids[i]} place={place} />
       ))}
+      {gone && <GoneFinding rechecked={gone} />}
     </ul>
   )
 }
 
-function Finding({ finding: f, entryId }: { finding: ItemFinding; entryId: string }) {
+function Finding({ finding: f, entryId, place }: { finding: ItemFinding; entryId: string; place: string }) {
   const root = useContext(ConfigurationRoot)
+  const fresh = isNewSinceRecheck(useRechecks(), entryId)
   const prompt = findingFixPrompt(f, root)
   const promptId = useId()
   const { linked, ...entry } = useEntry(entryId)
@@ -654,10 +661,15 @@ function Finding({ finding: f, entryId }: { finding: ItemFinding; entryId: strin
             <Badge tone={f.severity === 'error' ? 'blocked' : 'approval'}>{f.severity === 'error' ? 'Error' : 'Warning'}</Badge>
             {f.code && <Code>{f.code}</Code>}
             <span className="muted">{f.source}</span>
+            {fresh && <Badge tone="accent">New since recheck</Badge>}
           </div>
-          <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
+          <div className="finding-actions">
+            <CopyButton text={prompt} label="Copy fix prompt" copiedLabel="Copied" className="finding-copy" />
+            <RecheckAction id={entryId} finding={f} place={place} />
+          </div>
         </div>
         <FindingMessage message={f.message} />
+        <RecheckNote id={entryId} finding={f} />
         {f.path ? (
           <div className="finding-source muted">
             <Code>{f.path}{f.line ? `:${f.line}` : ''}</Code>
