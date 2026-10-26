@@ -11,9 +11,7 @@ group = "Workflows"
 
 # `agnostic-ai why <file>`
 
-Use `why` to find the source of a generated file before changing it. It lists the source specs, the tool that writes the file, and its last sync time.
-
-[`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the reverse: it lists the files a spec writes.
+`why` names the source of a generated file, so you edit the source instead: the specs that feed it, the tool that writes it, and its last sync time. [`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the reverse and lists the files a spec writes.
 
 ## Usage
 
@@ -22,7 +20,7 @@ agnostic-ai why <file>
 agnostic-ai why <file> --format json
 ```
 
-Use a project-relative path, even for a planned file. Symlinks resolve to the real path. `--format json` exposes the report to scripts.
+Use a project-relative path, even for a planned file. Symlinks resolve to the real path. `--format json` is for scripts.
 
 In [VS Code](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode), use `agnostic-ai: Open canonical source` for the current file.
 
@@ -66,7 +64,7 @@ CLAUDE.md
     [instructions] AGNOSTIC_AI.md (.agnostic-ai/AGNOSTIC_AI.md): full
 ```
 
-The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Tools that get rule text in a `## Rules` block of the entry-point file ([inlined rules](@/docs/target-behavior.md#inlined-rules)) list each such rule as a `section` source. The file is credited to the first tool that reads it.
+The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Tools that get rule text in a `## Rules` block of the entry-point file ([inlined rules](@/docs/target-behavior.md#inlined-rules)) list each such rule as a `section` source.
 
 </details>
 
