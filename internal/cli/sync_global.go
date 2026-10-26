@@ -2863,6 +2863,18 @@ func removalChangedSincePlan(guards map[string]*diskSnapshot, path string, data 
 	return nil
 }
 
+func writeGlobalBackup(path string, data []byte, mode fs.FileMode) error {
+	if err := os.WriteFile(path+".bak", data, mode.Perm()); err != nil {
+		return fmt.Errorf("backup %s: %w", path, err)
+	}
+	// An existing .bak keeps its own mode on write; the copy of a
+	// private file must be private too.
+	if err := os.Chmod(path+".bak", mode.Perm()); err != nil {
+		return fmt.Errorf("backup %s: %w", path, err)
+	}
+	return nil
+}
+
 // applyGlobalChanges writes and removes files, rolling everything back
 // on the first failure. It returns a note for each symlink it wrote
 // through or removed.
@@ -2923,15 +2935,9 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 			return nil, fmt.Errorf("create directory for %s: %w", w.path, err)
 		}
 		if backup && !absent {
-			if err := os.WriteFile(w.path+".bak", old, mode); err != nil {
+			if err := writeGlobalBackup(w.path, old, mode); err != nil {
 				rollback()
-				return nil, fmt.Errorf("backup %s: %w", w.path, err)
-			}
-			// An existing .bak keeps its own mode on write; the copy of a
-			// private file must be private too.
-			if err := os.Chmod(w.path+".bak", mode.Perm()); err != nil {
-				rollback()
-				return nil, fmt.Errorf("backup %s: %w", w.path, err)
+				return nil, err
 			}
 		}
 		tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-global-*")
@@ -2986,6 +2992,12 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 					rollback()
 					return nil, err
 				}
+				if backup {
+					if err := writeGlobalBackup(path, data, targetInfo.Mode()); err != nil {
+						rollback()
+						return nil, err
+					}
+				}
 				done = append(done, prior{path: target, data: data, mode: targetInfo.Mode()})
 				if err := os.Remove(target); err != nil {
 					rollback()
@@ -3016,6 +3028,12 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, gu
 		if err != nil {
 			rollback()
 			return nil, fmt.Errorf("stat managed %s: %w", path, err)
+		}
+		if backup {
+			if err := writeGlobalBackup(path, data, info.Mode()); err != nil {
+				rollback()
+				return nil, err
+			}
 		}
 		done = append(done, prior{path: path, data: data, mode: info.Mode()})
 		if err := os.Remove(path); err != nil {
