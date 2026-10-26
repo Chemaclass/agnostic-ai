@@ -286,7 +286,10 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
 			return fmt.Errorf("global rule %q is conditional for codebuddy; global rules must apply unconditionally", rule.Name)
 		}
-		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
+		conditional := slices.ContainsFunc(targets, func(target string) bool {
+			return hasGlobalRuleCondition(adapters.ResolveMeta(rule.Meta, target))
+		})
+		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) || conditional {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
 	}
