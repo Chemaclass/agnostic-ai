@@ -12,6 +12,8 @@ async function session(page: Page) {
   let appliedName = ''
   let nextId = 0
   let failApply = false
+  let failCancel = false
+  let settled = state
   let statusReads = 0
   let sourceEdits = 0
   const previews: unknown[] = []
@@ -33,6 +35,7 @@ async function session(page: Page) {
   await page.route('**/api/changes/builtin/preview', (route) => {
     const request = route.request().postDataJSON() as { name: string; enabled: boolean }
     previews.push(request)
+    if (state.status !== 'proposed') settled = state
     state = { ...state, ...request, status: 'proposed', id: `proposal-${++nextId}`, config: 'agnostic-ai.yaml' }
     return route.fulfill({ json: state })
   })
@@ -45,6 +48,12 @@ async function session(page: Page) {
     state = { ...state, status: 'applied', undoAvailable: true, undoId: state.id, undoName: appliedName }
     return route.fulfill({ json: state })
   })
+  await page.route('**/api/changes/builtin/cancel', (route) => {
+    const { id } = route.request().postDataJSON() as { id: string }
+    if (failCancel || state.status !== 'proposed' || id !== state.id) return route.fulfill({ status: 409, json: { error: 'This preview was already replaced or closed; reload the change state.' } })
+    state = settled
+    return route.fulfill({ json: state })
+  })
   await page.route('**/api/changes/builtin/undo', (route) => {
     expect(route.request().postDataJSON()).toEqual({ id: state.undoId })
     enabled = before
@@ -52,7 +61,7 @@ async function session(page: Page) {
     return route.fulfill({ json: state })
   })
   await page.goto('/?view=settings')
-  return { previews, reads: () => statusReads, edits: () => sourceEdits, failApply: () => { failApply = true } }
+  return { previews, reads: () => statusReads, edits: () => sourceEdits, failApply: () => { failApply = true }, failCancel: (fail: boolean) => { failCancel = fail } }
 }
 
 function toggle(page: Page, name: string) {
@@ -86,10 +95,31 @@ test('shares a proposal and keeps undo through filtering, cancellation, and relo
   await expect(page.getByRole('region', { name: 'Handoff change preview' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(toggle(page, 'handoff')).toBeEnabled()
+  await page.reload()
+  await expect(toggle(page, 'handoff')).toBeEnabled()
+  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toHaveCount(0)
+  await expect(page.getByText('Last applied: handoff.')).toBeVisible()
   await page.getByRole('button', { name: 'Undo last change' }).click()
   await expect(toggle(page, 'handoff')).toHaveAttribute('aria-checked', 'false')
   await expect(toggle(page, 'caveman')).toHaveAttribute('aria-checked', 'false')
   await expect(page.getByRole('button', { name: 'Undo last change' })).toHaveCount(0)
+  expect(server.edits()).toBe(0)
+})
+
+test('a failed cancel keeps the proposal and says it was not discarded', async ({ page }) => {
+  const server = await session(page)
+  await toggle(page, 'caveman').click()
+  const preview = page.getByRole('region', { name: 'Caveman change preview' })
+  server.failCancel(true)
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Preview could not be cancelled.')
+  await expect(page.getByRole('alert')).toContainText('already replaced or closed')
+  server.failCancel(false)
+  await page.getByRole('button', { name: 'Reload change state' }).click()
+  await expect(preview).toBeVisible()
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(preview).toHaveCount(0)
+  await expect(toggle(page, 'handoff')).toBeEnabled()
   expect(server.edits()).toBe(0)
 })
 

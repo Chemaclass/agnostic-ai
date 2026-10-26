@@ -1368,3 +1368,54 @@ func TestBuiltinChanges_MemoryExclusionOutsideLinkedWorktreeRequiresCLI(t *testi
 		t.Errorf("preview changed info/exclude: %q, %v", after, err)
 	}
 }
+
+func builtinStatus(t *testing.T, h http.Handler) builtinChangeView {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+builtinStatusPath, nil))
+	var view builtinChangeView
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatal(err)
+	}
+	return view
+}
+
+func TestBuiltinChanges_CancelDiscardsOnlyTheNamedProposalAndKeepsUndo(t *testing.T) {
+	root := builtinChangeProject(t)
+	h := newBuiltinChangeHandler(root, false)
+	applied := builtinAction(t, h, builtinApplyPath, builtinNamedProposal(t, h, "handoff", true).ID)
+	before, err := snapshotBuiltinProject(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	older := builtinProposal(t, h, true)
+	newer := builtinProposal(t, h, true)
+	if rec := postEdit(t, h, builtinCancelPath, `{"id":"`+older.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("cancel of a replaced proposal: %d %s", rec.Code, rec.Body)
+	}
+	if status := builtinStatus(t, h); status.Status != "proposed" || status.ID != newer.ID {
+		t.Fatalf("cancelling a replaced proposal discarded the newer one: %s %s", status.Status, status.ID)
+	}
+	cancelled := builtinAction(t, h, builtinCancelPath, newer.ID)
+	for _, view := range []builtinChangeView{cancelled, builtinStatus(t, h)} {
+		if view.Status == "proposed" || view.ID == newer.ID {
+			t.Errorf("cancelled proposal is still offered: %s %s", view.Status, view.ID)
+		}
+		if !view.UndoAvailable || view.UndoID != applied.ID || view.UndoName != "handoff" {
+			t.Errorf("cancel dropped the previous undo: %+v", view)
+		}
+	}
+	if rec := postEdit(t, h, builtinApplyPath, `{"id":"`+newer.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("apply after cancel: %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, builtinCancelPath, `{"id":"`+newer.ID+`"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("repeated cancel: %d %s", rec.Code, rec.Body)
+	}
+	if err := before.check(root); err != nil {
+		t.Errorf("cancel changed project files: %v", err)
+	}
+	builtinAction(t, h, builtinUndoPath, applied.ID)
+	if config, _ := os.ReadFile("agnostic-ai.yaml"); strings.Contains(string(config), "handoff") {
+		t.Error("undo after cancel did not restore the config")
+	}
+}

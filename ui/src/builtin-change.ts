@@ -64,7 +64,9 @@ export class BuiltinChangeError extends Error {
   constructor(message: string, readonly conflict = false) { super(message) }
 }
 
-export async function builtinChange(action?: 'preview' | 'apply' | 'undo', body?: unknown): Promise<BuiltinChange> {
+export type BuiltinChangeAction = 'preview' | 'apply' | 'undo' | 'cancel'
+
+export async function builtinChange(action?: BuiltinChangeAction, body?: unknown): Promise<BuiltinChange> {
   let response: Response
   try {
     response = await fetch(BUILTIN_CHANGE_PATH + (action ? `/${action}` : ''), action ? {

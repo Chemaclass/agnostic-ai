@@ -495,7 +495,7 @@ test('Caveman preview repairs pending Handoff outputs and undo restores the orig
   }
 })
 
-test('a cancelled preview keeps the previous built-in undo through reload and filtering', async ({ page }) => {
+test('a cancelled preview stays cancelled and keeps the previous undo through reload, navigation, and filtering', async ({ page }) => {
   const f = await fixture()
   try {
     const before = await projectFiles(f.root)
@@ -516,6 +516,14 @@ test('a cancelled preview keeps the previous built-in undo through reload and fi
     await search.fill('')
     await expect(preview).toBeVisible()
     await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(preview).toHaveCount(0)
+    await page.reload()
+    await expect(handoff).toBeEnabled()
+    await expect(preview).toHaveCount(0)
+    await page.getByRole('navigation').getByRole('link', { name: /^Tools/ }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /^Settings/ }).click()
+    await expect(handoff).toBeEnabled()
+    await expect(preview).toHaveCount(0)
     await page.getByRole('button', { name: 'Undo last change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'false')
     expect(await projectFiles(f.root)).toEqual(before)
