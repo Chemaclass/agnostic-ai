@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync --global` now applies a settings spec's `target`, `targets`, and `targets-exclude` to its model, effort, and `x-<tool>` values, as it already did for permission mode and session retention. Before, a spec limited to Codex could set Claude Code's default model and native settings. `explain --global`, `lint --global`, and `import --global` follow the same rule (#2525).
 - Cancelling a built-in or setting preview in the web interface now discards it on the server, so a reload or leaving Settings no longer brings it back and locks the other switches. The last applied change keeps its undo, and a tab cannot cancel a newer preview made in another tab (#2520).
 - In a project, the web interface previews, applies, and undoes a default model or reasoning effort change, for the team or just you, as it does for built-ins. The preview lists the settings file and every generated file, writes nothing, and calls out other unsynced source changes it would also apply. Apply checks the generated files, and one **Undo last change** names the last built-in or setting change (#2511).
 - The web interface opens source files and findings in Cursor or VS Code, picked in the header and remembered by the browser; Cursor stays the default. A finding on a file now has an open link, at its line when known, and every open link has **Copy path** beside it (#2513).
