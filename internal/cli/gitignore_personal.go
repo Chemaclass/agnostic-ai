@@ -165,6 +165,10 @@ type gitExclude struct {
 // ok is false outside a work tree.
 func personalExcludeFile(root string) (gitExclude, bool) {
 	layout, err := gitquery.LayoutAt(root)
+	return personalExcludeLayout(layout, err)
+}
+
+func personalExcludeLayout(layout gitquery.Layout, err error) (gitExclude, bool) {
 	if err != nil || !layout.HasToplevel || layout.CommonDir == "" {
 		return gitExclude{}, false
 	}
