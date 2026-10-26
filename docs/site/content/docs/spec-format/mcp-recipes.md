@@ -9,9 +9,9 @@ group = "Reference"
 
 # MCP recipes
 
-Copy a recipe into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`). Replace example paths, and export each variable a `${NAME}` reference names before you start your coding tool. Run `agnostic-ai lint`, then `agnostic-ai sync`, and confirm the server connects in the tool.
+Copy a recipe into `.agnostic-ai/mcps/<name>.yaml` (or the directory `sources.mcps` sets). Replace example paths, and export each `${NAME}` variable before you start your coding tool. Run `agnostic-ai lint` and `agnostic-ai sync`, then confirm the server connects in the tool.
 
-These recipes were checked on 2026-10-03, so compare each with its linked source before you use it. [MCP servers](@/docs/spec-format/mcps.md) lists the fields, and [environment references](@/docs/spec-format/mcps.md#environment-references) lists the values each tool cannot read.
+The recipes were checked on 2026-10-03; compare each with its linked source. [MCP servers](@/docs/spec-format/mcps.md) lists the fields, and [environment references](@/docs/spec-format/mcps.md#environment-references) the values each tool cannot read.
 
 ## GitHub (remote)
 
@@ -30,9 +30,9 @@ Create a personal access token on GitHub and export it as `GITHUB_PAT`.
 
 ### Keep it personal
 
-A shared spec can use each person's own `${GITHUB_PAT}` without storing the token. If only you want this server, save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so only you get the server. Teammates who want it add their own file.
+A shared spec uses each person's own `${GITHUB_PAT}` without storing the token. If only you want the server, save the spec as `.agnostic-ai/local/mcps/github.yaml`, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so teammates who want it add their own.
 
-A personal file is still a loaded spec, so it does not turn the server off. To keep a server off, leave it out of every spec that loads, or turn it off in the tool itself. `disabled: true` does not keep a server off on every tool; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+A local file still loads, so it does not turn the server off. To keep a server off, leave it out of every spec that loads, or turn it off in the tool; `disabled: true` does not work on every tool ([`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)).
 
 ## Context7 (remote)
 
@@ -75,4 +75,4 @@ args:
   - /path/to/allowed/dir
 ```
 
-Each path after the package name is a directory the server may reach. Replace the placeholder with a real one.
+Each path after the package name is a directory the server may reach.
