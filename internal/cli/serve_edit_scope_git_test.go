@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -138,6 +139,44 @@ func TestEditScope_PersonalSaveOutsideGitNeedsNoExclusion(t *testing.T) {
 	}
 	if got := readOptional(t, ".agnostic-ai/local/settings/defaults.yaml"); !strings.Contains(got, "model: opus") {
 		t.Errorf("overlay = %q", got)
+	}
+}
+
+func TestEditScope_PersonalSaveRefusesWhenGitLayoutFails(t *testing.T) {
+	project := gitScopeProject(t)
+	t.Setenv("GIT_CONFIG_COUNT", "invalid")
+	gitquery.Reset()
+	t.Cleanup(gitquery.Reset)
+	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "Git") {
+		t.Fatalf("save = %d %s, want a refusal that names Git", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(".agnostic-ai/local/settings/defaults.yaml"); !os.IsNotExist(err) {
+		t.Errorf("the refused save wrote the overlay: %v", err)
+	}
+	t.Setenv("GIT_CONFIG_COUNT", "0")
+	rec = postEdit(t, newEditHandler(project, false), editFieldPath, `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
+	if rec.Code != 200 {
+		t.Fatalf("retry after Git recovered = %d %s", rec.Code, rec.Body)
+	}
+	assertGitHides(t, project, ".agnostic-ai/local/settings/defaults.yaml")
+}
+
+func TestEditScope_ExcludesPersonalFileAfterGitInit(t *testing.T) {
+	isolateGit(t)
+	t.Setenv("GIT_CEILING_DIRECTORIES", os.TempDir())
+	project := scopeProject(t)
+	target := filepath.Join(project, ".agnostic-ai/local/settings/defaults.yaml")
+	handler := &editHandler{root: project}
+	if err := handler.keepPersonalOutOfGit(target); err != nil {
+		t.Fatal(err)
+	}
+	git(t, project, "init", "-q")
+	if err := handler.keepPersonalOutOfGit(target); err != nil {
+		t.Fatal(err)
+	}
+	if !gitIgnores(project, target) {
+		t.Fatal("personal file is not ignored after git init")
 	}
 }
 

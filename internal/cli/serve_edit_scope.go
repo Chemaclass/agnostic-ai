@@ -314,13 +314,21 @@ func (h *editHandler) personalRoot(file string) (root string, folder bool) {
 func (h *editHandler) keepPersonalOutOfGit(file string) error {
 	target := resolvedAbs(file)
 	dir := existingAncestor(filepath.Dir(target))
-	if layout, err := gitquery.LayoutAt(dir); err != nil || !layout.HasToplevel || gitIgnores(dir, target) {
+	layout, err := gitquery.LayoutAtFresh(dir)
+	if err != nil {
+		if outsideGit(dir) {
+			return nil
+		}
+		return fmt.Errorf("%s: could not check Git before saving this personal file: %w", overviewDisplay(h.root, file), err)
+	}
+	if !layout.HasToplevel || gitIgnores(dir, target) {
 		return nil
 	}
 	display := overviewDisplay(h.root, file)
 	personal, folder := h.personalRoot(file)
 	rel, err := filepath.Rel(h.root, personal)
-	ex, ok := personalExcludeFile(h.root)
+	rootLayout, layoutErr := gitquery.LayoutAtFresh(h.root)
+	ex, ok := personalExcludeLayout(rootLayout, layoutErr)
 	if err != nil || !ok {
 		return fmt.Errorf("%s: Git would track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
 	}
@@ -338,6 +346,23 @@ func (h *editHandler) keepPersonalOutOfGit(file string) error {
 		return fmt.Errorf("%s: Git would still track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
 	}
 	return nil
+}
+
+func outsideGit(dir string) bool {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree")
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.HasPrefix(string(out), "fatal: not a git repository") {
+		return false
+	}
+	for path := dir; ; path = filepath.Dir(path) {
+		if _, err := os.Lstat(filepath.Join(path, ".git")); !os.IsNotExist(err) {
+			return false
+		}
+		if filepath.Dir(path) == path {
+			return true
+		}
+	}
 }
 
 // teamSourcePaths are the committed config files and spec folders an
