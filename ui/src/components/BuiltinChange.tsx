@@ -51,11 +51,10 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
 
   useEffect(() => {
     if (shownScope.current === pageScope) return
-    const previous = shownScope.current
     shownScope.current = pageScope
     if (change?.status !== 'proposed' || change.id === cancelledId) return
     setCancelledId(change.id)
-    if (change.scope === undefined || change.scope === previous) discard(change.id)
+    discard(change.id)
   }, [pageScope, change, cancelledId])
 
   useEffect(() => {
