@@ -461,8 +461,25 @@
 # (23474336): sync, lint and validate --global refuse a rule whose
 # x-<target> block sets a condition. Same Linux amd64 release flags; no
 # added headroom or dependencies.
-# #2516 measured 23482528 on Go 1.27.3, up 4096 from 23478432: sync
-# --global --backup keeps a .bak of each file it removes and rollback
-# restores an earlier .bak. Same Linux amd64 release flags; no added
+# #2518 measured 23490720 on Go 1.27.3, up 12288 from main c048d4e0
+# (23478432): web Settings saves send the value the page showed, the
+# server refuses a stale one with a conflict, and the page keeps the draft
+# and offers a reload. Same Linux amd64 release flags; no added headroom
+# or dependencies.
+# #2510 measured 23498912 on Go 1.27.3, up 8192 from main 6b4fd7d9
+# (23490720): the web interface shows whether each configured tool's
+# generated files match the source, with the check time and Refresh.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2514 measured 23507104 on Go 1.27.3, up 8192 from main 367286c5
+# (23498912): the web interface searches every section and links to each
+# item, setting, and finding. Same Linux amd64 release flags; no added
 # headroom or dependencies.
-23482528
+# #2512 measured 23535776 on Go 1.27.3, up 28672 from main b47ff9b4
+# (23507104): the web Settings page explains which model and effort value
+# each configured tool gets, from where, and why other values lose. Same
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2516 measured 23539872 on Go 1.27.3, up 4096 from main 4fa3f4db
+# (23535776): sync --global --backup keeps a .bak of each file it
+# removes, and rollback restores an earlier .bak. Same Linux amd64
+# release flags; no added headroom or dependencies.
+23539872

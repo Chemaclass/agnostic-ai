@@ -19,6 +19,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // Source-only edit endpoints.
@@ -128,28 +129,52 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	case editFieldPath:
 		var req struct {
-			Scope string          `json:"scope"`
-			Path  string          `json:"path"`
-			Key   string          `json:"key"`
-			Value json.RawMessage `json:"value"`
+			Scope    string          `json:"scope"`
+			Path     string          `json:"path"`
+			Key      string          `json:"key"`
+			Value    json.RawMessage `json:"value"`
+			Expected json.RawMessage `json:"expected"`
 		}
 		if err := json.Unmarshal(body, &req); err != nil || req.Key == "" || len(req.Value) == 0 {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "key and value are required (null clears the field)"})
 			return
 		}
+		var expected *string
+		if len(req.Expected) > 0 && json.Unmarshal(req.Expected, &expected) != nil {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "expected must be the value the page showed, as text, or null when it was not set"})
+			return
+		}
+		var chosen spec.Entry
 		scope, err := parseEditScope(req.Scope)
 		if err == nil {
-			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value)
+			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value, &chosen)
 		}
-		if err != nil {
+		var source fieldSourceError
+		var nothing noPersonalValueError
+		switch {
+		case err != nil && len(req.Expected) > 0 && errors.As(err, &source):
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error() + ". This changed after the page loaded; reload to review it"})
+			return
+		case err != nil && len(req.Expected) > 0 && errors.As(err, &nothing):
+			writeEditJSON(w, http.StatusOK, map[string]any{"ok": true})
+			return
+		case err != nil:
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
+		}
+		if len(req.Expected) > 0 {
+			edit = expectFieldValue(req.Key, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(scope, chosen, file, req.Key), edit)
 		}
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
 	}
 	if problems, err := h.applyValidated(file, edit); err != nil {
+		var stale staleFieldError
+		if errors.As(err, &stale) {
+			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, file) + ": " + stale.Error()})
+			return
+		}
 		writeEditJSON(w, http.StatusUnprocessableEntity, editError{Error: err.Error(), Problems: problems})
 		return
 	}

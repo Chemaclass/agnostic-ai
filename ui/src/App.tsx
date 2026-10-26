@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OverviewView } from './contract'
 import { LoadError, loadOverview, type Loaded } from './api'
 import { AppContext, type AppApi } from './components/app-context'
+import { GlobalSearch } from './components/GlobalSearch'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
-import { ErrorPanel } from './components/Banner'
+import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
+import { SyncStatus } from './components/SyncStatus'
+import { APPLE_PLATFORM } from './components/ui'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
 // The theme follows the system until the person picks one with the
@@ -68,13 +71,45 @@ export default function App() {
   const source = useMemo(() => resolveDataSource(state, import.meta.env.VITE_DEFAULT_SOURCE), [state.mock, state.source])
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
-  const reload = useCallback(() => setReloads((n) => n + 1), [])
+  const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
+  const [savedSinceRefresh, setSavedSinceRefresh] = useState(false)
+  const refreshRequested = useRef(false)
+  const reload = useCallback((saved = false) => {
+    if (saved) {
+      setSavedBeforeRefresh(true)
+      setSavedSinceRefresh(true)
+      refreshRequested.current = false
+    }
+    setReloads((n) => n + 1)
+  }, [])
+  const retry = useCallback(() => setReloads((n) => n + 1), [])
+  const refresh = useCallback(() => {
+    refreshRequested.current = true
+    setReloads((n) => n + 1)
+  }, [])
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
+  const stale = overview.loaded !== undefined && overview.error !== undefined
+  useEffect(() => {
+    if (overview.status !== 'ready') return
+    setSavedBeforeRefresh(false)
+    if (refreshRequested.current) {
+      refreshRequested.current = false
+      setSavedSinceRefresh(false)
+    }
+  }, [overview.status])
+  useEffect(() => {
+    refreshRequested.current = false
+    setSavedSinceRefresh(false)
+  }, [sourceKey])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
-    if (options?.replace) window.history.replaceState(null, '', url)
-    else window.history.pushState(null, '', url)
+    try {
+      if (options?.replace) window.history.replaceState(null, '', url)
+      else window.history.pushState(null, '', url)
+    } catch {
+      // Browsers limit history updates per second; the screen still follows the state.
+    }
     stateRef.current = next
     setState(next)
   }, [])
@@ -82,6 +117,26 @@ export default function App() {
   const navigate = useCallback((patch: Partial<UrlState>, options?: { replace?: boolean }) => go(nextState(stateRef.current, patch), options), [go])
 
   const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchOpener = useRef<HTMLElement | null>(null)
+  const openSearch = useCallback(() => {
+    searchOpener.current = document.activeElement as HTMLElement | null
+    setSearchOpen(true)
+  }, [])
+  const closeSearch = useCallback((navigated: boolean) => {
+    setSearchOpen(false)
+    if (!navigated) searchOpener.current?.focus?.()
+  }, [])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((APPLE_PLATFORM ? event.metaKey : event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        if (!searchOpen) openSearch()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [searchOpen, openSearch])
 
   const app: AppApi = useMemo(
     () => ({
@@ -102,6 +157,7 @@ export default function App() {
       firstPlace.current = false
       return
     }
+    if (stateRef.current.entry) return
     document.getElementById('main')?.scrollTo({ top: 0 })
     document.getElementById('page-title')?.focus({ preventScroll: true })
   }, [state.view])
@@ -143,16 +199,20 @@ export default function App() {
           onToggleInspector={() => setInspectorOpen((open) => !open)}
           theme={theme}
           onToggleTheme={toggleTheme}
+          onOpenSearch={openSearch}
         />
         <div className="shell">
           <Nav overview={overview} />
           <main id="main" className="main" tabIndex={-1}>
             <div className="page">
               {sourceError && <ErrorPanel error={sourceError} />}
-              <SectionPage sectionId={state.view} overview={overview} />
+              {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
+              <SyncStatus overview={overview} snapshot={source.kind !== 'api'} saved={savedSinceRefresh} onRefresh={refresh} />
+              <SectionPage sectionId={state.view} overview={overview} stale={stale} />
             </div>
           </main>
         </div>
+        {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
         {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} />}
       </div>
     </AppContext.Provider>

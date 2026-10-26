@@ -83,7 +83,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       // A preview that answers after the page switched scope targets the old files.
       const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
       setCancelledId(stale ? value.id : undefined)
-      if (action === 'apply' || action === 'undo' || !action) app.reload()
+      if (action === 'apply' || action === 'undo' || !action) app.reload(true)
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict })
     } finally {

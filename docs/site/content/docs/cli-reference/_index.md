@@ -20,7 +20,7 @@ agnostic-ai [command] [flags]
 
 Run project commands from the folder containing `agnostic-ai.yaml`, unless the command documents support for subdirectories or `--global`. Use `agnostic-ai <command> --help` for the options available in your installed release.
 
-For troubleshooting, start with [`doctor`](@/docs/cli-reference/check.md#doctor), review its findings, and follow its suggested next step. Diagnosis is read-only by default. Choose `doctor --fix` only when you want its repairs. See [troubleshooting](@/docs/troubleshooting.md) for symptom-specific guidance.
+To troubleshoot, start with [`doctor`](@/docs/cli-reference/check.md#doctor) and follow its next step, or see [troubleshooting](@/docs/troubleshooting.md) by symptom.
 
 ## Find a command
 
@@ -52,11 +52,9 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 ## Concurrent commands
 
-`sync`, `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID. Retry after that command finishes. `sync --watch` holds the lock until it exits.
+`sync` (including `--watch`, until it exits), `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID; retry after it finishes. `sync --check`, `sync --plan`, dry runs, `status`, `list`, and global commands take no lock. The lock works between processes on one machine, not across a network file system.
 
-The lock file is `.agnostic-ai/.command-lock`, which the managed `.gitignore` block ignores. It stays on disk after the command exits; leave it in place. The operating system releases the lock when the process exits or is killed. Writing commands refresh the runtime `.gitignore` entries even when generated outputs are committed.
-
-`sync --check`, `sync --plan`, dry runs, `status`, and `list` do not take the lock. Global commands do not use the project lock. The lock works between processes on one machine, not across a network file system.
+The lock file, `.agnostic-ai/.command-lock`, stays on disk; leave it. The managed `.gitignore` block ignores it, and writing commands refresh those runtime entries even when generated outputs are committed. The operating system releases the lock when the process exits or is killed.
 
 ## Global flags
 
