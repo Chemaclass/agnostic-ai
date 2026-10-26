@@ -211,7 +211,7 @@ function FieldResolution({ label, resolved }: { label: string; resolved: TargetV
       </select></label>}
       <div className="field-resolution-detail" aria-live="polite">
         <p>{generatedAnswer(current)}</p>
-        {current.from && <p className="muted">From <Code>{current.from.path}</Code>{current.from.local && <> <Badge tone="accent">local</Badge></>}{!current.from.spec && ' in the config'}</p>}
+        {current.from && <p className="muted">From <Code>{current.from.path}</Code>{current.from.local && ', your personal file'}{!current.from.spec && ' in the config'}</p>}
         {current.others.length > 0 && <>
           <p className="muted">Values that do not win:</p>
           <ul className="field-resolution-others">
