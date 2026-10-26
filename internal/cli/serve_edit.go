@@ -149,7 +149,16 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value, &chosen)
 		}
-		if err != nil {
+		var source fieldSourceError
+		var nothing noPersonalValueError
+		switch {
+		case err != nil && len(req.Expected) > 0 && errors.As(err, &source):
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error() + ". This changed after the page loaded; reload to review it"})
+			return
+		case err != nil && len(req.Expected) > 0 && errors.As(err, &nothing):
+			writeEditJSON(w, http.StatusOK, map[string]any{"ok": true})
+			return
+		case err != nil:
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}

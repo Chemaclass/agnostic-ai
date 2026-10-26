@@ -416,6 +416,7 @@ func TestEditField_RejectsAStaleExpectedValue(t *testing.T) {
 		{"just me, second tab", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"low","expected":null}`, 409, overlay, "effort: high"},
 		{"just me reset of a changed value", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"low"}`, 409, overlay, "effort: high"},
 		{"just me reset", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"high"}`, 200, overlay, ""},
+		{"retry of a reset that already landed", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"high"}`, 200, overlay, ""},
 		{"team clear", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"haiku"}`, 200, native, "name: native\n"},
 		{"retry of a clear that already landed", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"haiku"}`, 200, native, "name: native\n"},
 		{"team save after the clear", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":null}`, 200, native, "name: native\nmodel: haiku\n"},
@@ -486,5 +487,32 @@ func TestEditField_ExpectsTheEffortAModelTierGives(t *testing.T) {
 	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":"high","expected":"low"}`, nil)
 	if rec.Code != 200 || !strings.Contains(readOptional(t, spec), "effort: high") {
 		t.Fatalf("save = %d %s %q", rec.Code, rec.Body, readOptional(t, spec))
+	}
+}
+
+func TestEditField_ConflictsWhenAnotherFileNowSetsTheField(t *testing.T) {
+	project := scopeProject(t)
+	team := ".agnostic-ai/settings/defaults.yaml"
+	h := newEditHandler(project, false)
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","path":"`+team+`","key":"effort","value":"low","expected":null}`, nil); rec.Code != 200 {
+		t.Fatalf("other tab = %d %s", rec.Code, rec.Body)
+	}
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium","expected":"high"}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "sets effort for you") {
+		t.Fatalf("team save under a new personal value = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium"}`, nil); rec.Code != 400 {
+		t.Fatalf("without a precondition = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","path":"`+team+`","key":"effort","value":null,"expected":"low"}`, nil); rec.Code != 200 {
+		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
+	}
+	mustWrite(t, ".agnostic-ai/settings/zz.yaml", "name: zz\neffort: low\n")
+	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium","expected":"high"}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "overrides") {
+		t.Fatalf("team save under a new overriding spec = %d %s", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, team); !strings.Contains(got, "effort: high") {
+		t.Errorf("team spec = %q", got)
 	}
 }

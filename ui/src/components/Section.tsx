@@ -208,6 +208,8 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const basis = useRef({ current, local: localCurrent, team: teamCurrent })
   const draft = useRef(value)
   draft.current = value
+  const latest = useRef(basis.current)
+  latest.current = { current, local: localCurrent, team: teamCurrent }
   const conflict = useRef(false)
   useEffect(() => {
     const clean = draft.current === basis.current.current || draft.current === current
@@ -242,6 +244,13 @@ function FieldEditControl({ field }: { field: SettingField }) {
       app.reload()
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
+      const now = latest.current
+      const shown = basis.current
+      if (failure.status === 409 && (now.current !== shown.current || now.local !== shown.local || now.team !== shown.team)) {
+        basis.current = now
+        setReloaded(true)
+        return
+      }
       conflict.current = failure.status === 409
       setError(failure)
     } finally { setPending(false) }
@@ -272,7 +281,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
       {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={app.reload}>Reload saved values</button></>}</span>}
-    {reloaded && <p className="muted" role="status">Reloaded. The saved value is {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
+    {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
       {scope === 'team' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}

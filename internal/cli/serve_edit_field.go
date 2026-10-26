@@ -95,7 +95,7 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 		switch {
 		case at >= 0:
 			if j := overview.SettingsOverride(settings, at, key, scope.targets); j >= 0 {
-				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, settings[j]), key, shown)
+				return "", nil, fieldSourceError{fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, settings[j]), key, shown)}
 			}
 			chosen, file = settings[at], settings[at].Path
 		case shown == defaultShown:
@@ -109,7 +109,7 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 				}
 			}
 			if j := overview.SettingsOverride(later, -1, key, scope.targets); j >= 0 {
-				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, later[j]), key, shown)
+				return "", nil, fieldSourceError{fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, later[j]), key, shown)}
 			}
 			if len(candidates) > 0 && !unreachable {
 				return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
@@ -167,9 +167,9 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 func (h *editHandler) localFieldEdit(chosen spec.Entry, key string, value any) (string, func([]byte) ([]byte, error), error) {
 	if value == nil && !overview.LocalSets(chosen, key) {
 		if _, inherited := chosen.Meta[key]; inherited {
-			return "", nil, fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)
+			return "", nil, noPersonalValueError{fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)}
 		}
-		return "", nil, fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), key)
+		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), key)}
 	}
 	if chosen.Path != "" {
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, scopeLocal)
@@ -197,7 +197,7 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, val
 		return "", nil, fmt.Errorf("%s: there is no team %s to clear", overview.SpecPath(h.root, personal), key)
 	}
 	if overview.LocalSets(personal, key) {
-		return "", nil, fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), key)
+		return "", nil, fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), key)}
 	}
 	file := filepath.Join(dir, personal.Name+".yaml")
 	if _, err := os.Lstat(file); err == nil {
@@ -214,6 +214,14 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, val
 	}
 	return file, scalarFieldEdit(spec.Entry{}, key, value, fieldCreatedMarker+string(scaffold)), nil
 }
+
+// fieldSourceError refuses an edit because another file now sets the
+// field; for a page that loaded before that, it is a conflict.
+type fieldSourceError struct{ error }
+
+// noPersonalValueError refuses a reset with nothing to reset, which a page
+// that loaded before an earlier reset asks for again.
+type noPersonalValueError struct{ error }
 
 type staleFieldError struct {
 	key     string
