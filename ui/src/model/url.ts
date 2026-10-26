@@ -7,6 +7,10 @@ export type ViewId = (typeof SECTION_VIEWS)[number]
 
 export interface UrlState {
   view: ViewId
+  /** The section search. */
+  q?: string
+  /** The linked item, field, or finding (see identity.ts). */
+  entry?: string
   mock: boolean
   /** Static snapshot directory or URL. */
   source?: string
@@ -22,8 +26,12 @@ export function parseUrlState(search: string): UrlState {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
   const view = params.get('view')
   const source = params.get('source')?.trim()
+  const q = params.get('q') ?? ''
+  const entry = params.get('entry') ?? ''
   return {
     view: isView(view) ? view : DEFAULT_STATE.view,
+    q: q && q.length <= 512 ? q : undefined,
+    entry: entry && entry.length <= 2048 ? entry : undefined,
     mock: params.get('mock') === '1' || params.get('mock') === 'true',
     source: source && source.length <= 2048 ? source : undefined,
   }
@@ -33,15 +41,18 @@ export function parseUrlState(search: string): UrlState {
 export function serializeUrlState(state: UrlState): string {
   const params = new URLSearchParams()
   if (state.view !== DEFAULT_STATE.view) params.set('view', state.view)
+  if (state.q) params.set('q', state.q)
+  if (state.entry) params.set('entry', state.entry)
   if (state.source) params.set('source', state.source)
   else if (state.mock) params.set('mock', '1')
   const query = params.toString()
   return query ? `?${query}` : ''
 }
 
-/** Applies a patch; the data source (mock or static snapshot) carries over. */
+/** Applies a patch; the data source carries over, and a new section starts without the old search or link. */
 export function nextState(state: UrlState, patch: Partial<UrlState>): UrlState {
-  return { ...state, ...patch }
+  const base = patch.view && patch.view !== state.view ? { ...state, q: undefined, entry: undefined } : state
+  return { ...base, ...patch }
 }
 
 export type DataSource =

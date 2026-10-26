@@ -470,4 +470,8 @@
 # (23490720): the web interface shows whether each configured tool's
 # generated files match the source, with the check time and Refresh.
 # Same Linux amd64 release flags; no added headroom or dependencies.
-23498912
+# #2514 measured 23507104 on Go 1.27.3, up 8192 from main 367286c5
+# (23498912): the web interface searches every section and links to each
+# item, setting, and finding. Same Linux amd64 release flags; no added
+# headroom or dependencies.
+23507104

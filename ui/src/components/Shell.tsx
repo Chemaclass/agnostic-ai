@@ -3,7 +3,7 @@ import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
-import { Icon, ToolAvatar } from './ui'
+import { APPLE_PLATFORM, Icon, ToolAvatar } from './ui'
 
 export interface Remote<T> {
   status: 'loading' | 'ready' | 'error'
@@ -35,12 +35,14 @@ export function Header({
   onToggleInspector,
   theme,
   onToggleTheme,
+  onOpenSearch,
 }: {
   overview: Remote<OverviewView>
   inspectorOpen: boolean
   onToggleInspector: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
+  onOpenSearch: () => void
 }) {
   const app = useApp()
   const snapshot = overview.loaded?.data.snapshot
@@ -94,6 +96,11 @@ export function Header({
           )}
         </div>
       )}
+      <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
+        <Icon name="search" />
+        <span>Search</span>
+        <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
+      </button>
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
         JSON
       </button>

@@ -7,6 +7,8 @@ import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './B
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { cursorUrl } from '../model/editor'
 import { findingFixPrompt } from '../model/finding-prompt'
+import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
+import { fieldSearchText, itemSearchText } from '../model/search'
 import type { Remote } from './Shell'
 import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -53,21 +55,29 @@ export function SectionContents({ section }: { section: Section }) {
 }
 
 function SectionContentsBody({ section }: { section: Section }) {
-  const [search, setSearch] = useState('')
+  const app = useApp()
+  const search = app.state.q ?? ''
+  const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
+  const entry = app.state.entry
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
   const matches = (parts: (string | undefined)[]) => parts.some((part) => part?.toLowerCase().includes(query))
-  const matchingItems = new Set(section.items.filter((item) => matches([
-    item.name, item.label, item.path, item.description, ...searchValues(item.values),
-    ...(item.tools?.tools.flatMap((tool) => [tool.name, tool.title, tool.description]) ?? []),
-  ])))
-  const matchingFields = section.fields?.filter((field) => matches([
-    field.key, field.label, field.description,
-    ...field.set.flatMap((source) => [source.spec, source.path, ...searchValues(source.values)]),
-  ]))
-  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0)
-  const matchCount = matchingItems.size + (matchingFields?.length ?? 0)
+  const matchingItems = new Set(section.items.filter((item) => matches(itemSearchText(item))))
+  const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
+  const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
+  const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry)
+  const entryMissing = entry !== undefined && !sectionEntryIds(section).has(entry)
+  useEffect(() => {
+    if (!entry) return
+    const target = document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(entry)}"]`)
+    if (!target) return
+    const details = target.closest('details')
+    if (details) details.open = true
+    target.scrollIntoView({ block: 'center' })
+    target.focus({ preventScroll: true })
+  }, [entry, section.id])
+  const matchCount = matchingItems.size + (fieldMatches?.length ?? 0)
   const totalCount = section.items.length + (section.fields?.length ?? 0)
   const retainedFindings = section.items.some((item) => item.findings.length > 0 && !matchingItems.has(item))
   const errors = section.findings.filter((finding) => finding.severity === 'error').length
@@ -83,6 +93,12 @@ function SectionContentsBody({ section }: { section: Section }) {
   return (
     <>
       <EditScopeSwitch />
+      {entryMissing && (
+        <div className="entry-missing" role="status">
+          <p>The linked {entry.startsWith('finding:') ? 'finding' : entry.startsWith('field:') ? 'setting' : 'item'} is not in this {section.label.toLowerCase()} section. It may have been removed, renamed, or fixed, or the link may come from another configuration.</p>
+          <button type="button" className="button button-quiet" onClick={() => app.navigate({ entry: undefined }, { replace: true })}>Dismiss</button>
+        </div>
+      )}
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
@@ -133,11 +149,13 @@ function SectionContentsBody({ section }: { section: Section }) {
   )
 }
 
-function searchValues(values: Value[]): string[] {
-  return values.flatMap((value) => [value.key, value.value ?? '', ...(value.list ?? [])])
+function useEntry(id: string): { 'data-entry': string; tabIndex?: number; linked: boolean } {
+  const linked = useApp().state.entry === id
+  return { 'data-entry': id, tabIndex: linked ? -1 : undefined, linked }
 }
 
 function SettingsFields({ title, fields, files, filtering }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean }) {
+  const entry = useApp().state.entry
   const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
   const configured = fields.filter((field) => field.set.length > 0)
   const unconfigured = fields.filter((field) => field.set.length === 0)
@@ -146,7 +164,7 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
       <h2 id={id}>{title}</h2>
       {configured.length ? <FieldList fields={configured} files={files} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
       {unconfigured.length > 0 && (
-        <details className="unconfigured-fields" open={filtering || undefined}>
+        <details className="unconfigured-fields" open={filtering || unconfigured.some((field) => fieldEntryId(field) === entry) || undefined}>
           <summary>Unconfigured fields ({unconfigured.length})</summary>
           <FieldList fields={unconfigured} files={files} />
         </details>
@@ -167,7 +185,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
   return (
     <ul className="fields">
       {fields.map((f) => (
-        <li key={f.key} className={`field-row${f.set.length ? ' is-set' : ''}`}>
+        <FieldRow key={f.key} field={f}>
           <div className="field-head">
             <strong>{f.label}</strong>
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
@@ -184,10 +202,15 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
             </div>
           ))}
           <FieldEditControl key={scope} field={f} />
-        </li>
+        </FieldRow>
       ))}
     </ul>
   )
+}
+
+function FieldRow({ field, children }: { field: SettingField; children: ReactNode }) {
+  const { linked, ...entry } = useEntry(fieldEntryId(field))
+  return <li {...entry} className={`field-row${field.set.length ? ' is-set' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
 function FieldEditControl({ field }: { field: SettingField }) {
@@ -369,18 +392,23 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
         </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
-          <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
+          <ItemRow key={itemEntryId(item)} item={item}>
             {item.kind === 'builtin' && item.enabled !== undefined
               ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
             {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
-            {item.findings.length > 0 && <Findings findings={item.findings} />}
-          </li>
+            {item.findings.length > 0 && <Findings findings={item.findings} owner={itemEntryId(item)} />}
+          </ItemRow>
         )
       })}
     </ul>
   )
+}
+
+function ItemRow({ item, children }: { item: SectionItem; children: ReactNode }) {
+  const { linked, ...entry } = useEntry(itemEntryId(item))
+  return <li {...entry} className={`item-row${item.findings.length ? ' has-findings' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
@@ -566,22 +594,24 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
   )
 }
 
-function Findings({ findings }: { findings: ItemFinding[] }) {
+function Findings({ findings, owner }: { findings: ItemFinding[]; owner?: string }) {
+  const ids = findingEntryIds(findings, owner)
   return (
     <ul className="findings">
       {findings.map((f, i) => (
-        <Finding key={`${f.code ?? f.source}-${f.line ?? 0}-${i}`} finding={f} />
+        <Finding key={ids[i]} finding={f} entryId={ids[i]} />
       ))}
     </ul>
   )
 }
 
-function Finding({ finding: f }: { finding: ItemFinding }) {
+function Finding({ finding: f, entryId }: { finding: ItemFinding; entryId: string }) {
   const root = useContext(ConfigurationRoot)
   const prompt = findingFixPrompt(f, root)
   const promptId = useId()
+  const { linked, ...entry } = useEntry(entryId)
   return (
-    <li className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}`}>
+    <li {...entry} className={`finding finding-${f.severity === 'error' ? 'error' : 'warn'}${linked ? ' is-linked' : ''}`}>
       <div className="finding-body">
         <div className="finding-head">
           <div className="finding-meta">
