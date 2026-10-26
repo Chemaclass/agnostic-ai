@@ -466,8 +466,12 @@
 # server refuses a stale one with a conflict, and the page keeps the draft
 # and offers a reload. Same Linux amd64 release flags; no added headroom
 # or dependencies.
-# #2513 measured 23494816 on Go 1.27.3, up 4096 from main 20ed4cee
-# (23490720): the web interface opens files and findings in Cursor or VS
+# #2510 measured 23498912 on Go 1.27.3, up 8192 from main 6b4fd7d9
+# (23490720): the web interface shows whether each configured tool's
+# generated files match the source, with the check time and Refresh.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2513 measured 23503008 on Go 1.27.3, up 4096 from main 57db8b4d
+# (23498912): the web interface opens files and findings in Cursor or VS
 # Code, and findings carry the path of the file they name. Same Linux
 # amd64 release flags; no added headroom or dependencies.
-23494816
+23503008
