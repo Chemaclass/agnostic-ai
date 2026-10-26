@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 )
 
@@ -247,4 +249,82 @@ func TestBuiltinChanges_ApplyHoldsTheGitExcludeLock(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestExcludeFromGit_WaitsForTheSharedLock(t *testing.T) {
+	_, exclude := excludeRepo(t)
+	held := holdExcludeLock(t, exclude)
+	done := make(chan error, 1)
+	go func() { done <- adapters.ExcludeFromGit("**/.claude/settings.local.json") }()
+	select {
+	case err := <-done:
+		t.Fatalf("memory exclusion wrote info/exclude while another writer held the lock: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+	_ = held.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPersonalSplitBlock_FailsWhenThePreviousSetCannotBeRead(t *testing.T) {
+	personalProject(t, "[]")
+	root, _ := os.Getwd()
+	git(t, root, "init", "--quiet")
+	gitquery.Reset()
+	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: [handoff]\n")
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shortenExcludeLockWait(t)
+	held := holdExcludeLock(t, filepath.Join(root, ".git", "info", "exclude"))
+	defer func() { _ = held.Close() }()
+	if _, _, err := personalSplitBlock(".", cfg, b, cfg.Targets, nil); err == nil {
+		t.Fatal("split succeeded without reading the previous personal set")
+	}
+}
+
+func TestBuiltinChanges_ApplyRefusesAnExcludeChangedDuringPreview(t *testing.T) {
+	personalProject(t, "[]")
+	root, _ := os.Getwd()
+	git(t, root, "init", "--quiet")
+	gitquery.Reset()
+	mustWriteFile(t, "agnostic-ai.local.yaml", "builtins: []\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	h := newBuiltinChangeHandler(".", false)
+	proposal := builtinNamedProposal(t, h, "caveman", true)
+	exclude := filepath.Join(".git", "info", "exclude")
+	data, _ := os.ReadFile(exclude)
+	other := withPersonalExcludes(string(data), personalExcludeKey(t.TempDir()), "", []string{"/other.md"})
+	if err := os.WriteFile(exclude, []byte(other), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The nested sync wrote after the preview read the file but before
+	// its final snapshot, so the snapshot already holds the new bytes.
+	snap, err := snapshotEditFile(exclude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.plan.inputs.files[".git/info/exclude"] = snap
+	for i := range h.plan.changes {
+		if h.plan.changes[i].Path == ".git/info/exclude" {
+			h.plan.changes[i].before = snap
+		}
+	}
+	if _, err := h.apply(proposal.ID); err == nil {
+		t.Error("apply wrote info/exclude planned from bytes that changed since the preview read them")
+	}
+	if got, _ := os.ReadFile(exclude); !strings.Contains(string(got), "/other.md") {
+		t.Errorf("apply removed another project's block:\n%s", got)
+	}
+}
+
+func shortenExcludeLockWait(t *testing.T) {
+	t.Helper()
+	previous := gitexclude.LockWait
+	gitexclude.LockWait = 100 * time.Millisecond
+	t.Cleanup(func() { gitexclude.LockWait = previous })
 }

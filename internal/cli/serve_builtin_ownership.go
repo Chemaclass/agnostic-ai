@@ -213,7 +213,7 @@ func builtinRedirectsMemory(root string, cfg *config.Config, reports []driftRepo
 
 // planBuiltinMemoryExclusion returns the info/exclude update sync makes
 // for private memory settings, or an empty path when none is needed.
-func planBuiltinMemoryExclusion(root string, cfg *config.Config, desired map[string][]byte) (string, []byte, error) {
+func planBuiltinMemoryExclusion(root string, cfg *config.Config, desired, base map[string][]byte) (string, []byte, error) {
 	if !slices.Contains(cfg.Builtins, "memory") || !slices.Contains(cfg.Targets, "claude") {
 		return "", nil, nil
 	}
@@ -258,6 +258,9 @@ func planBuiltinMemoryExclusion(root string, cfg *config.Config, desired map[str
 	if !changed {
 		return "", nil, nil
 	}
+	if _, recorded := base[rel]; !recorded {
+		base[rel] = current
+	}
 	return rel, updated, nil
 }
 
@@ -285,7 +288,7 @@ func builtinExcludeRel(root, exclude string) (string, bool) {
 // for the outputs only the personal built-ins add. A linked worktree's
 // file is shared with every checkout and sits outside the project, so a
 // change that needs lines there goes through the CLI.
-func planPersonalExcludes(root string, personal []string, desired map[string][]byte) error {
+func planPersonalExcludes(root string, personal []string, desired, base map[string][]byte) error {
 	ex, ok := personalExcludeFile(root)
 	if !ok {
 		return nil
@@ -303,6 +306,7 @@ func planPersonalExcludes(root string, personal []string, desired map[string][]b
 	}
 	if updated := withPersonalExcludes(string(snap.data), personalExcludeKey(root), ex.prefix, personal); updated != string(snap.data) {
 		desired[rel] = []byte(updated)
+		base[rel] = snap.data
 	}
 	return nil
 }

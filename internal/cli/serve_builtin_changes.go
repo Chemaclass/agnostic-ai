@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -240,6 +242,15 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	}
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
+	}
+	for _, path := range slices.Sorted(maps.Keys(plan.excludeBase)) {
+		current, err := os.ReadFile(filepath.Join(h.root, filepath.FromSlash(path)))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return builtinChangeView{}, fmt.Errorf("%s: %w", path, err)
+		}
+		if !bytes.Equal(current, plan.excludeBase[path]) {
+			return builtinChangeView{}, builtinChanged(fmt.Errorf("%s: changed since preview; preview again", path))
+		}
 	}
 	journal, err := applyBuiltinFiles(h.root, plan.changes, h.beforeWrite)
 	var after builtinProjectSnapshot
