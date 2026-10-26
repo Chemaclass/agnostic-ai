@@ -29,8 +29,9 @@ var errFieldNotInFile = errors.New("the field is not in this file")
 
 const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
 
-// fieldEdit resolves an editable source spec, never an arbitrary client path.
-func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
+// fieldEdit resolves an editable source spec, never an arbitrary client path,
+// and stores the loaded spec it edits in picked.
+func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.RawMessage, picked *spec.Entry) (string, func([]byte) ([]byte, error), error) {
 	if key != "model" && key != "effort" && key != "session-retention-days" {
 		return "", nil, fmt.Errorf("%s is not an editable field", key)
 	}
@@ -126,6 +127,7 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 	} else {
 		return "", nil, errors.New("several editable settings specs exist; choose a path")
 	}
+	*picked = chosen
 	scaffold := fieldCreatedSpec
 	if where == scopeLocal {
 		return h.localFieldEdit(chosen, key, value)
@@ -165,9 +167,9 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 func (h *editHandler) localFieldEdit(chosen spec.Entry, key string, value any) (string, func([]byte) ([]byte, error), error) {
 	if value == nil && !overview.LocalSets(chosen, key) {
 		if _, inherited := chosen.Meta[key]; inherited {
-			return "", nil, fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)
+			return "", nil, noPersonalValueError{fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)}
 		}
-		return "", nil, fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), key)
+		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), key)}
 	}
 	if chosen.Path != "" {
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, scopeLocal)
@@ -195,7 +197,7 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, val
 		return "", nil, fmt.Errorf("%s: there is no team %s to clear", overview.SpecPath(h.root, personal), key)
 	}
 	if overview.LocalSets(personal, key) {
-		return "", nil, fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), key)
+		return "", nil, fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), key)}
 	}
 	file := filepath.Join(dir, personal.Name+".yaml")
 	if _, err := os.Lstat(file); err == nil {
@@ -211,6 +213,102 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, val
 		return "", nil, err
 	}
 	return file, scalarFieldEdit(spec.Entry{}, key, value, fieldCreatedMarker+string(scaffold)), nil
+}
+
+// fieldSourceError refuses a team edit because a personal file sets the
+// field; for a page that loaded before that, it is a conflict.
+type fieldSourceError struct{ error }
+
+// noPersonalValueError refuses a reset with nothing to reset, which a page
+// that loaded before an earlier reset asks for again.
+type noPersonalValueError struct{ error }
+
+type staleFieldError struct {
+	key     string
+	current *fieldText
+}
+
+func (e staleFieldError) Error() string {
+	now := "not set"
+	if e.current != nil {
+		now = "now " + e.current.shown
+	}
+	return fmt.Sprintf("%s changed after this page loaded and is %s. Reload to review it, then save again", e.key, now)
+}
+
+// fieldText is a field's value as written and as the page shows it,
+// which hides values that look like credentials.
+type fieldText struct{ raw, shown string }
+
+func (t *fieldText) same(o *fieldText) bool {
+	return t == nil && o == nil || t != nil && o != nil && t.raw == o.raw
+}
+
+// expectFieldValue refuses edit unless the destination still holds the
+// value the page showed, or already holds the one the edit writes, as after
+// a save whose follow-up reload failed. A key the file leaves out shows as
+// unset, or as the value the loaded spec inherits, such as a model tier's
+// effort.
+func expectFieldValue(key string, expected *string, clearing bool, inherited *fieldText, edit func([]byte) ([]byte, error)) func([]byte) ([]byte, error) {
+	valueIn := func(data []byte) (*fieldText, error) {
+		t, err := fieldValueText(data, key)
+		if t == nil && err == nil {
+			return inherited, nil
+		}
+		return t, err
+	}
+	return func(data []byte) ([]byte, error) {
+		current, err := valueIn(data)
+		if err != nil {
+			return nil, err
+		}
+		if clearing && current == nil {
+			return data, nil
+		}
+		if current != nil && current.raw != current.shown {
+			return nil, fmt.Errorf("the page hides the value of %s; edit the file directly", key)
+		}
+		if current == nil && expected == nil || current != nil && expected != nil && current.raw == *expected {
+			return edit(data)
+		}
+		if out, err := edit(data); err == nil {
+			if written, err := valueIn(out); err == nil && written.same(current) {
+				return data, nil
+			}
+		}
+		return nil, staleFieldError{key: key, current: current}
+	}
+}
+
+// inheritedFieldText is the value the page shows for key at file, the one
+// a field edit of chosen writes, when file leaves the key out.
+func inheritedFieldText(where editScope, chosen spec.Entry, file, key string) *fieldText {
+	local := overview.LocalLayer(chosen)
+	if chosen.Path == "" || where == scopeLocal && (!local || chosen.Base != nil) || where == scopeTeam && local && chosen.Base == nil {
+		return nil
+	}
+	if data, err := os.ReadFile(file); err == nil {
+		if own, err := fieldValueText(data, key); err != nil || own != nil {
+			return nil
+		}
+	}
+	v, ok := chosen.Meta[key]
+	if !ok {
+		return nil
+	}
+	return &fieldText{raw: overview.Scalar(v), shown: overview.ShownText(key, v)}
+}
+
+func fieldValueText(data []byte, key string) (*fieldText, error) {
+	var values map[string]any
+	if err := yaml.Unmarshal(data, &values); err != nil {
+		return nil, fmt.Errorf("parse: %w", err)
+	}
+	v, ok := values[key]
+	if !ok {
+		return nil, nil
+	}
+	return &fieldText{raw: overview.Scalar(v), shown: overview.ShownText(key, v)}, nil
 }
 
 // scalarFieldEdit sets or clears key in a settings file. A new file starts

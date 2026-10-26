@@ -399,7 +399,7 @@ test.describe('overview', () => {
     await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
     await expect(model).toContainText('Your local value overrides the team value.')
     await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
@@ -413,13 +413,116 @@ test.describe('overview', () => {
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low' })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true })
 
     await page.reload()
     await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  const refreshFailures: { name: string; fail: (route: import('@playwright/test').Route) => Promise<void>; message: RegExp }[] = [
+    { name: 'an HTTP error', fail: (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }), message: /answered 500: audit-simulated-overview-failure/ },
+    { name: 'a network failure', fail: (route) => route.abort('connectionrefused'), message: /Could not reach/ },
+    { name: 'a malformed response', fail: (route) => route.fulfill({ status: 200, contentType: 'text/plain', body: 'not json' }), message: /did not return JSON/ },
+  ]
+  for (const failure of refreshFailures) {
+    test(`shows ${failure.name} when the refresh after a save fails, then recovers on retry`, async ({ page }) => {
+      const data = structuredClone(fixture)
+      const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+      const team = '.agnostic-ai/settings/defaults.yaml'
+      const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+      const edit = { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' }
+      Object.assign(field('effort'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: edit })
+      Object.assign(field('model'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable: edit })
+      let failing = false
+      await page.route('**/api/views/overview', (route) => {
+        if (failing) return failure.fail(route)
+        const view = structuredClone(data)
+        const effort = view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((f: { key: string }) => f.key === 'effort')
+        effort.set[0].values[0].value = saved
+        return route.fulfill({ json: view })
+      })
+      let saved = 'high'
+      await page.route('**/api/edit/field', (route) => {
+        saved = route.request().postDataJSON().value
+        return route.fulfill({ json: { ok: true } })
+      })
+      await page.goto('/?view=settings')
+      const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+      const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+      await model.getByRole('textbox', { name: 'Default model value' }).fill('draft-model')
+
+      failing = true
+      await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+      await effort.getByRole('button', { name: 'Update' }).click()
+      const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
+      await expect(alert).toContainText('Your change was saved, but the overview could not be refreshed.')
+      await expect(alert).toContainText(failure.message)
+      await expect(alert).toContainText('previous overview')
+      await expect(effort.getByRole('button', { name: 'Update' })).toBeDisabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toBeDisabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
+      await expect(page).toHaveURL(/view=settings/)
+
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(alert).toBeVisible()
+      failing = false
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(alert).toHaveCount(0)
+      await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
+      await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toBeEnabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
+    })
+  }
+
+  test('keeps an unsaved draft and shows the changed saved value when a retry brings a different source', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const team = '.agnostic-ai/settings/defaults.yaml'
+    const edit = { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' }
+    const model = settings.fields.find((f: { key: string }) => f.key === 'model')
+    const effort = settings.fields.find((f: { key: string }) => f.key === 'effort')
+    Object.assign(model, { set: [{ spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable: edit })
+    Object.assign(effort, { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: edit })
+    let failing = false
+    let onDisk = 'sonnet'
+    await page.route('**/api/views/overview', (route) => {
+      if (failing) return route.fulfill({ status: 500, json: { error: 'down' } })
+      const view = structuredClone(data)
+      view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((f: { key: string }) => f.key === 'model').set[0].values[0].value = onDisk
+      return route.fulfill({ json: view })
+    })
+    await page.route('**/api/edit/field', (route) => route.fulfill({ json: { ok: true } }))
+    await page.goto('/?view=settings')
+    const modelRow = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const effortRow = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await modelRow.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
+
+    failing = true
+    await effortRow.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+    await effortRow.getByRole('button', { name: 'Update' }).click()
+    const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
+    await expect(alert).toBeVisible()
+    await page.getByRole('button', { name: 'JSON' }).click()
+    await expect(page.getByText('Not refreshed: this is the previous overview')).toBeVisible()
+    await page.getByRole('button', { name: 'Close the JSON inspector' }).click()
+
+    failing = false
+    onDisk = 'opus'
+    await alert.getByRole('button', { name: 'Retry' }).click()
+    await expect(alert).toHaveCount(0)
+    await expect(modelRow.getByRole('textbox', { name: 'Default model value' })).toHaveValue('my-draft')
+    await expect(modelRow.getByRole('status')).toContainText('The saved value changed after you started editing')
+    await expect(modelRow.getByRole('status')).toContainText('opus')
+  })
+
+  test('shows an error panel, not stale data, when the first overview load fails', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }))
+    await page.goto('/?view=settings')
+    await expect(page.getByRole('alert')).toContainText('audit-simulated-overview-failure')
+    await expect(page.getByRole('alert')).not.toContainText('previous overview')
   })
 
   test('resets a personal boolean and the override of the spec chosen to save to', async ({ page }) => {
@@ -459,7 +562,7 @@ test.describe('overview', () => {
     await model.getByRole('combobox').selectOption(b)
     await expect(model).toContainText('Your local value overrides the team value.')
     await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null, expected: 'opus' })
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
@@ -508,11 +611,80 @@ test.describe('overview', () => {
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku' })
+    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
     const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
     await expect(retention.locator('a', { hasText: 'Global view instructions' })).toHaveCount(1)
+  })
+})
+
+test.describe('generated-file status', () => {
+  const withSync = (states: { target: string; label: string; state: string; files?: string[] }[]) => {
+    const data = structuredClone(fixture)
+    data.targets = states.map(({ target, label, state, files = [] }) => ({ target, label, kinds: [], sync: { state, files: files.map((path) => ({ path, state: 'stale' })) } }))
+    return data
+  }
+  const status = (page: import('@playwright/test').Page) => page.locator('section.sync-status')
+
+  test('shows each tool as Matches source, Needs sync, or Not checked, with the files that differ', async ({ page }) => {
+    const data = withSync([
+      { target: 'claude', label: 'Claude Code', state: 'drifted', files: ['.claude/settings.json'] },
+      { target: 'codex', label: 'Codex', state: 'in-sync' },
+      { target: 'external', label: 'External', state: 'not-checked' },
+    ])
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=settings')
+    await expect(status(page)).toContainText('Claude Code needs sync. External was not checked.')
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
+    await status(page).getByText('3 configured tools').click()
+    const row = (name: string) => status(page).locator('.sync-status-tool').filter({ hasText: name })
+    await expect(row('Claude Code')).toContainText('Needs sync')
+    await expect(row('Codex')).toContainText('Matches source')
+    await expect(row('External')).toContainText('Not checked')
+    await row('Claude Code').getByText('1 file').click()
+    await expect(row('Claude Code')).toContainText('.claude/settings.json')
+  })
+
+  test('never reports a match for an empty tool list', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: withSync([]) }))
+    await page.goto('/?view=context')
+    await expect(status(page)).toContainText('No coding tools are configured, so no generated files were checked.')
+    await expect(status(page)).not.toContainText('match the source')
+  })
+
+  test('keeps the previous results after a failed refresh without calling them checked', async ({ page }) => {
+    let failing = false
+    let hold: Promise<void> | undefined
+    await page.route('**/api/views/overview', async (route) => {
+      if (hold) await hold
+      return failing ? route.fulfill({ status: 500, json: { error: 'down' } }) : route.fulfill({ json: withSync([{ target: 'claude', label: 'Claude Code', state: 'in-sync' }]) })
+    })
+    await page.goto('/?view=context')
+    await expect(status(page)).toContainText('Generated files match the source for 1 tool.')
+    failing = true
+    await status(page).getByRole('button', { name: 'Refresh' }).click()
+    await expect(status(page)).toContainText('The latest refresh failed, so these results may be out of date.')
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check /)
+    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
+    failing = false
+    let release = () => {}
+    hold = new Promise((done) => { release = done })
+    await status(page).getByRole('button', { name: 'Refresh' }).click()
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Last successful check .* Checking again…$/)
+    await expect(status(page)).toHaveAttribute('data-tone', 'unknown')
+    hold = undefined
+    release()
+    await expect(status(page).locator('.sync-status-time')).toHaveText(/^Checked /)
+    await expect(status(page)).toHaveAttribute('data-tone', 'match')
+  })
+
+  test('labels mock data as a snapshot, not a live check', async ({ page }) => {
+    await page.goto('/?view=context&mock=1')
+    await expect(status(page)).toContainText('Generated files at snapshot time')
+    await expect(status(page)).toContainText('Not a live check of your files.')
+    await expect(status(page).getByRole('button', { name: 'Reload snapshot' })).toBeVisible()
+    await expect(status(page).getByRole('button', { name: 'Refresh' })).toHaveCount(0)
   })
 })

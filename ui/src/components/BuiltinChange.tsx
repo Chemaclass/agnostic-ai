@@ -95,17 +95,18 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       setCancelledId(stale ? value.id : undefined)
       if (stale && action === 'preview') discard(value.id)
       if (action === 'cancel') setNotice('Preview discarded.')
-      if (action === 'apply' || action === 'undo' || !action) app.reload()
+      if (action === 'apply' || action === 'undo' || !action) app.reload(true)
     } catch (err) {
       if (action === 'cancel' && err instanceof BuiltinChangeError && err.conflict) {
         const now = await builtinChange().catch(() => undefined)
         if (now) {
+          const applied = now.status === 'applied' && now.id === change?.id
           setChange(now)
-          app.reload()
+          app.reload(applied)
           if (now.status === 'proposed') {
             setError({ title: 'Another tab opened a newer preview.', message: 'Reload the change state to review it.', conflict: true, action })
           } else {
-            setNotice(now.status === 'applied' && now.id === change?.id ? 'Another tab applied this preview.' : 'Preview discarded.')
+            setNotice(applied ? 'Another tab applied this preview.' : 'Preview discarded.')
           }
           return
         }

@@ -31,17 +31,15 @@ The script reads `tool_input.command` from the event JSON on stdin, with no `jq`
 - A force push written outside quotes blocks, even behind a wrapper the script does not parse, such as `xargs`.
 - A `git push --force` inside quotes, a comment, or a heredoc body passes, and so does a quoted command inside `bash -c` or `eval`.
 
-Both tools start a hook in the session directory, which can be below the project root, so the script path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](@/docs/spec-format/hook-reference.md#imported-project-root-paths). Codex gets `$(git rev-parse --show-toplevel)` in both commands, plus the project's path below the Git root.
+Both tools start a hook in the session directory, which can be below the project root, so the script path starts at the [project root](@/docs/spec-format/hook-reference.md#imported-project-root-paths).
 
-On Windows, Codex runs `commandWindows` with `powershell.exe -Command`. The command above handles three PowerShell quirks:
+On Windows, Codex runs `commandWindows` with `powershell.exe -Command`, and the command above handles three PowerShell quirks:
 
 - PowerShell ignores the script's `#!/bin/sh` line, so the command names `sh`. That needs `sh` on `PATH`, as Git for Windows provides.
 - PowerShell reports a failed native command as exit 1, which Codex lets through. `exit $LASTEXITCODE` passes on the script's exit 2.
 - The Git root lookup resets `$LASTEXITCODE`, so the command checks for `sh` with `Get-Command` and exits 1 when it is missing.
 
-Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`. Without Git Bash it uses PowerShell, where this guard cannot run.
-
-For Copilot, a hook with one plain command writes `commandWindows` as the `powershell` field and `command` as `bash`. A portable `on:` hook, `args`, or a command list keeps one `command`, with a sync note. Cursor and Gemini CLI ignore `commandWindows`.
+Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`; without Git Bash it uses PowerShell, where this guard cannot run. Cursor and Gemini CLI ignore `commandWindows`. On Copilot, a hook with one plain command writes it as the `powershell` field; a portable `on:` hook, `args`, or a command list keeps one `command`, with a sync note.
 
 <details>
 <summary>.agnostic-ai/scripts/no-force-push.sh</summary>
@@ -379,20 +377,13 @@ agnostic-ai hook run no-force-push --bash 'git push --force origin main' --expec
 agnostic-ai hook run no-force-push --bash 'git status' --expect allow
 ```
 
-A guard like this catches a mistake. It is not a sandbox: a command written to get around it, such as a push from a script file or an alias, gets through. To block a command for good, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
+A guard like this catches a mistake but is not a sandbox: a push from a script file or an alias gets through. To block a command for good, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
 
-`sync` copies the script into each tool's script directory and changes the command to run that copy.
-
-- Script contents, permissions, and subdirectories under `scripts/` stay as they are.
-- Make the source executable when the command runs it directly.
-- A missing script fails sync.
-- A file at `.agnostic-ai/scripts/<target>/guard.sh` replaces the shared script for that tool.
+`sync` copies the script, with its permissions and subdirectories under `scripts/`, into each tool's script directory and changes the command to run that copy. A missing script fails sync. Make the source executable when the command runs it directly. A file at `.agnostic-ai/scripts/<target>/guard.sh` replaces the shared script for that tool.
 
 For a shell command that starts an interpreter, quote the path: `command: 'node ".agnostic-ai/scripts/guard.mjs"'`. The path can also follow a [project-root variable](@/docs/spec-format/hook-reference.md#imported-project-root-paths). Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working.
 
-Copilot user hooks use the same command fields and event casing as project hooks. Global sync writes `~/.copilot/hooks/agnostic-ai.json` and honors `COPILOT_HOME`. An imported handler records its source file name in `x-copilot.user-hook-file`; if that file later holds a different handler, sync stops with an error. While a file beside `agnostic-ai.json` still holds the same handler, sync writes no second copy, so the hook runs once. In a fresh Copilot home, sync writes the handler from the spec.
-
-`sync --global` copies scripts from the global source root's `scripts/` directory into the selected tools' user hook directories, and its commands use absolute paths to those copies. Script sharing does not translate event names or reply formats, so pick ones every tool supports.
+`sync --global` copies scripts from the global source root's `scripts/` directory into the selected tools' user hook directories, and its commands use absolute paths to those copies. [Copilot user hooks](@/docs/targets/copilot.md#hooks) use the same command fields and event casing as project hooks; an imported one records its source file in `x-copilot.user-hook-file`. Script sharing does not translate event names or reply formats, so pick ones every tool supports.
 
 <details>
 <summary>Where each tool keeps its scripts</summary>

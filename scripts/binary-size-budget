@@ -461,4 +461,13 @@
 # (23474336): sync, lint and validate --global refuse a rule whose
 # x-<target> block sets a condition. Same Linux amd64 release flags; no
 # added headroom or dependencies.
-23478432
+# #2518 measured 23490720 on Go 1.27.3, up 12288 from main c048d4e0
+# (23478432): web Settings saves send the value the page showed, the
+# server refuses a stale one with a conflict, and the page keeps the draft
+# and offers a reload. Same Linux amd64 release flags; no added headroom
+# or dependencies.
+# #2510 measured 23498912 on Go 1.27.3, up 8192 from main 6b4fd7d9
+# (23490720): the web interface shows whether each configured tool's
+# generated files match the source, with the check time and Refresh.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+23498912

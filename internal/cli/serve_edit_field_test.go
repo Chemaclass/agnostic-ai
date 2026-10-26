@@ -394,3 +394,125 @@ func TestEditField_DefaultPathOverridesALaterPackValue(t *testing.T) {
 		t.Fatalf("defaults = %s %v", data, err)
 	}
 }
+
+func TestEditField_RejectsAStaleExpectedValue(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	native := filepath.Join(source, "settings", "native.yaml")
+	created := filepath.Join(source, "settings", "defaults.yaml")
+	overlay := filepath.Join(source, "local", "settings", "native.yaml")
+	mustWriteGlobalTest(t, native, "name: native\nmodel: opus\n")
+	h := newEditHandler(source, true)
+	for _, tc := range []struct {
+		name, body string
+		status     int
+		file, want string
+	}{
+		{"team value changed outside", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"sonnet"}`, 409, native, "name: native\nmodel: opus\n"},
+		{"team clear of a changed value", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"sonnet"}`, 409, native, "name: native\nmodel: opus\n"},
+		{"team save over the current value", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"opus"}`, 200, native, "name: native\nmodel: haiku\n"},
+		{"retry of a save that already landed", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"opus"}`, 200, native, "name: native\nmodel: haiku\n"},
+		{"just me, first tab", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"high","expected":null}`, 200, overlay, "effort: high"},
+		{"just me, second tab", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":"low","expected":null}`, 409, overlay, "effort: high"},
+		{"just me reset of a changed value", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"low"}`, 409, overlay, "effort: high"},
+		{"just me reset", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"high"}`, 200, overlay, ""},
+		{"retry of a reset that already landed", `{"scope":"local","path":"settings/native.yaml","key":"effort","value":null,"expected":"high"}`, 200, overlay, ""},
+		{"team clear", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"haiku"}`, 200, native, "name: native\n"},
+		{"retry of a clear that already landed", `{"scope":"team","path":"settings/native.yaml","key":"model","value":null,"expected":"haiku"}`, 200, native, "name: native\n"},
+		{"team save after the clear", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":null}`, 200, native, "name: native\nmodel: haiku\n"},
+		{"expected must be text or null", `{"scope":"team","path":"settings/native.yaml","key":"model","value":"opus","expected":5}`, 400, native, "name: native\nmodel: haiku\n"},
+	} {
+		rec := postEdit(t, h, editFieldPath, tc.body, nil)
+		if rec.Code != tc.status {
+			t.Fatalf("%s = %d %s", tc.name, rec.Code, rec.Body)
+		}
+		if tc.status == 409 && !strings.Contains(rec.Body.String(), "changed after this page loaded") {
+			t.Errorf("%s: conflict body = %s", tc.name, rec.Body)
+		}
+		got := readOptional(t, tc.file)
+		if tc.want == "" && got != "" || !strings.Contains(got, tc.want) || strings.HasPrefix(tc.want, "name:") && got != tc.want {
+			t.Errorf("%s: %s = %q, want %q", tc.name, tc.file, got, tc.want)
+		}
+	}
+
+	if err := os.Remove(native); err != nil {
+		t.Fatal(err)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"settings/defaults.yaml","key":"model","value":"sonnet","expected":null}`, nil); rec.Code != 200 {
+		t.Fatalf("first tab creates the spec = %d %s", rec.Code, rec.Body)
+	}
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"settings/defaults.yaml","key":"model","value":"haiku","expected":null}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "now sonnet") {
+		t.Fatalf("second tab over the new spec = %d %s", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, created); !strings.Contains(got, "model: sonnet") {
+		t.Errorf("new spec = %q", got)
+	}
+}
+
+func TestEditField_RefusesAnExpectedValueThePageHides(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	native := filepath.Join(source, "settings", "native.yaml")
+	original := "name: native\nmodel: abcdefghijklmnopqrstuvwxyz0123456789ABCD\n"
+	mustWriteGlobalTest(t, native, original)
+	h := newEditHandler(source, true)
+	for _, body := range []string{
+		`{"scope":"team","path":"settings/native.yaml","key":"model","value":"haiku","expected":"abcdefghijklmnopqrstuvwxyz0123456789ABCE"}`,
+		`{"scope":"team","path":"settings/native.yaml","key":"model","value":"abcdefghijklmnopqrstuvwxyz0123456789ABCE","expected":"abcdefghijklmnopqrstuvwxyz0123456789ABCD"}`,
+	} {
+		if rec := postEdit(t, h, editFieldPath, body, nil); rec.Code == 200 {
+			t.Errorf("%s = %d %s", body, rec.Code, rec.Body)
+		}
+		if got := readOptional(t, native); got != original {
+			t.Fatalf("file = %q", got)
+		}
+	}
+}
+
+func TestEditField_ExpectsTheEffortAModelTierGives(t *testing.T) {
+	project := scopeProject(t)
+	spec := ".agnostic-ai/settings/defaults.yaml"
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nmodels:\n  fast:\n    claude: haiku\n    effort: low\n")
+	mustWrite(t, spec, "name: defaults\nmodel: fast\n")
+	h := newEditHandler(project, false)
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":"high","expected":"medium"}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "is now low") {
+		t.Fatalf("stale = %d %s", rec.Code, rec.Body)
+	}
+	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":null,"expected":"low"}`, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "inherits effort") {
+		t.Fatalf("clear = %d %s", rec.Code, rec.Body)
+	}
+	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+spec+`","key":"effort","value":"high","expected":"low"}`, nil)
+	if rec.Code != 200 || !strings.Contains(readOptional(t, spec), "effort: high") {
+		t.Fatalf("save = %d %s %q", rec.Code, rec.Body, readOptional(t, spec))
+	}
+}
+
+func TestEditField_ConflictsWhenAnotherFileNowSetsTheField(t *testing.T) {
+	project := scopeProject(t)
+	team := ".agnostic-ai/settings/defaults.yaml"
+	h := newEditHandler(project, false)
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","path":"`+team+`","key":"effort","value":"low","expected":null}`, nil); rec.Code != 200 {
+		t.Fatalf("other tab = %d %s", rec.Code, rec.Body)
+	}
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium","expected":"high"}`, nil)
+	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "sets effort for you") {
+		t.Fatalf("team save under a new personal value = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium"}`, nil); rec.Code != 400 {
+		t.Fatalf("without a precondition = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","path":"`+team+`","key":"effort","value":null,"expected":"low"}`, nil); rec.Code != 200 {
+		t.Fatalf("reset = %d %s", rec.Code, rec.Body)
+	}
+	mustWrite(t, ".agnostic-ai/settings/zz.yaml", "name: zz\neffort: low\n")
+	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium","expected":"high"}`, nil)
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "overrides") {
+		t.Fatalf("team save under an overriding spec the page may list = %d %s", rec.Code, rec.Body)
+	}
+	if got := readOptional(t, team); !strings.Contains(got, "effort: high") {
+		t.Errorf("team spec = %q", got)
+	}
+}
