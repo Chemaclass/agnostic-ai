@@ -478,4 +478,8 @@
 # (23507104): the web Settings page explains which model and effort value
 # each configured tool gets, from where, and why other values lose. Same
 # Linux amd64 release flags; no added headroom or dependencies.
-23535776
+# #2511 measured 23564448 on Go 1.27.3, up 28672 from main 4fa3f4db
+# (23535776): the web interface previews, applies, and undoes a model or
+# effort change, loading planned settings bytes without writing them.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+23564448

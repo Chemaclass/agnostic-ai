@@ -12,7 +12,7 @@ interface Controller {
   change?: Change
   pending?: Pending
   pendingName?: string
-  error?: { message: string; conflict: boolean; field?: string }
+  error?: { message: string; conflict: boolean; field?: string; setting?: boolean }
   proposal: boolean
   request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<boolean>
   resetList: () => Promise<boolean>
@@ -92,7 +92,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       return false
     } catch (err) {
       const conflict = err instanceof BuiltinChangeError && err.conflict
-      setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict, field: setting?.key ?? (action === 'apply' ? change?.key : undefined) })
+      setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict, field: setting?.key ?? (action === 'apply' ? change?.key : undefined), setting: !!setting || (action !== 'preview' && !!change?.key) })
       return conflict
     } finally {
       busy.current = false
@@ -116,7 +116,8 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
   const app = useApp()
   const { change, pending, error: anyError, proposal, request } = useBuiltinChanges()
   if (app.source.kind !== 'api' || (change && !change.supported)) return null
-  if (settings ? builtins && !change?.key : !!change?.key) return null
+  const settingChange = anyError ? !!anyError.setting : !!change?.key
+  if (settings ? builtins && !settingChange : settingChange) return null
   const error = anyError?.field ? undefined : anyError
   const label = (name?: string) => name ? labels.find((item) => item.name === name)?.label ?? name : 'Built-in list'
   const undoTitle = change?.undoTitle ?? (change?.undoName ? label(change.undoName) : undefined)
