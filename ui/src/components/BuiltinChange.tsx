@@ -25,6 +25,11 @@ function useBuiltinChanges(): Controller {
   return value
 }
 
+// A proposal restored from the server is shown only on the scope it saves to.
+function otherScope(change: Change, scope: EditScope): boolean {
+  return change.status === 'proposed' && change.scope !== undefined && change.scope !== scope
+}
+
 export function BuiltinChangeProvider({ active, children }: { active: boolean; children: ReactNode }) {
   const app = useApp()
   const [change, setChange] = useState<Change>()
@@ -49,7 +54,11 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     busy.current = true
     setPending('loading')
     setError(undefined)
-    builtinChange().then((value) => { if (current) setChange(value) }).catch((err: unknown) => {
+    builtinChange().then((value) => {
+      if (!current) return
+      setChange(value)
+      if (otherScope(value, shownScope.current)) setCancelledId(value.id)
+    }).catch((err: unknown) => {
       if (current) setError({ message: err instanceof Error ? err.message : 'Could not load the change.', conflict: false })
     }).finally(() => {
       if (current) {
@@ -72,7 +81,8 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       const value = await builtinChange(action, action === 'preview' ? (reset ? { scope: 'local', reset } : { scope, name, enabled }) : action ? { id: action === 'apply' ? change?.id : change?.undoId } : undefined)
       setChange(value)
       // A preview that answers after the page switched scope targets the old files.
-      setCancelledId(action === 'preview' && shownScope.current !== requestedIn ? value.id : undefined)
+      const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
+      setCancelledId(stale ? value.id : undefined)
       if (action === 'apply' || action === 'undo' || !action) app.reload()
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict })

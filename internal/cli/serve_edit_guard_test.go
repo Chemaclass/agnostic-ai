@@ -82,3 +82,21 @@ func cmpOrPath(a, b string) string {
 	}
 	return b
 }
+
+func TestGitTracks_MatchesATrackedPathInAnyCase(t *testing.T) {
+	isolateGit(t)
+	root := t.TempDir()
+	git(t, root, "init", "-q")
+	mustWrite(t, filepath.Join(root, "AGNOSTIC-AI.LOCAL.YAML"), "builtins: []\n")
+	git(t, root, "add", "AGNOSTIC-AI.LOCAL.YAML")
+	git(t, root, "commit", "-qm", "tracked")
+	if err := os.Remove(filepath.Join(root, "AGNOSTIC-AI.LOCAL.YAML")); err != nil {
+		t.Fatal(err)
+	}
+	if !gitTracks(resolvedAbs(filepath.Join(root, "agnostic-ai.local.yaml"))) {
+		t.Error("lowercase name of a tracked file reads as untracked")
+	}
+	if gitTracks(resolvedAbs(filepath.Join(root, "other.yaml"))) {
+		t.Error("an untracked file reads as tracked")
+	}
+}

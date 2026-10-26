@@ -177,3 +177,13 @@ test('discards a preview that answers after the save scope changed', async ({ pa
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
 })
+
+test('drops a restored proposal saved for another scope', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.edit-scope', 'local'))
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'team-1', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } }))
+  await page.goto('/?view=settings')
+  await expect(page.getByRole('button', { name: 'Just me (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+})

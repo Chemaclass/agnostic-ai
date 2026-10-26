@@ -338,7 +338,9 @@ func resolvedAbs(path string) string {
 	return resolveExisting(abs)
 }
 
-// gitTracks reports whether the Git repository around path tracks it.
+// gitTracks reports whether the Git repository around path tracks it, in
+// any letter case: on a case-insensitive filesystem a deleted tracked file
+// comes back under another case, which a plain pathspec misses.
 func gitTracks(path string) bool {
 	dir := filepath.Dir(path)
 	for {
@@ -351,7 +353,7 @@ func gitTracks(path string) bool {
 			return false
 		}
 	}
-	return exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", path).Run() == nil
+	return exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", ":(icase,literal)"+path).Run() == nil
 }
 
 func withinDir(path, dir string) bool {
