@@ -7,15 +7,19 @@ weight = 10
 nav_title = "Install"
 group = "Start"
 scripts = ["assets/scripts/landing.js"]
+next = "@/docs/getting-started.md"
+next_label = "Set up your project"
 +++
 
 # Installation
 
-Install the agnostic-ai command on macOS, Linux, or Windows. This does not install Claude Code, Codex, or their accounts. The npm method needs Node 18 or newer; the ready-made binary needs neither Node nor Go. macOS needs 13 Ventura or later.
+Install the `agnostic-ai` command on macOS, Linux, or Windows. It does not install Claude Code, Codex, or any other coding tool.
+
+npm needs Node 18 or newer. The other methods install a ready-made binary that needs neither Node nor Go. On macOS, you need 13 Ventura or later.
 
 {{ <install_picker /> }}
 
-The local web interface ships inside the binary. After setting up a project, run `agnostic-ai ui`; it needs no frontend build or runtime download. See [the view reference](@/docs/cli-reference/inspect.md#view).
+The browser interface (`agnostic-ai ui`) ships inside the binary, so it needs no extra download. See [the view reference](@/docs/cli-reference/inspect.md#view).
 
 ## Verify the install
 
@@ -26,7 +30,7 @@ agnostic-ai --version
 
 If the command is not found, open a new terminal or add the install directory to `PATH`. To prove the binary came from this repository, see [Verify a release](@/docs/verify-a-release.md).
 
-Next: [Getting started](@/docs/getting-started.md), or [Migration](@/docs/migration.md) if you already have `CLAUDE.md`, `AGENTS.md`, or other tool files.
+Next, [set up your project](@/docs/getting-started.md). If it already has `CLAUDE.md`, `AGENTS.md`, or other tool files, also read [Import an existing setup](@/docs/migration.md).
 
 <details>
 <summary>Upgrade agnostic-ai or pin a project version</summary>

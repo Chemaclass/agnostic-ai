@@ -9,7 +9,7 @@ group = "Reference"
 
 # Verify a release
 
-The install scripts and `agnostic-ai upgrade` check the downloaded archive against the release checksum. Use the methods below for a manual download or additional proof of origin. Replace `vX.Y.Z` and the archive filename with the release and platform you chose.
+The install scripts and `agnostic-ai upgrade` already check each download against the release checksum. Use the checks below for a manual download, or for proof of where a release came from. Replace `vX.Y.Z` and the archive filename with your release and platform.
 
 | Check | Proves | Command |
 |---|---|---|
@@ -24,7 +24,7 @@ The install scripts and `agnostic-ai upgrade` check the downloaded archive again
 
 ## Checksums
 
-`install.sh`, `install.ps1`, and `agnostic-ai upgrade` check the archive against `checksums.txt`. They stop on a mismatch, a missing `checksums.txt`, or a missing SHA-256 tool. To check by hand:
+`install.sh`, `install.ps1`, and `agnostic-ai upgrade` stop on a checksum mismatch, a missing `checksums.txt`, or a missing SHA-256 tool. To check by hand:
 
 ```bash
 curl -fsSLO https://github.com/Chemaclass/agnostic-ai/releases/download/vX.Y.Z/agnostic-ai_linux_amd64.tar.gz
@@ -41,7 +41,7 @@ The checksum comes from the same release page. It catches a corrupted download, 
 
 ## Check where the archive was built {#build-provenance}
 
-Releases after 0.74.0 include a signed record of where every archive and module list was built. This record is called a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The release workflow signs it through Sigstore without keeping a permanent signing key. Verify it with the [GitHub CLI](https://cli.github.com/):
+Releases after 0.74.0 include a signed record of where every archive and module list was built, called a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The release workflow signs it through Sigstore without keeping a permanent signing key. Verify it with the [GitHub CLI](https://cli.github.com/):
 
 ```bash
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai
@@ -62,7 +62,7 @@ To make the installers run this check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` fo
 
 ## List of included modules {#sbom}
 
-Each archive has a list of included modules in SPDX format, called a software bill of materials (SBOM), such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`. It lists every Go module in the binary. Its checksum is in `checksums.txt`, and it has its own signed record of where it was built. Scan it with a tool such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json`.
+Each archive has a software bill of materials (SBOM) in SPDX format, such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`, that lists every Go module in the binary. Its checksum is in `checksums.txt`, and it has its own signed record of where it was built. Scan it with a tool such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json`.
 
 </details>
 
@@ -77,9 +77,9 @@ The `agnostic-ai` package and its six `@agnostic-ai/*` platform packages are pub
 npm audit signatures
 ```
 
-It checks installed packages' registry signatures and verifies build records when present. Success alone does not require every package to have provenance or restrict it to this repository. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
+It checks installed packages' registry signatures and verifies build records when present. A pass alone does not prove every package has provenance or that it came from this repository. Each platform package holds the binary from the release archive, checked against `checksums.txt` before packing.
 
-Official releases require provenance for the parent and all six platform packages. The release workflow also checks the GitHub Actions signing identity, this repository's release workflow at the version tag, the signed source commit, and the downloaded tarball integrity. It rejects missing or invalid signed build records, including for already published versions. These checks establish origin and integrity, not that the code has no defects.
+Official releases require provenance for the parent and all six platform packages. The release workflow also checks the GitHub Actions signing identity, this repository's release workflow at the version tag, the signed source commit, and the downloaded tarball integrity. It rejects missing or invalid signed build records, including for already published versions. These checks prove origin and integrity, not that the code has no defects.
 
 From a checkout of the release tag, using the release's npm CLI version (11.5.1), check any one package without installing or running it:
 
@@ -89,7 +89,7 @@ verify_npm_provenance agnostic-ai X.Y.Z
 verify_npm_provenance @agnostic-ai/linux-x64 X.Y.Z
 ```
 
-If verification fails because the registry is temporarily unavailable, retry when it recovers. A package version published without its required signed build record cannot be repaired in place; maintainers must release a new version of all seven packages.
+If the registry is temporarily unavailable, retry later. A package version published without its signed build record cannot be repaired in place; maintainers must release a new version of all seven packages.
 
 </details>
 

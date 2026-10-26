@@ -1,7 +1,7 @@
 +++
 title = "CI"
 description = "Fail CI when generated files no longer match your specs."
-weight = 50
+weight = 60
 
 [extra]
 group = "Workflows"
@@ -9,7 +9,7 @@ group = "Workflows"
 
 # CI
 
-Choose the recipe for how your team stores generated files: committed in Git or ignored and generated during setup. Run it from the project root after installing the CLI. CI (continuous integration) runs these checks on each change.
+CI (continuous integration) checks on each change that the generated files match your specs. Pick the recipe for how your team stores them, committed in Git or ignored and generated during setup, and run it from the project root after [installing the CLI](#install-the-cli-in-ci).
 
 ## Committed outputs
 
@@ -19,9 +19,7 @@ Fail when the committed tool files no longer match the specs:
 agnostic-ai sync --check
 ```
 
-`--check` compares the files sync would write with the files on disk and writes nothing. A missing or changed file exits non-zero. To fix it, run `agnostic-ai sync` locally and commit the result.
-
-Never run `sync` right before this check in CI. It would hide the problem you are testing for.
+`--check` compares the files sync would write with the files on disk, writes nothing, and exits non-zero on a missing or changed file. To fix it, run `agnostic-ai sync` locally and commit the result. Never run `sync` right before this check in CI, because it hides the problem you are testing for.
 
 <details>
 <summary>Check committed files after another step rewrites the working tree</summary>
@@ -32,7 +30,7 @@ If an earlier step already rewrote the files, as a `postinstall` sync does, chec
 agnostic-ai sync --check --against HEAD
 ```
 
-It builds the files from the committed specs and compares them with the committed files. A committed file that no spec produces anymore also fails, so this catches leftovers without `doctor`. See [what `--against` compares](@/docs/cli-reference/sync.md#against-details).
+It builds the files from the committed specs and compares them with the committed files. A committed file that no spec produces anymore also fails, which catches leftovers without `doctor`. See [what `--against` compares](@/docs/cli-reference/sync.md#against-details).
 
 `actions/checkout` fetches one commit by default. Set `fetch-depth: 2` so the check has the parent commit (in a pull request's merge commit, the base branch). Without it, a note says the comparison was skipped.
 
@@ -47,24 +45,18 @@ agnostic-ai validate
 agnostic-ai sync
 ```
 
-Add `agnostic-ai lint` to check spec quality. `sync --check` after `sync` adds nothing, because the files were just written.
+Add `agnostic-ai lint` to check spec quality. Do not add `sync --check` after `sync`: the files were just written. In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync` (see [Node monorepos](@/docs/git-hooks.md#node-monorepos)).
 
-In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync`. See [Node monorepos](@/docs/git-hooks.md#node-monorepos).
-
-For cached environments that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness). They check every configured tool without approving local hooks.
+For a cached environment that must stop before startup when project configuration is missing or stale, use the [project readiness checks](@/docs/cli-reference/project.md#project-readiness). They check every configured tool without approving local hooks.
 
 <details>
 <summary>Install a pinned CLI in your CI job</summary>
 
 ## Install the CLI in CI
 
-In Node projects, install the CLI with the project's dependencies. Other projects use the install script.
-
 ### Node projects
 
-Pin the npm package as a dev dependency and sync on `postinstall`, as [Node monorepos](@/docs/git-hooks.md#node-monorepos) shows.
-
-With ignored generated files, `npm ci` already runs `postinstall`, so the job only checks the specs:
+Pin the npm package as a dev dependency and sync on `postinstall`, as [Node monorepos](@/docs/git-hooks.md#node-monorepos) shows. With ignored generated files, `npm ci` already runs `postinstall`, so the job only checks the specs:
 
 ```yaml
 steps:
@@ -105,7 +97,7 @@ steps:
   - run: agnostic-ai sync --check --diff
 ```
 
-`AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check [where the archive was built](@/docs/verify-a-release.md#build-provenance). This needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
+`AGNOSTIC_AI_VERSION` takes a release tag; without it, the script installs the latest release. The script checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check [where the archive was built](@/docs/verify-a-release.md#build-provenance). This needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
 
 </details>
 
@@ -120,7 +112,7 @@ Drift means generated files differ from what your current specs produce. Run `ag
 
 `sync --check` proves the generated files match your specs. It does not show whether a model or CLI still gives good results for your project.
 
-Configure a script that checks the AI tool against tasks from your project:
+To check that, configure a script that runs the AI tool against tasks from your project:
 
 ```yaml
 verify:

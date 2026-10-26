@@ -64,11 +64,7 @@ When a target leaves the setup, cleanup removes only its recorded values. Sync d
 
 ### Other entry-point options
 
-- A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync.
-- `outputs.<target>.rules-file` selects a legacy merged-rules layout instead of that tool's normal shared-instructions output.
-- `sync.target-overview: true` adds generated-file locations to each entry point.
-
-See [configuration](@/docs/configuration.md) for these options.
+A partial sync still refreshes shared instruction files for all configured readers, so the body matches a full sync. For the [legacy merged rules file](@/docs/configuration.md#entry-point-files) and [`sync.target-overview`](@/docs/configuration.md#synctarget-overview), see configuration.
 
 ## Spec kind behavior
 
@@ -86,9 +82,9 @@ Each [spec reference](@/docs/spec-format/_index.md) has the details. [`on-unsupp
 
 ### Shared skills and agent discovery
 
-Many targets share `.agents/skills/`. Sync writes byte-identical folders once. Crush and Goose share neutral skill frontmatter; Crush commands remain skipped at that shared path because their user-only flag cannot be kept. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
+Many targets share `.agents/skills/`, and sync writes identical folders once. Crush and Goose share neutral skill frontmatter; Crush commands remain skipped at that shared path because their user-only flag cannot be kept. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) can replace identical copies in other directories with symlinks. A tool can also find folders written for another selected target, even when the spec excludes that tool.
 
-**Devin discovers `.agents/agents/` profiles written for Goose, OpenHands, and Antigravity.** Those profiles can lack Devin's `allowed-tools`, which defaults to all tools. A `.devin/agents/` profile with the same name can also appear. Check the profiles Devin finds for duplicate names and tool limits: `targets:` controls which adapter writes a file, not which tools read it. Sync reports which targets write shared profiles. See [Windsurf / Devin](@/docs/targets/windsurf.md).
+**Devin discovers `.agents/agents/` profiles written for Goose, OpenHands, and Antigravity.** Those profiles can lack Devin's `allowed-tools`, which defaults to all tools. A `.devin/agents/` profile with the same name can also appear. `targets:` controls which adapter writes a file, not which tools read it, so check the profiles Devin finds for duplicate names and tool limits. Sync reports which targets write shared profiles. See [Windsurf / Devin](@/docs/targets/windsurf.md).
 
 ### Hooks loaded through another tool
 
@@ -104,20 +100,14 @@ Event names, tool matcher names, timeout units, and failure behavior differ by t
 
 For native stores, defaults, and importing facts, see [each tool's own memory](@/docs/memory.md#each-tools-own-memory). For scoped Claude agent stores, see [agent memory](@/docs/targets/claude-reference.md#agent-memory).
 
-[Pi](@/docs/targets/pi.md) reads ancestor `AGENTS.md` files at session startup. Its target page explains directory scope and project trust.
-
 ## Selecting targets
 
 List only the tools you use in `agnostic-ai.yaml`. A `-t` list replaces that list for one run. `init` offers the tools it detects, or Claude and Codex when it finds none. See [target selection](@/docs/configuration.md#targets).
 
 ## Global output
 
-[Global configuration](@/docs/global-configuration.md) covers home instructions, shared global paths, user-level outputs, and the environment variables that move a tool's config folder. Global and project settings differ in who owns them and in which one the tool prefers.
+[Global configuration](@/docs/global-configuration.md) covers home instructions, shared global paths, user-level outputs, and the environment variables that move a tool's config folder.
 
 ## New targets
 
 To request a target, [open an issue](https://github.com/Chemaclass/agnostic-ai/issues). To implement one, follow [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md).
-
-Grok uses native `.grok/rules` files rather than adding another `AGENTS.md` copy. Its ignored-file discovery constraint and explicit setup are documented in [Grok Build](@/docs/targets/grok.md#first-rule).
-
-Kimi Code CLI discovers branded project instructions, agents, skills, and MCP configuration. Its settings and hooks belong to one selected user data root. See [Kimi Code](@/docs/targets/kimi.md#selected-profile) for explicit profile exports.

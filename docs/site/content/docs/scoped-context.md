@@ -10,7 +10,7 @@ group = "Workflows"
 
 # Directory-specific instructions
 
-Use a scoped rule for instructions that apply to one directory, such as a service's conventions. Write the rule once; sync generates each supported tool's files. This keeps directory-specific text out of the root instructions that load every session.
+Use a scoped rule for instructions that apply to one directory, such as a service's conventions. Write the rule once and sync writes each supported tool's files, which keeps that text out of the root instructions every session loads.
 
 ## Start with one directory
 
@@ -42,29 +42,27 @@ agnostic-ai sync --check
 agnostic-ai graph --spec payments-context
 ```
 
-Claude gets a rule for that directory. Codex gets `services/payments/AGENTS.md`. Start Codex inside `services/payments` so that it loads the nested instructions. See [native support](#native-support) for other tools.
+Claude gets a rule for that directory. Codex gets `services/payments/AGENTS.md`; start Codex inside `services/payments` so it loads the nested file. See [native support](#native-support) for other tools.
 
-Edit the source and sync again. Preview with `agnostic-ai render .agnostic-ai/rules/payments-context.md`, or trace a generated file with `agnostic-ai why services/payments/AGENTS.md`.
+To change the rule, edit the source and sync again. Preview with `agnostic-ai render .agnostic-ai/rules/payments-context.md`, or trace a generated file with `agnostic-ai why services/payments/AGENTS.md`.
 
 ## Check what applies to a file
-
-Start from the file you are editing:
 
 ```bash
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-The report lists each instruction for the selected tool with its source spec, output path, file or directory condition (selector), and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the output sync plans to write, so a shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. It shows what is set to apply, not what the model loaded. Claude Code, Codex, and Cursor are supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
+The report lists each instruction for one tool (Claude Code, Codex, or Cursor), with its source spec, output path, condition, and status. It reads the output sync plans to write, so it shows what is set to apply, not what the model loaded. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file) for the status values.
 
 <details>
 <summary>Set directory scope and understand Codex directory patterns</summary>
 
 ## Scope rules
 
-- `scope` is a project-relative directory and everything under it. Use `/` separators. Absolute paths, `..`, glob characters, and symlinks that leave the project are rejected. Omit `scope` for project-wide rules. `scope: .` is invalid.
+- `scope` is a project-relative directory and everything under it, with `/` separators. Absolute paths, `..`, glob characters, symlinks that leave the project, and `scope: .` are rejected. Omit `scope` for project-wide rules.
 - A folder under `rules/` that names a project directory scopes the rules in it: `.agnostic-ai/rules/services/payments/limits.md` has scope `services/payments`.
 - A `scope:` in the frontmatter wins over the folder. A folder that names no project directory only groups rules, so `rules/modules/a.md` with `scope: src/a` is scoped to `src/a`.
-- For installed packs, a rule folder sets a scope only when it names a directory in your project. A directory inside the pack gives a rule no scope.
+- In installed packs, a rule folder sets a scope only when it names a directory in your project, not one inside the pack.
 - `lint` warns when a rule's folder names a project directory and its `scope:` points elsewhere (LINT020).
 - Keep rule names unique across directories.
 - Deeper rules add local context. The tool decides whether parent instructions load and which wins.
@@ -73,9 +71,9 @@ The report lists each instruction for the selected tool with its source spec, ou
 
 ## Codex rules with globs alone
 
-Globs are filename patterns such as `src/api/**`. With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`. That keeps the text out of the root instructions. Other tools that read `AGENTS.md` share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
+Globs are filename patterns such as `src/api/**`. With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md` instead of adding to the root instructions. Other tools that read `AGENTS.md` share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
 
-Every pattern must cover a whole directory tree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns keep the whole rule inline, with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. The rule also stays inline, with a note, for output overrides, unmanaged destinations, and tools that read the root file without verified nested-file support. This applies to configured tools and to `--target`. Sync never widens a file filter to a whole directory. An inlined rule with `globs` begins with an `Applies to:` line listing them, such as ``Applies to: `resources/js/**` ``, so it does not read as a rule for the whole repository.
+Every pattern must cover a whole directory tree; sync never widens a file filter to a whole directory. Patterns such as `src/api/**/*.ts` or `Dockerfile`, or a mix of root files and directory patterns, keep the whole rule inline in the root file, with a note naming the always-loaded rule. The rule also stays inline, with a note, for output overrides, unmanaged destinations, and tools that read the root file without verified nested-file support, whether configured or chosen with `--target`. `on-unsupported: error` refuses this fallback. An inlined rule with `globs` begins with an `Applies to:` line, such as ``Applies to: `resources/js/**` ``, so it does not read as a rule for the whole repository.
 
 Starting Codex at the root does not load nested files for later edits.
 
@@ -99,9 +97,9 @@ globs: "tests/payments/**"
 
 Claude writes both `services/payments/**` and `tests/payments/**` in `paths`. Codex writes `AGENTS.md` in both directories.
 
-Patterns are project-relative, including `**/*.go`. They are not relative to the scope. A pattern inside the scope adds no files, because the scope already includes that directory. To apply a rule only to certain files, omit `scope` and keep the rule outside a folder that implies scope.
+Patterns are relative to the project, not the scope, including `**/*.go`. A pattern inside the scope adds no files. To apply a rule only to certain files, omit `scope` and keep the rule outside a folder that implies scope.
 
-`paths` and `globs` work the same way. Unsupported combinations warn and skip. Set `on-unsupported: error` to fail instead, or `silent` to suppress notices.
+`paths` and `globs` work the same way. Unsupported combinations warn and skip; set `on-unsupported: error` to fail instead, or `silent` to suppress notices.
 
 **Breaking change:** earlier versions applied a rule only where scope and patterns overlapped. Remove `scope` from rules that used it to narrow `globs`, and write the full project-relative filters instead. Remove a catch-all `globs: "**/*"` from a rule that should apply only to its scope. See [migration](@/docs/migration.md#scope-and-pattern-unions).
 
@@ -113,7 +111,7 @@ Patterns are project-relative, including `**/*.go`. They are not relative to the
 - The tool's own keys `regex`, `applyTo`, `fileMatchPattern`, and `glob` cannot be combined with `scope`.
 - Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array is unsupported with scope.
 - Windsurf, Trae, and Antigravity write the rule in the project's rules directory when a pattern reaches outside the scope.
-- Imported file patterns without an explicit `scope` keep their exact behavior. Their folder adds no files to the patterns. A tool with no equivalent skips that rule under `on-unsupported`.
+- Imported file patterns without an explicit `scope` keep their exact behavior; their folder adds no files. A tool with no equivalent skips that rule under `on-unsupported`.
 - Tools that take a list keep literal commas inside a pattern. Tools that take one comma-separated string reject those commas. Commas inside brace patterns such as `tests/{a,b}/**` work everywhere.
 
 </details>
@@ -150,7 +148,7 @@ Mappings were checked against vendor documentation on 2026-09-09. Tests verify t
 | Factory | `<scope>/AGENTS.md` | [Instructions](https://docs.factory.com/harness/agents-md) |
 | Kilo | `<scope>/AGENTS.md`, without unconditional `instructions` entries | [Instructions](https://kilo.ai/docs/customize/agents-md) |
 
-Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope. They skip scoped rules. Root rules still work.
+Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope, so they skip scoped rules. Root rules still work.
 
 Runtime limits:
 
@@ -162,22 +160,18 @@ Runtime limits:
 
 ## Shared files and safe updates
 
-Tools that read the same generated file must agree on its text and loading conditions. Sync refuses incompatible combinations. Use compatible tools or separate worktrees; a partial sync cannot bypass the conflict.
+Tools that read the same generated file must agree on its text and loading conditions. Sync refuses incompatible combinations; neither a partial sync (`--only`) nor `prefer-spec` bypasses the check. Use compatible tools or separate worktrees.
 
 <details>
 <summary>Resolve shared files, output overrides, and old scoped outputs</summary>
-
-Sync checks every configured tool that reads a shared output file, even with `--only`:
 
 - Kiro loads nested `AGENTS.md` files everywhere, so it conflicts with tools that write them.
 - Crush reads `.cursor/rules` without applying its conditions, so it conflicts with scoped Cursor rules.
 - Tools that share a nested `AGENTS.md` need the same scoped rules and the same text.
 
-`prefer-spec` cannot bypass scope conflicts.
-
 Keep headers enabled. Tools that read a file per directory reject `file` and `rules-dir` overrides. Scoped rules reject `rules-file` overrides, except Goose's `.goosehints` opt-in.
 
-For hand-written files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After you move or delete a scope, run a full sync to remove the old files. A partial sync keeps the files of tools it skips. Backups and revert cover scoped outputs too.
+For hand-written files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After you move or delete a scope, run a full sync to remove the old files; a partial sync keeps the files of tools it skips. Backups and revert cover scoped outputs too.
 
 See [troubleshooting](@/docs/troubleshooting.md#scoped-rules) for common errors.
 

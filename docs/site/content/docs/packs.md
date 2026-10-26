@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Spec packs
 
-A pack is a collection of source specs, such as agents, skills, rules, hooks, and MCP server connections, shared as a Git repository or local folder. Use a pack to reuse conventions across projects instead of copying spec files.
+A pack is a set of source specs (agents, skills, rules, hooks, and MCP server connections) shared as a Git repository or local folder. Use one to reuse conventions across projects instead of copying spec files.
 
 ## Install
 
@@ -20,7 +20,7 @@ agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 agnostic-ai packs add ./shared/security-rules
 ```
 
-`packs add` copies the pack into `.agnostic-ai/packs/<name>/` and records its version in `agnostic.packs.lock`. Run `agnostic-ai sync` after adding the pack to generate its files for your tools. If your project has a spec with the same name, yours wins.
+`packs add` copies the pack into `.agnostic-ai/packs/<name>/` and records its version in `agnostic.packs.lock`. Then run `agnostic-ai sync` to generate its files for your tools. A project spec with the same name wins; see [which spec wins](#which-spec-wins).
 
 <details>
 <summary>Find example packs</summary>
@@ -70,7 +70,7 @@ A pack has the standard source layout at its root:
 └── mcps/
 ```
 
-Leave out any directory you do not need. The YAML fields at the top of Markdown specs follow the [spec format](@/docs/spec-format/_index.md).
+Leave out any directory you do not need. Spec front matter follows the [spec format](@/docs/spec-format/_index.md).
 
 ## Lockfile
 
