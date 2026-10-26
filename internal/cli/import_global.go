@@ -227,14 +227,15 @@ func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry
 		if err != nil {
 			return err
 		}
-		if f.model != "" && adapters.SettingsModel(have, target) == "" {
+		eligible := slices.DeleteFunc(slices.Clone(have), func(entry spec.Entry) bool { return !entry.EmitsTo(target) })
+		if f.model != "" && adapters.SettingsModel(eligible, target) == "" {
 			if v, ok := settingsLookup(values, f.model, f.format); ok {
 				if s, _ := v.(string); s != "" {
 					model[target] = s
 				}
 			}
 		}
-		if f.effort != "" && adapters.SettingsEffort(have, target) == nil {
+		if f.effort != "" && adapters.SettingsEffort(eligible, target) == nil {
 			if v, ok := settingsLookup(values, f.effort, f.format); ok && f.accepts(v) {
 				effort[target] = v
 			}
