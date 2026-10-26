@@ -78,7 +78,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if h.global {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Built-in preview, apply, and undo are available for projects only"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Built-in preview, apply, undo, and cancel are available for projects only"})
 		return
 	}
 	var request struct {

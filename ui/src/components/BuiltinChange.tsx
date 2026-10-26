@@ -11,6 +11,7 @@ interface Controller {
   pendingName?: string
   error?: { message: string; conflict: boolean; action?: Action }
   proposal: boolean
+  discarded: boolean
   request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<void>
   resetList: () => Promise<void>
   cancel: () => Promise<void>
@@ -22,6 +23,12 @@ function useBuiltinChanges(): Controller {
   const value = useContext(BuiltinChanges)
   if (!value) throw new Error('Built-in controls need a BuiltinChangeProvider')
   return value
+}
+
+// A proposal this page hides for good is also discarded on the server, so a
+// remount does not restore it. A failure leaves it hidden here only.
+function discard(id?: string) {
+  if (id) builtinChange('cancel', { id }).catch(() => undefined)
 }
 
 // A proposal restored from the server is shown only on the scope it saves to.
@@ -36,6 +43,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const [pendingName, setPendingName] = useState<string>()
   const [error, setError] = useState<Controller['error']>()
   const [cancelledId, setCancelledId] = useState<string>()
+  const [discarded, setDiscarded] = useState(false)
   const busy = useRef(false)
   const api = app.source.kind === 'api'
   const pageScope = useEditScope()
@@ -44,7 +52,9 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   useEffect(() => {
     if (shownScope.current === pageScope) return
     shownScope.current = pageScope
-    if (change?.status === 'proposed') setCancelledId(change.id)
+    if (change?.status !== 'proposed') return
+    setCancelledId(change.id)
+    discard(change.id)
   }, [pageScope, change])
 
   useEffect(() => {
@@ -75,6 +85,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : action === 'cancel' ? 'cancelling' : 'loading')
     setPendingName(name)
     setError(undefined)
+    setDiscarded(false)
     const requestedIn = shownScope.current
     try {
       const value = await builtinChange(action, action === 'preview' ? (reset ? { scope: 'local', reset } : { scope, name, enabled }) : action ? { id: action === 'undo' ? change?.undoId : change?.id } : undefined)
@@ -82,8 +93,19 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       // A preview that answers after the page switched scope targets the old files.
       const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
       setCancelledId(stale ? value.id : undefined)
+      if (stale && action === 'preview') discard(value.id)
+      setDiscarded(action === 'cancel')
       if (action === 'apply' || action === 'undo' || !action) app.reload()
     } catch (err) {
+      if (action === 'cancel' && err instanceof BuiltinChangeError && err.conflict) {
+        const now = await builtinChange().catch(() => undefined)
+        if (now && now.status !== 'proposed') {
+          setChange(now)
+          setDiscarded(true)
+          return
+        }
+        if (now) err = new BuiltinChangeError('Another tab opened a newer preview. Reload the change state to review it.', true)
+      }
       setError({ message: err instanceof Error ? err.message : 'The change failed.', conflict: err instanceof BuiltinChangeError && err.conflict, action })
     } finally {
       busy.current = false
@@ -93,12 +115,12 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   }
 
   const resetList = () => request('preview', undefined, undefined, 'local', true)
-  return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, request, resetList, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
+  return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, discarded, request, resetList, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
 }
 
 export function BuiltinChangeControls({ labels, local, resetSource }: { labels: { name: string; label: string }[]; local: boolean; resetSource: ReactNode }) {
   const app = useApp()
-  const { change, pending, error, proposal, request, resetList } = useBuiltinChanges()
+  const { change, pending, error, proposal, discarded, request, resetList } = useBuiltinChanges()
   if (app.source.kind !== 'api') return null
   if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
   const label = (name?: string) => name ? labels.find((item) => item.name === name)?.label ?? name : 'Built-in list'
@@ -117,8 +139,9 @@ export function BuiltinChangeControls({ labels, local, resetSource }: { labels: 
       {pending === 'undoing' && 'Restoring the previous files…'}
       {pending === 'cancelling' && 'Discarding the preview…'}
       {pending === 'loading' && 'Checking the server…'}
-      {!pending && !error && change?.status === 'applied' && `${label(change.name)} change applied. Undo is available until this server stops or the files change.`}
-      {!pending && !error && change?.status === 'undone' && 'Previous files restored.'}
+      {!pending && !error && discarded && 'Preview discarded.'}
+      {!pending && !error && !discarded && change?.status === 'applied' && `${label(change.name)} change applied. Undo is available until this server stops or the files change.`}
+      {!pending && !error && !discarded && change?.status === 'undone' && 'Previous files restored.'}
     </div>
     {error && <div className="builtin-change-error" role="alert">
       <strong>{error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.'}</strong>

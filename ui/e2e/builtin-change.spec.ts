@@ -17,6 +17,7 @@ async function session(page: Page) {
   let statusReads = 0
   let sourceEdits = 0
   const previews: unknown[] = []
+  const cancels: string[] = []
   await page.route('**/api/views/overview', (route) => {
     const view = structuredClone(fixture)
     for (const item of view.sections.find((section: { id: string }) => section.id === 'settings').items) {
@@ -50,7 +51,9 @@ async function session(page: Page) {
   })
   await page.route('**/api/changes/builtin/cancel', (route) => {
     const { id } = route.request().postDataJSON() as { id: string }
-    if (failCancel || state.status !== 'proposed' || id !== state.id) return route.fulfill({ status: 409, json: { error: 'This preview was already replaced or closed; reload the change state.' } })
+    cancels.push(id)
+    if (failCancel) return route.fulfill({ status: 500, json: { error: 'The server stopped answering.' } })
+    if (state.status !== 'proposed' || id !== state.id) return route.fulfill({ status: 409, json: { error: 'This preview was already replaced or closed; reload the change state.' } })
     state = settled
     return route.fulfill({ json: state })
   })
@@ -61,7 +64,11 @@ async function session(page: Page) {
     return route.fulfill({ json: state })
   })
   await page.goto('/?view=settings')
-  return { previews, reads: () => statusReads, edits: () => sourceEdits, failApply: () => { failApply = true }, failCancel: (fail: boolean) => { failCancel = fail } }
+  return {
+    previews, cancels, reads: () => statusReads, edits: () => sourceEdits, failApply: () => { failApply = true }, failCancel: (fail: boolean) => { failCancel = fail },
+    otherTabPreview: () => { state = { ...state, status: 'proposed', id: `proposal-${++nextId}` } },
+    otherTabCancel: () => { state = settled },
+  }
 }
 
 function toggle(page: Page, name: string) {
@@ -113,14 +120,43 @@ test('a failed cancel keeps the proposal and says it was not discarded', async (
   server.failCancel(true)
   await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Preview could not be cancelled.')
-  await expect(page.getByRole('alert')).toContainText('already replaced or closed')
+  await expect(page.getByRole('alert')).toContainText('The server stopped answering.')
+  await expect(page.getByText('Preview discarded.')).toHaveCount(0)
   server.failCancel(false)
   await page.getByRole('button', { name: 'Reload change state' }).click()
   await expect(preview).toBeVisible()
   await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(preview).toHaveCount(0)
+  await expect(page.getByText('Preview discarded.')).toBeVisible()
   await expect(toggle(page, 'handoff')).toBeEnabled()
   expect(server.edits()).toBe(0)
+})
+
+test('cancel from a stale tab leaves a newer preview and says so', async ({ page }) => {
+  const server = await session(page)
+  await toggle(page, 'caveman').click()
+  const preview = page.getByRole('region', { name: 'Caveman change preview' })
+  server.otherTabPreview()
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Another tab opened a newer preview.')
+  expect(server.cancels).toEqual(['proposal-1'])
+  await page.getByRole('button', { name: 'Reload change state' }).click()
+  await expect(preview).toBeVisible()
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(preview).toHaveCount(0)
+  expect(server.cancels).toEqual(['proposal-1', 'proposal-2'])
+})
+
+test('cancel of a preview another tab already closed just closes it', async ({ page }) => {
+  const server = await session(page)
+  await toggle(page, 'caveman').click()
+  const preview = page.getByRole('region', { name: 'Caveman change preview' })
+  server.otherTabCancel()
+  await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(preview).toHaveCount(0)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByText('Preview discarded.')).toBeVisible()
+  await expect(toggle(page, 'handoff')).toBeEnabled()
 })
 
 test('replaces the prior undo only after another built-in applies', async ({ page }) => {
@@ -164,6 +200,10 @@ test('drops a proposal when the save scope changes and resets the whole personal
   await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
   await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect.poll(() => server.cancels).toEqual(['proposal-1'])
+  await page.reload()
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
   await toggle(page, 'caveman').click()
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for you only')
   expect(server.previews.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: true })
@@ -191,6 +231,7 @@ test('resets a personal built-in list that matches the team list', async ({ page
 })
 
 test('discards a preview that answers after the save scope changed', async ({ page }) => {
+  const cancels: unknown[] = []
   let answer: () => void = () => {}
   const answered = new Promise<void>((resolve) => { answer = resolve })
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
@@ -199,6 +240,10 @@ test('discards a preview that answers after the save scope changed', async ({ pa
     await answered
     await route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'late', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } })
   })
+  await page.route('**/api/changes/builtin/cancel', (route) => {
+    cancels.push(route.request().postDataJSON())
+    return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } })
+  })
   await page.goto('/?view=settings')
   await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
   await toggle(page, 'caveman').click()
@@ -206,6 +251,7 @@ test('discards a preview that answers after the save scope changed', async ({ pa
   answer()
   await expect(toggle(page, 'caveman')).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+  await expect.poll(() => cancels).toEqual([{ id: 'late' }])
 })
 
 test('drops a restored proposal saved for another scope', async ({ page }) => {
