@@ -11,6 +11,7 @@ export interface AppApi {
   href(patch: Partial<UrlState>): string
   /** Loads the overview again, after an edit. */
   reload(saved?: boolean): void
+  overviewRevision?: object
 }
 
 export const AppContext = createContext<AppApi | null>(null)

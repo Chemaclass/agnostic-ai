@@ -63,6 +63,10 @@ func (s editFileSnapshot) check(path string) error {
 }
 
 func (s editFileSnapshot) replace(path string, data []byte, modes ...os.FileMode) (editFileSnapshot, error) {
+	return s.replaceGuarded(path, data, nil, modes...)
+}
+
+func (s editFileSnapshot) replaceGuarded(path string, data []byte, guard func() error, modes ...os.FileMode) (editFileSnapshot, error) {
 	if err := s.check(path); err != nil {
 		return editFileSnapshot{}, err
 	}
@@ -108,6 +112,11 @@ func (s editFileSnapshot) replace(path string, data []byte, modes ...os.FileMode
 	if err := s.check(path); err != nil {
 		return editFileSnapshot{}, err
 	}
+	if guard != nil {
+		if err := guard(); err != nil {
+			return editFileSnapshot{}, err
+		}
+	}
 	if err := os.Rename(f.Name(), path); err != nil {
 		return editFileSnapshot{}, fmt.Errorf("%s: %w", path, err)
 	}
@@ -136,7 +145,7 @@ func sameEditValues(a, b []byte, emptyBuiltinsIsUnset bool) bool {
 	return reflect.DeepEqual(left, right)
 }
 
-func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, error)) ([]string, error) {
+func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, error), guards ...func() error) ([]string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	before, beforeErr := h.validationProblems()
@@ -160,16 +169,29 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 	if restoreBaseline {
 		edited = slices.Clone(baseline.original)
 	}
+	checkSources := func() error {
+		for _, guard := range guards {
+			if err := guard(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if bytes.Equal(original.data, edited) {
+		if err := checkSources(); err != nil {
+			return nil, err
+		}
 		return nil, original.check(file)
 	}
 	var written editFileSnapshot
 	if (restoreBaseline && !baseline.existed) || len(edited) == 0 {
 		if err = original.check(file); err == nil {
-			err = os.Remove(file)
+			if err = checkSources(); err == nil {
+				err = os.Remove(file)
+			}
 		}
 	} else {
-		written, err = original.replace(file, edited)
+		written, err = original.replaceGuarded(file, edited, checkSources)
 	}
 	if err != nil {
 		return nil, err
