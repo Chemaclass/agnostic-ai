@@ -7,6 +7,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - The web interface's Settings page keeps a value from another file, such as a pack, visible with its path while the editor saves to a different file or shows only the personal override message. An empty input there reads Not set in this file and names where a save goes; a value is hidden only when the editor shows that same file's value (#2527).
+- `sync --global` now applies a settings spec's `target`, `targets`, and `targets-exclude` to its model, effort, and `x-<tool>` values, as it already did for permission mode and session retention. Before, a spec limited to Codex could set Claude Code's default model and native settings. `explain --global`, `lint --global`, and `import --global` follow the same rule (#2525).
+- Cancelling a built-in or setting preview in the web interface now discards it on the server, so a reload or leaving Settings no longer brings it back and locks the other switches. The last applied change keeps its undo, and a tab cannot cancel a newer preview made in another tab (#2520).
 - In a project, the web interface previews, applies, and undoes a default model or reasoning effort change, for the team or just you, as it does for built-ins. The preview lists the settings file and every generated file, writes nothing, and calls out other unsynced source changes it would also apply. Apply checks the generated files, and one **Undo last change** names the last built-in or setting change (#2511).
 - The web interface opens source files and findings in Cursor or VS Code, picked in the header and remembered by the browser; Cursor stays the default. A finding on a file now has an open link, at its line when known, and every open link has **Copy path** beside it (#2513).
 - `sync --global --backup` now keeps `<path>.bak` for a file it removes, such as a hand-edited skill whose source you deleted, as it already did for a file it overwrites. Before, following the hint to rerun with `--backup` deleted the edit with no copy. A `.bak` path that is a symlink or other non-regular file now stops the run instead of being written through (#2516).
@@ -33,6 +35,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - The `caveman` built-in and example pack now hold only `SKILL.md`, so sync writes only that file into each tool's skill folder, in project and global sync. The next sync removes the license, notice, and readme files an earlier sync wrote there, and leaves files you wrote yourself. If you edited one of those files, sync keeps it and `sync --check` reports it as unowned until you delete it, run `doctor --fix` in a terminal, or list it under `sync.unmanaged`.
 
 ### By tool
+
+#### Codex
+
+- The `terra` model alias now resolves to `gpt-6.1-terra`.
 
 #### Qwen Code
 
