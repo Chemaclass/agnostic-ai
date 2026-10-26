@@ -509,8 +509,8 @@ func TestEditField_ConflictsWhenAnotherFileNowSetsTheField(t *testing.T) {
 	}
 	mustWrite(t, ".agnostic-ai/settings/zz.yaml", "name: zz\neffort: low\n")
 	rec = postEdit(t, h, editFieldPath, `{"scope":"team","path":"`+team+`","key":"effort","value":"medium","expected":"high"}`, nil)
-	if rec.Code != 409 || !strings.Contains(rec.Body.String(), "overrides") {
-		t.Fatalf("team save under a new overriding spec = %d %s", rec.Code, rec.Body)
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "overrides") {
+		t.Fatalf("team save under an overriding spec the page may list = %d %s", rec.Code, rec.Body)
 	}
 	if got := readOptional(t, team); !strings.Contains(got, "effort: high") {
 		t.Errorf("team spec = %q", got)

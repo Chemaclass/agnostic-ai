@@ -249,6 +249,8 @@ function FieldEditControl({ field }: { field: SettingField }) {
       if (failure.status === 409 && (now.current !== shown.current || now.local !== shown.local || now.team !== shown.team)) {
         basis.current = now
         setReloaded(true)
+        conflict.current = true
+        app.reload()
         return
       }
       conflict.current = failure.status === 409

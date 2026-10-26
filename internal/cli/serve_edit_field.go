@@ -95,7 +95,7 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 		switch {
 		case at >= 0:
 			if j := overview.SettingsOverride(settings, at, key, scope.targets); j >= 0 {
-				return "", nil, fieldSourceError{fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, settings[j]), key, shown)}
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, settings[j]), key, shown)
 			}
 			chosen, file = settings[at], settings[at].Path
 		case shown == defaultShown:
@@ -109,7 +109,7 @@ func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.Raw
 				}
 			}
 			if j := overview.SettingsOverride(later, -1, key, scope.targets); j >= 0 {
-				return "", nil, fieldSourceError{fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, later[j]), key, shown)}
+				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SpecPath(h.root, later[j]), key, shown)
 			}
 			if len(candidates) > 0 && !unreachable {
 				return "", nil, fmt.Errorf("%s is not a settings spec of this configuration", shown)
@@ -215,7 +215,7 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, val
 	return file, scalarFieldEdit(spec.Entry{}, key, value, fieldCreatedMarker+string(scaffold)), nil
 }
 
-// fieldSourceError refuses an edit because another file now sets the
+// fieldSourceError refuses a team edit because a personal file sets the
 // field; for a page that loaded before that, it is a conflict.
 type fieldSourceError struct{ error }
 
