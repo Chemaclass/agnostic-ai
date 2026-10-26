@@ -601,6 +601,31 @@ test('live Settings picks an unset effort from its levels, updates, and clears i
   } finally { await f.close() }
 })
 
+test('live Settings keeps a pack model visible while the editor targets the project spec', async ({ page }) => {
+  const f = await fixture()
+  const pack = '.agnostic-ai/packs/team/settings/team.yaml'
+  try {
+    await rm(f.settings)
+    await rm(f.localSettings)
+    await put(join(f.root, 'agnostic.packs.lock'), 'version: 1\npacks:\n  - name: team\n')
+    await put(join(f.root, pack), 'name: team\nmodel: sonnet\n')
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.locator('.field-source')).toContainText('sonnet')
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    const input = model.getByRole('textbox', { name: 'Default model value' })
+    await expect(input).toHaveValue('')
+    await expect(input).toHaveAttribute('placeholder', 'Not set in this file')
+    await expect(model).toContainText('Saves to .agnostic-ai/settings/defaults.yaml')
+    await input.fill('opus')
+    await model.getByRole('button', { name: 'Save' }).click()
+    await expect(model.locator('.field-source')).toHaveCount(1)
+    await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
+    await expect(input).toHaveValue('opus')
+    await expect(model).toContainText('from .agnostic-ai/settings/defaults.yaml')
+  } finally { await f.close() }
+})
+
 test('live Settings previews, cancels, applies, and undoes an effort change for Claude Code and Codex', async ({ page }) => {
   const f = await fixture()
   try {
