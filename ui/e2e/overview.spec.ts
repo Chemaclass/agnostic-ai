@@ -421,6 +421,68 @@ test.describe('overview', () => {
     await expect(justMe).toHaveAttribute('aria-pressed', 'true')
   })
 
+  const refreshFailures: { name: string; fail: (route: import('@playwright/test').Route) => Promise<void>; message: RegExp }[] = [
+    { name: 'an HTTP error', fail: (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }), message: /answered 500: audit-simulated-overview-failure/ },
+    { name: 'a network failure', fail: (route) => route.abort('connectionrefused'), message: /Could not reach/ },
+    { name: 'a malformed response', fail: (route) => route.fulfill({ status: 200, contentType: 'text/plain', body: 'not json' }), message: /did not return JSON/ },
+  ]
+  for (const failure of refreshFailures) {
+    test(`shows ${failure.name} when the refresh after a save fails, then recovers on retry`, async ({ page }) => {
+      const data = structuredClone(fixture)
+      const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+      const team = '.agnostic-ai/settings/defaults.yaml'
+      const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+      const edit = { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' }
+      Object.assign(field('effort'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: edit })
+      Object.assign(field('model'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable: edit })
+      let failing = false
+      await page.route('**/api/views/overview', (route) => {
+        if (failing) return failure.fail(route)
+        const view = structuredClone(data)
+        const effort = view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((f: { key: string }) => f.key === 'effort')
+        effort.set[0].values[0].value = saved
+        return route.fulfill({ json: view })
+      })
+      let saved = 'high'
+      await page.route('**/api/edit/field', (route) => {
+        saved = route.request().postDataJSON().value
+        return route.fulfill({ json: { ok: true } })
+      })
+      await page.goto('/?view=settings')
+      const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+      const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+      await model.getByRole('textbox', { name: 'Default model value' }).fill('draft-model')
+
+      failing = true
+      await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+      await effort.getByRole('button', { name: 'Update' }).click()
+      const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
+      await expect(alert).toContainText('Your change was saved, but the overview could not be refreshed.')
+      await expect(alert).toContainText(failure.message)
+      await expect(alert).toContainText('previous overview')
+      await expect(effort.getByRole('button', { name: 'Update' })).toBeDisabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toBeDisabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
+      await expect(page).toHaveURL(/view=settings/)
+
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(alert).toBeVisible()
+      failing = false
+      await alert.getByRole('button', { name: 'Retry' }).click()
+      await expect(alert).toHaveCount(0)
+      await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
+      await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toBeEnabled()
+      await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('draft-model')
+    })
+  }
+
+  test('shows an error panel, not stale data, when the first overview load fails', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }))
+    await page.goto('/?view=settings')
+    await expect(page.getByRole('alert')).toContainText('audit-simulated-overview-failure')
+    await expect(page.getByRole('alert')).not.toContainText('previous overview')
+  })
+
   test('resets a personal boolean and the override of the spec chosen to save to', async ({ page }) => {
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')

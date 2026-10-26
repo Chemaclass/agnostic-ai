@@ -7,6 +7,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 ### General
 
 - The README and the first documentation pages give one path for new users: why, install, then set up your project. Everyday commands moved from the README to the setup guide, and the guides in the sidebar are ordered by when you need them (#2522).
+- The web interface shows it when the overview fails to refresh, for example after a saved edit, marks the page it keeps as not refreshed with editing off, and offers Retry; your place and unsaved input stay (#2519).
 - `sync --global` refuses a rule whose `x-<target>` block sets `globs`, `paths`, or `scope` for a target being synced, as it does for those keys at the top level, instead of writing the rule into that tool's global instructions for every file; `lint --global` and `validate --global` report it too (#2508).
 - `compare` finishes in about a second at 500 specs instead of several minutes; its report is unchanged (#2498).
 - **Breaking:** web edit and built-in preview requests must send `scope` (`team` or `local`); the server no longer guesses the file from which ones exist.

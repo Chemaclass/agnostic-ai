@@ -12,7 +12,7 @@ import { Badge, Chip, Code, CopyButton, Icon, Switch, Toggle, ToolAvatar } from 
 
 const ConfigurationRoot = createContext<string | undefined>(undefined)
 
-export function SectionPage({ sectionId, overview }: { sectionId: string; overview: Remote<OverviewView> }) {
+export function SectionPage({ sectionId, overview, stale = false }: { sectionId: string; overview: Remote<OverviewView>; stale?: boolean }) {
   const data = overview.loaded?.data
   if (!data) {
     return (
@@ -36,12 +36,14 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
   return (
     <>
       <PageHeader title={section.label} subtitle={section.question} />
-      <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-        <EditScopeProvider key={section.id} enabled={section.id === 'settings'}>
-          <SectionContents section={section} />
-        </EditScopeProvider>
-      </ConfigurationRoot.Provider>
-      <SupportTable section={section} toolLabel={toolLabel} />
+      <fieldset className="stale-guard" disabled={stale} data-stale={stale || undefined}>
+        <ConfigurationRoot.Provider value={data.snapshot.project.root}>
+          <EditScopeProvider key={section.id} enabled={section.id === 'settings'}>
+            <SectionContents section={section} />
+          </EditScopeProvider>
+        </ConfigurationRoot.Provider>
+        <SupportTable section={section} toolLabel={toolLabel} />
+      </fieldset>
     </>
   )
 }
