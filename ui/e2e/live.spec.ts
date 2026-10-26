@@ -626,7 +626,7 @@ test('live Settings explains which model each tool gets from team, personal, and
 
     await model.getByRole('combobox', { name: 'Tool' }).selectOption('codex')
     await expect(detail).toContainText('Sync writes gpt-5.5.')
-    await expect(detail).toContainText('sonnet in .agnostic-ai/local/settings/native.yaml: .agnostic-ai/settings/z-codex.yaml loads later and sets it too.')
+    await expect(detail).toContainText('sonnet in .agnostic-ai/local/settings/native.yaml: It is a Claude model name, which Codex cannot load, so sync leaves it out.')
     await expect(model.getByRole('button', { name: 'Reset to team value' })).toBeEnabled()
 
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })

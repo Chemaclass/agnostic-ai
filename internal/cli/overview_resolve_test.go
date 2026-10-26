@@ -13,7 +13,7 @@ import (
 
 func TestOverview_ModelAndEffortMatchWhatSyncWrites(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	mustWrite(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\nmodels:\n  fast:\n    claude: haiku\n    codex: gpt-5.4-mini\n")
+	mustWrite(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor, aider]\nmodels:\n  fast:\n    claude: haiku\n    codex: gpt-5.4-mini\n")
 	mustWrite(t, dir+"/.gitignore", ".agnostic-ai/local/\n")
 	mustWrite(t, dir+"/.agnostic-ai/settings/team.yaml", "model: opus\neffort: high\n")
 	mustWrite(t, dir+"/.agnostic-ai/local/settings/team.yaml", "model: sonnet\n")
@@ -64,11 +64,40 @@ func TestOverview_ModelAndEffortMatchWhatSyncWrites(t *testing.T) {
 		t.Errorf("claude others = %+v", claude.Others)
 	}
 	codex := resolved["model"]["codex"]
-	if codex.Value != "gpt-5.5" || !hasOther(codex.Others, ".agnostic-ai/local/settings/team.yaml", "sonnet", "z-codex.yaml loads later") {
+	if codex.Value != "gpt-5.5" || !hasOther(codex.Others, ".agnostic-ai/local/settings/team.yaml", "sonnet", "Claude model name") {
 		t.Errorf("codex model = %+v", codex)
 	}
 	if cursor := resolved["effort"]["cursor"]; cursor.Value != "high" || cursor.Dropped == "" || !cursor.Checked {
 		t.Errorf("cursor effort = %+v, want high with the note that cursor drops it", cursor)
+	}
+	if aider := resolved["model"]["aider"]; aider.Dropped == "" {
+		t.Errorf("aider model = %+v, want the note that aider takes no settings specs", aider)
+	}
+}
+
+func TestOverview_CodexSkipsALaterClaudeModelAsSyncDoes(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWrite(t, dir+"/agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWrite(t, dir+"/.agnostic-ai/settings/a.yaml", "model: gpt-5.5\n")
+	mustWrite(t, dir+"/.agnostic-ai/settings/b.yaml", "model: sonnet\n")
+
+	in, err := overviewInputs(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, _ := adapters.Get("codex")
+	files, err := captureEmit(adapter, b, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	model, _ := emittedConfiguredModel(cfg, "codex", files)
+	got := resolvedByTarget(t, overview.Build(in))["model"]["codex"]
+	if model != "gpt-5.5" || got.Value != model || got.Dropped != "" || !hasOther(got.Others, ".agnostic-ai/settings/b.yaml", "sonnet", "cannot load") {
+		t.Errorf("codex model = %+v, sync writes %q", got, model)
 	}
 }
 

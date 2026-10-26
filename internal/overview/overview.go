@@ -377,7 +377,7 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 		if def.id == SectionSettings {
 			labels := newLabeler()
 			for i := range s.Fields {
-				s.Fields[i].Resolved = resolveTargets(in, s.Fields[i].Key, labels)
+				s.Fields[i].Resolved = resolveTargets(in, s.Fields[i].Key, labels, caps)
 			}
 		}
 		if def.id == SectionTools {

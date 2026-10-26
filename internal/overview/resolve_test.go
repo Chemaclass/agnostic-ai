@@ -72,3 +72,22 @@ func TestResolveTargets_ConfigReplacesTheSettingsValueAndNotesExplainDrops(t *te
 		}
 	}
 }
+
+func TestResolveTargets_PersonalMapKeepsTheTeamSourceForKeysItLeaves(t *testing.T) {
+	team := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}, "x-claude": map[string]any{"model": "opus"}})
+	merged := entry(spec.KindSettings, "team", ".agnostic-ai/local/settings/team.yaml", map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5", "claude": "opus"}, "x-claude": map[string]any{"model": "opus"}})
+	merged.Layer, merged.Base, merged.LocalMeta = "project-user", &team, map[string]any{"model": map[string]any{"claude": "opus"}}
+	in := Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}, Bundle: spec.Bundle{Settings: []spec.Entry{merged}}}
+
+	model := resolvedField(t, in, "model")
+	if codex := model["codex"]; codex.Value != "gpt-5" || codex.From.Local || codex.From.Path != ".agnostic-ai/settings/team.yaml" || len(codex.Others) != 0 {
+		t.Errorf("codex model = %+v, want the team value from the team file", codex)
+	}
+	claude := model["claude"]
+	if claude.Value != "opus" || !claude.From.Local || len(claude.Others) != 1 || claude.Others[0].Value != "sonnet" {
+		t.Errorf("claude model = %+v, want the personal opus over the team sonnet", claude)
+	}
+	if len(claude.Native) != 1 || claude.Native[0].Value != "opus" {
+		t.Errorf("claude native = %+v, want x-claude.model", claude.Native)
+	}
+}

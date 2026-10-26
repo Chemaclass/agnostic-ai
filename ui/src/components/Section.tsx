@@ -218,7 +218,8 @@ function FieldResolution({ label, resolved }: { label: string; resolved: TargetV
             {current.others.map((o, i) => <li key={`${o.path}:${i}`}>{o.value ? <Code>{o.value}</Code> : 'No value'} in <Code>{o.path}</Code>: {o.reason}</li>)}
           </ul>
         </>}
-        <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. A value under <Code>{`x-${current.target}`}</Code> or in an imported native settings file is not covered here.</p>
+        {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. Sync writes that native key as is, so check the generated file for the value {current.label} reads.</p>)}
+        <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. Other <Code>{`x-${current.target}`}</Code> keys and imported native settings files are not covered here.</p>
       </div>
     </details>
   )

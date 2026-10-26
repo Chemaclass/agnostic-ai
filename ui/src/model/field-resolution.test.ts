@@ -28,7 +28,7 @@ describe('field resolution answers', () => {
 
   it('reports installed files from the generated-file status only', () => {
     expect(installedAnswer('Codex', 'in-sync')).toBe('Installed Codex files match what sync would write.')
-    expect(installedAnswer('Codex', 'drifted')).toContain('Run sync')
+    expect(installedAnswer('Codex', 'drifted')).toContain('run sync')
     expect(installedAnswer('Codex', undefined)).toBe('Installed Codex files were not checked.')
   })
 })

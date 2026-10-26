@@ -573,6 +573,8 @@ export interface TargetValue {
   dropped?: string
   checked: boolean
   others: ValueOrigin[]
+  /** Specs that also set `x-<target>.model`, a native key sync writes as is. */
+  native?: ValueOrigin[]
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'

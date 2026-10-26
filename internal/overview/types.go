@@ -88,6 +88,9 @@ type TargetValue struct {
 	// it writes the value is unknown.
 	Checked bool          `json:"checked"`
 	Others  []ValueOrigin `json:"others"`
+	// Native are the specs that also set x-<target>.model, a native key
+	// sync writes as is.
+	Native []ValueOrigin `json:"native,omitempty"`
 }
 
 // ValueOrigin is where a value comes from: a settings spec, or a config

@@ -34,7 +34,7 @@ export function generatedAnswer(r: TargetValue): string {
 export function installedAnswer(label: string, state: SyncState | undefined): string {
   switch (state) {
     case 'in-sync': return `Installed ${label} files match what sync would write.`
-    case 'drifted': return `Installed ${label} files differ from what sync would write. Run sync to install this value.`
+    case 'drifted': return `Some installed ${label} files differ from what sync would write; run sync to install the current values.`
     default: return `Installed ${label} files were not checked.`
   }
 }
