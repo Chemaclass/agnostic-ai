@@ -65,6 +65,28 @@ func TestFindUnmanagedConfig_FlagsNestedBugbotFiles(t *testing.T) {
 	}
 }
 
+// Qwen reads .qwen/rules/ at every depth, so doctor lists nested files too.
+func TestFindUnmanagedConfig_FlagsNestedQwenRules(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, ".qwen", "rules", "top.md"), "top\n")
+	mustWriteFile(t, filepath.Join(dir, ".qwen", "rules", "web", "ui", "react.md"), "---\npaths: [src/**]\n---\nreact\n")
+	if err := os.MkdirAll(filepath.Join(dir, ".qwen", "rules", "folder.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := findUnmanagedConfig(dir, &config.Config{})
+	if err != nil {
+		t.Fatalf("findUnmanagedConfig: %v", err)
+	}
+	want := []unmanagedFinding{
+		{Path: ".qwen/rules/top.md", Target: "qwen"},
+		{Path: ".qwen/rules/web/ui/react.md", Target: "qwen"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("findings = %+v, want %+v", got, want)
+	}
+}
+
 // A clean tree with no known config files yields no findings.
 func TestFindUnmanagedConfig_EmptyTree(t *testing.T) {
 	got, err := findUnmanagedConfig(t.TempDir(), &config.Config{})

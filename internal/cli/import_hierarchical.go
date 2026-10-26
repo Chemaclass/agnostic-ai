@@ -184,6 +184,17 @@ func writeScopedRuleWithDescription(dstDir, name, globs, description, body strin
 }
 
 func importHierarchicalInstructionRules(root, dstDir string, src config.Sources, filename string) (int, error) {
+	return importHierarchicalInstructionRulesSeen(root, dstDir, src, filename, nil)
+}
+
+// importHierarchicalInstructionRulesSeen records each rule it writes in seen,
+// so a later rules-folder import fails instead of overwriting one.
+func importHierarchicalInstructionRulesSeen(root, dstDir string, src config.Sources, filename string, seen map[string]importedRuleContent) (int, error) {
+	record := func(source, name, body string) {
+		if seen != nil {
+			seen[strings.ToLower(filepath.Join(dstDir, name+".md"))] = importedRuleContent{path: source, content: body}
+		}
+	}
 	files, err := findHierarchicalMainFiles(root, filename, src)
 	if err != nil {
 		return 0, err
@@ -207,9 +218,11 @@ func importHierarchicalInstructionRules(root, dstDir string, src config.Sources,
 			continue
 		}
 		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(string(data), adapters.RulesStartMarker) {
-			if err := writeScopedRuleWithDescription(dstDir, dedupSlug(used, name), f.globs, desc, body); err != nil {
+			name = dedupSlug(used, name)
+			if err := writeScopedRuleWithDescription(dstDir, name, f.globs, desc, body); err != nil {
 				return count, err
 			}
+			record(f.path, name, body)
 			count++
 			continue
 		}
@@ -223,6 +236,7 @@ func importHierarchicalInstructionRules(root, dstDir string, src config.Sources,
 			if err := writeScopedRule(dstDir, name, f.globs, body); err != nil {
 				return count, err
 			}
+			record(f.path, name, body)
 			count++
 			continue
 		}
@@ -231,6 +245,7 @@ func importHierarchicalInstructionRules(root, dstDir string, src config.Sources,
 			if err := writeScopedRule(dstDir, name, f.globs, preamble); err != nil {
 				return count, err
 			}
+			record(f.path, name, preamble)
 			count++
 		}
 		for _, s := range sections {
@@ -238,6 +253,7 @@ func importHierarchicalInstructionRules(root, dstDir string, src config.Sources,
 			if err := writeScopedRule(dstDir, name, f.globs, s.body); err != nil {
 				return count, err
 			}
+			record(f.path, name, s.body)
 			count++
 		}
 	}

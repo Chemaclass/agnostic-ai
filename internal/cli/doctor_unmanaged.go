@@ -2,10 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +39,6 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{"GEMINI.md", "gemini"},
 	{"QWEN.md", "qwen"},
 	{".qwen/agents/*.md", "qwen"},
-	{".qwen/rules/*.md", "qwen"},
 	{".qwen/commands/**/*.md", "qwen"},
 	{".qwen/commands/*.md", "qwen"},
 	{".qwen/skills/*/SKILL.md", "qwen"},
@@ -119,6 +120,13 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 			add(m, c.target)
 		}
 	}
+	// Qwen reads .qwen/rules/ at every depth, which a glob cannot express.
+	_ = filepath.WalkDir(filepath.Join(root, qwenRulesDir), func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), ".md") {
+			add(path, "qwen")
+		}
+		return nil
+	})
 	for _, f := range unmanagedScopedFiles {
 		dirs, err := findScopedSkillDirs(root, f.nativeDir)
 		if err != nil {

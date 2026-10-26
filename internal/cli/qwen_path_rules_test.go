@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +45,59 @@ func TestQwen_PathRulesUseNativeRulesDirectory(t *testing.T) {
 		if out, err := runCLI(t, args...); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
+	}
+}
+
+func TestQwen_ImportRejectsRuleFileNamedLikeAnInlinedRule(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/react.md"), "---\nname: react\n---\nInline react.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if err := os.Remove(filepath.Join(dir, ".agnostic-ai/rules/react.md")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".qwen/rules/react.md"), "---\npaths: [\"src/**/*.tsx\"]\n---\n\nUse function components.\n")
+	out, err := runCLI(t, "import", "qwen")
+	if err == nil || !strings.Contains(err.Error()+out, "conflicts with") {
+		t.Fatalf("import must refuse two rules named react; err=%v\n%s", err, out)
+	}
+}
+
+func TestQwen_ImportNamesSkippedNestedRuleFiles(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\n")
+	writeFile(t, filepath.Join(dir, ".qwen/rules/frontend/react.md"), "---\npaths: [\"src/**/*.tsx\"]\n---\n\nUse function components.\n")
+	var logged bytes.Buffer
+	prev := logOut
+	logOut = &logged
+	defer func() { logOut = prev }()
+	out, err := runCLI(t, "import", "qwen")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if !strings.Contains(logged.String(), ".qwen/rules/frontend/react.md") {
+		t.Errorf("import must name the skipped nested file:\n%s", logged.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/rules/frontend/react.md")); !os.IsNotExist(err) {
+		t.Errorf("a subfolder must not become a directory scope: %v", err)
+	}
+}
+
+func TestQwen_RulesDirOverrideKeepsScopedInstructions(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [qwen]\noutputs:\n  qwen:\n    rules-dir: custom/rules\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/api.md"), "---\nname: api\nscope: api\n---\nUse transactions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/rules/react.md"), "---\nname: react\nglobs: [\"src/**/*.tsx\"]\n---\nUse function components.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(dir, "api/QWEN.md")); !strings.Contains(got, "Use transactions.") {
+		t.Errorf("api/QWEN.md:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(dir, "custom/rules/react.md")); !strings.Contains(got, "paths:\n  - src/**/*.tsx\n") {
+		t.Errorf("custom/rules/react.md:\n%s", got)
 	}
 }
 

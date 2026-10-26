@@ -27,16 +27,17 @@ func importFromQwen(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs, src.Hooks, src.Settings); err != nil {
 		return err
 	}
-	rules, err := importHierarchicalInstructionRules(root, importSourcePath(root, src.Rules), src, qwenMainFile)
+	seen := map[string]importedRuleContent{}
+	rules, err := importHierarchicalInstructionRulesSeen(root, importSourcePath(root, src.Rules), src, qwenMainFile, seen)
 	if err != nil {
 		return err
 	}
-	pathRules, err := importRulesDirectoryWith(root, qwenRulesDir, src, rulesDirImportOpts{NormalizeMeta: normalizeQwenRuleMeta, FlatOnly: true})
+	pathRules, err := importRulesDirectoryWith(root, qwenRulesDir, src, rulesDirImportOpts{NormalizeMeta: normalizeQwenRuleMeta, FlatOnly: true, Seen: seen})
 	if err != nil {
 		return err
 	}
 	rules += pathRules.rules
-	if err := noteQwenAlwaysOnRuleFiles(root); err != nil {
+	if err := noteQwenRuleFiles(root); err != nil {
 		return err
 	}
 	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".qwen/agents"), importSourcePath(root, src.Agents), allSpecFields, func(data []byte, dst string) ([]byte, error) {
@@ -95,31 +96,37 @@ func normalizeQwenRuleMeta(meta map[string]any) {
 	}
 }
 
-// noteQwenAlwaysOnRuleFiles names the imported rule files without `paths:`.
-// Sync inlines those rules into QWEN.md and never owns the original file.
-func noteQwenAlwaysOnRuleFiles(root string) error {
+// noteQwenRuleFiles names the rule files import leaves to the user: one in
+// a subfolder, which import skips, and one without `paths:`, which sync
+// moves into QWEN.md while never owning the original file.
+func noteQwenRuleFiles(root string) error {
 	dir := filepath.Join(root, qwenRulesDir)
-	entries, err := os.ReadDir(dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read %s: %w", dir, err)
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+			return err
 		}
-		path := filepath.Join(dir, e.Name())
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if filepath.Dir(path) != dir {
+			keptf("note: %s is in a subfolder, so import skipped it; move it into %s/ and import again\n", rel, qwenRulesDir)
+			return nil
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 		if meta, _ := splitMdcFrontmatter([]byte(header.Strip(string(data)))); meta["paths"] == nil {
-			keptf("note: %s/%s has no paths, so sync puts it in %s; delete the file so Qwen does not load it twice\n", qwenRulesDir, e.Name(), qwenMainFile)
+			keptf("note: %s has no paths, so sync puts it in %s; delete the file so Qwen does not load it twice\n", rel, qwenMainFile)
 		}
+		return nil
+	})
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
 	}
-	return nil
+	return err
 }
 
 func scopeQwenAgentFields(data []byte) ([]byte, error) {
