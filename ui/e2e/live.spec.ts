@@ -745,6 +745,25 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
   } finally { await f.close() }
 })
 
+test('live finding opens its file on the server disk in the chosen editor', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const permissions = join(f.root, '.agnostic-ai', 'settings', 'permissions.yaml')
+    await put(permissions, 'permissions:\n  allow: [read]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    const open = finding.getByRole('link', { name: /^Open .+ in Cursor$/ })
+    const href = await open.getAttribute('href')
+    expect(href).toMatch(/^cursor:\/\/file\/.+\/\.agnostic-ai\/settings\/permissions\.yaml$/)
+    expect(await stat(fileURLToPath(`file://${new URL(href!).pathname}`))).toBeTruthy()
+    await page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' }).click()
+    await expect(finding.getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', href!.replace(/^cursor:/, 'vscode:'))
+    await expect(finding.getByRole('button', { name: /^Copy path of / })).toBeVisible()
+  } finally {
+    await f.close()
+  }
+})
+
 test('live generated-file status shows a save as needing sync and refreshes after an external sync without losing the page', async ({ page }) => {
   const f = await fixture()
   try {
