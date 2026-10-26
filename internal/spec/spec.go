@@ -753,6 +753,10 @@ type Layer struct {
 	IncludeRoot string
 	// RuleRoot overrides IncludeRoot for rule folders without expanding review includes.
 	RuleRoot string
+	// Files stands in for YAML spec files, keyed by the path the walk
+	// spells, so a preview loads planned bytes without writing them. A nil
+	// value hides the file; a key with no file on disk adds it.
+	Files map[string][]byte
 }
 
 // LoadBundle walks the source directories under root and returns a
@@ -823,7 +827,14 @@ func loadLayer(layer Layer) (Bundle, error) {
 			continue
 		}
 		dir := config.ResolveSourcePath(layer.Root, l.src)
-		entries, err := walkDir(dir, l.ext, l.kind, l.parse)
+		parse := l.parse
+		if len(layer.Files) > 0 && l.ext == ".yaml" {
+			parse = layer.plannedParse(l.parse)
+		}
+		entries, err := walkDir(dir, l.ext, l.kind, parse)
+		if err == nil && len(layer.Files) > 0 && l.ext == ".yaml" {
+			entries, err = layer.addPlannedFiles(entries, dir, l.kind)
+		}
 		if err != nil {
 			if errs.CodeOf(err) == errs.CodeSpecParse {
 				return Bundle{}, err // the path already says which spec
@@ -1069,6 +1080,9 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 			return nil
 		}
 		entry, err := parse(path)
+		if errors.Is(err, errPlannedRemoval) {
+			return nil
+		}
 		if err != nil {
 			if errs.CodeOf(err) == errs.CodeSpecParse {
 				return err // already names path:line:col
@@ -1195,6 +1209,10 @@ func parseYAML(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
+	return parseYAMLData(path, data)
+}
+
+func parseYAMLData(path string, data []byte) (Entry, error) {
 	e, err := decodeYAMLEntry(data)
 	if err != nil {
 		return Entry{}, formatYAMLError(path, err, 0)
