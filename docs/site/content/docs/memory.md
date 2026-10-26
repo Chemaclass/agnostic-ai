@@ -112,7 +112,7 @@ Aider gets only the rule, because a missing file shows an error. Once both `MEMO
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory, Trae, Devin CLI, and Auggie CLI on Unix, sync adds a hook that runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory) when a session starts. In Trae, enable project hooks in Settings > Hooks first.
 
-- It runs the `agnostic-ai` on your PATH. Keep that one at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade); an older one loads no memory, and with none on PATH nothing loads.
+- It runs the project's `node_modules/.bin/agnostic-ai` when that file exists, and otherwise the `agnostic-ai` on your PATH. Trae runs the PATH one only. Keep the one it picks at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/upgrades.md#upgrade); an older one loads no memory, and with none found nothing loads.
 - Codex, Cursor, Gemini CLI, and Qoder run it only in a folder you trust.
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. The Claude Code subagent hook needs it too.
 - Hooks you wrote yourself stay.
