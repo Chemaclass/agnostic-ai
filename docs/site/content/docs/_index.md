@@ -6,21 +6,20 @@ template = "docs/section.html"
 page_template = "docs/page.html"
 +++
 
-New to agnostic-ai? Follow these three steps in order.
+New to agnostic-ai? Follow these two steps in order.
 
 ## Your first steps {#choose-your-first-task}
 
 1. [Why agnostic-ai?](@/docs/why-agnostic-ai.md): what it does, and when you do not need it.
-2. [Install](@/docs/installation.md): get the `agnostic-ai` command.
-3. [Set up your project](@/docs/getting-started.md): write one note, sync it to Claude Code and Codex, and learn the daily loop.
+2. [Set up your project](@/docs/getting-started.md): install, write one note, sync it to Claude Code and Codex, and learn the daily loop.
 
-To let your coding agent do steps 2 and 3, [paste the setup prompt](@/docs/agent-setup.md). If the project already has `CLAUDE.md`, `AGENTS.md`, or other tool files, read [Import an existing setup](@/docs/migration.md) before the first sync.
+[Installation](@/docs/installation.md) has every install method and how to upgrade. To let your coding agent do step 2, [paste the setup prompt](@/docs/agent-setup.md). If the project already has `CLAUDE.md`, `AGENTS.md`, or other tool files, read [Import an existing setup](@/docs/migration.md) before the first sync.
 
 ## Find something else
 
 | You want to | Go to |
 |---|---|
-| Work in a project that is already set up | [Daily use](@/docs/getting-started.md#daily-use) |
+| Work in a project that is already set up | Install, run `agnostic-ai sync`, then follow [Daily use](@/docs/getting-started.md#daily-use) |
 | See your configuration and warnings in a browser | [Inspect your configuration](@/docs/inspect-configuration.md) |
 | Look up a command, field, or supported tool | [CLI reference](@/docs/cli-reference/_index.md), [Configuration](@/docs/configuration.md), [Supported tools](@/docs/targets/_index.md) |
 | Fix a failed command or missing file | [Troubleshooting](@/docs/troubleshooting.md) |

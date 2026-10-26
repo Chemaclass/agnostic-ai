@@ -130,7 +130,7 @@ Use `agnostic-ai sync --watch` while editing. `agnostic-ai status` lists loaded 
 
 Choose this during `init`:
 
-- **Ignore (default):** commit `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. Teammates install agnostic-ai and run `sync` after cloning. Use the [ignored-output CI recipe](@/docs/ci.md#ignored-outputs).
+- **Ignore (default):** commit `.agnostic-ai/`, `agnostic-ai.yaml`, `.gitignore`, and any other file sync lists to commit. Teammates install agnostic-ai and run `sync` after cloning. Use the [ignored-output CI recipe](@/docs/ci.md#ignored-outputs).
 - **Commit (`init --gitignore=off`):** also commit the generated files with their source changes, so a clone has them ready. Use the [committed-output CI check](@/docs/ci.md#committed-outputs).
 
 `git diff` does not show ignored files, so open them directly to review them. To change this choice later, see [Git ignore settings](@/docs/configuration.md#gitignore).

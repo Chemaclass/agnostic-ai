@@ -23,9 +23,9 @@ npm install -g agnostic-ai
 agnostic-ai init
 ```
 
-Select the tools you use, for example Claude Code and Codex. If the project already has files such as `CLAUDE.md` or `AGENTS.md`, accept the offer to import them so their instructions are kept.
+Select the tools you use, for example Claude Code and Codex. If the project already has files such as `CLAUDE.md` or `AGENTS.md`, accept the offer to import them so their instructions are kept. If the project already has `agnostic-ai.yaml`, skip `init` and run `agnostic-ai sync`.
 
-Open `.agnostic-ai/AGNOSTIC_AI.md` and add one project note, for example:
+Create or open `.agnostic-ai/AGNOSTIC_AI.md` and add one project note, for example:
 
 ```markdown
 Run the project tests before finishing a change.

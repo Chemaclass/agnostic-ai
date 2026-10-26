@@ -59,7 +59,7 @@ MCP (Model Context Protocol) is how coding tools connect to other tools and data
 
 ## When you do not need it
 
-For one tool and a small setup, start with that tool's own files. Use agnostic-ai when you share a setup across tools or keep several formats current. The generated files keep working if you stop using agnostic-ai.
+For one tool and a small setup, start with that tool's own files. Use agnostic-ai when you share a setup across tools or keep several formats current. If you stop using agnostic-ai, the generated files keep working; commit them first if Git ignores them.
 
 <details>
 <summary>Why copies, symlinks, and one AGENTS.md have limits</summary>
