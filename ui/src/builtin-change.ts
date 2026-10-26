@@ -10,6 +10,8 @@ export interface BuiltinChange {
   status: 'idle' | 'proposed' | 'applied' | 'undone'
   id?: string
   name?: string
+  key?: 'model' | 'effort'
+  title?: string
   enabled: boolean
   reset?: boolean
   scope?: 'team' | 'local'
@@ -19,6 +21,7 @@ export interface BuiltinChange {
   findings: string[]
   undoId?: string
   undoName?: string
+  undoTitle?: string
   undoAvailable: boolean
   supported: boolean
 }
@@ -50,13 +53,16 @@ export function parseBuiltinChange(value: unknown): BuiltinChange {
     || (value.id !== undefined && !nonempty(value.id)) || (value.config !== undefined && typeof value.config !== 'string')
     || (value.undoId !== undefined && (!nonempty(value.undoId) || !value.undoAvailable))
     || (value.undoName !== undefined && (!nonempty(value.undoName) || !value.undoAvailable || !value.undoId))
-    || (value.status === 'proposed' && !value.id) || (value.undoAvailable && !value.undoId)) {
+    || (value.status === 'proposed' && !value.id) || (value.undoAvailable && !value.undoId)
+    || (value.key !== undefined && value.key !== 'model' && value.key !== 'effort') || (value.key !== undefined && value.name !== value.key)
+    || (value.title !== undefined && !nonempty(value.title)) || (value.key !== undefined && value.title === undefined)
+    || (value.undoTitle !== undefined && (!nonempty(value.undoTitle) || !value.undoId))) {
     throw new Error('The server returned an invalid change. Reload before trying again.')
   }
   return {
-    status: value.status, id: value.id, name: value.name, enabled: value.enabled, reset: value.reset, scope: value.scope, config: value.config,
+    status: value.status, id: value.id, name: value.name, key: value.key, title: value.title, enabled: value.enabled, reset: value.reset, scope: value.scope, config: value.config,
     targets: value.targets, changes: value.changes, findings: value.findings,
-    undoId: value.undoId, undoName: value.undoName, undoAvailable: value.undoAvailable, supported: value.supported,
+    undoId: value.undoId, undoName: value.undoName, undoTitle: value.undoTitle, undoAvailable: value.undoAvailable, supported: value.supported,
   }
 }
 
