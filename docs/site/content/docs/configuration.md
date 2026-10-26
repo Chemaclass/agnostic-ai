@@ -196,7 +196,7 @@ Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` itself. Codex takes 
 | `sol` | `gpt-6.1-sol` |
 | `luna` | `gpt-6-luna` |
 | `astra` | `gpt-6-astra` |
-| `terra` | `gpt-5.6-terra` |
+| `terra` | `gpt-6.1-terra` |
 
 On v0.77.0 or earlier, write `terra` as `gpt-5.6-terra`.
 

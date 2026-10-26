@@ -523,7 +523,7 @@ test('Caveman preview repairs pending Handoff outputs and undo restores the orig
   }
 })
 
-test('a cancelled preview keeps the previous built-in undo through reload and filtering', async ({ page }) => {
+test('a cancelled preview stays cancelled and keeps the previous undo through reload, navigation, and filtering', async ({ page }) => {
   const f = await fixture()
   try {
     const before = await projectFiles(f.root)
@@ -544,6 +544,14 @@ test('a cancelled preview keeps the previous built-in undo through reload and fi
     await search.fill('')
     await expect(preview).toBeVisible()
     await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(preview).toHaveCount(0)
+    await page.reload()
+    await expect(handoff).toBeEnabled()
+    await expect(preview).toHaveCount(0)
+    await page.getByRole('navigation').getByRole('link', { name: /^Tools/ }).click()
+    await page.getByRole('navigation').getByRole('link', { name: /^Settings/ }).click()
+    await expect(handoff).toBeEnabled()
+    await expect(preview).toHaveCount(0)
     await page.getByRole('button', { name: 'Undo last change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'false')
     expect(await projectFiles(f.root)).toEqual(before)
@@ -626,6 +634,43 @@ test('live Settings picks an unset effort from its levels, updates, and clears i
     await effort.getByRole('button', { name: 'Clear' }).click()
     await expect(effort).toContainText('Not set')
     await expect(readFile(created)).rejects.toThrow()
+  } finally { await f.close() }
+})
+
+test('live Settings previews, cancels, applies, and undoes an effort change for Claude Code and Codex', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const before = await projectFiles(f.root)
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('high')
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    const preview = page.getByRole('region', { name: 'Reasoning effort change preview' })
+    await expect(preview).toContainText('Effort set to high')
+    for (const path of ['.agnostic-ai/settings/native.yaml', '.claude/settings.json', '.codex/config.toml', '.agnostic-ai/.sync-state']) {
+      await expect(preview).toContainText(path)
+    }
+    expect(await projectFiles(f.root)).toEqual(before)
+    await preview.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(preview).toHaveCount(0)
+    expect(await projectFiles(f.root)).toEqual(before)
+
+    await effort.getByRole('button', { name: 'Preview and apply' }).click()
+    await expect(preview).toBeVisible()
+    await page.reload()
+    await page.getByText('Unconfigured fields', { exact: false }).click()
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(page.getByText('Last applied: effort set to high.')).toBeVisible()
+    await expect(effort.getByRole('combobox', { name: 'Reasoning effort value' })).toHaveValue('high')
+    await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
+    expect(await readFile(join(f.root, '.codex', 'config.toml'), 'utf8')).toContain('model_reasoning_effort = "high"')
+
+    await page.getByRole('button', { name: 'Undo last change' }).click()
+    await expect(page.getByText('Previous files restored.')).toBeVisible()
+    expect(await projectFiles(f.root)).toEqual(before)
   } finally { await f.close() }
 })
 
@@ -734,6 +779,25 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
       expect(await readFile(f.localSettings, 'utf8')).toContain('model: haiku')
     } finally { await other.close() }
   } finally { await f.close() }
+})
+
+test('live finding opens its file on the server disk in the chosen editor', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const permissions = join(f.root, '.agnostic-ai', 'settings', 'permissions.yaml')
+    await put(permissions, 'permissions:\n  allow: [read]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    const open = finding.getByRole('link', { name: /^Open .+ in Cursor$/ })
+    const href = await open.getAttribute('href')
+    expect(href).toMatch(/^cursor:\/\/file\/.+\/\.agnostic-ai\/settings\/permissions\.yaml$/)
+    expect(await stat(fileURLToPath(`file://${new URL(href!).pathname}`))).toBeTruthy()
+    await page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' }).click()
+    await expect(finding.getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', href!.replace(/^cursor:/, 'vscode:'))
+    await expect(finding.getByRole('button', { name: /^Copy path of / })).toBeVisible()
+  } finally {
+    await f.close()
+  }
 })
 
 test('live generated-file status shows a save as needing sync and refreshes after an external sync without losing the page', async ({ page }) => {
