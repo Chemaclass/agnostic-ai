@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- The web interface searches every section from **Search** or `Cmd+K` / `Ctrl+K`, including settings, servers, and findings. Each result opens with its own link that survives a reload and browser history; a link to an entry that is gone says so (#2514).
 - `init` creates `.agnostic-ai/AGNOSTIC_AI.md` with a short placeholder note, so a new project has the shared note to edit before its first sync. An existing note is kept, an import replaces the placeholder, and `init` in the home folder leaves the global note alone (#2534).
 - The web interface shows whether each configured tool's generated files match the source (Matches source, Needs sync, or Not checked), with the files that differ, the time of the last check, and a Refresh button that keeps your page, search, and unsaved input. A save says it changed the source only; snapshots say they are not a live check (#2510).
 - A Settings save in the web interface no longer overwrites a value that changed after the page loaded, in another tab or outside the browser. The server refuses the stale save and writes nothing; the page keeps your draft and offers to reload the saved values before you save again (#2518).
