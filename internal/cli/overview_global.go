@@ -59,6 +59,7 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		Instructions:   instructions,
 		Findings:       checks.findings,
 		Compared:       checks.compared,
+		FieldNotes:     checks.fieldNotes,
 		MCPTools:       mcpprobe.LoadCache(scope.source),
 		RefreshCommand: "agnostic-ai mcp tools --global",
 		BuiltinsTeam:   team,
@@ -99,7 +100,10 @@ func runGlobalOverviewChecks(scope checkScope) overviewChecks {
 	display := func(path string) string { return globalOverviewPath(scope.source, path) }
 	var out overviewChecks
 	out.findings = append(out.findings, overviewScopeLintFindings(scope, globalConfigPaths(scope.source)[0], display)...)
+	setFindingOpenPaths(out.findings, scope.source)
+	adapters.DrainNotes()
 	drift, compared, skipped := globalOverviewDriftFindings(scope)
+	out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
 	out.findings = append(out.findings, drift...)
 	out.compared, out.skipped = compared, skipped
 	return out

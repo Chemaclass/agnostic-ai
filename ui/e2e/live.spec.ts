@@ -609,6 +609,40 @@ test('live Settings picks an unset effort from its levels, updates, and clears i
   } finally { await f.close() }
 })
 
+test('live Settings explains which model each tool gets from team, personal, and per-tool settings', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
+    await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    await put(f.localSettings, 'name: native\nmodel: sonnet\n')
+    await put(join(f.root, '.agnostic-ai', 'settings', 'z-codex.yaml'), 'name: z-codex\ntargets: [codex]\nmodel: gpt-5.5\n')
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByText('What each tool gets').click()
+    const groups = model.getByRole('list', { name: 'Default model by tool' })
+    await expect(groups).toContainText('Claude Code: sonnet')
+    await expect(groups).toContainText('Codex: gpt-5.5')
+
+    const detail = model.locator('.field-resolution-detail')
+    await expect(detail).toContainText('Sync writes sonnet.')
+    await expect(detail).toContainText('From .agnostic-ai/local/settings/native.yaml')
+    await expect(detail).toContainText('opus in .agnostic-ai/settings/native.yaml: Your personal file .agnostic-ai/local/settings/native.yaml overrides it.')
+    await expect(detail).toContainText('in .agnostic-ai/settings/z-codex.yaml: This spec does not apply to Claude Code.')
+    await expect(detail).toContainText('Installed Claude Code files match what sync would write.')
+    await expect(detail).toContainText('agnostic-ai does not see what a running tool uses.')
+
+    await model.getByRole('combobox', { name: 'Tool' }).selectOption('codex')
+    await expect(detail).toContainText('Sync writes gpt-5.5.')
+    await expect(detail).toContainText('sonnet in .agnostic-ai/local/settings/native.yaml: It is a Claude model name, which Codex cannot load, so sync leaves it out.')
+    await expect(model.getByRole('button', { name: 'Reset to team value' })).toBeEnabled()
+
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByText('What each tool gets').click()
+    await expect(effort.getByRole('list', { name: 'Reasoning effort by tool' })).toContainText('Claude Code, Codex: high')
+  } finally { await f.close() }
+})
+
 test('live Settings refuses a stale save, keeps the newer value and the draft, and saves after a reload', async ({ page, browser }) => {
   const f = await fixture()
   try {
@@ -638,6 +672,9 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
     await expect(model.getByRole('status')).toContainText('is now opus. Your draft is kept')
     await expect(model.getByRole('alert')).toHaveCount(0)
     await expect(input).toHaveValue('haiku')
+    let releaseOverview = () => {}
+    const overviewHeld = new Promise<void>((resolve) => { releaseOverview = resolve })
+    await page.route('**/api/views/overview', async (route) => { await overviewHeld; await route.continue() })
     await model.getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => readFile(f.settings, 'utf8')).toBe('name: native\nmodel: haiku\neffort: high\n')
     await expect(input).toHaveValue('haiku')
@@ -645,6 +682,10 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
 
     await input.fill('sonnet')
     await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    const refreshed = page.waitForResponse('**/api/views/overview')
+    releaseOverview()
+    await refreshed
+    await page.unroute('**/api/views/overview')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await effort.getByRole('combobox', { name: 'Reasoning effort value' }).selectOption('low')
     await effort.getByRole('button', { name: 'Update' }).click()
@@ -673,6 +714,25 @@ test('live Settings refuses a stale save, keeps the newer value and the draft, a
       expect(await readFile(f.localSettings, 'utf8')).toContain('model: haiku')
     } finally { await other.close() }
   } finally { await f.close() }
+})
+
+test('live finding opens its file on the server disk in the chosen editor', async ({ page }) => {
+  const f = await fixture()
+  try {
+    const permissions = join(f.root, '.agnostic-ai', 'settings', 'permissions.yaml')
+    await put(permissions, 'permissions:\n  allow: [read]\n')
+    await page.goto(`${f.url}?view=authority`)
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    const open = finding.getByRole('link', { name: /^Open .+ in Cursor$/ })
+    const href = await open.getAttribute('href')
+    expect(href).toMatch(/^cursor:\/\/file\/.+\/\.agnostic-ai\/settings\/permissions\.yaml$/)
+    expect(await stat(fileURLToPath(`file://${new URL(href!).pathname}`))).toBeTruthy()
+    await page.getByRole('group', { name: 'Open files in' }).getByRole('button', { name: 'VS Code' }).click()
+    await expect(finding.getByRole('link', { name: /^Open .+ in VS Code$/ })).toHaveAttribute('href', href!.replace(/^cursor:/, 'vscode:'))
+    await expect(finding.getByRole('button', { name: /^Copy path of / })).toBeVisible()
+  } finally {
+    await f.close()
+  }
 })
 
 test('live generated-file status shows a save as needing sync and refreshes after an external sync without losing the page', async ({ page }) => {

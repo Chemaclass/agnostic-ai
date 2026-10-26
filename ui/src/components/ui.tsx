@@ -34,6 +34,8 @@ import kiloIcon from '../assets/tools/kilo.svg'
 import ellipsisIcon from '../assets/tools/ellipsis.svg'
 import codebuddyIcon from '../assets/tools/codebuddy.svg'
 
+export const APPLE_PLATFORM = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
 export type Tone = 'permitted' | 'approval' | 'blocked' | 'info' | 'neutral' | 'accent'
 
 export function Badge({ tone, children, muted, title, className }: { tone: Tone; children: ReactNode; muted?: boolean; title?: string; className?: string }) {
@@ -160,7 +162,7 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, className }: { text: string; label: string; copiedLabel?: string; onCopied?: (ok: boolean) => void; className?: string }) {
+export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, className, ariaLabel }: { text: string; label: string; copiedLabel?: string; onCopied?: (ok: boolean) => void; className?: string; ariaLabel?: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(timer.current), [])
@@ -168,6 +170,7 @@ export function CopyButton({ text, label, copiedLabel = 'Copied', onCopied, clas
     <button
       type="button"
       className={`button button-quiet${className ? ` ${className}` : ''}`}
+      aria-label={state === 'idle' ? ariaLabel : undefined}
       onClick={async () => {
         const ok = await copyText(text)
         setState(ok ? 'copied' : 'failed')
@@ -192,6 +195,7 @@ const ICON_PATHS: Record<string, ReactNode> = {
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />,
   edit: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z M13.5 6.5l4 4" />,
   arrow: <path d="M7 17 17 7 M9 7h8v8" />,
+  search: <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Z M15.3 15.3 20 20" />,
 }
 
 export function Icon({ name, className }: { name: string; className?: string }) {

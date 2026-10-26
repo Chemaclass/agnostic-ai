@@ -49,7 +49,7 @@ A tool already in `targets` changes nothing. A run that stopped partway finishes
 
 ## init
 
-Create `agnostic-ai.yaml` and the managed `.gitignore` block. Errors if `agnostic-ai.yaml` exists. It creates only the source folders `--demo` or `--preset` fill; `new` and `import` create the rest.
+Create `agnostic-ai.yaml`, the managed `.gitignore` block, and `.agnostic-ai/AGNOSTIC_AI.md` with a placeholder note when it does not exist. Errors if `agnostic-ai.yaml` exists. It creates only the source folders `--demo` or `--preset` fill; `new` and `import` create the rest.
 
 ```bash
 echo "claude,codex" | agnostic-ai init

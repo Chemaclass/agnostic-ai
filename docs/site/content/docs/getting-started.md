@@ -53,7 +53,7 @@ If the command is not found, open a new terminal or see [Installation](@/docs/in
 agnostic-ai init
 ```
 
-Select `claude` and `codex` for this example, or the tools you use. These are the names agnostic-ai uses for Claude Code and Codex. `init` creates `agnostic-ai.yaml`, the `.agnostic-ai/` source folder, and a block in `.gitignore`.
+Select `claude` and `codex` for this example, or the tools you use. These are the names agnostic-ai uses for Claude Code and Codex. `init` creates `agnostic-ai.yaml`, the project note `.agnostic-ai/AGNOSTIC_AI.md`, and a block in `.gitignore`.
 
 When asked about Git, keep **Ignore them** (the default). You commit the sources, and each teammate runs `sync` after cloning. See [Commit or ignore generated outputs](#commit-or-ignore-generated-outputs) for the other choice.
 
@@ -61,7 +61,7 @@ When asked about Git, keep **Ignore them** (the default). You commit the sources
 
 ## Write a project note {#scaffold}
 
-Open `.agnostic-ai/AGNOSTIC_AI.md` in your editor, creating it if needed. Keep any imported instructions and add one note, for example:
+Open `.agnostic-ai/AGNOSTIC_AI.md` in your editor. Replace the placeholder comment with one note, or add it below any imported instructions, for example:
 
 ```markdown
 Run the project tests before finishing a change.

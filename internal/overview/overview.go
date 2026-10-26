@@ -41,6 +41,9 @@ type Inputs struct {
 	// BuiltinsLocal whether the personal config replaces it.
 	BuiltinsTeam  []string
 	BuiltinsLocal bool
+	// FieldNotes are the settings model and effort notes the drift
+	// check's render raised.
+	FieldNotes []FieldNote
 }
 
 // builtinLayer is the layer name the loader gives a built-in spec. Its
@@ -248,7 +251,7 @@ func placeFindings(sections []Section, findings []Finding) {
 		if f.Source == SourceDrift {
 			continue
 		}
-		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, Fix: f.Fix, Explanation: f.Explanation}
+		item := ItemFinding{Source: f.Source, Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, Line: f.Line, OpenPath: f.OpenPath, Fix: f.Fix, Explanation: f.Explanation}
 		placed := false
 		for si := range sections {
 			for ii := range sections[si].Items {
@@ -371,6 +374,12 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			}
 		}
 		s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.Global)
+		if def.id == SectionSettings {
+			labels := newLabeler()
+			for i := range s.Fields {
+				s.Fields[i].Resolved = resolveTargets(in, s.Fields[i].Key, labels, caps)
+			}
+		}
 		if def.id == SectionTools {
 			attachTools(s.Items, in)
 		}

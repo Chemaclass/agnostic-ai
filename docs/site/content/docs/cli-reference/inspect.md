@@ -268,7 +268,7 @@ agnostic-ai view --global
 
 A second run for the same project and scope opens the running server and exits. When the default port serves another project or scope, an `--api-only` server, or another program, `view` takes the next free loopback port up to `127.0.0.1:4319` and prints it; later runs find that server. An invalid project configuration reports an error.
 
-The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of lists and counts. Search within a section to find a source file or value. The browser has light and dark themes and works on narrow screens. Other browser features are under [serve](#serve).
+The overview lists context, authority, tools, lifecycle, and settings, with findings and generated-file comparisons for the selected targets. Specs scoped only to other targets are left out of lists and counts. Search within a section to find a source file or value, or press **Search** (`Cmd+K` or `Ctrl+K`) to search every section, findings included. Opening a result puts a link to that entry in the address bar; it survives a reload. The browser has light and dark themes and works on narrow screens. Other browser features are under [serve](#serve).
 
 ## serve
 
@@ -293,9 +293,11 @@ agnostic-ai serve --api-only
 In the browser:
 
 - **Authority** lists permission files and rules. Permission proposals have no editor; use the [API](#api).
+- **Open files in** in the header picks Cursor or VS Code for every edit link, and the browser remembers it. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
 - Each finding has **Copy fix prompt**; **Details** shows the suggested fix, explanation, and full prompt. A findings summary links to the warnings below the controls; errors stay above them.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links. Empty lifecycle stages put their descriptions under **When this runs**. Native settings are grouped by tool, with the `x-<tool>` prefix shown once.
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort. Configured scalar fields offer **Update** and **Clear**. Session retention is editable only with `--global`.
+- Default model and reasoning effort have **What each tool gets**: the value sync writes for each configured tool, the file or `agnostic-ai.yaml` key it comes from (Claude Code `outputs.claude.settings.model`, Codex `outputs.codex.config`), and why each other value loses: a later spec, a personal override or clear, a spec scoped to other tools, or a per-tool map with no entry. It names the model tier and alias, says when a tool has no place for the value, and says when sync writes none, without guessing the tool's own default. It reports whether installed files match, not what a running tool uses. It points out an `x-<tool>.model` native key; other `x-<tool>` keys and imported native settings files are not covered. The JSON overview carries it as `resolved` on those fields.
 - In a project, each built-in switch previews the config edit, generated files, and findings for every target. **Apply change** writes it; **Cancel** discards the preview, so a reload does not bring it back. **Undo last change** restores the files and permissions from before the last apply. Undo survives a browser reload, expires when the server stops, and is replaced by the next apply. Turning on `memory` in a Git checkout also adds a `.git/info/exclude` line so Git ignores Claude Code's private `settings.local.json`.
 - Global built-ins and settings edits save source files without syncing. Run `agnostic-ai sync` (or `sync --global`) to apply them.
 
