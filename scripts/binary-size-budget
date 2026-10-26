@@ -482,4 +482,8 @@
 # (23535776): sync --global --backup keeps a .bak of each file it
 # removes, and rollback restores an earlier .bak. Same Linux amd64
 # release flags; no added headroom or dependencies.
-23539872
+# #2513 measured 23548064 on Go 1.27.3, up 8192 from main cf9ea2b5
+# (23539872): the web interface opens files and findings in Cursor or VS
+# Code, and findings carry the path of the file they name. Same Linux
+# amd64 release flags; no added headroom or dependencies.
+23548064

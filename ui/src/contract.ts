@@ -465,6 +465,8 @@ export interface ItemFinding {
   message: string
   path?: string
   line?: number
+  /** Absolute path of the file it names, when that file is on the server's disk. */
+  openPath?: string
   fix?: string
   explanation?: string
 }

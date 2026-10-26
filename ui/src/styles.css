@@ -1398,6 +1398,64 @@ input:hover {
   height: 18px;
 }
 
+.editor-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.editor-choice-label {
+  color: var(--text-muted);
+}
+
+.editor-choice .segmented {
+  padding: 2px;
+}
+
+.editor-choice .segmented button {
+  padding: 4px 10px;
+}
+
+.editor-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.editor-open,
+.editor-copy {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.editor-open .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.editor-hint {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+.editor-hint:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.finding .finding-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
 .fields {
   list-style: none;
   margin: 0 0 8px;
@@ -2236,6 +2294,18 @@ input:hover {
 
 @media (max-width: 760px) {
   .edit-scope .segmented button {
+    min-height: 44px;
+  }
+}
+
+/* A phone cannot open a desktop editor; links keep the stored choice. */
+@media (max-width: 760px) {
+  .editor-choice {
+    display: none;
+  }
+
+  .editor-open,
+  .editor-copy {
     min-height: 44px;
   }
 }
