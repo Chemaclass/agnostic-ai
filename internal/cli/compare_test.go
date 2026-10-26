@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -467,5 +469,53 @@ func TestCompare_IgnoresUnreadableFilesInLegacyCodexFolders(t *testing.T) {
 
 	if out, err := runCLI(t, "compare", "claude", "codex"); err != nil {
 		t.Fatalf("compare claude codex: %v\n%s", err, out)
+	}
+}
+
+func TestCompare_ServesEveryPriorStateLookupFromOneHeldCopy(t *testing.T) {
+	dir := setupCompareFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSyncOnce(".", nil, false, false, "off", 0); err != nil {
+		t.Fatal(err)
+	}
+	var lookups, fromDisk int
+	held := func() bool {
+		heldState.Lock()
+		defer heldState.Unlock()
+		return heldState.frame != nil && heldState.frame.state != nil
+	}
+	count := func() {
+		lookups++
+		if !held() {
+			fromDisk++
+		}
+	}
+	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
+		count()
+		return slices.Clone(priorStateFile().Merged[path].Keys)
+	})
+	adapters.SetPriorOutputSum(func(path string) string {
+		count()
+		return priorStateFile().OutputSums[path]
+	})
+	t.Cleanup(func() {
+		adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
+			return slices.Clone(priorStateFile().Merged[path].Keys)
+		})
+		adapters.SetPriorOutputSum(func(path string) string { return priorStateFile().OutputSums[path] })
+	})
+
+	if _, err := runCompare(t, "claude", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	if lookups == 0 {
+		t.Fatal("compare made no prior-state lookups; the test no longer covers the held copy")
+	}
+	if fromDisk > 0 {
+		t.Errorf("%d of %d prior-state lookups read the state file from disk; each per-spec emit must use the copy compare holds", fromDisk, lookups)
+	}
+	if held() {
+		t.Error("compare still holds the state file after it returns")
 	}
 }

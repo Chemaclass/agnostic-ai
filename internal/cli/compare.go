@@ -171,6 +171,7 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 	view.OnUnsupported = "warn"
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
+	defer holdStateFile(".")()
 	adapters.DrainNotes()
 
 	out := compareOutput{
