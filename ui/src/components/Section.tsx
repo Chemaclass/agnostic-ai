@@ -247,6 +247,10 @@ function FieldEditControl({ field }: { field: SettingField }) {
     conflict.current = false
     try {
       await postEdit(API.editField, { path: target || undefined, key: field.key, ...body, expected: expected ?? null })
+      const saved = body.value === null ? undefined : String(body.value)
+      const next = body.scope === 'local' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
+      basis.current = { ...next, current: (scope === 'local' ? next.local ?? next.team : next.team) ?? '' }
+      setValue(basis.current.current)
       app.reload(true)
     } catch (err) {
       const failure = err instanceof EditError ? err : new EditError(String(err))
