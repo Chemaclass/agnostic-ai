@@ -19,6 +19,8 @@ Then run `agnostic-ai sync`. The text extends the shared project instructions. Y
 
 For personal configuration values, use `agnostic-ai.local.yaml`. To alter a shared skill or rule, add a local spec with the same kind and name and write only the fields you want to change.
 
+In `agnostic-ai ui`, pick **Just me (not committed)** on **Settings** to save built-ins and settings fields here instead of in the shared files. See [saving for yourself](@/docs/cli-reference/inspect.md#edit-scope).
+
 ## Why use it
 
 Personal preferences and experiments stay on your machine. The team keeps one shared setup.

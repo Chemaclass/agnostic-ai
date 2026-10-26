@@ -444,4 +444,9 @@
 # (23335072): personal built-in outputs go to a locked .git/info/exclude
 # block, shared with the memory exclusion, instead of the committed
 # .gitignore. Same Linux amd64 release flags; no added headroom or dependencies.
-23380128
+# #2482 measured 23462048 on Go 1.27.3, up 81920 from main 6f9fcec6
+# (23380128): a Team or Just me scope for settings and built-in edits in
+# the web interface, with local badges, resets, and one guard that keeps
+# personal writes out of team and tracked files. Same Linux amd64 release
+# flags; no added headroom or dependencies.
+23462048

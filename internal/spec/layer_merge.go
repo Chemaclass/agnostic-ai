@@ -21,6 +21,8 @@ const parentMarker = "::parent"
 // and Scope stay over's: they come from the file the author edits.
 func extendEntry(base, over Entry) Entry {
 	out := over
+	shared := base
+	out.Base, out.LocalMeta = &shared, over.Meta
 	out.Meta = mergeMeta(base.Meta, over.Meta)
 	out.MetaKeys = mergeMetaKeys(base.MetaKeys, over.MetaKeys, out.Meta)
 	out.NestedKeys = mergeNestedKeys(base.NestedKeys, over.NestedKeys, out.Meta)

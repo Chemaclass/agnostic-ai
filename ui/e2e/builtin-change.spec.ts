@@ -72,7 +72,7 @@ test('shares a proposal and keeps undo through filtering, cancellation, and relo
   await expect(page.getByText('Last applied: handoff.')).toBeVisible()
   await toggle(page, 'caveman').evaluate((button: HTMLButtonElement) => { button.click(); button.click() })
   await expect(page.getByRole('region', { name: 'Caveman change preview' })).toBeVisible()
-  expect(server.previews).toEqual([{ name: 'handoff', enabled: true }, { name: 'caveman', enabled: true }])
+  expect(server.previews).toEqual([{ scope: 'team', name: 'handoff', enabled: true }, { scope: 'team', name: 'caveman', enabled: true }])
   await expect(toggle(page, 'handoff')).toBeDisabled()
   await expect(page.getByRole('region', { name: 'Handoff change preview' })).toHaveCount(0)
   await page.getByRole('searchbox', { name: 'Search settings', exact: true }).fill('handoff')
@@ -125,4 +125,79 @@ test('recovers retained undo after a failed apply without a source-only fallback
   await expect(toggle(page, 'handoff')).toHaveAttribute('aria-checked', 'false')
   await expect(toggle(page, 'caveman')).toBeEnabled()
   expect(server.edits()).toBe(0)
+})
+
+test('drops a proposal when the save scope changes and resets the whole personal list', async ({ page }) => {
+  const server = await session(page)
+  await toggle(page, 'caveman').click()
+  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for the team')
+  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await toggle(page, 'caveman').click()
+  await expect(page.getByRole('region', { name: 'Caveman change preview' })).toContainText('for you only')
+  expect(server.previews.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: true })
+})
+
+test('resets a personal built-in list that matches the team list', async ({ page }) => {
+  const previews: unknown[] = []
+  await page.route('**/api/views/overview', (route) => {
+    const view = structuredClone(fixture)
+    const settings = view.sections.find((section: { id: string }) => section.id === 'settings')
+    for (const kind of settings.kinds) if (kind.kind === 'builtin') kind.local = true
+    return route.fulfill({ json: view })
+  })
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
+  await page.route('**/api/changes/builtin/preview', (route) => {
+    previews.push(route.request().postDataJSON())
+    return route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'reset-1', enabled: false, reset: true, scope: 'local', supported: true, undoAvailable: false, config: 'agnostic-ai.local.yaml', targets: ['claude'], changes: [], findings: [] } })
+  })
+  await page.goto('/?view=settings')
+  const block = page.locator('section.block').filter({ has: page.getByRole('heading', { name: /Built-ins/ }) })
+  await expect(block.locator('.badge', { hasText: 'local' })).toBeVisible()
+  await block.getByRole('button', { name: 'Reset built-ins to the team list' }).click()
+  await expect.poll(() => previews.at(-1)).toEqual({ scope: 'local', reset: true })
+  await expect(page.getByRole('region', { name: 'Built-in list reset preview' })).toContainText('agnostic-ai.local.yaml')
+})
+
+test('discards a preview that answers after the save scope changed', async ({ page }) => {
+  let answer: () => void = () => {}
+  const answered = new Promise<void>((resolve) => { answer = resolve })
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
+  await page.route('**/api/changes/builtin/preview', async (route) => {
+    await answered
+    await route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'late', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } })
+  })
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+  await toggle(page, 'caveman').click()
+  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  answer()
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+})
+
+test('drops a restored proposal saved for another scope', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('agnostic-ai.edit-scope', 'local'))
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'proposed', id: 'team-1', name: 'caveman', enabled: true, scope: 'team', supported: true, undoAvailable: false, config: 'agnostic-ai.yaml', targets: ['claude'], changes: [], findings: [] } }))
+  await page.goto('/?view=settings')
+  await expect(page.getByRole('button', { name: 'Just me (not committed)', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Apply change', exact: true })).toHaveCount(0)
+})
+
+test('shows why a linked worktree needs the CLI for a personal built-in', async ({ page }) => {
+  const message = '.claude/skills/caveman/SKILL.md: built-ins only you turn on stay untracked in a linked worktree; use agnostic-ai sync in the CLI'
+  await page.route('**/api/views/overview', (route) => route.fulfill({ json: structuredClone(fixture) }))
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: true, undoAvailable: false, targets: ['claude'], changes: [], findings: [] } }))
+  await page.route('**/api/changes/builtin/preview', (route) => route.fulfill({ status: 400, json: { error: message } }))
+  await page.goto('/?view=settings')
+  await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+  await toggle(page, 'caveman').click()
+  await expect(page.getByRole('alert')).toContainText(message)
+  await page.getByRole('button', { name: 'Reload change state' }).click()
+  await expect(toggle(page, 'caveman')).toBeEnabled()
+  await expect(toggle(page, 'caveman')).toHaveAttribute('aria-checked', 'false')
 })

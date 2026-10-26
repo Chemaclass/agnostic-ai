@@ -21,6 +21,12 @@ describe('builtin change contract', () => {
     expect(() => parseBuiltinChange({ ...proposal, ...change })).toThrow('invalid change')
   })
 
+  it('keeps the scope and a reset of the whole personal list', () => {
+    expect(parseBuiltinChange({ ...proposal, name: undefined, enabled: false, reset: true, scope: 'local' }))
+      .toMatchObject({ reset: true, scope: 'local' })
+    expect(() => parseBuiltinChange({ ...proposal, scope: 'everyone' })).toThrow('invalid change')
+  })
+
   it('keeps the selected built-in and the previous successful undo owner', () => {
     expect(parseBuiltinChange({ ...proposal, name: 'handoff', undoAvailable: true, undoId: 'previous', undoName: 'caveman' }))
       .toMatchObject({ name: 'handoff', undoId: 'previous', undoName: 'caveman' })

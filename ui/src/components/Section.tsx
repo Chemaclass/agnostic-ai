@@ -4,6 +4,7 @@ import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
+import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { cursorUrl } from '../model/editor'
 import { findingFixPrompt } from '../model/finding-prompt'
 import type { Remote } from './Shell'
@@ -36,7 +37,9 @@ export function SectionPage({ sectionId, overview }: { sectionId: string; overvi
     <>
       <PageHeader title={section.label} subtitle={section.question} />
       <ConfigurationRoot.Provider value={data.snapshot.project.root}>
-        <SectionContents key={section.id} section={section} />
+        <EditScopeProvider key={section.id} enabled={section.id === 'settings'}>
+          <SectionContents section={section} />
+        </EditScopeProvider>
       </ConfigurationRoot.Provider>
       <SupportTable section={section} toolLabel={toolLabel} />
     </>
@@ -77,6 +80,7 @@ function SectionContentsBody({ section }: { section: Section }) {
   )
   return (
     <>
+      <EditScopeSwitch />
       <div className="section-search" role="search" aria-label={`Search ${section.label}`}>
         <label htmlFor={searchId}>Search {section.label.toLowerCase()}</label>
         <div className="section-search-controls">
@@ -115,8 +119,9 @@ function SectionContentsBody({ section }: { section: Section }) {
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
+              {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
             </h2>
-            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} />}
+            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
@@ -137,11 +142,11 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
   return (
     <section className="block" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
-      {configured.length ? <FieldList fields={configured} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
+      {configured.length ? <FieldList fields={configured} files={files} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
       {unconfigured.length > 0 && (
         <details className="unconfigured-fields" open={filtering || undefined}>
           <summary>Unconfigured fields ({unconfigured.length})</summary>
-          <FieldList fields={unconfigured} />
+          <FieldList fields={unconfigured} files={files} />
         </details>
       )}
       {files.length > 0 && (
@@ -154,8 +159,9 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
   )
 }
 
-function FieldList({ fields }: { fields: SettingField[] }) {
+function FieldList({ fields, files }: { fields: SettingField[]; files: SectionItem[] }) {
   const app = useApp()
+  const scope = useEditScope()
   return (
     <ul className="fields">
       {fields.map((f) => (
@@ -163,18 +169,19 @@ function FieldList({ fields }: { fields: SettingField[] }) {
           <div className="field-head">
             <strong>{f.label}</strong>
             {f.key !== 'x-' && <code className="muted">{f.key}</code>}
+            {f.set.some((src) => src.local) && <Badge tone="accent" title="Set in a personal file Git ignores">local</Badge>}
             <p className="muted">{f.description}</p>
           </div>
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
           {!(app.source.kind === 'api' && f.key !== 'x-' && f.set.length === 1 && f.editable && !f.editable.disabledReason) && f.set.map((src) => (
-            <div key={src.spec} className="field-source">
-              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} /> : <Values values={src.values} file={src.path} />}
+            <div key={`${src.spec}:${src.path}`} className="field-source">
+              {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
             </div>
           ))}
-          <FieldEditControl field={f} />
+          <FieldEditControl key={scope} field={f} />
         </li>
       ))}
     </ul>
@@ -183,10 +190,16 @@ function FieldList({ fields }: { fields: SettingField[] }) {
 
 function FieldEditControl({ field }: { field: SettingField }) {
   const app = useApp()
+  const scope = useEditScope()
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
-  const current = field.set.find((source) => source.path === path)?.values.find((entry) => entry.key === field.key)?.value ?? ''
+  const valueOf = (source?: SettingField['set'][number]) => source?.values.find((entry) => entry.key === field.key)?.value
+  const specPath = scope === 'local' ? edit?.path ?? path : path
+  const specName = field.set.find((source) => source.path === specPath)?.spec
+  const localCurrent = valueOf(field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath)))
+  const teamCurrent = valueOf(field.set.find((source) => source.path === path && !source.local))
+  const current = (scope === 'local' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
   const [value, setValue] = useState(current)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError>()
@@ -196,35 +209,50 @@ function FieldEditControl({ field }: { field: SettingField }) {
   if (app.source.kind !== 'api') return null
   const setSelectedPath = (next: string) => {
     setPath(next)
-    setValue(field.set.find((source) => source.path === next)?.values.find((entry) => entry.key === field.key)?.value ?? '')
+    setValue(valueOf(field.set.find((source) => source.path === next && !source.local)) ?? '')
     setError(undefined)
   }
-  const save = async (clear: boolean) => {
+  const target = specPath
+  const post = async (body: Record<string, unknown>) => {
     setPending(true)
     setError(undefined)
     try {
-      await postEdit(API.editField, { path: path || undefined, key: field.key, value: clear ? null : edit.kind === 'number' ? Number(value) : value })
+      await postEdit(API.editField, { path: target || undefined, key: field.key, ...body })
       app.reload()
     } catch (err) {
       setError(err instanceof EditError ? err : new EditError(String(err)))
     } finally { setPending(false) }
   }
-  const configured = field.set.some((source) => source.path === path && source.values.some((entry) => entry.key === field.key))
+  const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value })
+  const reset = () => post({ scope: 'local', value: null })
+  const overridden = scope === 'team' && localCurrent !== undefined
+  const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
+  const resetButton = localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={pending} onClick={reset}>Reset to team value</button>
   return <div className="field-edit">
-    <div className="field-edit-row">
-      {edit.allowed && edit.allowed.length > 0
-        ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending}>
-          {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
-          {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
-        : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={pending} />}
-      <button type="button" className="button button-primary" disabled={pending || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
-      {configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
-    </div>
-    {paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
+    {overridden
+      ? <div className="field-edit-row">
+        <p className="muted">Your local value overrides the team value. Reset it to change the team value.</p>
+        {resetButton}
+      </div>
+      : <div className="field-edit-row">
+        {edit.allowed && edit.allowed.length > 0
+          ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={pending}>
+            {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
+            {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={pending} />}
+        <button type="button" className="button button-primary" disabled={pending || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
+        {scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={pending} onClick={() => save(true)}>Clear</button>}
+        {resetButton}
+      </div>}
+    {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</span>}
-    <p className="muted field-edit-hint">{configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}Run <Code>{syncCommand}</Code> to apply.</p>
+    <p className="muted field-edit-hint">
+      {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
+      {scope === 'team' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
+      Run <Code>{syncCommand}</Code> to apply.
+    </p>
   </div>
 }
 
@@ -289,17 +317,21 @@ function GroupedItems({ items }: { items: SectionItem[] }) {
 }
 
 function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: boolean }) {
+  const scope = useEditScope()
   return (
     <ul className="item-list">
       {items.map((item) => {
-        const control = item.enabled !== undefined && <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { name: item.name, enabled: on })} />
+        const control = item.enabled !== undefined && <>
+          <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { scope, name: item.name, enabled: on })} />
+          {item.local && <ResetAction label={`Reset ${item.name} to team value`} reset={() => postEdit(API.editBuiltin, { scope: 'local', name: item.name, enabled: !item.enabled })} />}
+        </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
           <li key={`${item.kind}:${item.name}:${item.path}`} className={`item-row${item.findings.length ? ' has-findings' : ''}`}>
             {item.kind === 'builtin' && item.enabled !== undefined
-              ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} fallback={control} renderHeading={heading} />
+              ? <BuiltinChange name={item.name} label={item.label} on={item.enabled} local={item.local ?? false} fallback={control} renderHeading={heading} />
               : heading(control)}
-            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} />}
+            {!hideValues && item.values.length > 0 && <Values values={item.values} file={item.kind === 'settings' ? item.path : undefined} personal={item.layer === 'project-user' || item.layer === 'global-local'} localKeys={item.localKeys} />}
             {item.tools && <Tools listing={item.tools} />}
             {item.findings.length > 0 && <Findings findings={item.findings} />}
           </li>
@@ -318,6 +350,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {item.enabled === undefined && <code className="item-path" title={item.path}>{item.path}</code>}
       </div>
       <div className="item-meta">
+        {item.local && <Badge tone="accent" title="Set in a personal file Git ignores">local</Badge>}
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
@@ -406,7 +439,33 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
   )
 }
 
-function NativeValues({ values, file }: { values: Value[]; file: string }) {
+/** Removes a personal override; the server refuses it when nothing is overridden. */
+function ResetAction({ label, reset }: { label: string; reset: () => Promise<void> }) {
+  const app = useApp()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<EditError | undefined>()
+  if (app.source.kind !== 'api') return null
+  const run = async () => {
+    setPending(true)
+    setError(undefined)
+    try {
+      await reset()
+      app.reload()
+    } catch (err) {
+      setError(err instanceof EditError ? err : new EditError(String(err)))
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <span className="edit-switch">
+      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to team value</button>
+      {error && <span className="edit-error" role="alert">{error.message}</span>}
+    </span>
+  )
+}
+
+function NativeValues({ values, file, localKeys }: { values: Value[]; file: string; localKeys?: string[] }) {
   const groups = new Map<string, Value[]>()
   for (const value of values) {
     const prefix = value.key.split('.')[0]
@@ -419,14 +478,15 @@ function NativeValues({ values, file }: { values: Value[]; file: string }) {
       {[...groups].map(([prefix, entries]) => (
         <div key={prefix} className="native-group">
           <h4 className="native-group-title"><ToolAvatar target={prefix.slice(2)} /><code>{prefix}</code></h4>
-          <Values values={entries} file={file} prefix={prefix} />
+          <Values values={entries} file={file} prefix={prefix} localKeys={localKeys} />
         </div>
       ))}
     </div>
   )
 }
 
-function Values({ values, file, prefix }: { values: Value[]; file?: string; prefix?: string }) {
+function Values({ values, file, prefix, personal, localKeys }: { values: Value[]; file?: string; prefix?: string; personal?: boolean; localKeys?: string[] }) {
+  const scope = usePageScope() ?? (personal ? 'local' : 'team')
   return (
     <dl className="values">
       {values.map((v) => (
@@ -447,7 +507,10 @@ function Values({ values, file, prefix }: { values: Value[]; file?: string; pref
               </span>
             ) : v.type === 'bool' ? (
               file ? (
-                <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { path: file, key: v.key, value: on })} />
+                <>
+                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { scope, path: file, key: v.key, value: on })} />
+                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to team value`} reset={() => postEdit(API.editValue, { scope: 'local', path: file, key: v.key, value: null })} />}
+                </>
               ) : (
                 <Switch on={v.value === 'true'} />
               )

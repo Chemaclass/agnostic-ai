@@ -105,7 +105,7 @@ func TestBuiltinChanges_PersonalToggleKeepsCommittedIgnores(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	proposal := builtinNamedProposal(t, h, "caveman", true)
+	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
 	if proposal.Config != "agnostic-ai.local.yaml" {
 		t.Fatalf("config = %s", proposal.Config)
 	}
@@ -233,7 +233,7 @@ func TestBuiltinChanges_ApplyHoldsTheGitExcludeLock(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	proposal := builtinNamedProposal(t, h, "caveman", true)
+	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
 	held := holdExcludeLock(t, filepath.Join(root, ".git", "info", "exclude"))
 	done := make(chan error, 1)
 	go func() {
@@ -295,7 +295,7 @@ func TestBuiltinChanges_ApplyRefusesAnExcludeChangedDuringPreview(t *testing.T) 
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	proposal := builtinNamedProposal(t, h, "caveman", true)
+	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
 	exclude := filepath.Join(".git", "info", "exclude")
 	data, _ := os.ReadFile(exclude)
 	other := withPersonalExcludes(string(data), personalExcludeKey(t.TempDir()), "", []string{"/other.md"})

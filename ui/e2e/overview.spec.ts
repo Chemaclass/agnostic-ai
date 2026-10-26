@@ -85,7 +85,7 @@ test.describe('overview', () => {
     await expect(native.locator('.native-group-title')).toHaveText('x-ellipsis')
     await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
     await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
-    expect(edit).toEqual({ path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true })
+    expect(edit).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true })
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding.getByText('This rule grants all file reads.', { exact: true })).not.toBeVisible()
     await finding.getByText('Details', { exact: true }).click()
@@ -348,13 +348,117 @@ test.describe('overview', () => {
     await expect(page.getByRole('switch')).toHaveCount(5)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    expect(posted).toEqual([{ name: 'memory', enabled: true }])
+    expect(posted).toEqual([{ scope: 'team', name: 'memory', enabled: true }])
 
     refuse = true
     await toggle.click()
     await expect(page.getByRole('alert')).toContainText('the file was restored')
     await expect(page.getByRole('alert')).toContainText('memory clashes with skill memory')
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('saves settings and built-ins for just me, marks local values, and resets them', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+    const team = '.agnostic-ai/settings/defaults.yaml'
+    const local = '.agnostic-ai/local/settings/defaults.yaml'
+    Object.assign(field('model'), {
+      set: [
+        { spec: 'defaults', path: local, local: true, values: [{ key: 'model', type: 'text', value: 'opus' }] },
+        { spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] },
+      ],
+      editable: { kind: 'text', path: team, paths: [team], localPath: local, syncCommand: 'agnostic-ai sync' },
+    })
+    Object.assign(field('effort'), {
+      set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }],
+      editable: { kind: 'text', path: team, paths: [team], localPath: local, syncCommand: 'agnostic-ai sync' },
+    })
+    for (const item of settings.items) {
+      if (item.name === 'caveman') Object.assign(item, { enabled: true, local: true })
+      if (item.name === 'memory') item.enabled = false
+    }
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({
+      json: { schemaVersion: 'builtin-change/v1', name: 'caveman', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] },
+    }))
+    const posted: unknown[] = []
+    for (const path of ['**/api/edit/field', '**/api/edit/builtin']) {
+      await page.route(path, (route) => {
+        posted.push(route.request().postDataJSON())
+        return route.fulfill({ json: { ok: true } })
+      })
+    }
+    await page.goto('/?view=settings')
+    const teamButton = page.getByRole('button', { name: 'Team (committed)', exact: true })
+    const justMe = page.getByRole('button', { name: 'Just me (not committed)', exact: true })
+    await expect(teamButton).toHaveAttribute('aria-pressed', 'true')
+
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await expect(model).toContainText('Your local value overrides the team value.')
+    await model.getByRole('button', { name: 'Reset to team value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null })
+
+    const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
+    await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
+    await caveman.getByRole('button', { name: 'Reset caveman to team value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: false })
+
+    await justMe.click()
+    await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await expect(effort.locator('.badge', { hasText: 'local' })).toHaveCount(0)
+    await expect(effort).toContainText(`Saves to ${local}`)
+    await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+    await effort.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low' })
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
+    await page.getByRole('switch', { name: 'memory built-in' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true })
+
+    await page.reload()
+    await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('resets a personal boolean and the override of the spec chosen to save to', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
+    const nativeLocal = '.agnostic-ai/local/settings/native.yaml'
+    Object.assign(field('x-'), { set: [{ spec: 'native', path: nativeLocal, local: true, values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }, { key: 'x-claude.theme', type: 'text', value: 'dark' }] }] })
+    settings.items.push({ kind: 'settings', name: 'native', label: 'native', path: nativeLocal, layer: 'project-user', localKeys: ['x-claude.verbose'], values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }], findings: [] })
+    const [a, b, localB] = ['.agnostic-ai/settings/a.yaml', '.agnostic-ai/settings/b.yaml', '.agnostic-ai/local/settings/b.yaml']
+    Object.assign(field('model'), {
+      set: [
+        { spec: 'b', path: localB, local: true, values: [{ key: 'model', type: 'text', value: 'opus' }] },
+        { spec: 'b', path: b, values: [{ key: 'model', type: 'text', value: 'sonnet' }] },
+        { spec: 'a', path: a, values: [{ key: 'model', type: 'text', value: 'haiku' }] },
+      ],
+      editable: { kind: 'text', path: a, paths: [a, b], localPath: '.agnostic-ai/local/settings/a.yaml', syncCommand: 'agnostic-ai sync' },
+    })
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    const posted: unknown[] = []
+    for (const path of ['**/api/edit/field', '**/api/edit/value']) {
+      await page.route(path, (route) => {
+        posted.push(route.request().postDataJSON())
+        return route.fulfill({ json: { ok: true } })
+      })
+    }
+    await page.goto('/?view=settings')
+    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+
+    const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
+    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to team value' })).toHaveCount(1)
+    await native.getByRole('button', { name: 'Reset x-claude.verbose to team value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: nativeLocal, key: 'x-claude.verbose', value: null })
+
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await expect(model.getByRole('button', { name: 'Reset to team value' })).toHaveCount(0)
+    await model.getByRole('combobox').selectOption(b)
+    await expect(model).toContainText('Your local value overrides the team value.')
+    await model.getByRole('button', { name: 'Reset to team value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null })
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
@@ -403,7 +507,7 @@ test.describe('overview', () => {
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => edit).toEqual({ path: paths[1], key: 'model', value: 'haiku' })
+    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)

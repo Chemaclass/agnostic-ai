@@ -31,6 +31,7 @@ type builtinFileChange struct {
 
 type builtinChangePlan struct {
 	view    builtinChangeView
+	scope   editScope
 	inputs  builtinProjectSnapshot
 	changes []builtinFileChange
 	// excludeBase holds the info/exclude bytes each planned exclude was
@@ -39,7 +40,7 @@ type builtinChangePlan struct {
 	excludeBase map[string][]byte
 }
 
-func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, error) {
+func planBuiltinChange(root string, req builtinRequest, where editScope) (*builtinChangePlan, error) {
 	defer adapters.SetAsideNotes()()
 	initial, err := snapshotBuiltinProject(root, []string{config.ConfigFileName, config.LegacyConfigFileName, config.LocalOverrideFileName, stateFilePath(".")})
 	if err != nil {
@@ -67,8 +68,8 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if cfg.Sync.SharedSkills {
 		return nil, fmt.Errorf("sync.shared-skills: web changes do not replace linked skill folders; use the CLI to change built-ins")
 	}
-	if slices.Contains(cfg.Builtins, name) == enabled {
-		return nil, fmt.Errorf("%s already has the requested value; refresh the overview", name)
+	if !req.reset && slices.Contains(cfg.Builtins, req.name) == req.enabled {
+		return nil, fmt.Errorf("%s already has the requested value; refresh the overview", req.name)
 	}
 	previous, err := readStateFileStrict(".")
 	if err != nil {
@@ -109,8 +110,11 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if err := validateBuiltinOutputs(root, baseline, previous); err != nil {
 		return nil, err
 	}
-	edit := &editHandler{root: root}
-	configPath, err := builtinRelativePath(root, edit.builtinsFile())
+	file, edit, err := (&editHandler{root: root}).builtinsEdit(where, req)
+	if err != nil {
+		return nil, err
+	}
+	configPath, err := builtinRelativePath(root, file)
 	if err != nil {
 		return nil, err
 	}
@@ -118,15 +122,23 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if err != nil {
 		return nil, err
 	}
-	edited, err := setBuiltin(original.data, name, enabled)
+	edited, err := edit(original.data)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
+	if len(edited) == 0 {
+		edited = nil
+	}
 	cfg.Builtins = slices.Clone(cfg.Builtins)
-	if enabled {
-		cfg.Builtins = append(cfg.Builtins, name)
-	} else {
-		cfg.Builtins = slices.DeleteFunc(cfg.Builtins, func(current string) bool { return current == name })
+	switch {
+	case req.reset:
+		if cfg.Builtins, err = config.TeamBuiltins(root); err != nil {
+			return nil, err
+		}
+	case req.enabled:
+		cfg.Builtins = append(cfg.Builtins, req.name)
+	default:
+		cfg.Builtins = slices.DeleteFunc(cfg.Builtins, func(current string) bool { return current == req.name })
 	}
 	layers, err := resolveLayers(".", cfg)
 	if err != nil {
@@ -175,7 +187,7 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if _, err := applyCoverageAccept(cfg, cfg.Targets); err != nil {
 		return nil, err
 	}
-	plan := &builtinChangePlan{excludeBase: map[string][]byte{}, view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: name, Enabled: enabled, Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
+	plan := &builtinChangePlan{scope: where, excludeBase: map[string][]byte{}, view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: req.name, Enabled: req.enabled, Reset: req.reset, Scope: string(where), Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
 	if slices.ContainsFunc(baseline, func(r driftReport) bool { return r.hasDrift() }) {
 		plan.view.Findings = append(plan.view.Findings, "This preview also applies pending source changes.")
 	}

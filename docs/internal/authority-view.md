@@ -89,14 +89,14 @@ Read-only check results appear on affected items or sections, never in a separat
 | GET | `/api/views/authority/schema` | the schema version and endpoint list |
 | GET | `/api/views/overview` | `overview.View` |
 | GET | `/api/health` | `{ok, root, global, ui}`, without loading specs |
-| POST | `/api/edit/builtin` | switches a built-in in the config file in effect; `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
-| POST | `/api/edit/value` | sets a boolean at a dotted key in a settings spec; same replies |
+| POST | `/api/edit/builtin` | `{scope, name, enabled}` switches a built-in in the team config (`scope: team`) or the personal one (`scope: local`); `{scope: "local", reset: true}` drops the personal list. Replies `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
+| POST | `/api/edit/value` | `{scope, path, key, value}` sets a boolean at a dotted key in the shared settings spec or its personal overlay; `value: null` with `scope: local` removes the personal value. Same replies |
 | GET | `/api/changes/builtin` | the current Caveman preview and undo state for this server session |
-| POST | `/api/changes/builtin/preview` | a project Caveman change plan for `{name: "caveman", enabled: true\|false}` |
+| POST | `/api/changes/builtin/preview` | a project built-in change plan for `{scope, name, enabled}` or `{scope: "local", reset: true}`; the plan names its `scope` |
 | POST | `/api/changes/builtin/apply` | writes the reviewed config and generated files for `{id}` |
 | POST | `/api/changes/builtin/undo` | restores the files and permissions from before the last successful apply for `{id}` |
 
-`/api/edit/builtin` and `/api/edit/value` write source files without syncing. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. Inherited booleans become local overrides. An empty local built-in list disables shared built-ins.
+`/api/edit/builtin` and `/api/edit/value` write source files without syncing. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. A team edit writes the committed file; a local edit writes the Git-ignored overlay, and is refused when its file resolves outside the local folder, into a team source, or to a tracked file. An empty local built-in list disables shared built-ins.
 
 The Caveman apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/inspect.md#serve).
 

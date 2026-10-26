@@ -73,6 +73,9 @@ type FieldEdit struct {
 	Allowed        []string `json:"allowed,omitempty"`
 	DisabledReason string   `json:"disabledReason,omitempty"`
 	SyncCommand    string   `json:"syncCommand,omitempty"`
+	// LocalPath is the personal, git-ignored file a "just me" edit of
+	// Path writes.
+	LocalPath string `json:"localPath,omitempty"`
 }
 
 // FieldSource is one spec's values for a field.
@@ -80,6 +83,8 @@ type FieldSource struct {
 	Spec   string  `json:"spec"`
 	Path   string  `json:"path"`
 	Values []Value `json:"values"`
+	// Local marks a value from a personal, git-ignored file.
+	Local bool `json:"local,omitempty"`
 }
 
 // Stage is one point in a session a hook can run at.
@@ -104,6 +109,9 @@ type KindCount struct {
 	Kind  string `json:"kind"`
 	Label string `json:"label"`
 	Count int    `json:"count"`
+	// Local is set on the built-ins row when the personal config replaces
+	// the team list.
+	Local bool `json:"local,omitempty"`
 }
 
 // KindSupport lists which configured targets emit a spec kind natively,
@@ -137,6 +145,12 @@ type SectionItem struct {
 	Values []Value `json:"values"`
 	// Enabled is set for a built-in: whether the config turns it on.
 	Enabled *bool `json:"enabled,omitempty"`
+	// Local is set for a built-in the personal config turns on or off
+	// against the team's list.
+	Local bool `json:"local,omitempty"`
+	// LocalKeys are the dotted keys a personal settings file sets itself,
+	// so each can be reset.
+	LocalKeys []string `json:"localKeys,omitempty"`
 	// Tools is set for an MCP server: what `agnostic-ai mcp tools` last
 	// listed. The overview reads that cache and never connects.
 	Tools *ToolListing `json:"tools,omitempty"`

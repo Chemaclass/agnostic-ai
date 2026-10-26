@@ -447,6 +447,7 @@ export interface KindCount {
   kind: string
   label: string
   count: number
+  local?: boolean
 }
 
 export interface KindSupport {
@@ -484,6 +485,10 @@ export interface SectionItem {
   values: Value[]
   /** For a built-in: whether the config turns it on. */
   enabled?: boolean
+  /** For a built-in: the personal config turns it on or off against the team's list. */
+  local?: boolean
+  /** For a personal settings file: the dotted keys it sets itself. */
+  localKeys?: string[]
   /** For an MCP server: the tools `agnostic-ai mcp tools` last listed. */
   tools?: ToolListing
   findings: ItemFinding[]
@@ -536,8 +541,10 @@ export interface SettingField {
   key: string
   label: string
   description: string
-  set: { spec: string; path: string; values: Value[] }[]
-  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string; syncCommand?: string }
+  /** Each spec that sets the field; `local` marks a personal file Git ignores. */
+  set: { spec: string; path: string; values: Value[]; local?: boolean }[]
+  /** `localPath` is the personal file a "just me" edit of `path` writes. */
+  editable?: { path?: string; paths?: string[]; kind: 'text' | 'number'; allowed?: string[]; disabledReason?: string; syncCommand?: string; localPath?: string }
 }
 
 export type SyncState = 'in-sync' | 'drifted' | 'not-checked'

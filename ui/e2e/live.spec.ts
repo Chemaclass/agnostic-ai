@@ -169,6 +169,7 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
     await run(binary, ['sync', '--check'], { cwd: f.root, env: f.env })
     expect(await readFile(f.config, 'utf8')).toBe(f.configBytes)
 
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
     const verbose = page.getByRole('switch', { name: 'x-claude.verbose', exact: true })
     await expect(verbose).toHaveAttribute('aria-checked', 'false')
     await verbose.click()
@@ -192,6 +193,89 @@ test('live project views, inherited settings, MCP cache, and builtin changes sur
   }
 })
 
+test('live just-me built-in outside the team block goes to info/exclude and resets cleanly', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    await put(f.config, f.configBytes.replace('builtins: []', 'builtins: []\ngitignore:\n    enabled: true'))
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const git = (...args: string[]) => run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: f.root, env: f.env })
+    await git('add', '-A')
+    await git('commit', '--quiet', '-m', 'Team setup')
+    const exclude = join(f.root, '.git', 'info', 'exclude')
+    const personalBlock = '# >>> agnostic-ai (personal)'
+
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    const caveman = page.getByRole('switch', { name: 'caveman built-in' })
+    await caveman.click()
+    await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'true')
+    await stat(join(f.root, '.claude', 'skills', 'caveman', 'SKILL.md'))
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    expect(await readFile(exclude, 'utf8')).toContain(personalBlock)
+
+    await page.locator('.item-row').filter({ has: caveman }).getByRole('button', { name: 'Reset caveman to team value' }).click()
+    await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(caveman).toHaveAttribute('aria-checked', 'false')
+    await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    expect(await readFile(exclude, 'utf8').catch(() => '')).not.toContain(personalBlock)
+  } finally {
+    await f.close()
+  }
+})
+
+test('live just-me edits stay out of Git, reach sync, and reset to the team value', async ({ page }) => {
+  const f = await fixture(false, [], true)
+  try {
+    const shared = join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml')
+    const overlay = join(f.root, '.agnostic-ai', 'local', 'settings', 'defaults.yaml')
+    await put(shared, 'name: defaults\ndescription: Team defaults.\nmodel: sonnet\n')
+    await put(f.config, f.configBytes.replace('builtins: []', 'builtins: [handoff]\ngitignore:\n    enabled: true'))
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    const git = (...args: string[]) => run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: f.root, env: f.env })
+    await git('add', '-A')
+    await git('commit', '--quiet', '-m', 'Team setup')
+
+    await page.goto(`${f.url}?view=settings`)
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByRole('textbox', { name: 'Default model value' }).fill('opus')
+    await model.getByRole('button', { name: 'Save' }).click()
+    await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    const handoff = page.getByRole('switch', { name: 'handoff built-in' })
+    await expect(handoff).toHaveAttribute('aria-checked', 'true')
+    await handoff.click()
+    const preview = page.getByRole('region', { name: 'Handoff change preview' })
+    await expect(preview).toContainText('agnostic-ai.local.yaml')
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(handoff).toHaveAttribute('aria-checked', 'false')
+    const handoffRow = page.locator('.item-row').filter({ has: handoff })
+    await expect(handoffRow.locator('.badge', { hasText: 'local' })).toBeVisible()
+
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+    for (const personal of ['agnostic-ai.local.yaml', '.agnostic-ai/local/settings/defaults.yaml']) await git('check-ignore', '--quiet', personal)
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    expect(JSON.parse(await readFile(join(f.root, '.claude', 'settings.json'), 'utf8')).model).toBe('opus')
+    await expect(stat(join(f.root, '.claude', 'skills', 'handoff', 'SKILL.md'))).rejects.toThrow()
+    expect(await readFile(shared, 'utf8')).toBe('name: defaults\ndescription: Team defaults.\nmodel: sonnet\n')
+
+    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+    await model.getByRole('button', { name: 'Reset to team value' }).click()
+    await expect(model.locator('.badge', { hasText: 'local' })).toHaveCount(0)
+    await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
+    await expect(stat(overlay)).rejects.toThrow()
+    await handoffRow.getByRole('button', { name: 'Reset handoff to team value' }).click()
+    await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
+    await expect(handoff).toHaveAttribute('aria-checked', 'true')
+    await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()
+    expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
+  } finally {
+    await f.close()
+  }
+})
+
 test('live global edits keep the last local builtin disabled and enforce browser boundaries', async ({ page, request }) => {
   const f = await fixture(true)
   const nativeBefore = await projectFiles(f.userHome)
@@ -200,6 +284,7 @@ test('live global edits keep the last local builtin disabled and enforce browser
     await expect(page.getByText('Saves source files. Run agnostic-ai sync --global to apply them to your tools.', { exact: true })).toHaveCount(1)
     const memory = page.getByRole('switch', { name: 'memory built-in' })
     await expect(memory).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
     await memory.click()
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     await page.reload()
@@ -212,15 +297,15 @@ test('live global edits keep the last local builtin disabled and enforce browser
 
     const edit = `${f.url}api/edit/builtin`
     const before = await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')
-    const foreign = await request.post(edit, { headers: { Origin: 'http://localhost:9876' }, data: { name: 'memory', enabled: true } })
+    const foreign = await request.post(edit, { headers: { Origin: 'http://localhost:9876' }, data: { scope: 'team', name: 'memory', enabled: true } })
     expect(foreign.status()).toBe(403)
     const wrongHost = await request.get(`${f.url}api/views/authority/schema`, { headers: { Host: 'attacker.example' } })
     expect(wrongHost.status()).toBe(421)
     const wrongType = await request.post(edit, { headers: { 'Content-Type': 'text/plain' }, data: '{}' })
     expect(wrongType.status()).toBe(415)
-    const crossSite = await request.post(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' }, data: { name: 'memory', enabled: true } })
+    const crossSite = await request.post(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' }, data: { scope: 'team', name: 'memory', enabled: true } })
     expect(crossSite.status()).toBe(403)
-    const missingBoolean = await request.post(edit, { data: { name: 'memory' } })
+    const missingBoolean = await request.post(edit, { data: { scope: 'local', name: 'memory' } })
     expect(missingBoolean.status()).toBe(400)
     expect(await readFile(join(f.root, 'local', 'agnostic-ai.yaml'), 'utf8')).toBe(before)
   } finally {
@@ -261,7 +346,7 @@ test('live Authority, overview, and edit errors redact configured credentials', 
     expect(await readFile(permissions, 'utf8')).toBe(rules)
     const invalid = f.configBytes.replace('builtins: []', `builtins: [${token}]`)
     await put(f.config, invalid)
-    const refused = await request.post(`${f.url}api/edit/builtin`, { data: { name: 'memory', enabled: true } })
+    const refused = await request.post(`${f.url}api/edit/builtin`, { data: { scope: 'team', name: 'memory', enabled: true } })
     expect(refused.status()).toBe(422)
     expect(JSON.stringify(await refused.json())).not.toContain(token)
     expect(await readFile(f.config, 'utf8')).toBe(invalid)
@@ -374,7 +459,7 @@ test('Caveman preview repairs pending Handoff outputs and undo restores the orig
     const config = f.configBytes.replace('- claude # team tool', '- claude # team tool\n    - codex')
     await put(f.config, config)
     await run(binary, ['sync'], { cwd: f.root, env: f.env })
-    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { name: 'handoff', enabled: true } })
+    const legacy = await request.post(`${f.url}api/edit/builtin`, { data: { scope: 'team', name: 'handoff', enabled: true } })
     expect(legacy.status()).toBe(200)
     await put(f.localSettings, f.localBytes.replace('alwaysThinkingEnabled: true', 'alwaysThinkingEnabled: false'))
     const before = await projectFiles(f.root)

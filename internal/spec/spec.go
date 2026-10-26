@@ -69,6 +69,11 @@ type Entry struct {
 	// outside the layered loader (legacy path).
 	Layer     string
 	bodyLayer string
+	// Base is the lower-layer spec a local layer entry extends, and
+	// LocalMeta the keys the local file itself writes. Both are nil
+	// unless the entry extends one.
+	Base      *Entry
+	LocalMeta map[string]any
 	Meta      map[string]any
 	// MetaKeys preserves the order in which keys appeared in the source
 	// frontmatter (or pure YAML for hooks/MCPs). Adapters pass this to

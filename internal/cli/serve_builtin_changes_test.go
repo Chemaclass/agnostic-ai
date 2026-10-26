@@ -40,7 +40,12 @@ func builtinProposal(t *testing.T, h http.Handler, enabled bool) builtinChangeVi
 
 func builtinNamedProposal(t *testing.T, h http.Handler, name string, enabled bool) builtinChangeView {
 	t.Helper()
-	body, _ := json.Marshal(map[string]any{"name": name, "enabled": enabled})
+	return builtinScopedProposal(t, h, scopeTeam, name, enabled)
+}
+
+func builtinScopedProposal(t *testing.T, h http.Handler, scope editScope, name string, enabled bool) builtinChangeView {
+	t.Helper()
+	body, _ := json.Marshal(map[string]any{"scope": scope, "name": name, "enabled": enabled})
 	rec := postEdit(t, h, builtinPreviewPath, string(body), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
@@ -210,7 +215,7 @@ func TestBuiltinChanges_UsesLocalConfigAndKeepsPrivateModes(t *testing.T) {
 	original, _ := os.ReadFile("agnostic-ai.local.yaml")
 	shared, _ := os.ReadFile("agnostic-ai.yaml")
 	h := newBuiltinChangeHandler(root, false)
-	proposal := builtinProposal(t, h, true)
+	proposal := builtinScopedProposal(t, h, scopeLocal, "caveman", true)
 	if proposal.Config != "agnostic-ai.local.yaml" {
 		t.Fatalf("config = %s", proposal.Config)
 	}
@@ -388,7 +393,7 @@ func TestBuiltinChanges_RejectsUnsafeProjectsBeforeWriting(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK {
 				t.Fatalf("unsafe preview accepted: %s", rec.Body)
 			}
@@ -476,7 +481,7 @@ func TestBuiltinChanges_SymlinkInputRefused(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "not a regular file") {
 				t.Fatalf("unsafe input not rejected: %d %s", rec.Code, rec.Body)
 			}
@@ -502,13 +507,13 @@ func TestBuiltinChanges_RequestBoundaries(t *testing.T) {
 		{"method", func(r *http.Request) { r.Method = http.MethodGet }, http.StatusMethodNotAllowed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, tc.mutate)
+			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, tc.mutate)
 			if rec.Code != tc.status {
 				t.Errorf("status = %d, want %d: %s", rec.Code, tc.status, rec.Body)
 			}
 		})
 	}
-	for _, body := range []string{`{"name":"caveman"}`, `{"name":"unknown","enabled":true}`, `{"name":"caveman","enabled":true,"unknown":1}`, `{"name":"caveman","enabled":true} {}`} {
+	for _, body := range []string{`{"scope":"team","name":"caveman"}`, `{"scope":"team","name":"unknown","enabled":true}`, `{"scope":"team","name":"caveman","enabled":true,"unknown":1}`, `{"scope":"team","name":"caveman","enabled":true} {}`} {
 		rec := postEdit(t, h, builtinPreviewPath, body, nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("invalid body = %d: %s", rec.Code, rec.Body)
@@ -521,7 +526,7 @@ func TestBuiltinChanges_RequestBoundaries(t *testing.T) {
 		t.Errorf("foreign status = %d", rec.Code)
 	}
 	global := newBuiltinChangeHandler(t.TempDir(), true)
-	rec = postEdit(t, global, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+	rec = postEdit(t, global, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("global mutation = %d", rec.Code)
 	}
@@ -537,7 +542,7 @@ func TestBuiltinChanges_RedactsPreviewAndLeavesEnvironmentUntouched(t *testing.T
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(root, false)
-	rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+	rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
 	}
@@ -800,7 +805,7 @@ func TestBuiltinChanges_NativePathsUseRecordedSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := planBuiltinChange(root, "caveman", true)
+	plan, err := planBuiltinChange(root, builtinRequest{name: "caveman", enabled: true}, scopeTeam)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -966,7 +971,7 @@ func TestBuiltinChanges_RefusesUnprovenOutputWrites(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), path) {
 				t.Fatalf("unproven write: %d %s", rec.Code, rec.Body)
 			}
@@ -1098,7 +1103,7 @@ func TestBuiltinChanges_MemoryMigrationRequiresCLIWithoutWriting(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"name":"memory","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"memory","enabled":true}`, nil)
 			if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "CLI") {
 				t.Fatalf("unsafe memory preview: %d %s", rec.Code, rec.Body)
 			}
@@ -1207,7 +1212,7 @@ func TestBuiltinChanges_UnsyncedProjectRefusesUnsafeLock(t *testing.T) {
 			root := unsyncedBuiltinProject(t)
 			tc.setup(t, root)
 			h := newBuiltinChangeHandler(root, false)
-			rec := postEdit(t, h, builtinPreviewPath, `{"name":"caveman","enabled":true}`, nil)
+			rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"caveman","enabled":true}`, nil)
 			if rec.Code == http.StatusOK {
 				t.Fatalf("unsafe preview accepted: %s", rec.Body)
 			}
@@ -1355,7 +1360,7 @@ func TestBuiltinChanges_MemoryExclusionOutsideLinkedWorktreeRequiresCLI(t *testi
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(".", false)
-	rec := postEdit(t, h, builtinPreviewPath, `{"name":"memory","enabled":true}`, nil)
+	rec := postEdit(t, h, builtinPreviewPath, `{"scope":"team","name":"memory","enabled":true}`, nil)
 	if rec.Code == http.StatusOK || !strings.Contains(rec.Body.String(), "need a Git exclusion outside this project; use agnostic-ai sync in the CLI") {
 		t.Fatalf("linked worktree preview: %d %s", rec.Code, rec.Body)
 	}

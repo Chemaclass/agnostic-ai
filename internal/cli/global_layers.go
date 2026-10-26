@@ -21,15 +21,18 @@ func globalSourceHome(home string) string {
 	return filepath.Join(home, ".agnostic-ai")
 }
 
+// globalSources are the spec folders of the global source and of its
+// local layer.
+var globalSources = config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks", Settings: "settings", MCPs: "mcps"}
+
 func globalLayers(source string, names []string) ([]spec.Layer, error) {
 	layers, err := resolveBuiltinLayers(names, "")
 	if err != nil {
 		return nil, err
 	}
-	sources := config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks", Settings: "settings", MCPs: "mcps"}
 	return append(layers, []spec.Layer{
-		{Name: "global", Root: source, Sources: sources},
-		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
+		{Name: "global", Root: source, Sources: globalSources},
+		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: globalSources, Extends: true},
 	}...), nil
 }
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,7 +30,7 @@ var errFieldNotInFile = errors.New("the field is not in this file")
 const fieldCreatedSpec = fieldCreatedMarker + "name: defaults\ndescription: Default model, effort, and session settings.\n"
 
 // fieldEdit resolves an editable source spec, never an arbitrary client path.
-func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
+func (h *editHandler) fieldEdit(where editScope, shown, key string, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
 	if key != "model" && key != "effort" && key != "session-retention-days" {
 		return "", nil, fmt.Errorf("%s is not an editable field", key)
 	}
@@ -88,7 +89,7 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 	var chosen spec.Entry
 	if shown != "" {
 		at := slices.IndexFunc(settings, func(e spec.Entry) bool {
-			return overview.SettingsEditCandidate(e, key) && overview.SpecPath(h.root, e) == shown
+			return overview.SettingsEditCandidate(e, key) && h.matchesShownSpec(e, shown)
 		})
 		switch {
 		case at >= 0:
@@ -125,6 +126,19 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 	} else {
 		return "", nil, errors.New("several editable settings specs exist; choose a path")
 	}
+	scaffold := fieldCreatedSpec
+	if where == scopeLocal {
+		return h.localFieldEdit(chosen, key, value)
+	}
+	if chosen.Path != "" && overview.LocalLayer(chosen) && chosen.Base == nil {
+		return h.newTeamFieldSpec(chosen, filepath.Dir(defaultFile), key, value)
+	}
+	if chosen.Path != "" {
+		var err error
+		if file, _, err = h.scopedSettingsFile(chosen, key, scopeTeam); err != nil {
+			return "", nil, err
+		}
+	}
 	if chosen.Path == "" {
 		if value == nil {
 			if unreachable {
@@ -141,9 +155,70 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 			return "", nil, err
 		}
 	}
-	return file, func(data []byte) ([]byte, error) {
+	return file, scalarFieldEdit(chosen, key, value, scaffold), nil
+}
+
+// localFieldEdit writes key to the personal file over chosen, or to a new
+// personal defaults spec when no spec takes the edit. Clearing is the
+// reset: it removes the personal value, and the file once it only names
+// the spec.
+func (h *editHandler) localFieldEdit(chosen spec.Entry, key string, value any) (string, func([]byte) ([]byte, error), error) {
+	if value == nil && !overview.LocalSets(chosen, key) {
+		if _, inherited := chosen.Meta[key]; inherited {
+			return "", nil, fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)
+		}
+		return "", nil, fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), key)
+	}
+	if chosen.Path != "" {
+		file, scaffold, err := h.scopedSettingsFile(chosen, key, scopeLocal)
+		if err != nil {
+			return "", nil, err
+		}
+		return file, scalarFieldEdit(chosen, key, value, scaffold), nil
+	}
+	file := filepath.Join(h.root, overview.SettingsOverlayPath(h.global, "defaults"))
+	if _, err := os.Lstat(file); err == nil {
+		return "", nil, fmt.Errorf("%s exists but is not a loaded settings spec", overviewDisplay(h.root, file))
+	} else if !os.IsNotExist(err) {
+		return "", nil, fmt.Errorf("%s: %w", file, err)
+	}
+	if err := h.checkPersonalTarget(file); err != nil {
+		return "", nil, err
+	}
+	return file, scalarFieldEdit(chosen, key, value, fieldCreatedSpec), nil
+}
+
+// newTeamFieldSpec starts the shared spec under a personal one that has
+// none, so a Team save lands in the committed settings.
+func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir, key string, value any) (string, func([]byte) ([]byte, error), error) {
+	if value == nil {
+		return "", nil, fmt.Errorf("%s: there is no team %s to clear", overview.SpecPath(h.root, personal), key)
+	}
+	if overview.LocalSets(personal, key) {
+		return "", nil, fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), key)
+	}
+	file := filepath.Join(dir, personal.Name+".yaml")
+	if _, err := os.Lstat(file); err == nil {
+		return "", nil, fmt.Errorf("%s exists but is not the settings spec named %q", overviewDisplay(h.root, file), personal.Name)
+	} else if !os.IsNotExist(err) {
+		return "", nil, fmt.Errorf("%s: %w", file, err)
+	}
+	scaffold, err := yaml.Marshal(struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}{personal.Name, "Shared settings."})
+	if err != nil {
+		return "", nil, err
+	}
+	return file, scalarFieldEdit(spec.Entry{}, key, value, fieldCreatedMarker+string(scaffold)), nil
+}
+
+// scalarFieldEdit sets or clears key in a settings file. A new file starts
+// from scaffold, and is removed again when clearing leaves only that.
+func scalarFieldEdit(chosen spec.Entry, key string, value any, scaffold string) func([]byte) ([]byte, error) {
+	return func(data []byte) ([]byte, error) {
 		if len(data) == 0 {
-			data = []byte(fieldCreatedSpec)
+			data = []byte(scaffold)
 		}
 		out, err := setScalarField(data, key, value)
 		if errors.Is(err, errFieldNotInFile) {
@@ -152,11 +227,14 @@ func (h *editHandler) fieldEdit(shown, key string, raw json.RawMessage) (string,
 			}
 			return nil, fmt.Errorf("this file does not set %s", key)
 		}
+		if err == nil && value == nil && string(out) == scaffold {
+			return nil, nil
+		}
 		if err == nil && len(bytes.TrimSpace(out)) == 0 && !bytes.HasPrefix(data, []byte(fieldCreatedMarker)) {
 			return nil, errors.New("clearing would leave an empty spec; delete the file instead")
 		}
 		return out, err
-	}, nil
+	}
 }
 
 func editableEffortLevels(targets []string) []string {
