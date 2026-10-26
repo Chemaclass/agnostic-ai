@@ -4,6 +4,10 @@ import { MOCK, openApp, saveScreenshot } from './helpers'
 
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
+async function sourceOnly(page: import('@playwright/test').Page) {
+  await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', enabled: false, supported: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+}
+
 test.describe('overview', () => {
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
@@ -485,6 +489,7 @@ test.describe('overview', () => {
   ]
   for (const failure of refreshFailures) {
     test(`shows ${failure.name} when the refresh after a save fails, then recovers on retry`, async ({ page }) => {
+    await sourceOnly(page)
       const data = structuredClone(fixture)
       const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
       const team = '.agnostic-ai/settings/defaults.yaml'
@@ -534,6 +539,7 @@ test.describe('overview', () => {
   }
 
   test('keeps an unsaved draft and shows the changed saved value when a retry brings a different source', async ({ page }) => {
+    await sourceOnly(page)
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const team = '.agnostic-ai/settings/defaults.yaml'
@@ -582,6 +588,7 @@ test.describe('overview', () => {
   })
 
   test('resets a personal boolean and the override of the spec chosen to save to', async ({ page }) => {
+    await sourceOnly(page)
     const data = structuredClone(fixture)
     const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
     const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
@@ -636,6 +643,7 @@ test.describe('overview', () => {
   })
 
   test('starts a field edit on the spec in effect and links global instructions only for retention', async ({ page }) => {
+    await sourceOnly(page)
     const data = structuredClone(fixture)
     const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
     const field = (key: string) => fields.find((f: { key: string }) => f.key === key)
