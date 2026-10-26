@@ -287,10 +287,13 @@ func TestSyncAndExplain_ResolveCodexTerraAlias(t *testing.T) {
 	if out, err := runCLI(t, "sync"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, out)
 	}
-	for _, path := range []string{".codex/agents/reviewer.toml", ".codex/agents/exact.toml", ".codex/config.toml"} {
-		if got := readFileString(t, filepath.Join(dir, filepath.FromSlash(path))); !strings.Contains(got, `model = "gpt-5.6-terra"`) {
+	for _, path := range []string{".codex/agents/reviewer.toml", ".codex/config.toml"} {
+		if got := readFileString(t, filepath.Join(dir, filepath.FromSlash(path))); !strings.Contains(got, `model = "gpt-6.1-terra"`) {
 			t.Errorf("%s lacks the exact terra model:\n%s", path, got)
 		}
+	}
+	if got := readFileString(t, filepath.Join(dir, ".codex", "agents", "exact.toml")); !strings.Contains(got, `model = "gpt-5.6-terra"`) {
+		t.Errorf("an exact older model must stay unchanged:\n%s", got)
 	}
 	if got := readFileString(t, filepath.Join(dir, ".codex", "agents", "literal.toml")); !strings.Contains(got, `model = "terra"`) {
 		t.Errorf("x-codex.model must stay literal:\n%s", got)
@@ -300,7 +303,7 @@ func TestSyncAndExplain_ResolveCodexTerraAlias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("explain: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "model (tier balanced):") || !strings.Contains(out, "[codex] terra → gpt-5.6-terra\n") {
+	if !strings.Contains(out, "model (tier balanced):") || !strings.Contains(out, "[codex] terra → gpt-6.1-terra\n") {
 		t.Errorf("explain must show the terra tier resolution:\n%s", out)
 	}
 	out, err = runCLI(t, "explain", ".agnostic-ai/agents/reviewer.md", "--json")
@@ -311,7 +314,7 @@ func TestSyncAndExplain_ResolveCodexTerraAlias(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("decode: %v\n%s", err, out)
 	}
-	if got.ModelTier != "balanced" || len(got.Models) != 1 || got.Models[0] != (explainModel{Target: "codex", Model: "gpt-5.6-terra", Alias: "terra"}) {
+	if got.ModelTier != "balanced" || len(got.Models) != 1 || got.Models[0] != (explainModel{Target: "codex", Model: "gpt-6.1-terra", Alias: "terra"}) {
 		t.Errorf("json models = %q %#v", got.ModelTier, got.Models)
 	}
 }

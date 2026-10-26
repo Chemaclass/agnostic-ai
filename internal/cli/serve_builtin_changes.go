@@ -25,6 +25,7 @@ const (
 	builtinPreviewPath = builtinStatusPath + "/preview"
 	builtinApplyPath   = builtinStatusPath + "/apply"
 	builtinUndoPath    = builtinStatusPath + "/undo"
+	builtinCancelPath  = builtinStatusPath + "/cancel"
 )
 
 type builtinChangeView struct {
@@ -72,15 +73,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		h.mu.Lock()
 		defer h.mu.Unlock()
-		view := builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "idle", Name: "caveman", Supported: !h.global, Changes: []builtinFileChange{}, Findings: []string{}, Targets: []string{}}
-		if h.last != nil {
-			view = *h.last
-		}
-		view.UndoAvailable = h.after != nil
-		if h.applied != nil {
-			view.UndoID, view.UndoName, view.UndoTitle = h.applied.ID, h.applied.Name, h.applied.Title
-		}
-		writeEditJSON(w, http.StatusOK, view)
+		writeEditJSON(w, http.StatusOK, h.status())
 		return
 	}
 	if status, message := editRequestGuard(r); status != 0 {
@@ -88,7 +81,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if h.global {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Built-in preview, apply, and undo are available for projects only"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Built-in preview, apply, undo, and cancel are available for projects only"})
 		return
 	}
 	var request struct {
@@ -115,7 +108,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if r.URL.Path != builtinPreviewPath && (request.Name != "" || request.Enabled != nil || request.Reset || request.Scope != "" || request.Setting != nil || request.ID == "") {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "apply and undo require only a proposal id"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "apply, undo, and cancel require only a proposal id"})
 		return
 	}
 	h.mu.Lock()
@@ -160,6 +153,8 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		view, err = h.apply(request.ID)
 	case builtinUndoPath:
 		view, err = h.restore(request.ID)
+	case builtinCancelPath:
+		view, err = h.cancel(request.ID)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "unknown change action"})
 		return
@@ -180,6 +175,27 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		view.UndoAvailable, view.UndoID, view.UndoName, view.UndoTitle = h.after != nil, h.applied.ID, h.applied.Name, h.applied.Title
 	}
 	writeEditJSON(w, http.StatusOK, view)
+}
+
+func (h *builtinChangeHandler) status() builtinChangeView {
+	view := builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "idle", Name: "caveman", Supported: !h.global, Changes: []builtinFileChange{}, Findings: []string{}, Targets: []string{}}
+	if h.last != nil {
+		view = *h.last
+	}
+	view.UndoAvailable = h.after != nil
+	if h.applied != nil {
+		view.UndoID, view.UndoName, view.UndoTitle = h.applied.ID, h.applied.Name, h.applied.Title
+	}
+	return view
+}
+
+// Cancel names its proposal so a stale tab cannot discard a newer preview.
+func (h *builtinChangeHandler) cancel(id string) (builtinChangeView, error) {
+	if h.plan == nil || h.plan.view.ID != id {
+		return builtinChangeView{}, builtinChanged(fmt.Errorf("this preview was already replaced or closed; reload the change state"))
+	}
+	h.plan, h.last = nil, h.applied
+	return h.status(), nil
 }
 
 type builtinConflict struct{ err error }
