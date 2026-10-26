@@ -14,7 +14,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/gitexclude"
+	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -271,10 +274,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 // through every link, inside the personal folder (or is the personal
 // config itself), outside every team source, and is not tracked by Git.
 func (h *editHandler) checkPersonalTarget(file string) error {
-	localRoot := filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x"))))
-	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
-		localRoot = personalConfig
-	}
+	localRoot, _ := h.personalRoot(file)
 	team, err := h.teamSourcePaths()
 	if err != nil {
 		return err
@@ -293,6 +293,49 @@ func (h *editHandler) checkPersonalTarget(file string) error {
 	}
 	if gitTracks(target) {
 		return refuse("is tracked by Git")
+	}
+	return nil
+}
+
+// personalRoot is the personal folder a Just me write of file must stay
+// in, or the personal config when file is that config.
+func (h *editHandler) personalRoot(file string) (root string, folder bool) {
+	if _, personalConfig := h.builtinsConfigFiles(); filepath.Clean(file) == filepath.Clean(personalConfig) && !h.global {
+		return personalConfig, false
+	}
+	return filepath.Join(h.root, filepath.Dir(filepath.Dir(overview.SettingsOverlayPath(h.global, "x")))), true
+}
+
+// keepPersonalOutOfGit makes sure Git ignores file before a Just me write
+// creates it. When no rule ignores it yet, the personal folder, or the
+// personal config, goes into the repository's info/exclude, which a
+// linked worktree shares with its main checkout. Outside a work tree
+// nothing can stage the file.
+func (h *editHandler) keepPersonalOutOfGit(file string) error {
+	target := resolvedAbs(file)
+	dir := existingAncestor(filepath.Dir(target))
+	if layout, err := gitquery.LayoutAt(dir); err != nil || !layout.HasToplevel || gitIgnores(dir, target) {
+		return nil
+	}
+	display := overviewDisplay(h.root, file)
+	personal, folder := h.personalRoot(file)
+	rel, err := filepath.Rel(h.root, personal)
+	ex, ok := personalExcludeFile(h.root)
+	if err != nil || !ok {
+		return fmt.Errorf("%s: Git would track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
+	}
+	pattern := "/" + ex.prefix + filepath.ToSlash(rel)
+	if folder {
+		pattern += "/"
+	}
+	if err := gitexclude.Update(ex.path, func(content string) string {
+		out, _ := adapters.WithGitExclusion([]byte(content), pattern)
+		return string(out)
+	}); err != nil {
+		return fmt.Errorf("%s: could not keep this personal file out of Git: %w", display, err)
+	}
+	if !gitIgnores(dir, target) {
+		return fmt.Errorf("%s: Git would still track this personal file; ignore %s in .gitignore", display, overviewDisplay(h.root, personal))
 	}
 	return nil
 }
