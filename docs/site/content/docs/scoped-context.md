@@ -79,6 +79,10 @@ Every pattern must cover a whole directory tree. `src/api/**/*.ts`, `Dockerfile`
 
 Starting Codex at the root does not load nested files for later edits.
 
+## Qwen Code rules with globs alone
+
+An unscoped rule with `globs` or `paths` writes `.qwen/rules/<name>.md` with the same patterns as a `paths:` list. Qwen Code leaves it out of the prompt until a tool reads or edits a matching file, and loads project rules only in a trusted folder. `alwaysApply: true` keeps the rule in `QWEN.md`. A legacy `outputs.qwen.rules-file` or a moved `outputs.qwen.file` keeps every rule in that file. See [Qwen Code rules](https://qwenlm.github.io/qwen-code-docs/en/users/features/rules/).
+
 </details>
 
 <details>

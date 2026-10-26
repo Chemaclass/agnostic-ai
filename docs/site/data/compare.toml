@@ -1218,7 +1218,7 @@
 
   [[targets.kinds]]
     id = "rule"
-    paths = ["QWEN.md"]
+    paths = [".qwen/rules/testing.md"]
 
   [[targets.kinds]]
     id = "hook"

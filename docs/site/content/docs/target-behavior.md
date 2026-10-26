@@ -44,7 +44,7 @@ Tools that share a path get one write. Junie also has its preferred `.junie/AGEN
 
 ### Inlined rules
 
-Some tools read no separate rule directory. Sync puts their project-wide rules below the shared body in a marked `## Rules` block. Augment and Kilo use that block too, though they have rule directories. OpenHands uses it for always-on rules; path-triggered rules become skills.
+Some tools read no separate rule directory. Sync puts their project-wide rules below the shared body in a marked `## Rules` block. Augment and Kilo use that block too, though they have rule directories. OpenHands uses it for always-on rules; path-triggered rules become skills. Qwen Code uses it for rules without file patterns; a rule with `globs` goes to `.qwen/rules/` and loads when a matching file is read or edited.
 
 Cline, Kiro, Qoder, Kilo, and Augment skip a native rule file when its body already appears in the root `AGENTS.md` they read. File-conditioned rules and tool-specific bodies keep their own files. Keep `AGENTS.md` enabled in Cline's Rules panel and Qoder's context file list, or those tools miss the shared rules.
 

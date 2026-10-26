@@ -21,6 +21,7 @@ import (
 
 const qwenMainFile = "QWEN.md"
 const qwenSettingsFile = ".qwen/settings.json"
+const qwenRulesDir = ".qwen/rules"
 
 func importFromQwen(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs, src.Hooks, src.Settings); err != nil {
@@ -28,6 +29,14 @@ func importFromQwen(root string, src config.Sources) error {
 	}
 	rules, err := importHierarchicalInstructionRules(root, importSourcePath(root, src.Rules), src, qwenMainFile)
 	if err != nil {
+		return err
+	}
+	pathRules, err := importRulesDirectoryWith(root, qwenRulesDir, src, rulesDirImportOpts{NormalizeMeta: normalizeQwenRuleMeta, FlatOnly: true})
+	if err != nil {
+		return err
+	}
+	rules += pathRules.rules
+	if err := noteQwenAlwaysOnRuleFiles(root); err != nil {
 		return err
 	}
 	agents, err := importFlatMarkdownFilesAt(filepath.Join(root, ".qwen/agents"), importSourcePath(root, src.Agents), allSpecFields, func(data []byte, dst string) ([]byte, error) {
@@ -72,6 +81,44 @@ func importFromQwen(root string, src config.Sources) error {
 	}
 	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d mcps, %d hooks, %d settings, %d ignores (from qwen)\n", rules, agents, skills, commands, mcps, hooks, settings, ignores)
 	printImportNextSteps(root, "qwen")
+	return nil
+}
+
+// normalizeQwenRuleMeta reads Qwen's `paths:` as portable globs. Qwen scans
+// .qwen/rules/ recursively, but there a subfolder only groups files while an
+// imported subfolder would become a directory scope, so import reads the top
+// level only.
+func normalizeQwenRuleMeta(meta map[string]any) {
+	if paths, ok := meta["paths"]; ok {
+		delete(meta, "paths")
+		meta["globs"] = paths
+	}
+}
+
+// noteQwenAlwaysOnRuleFiles names the imported rule files without `paths:`.
+// Sync inlines those rules into QWEN.md and never owns the original file.
+func noteQwenAlwaysOnRuleFiles(root string) error {
+	dir := filepath.Join(root, qwenRulesDir)
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", dir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		if meta, _ := splitMdcFrontmatter([]byte(header.Strip(string(data)))); meta["paths"] == nil {
+			keptf("note: %s/%s has no paths, so sync puts it in %s; delete the file so Qwen does not load it twice\n", qwenRulesDir, e.Name(), qwenMainFile)
+		}
+	}
 	return nil
 }
 

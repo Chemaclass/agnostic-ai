@@ -34,7 +34,7 @@ func TestTargetVarPaths_MatchRealEmission(t *testing.T) {
 		for name, want := range declared {
 			sess := NewSession()
 			sess.StartCapture()
-			bundle := spec.NewBundle([]spec.Entry{probes[name]})
+			bundle := spec.NewBundle([]spec.Entry{varProbe(probes, target, name)})
 			if err := EmitWithProvenance(sess, adapter, bundle, cfg, true); err != nil {
 				sess.StopCapture()
 				t.Errorf("%s/%s: emit failed: %v", target, name, err)
@@ -69,6 +69,20 @@ func writesUnder(paths []string, name, want string) bool {
 		}
 	}
 	return false
+}
+
+// targetVarProbes replaces a probe where a target writes that kind to its
+// directory only under a condition: Qwen keeps rules without file patterns
+// in QWEN.md.
+var targetVarProbes = map[string]map[string]spec.Entry{
+	"qwen": {emit.VarRulesDir: {Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b", Meta: map[string]any{"globs": "src/**/*.ts"}}},
+}
+
+func varProbe(probes map[string]spec.Entry, target, name string) spec.Entry {
+	if probe, ok := targetVarProbes[target][name]; ok {
+		return probe
+	}
+	return probes[name]
 }
 
 // A target that honors `outputs.<target>.dir` must resolve its declared
@@ -190,7 +204,7 @@ func TestTargetVarPaths_FollowPerKindDirOverride(t *testing.T) {
 
 			sess := NewSession()
 			sess.StartCapture()
-			if err := EmitWithProvenance(sess, adapter, spec.NewBundle([]spec.Entry{probes[name]}), cfg, true); err != nil {
+			if err := EmitWithProvenance(sess, adapter, spec.NewBundle([]spec.Entry{varProbe(probes, target, name)}), cfg, true); err != nil {
 				sess.StopCapture()
 				t.Errorf("%s/%s: emit failed: %v", target, name, err)
 				continue

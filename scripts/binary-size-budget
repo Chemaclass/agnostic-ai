@@ -453,4 +453,8 @@
 # (23462048): compare reads the sync state once per run, split from the
 # report loop so a test can check both give the same report. Same Linux
 # amd64 release flags; no added headroom or dependencies.
-23466144
+# #2502 measured 23474336 on Go 1.27.3, up 8192 from main df4802ae
+# (23466144): Qwen rules with file patterns go to .qwen/rules/ with
+# paths, and import reads them back. Same Linux amd64 release flags; no
+# added headroom or dependencies.
+23474336

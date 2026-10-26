@@ -80,6 +80,7 @@ var probeKinds = map[string]string{
 	"windsurf.conf-file":  "settings",
 	"factory.conf-file":   "settings",
 	"qwen.conf-file":      "settings",
+	"qwen.rules-dir":      "path-rule",
 
 	"pi.conf-file": "settings",
 }
@@ -132,6 +133,8 @@ func outputKeyProbeEntry(kind string) spec.Entry {
 		return spec.Entry{Kind: spec.KindCommand, Name: "probe", Path: "commands/probe.md", Body: "b"}
 	case "rule":
 		return spec.Entry{Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b"}
+	case "path-rule":
+		return spec.Entry{Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b", Meta: map[string]any{"globs": "src/**/*.ts"}}
 	case "mcp":
 		return spec.Entry{Kind: spec.KindMCP, Name: "probe", Meta: map[string]any{"command": "x"}}
 	case "hook":

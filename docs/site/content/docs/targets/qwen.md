@@ -44,6 +44,7 @@ Inspect `QWEN.md` for the rule. This checks generated files. To check discovery,
 ```text
 QWEN.md                         # root instructions and rules
 <scope>/QWEN.md                 # directory-scoped rules
+.qwen/rules/<name>.md           # rules with file patterns
 .qwen/agents/<name>.md          # native subagents
 .qwen/skills/<name>/SKILL.md    # skills, with bundled files
 .qwen/commands/<name>.md        # slash commands
@@ -53,7 +54,7 @@ QWEN.md                         # root instructions and rules
 
 ## Native mappings
 
-Rules use root and directory-scoped `QWEN.md` files. See [scoped context](@/docs/scoped-context.md) for file-pattern rules and discovery limits.
+Project-wide rules go into `QWEN.md`, and `scope` rules go into `<scope>/QWEN.md`. A rule with `globs` or `paths` and no `scope` goes to `.qwen/rules/<name>.md` with a `paths:` list. Qwen leaves that rule out of the prompt until a tool reads or edits a matching file. `alwaysApply: true` keeps a rule in `QWEN.md`. See [scoped context](@/docs/scoped-context.md#qwen-code-rules-with-globs-alone) for the limits.
 
 Agents get YAML frontmatter and a prompt body. Portable tool names map to Qwen names; use `x-qwen.tools` for an explicit native list. Native agent fields such as `approvalMode` and record-valued `mcpServers` belong under `x-qwen`.
 
@@ -92,7 +93,7 @@ Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so 
 ## Limits and trust
 
 - Portable agent effort and agent permission mode have no equivalent mapping. Use explicit native approval fields under `x-qwen` when needed. Portable lists of agent MCP server names cannot replace Qwen's record of server definitions.
-- Project hooks require a trusted folder. Safe mode and bare mode can disable project customizations. Trust and approval remain Qwen decisions.
+- Project hooks and `.qwen/rules/` require a trusted folder. Safe mode and bare mode can disable project customizations. Trust and approval remain Qwen decisions.
 - `.qwenignore` applies to tools that honor it; it does not prevent every form of file access.
 - Commands and ignore files sync only at project scope. Global hook specs emit command handlers.
 - Reviews and environment specs have no native output.
@@ -106,6 +107,7 @@ Not enforced. Sync cannot write an edit-blocking rule or hook for this tool, so 
 | Key | Default |
 |---|---|
 | `outputs.qwen.rules-file` | unset, uses instruction files |
+| `outputs.qwen.rules-dir` | `.qwen/rules` |
 | `outputs.qwen.agents-dir` | `.qwen/agents` |
 | `outputs.qwen.skills-dir` | `.qwen/skills` |
 | `outputs.qwen.commands-dir` | `.qwen/commands` |
@@ -125,6 +127,6 @@ agnostic-ai sync -t qwen
 agnostic-ai sync --check -t qwen
 ```
 
-Import reads root and scoped instructions, agents, skill folders and resources, Markdown and legacy TOML commands, `.qwenignore`, and settings, hooks, and MCP servers in `.qwen/settings.json`. Native fields stay under `x-qwen`; HTTP `httpUrl` becomes portable `type: http`, while SSE `url` becomes `type: sse`. Imported legacy commands emit as Markdown.
+Import reads root and scoped instructions, rule files directly under `.qwen/rules/`, agents, skill folders and resources, Markdown and legacy TOML commands, `.qwenignore`, and settings, hooks, and MCP servers in `.qwen/settings.json`. A rule file's `paths:` becomes portable `globs`. Import names each rule file without `paths:`: sync moves that rule into `QWEN.md`, so delete the original file. Native fields stay under `x-qwen`; HTTP `httpUrl` becomes portable `type: http`, while SSE `url` becomes `type: sse`. Imported legacy commands emit as Markdown.
 
 Import rejects credentials in retained agent and skill headers, hooks, and settings. Settings can refer to environment variables with `$NAME` or `${NAME}`. Qwen does not expand those references in an agent's or skill's credential fields, so import rejects them there.

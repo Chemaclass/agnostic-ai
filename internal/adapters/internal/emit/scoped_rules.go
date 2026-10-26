@@ -585,6 +585,9 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 				continue
 			}
 		}
+		if PathRulePatterns(cfg, target, r) != nil {
+			continue
+		}
 		scope, err := spec.RuleScope(resolved)
 		if err == nil && scope == "" {
 			if directories, _ := codexGlobDirectories(cfg, target, resolved); len(directories) > 0 {

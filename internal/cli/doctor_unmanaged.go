@@ -37,6 +37,7 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{"GEMINI.md", "gemini"},
 	{"QWEN.md", "qwen"},
 	{".qwen/agents/*.md", "qwen"},
+	{".qwen/rules/*.md", "qwen"},
 	{".qwen/commands/**/*.md", "qwen"},
 	{".qwen/commands/*.md", "qwen"},
 	{".qwen/skills/*/SKILL.md", "qwen"},
