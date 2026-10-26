@@ -18,8 +18,10 @@ import (
 // user-level configuration sync --global reads, built afresh on every
 // request. Unlike the project handler it runs from any working
 // directory: every path comes from $HOME and the global source root.
-func newGlobalOverviewHandler() http.Handler {
-	return overview.NewHandler(globalOverviewInputs)
+func newGlobalOverviewHandler(compareInstalled bool) http.Handler {
+	return overview.NewHandler(func() (overview.Inputs, error) {
+		return globalOverviewInputsWith(compareInstalled)
+	})
 }
 
 // globalOverviewInputs loads the global and global-local layers as
@@ -28,6 +30,13 @@ func newGlobalOverviewHandler() http.Handler {
 // the served Authority view uses for --global, so both report one
 // revision for the same sources.
 func globalOverviewInputs() (overview.Inputs, error) {
+	return globalOverviewInputsWith(true)
+}
+
+// globalOverviewInputsWith is globalOverviewInputs that skips comparing
+// the files sync --global would write with disk when compareInstalled is
+// false.
+func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 	scope, err := loadCheckScope(true)
 	if err != nil {
 		return overview.Inputs{}, err
@@ -37,7 +46,7 @@ func globalOverviewInputs() (overview.Inputs, error) {
 		return overview.Inputs{}, err
 	}
 	cfg := &config.Config{Targets: scope.targets, Builtins: builtins, Models: scope.models, Requires: globalRequires(scope.source)}
-	checks := runGlobalOverviewChecks(scope)
+	checks := runGlobalOverviewChecks(scope, compareInstalled)
 	src := &authoritySource{root: scope.source, global: true}
 	opts := authority.Options{Root: scope.source, ConfigFiles: src.configFiles(), Global: true}
 	snapshot := authority.NewSnapshot(cfg, scope.bundle, opts)
@@ -89,7 +98,7 @@ func globalRequires(source string) string {
 // reads: every finding lint --global reports, and drift between the
 // files sync --global would write and the files on disk. The doctor
 // checks read a project's generated files and do not run.
-func runGlobalOverviewChecks(scope checkScope) overviewChecks {
+func runGlobalOverviewChecks(scope checkScope, compareInstalled bool) overviewChecks {
 	overviewChecksMu.Lock()
 	defer overviewChecksMu.Unlock()
 	// Planning the global writes prints capability warnings and buffers
@@ -102,10 +111,12 @@ func runGlobalOverviewChecks(scope checkScope) overviewChecks {
 	out.findings = append(out.findings, overviewScopeLintFindings(scope, globalConfigPaths(scope.source)[0], display)...)
 	setFindingOpenPaths(out.findings, scope.source)
 	adapters.DrainNotes()
-	drift, compared, skipped := globalOverviewDriftFindings(scope)
-	out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
-	out.findings = append(out.findings, drift...)
-	out.compared, out.skipped = compared, skipped
+	if compareInstalled {
+		drift, compared, skipped := globalOverviewDriftFindings(scope)
+		out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
+		out.findings = append(out.findings, drift...)
+		out.compared, out.skipped = compared, skipped
+	}
 	return out
 }
 
@@ -189,6 +200,9 @@ func planGlobalWrites(home string, scope checkScope, targets []string) ([]global
 // configuration and which did not.
 func globalOverviewEvidenceNote(checks overviewChecks) string {
 	var parts []string
+	if len(checks.compared) == 0 && len(checks.skipped) == 0 {
+		parts = append(parts, "The files sync --global would write were not compared with disk.")
+	}
 	if len(checks.compared) > 0 {
 		parts = append(parts, "The files sync --global would write were compared with disk for "+strings.Join(checks.compared, ", ")+".")
 	}

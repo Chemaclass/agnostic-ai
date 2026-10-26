@@ -182,7 +182,7 @@ func TestOverviewInputs_RefusesARootOtherThanTheWorkingDirectory(t *testing.T) {
 func TestNewOverviewHandler_ServesTheProjectInTheWorkingDirectory(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeBareReadProject(t, dir)
-	h := newOverviewHandler(".")
+	h := newOverviewHandler(".", true)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1"+overview.OverviewPath, nil))
