@@ -63,6 +63,48 @@ type SettingField struct {
 	// field's key. Empty when nothing sets it.
 	Set      []FieldSource `json:"set"`
 	Editable *FieldEdit    `json:"editable,omitempty"`
+	// Resolved is, for model and effort, the value sync writes for each
+	// configured tool and why. It never claims what a tool runs with.
+	Resolved []TargetValue `json:"resolved,omitempty"`
+}
+
+// TargetValue is the value sync writes for one tool from the settings
+// specs and the config, with the values that lose and why.
+type TargetValue struct {
+	Target string `json:"target"`
+	Label  string `json:"label"`
+	// Value is empty when sync writes none and the tool keeps its own
+	// default, which agnostic-ai does not know.
+	Value string `json:"value,omitempty"`
+	// Alias is the model name Value resolved from, such as sol.
+	Alias string `json:"alias,omitempty"`
+	// Tier is the model tier the winning spec names.
+	Tier string       `json:"tier,omitempty"`
+	From *ValueOrigin `json:"from,omitempty"`
+	// Dropped is the coverage note sync raised when the tool's files
+	// have no place for the value, so it is not written.
+	Dropped string `json:"dropped,omitempty"`
+	// Checked is false when sync did not render this tool, so whether
+	// it writes the value is unknown.
+	Checked bool          `json:"checked"`
+	Others  []ValueOrigin `json:"others"`
+}
+
+// ValueOrigin is where a value comes from: a settings spec, or a config
+// key when Spec is empty. Reason says why a losing value does not win.
+type ValueOrigin struct {
+	Spec   string `json:"spec,omitempty"`
+	Path   string `json:"path"`
+	Value  string `json:"value,omitempty"`
+	Tier   string `json:"tier,omitempty"`
+	Local  bool   `json:"local,omitempty"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// FieldNote is a coverage note sync raised for a settings field on one
+// target: the field resolved but the target's files do not take it.
+type FieldNote struct {
+	Target, Field, Reason string
 }
 
 // FieldEdit describes the source-only edit available for a scalar field.

@@ -41,6 +41,9 @@ type Inputs struct {
 	// BuiltinsLocal whether the personal config replaces it.
 	BuiltinsTeam  []string
 	BuiltinsLocal bool
+	// FieldNotes are the settings model and effort notes the drift
+	// check's render raised.
+	FieldNotes []FieldNote
 }
 
 // builtinLayer is the layer name the loader gives a built-in spec. Its
@@ -371,6 +374,12 @@ func buildSections(in Inputs, caps map[string][]spec.Kind) []Section {
 			}
 		}
 		s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.Global)
+		if def.id == SectionSettings {
+			labels := newLabeler()
+			for i := range s.Fields {
+				s.Fields[i].Resolved = resolveTargets(in, s.Fields[i].Key, labels)
+			}
+		}
 		if def.id == SectionTools {
 			attachTools(s.Items, in)
 		}
