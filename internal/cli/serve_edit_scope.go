@@ -259,7 +259,7 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, scope editSco
 		return "", "", fmt.Errorf("%s is a personal spec with no team value; switch to Just me to edit it", overview.SpecPath(h.root, e))
 	}
 	if overview.LocalSets(e, key) {
-		return "", "", fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, e), key)
+		return "", "", fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, e), key)}
 	}
 	if e.Base.Layer == layerNameBuiltin || strings.HasPrefix(e.Base.Layer, "pack:") {
 		return "", "", fmt.Errorf("the team value comes from %s, which updates replace", overview.SpecPath(h.root, *e.Base))

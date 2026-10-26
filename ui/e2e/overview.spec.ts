@@ -398,7 +398,7 @@ test.describe('overview', () => {
     await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
     await expect(model).toContainText('Your local value overrides the team value.')
     await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
@@ -412,7 +412,7 @@ test.describe('overview', () => {
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low' })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true })
@@ -476,6 +476,47 @@ test.describe('overview', () => {
     })
   }
 
+  test('keeps an unsaved draft and shows the changed saved value when a retry brings a different source', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const team = '.agnostic-ai/settings/defaults.yaml'
+    const edit = { kind: 'text', path: team, paths: [team], syncCommand: 'agnostic-ai sync' }
+    const model = settings.fields.find((f: { key: string }) => f.key === 'model')
+    const effort = settings.fields.find((f: { key: string }) => f.key === 'effort')
+    Object.assign(model, { set: [{ spec: 'defaults', path: team, values: [{ key: 'model', type: 'text', value: 'sonnet' }] }], editable: edit })
+    Object.assign(effort, { set: [{ spec: 'defaults', path: team, values: [{ key: 'effort', type: 'text', value: 'high' }] }], editable: edit })
+    let failing = false
+    let onDisk = 'sonnet'
+    await page.route('**/api/views/overview', (route) => {
+      if (failing) return route.fulfill({ status: 500, json: { error: 'down' } })
+      const view = structuredClone(data)
+      view.sections.find((section: { id: string }) => section.id === 'settings').fields.find((f: { key: string }) => f.key === 'model').set[0].values[0].value = onDisk
+      return route.fulfill({ json: view })
+    })
+    await page.route('**/api/edit/field', (route) => route.fulfill({ json: { ok: true } }))
+    await page.goto('/?view=settings')
+    const modelRow = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    const effortRow = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await modelRow.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
+
+    failing = true
+    await effortRow.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
+    await effortRow.getByRole('button', { name: 'Update' }).click()
+    const alert = page.getByRole('alert').filter({ hasText: 'could not be refreshed' })
+    await expect(alert).toBeVisible()
+    await page.getByRole('button', { name: 'JSON' }).click()
+    await expect(page.getByText('Not refreshed: this is the previous overview')).toBeVisible()
+    await page.getByRole('button', { name: 'Close the JSON inspector' }).click()
+
+    failing = false
+    onDisk = 'opus'
+    await alert.getByRole('button', { name: 'Retry' }).click()
+    await expect(alert).toHaveCount(0)
+    await expect(modelRow.getByRole('textbox', { name: 'Default model value' })).toHaveValue('my-draft')
+    await expect(modelRow.getByRole('status')).toContainText('The saved value changed after you started editing')
+    await expect(modelRow.getByRole('status')).toContainText('opus')
+  })
+
   test('shows an error panel, not stale data, when the first overview load fails', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ status: 500, json: { error: 'audit-simulated-overview-failure' } }))
     await page.goto('/?view=settings')
@@ -520,7 +561,7 @@ test.describe('overview', () => {
     await model.getByRole('combobox').selectOption(b)
     await expect(model).toContainText('Your local value overrides the team value.')
     await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null, expected: 'opus' })
   })
 
   test('opens the JSON inspector on the overview document', async ({ page, context }) => {
@@ -569,7 +610,7 @@ test.describe('overview', () => {
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku' })
+    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)

@@ -9,7 +9,7 @@ import (
 )
 
 // lintCode describes one finding `lint` can raise, for `explain LINTnnn`.
-// Keep in sync with the tables in docs/site/content/docs/cli-reference/check.md.
+// Keep in sync with the tables in docs/site/content/docs/cli-reference/lint-codes.md.
 type lintCode struct {
 	Severity lintSeverity
 	Title    string

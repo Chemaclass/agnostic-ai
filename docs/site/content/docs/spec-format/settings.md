@@ -15,17 +15,11 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 
 # Settings
 
-`settings/` sets what agents may run without asking, what they must never run, and which model and effort they start with. Every tool spells this differently: Claude Code uses `permissions` in `.claude/settings.json`, Factory uses command lists, Codex uses `config.toml`. A settings spec states the policy once.
+`settings/` sets what agents may run without asking, what they must never run, and which model and effort they start with. Claude Code keeps this in `.claude/settings.json`, Factory in command lists, Codex in `config.toml`. A settings spec states it once.
 
 ## Write one
 
-```bash
-agnostic-ai new settings project-defaults
-```
-
-Replace the description and add the policy or model settings you need. The template sets no permissions or model by default.
-
-Settings specs are plain YAML. Save this as `.agnostic-ai/settings/project-defaults.yaml`:
+`agnostic-ai new settings project-defaults` creates a template with no permissions or model. Settings specs are plain YAML. Save this as `.agnostic-ai/settings/project-defaults.yaml`:
 
 ```yaml
 permissions:
@@ -36,9 +30,9 @@ model:
   codex: sol
 ```
 
-Claude Code writes the permission into `.claude/settings.json`. Codex writes a model default, but portable shell rules require `outputs.codex.exec-policies-from-permissions: true`. Review the [translation limits](@/docs/targets/codex-reference.md#translate-bash-permissions) before enabling it. Other tools' support is listed [below](#support-by-target).
+Claude Code writes the permission into `.claude/settings.json`. Codex writes the model, but writes shell rules only with `outputs.codex.exec-policies-from-permissions: true`; review the [translation limits](@/docs/targets/codex-reference.md#translate-bash-permissions) first. Other tools are listed [below](#support-by-target).
 
-Run `agnostic-ai explain settings/project-defaults.yaml`, then sync and check the generated files. `explain` and `compare` show the written policy, not what the tool enforces, so confirm approval behavior in your coding tool.
+Run `agnostic-ai explain settings/project-defaults.yaml`, then sync. `explain` and `compare` show the written policy, not what the tool enforces, so confirm approval behavior in your coding tool.
 
 ## Fields
 
@@ -49,9 +43,9 @@ Run `agnostic-ai explain settings/project-defaults.yaml`, then sync and check th
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `permissions.default-mode` | no | unset | Claude Code's starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other tools raise a sync note. |
 | `model` | no | empty | Default model: a string, a map per target with an optional `default` (like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort)), or a [tier](@/docs/spec-format/agents.md#model-tiers) name. A target with no entry and no `default` gets no model. |
-| `effort` | no | empty | Default reasoning effort: a single value, or a map per target with an optional `default` (like [agent `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort)). An agent's own `effort` is separate. |
+| `effort` | no | empty | Default reasoning effort: a single value, or a map per target with an optional `default`. An agent's own `effort` is separate. See [effort by target](#effort-by-target). |
 | `session-retention-days` | no | unset | Personal session age limit, an integer of 1 or more. Only `sync --global` writes it. See [session retention](#session-retention). |
-| `protected` | no | unset | Files agents must not edit without asking: `paths`, `decision` (`ask` or `deny`), and `reason`. See [protected paths](#protected-paths). |
+| `protected` | no | unset | Files agents must not edit without asking. See [protected paths](#protected-paths). |
 
 ## Session retention
 
@@ -62,7 +56,7 @@ Keep this personal setting under `~/.agnostic-ai/settings/`, outside team projec
 session-retention-days: 3650
 ```
 
-`sync --global` writes the tool's own age limit. Unset leaves native retention alone. Integers below 1, strings, and fractions fail validation (LINT045). Project sync prints a note and writes no retention key.
+`sync --global` writes the tool's own age limit; unset leaves it alone. Values that are not an integer of 1 or more fail validation (LINT045). Project sync only prints a note.
 
 | Tool | User settings file | Native key |
 |------|--------------------|------------|
@@ -74,17 +68,16 @@ session-retention-days: 3650
 - An `x-claude.cleanupPeriodDays` or `x-codebuddy.cleanupPeriodDays` value wins for its target.
 - An existing invalid Claude value, including `cleanupPeriodDays: 0`, can pause cleanup. Sync leaves it unchanged, even with `--backup`, and asks you to fix it by hand or set `x-claude.cleanupPeriodDays`.
 - If Gemini or Qoder has `general.sessionRetention.enabled: false`, sync leaves its age limit alone and prints a note. It never sets the cleanup switch or `maxCount`, and Gemini's existing `maxCount` can still remove younger sessions.
-- Other targets print a coverage note. Kilo's deletion switch and Factory's organization setting are outside this field.
+- Other targets print a note. Kilo's deletion switch and Factory's organization setting are outside this field.
+- Lowering the limit warns that older sessions will be deleted, including when removing the field restores a shorter native limit. Pass `--backup` to replace a native value set outside agnostic-ai.
+- Removing the field restores the original value's bytes, even one that already matched, and removes an empty file that sync created. A value changed by hand stays yours. This restore data needs ownership state version 7; older releases refuse that state rather than discard it.
+- `explain --global settings/retention.yaml` lists the mapped keys.
 
-Lowering the age limit warns that older sessions will be deleted, including when removing this field restores a shorter native limit. To replace a native value set outside agnostic-ai, pass `--backup`.
-
-Removing the field restores the original value's bytes, including a value that already matched, and removes an empty file that sync created. A native value changed by hand stays yours. Sync records this restore data in ownership state version 7; older releases refuse that state rather than discard it. `explain --global settings/retention.yaml` lists the mapped keys.
-
-agnostic-ai changes settings only. It does not read, copy, or archive transcripts. Claude Code also applies this cutoff to some other session data and orphaned worktrees. Desktop and Cowork transcripts have a separate setting. See [Claude cleanup](https://code.claude.com/docs/en/claude-directory), [Gemini configuration](https://geminicli.com/docs/reference/configuration/), and [Qoder settings](https://docs.qoder.com/cli/settings-reference).
+agnostic-ai changes settings only; it never reads, copies, or archives transcripts. Claude Code also applies this cutoff to some other session data and orphaned worktrees, and Desktop and Cowork transcripts have a separate setting. See [Claude cleanup](https://code.claude.com/docs/en/claude-directory), [Gemini configuration](https://geminicli.com/docs/reference/configuration/), and [Qoder settings](https://docs.qoder.com/cli/settings-reference).
 
 ## Protected paths
 
-"Do not edit these files without asking" is a common rule for CI workflows, lock files, generated code, and migrations. A `protected` block states it once. Sync writes the strongest guard each tool has.
+A `protected` block states "do not edit these files without asking" once, for CI workflows, lock files, generated code, or migrations. Sync writes the strongest guard each tool has.
 
 ```yaml
 protected:
@@ -97,15 +90,13 @@ protected:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `paths` | yes | | Globs relative to the project root. `*` and `?` match inside one path segment. `**` matches across segments. A path also covers every file under it, so `vendor` protects `vendor/a.go`. A trailing `/` means the directory's contents. |
+| `paths` | yes | | Globs from the project root, so `composer.lock` protects only the root file and `**/composer.lock` every copy. `*` and `?` match inside one path segment, `**` across segments. A path covers every file under it (`vendor` protects `vendor/a.go`); a trailing `/` means the directory's contents. |
 | `decision` | no | `ask` | `ask` makes the agent ask first. `deny` blocks the edit. |
 | `reason` | no | empty | Shown to the agent when it is blocked from an edit. |
 
-A path starts at the project root. `composer.lock` protects only the root file. `**/composer.lock` protects every copy.
-
 - Character classes, braces, negation, and paths outside the project are rejected, because tools would read them differently.
 - Each settings spec holds one block, so use one file per decision.
-- The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected. Claude Code's permission docs do not say whether `Edit` rules ignore case.
+- The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected. Claude Code's docs do not say whether `Edit` rules ignore case.
 
 | Target | Protection | How |
 |---|---|---|
@@ -115,64 +106,37 @@ A path starts at the project root. `composer.lock` protects only the root file. 
 | Gemini CLI | enforced (hook) | a generated `BeforeTool` hook in `.gemini/hooks/` that blocks a matching `write_file` or `replace` ([details](@/docs/targets/gemini.md#protected-paths)) |
 | Every other target | not enforced | a sync note. State the paths in a rule |
 
-Protection covers the agent's edit tools. A shell command that writes the file can still change it.
-
-- `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, because sync rewrites that file from its spec.
-- `lint` reports an invalid block as LINT023.
-- `sync --global` does not write protected paths.
+Protection covers the agent's edit tools; a shell command can still change the file. `lint` warns (LINT022) when a protected path covers a file sync writes, since sync rewrites it, and reports an invalid block as LINT023. `sync --global` does not write protected paths.
 
 ## Permission rules
 
-A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same names an agent's `can:` takes. In a permission list, `read` and `edit` also take a path pattern.
-
-| Rule | Covers | Claude Code rule |
-|------|--------|------------------|
-| `read`, `read(<path>)` | Reading files, or the files that match | `Read`, `Read(<path>)` |
-| `edit`, `edit(<path>)` | Changing files, or the files that match | `Edit`, `Edit(<path>)` |
-| `write` | The write tool | `Write` |
-| `delete` | Deleting files, where the target has a delete tool | No native tool |
-| `shell`, `shell(<pattern>)` | Every command, or the commands that match | `Bash`, `Bash(<pattern>)` |
-| `web` | Fetching pages and searching the web | `WebFetch` and `WebSearch` |
-| `mcp:<server>`, `mcp:<server>/<tool>` | One MCP server, or one of its tools | `mcp__<server>`, `mcp__<server>__<tool>` |
+A rule uses the [capability](@/docs/spec-format/agents.md#capabilities) names an agent's `can:` takes. Unlike an agent's tool list, a permission rule keeps its scope on Claude Code: `read(src/**)` becomes `Read(src/**)`, `edit(src/**)` becomes `Edit(src/**)`, `shell(git status)` becomes `Bash(git status)`, and `mcp:github/get_issue` becomes `mcp__github__get_issue`.
 
 - Each rule becomes the tool's own permission name. `delete` raises a sync note where a tool has no delete permission.
-- A Claude Code rule still works as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both. For Claude Code, a server name that contains `__` or ends in `_`, such as `reports__v2`, becomes `mcp__<server>__*`, the only whole-server form Claude Code matches for it.
-- `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
+- A Claude Code rule still works as an alias, such as `WebFetch(domain:go.dev)`, and a list can mix both. A Claude Code rule is a bare tool name (the whole tool) or `Scope(argument)`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
+- `write` takes no path. Claude Code checks file writes against `Edit` rules only, so write `edit(<path>)` to cover a file; it also covers writes.
+- `web` has no scoped form. To limit web access, use the tool's own permission fields, or the `WebFetch(domain:example.com)` alias.
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a tool would drop it.
-- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule that has a capability of its own. An adjacent `WebFetch, WebSearch` pair becomes `web`. The rest stay as aliases, and sync writes the same files.
+- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule that has a capability of its own, and an adjacent `WebFetch, WebSearch` pair as `web`. The rest stay as aliases, and sync writes the same files.
+- `explain settings/<name>.yaml` lists the rules each tool gets and any extra access. `on-unsupported: error` fails when a rule widens, such as a Codex exact shell allow that becomes a command prefix.
 
-A bare capability under `allow` or `ask` covers the whole tool. Older releases matched these lowercase rules to no tool, so a spec written then now grants more. `lint` warns (LINT038) and `sync` prints the same note once per run, naming the permissions on enabled tools that take the rule. Scoped rules, `deny` rules, and tool-specific overrides that replace the rule get no warning.
+A bare capability under `allow` or `ask` covers the whole tool. Older releases matched these lowercase rules to no tool, so an old spec now grants more: `lint` warns (LINT038, which `lint --strict` fails on) and `sync` prints a note once per run, naming the affected permissions. `on-unsupported: silent` or `sync --quiet` hides the note. Scoped rules, `deny` rules, tool-specific overrides that replace the rule, and global lists (written only for Claude Code) get no warning.
 
-Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issue` to limit the rule. `edit(<path>)` also covers writes and edits. `web` has no scoped form. To limit web access, use the tool's own permission fields, or the `WebFetch(domain:example.com)` alias to allow fetches from one domain.
-
-Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists are written only for Claude Code; global sync and lint do not report LINT038 for these user-level lists.
-
-A Claude Code rule is a bare tool name (the whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
-
-Keep a `shell` wildcard at the end of an `allow` or `deny` rule.
-
-- `shell(git * main)` also approves options placed at the `*`.
-- Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing.
-
-`agnostic-ai lint` reports both as LINT009.
-
-`explain settings/<name>.yaml` lists the rules each configured tool gets and any extra access they grant. `on-unsupported: error` fails when a rule widens, including a Codex exact shell allow that becomes a command prefix.
+Keep a `shell` wildcard at the end of an `allow` or `deny` rule. `shell(git * main)` also approves options placed at the `*`, and Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing. `lint` reports both as LINT009.
 
 ## Merging
 
-Several files merge. Permission lists are joined in source order with duplicates removed. The last `model` and `effort` that is set wins. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
+Several files merge. Permission lists are joined in source order with duplicates removed. The last `model` and `effort` set wins, per target, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
 
 Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude-reference.md#claude-settings)).
 
-`agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, and output prerequisites. It also reports that `permissions.default-mode` is written only by `sync --global`. It does not compare other settings fields.
+`agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, output prerequisites, and that `permissions.default-mode` is written only by `sync --global`. It does not compare other settings fields.
 
-`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` rule lists. See [default model and effort](@/docs/global-configuration.md#global-default-model-and-effort).
+`sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` lists. See [default model and effort](@/docs/global-configuration.md#global-default-model-and-effort).
 
 ## Effort by target
 
-`effort` reaches four tools, each under its own key. A value the tool does not accept is not written and raises a sync note, as does `effort` on every other tool. The other tools still get their files. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value.
-
-`import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it. Otherwise the value goes under `x-<target>`.
+`effort` reaches four tools. A value the tool does not accept, or `effort` on any other tool, raises a sync note instead. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. `import` fills `effort` from these keys when the tool accepts the value and no other settings spec sets it; otherwise the value goes under `x-<target>`.
 
 | Target | Native key | Accepted values |
 |---|---|---|
@@ -186,31 +150,20 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Target | `permissions` | `model` |
 |---|---|---|
 | Claude Code, Qoder, Kilo Code, OpenCode | yes | yes |
-| Factory | `Bash` rules only | yes |
-| Codex | `Bash` rules via `outputs.codex.exec-policies-from-permissions` | yes |
+| Factory | `Bash` rules only; `ask` goes to `commandDenylist` (which prompts), `deny` to `commandBlocklist` | yes |
+| Codex | `Bash` rules via `outputs.codex.exec-policies-from-permissions` ([translation](@/docs/targets/codex-reference.md#translate-bash-permissions)); otherwise a note | yes |
 | Windsurf | yes | no |
-| Augment | `allow` and `deny` only | no |
+| Augment | `allow` and `deny` only, for whole `read`, `edit`, and `write` tools | no |
 | Cursor | `allow` and `deny` in `.cursor/cli.json`, for the Cursor CLI ([details](@/docs/targets/cursor.md#permissions)) | no |
-| Copilot, Junie, Gemini | no | yes |
+| Copilot, Junie, Gemini | no; Copilot and Junie report the whole policy in a note | yes |
 
-Every other target takes neither. A field a tool cannot hold raises a sync note, and the other tools still get their files.
+Every other target takes neither. A field a tool cannot hold raises a sync note, and the other tools still get their files. A rule the vendor cannot scope, such as a path rule on Factory's shell lists, raises a note instead of widening.
 
-- Copilot and Junie report the whole policy in a note.
-- Codex does too, unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies. The rest raise a note ([Bash permission translation](@/docs/targets/codex-reference.md#translate-bash-permissions)).
-- Rules carry over only as far as the vendor allows. Augment gates `read`, `edit`, and `write` as whole tools. Factory's command lists take shell patterns. A path-scoped rule raises a note instead of widening.
-- Factory's `commandDenylist` prompts, so `ask` goes there and `deny` goes to `commandBlocklist`.
-- Review an imported `model` before you enable more tools, because model names differ between vendors.
-- A shared Claude model name raises the same sync note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model.
+A shared Claude model name raises the same note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory; Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex-reference.md#codex-config) sets the model. Review an imported `model` before you enable more tools, because model names differ between vendors.
 
 ## Target-specific keys
 
-Ellipsis reads no portable settings field. Its reviewer, pull request filters, posting rules, and budget are written under `x-ellipsis` in a settings spec, and sync copies them into `.ellipsis/code-review.yaml`. The same block selects the environment, its repository, and its native options for `.ellipsis/environments/<name>.yaml`. See [Ellipsis](@/docs/targets/ellipsis.md).
-
-OpenCode V2 MCP imports use `x-opencode.mcp` to retain native connection details, disabled states, OAuth settings and separate timeouts. Keep it in a settings spec, not in portable MCP specs. See [OpenCode](@/docs/targets/opencode.md).
-
-Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Ellipsis reads only this block, and a later spec replaces each top-level block it sets (see [Ellipsis](@/docs/targets/ellipsis-reference.md#how-specs-map-to-the-file)). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
-
-When agnostic-ai also writes the same key:
+Tool-specific keys go under `x-<target>` and merge into that tool's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). When sync also writes the same key:
 
 - Lists are joined, with the entries sync writes first.
 - Objects merge key by key, at every level.
@@ -219,8 +172,14 @@ When agnostic-ai also writes the same key:
 - Maps of whole records (`x-qoder.mcpServers`, `x-augment.mcpServers`) merge by name. A server both sides name comes whole from the `x-<target>` block.
 - Blocks with a fixed order (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events added at the end.
 
-Four keys take one type each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Any other type is skipped, the rules from your `permissions` are still written, and a sync note names the key.
+Four keys take one type each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Any other type is skipped with a sync note naming the key, and the rules from your `permissions` are still written.
+
+Exceptions:
+
+- Codex: `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a sync note that names both.
+- Ellipsis reads no portable field, only `x-ellipsis`: its reviewer, pull request filters, posting rules, and budget go to `.ellipsis/code-review.yaml`, and the environment, its repository, and native options to `.ellipsis/environments/<name>.yaml`. A later spec replaces each top-level block it sets ([details](@/docs/targets/ellipsis-reference.md#how-specs-map-to-the-file)).
+- OpenCode V2 MCP imports use `x-opencode.mcp` to keep native connection details, disabled states, OAuth settings, and separate timeouts. Keep it in a settings spec, not in MCP specs. See [OpenCode](@/docs/targets/opencode.md).
 
 ## Edit scalar settings in the browser
 
-Run `agnostic-ai serve --open` in a project, or `agnostic-ai serve --global --open` for user settings. The Settings view can save, update, and clear a single `model` or `effort` value; only the global view can edit `session-retention-days`. If no settings spec exists, the first save creates `settings/defaults.yaml` in the source directory. With several specs, choose the file to edit. Maps and native `x-*` keys remain source-editor tasks. Browser saves do not sync generated tool files: run `agnostic-ai sync` or `agnostic-ai sync --global` afterward.
+Run `agnostic-ai serve --open` in a project, or `agnostic-ai serve --global --open` for user settings. The Settings view saves, updates, and clears a single `model` or `effort` value; only the global view edits `session-retention-days`. The first save creates `settings/defaults.yaml` when no settings spec exists; with several, choose the file. Maps and `x-*` keys need the source file. A browser save does not sync: run `agnostic-ai sync` or `agnostic-ai sync --global` afterward.

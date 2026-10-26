@@ -241,6 +241,8 @@ A dash means global sync writes nothing for that kind.
 | **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
 | **openhands** | - | - | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` | - |
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` | - |
+| **grok** | `~/.grok/AGENTS.md` | inlined | `~/.grok/hooks/<name>.json` | `~/.grok/skills/<name>/` | `~/.grok/agents/<name>.md` | - |
+| **qwen** | `~/.qwen/QWEN.md` | inlined | `~/.qwen/settings.json` | `~/.qwen/skills/<name>/` | `~/.qwen/agents/<name>.md` | - |
 | **augment** | - | `~/.augment/rules/<name>.md` | `~/.augment/settings.json` | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` | - |
 
 - [MCP servers](#global-mcp-servers) and [settings](#global-default-model-and-effort) have their own tables above. Agents use the same formats as project agents; see [the agent example](#global-agents).

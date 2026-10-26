@@ -86,6 +86,7 @@ export function JsonInspector({ onClose, overview }: { onClose: () => void; over
       </div>
       {doc ? (
         <>
+          {overview.error && <p className="muted" role="status">Not refreshed: this is the previous overview, and the latest refresh failed.</p>}
           <dl className="inspector-meta">
             <div>
               <dt>Endpoint</dt>

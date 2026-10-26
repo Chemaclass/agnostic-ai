@@ -18,55 +18,46 @@ Generate files from your specs for each selected AI coding tool. A run that writ
 agnostic-ai sync --only claude,cursor
 ```
 
-For a normal edit, change the source under `.agnostic-ai/`, preview with `agnostic-ai sync --dry-run`, then run `agnostic-ai sync` and `agnostic-ai sync --check`. For automation, select tools explicitly and use [JSON output](#json-output) when a script needs to read the result.
-
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--only <list>` | Write only these targets. Errors on unknown names. |
 | `--except <list>` | Write all configured targets except these. Errors on unknown names. Not with `--only`. |
 | `--all` | Write every configured target without the [first-sync picker](#first-sync-target-picker). |
-| `--dry-run` | Print to stdout instead of writing files. Does not preview deletion of leftover generated files. |
-| `--plan` | Print added and changed counts per target without writing. Exits 0. With `--check`, exits 1 on the same drift `--check` fails on, so CI can gate on the short report. `--diff` and `--format` do not apply. Not with `--global`. |
+| `--dry-run` | Print to stdout instead of writing. Does not preview leftover deletions. |
+| `--plan` | Print added and changed counts per target without writing. Exits 0, or 1 on drift with `--check`, so CI can gate on the short report. Ignores `--diff` and `--format`. |
 | `--check` | Exit non-zero if files on disk differ from what sync would write. Writes nothing. |
-| `--against <index\|HEAD>` | With `--check`, compare what Git holds instead of the working tree. `index` renders the staged specs and compares them with the staged outputs. `HEAD` does the same for the last commit. Ignored outputs are skipped. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
-| `--diff` | With `--check`, print a line-by-line diff per changed file (on disk vs what sync would write). Without `--check` or `--dry-run` it fails and writes nothing. |
+| `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there, not the working tree. See [`--against` details](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
+| `--diff` | With `--check`, print a diff per changed file, on disk vs what sync would write. Fails without `--check` or `--dry-run`. |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing output file to `<path>.bak` before overwriting. Pair with `revert`. |
-| `--keep-edits` | Keep each output edited since the last sync, write the rest, and name each kept file as `~ kept <path>` (on stderr under `--quiet`). With no record of the last sync, it keeps each Git-tracked output that differs from `HEAD`. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
-| `--untrack` | Run `git rm --cached` on generated paths that git tracks and ignores. The working copy stays. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
+| `--keep-edits` | Write every output except those edited since the last sync (with no record, tracked outputs that differ from `HEAD`), and print `~ kept <path>` for each (stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--untrack` | Run `git rm --cached` on generated paths that git tracks and ignores, keeping the working copy. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
-| `--watch` | Stay running and re-write on changes. Not with `--check`. See [watch mode](#watch-mode). |
-| `--watch-poll` | With `--watch`, force 200 ms polling, for network mounts or container volumes. |
-| `--jobs <n>` | Targets written in parallel. `0` (default) is one worker per CPU. `1` is serial. See [parallel emission](#parallel-emission). |
-| `--json` | Output as JSON, also with `--plan` or `--dry-run`. Not with `--watch` or `--diff`. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into supported tools' user config, including native agents where supported. |
+| `--watch` | Stay running and [re-write on changes](#watch-mode). Not with `--check`. |
+| `--watch-poll` | With `--watch`, poll every 200 ms, for network mounts or container volumes. |
+| `--jobs <n>` | Targets written in [parallel](#parallel-emission): `0` (default) is one per CPU, `1` is serial. |
+| `--json` | Print [JSON](#json-output). Not with `--watch` or `--diff`. |
+| `--global` | Install user-level specs from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's user config. See [global configuration](@/docs/global-configuration.md). |
 
 <a id="against-details"></a>
 <details>
 <summary>What --against compares</summary>
 
-- Only outputs Git tracks are compared.
+- Only outputs Git tracks are compared. An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
 - Shared skill links that Git checks out as plain files fail with the affected link and repair choices. See [shared skill checkout policy](@/docs/configuration.md#syncshared-skills).
-- A tracked output that no spec produces fails as a leftover to delete. That covers a file with the generated header, and any file the previous state wrote that still holds what it wrote. The previous state is `HEAD` for `index` and the first parent for `HEAD`.
-- A file edited since is left alone.
-- A run narrowed with `-t`, `--only`, or `--except` skips the leftover comparison.
-- A hand-written skill, agent, rule, or command that Git tracks inside a folder the managed block ignores also fails, because only the tool that reads that folder sees it. The failure names the `import` that adopts it. For example, a branch from before the move to `.agnostic-ai/` can add `.cursor/skills/<name>/SKILL.md`; the fix is `agnostic-ai import cursor`, then `git rm --cached` the file. Or list the file under `sync.unmanaged` to keep it.
-- An untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+- A tracked output that no spec produces fails as a leftover to delete: a file with the generated header, or one that still holds what the previous state wrote (`HEAD` for `index`, the first parent for `HEAD`). A file edited since is left alone. A run narrowed with `-t`, `--only`, or `--except` skips this comparison.
+- A hand-written skill, agent, rule, or command that Git tracks inside a folder the managed block ignores also fails, because only the tool that reads that folder sees it. The failure names the `import` that adopts it. For example, a branch from before the move to `.agnostic-ai/` adds `.cursor/skills/<name>/SKILL.md`: run `agnostic-ai import cursor`, then `git rm --cached` the file, or list it under `sync.unmanaged` to keep it.
 
 </details>
 
-`sync --global` details:
+`sync --global` works outside a project and never loads project config or packs. It loads overrides from `local/` in the source root and reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there.
 
-- Loads overrides from `local/` in the source root. Reads `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there. See [global configuration](@/docs/configuration.md#global-configuration) and [global output](@/docs/target-behavior.md#global-output).
-- Works outside a project. It never loads project config or packs.
-- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
-- MCP specs install servers in the user MCP files of Antigravity, Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, Qoder, and Warp. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. Claude also gets `permissions.default-mode`. Permission-list import and sync were added after v0.85.0; see [global model, effort, and permissions](@/docs/global-configuration.md#global-default-model-and-effort).
-- Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
+- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
+- `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
+- Files per tool: [global output](@/docs/target-behavior.md#global-output), [MCP servers](@/docs/global-configuration.md#global-mcp-servers), and [model, effort, and permissions](@/docs/global-configuration.md#global-default-model-and-effort).
 
-Sync skips paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) and reports them as `~ skip (unmanaged) <path>`.
-
-**Summary.** `sync` ends with what it changed. With nothing to do, it prints `✓ 26 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
+**Summary.** With nothing to do, `sync` prints `✓ 26 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
 
 ```
   ~ rule testing → 9 files in 9 targets
@@ -76,71 +67,54 @@ Sync skips paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunm
 ✓ synced 26 targets · 3 created · 6 updated · 49ms
 ```
 
-Each list shows three paths. `-v` lists all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files that git tracks or does not ignore. It is absent outside a git repository.
+Each list shows three paths (`-v` lists all). A `config` spec means `agnostic-ai.yaml` changed. The `!` line, absent outside a git repository, lists changed files git tracks or does not ignore.
 
-**Tracked despite ignored.** A generated path that git both tracks and ignores was usually committed before it moved into the managed `.gitignore` block. `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` shows the same finding and never fails on it alone.
+**Tracked despite ignored.** For a generated path git both tracks and ignores (usually committed before the managed `.gitignore` block), `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` reports it but never fails on it alone.
 
-**Hand edits.** `sync` writes the spec's version over an output that was edited by hand since the last sync, so the specs stay the one source. It first saves the edit as `<path>.bak` and prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back. Move the edit into `.agnostic-ai/` to keep it. With the [`memory` built-in](@/docs/memory.md), the line for an instructions file such as `GEMINI.md` also suggests saving a fact in `.agnostic-ai/memory/`, since a tool's own memory may have written the edit. `--keep-edits` leaves the edit in place instead.
+**Hand edits.** `sync` overwrites an output edited by hand since the last sync, after saving the edit as `<path>.bak`, and prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back; move it into `.agnostic-ai/` to keep it. With the [`memory` built-in](@/docs/memory.md), the line for an instructions file such as `GEMINI.md` also suggests saving a fact in `.agnostic-ai/memory/`, since a tool's own memory may have written the edit. `--keep-edits` leaves the edit in place instead.
 
 <details>
-<summary>Hand edits: backups, merged settings, fresh clones</summary>
+<summary>Hand edits: existing backups and merged settings</summary>
 
 - When `<path>.bak` already exists, sync leaves the new edit in place and says so. An earlier backup is never replaced.
-- A merged settings file, such as `.claude/settings.json`, holds your own keys by design. A key you add there is kept in place, not backed up.
-- Without a record of the last sync, as in a fresh clone, sync cannot tell that a file was edited.
+- A key you add to a merged settings file, such as `.claude/settings.json`, is kept in place, not backed up.
 
 </details>
 
-**Typos.** Before writing, `sync` and `sync --check` stop on a hook event that looks like a typo of a known one, such as `PreToolUze`, and name the closest. Another tool's event passes, in any case or snake_case. An agent `skills:` name that looks like a typo of a project skill, such as `pr-swep`, only prints a warning, as in `validate`, because it may be a user or plugin skill. Specs from packs are left to `validate`.
+**Typos.** `sync` and `sync --check` stop on a hook event that looks like a typo, such as `PreToolUze`, and name the closest; another tool's event passes in any case or snake_case. An agent `skills:` name close to a project skill, such as `pr-swep`, only warns, since it may be a user or plugin skill. Pack specs are left to `validate`.
 
-**Hand-written instructions.** Before writing, `sync` stops when an instructions file such as `CLAUDE.md` or `AGENTS.md` holds text that agnostic-ai did not write and `.agnostic-ai/AGNOSTIC_AI.md` does not have. It names the `import` that keeps the text. `sync --backup` replaces the file instead and keeps the old one as `<path>.bak`, unless that `.bak` already exists. `--check`, `--plan`, and `--json --dry-run` stop the same way.
+**Hand-written instructions.** `sync`, `--check`, `--plan`, and `--json --dry-run` stop when an instructions file such as `CLAUDE.md` or `AGENTS.md` holds text agnostic-ai did not write and neither `.agnostic-ai/AGNOSTIC_AI.md` nor `.agnostic-ai/local/` has, and name the `import` that keeps it. `sync --backup` replaces the file and keeps the old one as `<path>.bak`, unless that `.bak` exists. A file an earlier sync wrote, or with the generated header, never stops it, nor does a tracked file under `--keep-edits`.
 
-<details>
-<summary>Hand-written instructions: what does not stop sync</summary>
-
-- Text your personal setup (`.agnostic-ai/local/`) holds counts as held.
-- A file that an earlier sync wrote, or one with the generated header, is written as before.
-- `--keep-edits` keeps a file that Git tracks in place.
-
-</details>
-
-**Remove leftover files.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer writes and removes empty directories. It removes only what it can prove it wrote (generated-file header or recorded hash). A headerless file is kept as `~ kept orphan <path>`, with the reason, when it was edited since sync or written by a sync that recorded no checksum. Kept orphans stay in the managed `.gitignore` block, including during partial syncs. They count as drift until you remove them or list them under `sync.unmanaged`. In a terminal, `doctor --fix` offers to remove them, defaulting to no.
+**Remove leftover files.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files, and then empty directories, it no longer writes, if it can prove it wrote them (generated-file header or recorded hash). A headerless file edited since sync, or written by a sync that recorded no checksum, is kept as `~ kept orphan <path>` with the reason. Kept orphans stay in the managed `.gitignore` block and count as drift until removed or listed under `sync.unmanaged`. In a terminal, `doctor --fix` offers to remove them, defaulting to no.
 
 <details>
 <summary>Find leftover files without .sync-state (fresh checkout)</summary>
 
-A fresh checkout of a repo that commits generated files has no `.sync-state`. Then `sync --check` and `doctor` scan Git-tracked files instead. The scan reuses the expected files for each commit when it checks the last commit and a file's history. A tracked file is a leftover in either of these cases:
+With no `.sync-state`, as in a fresh checkout of a repo that commits generated files, `sync --check` and `doctor` scan Git-tracked files. A tracked file is a leftover when:
 
 - It sits where a configured target writes, and its first line carries the generated-file header.
-- It still holds exactly what the last commit's specs would write. This covers a headerless JSON output such as `.claude/launch.json` whose spec you deleted but have not committed.
+- It still holds exactly what the last commit's specs would write, such as a headerless `.claude/launch.json` whose spec you deleted but have not committed.
+- After that deletion is committed, a headerless JSON file still holds exactly what the commit that last changed it would write. Up to eight past commits are checked per run, and you delete these by hand.
 
-Once the deletion is committed, a headerless JSON file is checked against the commit that last changed it. When it still holds exactly what that commit's specs would write, it is listed for you to delete by hand. Up to eight past commits are checked per run.
-
-For a hand-written `.claude/launch.json` or root `.gitignore`, the scan does not rebuild the expected files for a commit when its sources prove neither path is a generated tool file. The managed root ignore block is checked separately. Custom sources, output paths, imported launch helpers, and uncertain Git snapshots keep the full check.
-
-A plain full `sync` removes none of these files. It records them under target `unledgered` and lists each as `~ kept leftover <path>`. `--only` and `--except` record them without naming them. An empty `.sync-state` still counts as a record and turns this scan off.
-
-`doctor --fix` removes a leftover in a tool directory or root dotfile. Delete a scope document such as `services/api/AGENTS.md` by hand, or add it to `sync.unmanaged`.
+A plain full `sync` removes none of these. It records them under target `unledgered` and lists each as `~ kept leftover <path>` (`--only` and `--except` record them without naming them). An empty `.sync-state` still counts as a record and turns this scan off. `doctor --fix` removes a leftover in a tool directory or root dotfile; delete a scope document such as `services/api/AGENTS.md` by hand, or add it to `sync.unmanaged`.
 
 </details>
 
 ### Warning guidance {#warning-guidance}
 
-Unsupported global agents get one `fix:` for the run: choose tools under `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (default `~/.agnostic-ai/agnostic-ai.yaml`) or its overriding `local/agnostic-ai.yaml`, or exclude unsupported tools with `targets-exclude:` on each affected agent.
+Unsupported global agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent. These field notes add a next step; guidance never edits specs, and repeated project notes stay hidden until they change or you pass `-v`.
 
-Field notes keep their target groups and add a next step for these fields:
-
-- Skill `argument-hint`: move it under the override block of each tool that keeps it (today only `x-claude`); put argument guidance other tools need in the description or body.
-- Skill `metadata`: move it under the override block of each tool that keeps it (today `x-claude`, `x-cursor`, and `x-opencode`); put information other tools need in the body. Shared global skill files omit target overrides, so use their description or body for descriptive content.
-- Skill `disable-model-invocation`: if manual-only invocation is required, use a supported native invocation policy, or exclude tools that cannot enforce manual invocation. Excluding a tool does not hide a copy another tool installs in a shared global skills directory it reads.
-- Agent `readonly`: if read-only access is required, configure and verify native permissions or session settings, or exclude tools that cannot enforce read-only access.
-- Codex agent `sandbox_mode`: enforce the required sandbox in the parent session's `config.toml`. For a read-only agent, set `sandbox_mode = "read-only"` there and verify the session policy. Then set `x-codex: {sandbox_mode: null}` to omit the inactive agent key. Exclude the agent from Codex if the session cannot enforce it.
-
-Guidance does not edit or delete specs. Repeated project notes remain hidden until they change or you run with `-v`.
+| Field | Next step |
+|-------|-----------|
+| Skill `argument-hint` | Move it under each keeping tool's override block (today only `x-claude`). Put guidance other tools need in the description or body. |
+| Skill `metadata` | Move it under each keeping tool's override block (today `x-claude`, `x-cursor`, `x-opencode`). Shared global skill files omit overrides, so use the description or body. |
+| Skill `disable-model-invocation` | Use a native invocation policy, or exclude tools that cannot enforce manual invocation. Excluding a tool does not hide a copy another tool installs in a shared global skills directory it reads. |
+| Agent `readonly` | Configure and verify native permissions or session settings, or exclude tools that cannot enforce read-only access. |
+| Codex agent `sandbox_mode` | Enforce it in the parent session's `config.toml` (for read-only, `sandbox_mode = "read-only"`), then set `x-codex: {sandbox_mode: null}` to omit the inactive key. Exclude the agent from Codex if the session cannot enforce it. |
 
 ### First-sync target picker
 
-On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lists every supported target, `sync` asks which to keep. It saves the choice to `agnostic-ai.yaml`.
+On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lists every supported target, `sync` asks which to keep and saves the choice to `agnostic-ai.yaml`. `echo "claude,codex" | agnostic-ai sync` keeps two.
 
 | Context | Behavior |
 |---------|----------|
@@ -149,83 +123,56 @@ On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lis
 | No interactive terminal, nothing piped (CI) | Writes every configured target. |
 | `--all`, `-t`, `--only`, or `--except` | Skips the picker for this run. |
 
-`echo "claude,codex" | agnostic-ai sync` keeps two targets.
-
 ### Reading a failing `--check` {#reading-a-failing---check}
 
-A failing `--check` exits non-zero in every format. Each changed file gets one of two labels:
+A failing `--check` exits non-zero in every format. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor`. Each changed file gets a label:
 
 | Label | Meaning |
 |-------|---------|
-| Out of date | The file still holds what the last sync wrote, so the specs changed. |
+| Out of date | The file still holds what the last sync wrote, so the specs changed. Without a record of the last sync, as in fresh CI, every changed file reads this way. |
 | Edited locally | The file changed since the last sync. The next sync saves it as `<path>.bak`, then writes over it. |
 
-Without a record of the last sync, as in a fresh CI checkout, a changed file reads as out of date. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor`.
+A file several targets read, such as `.agents/skills/<name>/SKILL.md`, is listed once, under the first target with `(shared with <targets>)`, and counted once in `--diff`, `--format=github`, and `status`. `--json` keeps one record per target.
 
-A file several targets read, such as `.agents/skills/<name>/SKILL.md`, is listed once under the first target, followed by `(shared with <targets>)`. `--diff`, `--format=github`, and the `status` count show it once too. `--json` keeps one record per target.
+`--diff` prints changed lines, a one-line summary for a missing file, and truncates a large diff with a count. `--format=github` prints `::error file=...,line=...::` annotations on the pull request. Neither has a config-file key.
 
-- `--diff` prints changed lines. A missing file gets a one-line create summary. A large diff truncates with a count.
-- `--format=github` prints `::error file=...,line=...::` annotations on the pull request.
-
-Neither has a config-file key.
-
-Bare capabilities in settings `permissions.allow` or `permissions.ask` print a LINT038 note once per sync run. It names the native permissions and a scoped alternative. `on-unsupported: silent` and `--quiet` hide it. With `--json`, the note goes to stderr. See [permission rules](@/docs/spec-format/settings.md#permission-rules).
+The once-per-run [LINT038 permission note](@/docs/spec-format/settings.md#permission-rules) goes to stderr with `--json`.
 
 ### Credential previews
 
-Dry-run, render, import, and migration previews hide literal values in known credential fields, environment maps, and headers. They also protect credential flags, assignments, and URLs in recognized commands. Pure environment references remain visible; references with defaults or mixed literal text are hidden. A hidden-value change still reports drift when the visible previews are equal.
+Dry-run, render, import, and migration previews hide literal values in known credential fields, environment maps, headers, and credential flags, assignments, and URLs in recognized commands. Plain environment references stay visible; ones with defaults or mixed literal text are hidden. A hidden-value change still reports drift.
 
-JSON, JSON with comments, YAML, and TOML previews keep valid syntax when shown. If a recognized document or sensitive command cannot be shown safely, its body is withheld. API-key helper paths and environment references stay visible. Helper commands with literal arguments or shell operations are hidden because they can contain the key they return. Other commands are hidden when they contain a credential in a recognized position. Actual files, captured content, and checksums used to track generated content retain their original values.
-
-This covers known configuration fields and command positions. It does not detect arbitrary secrets in freeform prompts, prose, unknown scripts, or binary assets.
+- JSON, JSON with comments, YAML, and TOML previews keep valid syntax; a recognized document or sensitive command that cannot be shown safely is withheld.
+- API-key helper paths stay visible, but helper commands with literal arguments or shell operations are hidden, since they can contain the key.
+- Written files, captured content, and tracking checksums keep the real values. Secrets in freeform prompts, prose, unknown scripts, or binary assets are not detected.
 
 ### Watch mode
 
-`sync --watch` watches these paths, including ones that appear later:
-
-- `agnostic-ai.yaml` and `agnostic-ai.local.yaml`
-- `.agnostic-ai/AGNOSTIC_AI.md`
-- every `sources.*` directory, including absolute paths outside the project and linked roots
-- `.agnostic-ai/local/` and `.agnostic-ai/overlays/`
-
-It uses file-system notifications with a 50 ms delay to group nearby changes, polls every 200 ms where notifications fail, and exits on Ctrl+C. A spec change re-syncs only the targets that write that kind. Config and overlay edits, deletes, and renames re-sync everything.
-
-Polling picks up edits made during a re-sync on the next tick. Config changes update the source paths it watches.
-
-Watch mode also polls when a missing external source has no safe parent to watch. It never watches a parent that contains the project.
+`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, `.agnostic-ai/AGNOSTIC_AI.md`, `.agnostic-ai/local/`, `.agnostic-ai/overlays/`, and every `sources.*` directory (absolute paths outside the project and linked roots included), even ones that appear later. It groups changes within 50 ms and exits on Ctrl+C. A spec change re-syncs only the targets that write that kind; config and overlay edits, deletes, and renames re-sync everything and update the watched paths. It polls every 200 ms where notifications fail or a missing external source has no safe parent to watch (never a parent holding the project), catching edits made during a re-sync on the next tick.
 
 ### Parallel emission {#parallel-emission}
 
-`sync` writes each target on its own worker. `--jobs <n>` bounds how many run at once. There is no config-file key. The output never depends on the value. Use `--jobs 1` only to debug or pin ordering.
+Each target gets its own worker; `--jobs <n>` bounds how many run at once (no config-file key). The output never depends on it. Use `--jobs 1` only to debug or pin ordering.
 
 ### Profiling a slow sync
 
-`--profile <file>` or `AGNOSTIC_AI_PROFILE=<file>` writes a CPU profile. `--verbose` adds the time per target, as in `→ claude: 12 created, 3 updated, 0 unchanged in 42ms`. Under `--jobs > 1` these times overlap, so read them as the cost of each target, not a serial breakdown.
+`--profile <file>` or `AGNOSTIC_AI_PROFILE=<file>` writes a CPU profile. `--verbose` adds the time per target, as in `→ claude: 12 created, 3 updated, 0 unchanged in 42ms`. Under `--jobs > 1` these times overlap.
 
 ### JSON output
 
-A successful `sync --json` writes one object to stdout, including when it creates shared skill links. Routine summaries and verbose diagnostics are omitted.
-
-First-sync target selection still saves your choice. With `--json`, its prompts and saved-target message go to stderr.
-
-`sync --json`, `sync --plan --json`, `sync --dry-run --json`, and `sync --check --json` share one JSON format:
+`sync --json`, also with `--plan`, `--dry-run`, or `--check`, writes one object to stdout, without summaries or verbose diagnostics. The first-sync picker still saves your choice, prompting on stderr.
 
 | Field | Description |
 |-------|-------------|
 | `version` | JSON format version, currently `"1"`. A breaking change bumps it. |
 | `command` | `"sync"`, `"sync --plan"`, `"sync --dry-run"`, or `"sync --check"`. |
-| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). `"stale"`: the specs changed. `"edited"`: the file changed since the last sync. `"leftover"`: no longer generated, removed by the next full sync (target `ledger`, or `unledgered` when no record proves sync wrote it). With `--untrack`, a path removed from the index is `"untracked"`, target `agnostic-ai`. A write over a hand edit names the copy it kept in `"backup"`. |
-| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), orphans kept because sync could not prove it wrote them (`"orphan"`), unledgered leftovers kept (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |
-| `errors` | Per-target errors with `target` and `message`. `sync --json` goes on with the other targets. A failed target keeps what it wrote before the error, and those files are in `writes` and in `.sync-state`. |
+| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), shared skill folders linked or retargeted (`"link"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`: the specs changed, `"edited"`: changed since the last sync, `"orphan"`, or `"leftover"`: no longer generated, removed by the next full sync, target `ledger`, or `unledgered` when no record proves sync wrote it). With `--untrack`, a path removed from the index is `"untracked"`, target `agnostic-ai`. A write over a hand edit names its copy in `"backup"`. |
+| `skipped` | Files already matching or links unchanged (`"skip"`), user-owned (`"unmanaged"`), orphans sync cannot prove it wrote (`"orphan"`), unledgered leftovers kept (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |
+| `warnings`, `notes` | The capability warnings and coverage notes a plain `sync` prints, one entry per target, complete on every run (also notes a plain `sync` hides as unchanged), minus [accepted notes](@/docs/configuration.md#coverageaccept). Each has `target`, `kind`, `count`, `message`, and an optional `suggestion` (the plain `fix:`). A project-wide note has target `agnostic-ai`, empty `kind`, and `count` 0. |
+| `errors` | Per-target errors with `target` and `message`. `sync --json` goes on with the other targets. A failed target keeps what it wrote before the error, listed in `writes` and `.sync-state`. |
 
-Shared skill folders newly linked or retargeted appear in `writes` with action `"link"`. Existing links left unchanged appear in `skipped` with action `"skip"`.
+`writes` and `skipped` entries have `target`, `path`, `action`, and `bytes`, for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
-`writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
+`--plan --json` and `--dry-run --json` write nothing and exit 0. A leftover they would remove is `"delete"`; kept files are `"orphan"` or `"leftover"`. `--dry-run --json` also lists unchanged outputs as `"skip"`. Count `writes` by `target` for the `--plan` numbers.
 
-`sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints. `--plan`, `--dry-run`, and `--check` carry the same entries. There is one entry per target, and the lists are empty when there are none. Each entry has `target`, `kind`, `count`, and `message`, plus an optional `suggestion` matching the plain output's `fix:`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, even for notes a plain `sync` would hide as unchanged. A later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out.
-
-`sync --global --json` also carries unsupported agent and MCP `warnings` and coverage `notes`, including `suggestion` where available. Its `--plan`, `--dry-run`, and `--check` JSON previews carry the same entries. When a run fails before it prints JSON, they go to stderr instead.
-
-`--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`. Kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` to get the per-target numbers `--plan` prints.
-
-Checks against the Git index or a commit resolve shared skill folders faster on large projects.
+`sync --global --json` and its previews carry `warnings` and `notes` too, or send them to stderr when a run fails before printing JSON.
