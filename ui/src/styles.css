@@ -1999,6 +1999,21 @@ input:hover {
     display: none;
   }
 
+  .button-search {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .button-search-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
   .topbar-context {
     order: 3;
     width: 100%;

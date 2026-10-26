@@ -98,7 +98,7 @@ export function Header({
       )}
       <button type="button" className="button button-search" aria-keyshortcuts={APPLE_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={onOpenSearch}>
         <Icon name="search" />
-        <span>Search</span>
+        <span className="button-search-label">Search</span>
         <kbd aria-hidden="true">{APPLE_PLATFORM ? '⌘K' : 'Ctrl K'}</kbd>
       </button>
       <button type="button" className="button button-json" aria-pressed={inspectorOpen} onClick={onToggleInspector}>
