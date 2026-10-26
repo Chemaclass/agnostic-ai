@@ -33,7 +33,7 @@ func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Scaffold an agnostic-ai project in the current directory.",
-		Long: "Creates agnostic-ai.yaml plus source folders. " +
+		Long: "Creates agnostic-ai.yaml, source folders, and a placeholder .agnostic-ai/AGNOSTIC_AI.md when none exists. " +
 			"Default base dir is .agnostic-ai/. Pass a positional argument " +
 			"to override (use \".\" for the legacy root-level layout). " +
 			"When stdin is a terminal, init prompts for which targets to enable " +
