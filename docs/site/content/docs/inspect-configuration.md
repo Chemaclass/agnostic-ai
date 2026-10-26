@@ -19,7 +19,7 @@ From the folder containing `agnostic-ai.yaml` or any folder inside it, run:
 agnostic-ai ui
 ```
 
-Keep the terminal running. The browser opens at `http://127.0.0.1:4310`. Outside a project, `view` opens user configuration. Add `--global` to select user configuration from a project.
+Keep the terminal running. The browser opens at `http://127.0.0.1:4310`. If another project or the user configuration already runs there, it opens on the next free port and prints that address. Outside a project, `view` opens user configuration. Add `--global` to select user configuration from a project.
 
 ## Fix a warning
 
