@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -220,6 +222,13 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 		return builtinChangeView{}, builtinChanged(err)
 	}
 	defer func() { _ = lock.Close() }()
+	// A nested project's CLI sync takes another project lock but the same
+	// info/exclude, so hold its lock through revalidation and rollback.
+	releaseExclude, err := lockProjectGitExclude(h.root)
+	if err != nil {
+		return builtinChangeView{}, builtinChanged(err)
+	}
+	defer releaseExclude()
 	if created {
 		if err := plan.inputs.adoptLockDir(h.root); err != nil {
 			return builtinChangeView{}, builtinChanged(err)
@@ -233,6 +242,15 @@ func (h *builtinChangeHandler) apply(id string) (builtinChangeView, error) {
 	}
 	if err := plan.inputs.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
+	}
+	for _, path := range slices.Sorted(maps.Keys(plan.excludeBase)) {
+		current, err := os.ReadFile(filepath.Join(h.root, filepath.FromSlash(path)))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return builtinChangeView{}, fmt.Errorf("%s: %w", path, err)
+		}
+		if !bytes.Equal(current, plan.excludeBase[path]) {
+			return builtinChangeView{}, builtinChanged(fmt.Errorf("%s: changed since preview; preview again", path))
+		}
 	}
 	journal, err := applyBuiltinFiles(h.root, plan.changes, h.beforeWrite)
 	var after builtinProjectSnapshot
@@ -278,6 +296,13 @@ func (h *builtinChangeHandler) restore(id string) (builtinChangeView, error) {
 		return builtinChangeView{}, builtinChanged(err)
 	}
 	defer func() { _ = lock.Close() }()
+	// A nested project's CLI sync takes another project lock but the same
+	// info/exclude, so hold its lock through revalidation and rollback.
+	releaseExclude, err := lockProjectGitExclude(h.root)
+	if err != nil {
+		return builtinChangeView{}, builtinChanged(err)
+	}
+	defer releaseExclude()
 	if err := h.after.check(h.root); err != nil {
 		return builtinChangeView{}, builtinChanged(err)
 	}

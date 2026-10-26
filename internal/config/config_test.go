@@ -361,3 +361,20 @@ func TestDefaultTargets_GrokNeedsExplicitInstructionPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestTeamBuiltins_IgnoresLocalOverride(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte("version: 1\nbuiltins: [handoff]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, LocalOverrideFileName), []byte("builtins: [caveman]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := TeamBuiltins(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []string{"handoff"}) {
+		t.Errorf("TeamBuiltins = %v, want [handoff]", got)
+	}
+}

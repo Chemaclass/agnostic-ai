@@ -33,6 +33,10 @@ type builtinChangePlan struct {
 	view    builtinChangeView
 	inputs  builtinProjectSnapshot
 	changes []builtinFileChange
+	// excludeBase holds the info/exclude bytes each planned exclude was
+	// built from, read before the plan's snapshot. Apply refuses when the
+	// file no longer holds them, as after a nested project's sync.
+	excludeBase map[string][]byte
 }
 
 func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, error) {
@@ -171,7 +175,7 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	if _, err := applyCoverageAccept(cfg, cfg.Targets); err != nil {
 		return nil, err
 	}
-	plan := &builtinChangePlan{view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: name, Enabled: enabled, Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
+	plan := &builtinChangePlan{excludeBase: map[string][]byte{}, view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: name, Enabled: enabled, Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
 	if slices.ContainsFunc(baseline, func(r driftReport) bool { return r.hasDrift() }) {
 		plan.view.Findings = append(plan.view.Findings, "This preview also applies pending source changes.")
 	}
@@ -255,8 +259,21 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 	}
 	desired[".gitignore"] = []byte(withRuntimeIgnores(string(rootIgnore.data)))
 	if resolveGitignore(cfg, "") {
-		block, err := syncManagedBlock(".", cfg, bundle, cfg.Targets, outputs)
+		team := cfg.Builtins
+		if configPath == config.LocalOverrideFileName {
+			if team, err = config.TeamBuiltins("."); err != nil {
+				return nil, err
+			}
+		}
+		prev, err := previousPersonal(root)
 		if err != nil {
+			return nil, err
+		}
+		block, personal, err := splitManagedBlock(".", cfg, bundle, team, prev, cfg.Targets, outputs)
+		if err != nil {
+			return nil, err
+		}
+		if err := planPersonalExcludes(root, personal, desired, plan.excludeBase); err != nil {
 			return nil, err
 		}
 		ignore, err := builtinRelativePath(root, gitignoreRel(cfg))
@@ -283,7 +300,7 @@ func planBuiltinChange(root, name string, enabled bool) (*builtinChangePlan, err
 			desired[worktreeIncludeFile] = []byte(rendered)
 		}
 	}
-	excludePath, exclusion, err := planBuiltinMemoryExclusion(root, cfg, desired)
+	excludePath, exclusion, err := planBuiltinMemoryExclusion(root, cfg, desired, plan.excludeBase)
 	if err != nil {
 		return nil, err
 	}

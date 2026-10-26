@@ -440,4 +440,8 @@
 # (23347360): the memory built-in preview adds the info/exclude line sync
 # writes for Claude's private settings. Same Linux amd64 release flags;
 # no added headroom or dependencies.
-23351456
+# #2494 measured 23380128 on Go 1.27.3, up 45056 from main 60a8f29a
+# (23335072): personal built-in outputs go to a locked .git/info/exclude
+# block, shared with the memory exclusion, instead of the committed
+# .gitignore. Same Linux amd64 release flags; no added headroom or dependencies.
+23380128
