@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- The web interface shows whether each configured tool's generated files match the source (Matches source, Needs sync, or Not checked), with the files that differ, the time of the last check, and a Refresh button that keeps your page, search, and unsaved input. A save says it changed the source only; snapshots say they are not a live check (#2510).
 - A Settings save in the web interface no longer overwrites a value that changed after the page loaded, in another tab or outside the browser. The server refuses the stale save and writes nothing; the page keeps your draft and offers to reload the saved values before you save again (#2518).
 - `sync --global` no longer deletes a symlinked user file, or the file the link points at, when that file changed while sync ran; it stops and keeps both, as it already did for a regular file (#2517).
 - The README and the first documentation pages give one path for new users: why, install, then set up your project. Everyday commands moved from the README to the setup guide, and the guides in the sidebar are ordered by when you need them (#2522).
