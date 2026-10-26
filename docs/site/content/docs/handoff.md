@@ -1,7 +1,7 @@
 +++
 title = "Session handoffs"
 description = "Write a portable session handoff and resume work in another AI tool on the same machine."
-weight = 78
+weight = 74
 
 [extra]
 group = "Workflows"

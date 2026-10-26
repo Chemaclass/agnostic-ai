@@ -7,13 +7,13 @@ aliases = ["/docs/alternatives-why-not-symlinks/"]
 [extra]
 nav_title = "Why agnostic-ai?"
 group = "Start"
-next = "@/docs/getting-started.md"
-next_label = "Set up your project"
+next = "@/docs/installation.md"
+next_label = "Install agnostic-ai"
 +++
 
 # Why agnostic-ai? {#why-agnostic-ai}
 
-Using several coding tools means keeping several sets of instructions and settings current. agnostic-ai lets you edit one source and generate the files each tool reads.
+Each coding tool reads its instructions and settings from its own files. With several tools, you keep several copies current. agnostic-ai lets you edit one source and generates the files each tool reads.
 
 ## A small useful setup
 
@@ -25,11 +25,19 @@ Read CONTRIBUTING.md for the test command.
 Run the relevant tests before finishing a change.
 ```
 
-Run `agnostic-ai sync`. Claude Code gets `CLAUDE.md`, Codex gets `AGENTS.md`, and other tools get their own files. Change the source note and sync again to update them together.
+Run `agnostic-ai sync`. Claude Code gets `CLAUDE.md`, Codex gets `AGENTS.md`, and other tools get their own files. Change the note and sync again to update them all.
+
+## What agnostic-ai does
+
+Your source files live in `.agnostic-ai/`, in plain Markdown and YAML. They are called **specs**. The coding tools you use are called **targets**; you choose them in `agnostic-ai.yaml`.
+
+Sync translates the specs into each tool's paths, formats, and setting names, and reports features a tool cannot use. `agnostic-ai sync --check` tells you whether the generated files still match the specs.
+
+You still install and sign in to the coding tools yourself. Instructions guide the model; tests and tool permissions enforce checks and limits. A connection to an outside service still needs that service's login or key.
 
 ## What to add, and when
 
-Add a source file when you need to share more than the project note:
+Start with the project note. Add another kind of spec only when you need it:
 
 | You need | Use | Example |
 |---|---|---|
@@ -37,23 +45,21 @@ Add a source file when you need to share more than the project note:
 | A coding convention | A [rule](@/docs/spec-format/rules.md) | Use the project's commit format |
 | Steps for a repeatable task | A [skill](@/docs/spec-format/skills.md) | Prepare a release |
 | A specialist to delegate to | An [agent](@/docs/spec-format/agents.md) | Review a change for defects |
+| Limits on what an agent may read, run, or call | Agent [capabilities](@/docs/spec-format/agents.md#capabilities) | Let a reviewer read but not edit |
 | A command at a tool event | A [hook](@/docs/spec-format/hooks.md) | Format a file after an edit |
 | Tool settings | [Settings](@/docs/spec-format/settings.md) | Choose a model or permissions |
+| One model choice for every tool | [Model roles](@/docs/configuration.md#models) | Use a fast model for lookups |
 | An outside service or data source | An [MCP connection](@/docs/spec-format/mcps.md) | Read an issue tracker |
+| Guidance for code review bots | [Reviews](@/docs/spec-format/reviews.md) | Flag missing tests |
+| Facts every tool can recall | [Shared memory](@/docs/memory.md) | A decision and its reason |
+| Work you pick up in another tool | [Session handoffs](@/docs/handoff.md) | One private note per branch |
+| Shorter command output and replies | [RTK and Caveman](@/docs/rtk-and-caveman.md) | Fewer tokens per session |
 
-MCP connects coding tools to other tools and data. Each tool supports different features; check [tool support](@/docs/targets/_index.md) for the ones you use.
-
-## What agnostic-ai does
-
-Your editable Markdown and YAML live in `.agnostic-ai/`. These source files are called **specs**. Choose your coding tools, called **targets**, in `agnostic-ai.yaml`.
-
-Sync translates the sources into each tool's paths, formats, and setting names. It reports features a tool cannot use. You still install and run the coding tools yourself.
-
-`agnostic-ai sync --check` checks whether the generated files match the sources. Instructions guide the model; tests and tool permissions enforce checks and limits. Connecting to a service still requires its authentication.
+MCP (Model Context Protocol) is how coding tools connect to other tools and data. An MCP spec names the environment variables that hold credentials, so keys stay out of the repository. Each tool supports a different set of features; the [capability matrix](@/docs/targets/_index.md#capability-matrix) shows what each one gets.
 
 ## When you do not need it
 
-For one tool and a small setup, start with that tool's own files. Use agnostic-ai when you need to share a setup across tools or keep several formats current. The generated files keep working if you stop using agnostic-ai.
+For one tool and a small setup, start with that tool's own files. Use agnostic-ai when you share a setup across tools or keep several formats current. The generated files keep working if you stop using agnostic-ai.
 
 <details>
 <summary>Why copies, symlinks, and one AGENTS.md have limits</summary>
@@ -85,4 +91,4 @@ Sync writes the same connection in each tool's format:
 
 ## Start
 
-[Set up your project](@/docs/getting-started.md), or [import the files you already use](@/docs/cli-reference/start.md#import).
+[Install agnostic-ai](@/docs/installation.md), then [set up your project](@/docs/getting-started.md). Already have tool files? [Import them first](@/docs/migration.md).
