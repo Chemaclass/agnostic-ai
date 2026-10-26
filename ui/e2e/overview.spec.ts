@@ -5,6 +5,49 @@ import { MOCK, openApp, saveScreenshot } from './helpers'
 const fixture = JSON.parse(readFileSync(new URL('../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 
 test.describe('overview', () => {
+  test('keeps recheck feedback when a finding moves to another section', async ({ page }) => {
+    const data = structuredClone(fixture)
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding).toBeVisible()
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const index = authority.items.findIndex((item: { name: string }) => item.name === 'permissions')
+    settings.items.push(authority.items.splice(index, 1)[0])
+    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
+  })
+
+  test('keeps recheck feedback when a finding moves but its item stays', async ({ page }) => {
+    const data = structuredClone(fixture)
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding).toBeVisible()
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const item = authority.items.find((entry: { name: string }) => entry.name === 'permissions')
+    settings.findings.push(item.findings.pop())
+    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
+  })
+
+  test('keeps recheck feedback when a section finding moves to another section', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const authority = data.sections.find((section: { id: string }) => section.id === 'authority')
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    const item = authority.items.find((entry: { name: string }) => entry.name === 'permissions')
+    authority.findings.push(item.findings.pop())
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=authority')
+    const finding = page.locator('.finding', { hasText: 'LINT038' })
+    await expect(finding).toBeVisible()
+    settings.items.push({ ...item, findings: [authority.findings.pop()] })
+    await finding.getByRole('button', { name: 'Recheck' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
+  })
+
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'

@@ -33,6 +33,7 @@ const RecheckContext = createContext<RecheckApi>({ live: false, start() {}, dism
 export const RecheckProvider = RecheckContext.Provider
 /** The id of the section whose findings render below. */
 export const RecheckSection = createContext('')
+export const RecheckSectionEntries = createContext<Set<string>>(new Set())
 
 export function useRecheck(overview: Remote<OverviewView>, refresh: () => void, live: boolean, sourceKey: string): RecheckApi {
   const [request, setRequest] = useState<Request>()
@@ -120,8 +121,9 @@ export function isNewSinceRecheck(recheck: RecheckApi, id: string): boolean {
 /** The result for a finding that left this place, or whose item is gone from the section. */
 export function useGoneFinding(place: string, ids: string[], orphanPlace?: string): Rechecked | undefined {
   const shown = useRechecks().rechecked
+  const entries = useContext(RecheckSectionEntries)
   if (!shown || (shown.place !== place && shown.place !== orphanPlace)) return undefined
-  if (shown.result.state !== 'resolved' && shown.result.state !== 'unconfirmed' && shown.result.state !== 'incomplete') return undefined
+  if (shown.result.state !== 'resolved' && shown.result.state !== 'unconfirmed' && shown.result.state !== 'incomplete' && !(shown.result.state === 'remaining' && !entries.has(shown.result.id ?? shown.id))) return undefined
   return ids.includes(shown.id) ? undefined : shown
 }
 
@@ -133,6 +135,7 @@ export function GoneFinding({ rechecked }: { rechecked: Rechecked }) {
   }, [rechecked])
   const f = rechecked.finding
   const resolved = rechecked.result.state === 'resolved'
+  const remaining = rechecked.result.state === 'remaining'
   const dismiss = () => {
     const heading = ref.current?.closest('section')?.querySelector<HTMLElement>('h2')
     recheck.dismiss()
@@ -146,7 +149,7 @@ export function GoneFinding({ rechecked }: { rechecked: Rechecked }) {
       <div className="finding-body">
         <p className="finding-recheck-result" role="status">{recheckMessage(rechecked.result, f)}</p>
         <div className="finding-meta">
-          <Badge tone={resolved ? 'permitted' : 'approval'}>{resolved ? 'No longer appears' : 'Not confirmed'}</Badge>
+          <Badge tone={resolved ? 'permitted' : 'approval'}>{resolved ? 'No longer appears' : remaining ? 'Still appears' : 'Not confirmed'}</Badge>
           {f.code && <Code>{f.code}</Code>}
           <span className="muted">{f.source}</span>
         </div>

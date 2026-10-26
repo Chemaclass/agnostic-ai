@@ -6,7 +6,7 @@ import { ErrorPanel } from './Banner'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { OpenInEditor } from './EditorLink'
-import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, useGoneFinding, useRechecks } from './Recheck'
+import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
@@ -66,7 +66,8 @@ function SectionContentsBody({ section }: { section: Section }) {
   const entry = app.state.entry
   const rechecked = useRechecks().rechecked
   const sectionPlace = `section:${section.id}`
-  const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
+  const remainingHere = rechecked?.result.state === 'remaining' && sectionEntryIds(section).has(rechecked.result.id ?? rechecked.id)
+  const orphan = rechecked?.section === section.id && rechecked.place !== sectionPlace && !remainingHere && !section.items.some((item) => itemEntryId(item) === rechecked.place) ? rechecked.place : undefined
   const searchInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const query = search.trim().toLowerCase()
@@ -100,6 +101,7 @@ function SectionContentsBody({ section }: { section: Section }) {
   )
   return (
     <RecheckSection.Provider value={section.id}>
+      <RecheckSectionEntries.Provider value={sectionEntryIds(section)}>
       <EditScopeSwitch />
       {entryMissing && (
         <div className="entry-missing" role="status">
@@ -153,6 +155,7 @@ function SectionContentsBody({ section }: { section: Section }) {
         )
       })}
       {errors === 0 && otherFindings}
+      </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
   )
 }

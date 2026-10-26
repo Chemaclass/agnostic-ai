@@ -46,8 +46,24 @@ export function recheckResult(target: RecheckTarget, before: OverviewView, after
   const was = overviewFindings(before)
   const now = overviewFindings(after)
   const known = new Set(was.map((f) => f.id))
+  const counts = new Map<string, number>()
+  for (const f of was) counts.set(findingKey(f.finding), (counts.get(findingKey(f.finding)) ?? 0) + 1)
+  for (const f of now) {
+    if (!known.has(f.id)) continue
+    const key = findingKey(f.finding)
+    counts.set(key, Math.max(0, (counts.get(key) ?? 0) - 1))
+  }
   const sameFile = (f: FoundFinding) => f.finding.source === target.finding.source && (f.finding.path ?? '') === (target.finding.path ?? '')
-  const added = now.filter((f) => !known.has(f.id) && sameFile(f) && !stopped(f.finding))
+  const added = now.filter((f) => {
+    if (known.has(f.id)) return false
+    const key = findingKey(f.finding)
+    const previous = counts.get(key) ?? 0
+    if (previous > 0) {
+      counts.set(key, previous - 1)
+      return false
+    }
+    return sameFile(f) && !stopped(f.finding)
+  })
   const copiesOf = (list: FoundFinding[]) => list.filter((f) => baseId(f.id) === baseId(target.id))
   const left = copiesOf(now)
   if (left.length) {
@@ -59,7 +75,7 @@ export function recheckResult(target: RecheckTarget, before: OverviewView, after
   const key = findingKey(target.finding)
   const moved = now.find((f) => findingKey(f.finding) === key)
   if (moved) return { state: 'remaining', id: moved.id, added: added.filter((f) => f !== moved) }
-  if (target.finding.source === 'lint' && !stopped(target.finding) && now.some((f) => stopped(f.finding))) return { state: 'incomplete', added: [] }
+  if (target.finding.source === 'lint' && now.some((f) => stopped(f.finding))) return { state: 'incomplete', added: [] }
   return { state: target.finding.source === 'doctor' ? 'unconfirmed' : 'resolved', added }
 }
 

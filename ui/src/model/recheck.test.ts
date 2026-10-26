@@ -35,6 +35,20 @@ describe('recheck', () => {
     expect(recheckMessage(result, read)).toBe('This lint finding no longer appears. 1 new lint finding appears in permissions.yaml.')
   })
 
+  it('does not call existing findings new when their spec is renamed', () => {
+    const before = view([read, edit])
+    const after = view([read, edit, shell])
+    after.sections[0].items[0].name = 'renamed'
+    const result = recheckResult(target(read, [read, edit]), before, after)
+    expect(result.state).toBe('remaining')
+    expect(result.added.map((finding) => finding.finding)).toEqual([shell])
+  })
+
+  it('reports an added copy of an existing finding', () => {
+    const result = recheckResult(target(read, [read]), view([read]), view([read, { ...read, line: 7 }]))
+    expect(result.added).toHaveLength(1)
+  })
+
   it('keeps one of two identical findings as remaining when one copy is fixed', () => {
     const twice = [read, { ...read, line: 7 }]
     const second = target(twice[1], twice)
@@ -48,6 +62,13 @@ describe('recheck', () => {
     const result = recheckResult(target(read, [read]), view([read]), view([], [stopped]))
     expect(result).toEqual({ state: 'incomplete', added: [] })
     expect(recheckMessage(result, read)).toBe('Lint stopped before it finished, so this recheck cannot tell whether the finding is fixed. The last known finding is shown.')
+  })
+
+  it('does not report a stopped lint finding as fixed when lint stops for another reason', () => {
+    const first: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml' }
+    const second: ItemFinding = { ...first, message: 'Lint stopped before it finished: invalid source' }
+    const result = recheckResult(target(first, [first]), view([first]), view([], [second]))
+    expect(result).toEqual({ state: 'incomplete', added: [] })
   })
 
   it('keeps a finding that moved from its item to the section', () => {
