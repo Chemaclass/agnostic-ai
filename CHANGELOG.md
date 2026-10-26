@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- In a project, the web interface previews, applies, and undoes a default model or reasoning effort change, for the team or just you, as it does for built-ins. The preview lists the settings file and every generated file, writes nothing, and calls out other unsynced source changes it would also apply. Apply checks the generated files, and one **Undo last change** names the last built-in or setting change (#2511).
 - The web interface searches every section from **Search** or `Cmd+K` / `Ctrl+K`, including settings, servers, and findings. Each result opens with its own link that survives a reload and browser history; a link to an entry that is gone says so (#2514).
 - `init` creates `.agnostic-ai/AGNOSTIC_AI.md` with a short placeholder note, so a new project has the shared note to edit before its first sync. An existing note is kept, an import replaces the placeholder, and `init` in the home folder leaves the global note alone (#2534).
 - The web interface shows whether each configured tool's generated files match the source (Matches source, Needs sync, or Not checked), with the files that differ, the time of the last check, and a Refresh button that keeps your page, search, and unsaved input. A save says it changed the source only; snapshots say they are not a live check (#2510).

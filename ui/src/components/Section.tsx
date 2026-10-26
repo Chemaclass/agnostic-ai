@@ -3,7 +3,7 @@ import { API, type ItemFinding, type OverviewView, type Section, type SectionIte
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
-import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider } from './BuiltinChange'
+import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { cursorUrl } from '../model/editor'
 import { findingFixPrompt } from '../model/finding-prompt'
@@ -50,11 +50,17 @@ export function SectionPage({ sectionId, overview, stale = false }: { sectionId:
   )
 }
 
-export function SectionContents({ section }: { section: Section }) {
-  return <BuiltinChangeProvider active={section.items.some((item) => item.kind === 'builtin')}><SectionContentsBody section={section} /></BuiltinChangeProvider>
+// Built-ins and model or effort fields share one preview, apply, and undo flow.
+function hasChanges(section: Section) {
+  return section.items.some((item) => item.kind === 'builtin') || (section.fields ?? []).some((field) => (field.key === 'model' || field.key === 'effort') && field.editable && !field.editable.disabledReason)
 }
 
-function SectionContentsBody({ section }: { section: Section }) {
+export function SectionContents({ section }: { section: Section }) {
+  const changes = hasChanges(section)
+  return <BuiltinChangeProvider active={changes}><SectionContentsBody section={section} changes={changes} /></BuiltinChangeProvider>
+}
+
+function SectionContentsBody({ section, changes }: { section: Section; changes: boolean }) {
   const app = useApp()
   const search = app.state.q ?? ''
   const setSearch = (value: string) => app.navigate({ q: value || undefined }, { replace: true })
@@ -131,7 +137,7 @@ function SectionContentsBody({ section }: { section: Section }) {
       {section.kinds.map((k) => {
         const items = visibleItems.filter((it) => it.kind === k.kind)
         if (k.kind === 'hook' && section.stages) return <Lifecycle key={k.kind} stages={section.stages} hooks={items} count={k.count} filtering={Boolean(query)} />
-        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} />
+        if (k.kind === 'settings' && matchingFields) return <SettingsFields key={k.kind} title={k.label} fields={matchingFields} files={items} filtering={Boolean(query)} status={changes && !section.kinds.some((other) => other.kind === 'builtin') && <ChangeStatus labels={section.items} />} />
         const titleId = `${section.id}-${k.kind}`
         return (
           <section className="block" aria-labelledby={titleId} key={k.kind}>
@@ -139,7 +145,8 @@ function SectionContentsBody({ section }: { section: Section }) {
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
               {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
             </h2>
-            {k.kind === 'builtin' && <BuiltinChangeControls labels={section.items} local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
+            {k.kind === 'builtin' && <ChangeStatus labels={section.items} />}
+            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
@@ -154,7 +161,7 @@ function useEntry(id: string): { 'data-entry': string; tabIndex?: number; linked
   return { 'data-entry': id, tabIndex: linked ? -1 : undefined, linked }
 }
 
-function SettingsFields({ title, fields, files, filtering }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean }) {
+function SettingsFields({ title, fields, files, filtering, status }: { title: string; fields: SettingField[]; files: SectionItem[]; filtering: boolean; status?: ReactNode }) {
   const entry = useApp().state.entry
   const id = `fields-${title.toLowerCase().replace(/\W+/g, '-')}`
   const configured = fields.filter((field) => field.set.length > 0)
@@ -162,6 +169,7 @@ function SettingsFields({ title, fields, files, filtering }: { title: string; fi
   return (
     <section className="block" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
+      {status}
       {configured.length ? <FieldList fields={configured} files={files} /> : <p className="muted">{filtering ? 'No matching configured settings.' : 'No settings configured.'}</p>}
       {unconfigured.length > 0 && (
         <details className="unconfigured-fields" open={filtering || unconfigured.some((field) => fieldEntryId(field) === entry) || undefined}>
@@ -216,6 +224,7 @@ function FieldRow({ field, children }: { field: SettingField; children: ReactNod
 function FieldEditControl({ field }: { field: SettingField }) {
   const app = useApp()
   const scope = useEditScope()
+  const transaction = useSettingChange(field.key)
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
@@ -296,6 +305,13 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   const resetButton = localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={pending} onClick={reset}>Reset to team value</button>
+  const previewing = pending || !transaction.ready
+  const preview = (next: string | null, where: 'team' | 'local') => {
+    setError(undefined)
+    setReloaded(false)
+    conflict.current = false
+    void transaction.previewSetting({ path: target || undefined, key: field.key as 'model' | 'effort', value: next, expected: (where === 'local' ? basis.current.local : basis.current.team) ?? null }, where)
+  }
   return <div className="field-edit">
     {overridden
       ? <div className="field-edit-row">
@@ -316,6 +332,15 @@ function FieldEditControl({ field }: { field: SettingField }) {
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
     {error && <span className="edit-error" role="alert">{error.message}{error.problems.length > 0 && <ul>{error.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
       {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => app.reload()}>Reload saved values</button></>}</span>}
+    {transaction.supported && <div className="field-edit-row field-edit-apply">
+      <span className="muted">Apply to your tools now:</span>
+      {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => preview(value, scope)}>Preview and apply</button>}
+      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => preview(null, 'team')}>Preview removal</button>}
+      {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => preview(null, 'local')}>Preview personal reset</button>}
+      {transaction.preparing && <span className="muted">Preparing preview…</span>}
+    </div>}
+    {transaction.error && <ChangeError />}
+    {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
