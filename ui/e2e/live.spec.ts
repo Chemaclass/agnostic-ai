@@ -601,6 +601,40 @@ test('live Settings picks an unset effort from its levels, updates, and clears i
   } finally { await f.close() }
 })
 
+test('live Settings explains which model each tool gets from team, personal, and per-tool settings', async ({ page }) => {
+  const f = await fixture()
+  try {
+    await put(f.config, f.configBytes.replace('    - claude # team tool\n', '    - claude # team tool\n    - codex\n'))
+    await put(f.settings, 'name: native\nmodel: opus\neffort: high\n')
+    await put(f.localSettings, 'name: native\nmodel: sonnet\n')
+    await put(join(f.root, '.agnostic-ai', 'settings', 'z-codex.yaml'), 'name: z-codex\ntargets: [codex]\nmodel: gpt-5.5\n')
+    await run(binary, ['sync'], { cwd: f.root, env: f.env })
+    await page.goto(`${f.url}?view=settings`)
+    const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
+    await model.getByText('What each tool gets').click()
+    const groups = model.getByRole('list', { name: 'Default model by tool' })
+    await expect(groups).toContainText('Claude Code: sonnet')
+    await expect(groups).toContainText('Codex: gpt-5.5')
+
+    const detail = model.locator('.field-resolution-detail')
+    await expect(detail).toContainText('Sync writes sonnet.')
+    await expect(detail).toContainText('From .agnostic-ai/local/settings/native.yaml')
+    await expect(detail).toContainText('opus in .agnostic-ai/settings/native.yaml: Your personal file .agnostic-ai/local/settings/native.yaml overrides it.')
+    await expect(detail).toContainText('in .agnostic-ai/settings/z-codex.yaml: This spec does not apply to Claude Code.')
+    await expect(detail).toContainText('Installed Claude Code files match what sync would write.')
+    await expect(detail).toContainText('agnostic-ai does not see what a running tool uses.')
+
+    await model.getByRole('combobox', { name: 'Tool' }).selectOption('codex')
+    await expect(detail).toContainText('Sync writes gpt-5.5.')
+    await expect(detail).toContainText('sonnet in .agnostic-ai/local/settings/native.yaml: It is a Claude model name, which Codex cannot load, so sync leaves it out.')
+    await expect(model.getByRole('button', { name: 'Reset to team value' })).toBeEnabled()
+
+    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
+    await effort.getByText('What each tool gets').click()
+    await expect(effort.getByRole('list', { name: 'Reasoning effort by tool' })).toContainText('Claude Code, Codex: high')
+  } finally { await f.close() }
+})
+
 test('live Settings refuses a stale save, keeps the newer value and the draft, and saves after a reload', async ({ page, browser }) => {
   const f = await fixture()
   try {

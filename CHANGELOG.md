@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- The web interface's Settings page shows, for the default model and reasoning effort, the value sync writes for each configured tool, where it comes from, and why other values lose, including model tiers, personal overrides, per-tool values, and tools that have no place for the value. It tells this apart from installed-file status and does not claim what a running tool uses (#2512).
 - The web interface searches every section from **Search** or `Cmd+K` / `Ctrl+K`, including settings, servers, and findings. Each result opens with its own link that survives a reload and browser history; a link to an entry that is gone says so (#2514).
 - `init` creates `.agnostic-ai/AGNOSTIC_AI.md` with a short placeholder note, so a new project has the shared note to edit before its first sync. An existing note is kept, an import replaces the placeholder, and `init` in the home folder leaves the global note alone (#2534).
 - The web interface shows whether each configured tool's generated files match the source (Matches source, Needs sync, or Not checked), with the files that differ, the time of the last check, and a Refresh button that keeps your page, search, and unsaved input. A save says it changed the source only; snapshots say they are not a live check (#2510).
