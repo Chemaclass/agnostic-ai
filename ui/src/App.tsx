@@ -6,7 +6,7 @@ import { LoadError, loadOverview, type Loaded } from './api'
 import { AppContext, type AppApi } from './components/app-context'
 import { JsonInspector } from './components/JsonInspector'
 import { SectionPage } from './components/Section'
-import { ErrorPanel } from './components/Banner'
+import { ErrorPanel, RefreshFailure } from './components/Banner'
 import { Header, Nav, type Remote } from './components/Shell'
 import { nextState, parseUrlState, resolveDataSource, serializeUrlState, type UrlState } from './model/url'
 
@@ -68,8 +68,17 @@ export default function App() {
   const source = useMemo(() => resolveDataSource(state, import.meta.env.VITE_DEFAULT_SOURCE), [state.mock, state.source])
   const sourceKey = JSON.stringify(source)
   const [reloads, setReloads] = useState(0)
-  const reload = useCallback(() => setReloads((n) => n + 1), [])
+  const [savedBeforeRefresh, setSavedBeforeRefresh] = useState(false)
+  const reload = useCallback((saved = false) => {
+    if (saved) setSavedBeforeRefresh(true)
+    setReloads((n) => n + 1)
+  }, [])
+  const retry = useCallback(() => setReloads((n) => n + 1), [])
   const overview = useRemote<OverviewView>((signal) => loadOverview(source, signal), sourceKey, [source, reloads])
+  const stale = overview.loaded !== undefined && overview.error !== undefined
+  useEffect(() => {
+    if (overview.status === 'ready') setSavedBeforeRefresh(false)
+  }, [overview.status])
 
   const go = useCallback((next: UrlState, options?: { replace?: boolean }) => {
     const url = `${window.location.pathname}${serializeUrlState(next)}${window.location.hash}`
@@ -149,7 +158,8 @@ export default function App() {
           <main id="main" className="main" tabIndex={-1}>
             <div className="page">
               {sourceError && <ErrorPanel error={sourceError} />}
-              <SectionPage sectionId={state.view} overview={overview} />
+              {stale && overview.error && <RefreshFailure error={overview.error} saved={savedBeforeRefresh} retrying={overview.status === 'loading'} onRetry={retry} />}
+              <SectionPage sectionId={state.view} overview={overview} stale={stale} />
             </div>
           </main>
         </div>
