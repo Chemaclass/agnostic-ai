@@ -230,7 +230,7 @@ function FieldResolution({ label, resolved }: { label: string; resolved: TargetV
     <details className="field-resolution">
       <summary>What each tool gets</summary>
       <ul className="field-resolution-groups" aria-label={`${label} by tool`}>
-        {groups.map((g) => <li key={g.value ?? ''}>{g.labels.join(', ')}: {g.value ? <Code>{g.value}</Code> : <span className="muted">no value written</span>}</li>)}
+        {groups.map((g) => <li key={g.unchecked ? 'unchecked' : g.value ?? ''}>{g.labels.join(', ')}: {g.unchecked ? <span className="muted">not checked</span> : g.value ? <Code>{g.value}</Code> : <span className="muted">no value written</span>}</li>)}
       </ul>
       {resolved.length > 1 && <label className="field-resolution-tool">Tool <select value={current.target} onChange={(event) => setSelected(event.target.value)}>
         {resolved.map((r) => <option key={r.target} value={r.target}>{r.label}</option>)}
@@ -244,7 +244,7 @@ function FieldResolution({ label, resolved }: { label: string; resolved: TargetV
             {current.others.map((o, i) => <li key={`${o.path}:${i}`}>{o.value ? <Code>{o.value}</Code> : 'No value'} in <Code>{o.path}</Code>: {o.reason}</li>)}
           </ul>
         </>}
-        {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. Sync writes that native key as is, so check the generated file for the value {current.label} reads.</p>)}
+        {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. {current.checked ? `Sync writes that native key as is, so check the generated file for the value ${current.label} reads.` : 'Sync was not rendered here, so this native key was not checked.'}</p>)}
         <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. Other <Code>{`x-${current.target}`}</Code> keys and imported native settings files are not covered here.</p>
       </div>
     </details>
