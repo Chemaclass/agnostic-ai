@@ -44,9 +44,9 @@
     "src/assets/tools/windsurf.svg": "c1378bcdc9f14ef497774527d435f5a8b249c2238c448c864b08675cb10f75b3",
     "src/assets/tools/zed.svg": "90848d3e8d74d4fb3efc7137b8a5181139082e212566b025843379a7cb0550a0",
     "src/builtin-change.test.ts": "15d1ee9a8deb33a312eedf534be9327a3219cc4b53f523a07f17947e05bd6864",
-    "src/builtin-change.ts": "d0b071b1cc0842ea517825659a3f563a560b5f8e6b87e4e1c8c88d55dee1a314",
+    "src/builtin-change.ts": "f6762769b2b042972e6381666902b4492cb206d94bab8f675d7180322d2645bd",
     "src/components/Banner.tsx": "1e32ad5e9305f594ba8cb61572aacc51d5ddc71c7627ee8ff61036d1f2eb5001",
-    "src/components/BuiltinChange.tsx": "d975568d234517d5b58bf6f61de9c1ed23a51d781ece3e7abdbd150e5393e9d6",
+    "src/components/BuiltinChange.tsx": "031973a79f7fe63b2fe5952da8f4b094925dcf2c64f43c4c26a5262765a78c7b",
     "src/components/EditScope.tsx": "3de51602bf93e888f632994caba13eddd8353f2113de7d2dc5f4ccb9a5498c68",
     "src/components/EditorLink.tsx": "fc1da56dee06a28ea80fb9f0bcd3eba2bb2fd13ed62e24019caceba74385027a",
     "src/components/GlobalSearch.tsx": "5b465360de36e1fbb12e1947397d1cf9f125694d0b466207e9fbf315b892f71e",
@@ -86,11 +86,11 @@
     "assets/antigravity-DgAQAdn3.svg": "652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca",
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/index-C6CI6SMD.css": "59c56e4fafcb462e0fbbb6dd09abc3e40813435e72e550a0f893bc35831e71f2",
-    "assets/index-CmH-GOJZ.js": "6b8dd5e589b2be9ac69886f2ce0766a9661cca3840c3e49e6317753c5db8fddd",
+    "assets/index-cP0I3E9G.js": "21509a2cb36b7d53e4a716957ec16086a73b16a1655e3ae34de97a55dd11fdfd",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-D0ofxe4R.js": "71082caf9c076824925b0e907eefd72f5c0ac83f439e7b5cdd3064f8e8d1ca91",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "b283781cc04b290804f3074e98a5eb4c182d226c87c3ff29e472bf8d1e5b90e9",
+    "index.html": "c7570ee7a2e5d660781b59500ed96bff8ec6072aa80b32621b5d330035f68b89",
     "third-party-notices.txt": "a323be697d4e49da32e67813843982098f6331c7872fc0c181e0f60451e71438"
   }
 }

@@ -95,6 +95,7 @@ Read-only check results appear on affected items or sections, never in a separat
 | POST | `/api/changes/builtin/preview` | a project change plan for `{scope, name, enabled}`, `{scope: "local", reset: true}`, or `{scope, setting: {path?, key, value, expected?}}` for `model` or `effort`; the plan names its `scope`, and a setting plan its `key` and `title` |
 | POST | `/api/changes/builtin/apply` | writes the reviewed config and generated files for `{id}` |
 | POST | `/api/changes/builtin/undo` | restores the files and permissions from before the last successful apply for `{id}` |
+| POST | `/api/changes/builtin/cancel` | discards the preview `{id}` without writing files and keeps the last undo; 409 when that preview was already replaced or closed |
 
 `/api/edit/builtin` and `/api/edit/value` write source files without syncing. They require explicit JSON booleans, preserve unrelated text and file modes, and validate before and after the edit. Snapshots detect concurrent changes before replacement or rollback; failed restorations are reported. A team edit writes the committed file; a local edit writes the Git-ignored overlay, and is refused when its file resolves outside the local folder, into a team source, or to a tracked file. An empty local built-in list disables shared built-ins.
 
