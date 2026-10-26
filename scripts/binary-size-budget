@@ -466,4 +466,8 @@
 # server refuses a stale one with a conflict, and the page keeps the draft
 # and offers a reload. Same Linux amd64 release flags; no added headroom
 # or dependencies.
-23490720
+# #2534 measured 23494816 on Go 1.27.3, up 4096 from main 6b4fd7d9
+# (23490720): init writes the starter AGNOSTIC_AI.md and skips it when
+# the folder is the global source. Same Linux amd64 release flags; no
+# added headroom or dependencies.
+23494816
