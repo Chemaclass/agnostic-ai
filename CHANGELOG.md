@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync --global` no longer deletes an empty object you wrote, such as `"env": {}`, when it removes a setting it had added inside it; adding and then removing the setting gives back the original file. An object sync created for the setting still goes with it. The ownership state moves to version 9, which older releases refuse to read (#2529).
 - `sync --global --backup` now keeps `<path>.bak` for a file it removes, such as a hand-edited skill whose source you deleted, as it already did for a file it overwrites. Before, following the hint to rerun with `--backup` deleted the edit with no copy. A `.bak` path that is a symlink or other non-regular file now stops the run instead of being written through (#2516).
 - The web interface's Settings page shows, for the default model and reasoning effort, the value sync writes for each configured tool, where it comes from, and why other values lose, including model tiers, personal overrides, per-tool values, and tools that have no place for the value. It tells this apart from installed-file status and does not claim what a running tool uses (#2512).
 - The web interface searches every section from **Search** or `Cmd+K` / `Ctrl+K`, including settings, servers, and findings. Each result opens with its own link that survives a reload and browser history; a link to an entry that is gone says so (#2514).

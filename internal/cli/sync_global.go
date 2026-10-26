@@ -34,8 +34,9 @@ const (
 	envUserGlobalRoot = "AGNOSTIC_AI_HOME"
 	defaultUserGlobal = ".agnostic-ai"
 	// Version 6 records the hooks file containers sync created; version
-	// 8 records the permission rules sync wrote.
-	globalStateVersion = 8
+	// 8 records the permission rules sync wrote; version 9 records the
+	// settings parents sync created.
+	globalStateVersion = 9
 )
 
 type globalSyncOptions struct {
@@ -72,6 +73,12 @@ type globalState struct {
 	// only its own and import leaves them out.
 	PermissionRules  map[string]map[string][]string     `json:"permissionRules,omitempty"`
 	SessionRetention map[string]globalRetentionOriginal `json:"sessionRetention,omitempty"`
+	// SettingsParents records, per target, the JSON objects sync created
+	// above the settings keys it owns. Removal takes away only these
+	// once empty, so an object the user wrote stays.
+	SettingsParents map[string][]string `json:"settingsParents,omitempty"`
+	// legacySettingsParents marks state from before SettingsParents.
+	legacySettingsParents bool
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
 	MCP map[string]map[string]any `json:"mcp,omitempty"`
@@ -767,6 +774,7 @@ func loadGlobalState(path string) (globalState, error) {
 	}
 	state.ClaudeHooks, state.CursorHooks = nil, nil
 	state.legacyHookContainers = state.Version < 6
+	state.legacySettingsParents = state.Version < 9
 	state.Version = globalStateVersion
 	return state, nil
 }
@@ -801,7 +809,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 		}
 	}
-	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
+	next := globalState{TOMLArrays: maps.Clone(old.TOMLArrays), HookPaths: maps.Clone(old.HookPaths), Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, HookFiles: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, PermissionRules: map[string]map[string][]string{}, SessionRetention: map[string]globalRetentionOriginal{}, SettingsParents: map[string][]string{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	if next.TOMLArrays == nil {
 		next.TOMLArrays = map[string]map[string]tomlArrayLayout{}
 	}
@@ -831,6 +839,18 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, settings := range old.Settings {
+		if slices.Contains(targets, target) {
+			continue
+		}
+		parents := slices.Clone(old.SettingsParents[target])
+		if old.legacySettingsParents && globalTargets[target].settings.format == "json" {
+			parents, _ = settingsParents(jsonParents{legacy: true}, nil, settings, nil, nil, settings, nil)
+		}
+		if len(parents) > 0 {
+			next.SettingsParents[target] = parents
 		}
 	}
 	for target, rules := range old.PermissionRules {
@@ -1288,10 +1308,11 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if saved, present := old.SessionRetention[target]; present {
 				original = &saved
 			}
+			parents := jsonParents{created: old.SettingsParents[target], legacy: old.legacySettingsParents}
 			// Keys recorded in a file the root no longer resolves to go
 			// from that file, and the new one starts unowned.
 			if moved := old.SettingsPaths[target]; moved != "" && moved != path {
-				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, g.settings.retention, target, false, warn)
+				m, _, err := mergeGlobalRetention(moved, g.settings.format, baseFor(moved), nil, previous, original, parents, g.settings.retention, target, false, warn)
 				if err != nil {
 					return nil, next, err
 				}
@@ -1304,8 +1325,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				previous = nil
 				previousRules = nil
 				original = nil
+				parents = jsonParents{}
 			}
-			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
+			m, retention, err := mergeGlobalRetention(path, g.settings.format, baseFor(path), want, previous, original, parents, g.settings.retention, target, hasSessionRetention(b.Settings, target), warn)
 			if err != nil {
 				return nil, next, err
 			}
@@ -1325,6 +1347,9 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			if len(m.owned) > 0 {
 				next.Settings[target] = m.owned
 				next.SettingsPaths[target] = path
+			}
+			if len(m.parents) > 0 {
+				next.SettingsParents[target] = m.parents
 			}
 			mode := g.settings.fileMode()
 			if g.mcp.private && path == g.mcpPath(home) {

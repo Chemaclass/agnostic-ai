@@ -291,6 +291,20 @@ type globalSettingsMerge struct {
 	conflicts []string
 	// owned is the value per key sync owns after the write.
 	owned map[string]any
+	// parents lists the JSON objects above owned keys that sync created.
+	parents []string
+}
+
+// jsonParents is what sync knows about the objects above the JSON keys
+// it owns. Without it, removal takes away every parent it leaves empty.
+type jsonParents struct {
+	// created lists the parents sync added; removal keeps the others.
+	created []string
+	// legacy marks state from before created was recorded, which counts
+	// every parent of a recorded key as created.
+	legacy bool
+	// keep is the text to restore per parent removal leaves empty.
+	keep map[string]string
 }
 
 // mergeGlobalSettings sets the managed keys in a user settings file and
@@ -306,7 +320,7 @@ type globalSettingsComparison struct {
 	equal   func(any, any) bool
 }
 
-func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, keep map[string]string, comparison ...globalSettingsComparison) (globalSettingsMerge, error) {
+func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalSetting, previous map[string]any, parents *jsonParents, comparison ...globalSettingsComparison) (globalSettingsMerge, error) {
 	data := base
 	absent := false
 	if data == nil {
@@ -383,6 +397,11 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 			delete(m.owned, grokModelsContainer)
 		}
 	}
+	var keep map[string]string
+	if parents != nil && format == "json" {
+		keep = maps.Clone(parents.keep)
+		m.parents, keep = settingsParents(*parents, current, previous, set, remove, m.owned, keep)
+	}
 	if len(set) == 0 && len(remove) == 0 {
 		return m, nil
 	}
@@ -421,6 +440,60 @@ func mergeGlobalSettingsKeeping(path, format string, base []byte, want []globalS
 	}
 	m.data, err = editJSONRootKeeping(path, data, "", order, set, remove, keep)
 	return m, err
+}
+
+// settingsParents works out which parents of the owned keys sync
+// created, adding the ones setting a key creates now, and marks in keep
+// every parent of a removed key that the user wrote.
+func settingsParents(parents jsonParents, current, previous, set map[string]any, remove []string, owned map[string]any, keep map[string]string) ([]string, map[string]string) {
+	created := map[string]bool{}
+	for _, parent := range parents.created {
+		created[parent] = true
+	}
+	if parents.legacy {
+		for key := range previous {
+			for _, parent := range jsonParentKeys(key) {
+				created[parent] = true
+			}
+		}
+	}
+	for key := range set {
+		for _, parent := range jsonParentKeys(key) {
+			if _, present := settingsLookup(current, parent, "json"); !present {
+				created[parent] = true
+			}
+		}
+	}
+	for _, key := range remove {
+		for _, parent := range jsonParentKeys(key) {
+			if _, present := keep[parent]; !present && !created[parent] {
+				if keep == nil {
+					keep = map[string]string{}
+				}
+				keep[parent] = ""
+			}
+		}
+	}
+	var out []string
+	for key := range owned {
+		for _, parent := range jsonParentKeys(key) {
+			if created[parent] && !slices.Contains(out, parent) {
+				out = append(out, parent)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out, keep
+}
+
+// jsonParentKeys lists the dotted paths of the objects above key.
+func jsonParentKeys(key string) []string {
+	parts := strings.Split(key, ".")
+	out := make([]string, 0, len(parts)-1)
+	for i := 1; i < len(parts); i++ {
+		out = append(out, strings.Join(parts[:i], "."))
+	}
+	return out
 }
 
 // settingsLookup reads key from decoded settings: a dotted path into
