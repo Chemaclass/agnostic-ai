@@ -52,7 +52,11 @@ func mergeGlobalSettingsWithLists(path, format string, base []byte, want []globa
 	if m.data != nil {
 		data = m.data
 	}
-	merged, err := mergeGlobalStringLists(path, data, wantLists, previousLists, lists, "")
+	var listParents jsonParents
+	if parents != nil {
+		listParents = jsonParents{created: joinParents(parents.created, m.parents), legacy: parents.legacy}
+	}
+	merged, err := mergeGlobalStringLists(path, data, wantLists, previousLists, lists, "", listParents)
 	if err != nil {
 		return m, err
 	}
@@ -61,6 +65,7 @@ func mergeGlobalSettingsWithLists(path, format string, base []byte, want []globa
 	}
 	m.changes = append(m.changes, merged.changes...)
 	m.adopted = append(m.adopted, merged.adopted...)
+	m.parents = joinParents(m.parents, merged.parents)
 	for key, items := range merged.owned {
 		m.owned[key] = items
 	}

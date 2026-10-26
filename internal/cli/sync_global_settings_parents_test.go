@@ -137,3 +137,41 @@ func TestSyncGlobal_SettingsParentsFromOlderStateStillGo(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncGlobal_SettingsListsKeepParentsTheUserWrote(t *testing.T) {
+	cases := []struct {
+		name, target, original string
+		steps                  []string
+	}{
+		{"permission rules in an empty parent", "claude", "{\"permissions\":{}}\n", []string{"permissions:\n  allow: [Read]\n"}},
+		{"permission rules and mode in an empty parent", "claude", "{\"permissions\":{}}\n", []string{"permissions:\n  allow: [Read]\n  default-mode: plan\n"}},
+		{"mode added under a parent the rules created", "claude", "{\"theme\":\"dark\"}\n", []string{"permissions:\n  allow: [Read]\n", "permissions:\n  allow: [Read]\n  default-mode: plan\n", "permissions:\n  default-mode: plan\n"}},
+		{"rules added under a parent the mode created", "claude", "{\"theme\":\"dark\"}\n", []string{"permissions:\n  default-mode: plan\n", "permissions:\n  allow: [Read]\n  default-mode: plan\n", "permissions:\n  allow: [Read]\n"}},
+		{"item list in an empty parent", "qwen", "{\"mcp\":{}}\n", []string{"x-qwen:\n  mcp:\n    excluded: [a]\n"}},
+		{"key added under a parent the item list created", "qwen", "{\"theme\":\"dark\"}\n", []string{"x-qwen:\n  mcp:\n    excluded: [a]\n", "x-qwen:\n  mcp:\n    excluded: [a]\n    allowed: [b]\n", "x-qwen:\n  mcp:\n    allowed: [b]\n"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			path := filepath.Join(home, "."+tc.target, "settings.json")
+			mustWriteGlobalTest(t, path, tc.original)
+			settings := filepath.Join(source, "settings", "defaults.yaml")
+			for _, step := range tc.steps {
+				mustWriteGlobalTest(t, settings, "name: defaults\n"+step)
+				if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+					t.Fatalf("sync: %v\n%s", err, warnings)
+				}
+			}
+			added := readGlobalTest(t, path)
+			if err := os.Remove(settings); err != nil {
+				t.Fatal(err)
+			}
+			if _, warnings, err := runGlobalAgentTest("--only", tc.target); err != nil {
+				t.Fatalf("removal: %v\n%s", err, warnings)
+			}
+			if got := readGlobalTest(t, path); got != tc.original {
+				t.Errorf("add then remove must restore the original bytes\nwant: %q\ngot:  %q\nafter add:\n%s", tc.original, got, added)
+			}
+		})
+	}
+}

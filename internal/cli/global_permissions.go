@@ -123,6 +123,8 @@ type globalListMerge struct {
 	changes, adopted []string
 	// owned is, per list, the rules sync owns after the write.
 	owned map[string][]string
+	// parents lists the objects above owned lists that sync created.
+	parents []string
 }
 
 // mergeGlobalPermissionRules appends each wanted rule a list lacks,
@@ -130,15 +132,29 @@ type globalListMerge struct {
 // recorded once the specs no longer name it. A rule sync never wrote
 // stays where it is, so a rule the tool itself added survives. A rule
 // already present is adopted, and sync owns it from then on.
-func mergeGlobalPermissionRules(path string, data []byte, want, previous map[string][]string) (globalListMerge, error) {
-	return mergeGlobalStringLists(path, data, want, previous, spec.PermissionLists, "permissions.")
+func mergeGlobalPermissionRules(path string, data []byte, want, previous map[string][]string, parents jsonParents) (globalListMerge, error) {
+	return mergeGlobalStringLists(path, data, want, previous, spec.PermissionLists, "permissions.", parents)
 }
 
-func mergeGlobalStringLists(path string, data []byte, want, previous map[string][]string, lists []string, prefix string) (globalListMerge, error) {
+func mergeGlobalStringLists(path string, data []byte, want, previous map[string][]string, lists []string, prefix string, parents jsonParents) (globalListMerge, error) {
 	m := globalListMerge{owned: map[string][]string{}}
 	values, err := settingsValues(path, "json", data)
 	if err != nil {
 		return m, err
+	}
+	created := map[string]bool{}
+	for _, parent := range parents.created {
+		created[parent] = true
+	}
+	for _, list := range lists {
+		for _, parent := range jsonParentKeys(prefix + list) {
+			if parents.legacy && len(previous[list]) > 0 {
+				created[parent] = true
+			}
+			if _, present := settingsLookup(values, parent, "json"); !present && len(want[list]) > 0 {
+				created[parent] = true
+			}
+		}
 	}
 	out := data
 	if len(bytes.TrimSpace(out)) == 0 {
@@ -189,9 +205,16 @@ func mergeGlobalStringLists(path string, data []byte, want, previous map[string]
 			continue
 		}
 		changed = true
-		// Remove empty parent objects along with the emptied list.
+		// Remove the empty parent objects sync created along with the
+		// emptied list.
 		if len(next) == 0 {
-			out, err = editJSONRoot(path, out, nil, nil, []string{key})
+			keep := map[string]string{}
+			for _, parent := range jsonParentKeys(key) {
+				if !created[parent] {
+					keep[parent] = ""
+				}
+			}
+			out, err = editJSONRootKeeping(path, out, "", nil, nil, []string{key}, keep)
 		} else {
 			out, err = editJSONArray(path, out, key, next)
 		}
@@ -202,6 +225,14 @@ func mergeGlobalStringLists(path string, data []byte, want, previous map[string]
 	if changed {
 		m.data = out
 	}
+	for list := range m.owned {
+		for _, parent := range jsonParentKeys(prefix + list) {
+			if created[parent] && !slices.Contains(m.parents, parent) {
+				m.parents = append(m.parents, parent)
+			}
+		}
+	}
+	slices.Sort(m.parents)
 	if len(m.owned) == 0 {
 		m.owned = nil
 	}
@@ -496,7 +527,7 @@ func yamlIndentOf(data []byte) int {
 // withGlobalPermissionRules applies the rule list merge on top of the
 // key merge m of the same file, starting from m's content, then base,
 // then the disk. It returns the combined merge and the rules sync owns.
-func withGlobalPermissionRules(path string, m globalSettingsMerge, base []byte, want, previous map[string][]string) (globalSettingsMerge, map[string][]string, error) {
+func withGlobalPermissionRules(path string, m globalSettingsMerge, base []byte, want, previous map[string][]string, parents jsonParents) (globalSettingsMerge, map[string][]string, error) {
 	if len(want) == 0 && len(previous) == 0 {
 		return m, nil, nil
 	}
@@ -516,10 +547,12 @@ func withGlobalPermissionRules(path string, m globalSettingsMerge, base []byte, 
 		}
 		data = read
 	}
-	rules, err := mergeGlobalPermissionRules(path, data, want, previous)
+	parents.created = joinParents(parents.created, m.parents)
+	rules, err := mergeGlobalPermissionRules(path, data, want, previous, parents)
 	if err != nil {
 		return m, nil, err
 	}
+	m.parents = joinParents(m.parents, rules.parents)
 	if rules.data != nil {
 		m.data = rules.data
 	}

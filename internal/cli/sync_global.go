@@ -841,16 +841,27 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			next.Settings[target] = settings
 		}
 	}
-	for target, settings := range old.Settings {
-		if slices.Contains(targets, target) {
-			continue
+	for target, parents := range old.SettingsParents {
+		if !slices.Contains(targets, target) {
+			next.SettingsParents[target] = slices.Clone(parents)
 		}
-		parents := slices.Clone(old.SettingsParents[target])
-		if old.legacySettingsParents && globalTargets[target].settings.format == "json" {
-			parents, _ = settingsParents(jsonParents{legacy: true}, nil, settings, nil, nil, settings, nil)
-		}
-		if len(parents) > 0 {
-			next.SettingsParents[target] = parents
+	}
+	if old.legacySettingsParents {
+		for _, target := range slices.Concat(slices.Collect(maps.Keys(old.Settings)), slices.Collect(maps.Keys(old.PermissionRules))) {
+			if slices.Contains(targets, target) || globalTargets[target].settings.format != "json" {
+				continue
+			}
+			owned := maps.Clone(old.Settings[target])
+			if owned == nil {
+				owned = map[string]any{}
+			}
+			for list := range old.PermissionRules[target] {
+				owned["permissions."+list] = true
+			}
+			parents, _ := settingsParents(jsonParents{legacy: true}, nil, owned, nil, nil, owned, nil)
+			if len(parents) > 0 {
+				next.SettingsParents[target] = parents
+			}
 		}
 	}
 	for target, rules := range old.PermissionRules {
@@ -1316,7 +1327,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 				if err != nil {
 					return nil, next, err
 				}
-				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules); err != nil {
+				if m, _, err = withGlobalPermissionRules(moved, m, baseFor(moved), nil, previousRules, parents); err != nil {
 					return nil, next, err
 				}
 				if err := placeEdit(moved, m, g.settings.fileMode()); err != nil {
@@ -1336,7 +1347,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 			}
 			var rules map[string][]string
 			if g.settings.permissionLists {
-				if m, rules, err = withGlobalPermissionRules(path, m, baseFor(path), wantRules, previousRules); err != nil {
+				if m, rules, err = withGlobalPermissionRules(path, m, baseFor(path), wantRules, previousRules, parents); err != nil {
 					return nil, next, err
 				}
 			}

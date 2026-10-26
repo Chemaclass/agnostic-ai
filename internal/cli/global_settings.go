@@ -486,6 +486,13 @@ func settingsParents(parents jsonParents, current, previous, set map[string]any,
 	return out, keep
 }
 
+// joinParents is the sorted union of two parent lists.
+func joinParents(a, b []string) []string {
+	out := slices.Concat(a, b)
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
 // jsonParentKeys lists the dotted paths of the objects above key.
 func jsonParentKeys(key string) []string {
 	parts := strings.Split(key, ".")
