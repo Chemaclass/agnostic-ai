@@ -51,6 +51,8 @@ Hooks merge into `.claude/settings.json`. See the [native hook reference](https:
 
 Handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` are command-only. `once` has no effect in settings hooks; Claude Code honors it only in skill frontmatter. Experimental agent handlers are not emitted.
 
+Claude Code runs some handlers only on some events. Prompt handlers run on tool, permission, `UserPromptSubmit`, `UserPromptExpansion`, `Stop`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, and `TeammateIdle` events. HTTP handlers run everywhere except `SessionStart` and `Setup`. MCP tool handlers never run on `Setup`. `if` works only on `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, and `PermissionDenied`; on another event the hook never runs. Sync still writes such a hook and prints a note. See the [hook types per event](https://code.claude.com/docs/en/hooks).
+
 `failClosed: true` becomes `onFailure: "block"` for command and HTTP handlers. Use synchronous `PreToolUse` or `UserPromptSubmit` when a failed check must stop an action. Claude ignores it for `Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`, or async command handlers. Import retains other native `onFailure` values under `x-claude`; portable `failClosed: true` wins.
 
 With command hooks, sync sets `AGNOSTIC_AI_TARGET: claude` in settings `env`; an explicit settings value wins. When Cursor is also selected, a portable hook's Claude copy exits under Cursor to avoid running twice. Other compatibility reads need [cross-target checks](@/docs/target-behavior.md#spec-kind-behavior).
