@@ -77,7 +77,7 @@ A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its ow
 - Frontmatter has `name`, `description`, and `tools` and `model` when set.
 - `x-copilot.name` sets a display name that differs from the file name. Import fills it when the two differ.
 - Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) are copied as written.
-- The profile has no effort key, so a portable `effort` gets a sync note. Per-agent `effortLevel` exists only in the `subagents.agents` setting of your personal `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/target-behavior.md#global-output)).
+- The profile has no effort key, so a portable `effort` gets a sync note. Per-agent `effortLevel` exists only in the `subagents.agents` setting of your personal `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/global-configuration.md#global-output)).
 
 ### Skills
 
