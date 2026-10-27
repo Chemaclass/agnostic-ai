@@ -41,7 +41,7 @@ After `doctor`, use the command its finding names:
 
 - [`validate`](@/docs/cli-reference/check.md#validate) checks spec formats, [`lint`](@/docs/cli-reference/check.md#lint) spec quality, and [`sync --check`](@/docs/cli-reference/sync.md#sync) generated files.
 - [`status`](@/docs/cli-reference/check.md#status) summarizes the project.
-- [why](@/docs/trace.md) traces a generated file to its source, and [graph](@/docs/graph.md) shows which tools receive a spec.
+- [why](@/docs/cli-reference/inspect.md#why) traces a generated file to its source, and [graph](@/docs/cli-reference/inspect.md#graph) shows which tools receive a spec.
 - [`explain`](@/docs/cli-reference/inspect.md#explain) explains a diagnostic code, such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`.
 
 <details>
@@ -91,7 +91,7 @@ A message such as `UserPromptSubmit hook [...] timed out after 5s` comes from th
 
 In Claude Code, open `/hooks` and find the event and command named in the message. Check project settings, user settings, and enabled plugins. A command containing `${CLAUDE_PLUGIN_ROOT}` belongs to a plugin; update or diagnose that plugin, not your agnostic-ai specs. The [Claude Code hook reference](https://code.claude.com/docs/en/hooks) explains hook locations and timeouts.
 
-For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/trace.md) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
+For a hook generated from `.agnostic-ai/hooks/`, use [`why`](@/docs/cli-reference/inspect.md#why) to find its source and [hook diagnostics](@/docs/cli-reference/hook-diagnostics.md) to inspect or test it. Make changes in the source, then sync.
 
 Check whether an ordinary terminal command and the hook's runtime, such as `node --version`, are also slow. If several unrelated hooks time out together, check CPU load, memory pressure, and runtime startup first. Raise a timeout only once you know the command needs longer, because a stuck command then takes longer to report.
 

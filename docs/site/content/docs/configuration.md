@@ -222,8 +222,6 @@ A likely typo of a built-in target, such as `cursr`, fails before any write. Any
 
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
-Grok must be listed by name, and its native instructions must stay visible to Git; see [Grok setup](@/docs/targets/grok.md#first-rule).
-
 ## `sync`
 
 Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key. See [`sync`](@/docs/cli-reference/sync.md#sync) and [reading a failing `--check`](@/docs/cli-reference/sync.md#reading-a-failing---check).
