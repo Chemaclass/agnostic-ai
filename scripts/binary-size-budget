@@ -496,4 +496,15 @@
 # #2556 measured 23580832 on Go 1.27.3: personal saves check Git
 # exclusions before writing and retry Git layout checks after failures.
 # Linux amd64 release flags; no added headroom or dependencies.
-23580832
+# #2558 measured 23589024 on Go 1.27.3: findings can be rechecked in
+# place, including moved findings and incomplete checks.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2557 measured 23601312 on Go 1.27.3: global settings retain user-owned
+# empty objects and track sync-created parents across changes.
+# Linux amd64 release flags; no added headroom or dependencies.
+# #2558 combined with #2557 measured 23605408 on Go 1.27.3.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+# #2560 measured 23609504 on Go 1.27.3: the overview skips installed-file
+# comparisons and labels settings results that were not checked.
+# Linux amd64 release flags; no added headroom or dependencies.
+23609504

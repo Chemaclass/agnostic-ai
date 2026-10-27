@@ -620,7 +620,8 @@ input:hover {
   justify-content: center;
 }
 
-.button:disabled {
+.button:disabled,
+.finding-recheck[aria-disabled] {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -978,7 +979,35 @@ input:hover {
   max-width: none;
 }
 
-.finding-copy {
+.finding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.finding-recheck-result {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.finding-recheck-result.is-empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.finding-rechecked.is-resolved .finding-recheck-result {
+  color: var(--permitted);
+}
+
+.finding-rechecked .button {
+  justify-self: start;
+}
+
+.finding-copy,
+.finding-recheck {
   min-height: 32px;
   padding: 4px 8px;
   border-color: transparent;
@@ -989,7 +1018,8 @@ input:hover {
   white-space: nowrap;
 }
 
-.finding-copy:hover {
+.finding-copy:hover,
+.finding-recheck:not(:disabled, [aria-disabled]):hover {
   border-color: var(--line);
   background: var(--panel);
 }
@@ -1063,7 +1093,8 @@ input:hover {
     gap: 6px 8px;
   }
 
-  .finding-copy {
+  .finding-copy,
+  .finding-recheck {
     min-height: 44px;
     padding-inline: 0;
   }

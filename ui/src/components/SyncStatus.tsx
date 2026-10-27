@@ -3,6 +3,7 @@
 
 import type { ReactNode } from 'react'
 import type { OverviewView, SyncState } from '../contract'
+import { overviewFindings } from '../model/recheck'
 import { syncSummary } from '../model/sync-status'
 import { plural } from '../model/format'
 import type { Remote } from './Shell'
@@ -30,7 +31,8 @@ export function SyncStatus({ overview, snapshot, saved, onRefresh }: { overview:
   const time = at ? <time dateTime={at}>{checkedAt(at)}</time> : undefined
   const checking = refreshing ? <> Checking again…</> : undefined
   let line: ReactNode
-  if (snapshot) line = <>{time ? <>Snapshot from {time}.</> : 'Snapshot time unavailable.'} Not a live check of your files.{failed && !refreshing && <> The latest reload failed.</>}{checking}</>
+  const recheckNote = snapshot && overviewFindings(data).length > 0 ? ' Rechecking a finding needs a running agnostic-ai serve.' : ''
+  if (snapshot) line = <>{time ? <>Snapshot from {time}.</> : 'Snapshot time unavailable.'} Not a live check of your files.{recheckNote}{failed && !refreshing && <> The latest reload failed.</>}{checking}</>
   else if (failed) line = <>{time ? <>Last successful check {time}.</> : 'Check time unavailable.'}{refreshing ? checking : <> The latest refresh failed, so these results may be out of date.</>}</>
   else if (refreshing) line = <>Checking again…</>
   else line = time ? <>Checked {time}.</> : 'Check time unavailable.'
