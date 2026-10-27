@@ -521,4 +521,8 @@
 # #2570 measured 23675040 on Go 1.27.3: sync tracks diagnostics
 # across partial runs without hiding reintroduced warnings.
 # Linux amd64 release flags; no added headroom or dependencies.
-23675040
+# #2573 measured 23716000 on Go 1.27.3: explain --context finds duplicated
+# startup passages, serve answers /api/views/context, and the embedded UI
+# bundle carries the Context size panel.
+# Linux amd64 release flags; no added headroom or dependencies.
+23716000

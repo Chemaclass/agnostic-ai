@@ -7,8 +7,8 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, OVERVIEW_SCHEMA_VERSION, type OverviewView } from './contract'
-import { normalizeOverviewView } from './model/normalize'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type OverviewView } from './contract'
+import { normalizeContextView, normalizeOverviewView } from './model/normalize'
 import { staticOverviewUrl, type DataSource } from './model/url'
 
 export interface Loaded<T> {
@@ -97,6 +97,23 @@ export async function loadOverview(source: DataSource, signal?: AbortSignal): Pr
       return { data, endpoint: `GET ${API.overview}`, schemaWarning: schemaWarning(data.schemaVersion, OVERVIEW_SCHEMA_VERSION) }
     }
   }
+}
+
+/** Context size for one target, from the server or the mock fixture; a static snapshot has none. */
+export async function loadContext(source: DataSource, target: string | undefined, file: string, signal?: AbortSignal): Promise<Loaded<ContextView>> {
+  if (source.kind === 'mock') {
+    const module = await import('./fixtures/context.mock.json')
+    const data = normalizeContextView(module.default)
+    return { data, endpoint: 'Mock fixture src/fixtures/context.mock.json', schemaWarning: schemaWarning(data.schemaVersion, CONTEXT_SCHEMA_VERSION) }
+  }
+  if (source.kind !== 'api') throw new LoadError('Context size needs a running agnostic-ai serve.')
+  const params = new URLSearchParams()
+  if (target) params.set('target', target)
+  if (file) params.set('file', file)
+  const query = params.toString()
+  const path = query ? `${API.context}?${query}` : API.context
+  const data = normalizeContextView(await getJson(path, signal, SERVER_HINT))
+  return { data, endpoint: `GET ${path}`, schemaWarning: schemaWarning(data.schemaVersion, CONTEXT_SCHEMA_VERSION) }
 }
 
 /** An edit the server refused, with the validation problems it found. */

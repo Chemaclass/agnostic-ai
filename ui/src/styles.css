@@ -1706,6 +1706,135 @@ input:hover {
   display: none;
 }
 
+/* Context size --------------------------------------------------------- */
+
+.context-usage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.context-usage-head h2 {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.context-usage-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.context-usage-status:empty {
+  display: none;
+}
+
+.context-usage-note {
+  font-size: 13px;
+  max-width: 75ch;
+}
+
+.context-usage-part {
+  display: grid;
+  gap: 8px;
+}
+
+.context-usage-part h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.context-usage-compare {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.context-usage-compare div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.context-usage-compare dt {
+  font-weight: 650;
+}
+
+.context-usage-compare dd {
+  margin: 0;
+}
+
+.context-passage {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--line-strong);
+  background: var(--panel-sunken);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.context-passage.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.context-passage-toggle {
+  justify-self: start;
+}
+
+.context-suggestion {
+  font-size: 13px;
+  max-width: 75ch;
+}
+
+.context-sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.context-sources li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.context-contributions {
+  gap: 12px;
+}
+
+.context-contributions > summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.context-contributions caption {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.table .context-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* JSON inspector ----------------------------------------------------------- */
 
 .inspector {

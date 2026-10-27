@@ -164,6 +164,7 @@ func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compa
 	changes := newBuiltinChangeHandler(opts.Root, opts.Global)
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
+	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
 	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
 }
 

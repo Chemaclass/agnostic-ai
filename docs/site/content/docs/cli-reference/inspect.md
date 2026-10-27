@@ -139,21 +139,29 @@ agnostic-ai explain --context --target cursor --file src/main.go
 
 Counts are estimates from planned output and spec text, not model tokens; runtime context, external imports, user-owned files, and host truncation are not counted. Inlined imports keep their source paths; unresolved ones are not read.
 
+The report ends with opportunities: paragraphs of at least eight words written more than once in the specs that load at startup for that target, byte for byte after trimming. Each lists its copies, source files, size per copy, and the words and bytes one session start could drop at least. A spec that two generated files both carry counts once, because the fix is the tool setting that reads both files, not the spec. Similar wording is not reported, because only you can tell whether two instructions mean the same. Review the copies and edit the canonical specs, then run the command again to see the new counts. The command never edits a file.
+
 <details>
 <summary>Read context accounting groups and JSON</summary>
 
 Entry-point layers, marked rule and review sections, inlined imports, always-on rules, each skill and agent description, and generated framing count separately, so the startup total matches lint. Sources sharing a document count once.
 
-Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup total. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope` with their own total; unmatched or uncertain ones stay on demand. Entries sort by group, then words and bytes (descending), then source path and category. Text and JSON use the same numbers.
+Skill and agent bodies and conditional rule bodies appear under `on-demand`, outside the startup total, with their own `on_demand` sum. With `--file` for Cursor or Claude Code, matching scoped rule bodies appear under `file-scope` with their own total; unmatched or uncertain ones stay on demand. Entries sort by group, then words and bytes (descending), then source path and category. Text and JSON use the same numbers.
 
 ```json
 {"version": "1", "command": "explain", "target": "claude", "note": "...",
  "startup": {"words": 80, "bytes": 500}, "file_scope": {"words": 0, "bytes": 0},
+ "on_demand": {"words": 300, "bytes": 2000},
  "contributions": [{"source": ".agnostic-ai/skills/review/SKILL.md",
- "category": "skill discovery", "load": "startup", "words": 40, "bytes": 220}]}
+ "category": "skill discovery", "load": "startup", "words": 40, "bytes": 220}],
+ "opportunities": [{"kind": "duplicate-passage", "target": "claude", "load": "startup",
+ "passage": "...", "copies": 2, "size": {"words": 14, "bytes": 74},
+ "reduction": {"words": 14, "bytes": 74},
+ "sources": [{"source": ".agnostic-ai/AGNOSTIC_AI.md", "category": "entry-point layer"}],
+ "suggestion": "..."}]}
 ```
 
-`file` is present when requested. `load` is `startup`, `file-scope`, or `on-demand`.
+`file` is present when requested. `load` is `startup`, `file-scope`, or `on-demand`. `on_demand` and `opportunities` were added in version `1` without changing other fields; `opportunities` is an empty array when there are none, largest `reduction` first. `size` is one copy; `reduction` is the other copies.
 
 </details>
 
@@ -295,6 +303,7 @@ In the browser:
 - **Authority** lists permission files and rules. Permission proposals have no editor; use the [API](#api).
 - **Open files in** in the header picks Cursor or VS Code for every edit link, and the browser remembers it. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
 - With `--global`, the `AGNOSTIC_AI.md` row in **Context** has **Copy refine prompt**: a prompt that asks a coding agent to review the file against current guidance for instruction files, propose a full rewrite with a change table, recommend which rules belong in an existing or new skill or agent, and leave the file unchanged until you approve.
+- **Context size** in **Context** shows the [context report](#rank-context-contributions) for a chosen target: startup, file-scoped (for a file you enter), and on-demand sizes, ranked sources, and duplicated startup passages. Each duplicate has edit links to its sources and **Copy review prompt**, which asks a coding agent to compare the copies and propose a change with its tradeoffs before editing. **Refresh** reads the specs again. Sizes are words and bytes, not tokens, and smaller numbers do not guarantee lower cost or faster replies.
 - Each finding has **Copy fix prompt**; **Details** shows the suggested fix, explanation, and full prompt. After you fix the source, **Recheck** runs the checks again with the same refresh and keeps your page, search, and unsaved input. It says whether that finding still appears, marks new findings from the same check on the same file, and treats a failed refresh or a lint run that stopped early as unknown, never as fixed. A doctor finding that disappears is shown as not confirmed, because these doctor checks skip files they cannot read. Snapshots cannot recheck. A findings summary links to the warnings below the controls; errors stay above them.
 - Tool lists use logos, with the full name on hover. Source files appear in compact lists with paths and edit links. Every lifecycle stage shows when it runs, with or without hooks. Native settings are grouped by tool, with the `x-<tool>` prefix shown once.
 - **Settings** shows configured fields first and the rest under **Unconfigured fields**, including a default model or reasoning effort. Global scalar fields offer **Update** and **Clear**. Session retention is editable only with `--global`.
@@ -325,6 +334,7 @@ Edit and impact requests take JSON. Every edit and preview names its `scope`: `t
 |----------|---------------|
 | `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. |
 | `GET /api/views/overview` | None. |
+| `GET /api/views/context` | `?target=<tool>`, a configured target; default the first one. `&file=<path>` adds scoped rules for that file, as `--file` does; `fileTargets` lists the targets that accept it. Returns `targets`, `target`, absolute `root`, and `report`, the `explain --context --json` output. With `--global`, `supported` is false and `reason` says why. |
 | `GET /api/views/authority` | `?agentId=<id>&target=<tool>` for per-agent decisions. |
 | `POST /api/views/authority/impact` | A permission proposal to preview. |
 | `GET /api/views/authority/schema` | None. |

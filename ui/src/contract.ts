@@ -603,18 +603,84 @@ export interface OverviewView {
   targets: TargetSupport[]
 }
 
+// ---------------------------------------------------------------------
+// Context size, schema `1`: the `explain --context` report for one target.
+// Words and bytes measure planned instruction text, not model tokens.
+// ---------------------------------------------------------------------
+
+export const CONTEXT_SCHEMA_VERSION = '1'
+
+export type ContextLoad = 'startup' | 'file-scope' | 'on-demand'
+
+export interface ContextSize {
+  words: number
+  bytes: number
+}
+
+export interface ContextContribution extends ContextSize {
+  /** Project-relative path with forward slashes. */
+  source: string
+  category: string
+  load: ContextLoad
+}
+
+export interface ContextOpportunity {
+  kind: string
+  target: string
+  load: ContextLoad
+  passage: string
+  copies: number
+  /** One copy. */
+  size: ContextSize
+  /** (copies - 1) * size. */
+  reduction: ContextSize
+  sources: { source: string; category: string }[]
+  suggestion: string
+}
+
+export interface ContextReport {
+  version: string
+  command: string
+  target: string
+  /** The project-relative file the report counted file-scoped rules for, when one was given. */
+  file?: string
+  note: string
+  startup: ContextSize
+  file_scope: ContextSize
+  on_demand: ContextSize
+  /** Startup first, then file-scope, then on-demand; largest first within each. */
+  contributions: ContextContribution[]
+  /** Largest reduction first. */
+  opportunities: ContextOpportunity[]
+}
+
+export interface ContextView {
+  schemaVersion: string
+  /** False for user configuration (`serve --global`), with the reason. */
+  supported: boolean
+  reason: string
+  root?: string
+  targets: string[]
+  /** Targets that accept a file, so scoped rules can count as file-scoped. */
+  fileTargets: string[]
+  target: string
+  report?: ContextReport
+}
+
 // HTTP API served by `agnostic-ai serve`.
 //
 //   GET  /api/views/authority?agentId=<id>&target=<tool>  → AuthorityView
 //   POST /api/views/authority/impact                      → ImpactResult (body: Proposal)
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
+//   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/health                                      → { ok, root, global, ui }
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
   schema: '/api/views/authority/schema',
   overview: '/api/views/overview',
+  context: '/api/views/context',
   editBuiltin: '/api/edit/builtin',
   editValue: '/api/edit/value',
   editField: '/api/edit/field',

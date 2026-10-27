@@ -25,6 +25,7 @@ type contextContribution struct {
 	Category string `json:"category"`
 	Load     string `json:"load"`
 	contextSize
+	text string
 }
 
 type explainContextOutput struct {
@@ -35,14 +36,16 @@ type explainContextOutput struct {
 	Note          string                `json:"note"`
 	Startup       contextSize           `json:"startup"`
 	FileScope     contextSize           `json:"file_scope"`
+	OnDemand      contextSize           `json:"on_demand"`
 	Contributions []contextContribution `json:"contributions"`
+	Opportunities []contextOpportunity  `json:"opportunities"`
 }
 
 const contextEstimateNote = "Estimates from generated instruction layers and spec text, using lint's word accounting, not model tokens or live context. " +
 	"On-demand bodies are excluded from startup totals. Runtime context, user-owned files, external imports, and host truncation are unknown."
 
 func measuredContext(category, load, source, text string) contextContribution {
-	return contextContribution{Source: filepath.ToSlash(source), Category: category, Load: load, contextSize: contextSize{Words: wordsIn(text), Bytes: len(text)}}
+	return contextContribution{Source: filepath.ToSlash(source), Category: category, Load: load, contextSize: contextSize{Words: wordsIn(text), Bytes: len(text)}, text: text}
 }
 
 func (l *sessionLoad) addEntryContext(entries []spec.Entry, kind string) {
@@ -205,7 +208,12 @@ func explainContext(cfg *config.Config, b spec.Bundle, target, file string) (exp
 			report.FileScope.Words += c.Words
 			report.FileScope.Bytes += c.Bytes
 		}
+		if c.Load == "on-demand" {
+			report.OnDemand.Words += c.Words
+			report.OnDemand.Bytes += c.Bytes
+		}
 	}
+	report.Opportunities = duplicatedStartupPassages(target, report.Contributions)
 	slices.SortFunc(report.Contributions, func(a, b contextContribution) int {
 		if contextLoadRank(a.Load) != contextLoadRank(b.Load) {
 			return contextLoadRank(a.Load) - contextLoadRank(b.Load)
@@ -250,12 +258,21 @@ func runExplainContext(cmd *cobra.Command, target, file string, jsonOut bool) er
 		return enc.Encode(report)
 	}
 	out := cmd.OutOrStdout()
-	_, _ = fmt.Fprintf(out, "%s estimated context\n%s\n\nStartup: %d words, %d bytes\nFile scope (additional): %d words, %d bytes\n", target, report.Note, report.Startup.Words, report.Startup.Bytes, report.FileScope.Words, report.FileScope.Bytes)
+	_, _ = fmt.Fprintf(out, "%s estimated context\n%s\n\nStartup: %d words, %d bytes\nFile scope (additional): %d words, %d bytes\nOn demand: %d words, %d bytes\n", target, report.Note, report.Startup.Words, report.Startup.Bytes, report.FileScope.Words, report.FileScope.Bytes, report.OnDemand.Words, report.OnDemand.Bytes)
 	if report.File != "" {
 		_, _ = fmt.Fprintf(out, "File: %s\n", report.File)
 	}
 	for _, c := range report.Contributions {
 		_, _ = fmt.Fprintf(out, "  [%s] %d words, %d bytes: %s (%s)\n", c.Load, c.Words, c.Bytes, c.Source, c.Category)
+	}
+	if len(report.Opportunities) == 0 {
+		_, _ = fmt.Fprintln(out, "\nOpportunities: none found.")
+		return nil
+	}
+	_, _ = fmt.Fprintln(out, "\nOpportunities:")
+	for _, o := range report.Opportunities {
+		_, _ = fmt.Fprintf(out, "  [%s] duplicate passage, %d copies of %d words, %d bytes, could drop %d words, %d bytes: %s\n", o.Load, o.Copies, o.Size.Words, o.Size.Bytes, o.Reduction.Words, o.Reduction.Bytes, opportunitySources(o))
+		_, _ = fmt.Fprintf(out, "    %s\n    %s\n", strings.ReplaceAll(o.Passage, "\n", "\n    "), o.Suggestion)
 	}
 	return nil
 }

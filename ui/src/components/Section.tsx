@@ -3,6 +3,7 @@ import { API, type ItemFinding, type OverviewView, type Section, type SectionIte
 import { EditError, postEdit } from '../api'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
+import { ContextUsage } from './ContextUsage'
 import { BuiltinChange, BuiltinChangeControls, BuiltinChangeProvider, ChangeError, ChangeStatus, SettingChangePreview, useSettingChange } from './BuiltinChange'
 import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from './EditScope'
 import { OpenInEditor } from './EditorLink'
@@ -162,6 +163,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           </section>
         )
       })}
+      {section.id === 'context' && <ContextUsage />}
       {errors === 0 && otherFindings}
       </RecheckSectionEntries.Provider>
     </RecheckSection.Provider>
