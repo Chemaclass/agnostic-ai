@@ -577,3 +577,28 @@ func TestSyncGlobal_SettingsPermissionModeExclusionRemovesOwnedValue(t *testing.
 		t.Errorf("exclusion left owned mode or changed handwritten permissions: %s", got)
 	}
 }
+
+func TestSyncGlobal_SettingsNoteClaudeManagedOnlyKeys(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), `x-claude:
+  deniedModels: [opus]
+  autoMode:
+    soft_deny: [x]
+`)
+	_, warnings, err := runGlobalAgentTest("--only", "claude")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if !strings.Contains(warnings, "x-claude.deniedModels") || !strings.Contains(warnings, "managed settings only") {
+		t.Errorf("warnings lack the deniedModels note:\n%s", warnings)
+	}
+	if strings.Contains(warnings, "autoMode") {
+		t.Errorf("autoMode takes user settings, yet warnings name it:\n%s", warnings)
+	}
+	raw := readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))
+	for _, key := range []string{`"deniedModels"`, `"autoMode"`} {
+		if !strings.Contains(raw, key) {
+			t.Errorf("sync must keep writing %s: %s", key, raw)
+		}
+	}
+}

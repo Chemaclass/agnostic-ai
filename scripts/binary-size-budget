@@ -531,4 +531,7 @@
 # #2583 measured 23728288 on Go 1.27.3: Claude sync notes settings keys a
 # project settings file cannot set, from one vendor scope table.
 # Linux amd64 release flags; no added headroom or dependencies.
-23728288
+# #2583 review measured 23732384 on Go 1.27.3: sync --global also notes
+# Claude managed-only keys, and project notes read the merged block.
+# Linux amd64 release flags; no added headroom or dependencies.
+23732384

@@ -193,6 +193,7 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".claude/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
+			ignored: claude.UserIgnoredSetting,
 			effortGap: globalSurfaceGap{
 				surface: "the effort of Opus 5.5 and later models",
 				reason:  "user-level effortLevel reaches Opus 5, Fable 5.1, and earlier models only; newer models need a level saved per model with /effort",

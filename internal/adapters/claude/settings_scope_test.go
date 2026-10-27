@@ -80,8 +80,34 @@ func TestProjectIgnoredSettings_CountsEachSpec(t *testing.T) {
 		settingsEntry(map[string]any{"x-claude": map[string]any{"modelPicker": map[string]any{}}}),
 		settingsEntry(map[string]any{"model": "opus"}),
 	}
-	got := projectIgnoredSettings(entries)
+	got := projectIgnoredSettings(entries, emit.SettingsCustomKeys(entries, target))
 	if len(got) != 1 || got[0].field != "x-claude.modelPicker" || got[0].count != 2 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestProjectIgnoredSettings_NamesOnlyTheMergedValue(t *testing.T) {
+	entries := []spec.Entry{
+		settingsEntry(map[string]any{"x-claude": map[string]any{
+			"useAutoModeDuringPlan": false,
+			"sandbox":               map[string]any{"allowNestedUserNamespaces": true},
+		}}),
+		settingsEntry(map[string]any{"x-claude": map[string]any{
+			"useAutoModeDuringPlan": true,
+			"sandbox":               map[string]any{"enabled": true},
+		}}),
+	}
+	if got := projectIgnoredSettings(entries, emit.SettingsCustomKeys(entries, target)); len(got) != 0 {
+		t.Fatalf("a later spec replaced both values, got %+v", got)
+	}
+}
+
+func TestProjectIgnoredSettings_WorktreeLocationIsUserOnly(t *testing.T) {
+	entries := []spec.Entry{settingsEntry(map[string]any{"x-claude": map[string]any{
+		"worktree": map[string]any{"location": "~/wt", "baseRef": "main"},
+	}})}
+	got := projectIgnoredSettings(entries, emit.SettingsCustomKeys(entries, target))
+	if len(got) != 1 || got[0].field != "x-claude.worktree.location" || got[0].reason != userOnlyReason {
 		t.Fatalf("got %+v", got)
 	}
 }
