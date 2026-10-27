@@ -11,6 +11,7 @@ import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSect
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
+import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, valueAt } from '../model/field-address'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import type { Remote } from './Shell'
@@ -214,7 +215,7 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
             <p className="muted">{f.description}</p>
           </div>
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
-          <FieldEditControl key={scope} field={f} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
+          <FieldEditControl key={scope} field={f} files={files} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
               {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
               <p className="muted field-from">
@@ -222,18 +223,24 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
               </p>
             </div>
           ))} />
-          {f.resolved && f.resolved.length > 0 && <FieldResolution label={f.label} resolved={f.resolved} />}
+          {f.resolved && f.resolved.length > 0 && <FieldResolution field={f} files={files} resolved={f.resolved} />}
         </FieldRow>
       ))}
     </ul>
   )
 }
 
-function FieldResolution({ label, resolved }: { label: string; resolved: TargetValue[] }) {
+function FieldResolution({ field, files, resolved }: { field: SettingField; files: SectionItem[]; resolved: TargetValue[] }) {
+  const app = useApp()
+  const scope = useEditScope()
+  const label = field.label
   const tools = useContext(ConfiguredTools)
   const [selected, setSelected] = useState(resolved[0].target)
   const current = resolved.find((r) => r.target === selected) ?? resolved[0]
   const groups = valueGroups(resolved)
+  const origin = originLabel(current)
+  const override = configOverride(current)
+  const editable = app.source.kind === 'api' && field.editable && !field.editable.disabledReason
   return (
     <details className="field-resolution">
       <summary>What each tool gets</summary>
@@ -245,7 +252,8 @@ function FieldResolution({ label, resolved }: { label: string; resolved: TargetV
       </select></label>}
       <div className="field-resolution-detail" aria-live="polite">
         <p>{generatedAnswer(current)}</p>
-        {current.from && <p className="muted">From <Code>{current.from.path}</Code>{current.from.local && ', your personal file'}{!current.from.spec && ' in the config'}</p>}
+        {current.from && <p className="muted">From <Code>{current.from.path}</Code>{origin ? <>, {origin}</> : ' in the config'}</p>}
+        {override && <p className="muted"><Code>{override}</Code> in the config replaces every spec value for {current.label}. An edit below changes the spec only; remove that key for {current.label} to get it.</p>}
         {current.others.length > 0 && <>
           <p className="muted">Values that do not win:</p>
           <ul className="field-resolution-others">
@@ -254,6 +262,10 @@ function FieldResolution({ label, resolved }: { label: string; resolved: TargetV
         </>}
         {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. {current.checked ? `Sync writes that native key as is, so check the generated file for the value ${current.label} reads.` : 'Sync was not rendered here, so this native key was not checked.'}</p>)}
         <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. Other <Code>{`x-${current.target}`}</Code> keys and imported native settings files are not covered here.</p>
+        {editable && <div className="field-tool-edit">
+          <p className="muted">Set a value for {current.label} only. It is saved as <Code>{addressKey(field.key, current.target)}</Code> and wins over the value for every tool.</p>
+          <FieldEditControl key={`${scope}:${current.target}`} field={field} files={files} target={current.target} toolLabel={current.label} sources={() => null} />
+        </div>}
       </div>
     </details>
   )
@@ -264,19 +276,21 @@ function FieldRow({ field, children }: { field: SettingField; children: ReactNod
   return <li {...entry} className={`field-row${field.set.length ? ' is-set' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
-function FieldEditControl({ field, sources }: { field: SettingField; sources: (shown?: string) => ReactNode }) {
+function FieldEditControl({ field, files, sources, target, toolLabel }: { field: SettingField; files: SectionItem[]; sources: (shown?: string) => ReactNode; target?: string; toolLabel?: string }) {
   const app = useApp()
   const scope = useEditScope()
-  const transaction = useSettingChange(field.key)
+  const transaction = useSettingChange(field.key, target)
   const edit = field.editable
   const paths = edit?.paths?.length ? edit.paths : edit?.path ? [edit.path] : []
   const [path, setPath] = useState(edit?.path ?? paths[0] ?? '')
-  const valueOf = (source?: SettingField['set'][number]) => source?.values.find((entry) => entry.key === field.key)?.value
+  const valueOf = (source?: SettingField['set'][number]) => source && valueAt(source.values, field.key, target)
   const specPath = scope === 'local' ? edit?.path ?? path : path
   const specName = field.set.find((source) => source.path === specPath)?.spec
   const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath))
+  const localKeys = localSource && files.find((item) => item.name === localSource.spec && item.path === localSource.path)?.localKeys
   const teamSource = field.set.find((source) => source.path === path && !source.local)
-  const localCurrent = valueOf(localSource)
+  const localCurrent = localSource && personalValueAt(localSource.values, localKeys, field.key, target)
+  const wholePersonal = target !== undefined && localSource !== undefined && personalSetsWhole(localKeys, field.key)
   const teamCurrent = valueOf(teamSource)
   const current = (scope === 'local' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
   const [value, setValue] = useState(current)
@@ -305,7 +319,7 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
-  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
   if (app.source.kind !== 'api') return sources()
   const setSelectedPath = (next: string) => {
     const team = valueOf(field.set.find((source) => source.path === next && !source.local))
@@ -316,14 +330,14 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
     setReloaded(false)
     conflict.current = false
   }
-  const target = specPath
+  const specFile = specPath
   const post = async (body: Record<string, unknown>, expected: string | undefined) => {
     setPending(true)
     setError(undefined)
     setReloaded(false)
     conflict.current = false
     try {
-      await postEdit(API.editField, { path: target || undefined, key: field.key, ...body, expected: expected ?? null })
+      await postEdit(API.editField, { path: specFile || undefined, key: field.key, target, ...body, expected: expected ?? null })
       const saved = body.value === null ? undefined : String(body.value)
       const next = body.scope === 'local' ? { ...basis.current, local: saved } : { ...basis.current, team: saved }
       basis.current = { ...next, current: (scope === 'local' ? next.local ?? next.team : next.team) ?? '' }
@@ -346,18 +360,21 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
   }
   const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, scope === 'local' ? basis.current.local : basis.current.team)
   const reset = () => post({ scope: 'local', value: null }, basis.current.local)
-  const overridden = scope === 'team' && localCurrent !== undefined
+  const overridden = scope === 'team' && (localCurrent !== undefined || wholePersonal)
+  const resetLabel = target ? 'Reset to value below' : 'Reset to team value'
+  const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
+  const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
   const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
   const locked = pending || !!transaction.proposal
-  const resetButton = !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>Reset to team value</button>
+  const resetButton = !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>
   const previewing = pending || !transaction.ready
   const preview = async (next: string | null, where: 'team' | 'local') => {
     setError(undefined)
     setReloaded(false)
     conflict.current = false
-    const stale = await transaction.previewSetting({ path: target || undefined, key: field.key as 'model' | 'effort', value: next, expected: (where === 'local' ? basis.current.local : basis.current.team) ?? null }, where)
+    const stale = await transaction.previewSetting({ path: specFile || undefined, key: field.key as 'model' | 'effort', target, value: next, expected: (where === 'local' ? basis.current.local : basis.current.team) ?? null }, where)
     if (stale) {
       const now = latest.current
       const shown = basis.current
@@ -371,18 +388,18 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
   return <>{sources(shown)}<div className="field-edit">
     {overridden
       ? <div className="field-edit-row">
-        <p className="muted">Your local value overrides the team value. Reset it to change the team value.</p>
+        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the team\'s per-tool values. Reset it to change the team value.' : 'Your local value overrides the team value. Reset it to change the team value.'}</p>
         {resetButton}
       </div>
       : <div className="field-edit-row">
-        {edit.allowed && edit.allowed.length > 0
-          ? <select aria-label={`${field.label} value`} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
-            {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
-            {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
+        {allowed && allowed.length > 0
+          ? <select aria-label={valueLabel} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}>
+            {!allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
+            {allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
+          : <input aria-label={valueLabel} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
         {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
-        {!transaction.supported && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>Clear</button>}
+        {!transaction.supported && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>{target ? resetLabel : 'Clear'}</button>}
         {resetButton}
       </div>}
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
@@ -391,12 +408,12 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
     {transaction.supported && <div className="field-edit-row field-edit-apply">
       <span className="muted">Apply to your tools now:</span>
       {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, scope) }}>Preview and apply</button>}
-      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'team') }}>Preview removal</button>}
+      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'team') }}>{target ? 'Preview reset to value below' : 'Preview removal'}</button>}
       {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'local') }}>Preview personal reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
     {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
-    {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={field.label} />}
+    {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={toolLabel ? `${field.label} for ${toolLabel}` : field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}

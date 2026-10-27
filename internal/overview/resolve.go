@@ -56,6 +56,7 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 						Reason: "Your personal file " + origin.Path + " overrides it."})
 				}
 			}
+			origin.PerTool = !fromTier && perToolValue(e, key, target, origin.Local, in.Cfg.Models)
 			foreign := key == "model" && foreignClaudeModel(e, target)
 			if foreign {
 				origin.Value = settingsValueFor(withoutSharedModel(e), key, target)
@@ -104,6 +105,31 @@ func resolveTargets(in Inputs, key string, labels labeler, caps map[string][]spe
 		out = append(out, tv)
 	}
 	return out
+}
+
+// perToolValue reports whether e gives target its value for key from
+// the target's own entry in the per-tool map. Tiers expand into per-tool
+// entries, so an entry that matches the tier counts as the tier's.
+func perToolValue(e spec.Entry, key, target string, local bool, tiers map[string]config.ModelTier) bool {
+	meta := e.Meta
+	if e.Base != nil {
+		meta = e.Base.Meta
+		if local {
+			meta = e.LocalMeta
+		}
+	}
+	m, ok := meta[key].(map[string]any)
+	if !ok {
+		return false
+	}
+	v, ok := m[target]
+	if !ok {
+		return false
+	}
+	if tier, tiered := tiers[e.ModelTier]; key == "model" && tiered && e.Base == nil {
+		return tier.Models[target] != fmt.Sprint(v)
+	}
+	return true
 }
 
 // foreignClaudeModel reports whether e's shared model is a Claude model

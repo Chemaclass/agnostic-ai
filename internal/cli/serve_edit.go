@@ -85,6 +85,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case editBuiltinPath:
 		var req struct {
 			Scope    string          `json:"scope"`
+			Target   string          `json:"target"`
 			Name     string          `json:"name"`
 			Enabled  *bool           `json:"enabled"`
 			Reset    bool            `json:"reset"`
@@ -92,6 +93,10 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a built-in name and enabled, or reset alone"})
+			return
+		}
+		if newFieldAddress("", req.Target).target != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "built-ins apply to every tool; send target all or leave it out"})
 			return
 		}
 		if !req.Reset && !slices.Contains(builtins.Names(), req.Name) {
@@ -135,6 +140,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case editValuePath:
 		var req struct {
 			Scope    string          `json:"scope"`
+			Target   string          `json:"target"`
 			Path     string          `json:"path"`
 			Key      string          `json:"key"`
 			Value    json.RawMessage `json:"value"`
@@ -143,6 +149,10 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var value *bool
 		if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" || len(req.Value) == 0 || json.Unmarshal(req.Value, &value) != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "path, key, and a boolean or null value are required"})
+			return
+		}
+		if newFieldAddress(req.Key, req.Target).target != "" {
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "the key names the tool already; send target all or leave it out"})
 			return
 		}
 		scope, err = parseEditScope(req.Scope)
@@ -181,6 +191,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case editFieldPath:
 		var req struct {
 			Scope    string          `json:"scope"`
+			Target   string          `json:"target"`
 			Path     string          `json:"path"`
 			Key      string          `json:"key"`
 			Value    json.RawMessage `json:"value"`
@@ -196,9 +207,10 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var chosen spec.Entry
+		addr := newFieldAddress(req.Key, req.Target)
 		scope, err = parseEditScope(req.Scope)
 		if err == nil {
-			file, edit, err = h.fieldEdit(scope, req.Path, req.Key, req.Value, &chosen)
+			file, edit, err = h.fieldEdit(scope, req.Path, addr, req.Value, &chosen)
 		}
 		var source fieldSourceError
 		var nothing noPersonalValueError
@@ -214,7 +226,7 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(req.Expected) > 0 {
-			edit = expectFieldValue(req.Key, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(scope, chosen, file, req.Key), edit)
+			edit = expectFieldValue(addr, expected, bytes.Equal(bytes.TrimSpace(req.Value), []byte("null")), inheritedFieldText(scope, chosen, file, addr), edit)
 		}
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})

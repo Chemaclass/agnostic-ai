@@ -96,12 +96,15 @@ type TargetValue struct {
 // ValueOrigin is where a value comes from: a settings spec, or a config
 // key when Spec is empty. Reason says why a losing value does not win.
 type ValueOrigin struct {
-	Spec   string `json:"spec,omitempty"`
-	Path   string `json:"path"`
-	Value  string `json:"value,omitempty"`
-	Tier   string `json:"tier,omitempty"`
-	Local  bool   `json:"local,omitempty"`
-	Reason string `json:"reason,omitempty"`
+	Spec  string `json:"spec,omitempty"`
+	Path  string `json:"path"`
+	Value string `json:"value,omitempty"`
+	Tier  string `json:"tier,omitempty"`
+	Local bool   `json:"local,omitempty"`
+	// PerTool marks a value from the tool's own entry in the per-tool
+	// map, such as model.codex, rather than the value for every tool.
+	PerTool bool   `json:"perTool,omitempty"`
+	Reason  string `json:"reason,omitempty"`
 }
 
 // FieldNote is a coverage note sync raised for a settings field on one
@@ -112,12 +115,15 @@ type FieldNote struct {
 
 // FieldEdit describes the source-only edit available for a scalar field.
 type FieldEdit struct {
-	Path           string   `json:"path,omitempty"`
-	Paths          []string `json:"paths,omitempty"`
-	Kind           string   `json:"kind"`
-	Allowed        []string `json:"allowed,omitempty"`
-	DisabledReason string   `json:"disabledReason,omitempty"`
-	SyncCommand    string   `json:"syncCommand,omitempty"`
+	Path    string   `json:"path,omitempty"`
+	Paths   []string `json:"paths,omitempty"`
+	Kind    string   `json:"kind"`
+	Allowed []string `json:"allowed,omitempty"`
+	// ToolAllowed are the values one tool accepts, for the tools that
+	// accept a fixed list.
+	ToolAllowed    map[string][]string `json:"toolAllowed,omitempty"`
+	DisabledReason string              `json:"disabledReason,omitempty"`
+	SyncCommand    string              `json:"syncCommand,omitempty"`
 	// LocalPath is the personal, git-ignored file a "just me" edit of
 	// Path writes.
 	LocalPath string `json:"localPath,omitempty"`

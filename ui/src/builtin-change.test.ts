@@ -21,6 +21,13 @@ describe('builtin change contract', () => {
     expect(() => parseBuiltinChange({ ...proposal, ...change })).toThrow('invalid change')
   })
 
+  it('keeps the one tool a setting change targets', () => {
+    const setting = { ...proposal, name: 'model', key: 'model', title: 'model for codex set to gpt-5' }
+    expect(parseBuiltinChange({ ...setting, target: 'codex' })).toMatchObject({ key: 'model', target: 'codex' })
+    expect(() => parseBuiltinChange({ ...setting, target: '' })).toThrow('invalid change')
+    expect(() => parseBuiltinChange({ ...proposal, target: 'codex' })).toThrow('invalid change')
+  })
+
   it('keeps the scope and a reset of the whole personal list', () => {
     expect(parseBuiltinChange({ ...proposal, name: undefined, enabled: false, reset: true, scope: 'local' }))
       .toMatchObject({ reset: true, scope: 'local' })

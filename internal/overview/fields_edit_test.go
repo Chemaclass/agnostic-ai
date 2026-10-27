@@ -290,3 +290,47 @@ func TestSettingsItem_ListsTheKeysOfAPersonalOnlySpec(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsFields_PerToolMapsAreEditable(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude", "codex"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
+	in := Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{
+		entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "model": map[string]any{"default": "sonnet", "codex": "gpt-5"}, "effort": map[string]any{"claude": "high"}, "x-claude": map[string]any{"model": "opus"}}),
+	}}}
+	byKey := map[string]SettingField{}
+	for _, f := range sectionByID(t, Build(in), SectionSettings).Fields {
+		byKey[f.Key] = f
+	}
+	for _, key := range []string{"model", "effort"} {
+		if got := byKey[key].Editable; got == nil || got.DisabledReason != "" || got.Path != ".agnostic-ai/settings/team.yaml" {
+			t.Errorf("%s edit = %+v", key, got)
+		}
+	}
+	if got := byKey["x-"].Editable; got != nil {
+		t.Errorf("native keys edit = %+v, want none", got)
+	}
+	effort := byKey["effort"].Editable
+	if !slices.Equal(effort.ToolAllowed["claude"], []string{"high", "low", "medium", "xhigh"}) {
+		t.Errorf("claude levels = %v", effort.ToolAllowed)
+	}
+	if _, free := effort.ToolAllowed["codex"]; free {
+		t.Errorf("codex levels = %v, want free text", effort.ToolAllowed["codex"])
+	}
+}
+
+func TestSettingsFields_ModelTierAndNestedValuesStayReadOnly(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}, Models: map[string]config.ModelTier{"fast": {Models: map[string]string{"claude": "haiku"}}}}
+	tiered := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "model": "fast"})
+	b := spec.Bundle{Settings: []spec.Entry{tiered}}
+	b.ApplyModelTiers(cfg.Models)
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: b}), SectionSettings).Fields {
+		if f.Key == "model" && (f.Editable == nil || !strings.Contains(f.Editable.DisabledReason, "tier")) {
+			t.Errorf("tier model edit = %+v", f.Editable)
+		}
+	}
+	nested := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "effort": map[string]any{"claude": map[string]any{"level": "high"}}})
+	for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{nested}}}), SectionSettings).Fields {
+		if f.Key == "effort" && (f.Editable == nil || f.Editable.DisabledReason == "") {
+			t.Errorf("nested effort edit = %+v", f.Editable)
+		}
+	}
+}

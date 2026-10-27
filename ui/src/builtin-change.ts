@@ -11,6 +11,8 @@ export interface BuiltinChange {
   id?: string
   name?: string
   key?: 'model' | 'effort'
+  /** The one tool a model or effort change sets; absent for every tool. */
+  target?: string
   title?: string
   enabled: boolean
   reset?: boolean
@@ -56,11 +58,12 @@ export function parseBuiltinChange(value: unknown): BuiltinChange {
     || (value.status === 'proposed' && !value.id) || (value.undoAvailable && !value.undoId)
     || (value.key !== undefined && value.key !== 'model' && value.key !== 'effort') || (value.key !== undefined && value.name !== value.key)
     || (value.title !== undefined && !nonempty(value.title)) || (value.key !== undefined && value.title === undefined)
+    || (value.target !== undefined && (!nonempty(value.target) || value.key === undefined))
     || (value.undoTitle !== undefined && (!nonempty(value.undoTitle) || !value.undoId))) {
     throw new Error('The server returned an invalid change. Reload before trying again.')
   }
   return {
-    status: value.status, id: value.id, name: value.name, key: value.key, title: value.title, enabled: value.enabled, reset: value.reset, scope: value.scope, config: value.config,
+    status: value.status, id: value.id, name: value.name, key: value.key, target: value.target, title: value.title, enabled: value.enabled, reset: value.reset, scope: value.scope, config: value.config,
     targets: value.targets, changes: value.changes, findings: value.findings,
     undoId: value.undoId, undoName: value.undoName, undoTitle: value.undoTitle, undoAvailable: value.undoAvailable, supported: value.supported,
   }

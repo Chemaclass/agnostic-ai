@@ -91,3 +91,28 @@ func TestResolveTargets_PersonalMapKeepsTheTeamSourceForKeysItLeaves(t *testing.
 		t.Errorf("claude native = %+v, want x-claude.model", claude.Native)
 	}
 }
+
+func TestResolveTargets_MarksAValueFromTheToolsOwnEntry(t *testing.T) {
+	tiers := map[string]config.ModelTier{"fast": {Models: map[string]string{"claude": "haiku", "codex": "gpt-5-mini"}}}
+	team := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"model": map[string]any{"default": "fast", "codex": "gpt-5"}})
+	b := spec.Bundle{Settings: []spec.Entry{team}}
+	b.ApplyModelTiers(tiers)
+	model := resolvedField(t, Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}, Models: tiers}, Bundle: b}, "model")
+	if codex := model["codex"]; codex.Value != "gpt-5" || codex.From == nil || !codex.From.PerTool {
+		t.Errorf("codex model = %+v, want its own entry", codex.From)
+	}
+	if claude := model["claude"]; claude.Value != "haiku" || claude.From == nil || claude.From.PerTool {
+		t.Errorf("claude model = %+v, want the tier for every tool", claude.From)
+	}
+
+	shared := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"model": "sonnet"})
+	merged := entry(spec.KindSettings, "team", ".agnostic-ai/local/settings/team.yaml", map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}})
+	merged.Layer, merged.Base, merged.LocalMeta = "project-user", &shared, map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}}
+	model = resolvedField(t, Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}, Bundle: spec.Bundle{Settings: []spec.Entry{merged}}}, "model")
+	if codex := model["codex"]; codex.From == nil || !codex.From.Local || !codex.From.PerTool {
+		t.Errorf("personal codex = %+v, want personal and per tool", codex.From)
+	}
+	if claude := model["claude"]; claude.From == nil || claude.From.Local || claude.From.PerTool {
+		t.Errorf("claude = %+v, want the shared value for every tool", claude.From)
+	}
+}
