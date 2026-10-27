@@ -12,8 +12,18 @@ import (
 
 var tools = map[string]string{"Bash": "bash", "Read": "read_file", "Write": "write_file", "Edit": "edit"}
 
+// Vibe 3.0.3 refuses an agent file whose stem is main in any case: a
+// post_agent hook's match = "main" selects the user's agent.
+const reservedAgentName = "main"
+
+func IsReservedAgentName(name string) bool { return strings.EqualFold(name, reservedAgentName) }
+
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	for _, a := range agents {
+		path := filepath.Join(dir, a.Name+".toml")
+		if IsReservedAgentName(a.Name) {
+			return fmt.Errorf("vibe: agent %s: Vibe reserves the name main for hook matching and does not load %s; rename the agent", a.Name, path)
+		}
 		if _, ok := a.Meta["can"]; ok {
 			native, reason := a.NativeToolsFor(target)
 			if reason != "" {
@@ -56,7 +66,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		if v, ok := doc["enabled_tools"]; ok && len(stringsList(v)) == 0 {
 			return fmt.Errorf("vibe: agent %s empty enabled_tools would enable all tools", a.Name)
 		}
-		if err := writeDocument(sess, filepath.Join(dir, a.Name+".toml"), doc, true, dryRun); err != nil {
+		if err := writeDocument(sess, path, doc, true, dryRun); err != nil {
 			return err
 		}
 	}
