@@ -9,7 +9,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Claude Code
 
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
-- Sync notes a prompt or HTTP hook on an event that cannot run it, and an `if` filter on a non-tool event, where the hook never runs (#2582).
+- Sync notes a prompt, HTTP, or MCP tool hook on an event that cannot run it, and an `if` filter on a non-tool event, where the hook never runs (#2582).
 
 #### Mistral Vibe
 

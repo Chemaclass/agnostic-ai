@@ -23,7 +23,8 @@ var hookEventHandlerTypes = func() map[string][]string {
 			"InstructionsLoaded", "MessageDisplay", "Notification", "PostCompact", "PostModelSwitch", "PreCompact",
 			"PreModelSwitch", "SessionEnd", "StopFailure", "SubagentStart", "WorktreeCreate", "WorktreeRemove",
 		}},
-		{[]string{"command", "mcp_tool"}, []string{"SessionStart", "Setup"}},
+		{[]string{"command", "mcp_tool"}, []string{"SessionStart"}},
+		{[]string{"command"}, []string{"Setup"}},
 	}
 	out := map[string][]string{}
 	for _, g := range groups {
@@ -43,7 +44,7 @@ var hookIfEvents = map[string]bool{
 // NoteHookEventNoOps reports hooks on a known event that cannot run
 // their handler type or `if` filter. The hook is still written.
 func NoteHookEventNoOps(hooks []spec.Entry) {
-	var prompt, http, ifs int
+	var prompt, http, mcpTool, ifs int
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		types, known := hookEventHandlerTypes[event]
@@ -60,6 +61,8 @@ func NoteHookEventNoOps(hooks []spec.Entry) {
 				prompt++
 			case "http":
 				http++
+			case "mcp_tool":
+				mcpTool++
 			}
 		}
 		if cond, _ := h.Meta["if"].(string); cond != "" && !hookIfEvents[event] {
@@ -67,9 +70,11 @@ func NoteHookEventNoOps(hooks []spec.Entry) {
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "type", prompt,
-		"Claude Code runs prompt hooks only on tool, permission, prompt, Stop, SubagentStop, Task, and TeammateIdle events; use a command, http, or mcp_tool hook on this event")
+		"Claude Code runs prompt hooks only on tool, permission, prompt, Stop, SubagentStop, Task, and TeammateIdle events; use a command hook instead")
 	emit.NoteFieldNoOp(target, spec.KindHook, "type", http,
-		"Claude Code runs http hooks on every event except SessionStart and Setup; use a command or mcp_tool hook there")
+		"Claude Code runs http hooks on every event except SessionStart and Setup; use a command hook there")
+	emit.NoteFieldNoOp(target, spec.KindHook, "type", mcpTool,
+		"Claude Code always skips mcp_tool hooks on Setup; use a command hook there")
 	emit.NoteFieldNoOp(target, spec.KindHook, "if", ifs,
 		"Claude Code evaluates `if` only on PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, and PermissionDenied, and never runs a hook that sets it on another event; remove `if` or move the hook to a tool event")
 }

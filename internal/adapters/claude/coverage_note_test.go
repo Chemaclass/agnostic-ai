@@ -177,6 +177,7 @@ func TestEmit_Hook_NotesHandlersTheirEventCannotRun(t *testing.T) {
 		{"prompt on SessionEnd", map[string]any{"event": "SessionEnd", "type": "prompt", "prompt": "Summarize."}, "prompt hooks"},
 		{"http on SessionStart", map[string]any{"event": "SessionStart", "type": "http", "url": "https://example.test/h"}, "http hooks"},
 		{"http on Setup", map[string]any{"event": "Setup", "type": "http", "url": "https://example.test/h"}, "http hooks"},
+		{"mcp_tool on Setup", map[string]any{"event": "Setup", "type": "mcp_tool", "server": "s", "tool": "t"}, "mcp_tool hooks on Setup"},
 		{"if on Stop", map[string]any{"event": "Stop", "command": "echo hi", "if": "Bash(git *)"}, "`if`"},
 	}
 	for _, tc := range cases {
@@ -222,7 +223,7 @@ func TestEmit_Hook_NoNoteForHandlersTheirEventRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	emit.FlushCoverageNotes()
-	if strings.Contains(buf.String(), "hooks only on") || strings.Contains(buf.String(), "`if`") {
+	if strings.Contains(buf.String(), "`type`") || strings.Contains(buf.String(), "`if`") {
 		t.Errorf("unexpected note: %q", buf.String())
 	}
 }
