@@ -52,6 +52,27 @@ test.describe('overview', () => {
     await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
   })
 
+  test('copies a refine prompt for the global instructions file only', async ({ page, context }) => {
+    const data = structuredClone(fixture)
+    const contextSection = data.sections.find((section: { id: string }) => section.id === 'context')
+    const instructions = { kind: 'instructions', name: 'AGNOSTIC_AI.md', label: 'AGNOSTIC_AI.md', description: 'Loaded at the start of every session: 120 words.', values: [], findings: [] }
+    contextSection.items.push(
+      { ...instructions, path: 'AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/AGNOSTIC_AI.md', layer: 'global' },
+      { ...instructions, path: 'local/AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/local/AGNOSTIC_AI.md', layer: 'global-local' },
+    )
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
+    await page.goto('/?view=context')
+    const refine = page.getByRole('button', { name: /^Copy refine prompt/ })
+    await expect(refine).toHaveCount(1)
+    await expect(page.locator('.item-row', { hasText: 'local/AGNOSTIC_AI.md' }).getByRole('button', { name: /^Copy refine prompt/ })).toHaveCount(0)
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await refine.click()
+    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
+    const prompt = await page.evaluate(() => navigator.clipboard.readText())
+    expect(prompt).toContain('global agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
+    expect(prompt).toContain('Then wait for my approval.')
+  })
+
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
