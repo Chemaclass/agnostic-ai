@@ -6,7 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- The global web interface has **Copy refine prompt** on `AGNOSTIC_AI.md`. The prompt asks a coding agent to review the file against current guidance for instruction files, propose a rewrite with a change table that accounts for every rule, and wait for approval before it edits and syncs.
+- The global web interface has **Copy refine prompt** on `AGNOSTIC_AI.md`. The prompt asks a coding agent to review the file against current guidance for instruction files, propose a rewrite with a change table that accounts for every rule, and wait for approval before it edits and syncs (#2566).
 - Parallel sync no longer mistakes a shared generated skill for a hand-written file while another target writes it, so commands are not omitted from Copilot (#2561).
 - Project model and reasoning effort changes in the web interface now use preview and apply, including removal and personal reset, so a change also updates generated files (#2553).
 - The web interface refuses stale boolean and built-in saves, preserves the displayed choice, and offers to reload saved values (#2542).
