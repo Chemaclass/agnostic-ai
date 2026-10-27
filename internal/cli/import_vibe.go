@@ -98,6 +98,9 @@ func importFromVibe(root string, src config.Sources, cfg *config.Config) error {
 			return err
 		}
 		name := strings.TrimSuffix(e.Name(), ".toml")
+		if vibe.IsReservedAgentName(name) {
+			keptf("note: Vibe reserves the name main for hook matching and does not load %s; rename the agent before the next sync\n", filepath.ToSlash(filepath.Join(agents, e.Name())))
+		}
 		body, _ := doc["instructions"].(string)
 		if body == "" {
 			if _, ok := doc["system_prompt_id"]; ok {

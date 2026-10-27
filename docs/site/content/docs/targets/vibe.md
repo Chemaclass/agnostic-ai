@@ -58,7 +58,7 @@ Commands use the shared conversion to skills invoked by the user. Vibe has no na
 
 ## Agents and skills
 
-Agents emit as `agent_type = "subagent"`, with inline `instructions`, a description, and an optional `active_model`. A native `x-vibe.agent_type: agent` preserves a primary profile for explicit selection with `vibe --agent <name>`.
+Agents emit as `agent_type = "subagent"`, with inline `instructions`, a description, and an optional `active_model`. A native `x-vibe.agent_type: agent` preserves a primary profile for explicit selection with `vibe --agent <name>`. Vibe 3.0.3 reserves the agent name `main`, in any case, for hook matching and does not load a file with that name, so sync stops and asks you to rename the agent. Import notes such a file.
 
 Portable agent tools map `Bash`, `Read`, `Write`, and `Edit` to `bash`, `read_file`, `write_file`, and `edit`. `Grep` has no direct mapping in Vibe 3.0; the native agent searches through its shell tool. Unresolved tools are omitted with a coverage note while supported tools keep the agent restricted. Sync fails if none of the requested tools can be mapped. Use `x-vibe.enabled_tools`, `x-vibe.disabled_tools`, and native `x-vibe.tools` permission tables for Vibe-specific policies. Empty `enabled_tools` would allow every tool, so sync rejects it. Portable `readonly` and permission patterns have no direct mapping. Vibe's `safety` field controls presentation, not access.
 
@@ -72,7 +72,7 @@ MCP servers support stdio and streamable HTTP. HTTP headers use native static au
 
 `model` maps to `active_model`. Other native project settings pass through `x-vibe`. Portable reasoning effort and permission settings raise coverage notes; Vibe's reasoning setting belongs to each model.
 
-Hooks accept native `event: pre_tool`, `post_tool`, or `post_agent`. `matcher` maps to native `match`; `timeout` is in seconds. Use `x-vibe.strict: true` on tool hooks to deny or clear output when a hook fails. `post_agent` rejects `match` and `strict: true`. A shell guard should match both `bash` and `process_start`.
+Hooks accept native `event: pre_tool`, `post_tool`, or `post_agent`. `matcher` maps to native `match`; `timeout` is in seconds. Use `x-vibe.strict: true` on tool hooks to deny or clear output when a hook fails. On `post_agent`, `match` runs the hook only after the named agent ends its turn, and `match: main` selects the main agent (Vibe 3.0.3 and later). `post_agent` rejects `strict: true`. A shell guard should match both `bash` and `process_start`.
 
 Hooks receive JSON on standard input and respond with Vibe JSON. Exit zero with `{"decision":"deny","reason":"..."}` denies according to the event: `pre_tool` blocks a call, `post_tool` rewrites its output, and `post_agent` requests a retry. A nonzero exit is a hook failure. Claude-style exit 2 and portable lifecycle events are not translated. Commands receive `AGNOSTIC_AI_TARGET=vibe`; arguments fold into the command because Vibe has no separate argument field. On Windows, arguments PowerShell cannot preserve cause an error; write the complete native command in that case.
 
