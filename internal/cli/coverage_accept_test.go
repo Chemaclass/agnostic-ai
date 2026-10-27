@@ -73,7 +73,7 @@ func TestSync_AcceptedCoverageNoteStopsPrinting(t *testing.T) {
 func TestSync_VerboseListsAcceptedCoverageNoteWithReason(t *testing.T) {
 	setupCoverageAcceptProject(t, acceptCodexTools)
 	notes := captureNotes(t)
-	withVerbosity(t, levelVerbose)
+	withVerbosity(t, levelVerbose+1)
 
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestSync_VerboseListsAcceptedCoverageNoteWithReason(t *testing.T) {
 
 	want := "  accepted: " + codexToolsNote + " (Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings)\n    reason: Codex limits come from sandbox_mode.\n"
 	if !strings.Contains(notes.String(), want) {
-		t.Errorf("sync -v should list the accepted note with its reason, want %q in:\n%s", want, notes)
+		t.Errorf("sync -vv should list the accepted note with its reason, want %q in:\n%s", want, notes)
 	}
 }
 
@@ -310,7 +310,7 @@ func TestDoctor_ShowsAcceptedCoverageNoteCount(t *testing.T) {
 
 	out, _ := runDoctor(t)
 
-	if !strings.Contains(out, "Coverage notes:\n  1 accepted (sync -v lists them)\n") {
+	if !strings.Contains(out, "Coverage notes:\n  1 accepted (sync -vv lists them)\n") {
 		t.Errorf("doctor should show the accepted note count:\n%s", out)
 	}
 

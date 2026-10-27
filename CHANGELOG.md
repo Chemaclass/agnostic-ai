@@ -29,6 +29,8 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Sync and configuration
 
+- `sync -v` highlights changes and new coverage notes; `sync -vv` shows every target, path, and repeated note (#2570).
+
 - Parallel sync preserves Copilot commands when targets share a generated skill (#2561).
 - Global sync, explain, lint, and import respect settings target filters for model, effort, and tool-specific values (#2525).
 - `sync --global` preserves user-written empty objects when removing settings (#2529).

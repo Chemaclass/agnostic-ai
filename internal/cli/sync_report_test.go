@@ -3,9 +3,11 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -20,6 +22,44 @@ func renderReport(r syncReport, targets int, verbose bool) string {
 	var buf bytes.Buffer
 	r.render(&buf, targets, 5*time.Millisecond, verbose)
 	return buf.String()
+}
+
+func TestRenderTargetRowsShowsCountsAndTiming(t *testing.T) {
+	var buf bytes.Buffer
+	renderTargetRows(&buf, []emitRow{
+		{target: "claude", created: 2, updated: 1, skipped: 3, dur: 42 * time.Millisecond},
+		{target: "codex", skipped: 4, dur: 7 * time.Millisecond},
+	}, true)
+	want := "Target  Created  Updated  Unchanged  Time\n" +
+		"claude        2        1          3  42ms\n" +
+		"codex         0        0          4  7ms\n"
+	if got := buf.String(); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestRenderTargetRowsCompactSummarizesTargetsWithoutWrites(t *testing.T) {
+	rows := make([]emitRow, 31)
+	for i := range rows {
+		rows[i] = emitRow{target: fmt.Sprintf("target%d", i), skipped: 4}
+	}
+	rows[0].updated = 1
+	var buf bytes.Buffer
+	renderTargetRows(&buf, rows, false)
+	got := buf.String()
+	if !strings.Contains(got, "target0") || strings.Contains(got, "target1") || !strings.Contains(got, "30 targets had no writes") {
+		t.Errorf("unexpected compact rows:\n%s", got)
+	}
+}
+
+func TestSyncReportCompactShowsSummaryBeforeCappedPaths(t *testing.T) {
+	r := syncReport{updated: []string{"a", "b", "c", "d"}}
+	var buf bytes.Buffer
+	r.renderCompact(&buf, 31, 5*time.Millisecond)
+	got := buf.String()
+	if !strings.HasPrefix(got, "✓ synced 31 targets · 4 updated · 5ms\n") || !strings.Contains(got, "a  b  c  (+1 more)") {
+		t.Errorf("unexpected compact report:\n%s", got)
+	}
 }
 
 func TestSyncReport_NoChangesSaysUpToDate(t *testing.T) {
@@ -365,10 +405,10 @@ func TestRunSyncOnce_ReportCountsTargetsThatReadAGENTSmd(t *testing.T) {
 	if !strings.Contains(out, "  ~ rule style → 3 files in 3 targets\n") {
 		t.Errorf("AGENTS.md should count for codex, which reads it:\n%s", out)
 	}
-	if !strings.Contains(out, "→ codex: 0 created, 1 updated, 0 unchanged in ") {
+	if !regexp.MustCompile(`(?m)^codex\s+0\s+1\s+0\s+\d+ms$`).MatchString(out) {
 		t.Errorf("codex line should count AGENTS.md:\n%s", out)
 	}
-	if !strings.Contains(out, "→ claude: 0 created, 1 updated, 1 unchanged in ") {
+	if !regexp.MustCompile(`(?m)^claude\s+0\s+1\s+1\s+\d+ms$`).MatchString(out) {
 		t.Errorf("claude line should count its unchanged CLAUDE.md:\n%s", out)
 	}
 }

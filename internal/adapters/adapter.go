@@ -337,6 +337,19 @@ func PendingCapabilityWarnings() []DropRecord { return emit.PendingCapabilityWar
 // target and note, without clearing them.
 func PendingCoverageNotes() []DropRecord { return emit.PendingCoverageNotes() }
 
+// DropRecordFingerprint identifies the full diagnostic and its fix.
+func DropRecordFingerprint(r DropRecord) string { return emit.DropRecordFingerprint(r) }
+
+// SuppressKnownCapabilityWarnings removes previously reported warnings.
+func SuppressKnownCapabilityWarnings(known map[string]bool) int {
+	return emit.SuppressKnownCapabilityWarnings(known)
+}
+
+// SuppressKnownCoverageNotes removes previously reported notes.
+func SuppressKnownCoverageNotes(known map[string]bool) int {
+	return emit.SuppressKnownCoverageNotes(known)
+}
+
 // OrderBufferedDropsByTarget reorders the buffered capability warnings and
 // coverage notes to the given target sequence so their flushed output is
 // deterministic regardless of the order concurrent emission appended them
