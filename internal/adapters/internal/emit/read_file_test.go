@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestReadFileWaitsForSharedWrite(t *testing.T) {
@@ -27,6 +28,9 @@ func TestReadFileWaitsForSharedWrite(t *testing.T) {
 
 func testReadFileWaitsForSharedWrite(t *testing.T, alias string) {
 	root := t.TempDir()
+	if alias == "relative" || alias == "other-output" {
+		testutil.Chdir(t, root)
+	}
 	path := filepath.Join(root, "nested", "SKILL.md")
 	writePath := path
 	switch alias {
