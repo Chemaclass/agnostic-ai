@@ -6,40 +6,43 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
-- Parallel sync no longer mistakes a shared generated skill for a hand-written file while another target writes it. Copilot commands are no longer omitted (#2561).
-- Project model and reasoning effort changes in the web interface use preview and apply, including removal and personal reset, and update generated files (#2553).
-- The web interface refuses stale boolean and built-in saves, preserves the displayed choice, and offers to reload saved values (#2542).
-- `serve --no-installed` skips installed-file comparisons in the project and `--global` web overview. Every tool shows Not checked; source checks still run (#2528).
-- The Settings page shows values from other files, such as packs, with their paths when editing a different file or viewing a personal override message. An empty input says Not set in this file and names the save location; a value is hidden only when the editor shows that file's value (#2527).
-- Use **Recheck** on a web finding to rerun its checks without leaving the page. Findings that move lines still count as remaining, and new findings are marked. Failed refreshes and incomplete lint runs show an unknown result; disappearing doctor findings show not confirmed because doctor skips unreadable files. The overview reports incomplete lint runs as `lint-incomplete` (#2515).
-- `sync --global` preserves user-written empty objects, such as `"env": {}`, when removing a setting inside them. Adding and removing a setting restores the original file; objects created by sync are still removed. Ownership state moves to version 9, which older releases refuse to read (#2529).
-- A first Just me save in an unsynced project adds the local folder or `agnostic-ai.local.yaml` to `.git/info/exclude` before writing. The server refuses the save if Git still would not ignore the file (#2526).
-- `sync --global` applies a settings spec's `target`, `targets`, and `targets-exclude` to model, effort, and `x-<tool>` values, as it already did for permission mode and session retention. A spec limited to Codex can no longer set Claude Code's model or native settings. `explain --global`, `lint --global`, and `import --global` follow the same rule (#2525).
-- Cancelling a built-in or setting preview discards it on the server, so reloading or leaving Settings no longer restores it and locks other switches. The last applied change keeps its undo, and a tab cannot cancel a newer preview from another tab (#2520).
-- The web interface previews, applies, and undoes project default model and reasoning effort changes for the team or just you. The preview lists the settings file, generated files, and other unsynced changes it would apply without writing. Apply checks generated files, and **Undo last change** names the last built-in or setting change (#2511).
-- The web interface opens source files and findings in Cursor or VS Code, chosen in the header and remembered by the browser. Cursor is the default. File findings link to their line when known, and each open link offers **Copy path** (#2513).
-- `sync --global --backup` keeps `<path>.bak` for removed files, such as a hand-edited skill whose source was deleted, as it already did for overwritten files. A symlink or other non-regular `.bak` path stops the run (#2516).
-- The Settings page shows the default model and reasoning effort sync writes for each configured tool, their sources, and why other values lose. It covers model tiers, personal overrides, per-tool values, and tools without a place for the value. This is separate from installed-file status and does not claim what a running tool uses (#2512).
-- Search every web section, including settings, servers, and findings, with **Search** or `Cmd+K` / `Ctrl+K`. Result links survive reloads and browser history and report when an entry is gone (#2514).
-- `init` creates a placeholder `.agnostic-ai/AGNOSTIC_AI.md` for new projects. It keeps existing notes, import replaces the placeholder, and `init` in the home folder leaves the global note alone (#2534).
-- The web interface shows whether each configured tool's generated files match the source, which files differ, and when they were last checked. Refresh keeps your page, search, and unsaved input. Saves identify source-only changes; snapshots identify themselves as not live checks (#2510).
-- A Settings save no longer overwrites a value changed after the page loaded, in another tab or outside the browser. The server refuses the save; the page keeps your draft and offers to reload the saved values (#2518).
-- `sync --global` stops if a symlinked user file changed during sync, preserving the link and its target, as it already did for a regular file (#2517).
-- The README and the first documentation pages give one path for new users: why, install, then set up your project. Everyday commands moved from the README to the setup guide, and the guides in the sidebar are ordered by when you need them (#2522).
-- When the overview fails to refresh, the web interface marks the retained page as not refreshed, disables editing, and offers Retry. Your place and unsaved input stay (#2519).
-- `sync --global` refuses rules with `globs`, `paths`, or `scope` in an `x-<target>` block for a target being synced, as it already did for top-level keys. This prevents scoped rules from applying to every file. `lint --global` and `validate --global` report them too (#2508).
-- `compare` finishes in about a second at 500 specs instead of several minutes; its report is unchanged (#2498).
-- **Breaking:** web edit and built-in preview requests must send `scope` (`team` or `local`); the server no longer guesses the file from which ones exist.
-- The web interface's Settings page saves for the team or just you: Just me writes Git-ignored local files, and local values show a badge and a reset.
-- `ui` opens another project or scope on the next free port up to 4319 and reuses it later, instead of failing; an explicit `--addr` stays put (#2492).
-- A `builtins` list in `agnostic-ai.local.yaml` no longer changes the committed `.gitignore` block; its extra outputs go to `.git/info/exclude` (#2494).
-- Turning on the `memory` built-in in the web interface previews and applies the `.git/info/exclude` line that keeps Claude Code's private settings out of Git, as `sync` does (#2486).
-- Set, update, and clear scalar model, effort, and global session-retention settings in the web interface with validated source-only edits. Fields with fixed values, such as effort, offer a list; each setting shows its value beside its controls (#2476).
-- The web interface shows the full configuration path under the project name, and marks the user-level view as Global.
-- **Added:** `ui` aliases `view`. Opening the same project or global interface again reuses its running server; another scope or an `--api-only` server on the port suggests `--addr`. `/api/health` answers without loading specs and returns the root, scope, and `ui`; it no longer returns `revision` (#2477).
+- **Breaking:** Web edit and built-in preview requests must send `scope` (`team` or `local`).
+
+#### Web interface
+
+- Preview, apply, and undo project model and reasoning effort changes for the team or just you (#2511, #2553).
+- Edit model, effort, and global session-retention settings; personal settings use Git-ignored files and can be reset (#2476, #2526).
+- Settings show values from other files and the model and effort sync selects for each tool (#2512, #2527).
+- Stale setting and built-in saves keep your choice or draft and offer to reload saved values (#2518, #2542).
+- Cancelled previews stay cancelled, and a tab cannot cancel a newer preview from another tab (#2520).
+- Toggle built-ins in unsynced projects, including the ignore entry for Claude Code's private memory settings (#2484, #2486).
+- See which generated files match the source, refresh the overview, and retry failed refreshes without losing your input (#2510, #2519).
+- `serve --no-installed` skips installed-file comparisons in project and global overviews while still checking source files (#2528).
+- Recheck findings in place; incomplete checks report an unknown result, and disappearing doctor findings show not confirmed (#2515).
+- Search all sections with **Search** or `Cmd+K` / `Ctrl+K`; result links survive reloads and browser history (#2514).
+- Open source files and findings in Cursor or VS Code, or copy their paths (#2513).
+- The header shows the full configuration path and labels the user-level view Global.
+- `ui` aliases `view`, reuses a running server, and finds a free port for another project or scope (#2477, #2492).
+- `/api/health` returns the root, scope, and `ui` without loading specs; it no longer returns `revision` (#2477).
+
+#### Sync and configuration
+
+- Parallel sync preserves Copilot commands when targets share a generated skill (#2561).
+- Global sync, explain, lint, and import respect settings target filters for model, effort, and tool-specific values (#2525).
+- `sync --global` preserves user-written empty objects when removing settings (#2529).
+- Global ownership state moves to version 9; older releases cannot read it (#2529).
+- `sync --global` stops if a symlinked user file changes during sync, preserving the link and its target (#2517).
+- `sync --global --backup` saves removed files as `<path>.bak` and refuses non-regular backup paths (#2516).
+- Global sync, lint, and validation reject scoped rules in target-specific blocks (#2508).
+- Local `builtins` outputs go to `.git/info/exclude` without changing the committed `.gitignore` (#2494).
+- The `caveman` built-in and example pack contain only `SKILL.md`; sync removes generated extras and keeps edited files.
+- Edited `caveman` extras remain unowned. Delete them, run `doctor --fix`, or list them in `sync.unmanaged`.
+- `init` creates a shared placeholder note for new projects, keeps existing notes, and leaves the global note alone (#2534).
+
+#### Performance and benchmarks
+
+- `compare` finishes in about a second at 500 specs instead of several minutes, with the same report (#2498).
 - Command benchmarks can retain paired raw samples and compare fixture, binary, and machine metadata (#2459).
-- Built-in toggles work in projects that were never synced: the preview creates outputs, the project lock, and the ignore entries sync would add (#2484).
-- The `caveman` built-in and example pack contain only `SKILL.md`, so project and global sync write only that file to each tool's skill folder. The next sync removes previously generated license, notice, and readme files while keeping user files. If you edited a generated file, sync keeps it and `sync --check` reports it as unowned until you delete it, run `doctor --fix`, or list it under `sync.unmanaged`.
 
 ### By tool
 
@@ -50,6 +53,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### Qwen Code
 
 - Rules with `globs` go to `.qwen/rules/<name>.md` with `paths:`, so Qwen loads them only for matching files; import reads them back (#2502).
+
+### Site
+
+- The README and guides give new users a clearer path from installation to project setup (#2522).
 
 ## v0.88.0 - 2026-10-25
 
