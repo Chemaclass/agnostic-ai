@@ -173,6 +173,20 @@ func TestImportVibe_PostAgentStrictFalseRoundTripsFresh(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 }
+func TestImportVibe_PostAgentMatchRoundTripsFresh(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")
+	writeFile(t, ".vibe/hooks.toml", "[[hooks]]\nname='after-main'\ntype='post_agent'\ncommand='check'\nmatch='main'\n")
+	execCLI(t, "import", "vibe")
+	if err := os.Remove(filepath.Join(dir, ".vibe/hooks.toml")); err != nil {
+		t.Fatal(err)
+	}
+	execCLI(t, "sync")
+	if got := readGlobalTest(t, filepath.Join(dir, ".vibe/hooks.toml")); !strings.Contains(got, `match = "main"`) {
+		t.Fatalf("post_agent match lost: %s", got)
+	}
+	execCLI(t, "sync", "--check")
+}
 func TestImportGlobal_VibePostAgentStrictFalseRoundTripsFresh(t *testing.T) {
 	home, _ := globalAgentTestHome(t)
 	path := filepath.Join(home, ".vibe/hooks.toml")

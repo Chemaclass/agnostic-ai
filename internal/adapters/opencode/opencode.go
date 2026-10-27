@@ -19,7 +19,8 @@
 //
 // Agents emit natively as subagent definitions at
 // `.opencode/agents/<name>.md` (frontmatter `description`, `mode`,
-// `model`, `temperature`, `permission`). Skills emit natively as one
+// `model`, `temperature`, `permission`; V2 files move `temperature`
+// under `request.body`). Skills emit natively as one
 // folder per skill at `.opencode/skills/<name>/SKILL.md` with bundled
 // assets; `outputs.opencode.emit-skills-as-commands: true` additionally
 // writes the command form. Command specs emit at
