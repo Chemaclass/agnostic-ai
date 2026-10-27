@@ -19,3 +19,9 @@ func EscapeTOMLBasic(s string) string { return emit.EscapeTOMLBasic(s) }
 func NoteSettingsFieldNoOp(target, field string, count int, reason string) {
 	emit.NoteFieldNoOp(target, spec.KindSettings, field, count, reason)
 }
+
+// NoteSettingsSurfaceGap buffers a coverage note that count settings
+// specs reach target but not surface.
+func NoteSettingsSurfaceGap(target string, count int, surface, reason string) {
+	emit.NoteSurfaceGap(target, spec.KindSettings, count, surface, reason)
+}

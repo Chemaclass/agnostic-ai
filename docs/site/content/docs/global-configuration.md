@@ -133,6 +133,8 @@ Targets not in the table raise a coverage note for `model` and `effort`, and so 
 
 Accepted `effort` values: Claude and Copilot take `low`, `medium`, `high`, `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, `max`; Codex takes any string; for CodeBuddy Code see [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits). `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 
+Claude Code reads `effortLevel` in `~/.claude/settings.json` on Opus 5, Fable 5.1, and earlier models only. Opus 5.5 and later models ignore it and need a level saved per model with `/effort`. `sync --global` writes the key and prints a note. In project settings, `effortLevel` applies to every model.
+
 Set Claude Code's starting permission mode in a home settings spec:
 
 ```yaml
