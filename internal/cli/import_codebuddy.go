@@ -340,6 +340,13 @@ func importCodebuddySettings(root, path string, src config.Sources) error {
 				if len(commands) == 1 {
 					hook["command"] = commands[0]
 				}
+				if first, _ := handlers[0].(map[string]any); first["type"] == "prompt" {
+					delete(hook, "command")
+					hook["type"], hook["prompt"] = "prompt", first["prompt"]
+					if first["continueOnBlock"] == true {
+						hook["continueOnBlock"] = true
+					}
+				}
 				if decision {
 					hook["decision"] = "stdout"
 				}
@@ -422,6 +429,9 @@ func codebuddySimpleHookGroups(event string, groups []any) bool {
 		if !ok || len(handlers) == 0 {
 			return false
 		}
+		if codebuddyPromptHandler(event, handlers) {
+			continue
+		}
 		var timeout any
 		for i, raw := range handlers {
 			h, ok := raw.(map[string]any)
@@ -442,6 +452,31 @@ func codebuddySimpleHookGroups(event string, groups []any) bool {
 			} else if timeout != h["timeout"] {
 				return false
 			}
+		}
+	}
+	return true
+}
+
+// A group imports as a prompt spec only when its one handler uses the fields CodeBuddy documents.
+func codebuddyPromptHandler(event string, handlers []any) bool {
+	if len(handlers) != 1 || !slices.Contains(codebuddy.PromptHookEvents(), event) {
+		return false
+	}
+	h, ok := handlers[0].(map[string]any)
+	if !ok || h["type"] != "prompt" {
+		return false
+	}
+	if prompt, _ := h["prompt"].(string); prompt == "" {
+		return false
+	}
+	if v, ok := h["continueOnBlock"]; ok {
+		if _, isBool := v.(bool); !isBool {
+			return false
+		}
+	}
+	for key := range h {
+		if !slices.Contains([]string{"type", "prompt", "timeout", "continueOnBlock"}, key) {
+			return false
 		}
 	}
 	return true

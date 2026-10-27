@@ -12,7 +12,7 @@ func (Adapter) AgentMCPForm() emit.AgentMCPForm {
 	return emit.AgentMCPForm{Key: "mcp_servers"}
 }
 
-// AgentMCPServers renders mcps in the ~/.openhands/mcp.json shape.
+// AgentMCPServers renders mcps in the OpenHands MCP config shape.
 func (a Adapter) AgentMCPServers(mcps []spec.Entry) map[string]any {
 	return a.UserMCPServers(mcps)
 }

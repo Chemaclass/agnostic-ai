@@ -150,6 +150,45 @@ func TestCodebuddy_PortableHookDecisionRunsAndImports(t *testing.T) {
 		t.Fatalf("wrapper copied into spec: %s", got)
 	}
 }
+
+func TestCodebuddy_PromptHookRoundTrips(t *testing.T) {
+	root := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [codebuddy]\n")
+	writeFile(t, filepath.Join(root, ".agnostic-ai/hooks/stop-check.yaml"), "name: stop-check\nevent: Stop\ntype: prompt\nprompt: 'Check tests pass: $ARGUMENTS'\ntimeout: 30\ncontinueOnBlock: true\n")
+	mustSync(t)
+	before, err := os.ReadFile(filepath.Join(root, ".codebuddy/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, ".agnostic-ai/hooks/stop-check.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runRoot(t, "import", "codebuddy"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(root, ".agnostic-ai/hooks/codebuddy-stop-1.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"type: prompt", "prompt: 'Check tests pass: $ARGUMENTS'", "timeout: 30", "continueOnBlock: true"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("imported spec lacks %q:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(root, ".agnostic-ai/settings/codebuddy.yaml")); err == nil {
+		t.Error("prompt hook stayed under x-codebuddy")
+	}
+	mustSync(t)
+	after, err := os.ReadFile(filepath.Join(root, ".codebuddy/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Errorf("settings changed after round trip:\nbefore %s\nafter  %s", before, after)
+	}
+}
+
 func TestCodebuddy_DeleteCapabilityCannotBecomeInheritedTools(t *testing.T) {
 	root := testutil.TempCwd(t)
 	silence(t)

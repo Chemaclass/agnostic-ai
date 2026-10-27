@@ -11,6 +11,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
 - Sync notes a prompt, HTTP, or MCP tool hook on an event that cannot run it, and an `if` filter on a non-tool event, where the hook never runs (#2582).
 
+#### CodeBuddy Code
+
+- Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
 #### Mistral Vibe
 
 - `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).
@@ -19,6 +23,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 #### OpenCode
 
 - Agents with V2 fields keep their `temperature`, written as `request.body.temperature` (#2584).
+
+#### OpenHands
+
+- **Breaking:** `sync --global` no longer writes `~/.openhands/mcp.json`, which only the unmaintained OpenHands-CLI reads. Add MCP servers in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. The next sync removes the servers it recorded as its own there, including a hand-written one an earlier sync adopted because it matched a spec exactly; `--backup` keeps a copy, and `import --global openhands` still reads the file (#2576).
 
 ### Site
 

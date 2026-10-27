@@ -65,13 +65,10 @@ func writeSettings(sess *emit.Session, hooks, settings []spec.Entry, cfg *config
 		if event == "" {
 			continue
 		}
-		if !slices.Contains(HookEvents(), event) {
-			return fmt.Errorf("%s: codebuddy: unsupported hook event %q", h.Path, event)
-		}
-		if typ, _ := m["type"].(string); typ != "" && typ != "command" {
-			return fmt.Errorf("%s: codebuddy: only command hooks are supported", h.Path)
-		}
 		var handlers []any
+		if prompt := PromptHandler(h); prompt != nil {
+			handlers = append(handlers, prompt)
+		}
 		for _, c := range HookCommands(cfg, h) {
 			handler := map[string]any{"type": "command", "command": c.Command}
 			if c.Timeout > 0 {

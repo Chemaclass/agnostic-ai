@@ -61,7 +61,7 @@ agnostic-ai sync --check
 agnostic-ai lint
 ```
 
-Import reads root and scoped instructions, modular rules, agents, skill folders and resources, commands, settings, command hooks, and root MCP files. Native fields stay under `x-codebuddy` when they have no portable equivalent. Top-level environment and credential settings stay in the native file. Nested credentials and inline agent MCP literals fail import with a field-only diagnostic; use native environment references in supported MCP fields. Native MCP import reads `.mcp.json` before deprecated `mcp.json`. Configure the opt-in below before syncing imported project servers.
+Import reads root and scoped instructions, modular rules, agents, skill folders and resources, commands, settings, command and prompt hooks, and root MCP files. Native fields stay under `x-codebuddy` when they have no portable equivalent. Top-level environment and credential settings stay in the native file. Nested credentials and inline agent MCP literals fail import with a field-only diagnostic; use native environment references in supported MCP fields. Native MCP import reads `.mcp.json` before deprecated `mcp.json`. Configure the opt-in below before syncing imported project servers.
 
 Instruction frontmatter keeps its native `enabled`, `alwaysApply`, and `paths` values. `enabled: false` and `alwaysApply: false` without paths stay inactive. Import uses the source-only `x-codebuddy.instruction-file` hint, either `CODEBUDDY.md` or `.codebuddy/CODEBUDDY.md`, with validated `scope` to restore the original location. This hint is omitted from native output. If both root alternatives exist, select one with the [entry-point file configuration](@/docs/configuration.md#entry-point-files) before import.
 
@@ -93,7 +93,7 @@ MCP permission rules accept `mcp__server`, `mcp__server__*`, and exact `mcp__ser
 
 Settings map `model` to `model`, `effort` to `reasoningEffort`, permission lists to `permissions.allow/ask/deny`, and `permissions.default-mode` to `permissions.defaultMode`. Effort accepts `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. Session retention maps to `cleanupPeriodDays` at user scope. Project `autoMode` and `permissions.defaultMode: auto` are rejected because CodeBuddy ignores them there.
 
-Command hooks retain native event names, matchers, and timeouts in seconds. Arguments are shell-quoted into the command. Settings merge with existing native keys and hook entries. CodeBuddy reviews hook changes itself; frontmatter hooks also require the user's `allowUntrustedFrontmatterHooks` choice. Sync never makes trust or approval decisions.
+Command hooks retain native event names, matchers, and timeouts in seconds. Arguments are shell-quoted into the command. Prompt hooks (`type: prompt`) work on `Stop`, `UserPromptSubmit`, and `PreToolUse` in project settings, and write `prompt`, `timeout`, and `continueOnBlock`; CodeBuddy has no prompt `model` field, so sync drops it with a note. Sync rejects prompt hooks on other events, prompt hooks in user settings, and other handler types. Settings merge with existing native keys and hook entries. CodeBuddy reviews hook changes itself; frontmatter hooks also require the user's `allowUntrustedFrontmatterHooks` choice. Sync never makes trust or approval decisions.
 
 Ignore files, review configuration, environments, plugins, credentials, sessions, and automatic memories have no output in this adapter.
 
