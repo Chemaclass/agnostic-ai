@@ -56,7 +56,7 @@ The parent requires exact versions of six platform packages, so the release publ
 
 1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt`, and unpacks one program per platform.
 2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
-3. `scripts/npm-publish.sh <x.y.z>` publishes the six platform packages with required provenance and waits until npm serves them. It waits five more minutes (`NPM_ATTESTATION_SETTLE`), verifies all six, then publishes, waits for, and verifies the parent. Each check retries with backoff (`NPM_PROVENANCE_RETRIES`, default 10) so a short registry outage does not fail a good version.
+3. `scripts/npm-publish.sh <x.y.z>` publishes the six platform packages with required provenance and waits until npm serves them. When this run uploaded any of them, it waits five more minutes (`NPM_ATTESTATION_SETTLE`) before verifying those uploads. The parent follows the same steps. A version an earlier run published is verified straight away. Each check retries with backoff (`NPM_PROVENANCE_RETRIES`, default 10) so a short registry outage does not fail a good version.
 
    The wait before the first check matters. npm caches each signed record response for a year, and npm adds its own signed record about a minute after it serves the version. A check that reads the record too early stores an incomplete copy, and later checks that hit the same cache keep failing with "has attestations but no corresponding public key(s) can be found".
 
