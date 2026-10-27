@@ -93,7 +93,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				return err
 			}
 			defer src.close()
+			peer := switchPeerFor(".", global)
 			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, AllowedOrigins: allowedOrigins}
+			if global && peer != nil {
+				opts.ProjectRoot = peer.root
+			}
 			if !apiOnly && uiDir == "" {
 				opts.UIFiles = webui.Files()
 			}
@@ -119,7 +123,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWith(src.load, opts, !noInstalled))
+			switches := newSwitchHandler(peer, viewPortCandidates(), probeViewServer, startPeerServer)
+			defer switches.close()
+			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWithSwitch(src.load, opts, !noInstalled, switches))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -147,6 +153,12 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Hand
 // newServeMuxWith is newServeMux that leaves the generated files
 // uncompared in the overview when compareInstalled is false.
 func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool) http.Handler {
+	return newServeMuxWithSwitch(load, opts, compareInstalled, nil)
+}
+
+// newServeMuxWithSwitch also mounts the switch to the other
+// configuration when switches is set.
+func newServeMuxWithSwitch(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool, switches *switchHandler) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", compareInstalled)
@@ -165,16 +177,20 @@ func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compa
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
 	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
+	if switches != nil {
+		mux.Handle(switchPath, switches)
+	}
 	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
 }
 
 // serializeAPI runs one API request at a time. Rendering adapters in
 // capture mode swaps package-level warning state, so two views rendering
-// at once would interleave it.
+// at once would interleave it. Health and the switch render nothing, and
+// the switch may wait seconds for a server to start.
 func serializeAPI(next http.Handler) http.Handler {
 	var mu sync.Mutex
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath {
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath {
 			mu.Lock()
 			defer mu.Unlock()
 		}

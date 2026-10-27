@@ -88,7 +88,8 @@ Read-only check results appear on affected items or sections, never in a separat
 | POST | `/api/views/authority/impact` | `ImpactResult` for the posted `Proposal` |
 | GET | `/api/views/authority/schema` | the schema version and endpoint list |
 | GET | `/api/views/overview` | `overview.View` |
-| GET | `/api/health` | `{ok, root, global, ui}`, without loading specs |
+| GET | `/api/health` | `{ok, root, global, ui, projectRoot?}`, without loading specs; `projectRoot` only on a global server started in a project |
+| POST | `/api/switch` | finds or starts the server for the other configuration and returns `{url, root, global, started}` |
 | POST | `/api/edit/builtin` | `{scope, name, enabled}` switches a built-in in the team config (`scope: team`) or the personal one (`scope: local`); `{scope: "local", reset: true}` drops the personal list. Replies `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
 | POST | `/api/edit/value` | `{scope, path, key, value}` sets a boolean at a dotted key in the shared settings spec or its personal overlay; `value: null` with `scope: local` removes the personal value. Same replies |
 | GET | `/api/changes/builtin` | the current built-in or setting preview and undo state for this server session |
@@ -102,6 +103,8 @@ Read-only check results appear on affected items or sections, never in a separat
 The change apply and undo endpoints also write generated files. See [prerequisites, conflicts, and recovery](../site/content/docs/cli-reference/inspect.md#serve).
 
 `serve` binds to an explicit loopback IP and reloads the configuration on every request. One shared Host/Origin guard protects every route. Other browser origins require an exact `--allow-origin`; no-Origin CLI requests remain allowed, while cross-site browser requests are refused. Bodies are bounded and read before the adapter serialization lock. Header, read, write and idle deadlines limit stalled clients.
+
+`/api/switch` is the only route that starts a process. Its target is fixed when the server starts: the user configuration for a project server, or the project a global server started in. The request carries no path, port, or argument. It reuses a server whose health names that configuration on `127.0.0.1:4310` to `4319`, or runs the same binary as `serve --addr <port> --global` or `serve --addr <port> --dir <project>`, with no `--allow-origin`, and stops it when the parent stops. It sits behind the same Host/Origin guard and also requires `Content-Type: application/json`, so a cross-site form cannot reach it. A project tab still cannot edit `~/.agnostic-ai`: the global server is another origin, and the guard refuses the project page's requests to it. Edits keep one configuration per server; a per-request configuration field would let a project tab change every project's user configuration.
 
 Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--global` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
 

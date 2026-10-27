@@ -276,6 +276,20 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+.config-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.config-switch-note {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .project-root {
   overflow: hidden;
   max-width: min(56vw, 640px);

@@ -321,3 +321,22 @@ func TestHandler_HealthIdentifiesGlobalScope(t *testing.T) {
 		t.Errorf("health = %+v", health)
 	}
 }
+
+func TestHandler_HealthNamesTheProjectAGlobalServerStartedIn(t *testing.T) {
+	project := t.TempDir()
+	srv := demoServer(t, HandlerOptions{Global: true, ProjectRoot: project})
+	var health struct {
+		Global      bool
+		ProjectRoot string `json:"projectRoot"`
+	}
+	getJSON(t, srv.URL+"/api/health", &health)
+	if !health.Global || health.ProjectRoot != canonicalHealthRoot(t, project) {
+		t.Errorf("health = %+v", health)
+	}
+
+	var bare map[string]any
+	getJSON(t, demoServer(t, HandlerOptions{Global: true}).URL+"/api/health", &bare)
+	if _, ok := bare["projectRoot"]; ok {
+		t.Errorf("health without a project = %v", bare)
+	}
+}

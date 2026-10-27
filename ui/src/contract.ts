@@ -674,7 +674,8 @@ export interface ContextView {
 //   GET  /api/views/authority/schema                      → { schemaVersion, endpoints }
 //   GET  /api/views/overview                              → OverviewView
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
-//   GET  /api/health                                      → { ok, root, global, ui }
+//   GET  /api/health                                      → { ok, root, global, ui, projectRoot? }
+//   POST /api/switch                                      → SwitchReply (body: {})
 export const API = {
   view: '/api/views/authority',
   impact: '/api/views/authority/impact',
@@ -685,4 +686,13 @@ export const API = {
   editValue: '/api/edit/value',
   editField: '/api/edit/field',
   health: '/api/health',
+  switch: '/api/switch',
 } as const
+
+/** The server for the other configuration, found running or just started. */
+export interface SwitchReply {
+  url: string
+  root: string
+  global: boolean
+  started: boolean
+}
