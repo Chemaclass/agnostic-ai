@@ -40,7 +40,7 @@
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters
 // separated by single hyphens, per opencode.ai/docs/skills. Invalid
-// names fail before output is written: OpenCode skips such a folder, so
+// names fail before output is written: OpenCode V1 skips such a folder (V2 does not enforce the pattern), so
 // the skill would never reach the `skill` tool catalog.
 package opencode
 

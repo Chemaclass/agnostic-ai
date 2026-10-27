@@ -72,7 +72,7 @@ var hookLifecycle = []string{
 }
 
 // emitHooks writes `.openhands/hooks.json`, the file OpenHands reads
-// "per-repository" and honors "across Cloud, CLI, and local GUI setups".
+// "per-repository" and honors "across Agent Canvas, OpenHands Cloud, and OpenHands Enterprise".
 //
 // The emitted form is the Claude-compatible one the vendor documents as
 // equivalent to its own snake_case layout: "PascalCase event keys (e.g.,

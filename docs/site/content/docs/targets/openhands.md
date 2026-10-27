@@ -70,7 +70,9 @@ A scoped rule becomes `.agents/skills/<name>/SKILL.md` with a `paths:` list (its
 
 ### Hooks
 
-OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per repository in Cloud, CLI, and local GUI](https://docs.openhands.dev/openhands/usage/customization/hooks). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using OpenHands's event data, shell, and timeout.
+OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per repository in Agent Canvas, OpenHands Cloud, and OpenHands Enterprise](https://docs.openhands.dev/openhands/usage/customization/hooks). [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests them before a session, using OpenHands's event data, shell, and timeout.
+
+Hooks load only from the working folder, so a root `.openhands/hooks.json` does not apply when OpenHands works in a subfolder.
 
 - Six events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`.
 - Sync writes the Claude form (PascalCase keys inside a `{"hooks": {...}}` wrapper). OpenHands also accepts its own unwrapped snake_case form.
