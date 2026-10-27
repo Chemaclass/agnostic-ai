@@ -199,7 +199,6 @@ function SettingsFields({ title, fields, files, filtering, status }: { title: st
 }
 
 function FieldList({ fields, files }: { fields: SettingField[]; files: SectionItem[] }) {
-  const app = useApp()
   const scope = useEditScope()
   return (
     <ul className="fields">
@@ -212,15 +211,14 @@ function FieldList({ fields, files }: { fields: SettingField[]; files: SectionIt
             <p className="muted">{f.description}</p>
           </div>
           {f.set.length === 0 && <p className="muted field-unset">Not set</p>}
-          {!(app.source.kind === 'api' && f.key !== 'x-' && f.set.length === 1 && f.editable && !f.editable.disabledReason) && f.set.map((src) => (
+          <FieldEditControl key={scope} field={f} sources={(shown) => f.set.filter((src) => src.path !== shown).map((src) => (
             <div key={`${src.spec}:${src.path}`} className="field-source">
               {f.key === 'x-' ? <NativeValues values={src.values} file={src.path} localKeys={src.local ? files.find((item) => item.name === src.spec && item.path === src.path)?.localKeys : undefined} /> : <Values values={src.values} file={src.path} />}
               <p className="muted field-from">
                 from <Code>{src.path}</Code>
               </p>
             </div>
-          ))}
-          <FieldEditControl key={scope} field={f} />
+          ))} />
           {f.resolved && f.resolved.length > 0 && <FieldResolution label={f.label} resolved={f.resolved} />}
         </FieldRow>
       ))}
@@ -263,7 +261,7 @@ function FieldRow({ field, children }: { field: SettingField; children: ReactNod
   return <li {...entry} className={`field-row${field.set.length ? ' is-set' : ''}${linked ? ' is-linked' : ''}`}>{children}</li>
 }
 
-function FieldEditControl({ field }: { field: SettingField }) {
+function FieldEditControl({ field, sources }: { field: SettingField; sources: (shown?: string) => ReactNode }) {
   const app = useApp()
   const scope = useEditScope()
   const transaction = useSettingChange(field.key)
@@ -273,8 +271,10 @@ function FieldEditControl({ field }: { field: SettingField }) {
   const valueOf = (source?: SettingField['set'][number]) => source?.values.find((entry) => entry.key === field.key)?.value
   const specPath = scope === 'local' ? edit?.path ?? path : path
   const specName = field.set.find((source) => source.path === specPath)?.spec
-  const localCurrent = valueOf(field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath)))
-  const teamCurrent = valueOf(field.set.find((source) => source.path === path && !source.local))
+  const localSource = field.set.find((source) => source.local && (specName ? source.spec === specName : source.path === edit?.localPath))
+  const teamSource = field.set.find((source) => source.path === path && !source.local)
+  const localCurrent = valueOf(localSource)
+  const teamCurrent = valueOf(teamSource)
   const current = (scope === 'local' ? localCurrent ?? teamCurrent : teamCurrent) ?? ''
   const [value, setValue] = useState(current)
   const [pending, setPending] = useState(false)
@@ -301,9 +301,9 @@ function FieldEditControl({ field }: { field: SettingField }) {
     basis.current = { current, local: localCurrent, team: teamCurrent }
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
-  if (!edit) return null
-  if (edit.disabledReason) return <p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p>
-  if (app.source.kind !== 'api') return null
+  if (!edit) return sources()
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && <> <a href="https://agnostic-ai.org/docs/cli-reference/inspect/#serve">Global view instructions</a></>}</p></>
+  if (app.source.kind !== 'api') return sources()
   const setSelectedPath = (next: string) => {
     const team = valueOf(field.set.find((source) => source.path === next && !source.local))
     setPath(next)
@@ -364,7 +364,8 @@ function FieldEditControl({ field }: { field: SettingField }) {
       } else conflict.current = true
     }
   }
-  return <div className="field-edit">
+  const shown = overridden ? undefined : scope === 'local' ? (localCurrent !== undefined ? localSource?.path : undefined) : teamCurrent !== undefined ? teamSource?.path : undefined
+  return <>{sources(shown)}<div className="field-edit">
     {overridden
       ? <div className="field-edit-row">
         <p className="muted">Your local value overrides the team value. Reset it to change the team value.</p>
@@ -376,7 +377,7 @@ function FieldEditControl({ field }: { field: SettingField }) {
             {!edit.allowed.includes(value) && <option value={value} disabled>{value || 'Choose a value'}</option>}
             {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder="Not set" onChange={(event) => setValue(event.target.value)} disabled={locked} />}
+          : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
         {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
         {!transaction.supported && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>Clear</button>}
         {resetButton}
@@ -397,9 +398,10 @@ function FieldEditControl({ field }: { field: SettingField }) {
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
       {scope === 'team' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
+      {scope === 'team' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
       {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}
     </p>
-  </div>
+  </div></>
 }
 
 function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks: SectionItem[]; count: number; filtering: boolean }) {
