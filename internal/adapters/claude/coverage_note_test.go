@@ -164,3 +164,65 @@ func TestEmit_Hook_FailClosedFalseDoesNotNoteIgnoredFailures(t *testing.T) {
 		t.Errorf("false failClosed must not produce a note: %s", buf.String())
 	}
 }
+
+// code.claude.com/docs/en/hooks lists the handler types each event runs
+// and evaluates `if` only on tool events.
+func TestEmit_Hook_NotesHandlersTheirEventCannotRun(t *testing.T) {
+	cases := []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"prompt on SessionStart", map[string]any{"event": "SessionStart", "type": "prompt", "prompt": "Summarize."}, "prompt hooks"},
+		{"prompt on SessionEnd", map[string]any{"event": "SessionEnd", "type": "prompt", "prompt": "Summarize."}, "prompt hooks"},
+		{"http on SessionStart", map[string]any{"event": "SessionStart", "type": "http", "url": "https://example.test/h"}, "http hooks"},
+		{"http on Setup", map[string]any{"event": "Setup", "type": "http", "url": "https://example.test/h"}, "http hooks"},
+		{"if on Stop", map[string]any{"event": "Stop", "command": "echo hi", "if": "Bash(git *)"}, "`if`"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			buf := swapNoteWarner(t)
+			entries := []spec.Entry{{Kind: spec.KindHook, Name: "h", Meta: tc.meta}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(".claude/settings.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(raw), `"`+tc.meta["event"].(string)+`"`) {
+				t.Errorf("hook no longer written: %s", raw)
+			}
+			emit.FlushCoverageNotes()
+			if !strings.Contains(buf.String(), tc.want) {
+				t.Errorf("note = %q, want it to mention %s", buf.String(), tc.want)
+			}
+		})
+	}
+}
+
+func TestEmit_Hook_NoNoteForHandlersTheirEventRuns(t *testing.T) {
+	metas := []map[string]any{
+		{"event": "PreToolUse", "type": "prompt", "prompt": "Check."},
+		{"event": "PermissionRequest", "type": "prompt", "prompt": "Check."},
+		{"event": "SessionStart", "type": "mcp_tool", "server": "s", "tool": "t"},
+		{"event": "SessionEnd", "type": "http", "url": "https://example.test/h"},
+		{"event": "PostToolUse", "command": "echo hi", "if": "Bash(git *)"},
+		{"event": "PermissionDenied", "type": "http", "url": "https://example.test/h", "if": "Bash(git *)"},
+		{"event": "FutureEvent", "type": "prompt", "prompt": "Check.", "if": "Bash(git *)"},
+	}
+	testutil.Chdir(t, t.TempDir())
+	buf := swapNoteWarner(t)
+	var entries []spec.Entry
+	for i, meta := range metas {
+		entries = append(entries, spec.Entry{Kind: spec.KindHook, Name: string(rune('a' + i)), Meta: meta})
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(buf.String(), "hooks only on") || strings.Contains(buf.String(), "`if`") {
+		t.Errorf("unexpected note: %q", buf.String())
+	}
+}
