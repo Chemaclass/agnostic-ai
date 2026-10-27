@@ -65,6 +65,58 @@ test.describe('overview', () => {
     await expect(page.locator('.project-name')).not.toHaveClass(/chip/)
   })
 
+  test('offers reload when a boolean save is stale', async ({ page }) => {
+    const data = structuredClone(fixture)
+    const settings = data.sections.find((section: { id: string }) => section.id === 'settings')
+    settings.fields.find((field: { key: string }) => field.key === 'x-').set = [{ spec: 'native', path: '.agnostic-ai/settings/native.yaml', values: [{ key: 'x-claude.verbose', type: 'bool', value: 'false' }] }]
+    let failRefresh = false
+    await page.route('**/api/views/overview', (route) => {
+      if (failRefresh) { failRefresh = false; return route.fulfill({ status: 500, json: { error: 'Refresh failed.' } }) }
+      return route.fulfill({ json: data })
+    })
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', supported: false, enabled: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+    let sent: unknown
+    await page.route('**/api/edit/value', (route) => {
+      sent = route.request().postDataJSON()
+      settings.fields.find((field: { key: string }) => field.key === 'x-').set[0].values[0].value = 'true'
+      failRefresh = true
+      return route.fulfill({ status: 409, json: { error: 'The value changed. Git protection was kept.' } })
+    })
+    await page.goto('/?view=settings')
+    const toggle = page.getByRole('switch', { name: 'x-claude.verbose' })
+    await toggle.click()
+    await expect(page.getByRole('alert')).toContainText('The value changed. Git protection was kept.')
+    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(sent).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-claude.verbose', value: true, expected: false })
+    await page.getByRole('button', { name: 'Reload saved values' }).click()
+    await expect(page.getByText('The overview could not be refreshed.')).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText('The value changed. Git protection was kept.')).toBeVisible()
+    await page.getByRole('button', { name: 'Retry', exact: true }).click()
+    await expect(page.getByText('The overview could not be refreshed.')).toHaveCount(0)
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText('The value changed. Git protection was kept.')).toHaveCount(0)
+  })
+
+  test('offers reload when a built-in save is stale', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: { schemaVersion: 'builtin-change/v1', status: 'idle', supported: false, enabled: false, undoAvailable: false, targets: [], changes: [], findings: [] } }))
+    let sent: unknown
+    await page.route('**/api/edit/builtin', (route) => {
+      sent = route.request().postDataJSON()
+      return route.fulfill({ status: 409, json: { error: 'The built-in changed.' } })
+    })
+    await page.goto('/?view=settings')
+    const toggle = page.getByRole('switch', { name: 'memory built-in' })
+    const before = await toggle.getAttribute('aria-checked')
+    await toggle.click()
+    await expect(page.getByRole('alert')).toContainText('The built-in changed.')
+    await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
+    expect(sent).toEqual({ scope: 'team', name: 'memory', enabled: before !== 'true', expected: before === 'true' })
+  })
+
   test('loads a logo for every registered target', async ({ page }) => {
     const data = structuredClone(fixture)
     const capabilities = readFileSync(new URL('../../docs/site/data/capabilities.toml', import.meta.url), 'utf8')
@@ -128,7 +180,7 @@ test.describe('overview', () => {
     await expect(native.locator('.native-group-title')).toHaveText('x-ellipsis')
     await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
     await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
-    expect(edit).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true })
+    expect(edit).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true, expected: false })
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding.getByText('This rule grants all file reads.', { exact: true })).not.toBeVisible()
     await finding.getByText('Details', { exact: true }).click()
@@ -454,7 +506,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('switch')).toHaveCount(5)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    expect(posted).toEqual([{ scope: 'team', name: 'memory', enabled: true }])
+    expect(posted).toEqual([{ scope: 'team', name: 'memory', enabled: true, expected: false }])
 
     refuse = true
     await toggle.click()
@@ -509,7 +561,7 @@ test.describe('overview', () => {
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
     await caveman.getByRole('button', { name: 'Reset caveman to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: false })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: false, expected: true })
 
     await justMe.click()
     await expect(justMe).toHaveAttribute('aria-pressed', 'true')
@@ -521,7 +573,7 @@ test.describe('overview', () => {
     await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true, expected: false })
 
     await page.reload()
     await expect(justMe).toHaveAttribute('aria-pressed', 'true')
@@ -660,7 +712,7 @@ test.describe('overview', () => {
     const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
     await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to team value' })).toHaveCount(1)
     await native.getByRole('button', { name: 'Reset x-claude.verbose to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: nativeLocal, key: 'x-claude.verbose', value: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: nativeLocal, key: 'x-claude.verbose', value: null, expected: true })
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.getByRole('button', { name: 'Reset to team value' })).toHaveCount(0)

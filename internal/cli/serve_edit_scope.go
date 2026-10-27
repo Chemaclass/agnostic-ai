@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -311,6 +312,52 @@ func (h *editHandler) personalRoot(file string) (root string, folder bool) {
 // personal config, goes into the repository's info/exclude, which a
 // linked worktree shares with its main checkout. Outside a work tree
 // nothing can stage the file.
+var personalGitMu sync.Mutex
+
+func (h *editHandler) preparePersonalOutOfGit(file string) (func(bool) error, error) {
+	personalGitMu.Lock()
+	layout, layoutErr := gitquery.LayoutAtFresh(h.root)
+	ex, ok := personalExcludeLayout(layout, layoutErr)
+	if !ok {
+		if err := h.keepPersonalOutOfGit(file); err != nil {
+			personalGitMu.Unlock()
+			return nil, err
+		}
+		return func(bool) error { personalGitMu.Unlock(); return nil }, nil
+	}
+	release, err := gitexclude.Lock(ex.path)
+	if err != nil {
+		personalGitMu.Unlock()
+		return nil, err
+	}
+	unlock := func() { release(); personalGitMu.Unlock() }
+	before, err := snapshotEditFile(ex.path)
+	if err != nil {
+		unlock()
+		return nil, err
+	}
+	keepErr := h.keepPersonalOutOfGit(file)
+	after, err := snapshotEditFile(ex.path)
+	if err != nil {
+		unlock()
+		return nil, err
+	}
+	finish := func(rollback bool) error {
+		defer unlock()
+		if !rollback || (before.info == nil) == (after.info == nil) && bytes.Equal(before.data, after.data) {
+			return nil
+		}
+		return fmt.Errorf("%s: kept the new Git exclusion to protect personal files", ex.path)
+	}
+	if keepErr != nil {
+		if undoErr := finish(true); undoErr != nil {
+			return nil, fmt.Errorf("%s; restore Git exclusion: %w", keepErr, undoErr)
+		}
+		return nil, keepErr
+	}
+	return finish, nil
+}
+
 func (h *editHandler) keepPersonalOutOfGit(file string) error {
 	target := resolvedAbs(file)
 	dir := existingAncestor(filepath.Dir(target))

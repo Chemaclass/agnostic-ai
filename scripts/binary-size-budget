@@ -504,7 +504,12 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2558 combined with #2557 measured 23605408 on Go 1.27.3.
 # Same Linux amd64 release flags; no added headroom or dependencies.
+# #2542 measured 23629984 on Go 1.27.3: boolean and built-in edits
+# reject stale values and protect personal sources during conflicts.
+# Linux amd64 release flags; no added headroom or dependencies.
 # #2560 measured 23609504 on Go 1.27.3: the overview skips installed-file
 # comparisons and labels settings results that were not checked.
 # Linux amd64 release flags; no added headroom or dependencies.
-23609504
+# #2542 combined with #2560 measured 23634080 on Go 1.27.3.
+# Same Linux amd64 release flags; no added headroom or dependencies.
+23634080

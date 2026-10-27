@@ -156,7 +156,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
               {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
             </h2>
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
-            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true })} />} />}
+            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { scope: 'local', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
@@ -472,8 +472,8 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
     <ul className="item-list">
       {items.map((item) => {
         const control = item.enabled !== undefined && <>
-          <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { scope, name: item.name, enabled: on })} />
-          {item.local && <ResetAction label={`Reset ${item.name} to team value`} reset={() => postEdit(API.editBuiltin, { scope: 'local', name: item.name, enabled: !item.enabled })} />}
+          <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { scope, name: item.name, enabled: on, expected: item.enabled })} />
+          {item.local && <ResetAction label={`Reset ${item.name} to team value`} reset={() => postEdit(API.editBuiltin, { scope: 'local', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
         </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
@@ -558,25 +558,39 @@ function EditSwitch({ on, label, save }: { on: boolean; label: string; save: (on
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
+  const [choice, setChoice] = useState<boolean | undefined>()
+  const reloadBasis = useRef<object | undefined>(undefined)
+  const waitingForReload = useRef(false)
+  useEffect(() => {
+    if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
+      waitingForReload.current = false
+      setChoice(undefined)
+      setError(undefined)
+    }
+  }, [app.overviewRevision])
   if (app.source.kind !== 'api') return <Switch on={on} />
   const toggle = async () => {
     setPending(true)
     setError(undefined)
+    const selected = !(choice ?? on)
     try {
-      await save(!on)
+      await save(selected)
       app.reload(true)
     } catch (err) {
-      setError(err instanceof EditError ? err : new EditError(String(err)))
+      const failure = err instanceof EditError ? err : new EditError(String(err))
+      if (failure.status === 409) setChoice(selected)
+      setError(failure)
     } finally {
       setPending(false)
     }
   }
   return (
     <span className="edit-switch">
-      <Toggle on={on} label={label} pending={pending} onToggle={toggle} />
+      <Toggle on={choice ?? on} label={label} pending={pending} disabled={choice !== undefined} onToggle={toggle} />
       {error && (
         <span className="edit-error" role="alert">
           {error.message}
+          {error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}
           {error.problems.length > 0 && (
             <ul>
               {error.problems.map((p) => (
@@ -595,6 +609,14 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<EditError | undefined>()
+  const reloadBasis = useRef<object | undefined>(undefined)
+  const waitingForReload = useRef(false)
+  useEffect(() => {
+    if (waitingForReload.current && app.overviewRevision !== reloadBasis.current) {
+      waitingForReload.current = false
+      setError(undefined)
+    }
+  }, [app.overviewRevision])
   if (app.source.kind !== 'api') return null
   const run = async () => {
     setPending(true)
@@ -611,7 +633,7 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   return (
     <span className="edit-switch">
       <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to team value</button>
-      {error && <span className="edit-error" role="alert">{error.message}</span>}
+      {error && <span className="edit-error" role="alert">{error.message}{error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}</span>}
     </span>
   )
 }
@@ -659,8 +681,8 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
             ) : v.type === 'bool' ? (
               file ? (
                 <>
-                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { scope, path: file, key: v.key, value: on })} />
-                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to team value`} reset={() => postEdit(API.editValue, { scope: 'local', path: file, key: v.key, value: null })} />}
+                  <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { scope, path: file, key: v.key, value: on, expected: v.value === 'true' })} />
+                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to team value`} reset={() => postEdit(API.editValue, { scope: 'local', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
                 </>
               ) : (
                 <Switch on={v.value === 'true'} />
