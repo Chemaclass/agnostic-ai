@@ -166,23 +166,20 @@ func (h *switchHandler) readsPeer(running *viewServer) bool {
 
 // startedHere checks the answer on a port this handler just started a
 // server on: another handler can bind it first while this child still
-// runs. A server started in peer.dir names that project, an ancestor, or
-// none.
+// runs. The answer must name the project the child resolves from
+// peer.dir, or none when the child would find none.
 func (h *switchHandler) startedHere(running *viewServer) bool {
 	if !h.readsPeer(running) {
 		return false
 	}
-	if !h.peer.global || running.ProjectRoot == "" {
+	if !h.peer.global {
 		return true
 	}
-	for dir := canonicalDir(h.peer.dir); ; dir = filepath.Dir(dir) {
-		if sameProjectRoot(running.ProjectRoot, dir) {
-			return true
-		}
-		if filepath.Dir(dir) == dir {
-			return false
-		}
+	project, useGlobal, err := resolveViewSource(h.peer.dir, false, false)
+	if err != nil || useGlobal {
+		return running.ProjectRoot == ""
 	}
+	return sameProjectRoot(running.ProjectRoot, project)
 }
 
 func (h *switchHandler) runs(addr string) bool {
