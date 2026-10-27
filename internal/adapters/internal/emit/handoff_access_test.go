@@ -19,7 +19,6 @@ func TestSharedHandoffWriteRoot_RequiresPrivateMainStore(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			main, linked := t.TempDir(), filepath.Join(t.TempDir(), "linked")
 			gitIn(t, main, "init", "-q")
-			gitIn(t, main, "config", "maintenance.auto", "false")
 			gitIn(t, main, "-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "init")
 			gitIn(t, main, "worktree", "add", "-q", "-b", "handoff", linked)
 			ignore := "**/.agnostic-ai/local/\n"

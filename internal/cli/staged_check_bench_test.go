@@ -132,7 +132,6 @@ func writeStagedCheckFixture(tb testing.TB, root string, specs, files int) {
 	tb.Setenv("GIT_CONFIG_GLOBAL", gitConfig)
 	tb.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	stagedCheckGit(tb, root, "init", "-q")
-	stagedCheckGit(tb, root, "config", "maintenance.auto", "false")
 	stagedCheckGit(tb, root, "config", "core.autocrlf", "false")
 	stagedCheckGit(tb, root, "config", "core.symlinks", "true")
 	writeBenchFile(tb, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\nsync:\n  shared-skills: true\ngitignore:\n  enabled: true\n  commit: [instructions, skills]\n")

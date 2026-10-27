@@ -942,7 +942,6 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 				handoffWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
 				if mode == "unborn" {
 					handoffGit(t, dir, "init")
-					handoffGit(t, dir, "config", "maintenance.auto", "false")
 				}
 				if mode == "bare" {
 					handoffGit(t, dir, "init", "--bare")
@@ -1390,7 +1389,6 @@ func handoffAssertReply(t *testing.T, target, out, message string) {
 func handoffInitGit(t *testing.T, dir string) []string {
 	t.Helper()
 	handoffGit(t, dir, "init")
-	handoffGit(t, dir, "config", "maintenance.auto", "false")
 	handoffGit(t, dir, "config", "user.name", "Handoff Test")
 	handoffGit(t, dir, "config", "user.email", "handoff@example.invalid")
 	handoffGit(t, dir, "config", "core.autocrlf", "false")

@@ -16,6 +16,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/target-facts.sh"
 FACTS_ROOT="$ROOT"
 
+# A fixture commit starts detached Git maintenance that can still write
+# into .git while tear_down removes the temp repository.
+export GIT_CONFIG_COUNT=3 \
+  GIT_CONFIG_KEY_0=maintenance.auto GIT_CONFIG_VALUE_0=false \
+  GIT_CONFIG_KEY_1=gc.auto GIT_CONFIG_VALUE_1=0 \
+  GIT_CONFIG_KEY_2=core.fsmonitor GIT_CONFIG_VALUE_2=false
+
 # ---- list_targets ------------------------------------------------------------
 
 function test_list_targets_matches_the_registry() {

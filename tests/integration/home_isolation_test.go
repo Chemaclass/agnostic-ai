@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // TestMain points HOME at a temp dir and unsets the variables that move
@@ -23,6 +25,9 @@ func TestMain(m *testing.M) {
 }
 
 func runIsolated(m *testing.M) (code int, err error) {
+	if err := testutil.DisableGitBackgroundWork(); err != nil {
+		return 1, err
+	}
 	if err := pinGoEnv("GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"); err != nil {
 		return 1, err
 	}
