@@ -306,3 +306,33 @@ func TestLoadLayered_LocalLayerRecordsTheSharedSpecAndItsOwnKeys(t *testing.T) {
 		t.Errorf("merged meta = %v", got.Meta)
 	}
 }
+
+func TestLoadLayered_LocalPerToolMapKeepsTheSharedSettingsValueAsDefault(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "settings", "defaults.yaml"), "name: defaults\nmodel: sonnet\neffort: high\n")
+	mustWrite(t, filepath.Join(local, "settings", "defaults.yaml"), "name: defaults\nmodel:\n  codex: gpt-5.5\neffort:\n  default: low\n  codex: medium\n")
+
+	got := loadExtending(t, base, local).Settings[0]
+	if want := map[string]any{"default": "sonnet", "codex": "gpt-5.5"}; !reflect.DeepEqual(got.Meta["model"], want) {
+		t.Errorf("model = %v, want %v", got.Meta["model"], want)
+	}
+	if want := map[string]any{"default": "low", "codex": "medium"}; !reflect.DeepEqual(got.Meta["effort"], want) {
+		t.Errorf("effort = %v, want the personal default to win", got.Meta["effort"])
+	}
+	if got.Base.Meta["model"] != "sonnet" {
+		t.Errorf("base model = %v, want the shared value as written", got.Base.Meta["model"])
+	}
+}
+
+func TestLoadLayered_LocalMapStillReplacesASharedAgentModel(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "agents", "reviewer.md"), "---\nname: reviewer\nmodel: sonnet\n---\nReview.\n")
+	mustWrite(t, filepath.Join(local, "agents", "reviewer.md"), "---\nname: reviewer\nmodel:\n  codex: gpt-5.5\n---\n")
+
+	got := loadExtending(t, base, local).Agents[0]
+	if want := map[string]any{"codex": "gpt-5.5"}; !reflect.DeepEqual(got.Meta["model"], want) {
+		t.Errorf("model = %v, want %v", got.Meta["model"], want)
+	}
+}

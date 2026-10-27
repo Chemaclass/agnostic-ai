@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { TargetValue, Value } from '../contract'
-import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, valueAt } from './field-address'
+import type { SettingField, TargetValue, Value } from '../contract'
+import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from './field-address'
 
 const text = (key: string, value: string): Value => ({ key, type: 'text', value })
 const tool = (over: Partial<TargetValue>): TargetValue => ({ target: 'codex', label: 'Codex', checked: true, others: [], ...over })
@@ -36,6 +36,16 @@ describe('field address', () => {
     expect(personalSetsWhole(['model'], 'model')).toBe(true)
     expect(personalSetsWhole(['model.codex'], 'model')).toBe(false)
     expect(personalSetsWhole(undefined, 'model')).toBe(false)
+  })
+
+  it('offers a value for one tool only where the tool takes it', () => {
+    const field = (over: Partial<SettingField>): SettingField => ({ key: 'effort', label: 'Reasoning effort', description: '', set: [], editable: { kind: 'text', toolAllowed: { claude: ['high', 'low'], codex: [] } }, ...over })
+    expect(perToolEdit(field({}), 'claude')).toBe(true)
+    expect(perToolEdit(field({}), 'codex')).toBe(true)
+    expect(perToolEdit(field({}), 'gemini')).toBe(false)
+    expect(perToolEdit(field({ key: 'model', editable: { kind: 'text' } }), 'gemini')).toBe(true)
+    expect(perToolEdit(field({ editable: { kind: 'text', disabledReason: 'no' } }), 'claude')).toBe(false)
+    expect(perToolEdit(field({ resolved: [tool({ target: 'claude', tier: 'strong', value: 'high' })] }), 'codex')).toContain('model tier strong')
   })
 
   it('labels where the value comes from, and the config key that replaces it', () => {

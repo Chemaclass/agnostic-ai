@@ -2,7 +2,7 @@
 // tool's entry in the field's per-tool map (model.codex). The server
 // writes the file; this only reads what the overview already reports.
 
-import type { TargetValue, Value } from '../contract'
+import type { SettingField, TargetValue, Value } from '../contract'
 
 /** The dotted key the address shows as: `model`, or `model.codex` for one tool. */
 export function addressKey(key: string, target?: string): string {
@@ -36,6 +36,19 @@ export function personalSetsWhole(localKeys: string[] | undefined, key: string):
 export function originLabel(r: TargetValue): string | undefined {
   if (!r.from?.spec) return undefined
   return `${r.from.local ? 'personal' : 'shared'} · ${r.from.perTool ? r.target : 'all tools'}`
+}
+
+/**
+ * Whether the page offers a value for one tool: `false` when the tool has no such setting, a reason when the edit is
+ * refused, or `true`. An effort from a model tier stops applying once the spec sets effort, so one tool's effort would
+ * drop it for the others.
+ */
+export function perToolEdit(field: SettingField, target: string): boolean | string {
+  if (!field.editable || field.editable.disabledReason) return false
+  if (field.key !== 'effort') return true
+  if (!field.editable.toolAllowed?.[target]) return false
+  const tier = field.resolved?.find((r) => r.tier)?.tier
+  return tier ? `Effort comes from model tier ${tier}. Set it for every tool above, or edit the spec to set one tool.` : true
 }
 
 /** The config key that replaces every spec value for this tool, when one does. */

@@ -11,7 +11,7 @@ import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSect
 import { findingFixPrompt } from '../model/finding-prompt'
 import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
-import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, valueAt } from '../model/field-address'
+import { addressKey, configOverride, originLabel, personalSetsWhole, personalValueAt, perToolEdit, valueAt } from '../model/field-address'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
 import type { Remote } from './Shell'
@@ -240,7 +240,7 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
   const groups = valueGroups(resolved)
   const origin = originLabel(current)
   const override = configOverride(current)
-  const editable = app.source.kind === 'api' && field.editable && !field.editable.disabledReason
+  const toolEdit = app.source.kind === 'api' && perToolEdit(field, current.target)
   return (
     <details className="field-resolution">
       <summary>What each tool gets</summary>
@@ -262,7 +262,8 @@ function FieldResolution({ field, files, resolved }: { field: SettingField; file
         </>}
         {current.native?.map((n) => <p key={n.path} className="muted"><Code>{n.value}</Code> is also set under <Code>{`x-${current.target}.model`}</Code> in <Code>{n.path}</Code>. {current.checked ? `Sync writes that native key as is, so check the generated file for the value ${current.label} reads.` : 'Sync was not rendered here, so this native key was not checked.'}</p>)}
         <p className="muted">{installedAnswer(current.label, tools.find((t) => t.target === current.target)?.sync.state)} agnostic-ai does not see what a running tool uses. Other <Code>{`x-${current.target}`}</Code> keys and imported native settings files are not covered here.</p>
-        {editable && <div className="field-tool-edit">
+        {typeof toolEdit === 'string' && <p className="muted field-tool-edit">{toolEdit}</p>}
+        {toolEdit === true && <div className="field-tool-edit">
           <p className="muted">Set a value for {current.label} only. It is saved as <Code>{addressKey(field.key, current.target)}</Code> and wins over the value for every tool.</p>
           <FieldEditControl key={`${scope}:${current.target}`} field={field} files={files} target={current.target} toolLabel={current.label} sources={() => null} />
         </div>}
@@ -361,7 +362,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   const save = (clear: boolean) => post({ scope, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, scope === 'local' ? basis.current.local : basis.current.team)
   const reset = () => post({ scope: 'local', value: null }, basis.current.local)
   const overridden = scope === 'team' && (localCurrent !== undefined || wholePersonal)
-  const resetLabel = target ? 'Reset to value below' : 'Reset to team value'
+  const resetLabel = target ? 'Use the value for every tool' : 'Reset to team value'
   const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
   const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
   const configured = scope === 'local' ? localCurrent !== undefined : teamCurrent !== undefined
@@ -408,7 +409,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
     {transaction.supported && <div className="field-edit-row field-edit-apply">
       <span className="muted">Apply to your tools now:</span>
       {!overridden && <button type="button" className="button" disabled={previewing || !value.trim() || value === current} onClick={() => { void preview(value, scope) }}>Preview and apply</button>}
-      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'team') }}>{target ? 'Preview reset to value below' : 'Preview removal'}</button>}
+      {!overridden && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'team') }}>{target ? 'Preview using the value for every tool' : 'Preview removal'}</button>}
       {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'local') }}>Preview personal reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}

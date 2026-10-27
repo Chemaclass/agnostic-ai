@@ -6,10 +6,13 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- A personal per-tool `model` or `effort` map in a settings spec no longer drops the shared single value for the tools it leaves out. Shared `model: sonnet` with personal `model: {codex: gpt-5.5}` now syncs `sonnet` to every other tool, where before they got no model (#2602).
+
 #### Web interface
 
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
 - Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Reset to value below** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
+- Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Use the value for every tool** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
 
 ### By tool
 

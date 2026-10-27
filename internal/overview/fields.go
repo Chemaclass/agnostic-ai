@@ -103,11 +103,12 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 					if !ok {
 						continue
 					}
-					if levels := accepter.SettingsEffortLevels(); levels != nil {
-						if edit.ToolAllowed == nil {
-							edit.ToolAllowed = map[string][]string{}
-						}
-						edit.ToolAllowed[target] = slices.Sorted(slices.Values(levels))
+					if edit.ToolAllowed == nil {
+						edit.ToolAllowed = map[string][]string{}
+					}
+					edit.ToolAllowed[target] = slices.Sorted(slices.Values(accepter.SettingsEffortLevels()))
+					if edit.ToolAllowed[target] == nil {
+						edit.ToolAllowed[target] = []string{}
 					}
 					for _, level := range accepter.SettingsEffortLevels() {
 						if !slices.Contains(edit.Allowed, level) {

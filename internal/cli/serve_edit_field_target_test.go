@@ -3,6 +3,7 @@ package cli
 import (
 	"net/http"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -118,8 +119,11 @@ func TestEditFieldTarget_PersonalOverSharedScalar(t *testing.T) {
 	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","key":"model","target":"codex","value":"gpt-5.5","expected":null}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("set = %d %s", rec.Code, rec.Body)
 	}
-	if got := readProjectFile(t, personal); got != fieldCreatedMarker+"name: defaults\nmodel:\n  default: sonnet\n  codex: gpt-5.5\n" {
+	if got := readProjectFile(t, personal); got != fieldCreatedMarker+"name: defaults\nmodel:\n  codex: gpt-5.5\n" {
 		t.Fatalf("personal = %q", got)
+	}
+	if got := loadedSettingsValue(t, "defaults", "model"); !reflect.DeepEqual(got, map[string]any{"default": "sonnet", "codex": "gpt-5.5"}) {
+		t.Fatalf("merged model = %v", got)
 	}
 	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","key":"model","target":"codex","value":"gpt-5"}`, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "for you") {
 		t.Fatalf("team codex under personal = %d %s", rec.Code, rec.Body)
@@ -229,5 +233,111 @@ func TestSettingChanges_PerToolPreviewChangesOnlyThatTool(t *testing.T) {
 	builtinAction(t, h, builtinApplyPath, reset.ID)
 	if data, _ := os.ReadFile(".agnostic-ai/settings/defaults.yaml"); string(data) != "name: defaults\nmodel: gpt-5.5\n" {
 		t.Errorf("defaults.yaml = %q", data)
+	}
+}
+
+func loadedSettingsValue(t *testing.T, name, key string) any {
+	t.Helper()
+	scope, err := loadCheckScope(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range scope.bundle.Settings {
+		if e.Name == name {
+			return e.Meta[key]
+		}
+	}
+	t.Fatalf("no settings spec named %s", name)
+	return nil
+}
+
+func TestEditFieldTarget_PersonalToolEntryFollowsTheTeamValue(t *testing.T) {
+	h := targetProject(t, "name: defaults\nmodel: sonnet\n")
+	personal := ".agnostic-ai/local/settings/defaults.yaml"
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","key":"model","target":"codex","value":"gpt-5.5","expected":null}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("set codex = %d %s", rec.Code, rec.Body)
+	}
+	if got := readProjectFile(t, personal); got != fieldCreatedMarker+"name: defaults\nmodel:\n  codex: gpt-5.5\n" {
+		t.Fatalf("personal = %q", got)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","key":"model","value":"opus","expected":"sonnet"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("team all = %d %s", rec.Code, rec.Body)
+	}
+	if got := loadedSettingsValue(t, "defaults", "model"); !reflect.DeepEqual(got, map[string]any{"default": "opus", "codex": "gpt-5.5"}) {
+		t.Fatalf("merged model = %v", got)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","key":"model","value":null}`, nil); rec.Code == http.StatusOK {
+		t.Fatalf("reset all with no personal default = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","key":"model","target":"codex","value":null,"expected":"gpt-5.5"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("reset codex = %d %s", rec.Code, rec.Body)
+	}
+	if got := readProjectFile(t, personal); got != "" {
+		t.Fatalf("personal after reset = %q", got)
+	}
+}
+
+func TestEditFieldTarget_TeamEditsUnderAPersonalMapKeepOtherTools(t *testing.T) {
+	h := targetProject(t, "name: defaults\neffort: high\n")
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"local","key":"model","target":"codex","value":"gpt-5.5"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("set codex = %d %s", rec.Code, rec.Body)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","key":"model","value":"opus","expected":null}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("team all = %d %s", rec.Code, rec.Body)
+	}
+	if got := loadedSettingsValue(t, "defaults", "model"); !reflect.DeepEqual(got, map[string]any{"default": "opus", "codex": "gpt-5.5"}) {
+		t.Fatalf("merged model = %v", got)
+	}
+	mustWrite(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\nmodel:\n  default: sonnet\n  claude: opus\n")
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","key":"model","target":"claude","value":null,"expected":"opus"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("team reset claude = %d %s", rec.Code, rec.Body)
+	}
+	if got := loadedSettingsValue(t, "defaults", "model"); !reflect.DeepEqual(got, map[string]any{"default": "sonnet", "codex": "gpt-5.5"}) {
+		t.Fatalf("merged model after collapse = %v", got)
+	}
+}
+
+func TestEditFieldTarget_TierEffortRefusesOneTool(t *testing.T) {
+	h := targetProject(t, "name: defaults\nmodel: strong\n")
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nmodels:\n  strong:\n    claude: opus\n    codex: gpt-5.5\n    effort: high\n")
+	rec := postEdit(t, h, editFieldPath, `{"scope":"team","key":"effort","target":"codex","value":"low"}`, nil)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "tier") {
+		t.Fatalf("tier effort per tool = %d %s", rec.Code, rec.Body)
+	}
+	if got := readProjectFile(t, ".agnostic-ai/settings/defaults.yaml"); got != "name: defaults\nmodel: strong\n" {
+		t.Fatalf("spec changed: %q", got)
+	}
+	if rec := postEdit(t, h, editFieldPath, `{"scope":"team","key":"effort","value":"low"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("tier effort for every tool = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEditFieldTarget_EffortForAToolWithoutEffort(t *testing.T) {
+	silence(t)
+	project := t.TempDir()
+	testutil.Chdir(t, project)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini]\n")
+	rec := postEdit(t, &editHandler{root: project}, editFieldPath, `{"scope":"team","key":"effort","target":"gemini","value":"high"}`, nil)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "gemini has no effort setting") {
+		t.Fatalf("gemini effort = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSetFieldAt_KeepsAnInlineCommentOnTheDefault(t *testing.T) {
+	in := "name: defaults\nmodel: sonnet # team pick\neffort: high\n"
+	out, err := setFieldAt([]byte(in), newFieldAddress("model", "codex"), "gpt-5.5", nil)
+	if want := "name: defaults\nmodel:\n  default: sonnet # team pick\n  codex: gpt-5.5\neffort: high\n"; err != nil || string(out) != want {
+		t.Fatalf("expand = %q %v", out, err)
+	}
+	back, err := setFieldAt(out, newFieldAddress("model", "codex"), nil, nil)
+	if err != nil || string(back) != in {
+		t.Fatalf("collapse = %q %v", back, err)
+	}
+	crlf := "name: defaults\r\nmodel: sonnet # pick\r\n"
+	out, err = setFieldAt([]byte(crlf), newFieldAddress("model", "codex"), "gpt-5.5", nil)
+	if want := "name: defaults\r\nmodel:\r\n  default: sonnet # pick\r\n  codex: gpt-5.5\r\n"; err != nil || string(out) != want {
+		t.Fatalf("crlf expand = %q %v", out, err)
 	}
 }

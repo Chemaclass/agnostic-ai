@@ -85,11 +85,11 @@ func (a fieldAddress) personalKey(e spec.Entry) string {
 
 // next is the value key holds after the edit, given own, the value the
 // file sets, and base, the team value a personal file merges over. A
-// personal map merges over a team map entry by entry but replaces a team
-// scalar whole, so a per-tool entry over a team scalar carries that
-// scalar as its default. A map left with only its default reads back as
-// that scalar, or as nothing when it repeats the team value. keep is
-// false when the key goes away.
+// personal map merges over the team value entry by entry, and a team
+// single value counts as its default. A personal single value replaces a
+// team map whole, so it never gains tool entries. A map left with only
+// its default reads back as that single value, unless the team value is
+// a map it must merge into. keep is false when the key goes away.
 func (a fieldAddress) next(own any, ownSet bool, base, value any) (next any, keep bool, err error) {
 	m, ownMap := own.(map[string]any)
 	_, baseMap := base.(map[string]any)
@@ -109,8 +109,6 @@ func (a fieldAddress) next(own any, ownSet bool, base, value any) (next any, kee
 		m = map[string]any{}
 		if own != nil {
 			m[fieldDefaultEntry] = own
-		} else if !ownSet && base != nil && !baseMap {
-			m[fieldDefaultEntry] = base
 		}
 	}
 	if value == nil {
@@ -125,9 +123,6 @@ func (a fieldAddress) next(own any, ownSet bool, base, value any) (next any, kee
 		return nil, false, nil
 	}
 	if d, ok := m[fieldDefaultEntry]; ok && len(m) == 1 && !baseMap {
-		if base != nil && reflect.DeepEqual(d, base) {
-			return nil, false, nil
-		}
 		return d, true, nil
 	}
 	return m, true, nil
@@ -174,10 +169,7 @@ func setFieldAt(data []byte, addr fieldAddress, value, base any) ([]byte, error)
 	case ownMap != nil && nextMap != nil:
 		out, err = setYAMLMapEntries(data, addr.key, ownMap, nextMap)
 	case ownMap != nil:
-		if out, err = collapseYAMLMap(data, mapping.Content[at], node, next); err != nil {
-			next = map[string]any{fieldDefaultEntry: next}
-			out, err = setYAMLMapEntries(data, addr.key, ownMap, next.(map[string]any))
-		}
+		out, next, err = collapseYAMLField(data, addr.key, ownMap, next)
 	case node == nil:
 		out, err = editYAMLPair(data, mapping, addr.key, orderedFieldMap(nextMap))
 	default:
@@ -273,7 +265,8 @@ func setYAMLMapEntries(data []byte, key string, from, to map[string]any) ([]byte
 }
 
 // expandYAMLScalar replaces the one-line scalar under keyNode with the
-// block mapping m, indented below the key.
+// block mapping m, indented below the key. A comment after the scalar
+// stays with it on the default line.
 func expandYAMLScalar(data []byte, keyNode, value *yaml.Node, m map[string]any) ([]byte, error) {
 	if value.Kind != yaml.ScalarNode || value.Style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0 {
 		return nil, errors.New("multi-line, anchored, or non-scalar settings are not safely editable")
@@ -298,12 +291,49 @@ func expandYAMLScalar(data []byte, keyNode, value *yaml.Node, m map[string]any) 
 	if bytes.Contains(data, []byte("\r\n")) {
 		newline = "\r\n"
 	}
+	lineEnd := end
+	for lineEnd < len(data) && data[lineEnd] != '\n' {
+		lineEnd++
+	}
+	if lineEnd > end && data[lineEnd-1] == '\r' {
+		lineEnd--
+	}
+	tail := string(data[end:lineEnd])
 	indent := strings.Repeat(" ", keyNode.Column-1+2)
 	lines := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
 	for i, line := range lines {
 		lines[i] = indent + line
 	}
-	return spliceEditYAML(data, keyEnd, end, ":"+newline+strings.Join(lines, newline)), nil
+	head := ":"
+	if _, ok := m[fieldDefaultEntry]; ok {
+		lines[0] += tail
+	} else {
+		head += tail
+	}
+	return spliceEditYAML(data, keyEnd, lineEnd, head+newline+strings.Join(lines, newline)), nil
+}
+
+// collapseYAMLField turns the per-tool map under key into the single
+// value v: it drops the other entries, then replaces the map left with
+// only its default. A comment inside that map keeps the map form, and
+// next is then the value the file holds.
+func collapseYAMLField(data []byte, key string, own map[string]any, v any) (out []byte, next any, err error) {
+	only := map[string]any{fieldDefaultEntry: v}
+	if data, err = setYAMLMapEntries(data, key, own, only); err != nil {
+		return nil, nil, err
+	}
+	_, mapping, err := yamlDocument(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	at, node := yamlMapValue(mapping, key)
+	if node == nil {
+		return nil, nil, fmt.Errorf("%s is not in the file", key)
+	}
+	if out, err := collapseYAMLMap(data, mapping.Content[at], node, v); err == nil {
+		return out, v, nil
+	}
+	return data, only, nil
 }
 
 // collapseYAMLMap replaces the mapping under keyNode with the scalar v,

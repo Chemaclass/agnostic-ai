@@ -312,8 +312,8 @@ func TestSettingsFields_PerToolMapsAreEditable(t *testing.T) {
 	if !slices.Equal(effort.ToolAllowed["claude"], []string{"high", "low", "medium", "xhigh"}) {
 		t.Errorf("claude levels = %v", effort.ToolAllowed)
 	}
-	if _, free := effort.ToolAllowed["codex"]; free {
-		t.Errorf("codex levels = %v, want free text", effort.ToolAllowed["codex"])
+	if levels, takes := effort.ToolAllowed["codex"]; !takes || levels == nil || len(levels) != 0 {
+		t.Errorf("codex levels = %v, want any value", effort.ToolAllowed)
 	}
 }
 

@@ -69,6 +69,9 @@ func (h *editHandler) fieldEdit(where editScope, shown string, addr fieldAddress
 			if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || strings.ContainsAny(v, "\r\n") {
 				return "", nil, fmt.Errorf("%s must be a non-empty name", key)
 			}
+			if key == "effort" && addr.target != "" && !hasEffortSetting(addr.target) {
+				return "", nil, fmt.Errorf("%s has no effort setting", addr.target)
+			}
 			if key == "effort" && addr.target != "" && !adapters.AcceptsSettingsEffort(addr.target, v) {
 				return "", nil, fmt.Errorf("effort for %s must be one of: %s", addr.target, strings.Join(editableEffortLevels([]string{addr.target}), ", "))
 			}
@@ -138,6 +141,15 @@ func (h *editHandler) fieldEdit(where editScope, shown string, addr fieldAddress
 		return "", nil, errors.New("several editable settings specs exist; choose a path")
 	}
 	*picked = chosen
+	if key == "effort" && addr.target != "" && value != nil {
+		fromTier, err := tierGivesEffort(chosen, scope.cfg.Models)
+		if err != nil {
+			return "", nil, err
+		}
+		if fromTier {
+			return "", nil, tierEffortError{fmt.Errorf("effort comes from the model tier %s, which stops applying once the spec sets effort, so a value for %s alone would drop it for every other tool; set effort for every tool, or edit the spec", chosen.ModelTier, addr.target)}
+		}
+	}
 	scaffold := fieldCreatedSpec
 	if where == scopeLocal {
 		return h.localFieldEdit(chosen, addr, value)
@@ -250,6 +262,42 @@ func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir string, addr fie
 		return "", nil, err
 	}
 	return file, scalarFieldEdit(spec.Entry{}, addr, value, nil, fieldCreatedMarker+string(scaffold)), nil
+}
+
+// tierEffortError refuses a one-tool effort that would turn off the
+// effort a model tier gives every tool.
+type tierEffortError struct{ error }
+
+// tierGivesEffort reports whether chosen's effort comes only from its
+// model tier: the tier sets one and no file behind chosen sets effort.
+func tierGivesEffort(chosen spec.Entry, tiers map[string]config.ModelTier) (bool, error) {
+	if tier, ok := tiers[chosen.ModelTier]; !ok || tier.Effort == nil {
+		return false, nil
+	}
+	if chosen.Base != nil {
+		_, shared := chosen.Base.Meta["effort"]
+		_, personal := chosen.LocalMeta["effort"]
+		return !shared && !personal, nil
+	}
+	data, err := os.ReadFile(chosen.Path)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", chosen.Path, err)
+	}
+	var values map[string]any
+	if err := yaml.Unmarshal(data, &values); err != nil {
+		return false, fmt.Errorf("parse %s: %w", chosen.Path, err)
+	}
+	_, own := values["effort"]
+	return !own, nil
+}
+
+func hasEffortSetting(target string) bool {
+	adapter, err := adapters.Resolve(target)
+	if err != nil {
+		return false
+	}
+	_, ok := adapter.(adapters.SettingsEffortAccepter)
+	return ok
 }
 
 // fieldSourceError refuses a team edit because a personal file sets the
