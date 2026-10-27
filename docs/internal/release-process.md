@@ -66,6 +66,8 @@ Every new publish uses `--provenance`, which attaches signed records of the buil
 
 `scripts/npm-verify-provenance.js` uses the pinned npm CLI's bundled verification libraries and Sigstore trust root. It verifies the registry signature, build and registry publish attestations, and downloaded tarball integrity. It requires the build certificate to name this repository's `.github/workflows/release.yml` at the version tag, issued by GitHub Actions, and the signed source commit to match the release commit. A registry signature alone does not prove where a package was built.
 
+The verifier reads attestations from `registry.npmjs.com`, not `registry.npmjs.org`. The `.org` host caches each attestation response for a year, so a copy read before npm finishes signing stays incomplete at that cache location, and the check fails there with "has attestations but no corresponding public key(s) can be found". The `.com` host serves the same data uncached.
+
 Re-run the same release after a temporary registry or signing-service failure when the published packages have valid attestations. Verified platform packages are skipped and missing packages publish before the parent. If a tarball reached npm without its required attestation, stop: npm versions are immutable and re-running cannot attach a replacement. Prepare a new version of all seven packages through the normal release process. Do not plain-publish, unpublish, or move the old tag to bypass verification.
 
 See [npm provenance verification](https://docs.npmjs.com/viewing-package-provenance/) and the [npm verifier implementation](https://github.com/npm/cli/blob/v11.5.1/lib/utils/verify-signatures.js).
