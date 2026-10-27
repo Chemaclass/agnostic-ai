@@ -119,7 +119,7 @@ func (h *editHandler) builtinsEdit(where editAudience, req builtinRequest) (stri
 			return "", nil, fmt.Errorf("%s: reset applies to your personal list; send audience personal", overviewDisplay(h.root, local))
 		}
 		if personal, err := personalBuiltins(localData); err != nil || personal != nil {
-			return "", nil, cmp.Or(err, fmt.Errorf("%s sets builtins for you; reset it before changing the team list", overviewDisplay(h.root, local)))
+			return "", nil, cmp.Or(err, fmt.Errorf("%s sets builtins for you; reset it before changing the shared list", overviewDisplay(h.root, local)))
 		}
 		return team, func(data []byte) ([]byte, error) { return setBuiltin(data, req.name, req.enabled) }, nil
 	}
@@ -300,13 +300,13 @@ func (h *editHandler) scopedSettingsFile(e spec.Entry, key string, where editAud
 		return e.Path, "", nil
 	}
 	if e.Base == nil {
-		return "", "", fmt.Errorf("%s is a personal spec with no team value; switch to Personal to edit it", overview.SpecPath(h.root, e))
+		return "", "", fmt.Errorf("%s is a personal spec with no shared value; switch to Personal to edit it", overview.SpecPath(h.root, e))
 	}
 	if overview.LocalSets(e, key) {
-		return "", "", fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, e), key)}
+		return "", "", fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the shared value", overview.SpecPath(h.root, e), key)}
 	}
 	if e.Base.Layer == layerNameBuiltin || strings.HasPrefix(e.Base.Layer, "pack:") {
-		return "", "", fmt.Errorf("the team value comes from %s, which updates replace", overview.SpecPath(h.root, *e.Base))
+		return "", "", fmt.Errorf("the shared value comes from %s, which updates replace", overview.SpecPath(h.root, *e.Base))
 	}
 	return e.Base.Path, "", nil
 }

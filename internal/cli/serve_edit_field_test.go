@@ -369,7 +369,7 @@ func TestEditField_ClearRefusesAnInheritedLocalValue(t *testing.T) {
 	local := ".agnostic-ai/local/settings/a.yaml"
 	mustWrite(t, local, "name: a\neffort: high\n")
 	rec := postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":"`+local+`","key":"model","value":null}`, nil)
-	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "inherits model") {
+	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "inherits model") || !strings.Contains(rec.Body.String(), "switch to Shared") {
 		t.Fatalf("clear = %d %s", rec.Code, rec.Body)
 	}
 	if data, _ := os.ReadFile(local); string(data) != "name: a\neffort: high\n" {

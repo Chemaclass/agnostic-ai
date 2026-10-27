@@ -214,7 +214,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
     expect((await git('status', '--porcelain', '--untracked-files=all')).stdout).toBe('')
     expect(await readFile(exclude, 'utf8')).toContain(personalBlock)
 
-    await page.locator('.item-row').filter({ has: caveman }).getByRole('button', { name: 'Reset caveman to team value' }).click()
+    await page.locator('.item-row').filter({ has: caveman }).getByRole('button', { name: 'Reset caveman to shared value' }).click()
     await page.getByRole('region', { name: 'Caveman change preview' }).getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(caveman).toHaveAttribute('aria-checked', 'false')
     await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()
@@ -225,7 +225,7 @@ test('live just-me built-in outside the team block goes to info/exclude and rese
   }
 })
 
-test('live just-me edits stay out of Git, reach sync, and reset to the team value', async ({ page }) => {
+test('live just-me edits stay out of Git, reach sync, and reset to the shared value', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     const shared = join(f.root, '.agnostic-ai', 'settings', 'defaults.yaml')
@@ -268,7 +268,7 @@ test('live just-me edits stay out of Git, reach sync, and reset to the team valu
     await expect(model.locator('.badge', { hasText: 'local' })).toHaveCount(0)
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('sonnet')
     await expect(stat(overlay)).rejects.toThrow()
-    await handoffRow.getByRole('button', { name: 'Reset handoff to team value' }).click()
+    await handoffRow.getByRole('button', { name: 'Reset handoff to shared value' }).click()
     await preview.getByRole('button', { name: 'Apply change', exact: true }).click()
     await expect(handoff).toHaveAttribute('aria-checked', 'true')
     await expect(stat(join(f.root, 'agnostic-ai.local.yaml'))).rejects.toThrow()

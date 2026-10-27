@@ -190,7 +190,7 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, addr fieldAddress, value
 	key := addr.key
 	if value == nil && !overview.LocalSets(chosen, addr.String()) {
 		if _, inherited := chosen.Meta[key]; inherited && addr.target == "" {
-			return "", nil, noPersonalValueError{fmt.Errorf("this file inherits %s from the team spec named %q; switch to Team to clear it", key, chosen.Name)}
+			return "", nil, noPersonalValueError{fmt.Errorf("this file inherits %s from the shared spec named %q; switch to Shared to clear it", key, chosen.Name)}
 		}
 		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no personal %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), addr.label())}
 	}
@@ -243,10 +243,10 @@ func teamFieldValue(chosen spec.Entry, key string) (any, error) {
 // none, so a Team save lands in the committed settings.
 func (h *editHandler) newTeamFieldSpec(personal spec.Entry, dir string, addr fieldAddress, value any) (string, func([]byte) ([]byte, error), error) {
 	if value == nil {
-		return "", nil, fmt.Errorf("%s: there is no team %s to clear", overview.SpecPath(h.root, personal), addr.label())
+		return "", nil, fmt.Errorf("%s: there is no shared %s to clear", overview.SpecPath(h.root, personal), addr.label())
 	}
 	if blocking := addr.personalKey(personal); overview.LocalSets(personal, blocking) {
-		return "", nil, fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the team value", overview.SpecPath(h.root, personal), blocking)}
+		return "", nil, fieldSourceError{fmt.Errorf("%s sets %s for you; reset it to edit the shared value", overview.SpecPath(h.root, personal), blocking)}
 	}
 	file := filepath.Join(dir, personal.Name+".yaml")
 	if _, err := os.Lstat(file); err == nil {

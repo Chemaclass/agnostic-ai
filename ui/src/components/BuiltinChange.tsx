@@ -190,9 +190,9 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
   return <div className="builtin-change">
     <div className="builtin-change-controls">
       {!proposal && <span className="muted">Preview before applying to your tools.</span>}
-      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the team list</button>}
+      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the shared list</button>}
     </div>
-    {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading="Reset the built-in list to the team list" />}
+    {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading="Reset the built-in list to the shared list" />}
   </div>
 }
 
@@ -258,7 +258,7 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
   return <>
     {renderHeading(<>
       <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || blocked} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
-      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to team value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to team value</button>}
+      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to shared value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to shared value</button>}
     </>)}
     {selected && change && <Preview change={change} title={`${title} change`} heading={`${change.enabled ? 'Enable' : 'Disable'} ${title}`} />}
   </>

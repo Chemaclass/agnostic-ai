@@ -156,10 +156,10 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
           <section className="block" aria-labelledby={titleId} key={k.kind}>
             <h2 id={titleId}>
               {k.label} <span className="muted kind-count">{k.count}{k.kind === 'builtin' ? ' enabled' : ''}</span>
-              {k.local && <Badge tone="accent" title="Your personal config replaces the team list">local</Badge>}
+              {k.local && <Badge tone="accent" title="Your personal config replaces the shared list">local</Badge>}
             </h2>
             {k.kind === 'builtin' && <ChangeStatus labels={section.items} settings={false} builtins />}
-            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the team list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
+            {k.kind === 'builtin' && <BuiltinChangeControls local={k.local ?? false} resetSource={<ResetAction label="Reset built-ins to the shared list" reset={() => postEdit(API.editBuiltin, { audience: 'personal', reset: true, expected: section.items.filter((item) => item.kind === 'builtin' && item.enabled).map((item) => item.name) })} />} />}
             {items.length === 0 ? <p className="muted">{query ? 'No matches.' : 'None configured.'}</p> : <GroupedItems items={items} />}
           </section>
         )
@@ -362,7 +362,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   const save = (clear: boolean) => post({ audience, value: clear ? null : edit.kind === 'number' ? Number(value) : value }, audience === 'personal' ? basis.current.local : basis.current.team)
   const reset = () => post({ audience: 'personal', value: null }, basis.current.local)
   const overridden = audience === 'shared' && (localCurrent !== undefined || wholePersonal)
-  const resetLabel = target ? 'Use the value for every tool' : 'Reset to team value'
+  const resetLabel = target ? 'Use the value for every tool' : 'Reset to shared value'
   const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
   const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
   const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
@@ -389,7 +389,7 @@ function FieldEditControl({ field, files, sources, target, toolLabel }: { field:
   return <>{sources(shown)}<div className="field-edit">
     {overridden
       ? <div className="field-edit-row">
-        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the team\'s per-tool values. Reset it to change the team value.' : 'Your local value overrides the team value. Reset it to change the team value.'}</p>
+        <p className="muted">{localCurrent === undefined ? 'Your personal value for every tool replaces the shared per-tool values. Reset it to change the shared value.' : 'Your local value overrides the shared value. Reset it to change the shared value.'}</p>
         {resetButton}
       </div>
       : <div className="field-edit-row">
@@ -487,7 +487,7 @@ function ItemList({ items, hideValues }: { items: SectionItem[]; hideValues?: bo
       {items.map((item) => {
         const control = item.enabled !== undefined && <>
           <EditSwitch on={item.enabled} label={`${item.name} built-in`} save={(on) => postEdit(API.editBuiltin, { audience, name: item.name, enabled: on, expected: item.enabled })} />
-          {item.local && <ResetAction label={`Reset ${item.name} to team value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
+          {item.local && <ResetAction label={`Reset ${item.name} to shared value`} reset={() => postEdit(API.editBuiltin, { audience: 'personal', name: item.name, enabled: !item.enabled, expected: item.enabled })} />}
         </>
         const heading = (toggle: ReactNode) => <ItemHeading item={item} control={toggle} />
         return (
@@ -649,7 +649,7 @@ function ResetAction({ label, reset }: { label: string; reset: () => Promise<voi
   }
   return (
     <span className="edit-switch">
-      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to team value</button>
+      <button type="button" className="button button-quiet" aria-label={label} disabled={pending} onClick={() => { void run() }}>Reset to shared value</button>
       {error && <span className="edit-error" role="alert">{error.message}{error.status === 409 && <> <button type="button" className="button button-quiet" onClick={() => { reloadBasis.current = app.overviewRevision; waitingForReload.current = true; app.reload() }}>Reload saved values</button></>}</span>}
     </span>
   )
@@ -699,7 +699,7 @@ function Values({ values, file, prefix, personal, localKeys }: { values: Value[]
               file ? (
                 <>
                   <EditSwitch on={v.value === 'true'} label={v.key} save={(on) => postEdit(API.editValue, { audience, path: file, key: v.key, value: on, expected: v.value === 'true' })} />
-                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to team value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
+                  {localKeys?.includes(v.key) && <ResetAction label={`Reset ${v.key} to shared value`} reset={() => postEdit(API.editValue, { audience: 'personal', path: file, key: v.key, value: null, expected: v.value === 'true' })} />}
                 </>
               ) : (
                 <Switch on={v.value === 'true'} />

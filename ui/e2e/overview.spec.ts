@@ -592,13 +592,13 @@ test.describe('overview', () => {
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await expect(model).toContainText('Your local value overrides the team value.')
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
+    await expect(model).toContainText('Your local value overrides the shared value.')
+    await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await caveman.getByRole('button', { name: 'Reset caveman to team value' }).click()
+    await caveman.getByRole('button', { name: 'Reset caveman to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'caveman', enabled: false, expected: true })
 
     await personal.click()
@@ -751,15 +751,15 @@ test.describe('overview', () => {
     await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
-    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to team value' })).toHaveCount(1)
-    await native.getByRole('button', { name: 'Reset x-claude.verbose to team value' }).click()
+    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' })).toHaveCount(1)
+    await native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: nativeLocal, key: 'x-claude.verbose', value: null, expected: true })
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    await expect(model.getByRole('button', { name: 'Reset to team value' })).toHaveCount(0)
+    await expect(model.getByRole('button', { name: 'Reset to shared value' })).toHaveCount(0)
     await model.getByRole('combobox').selectOption(b)
-    await expect(model).toContainText('Your local value overrides the team value.')
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
+    await expect(model).toContainText('Your local value overrides the shared value.')
+    await model.getByRole('button', { name: 'Reset to shared value' }).click()
     await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: b, key: 'model', value: null, expected: 'opus' })
   })
 
@@ -783,7 +783,7 @@ test.describe('overview', () => {
     await expect(model).toContainText(`Saves to ${team}`)
 
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
-    await expect(effort).toContainText('Your local value overrides the team value.')
+    await expect(effort).toContainText('Your local value overrides the shared value.')
     await expect(effort.locator('.field-source')).toContainText('low')
     await expect(effort.locator('.field-source')).toContainText(`from ${local}`)
 

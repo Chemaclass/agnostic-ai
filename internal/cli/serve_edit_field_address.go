@@ -104,7 +104,7 @@ func (a fieldAddress) next(own any, ownSet bool, base, value any) (next any, kee
 	case value == nil:
 		return nil, false, errFieldNotInFile
 	case own != nil && baseMap:
-		return nil, false, fmt.Errorf("your personal file sets %s for every tool over the team's per-tool values; reset it before setting one tool", a.key)
+		return nil, false, fmt.Errorf("your personal file sets %s for every tool over the shared per-tool values; reset it before setting one tool", a.key)
 	default:
 		m = map[string]any{}
 		if own != nil {
