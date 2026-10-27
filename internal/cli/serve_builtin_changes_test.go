@@ -664,6 +664,9 @@ func TestBuiltinChanges_DisablingUnsupportedSkillClearsWarnings(t *testing.T) {
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
+	if state := readStateFile("."); len(state.NoteRecords) == 0 {
+		t.Fatal("sync did not record the skill coverage note")
+	}
 	h := newBuiltinChangeHandler(root, false)
 	proposal := builtinProposal(t, h, false)
 	if len(proposal.Findings) != 0 {
@@ -671,6 +674,9 @@ func TestBuiltinChanges_DisablingUnsupportedSkillClearsWarnings(t *testing.T) {
 	}
 	builtinAction(t, h, builtinApplyPath, proposal.ID)
 	before := readStateFile(".")
+	if len(before.NoteRecords) != 0 {
+		t.Errorf("disable kept coverage note records: %v", before.NoteRecords)
+	}
 	if _, err := runCLI(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
