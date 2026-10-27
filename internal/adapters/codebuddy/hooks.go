@@ -89,6 +89,9 @@ func validateHooks(hooks []spec.Entry, prompts bool) error {
 			if prompt, _ := m["prompt"].(string); prompt == "" {
 				return fmt.Errorf("%s: codebuddy: prompt hooks need a prompt", h.Path)
 			}
+			if _, ok := m["command"]; ok {
+				return fmt.Errorf("%s: codebuddy: prompt hooks take no command; split it into a command hook", h.Path)
+			}
 		}
 	}
 	return nil
