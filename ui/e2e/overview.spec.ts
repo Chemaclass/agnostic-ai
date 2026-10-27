@@ -52,6 +52,16 @@ test.describe('overview', () => {
     await expect(page.getByRole('status').filter({ hasText: 'This finding still appears after the recheck.' })).toBeVisible()
   })
 
+  test('spaces each kind block apart from the one before it', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=context')
+    const blocks = page.locator('.stale-guard > .block')
+    await expect(blocks.nth(1)).toBeVisible()
+    const first = await blocks.nth(0).boundingBox()
+    const second = await blocks.nth(1).boundingBox()
+    expect(second!.y - (first!.y + first!.height)).toBeGreaterThanOrEqual(24)
+  })
+
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
