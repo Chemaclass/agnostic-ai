@@ -420,12 +420,7 @@ function Lifecycle({ stages, hooks, count, filtering }: { stages: Stage[]; hooks
                   <h3 className="stage-title">{st.label}</h3>
                   {!here.length && <p className="muted stage-empty">{filtering ? 'No matching hooks.' : 'No hook runs here.'}</p>}
                 </div>
-                {here.length ? <p className="muted stage-description">{st.description}</p> : (
-                  <details className="stage-description">
-                    <summary>When this runs</summary>
-                    <p className="muted">{st.description}</p>
-                  </details>
-                )}
+                <p className="muted stage-description">{st.description}</p>
                 {st.targets.length > 0 && (
                   <p className="stage-tools">
                     {st.targets.map((t) => (

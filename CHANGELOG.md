@@ -10,6 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Web interface
 
+- Lifecycle stages always show when they run, without a **When this runs** toggle (#2568).
 - Preview, apply, and undo project model and reasoning effort changes for the team or just you (#2511, #2553).
 - Edit model, effort, and global session-retention settings; personal settings use Git-ignored files and can be reset (#2476, #2526).
 - Settings show values from other files and the model and effort sync selects for each tool (#2512, #2527).
