@@ -105,7 +105,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       setCancelledId(stale ? value.id : undefined)
       if (stale && action === 'preview') await discard(value.id)
       if (action === 'cancel') setNotice('Preview discarded.')
-      if (action === 'apply' || action === 'undo' || !action) app.reload(true)
+      if (action === 'apply' || action === 'undo' || !action) app.reload(!!action)
       return false
     } catch (err) {
       const conflict = err instanceof BuiltinChangeError && err.conflict
@@ -170,14 +170,14 @@ export function ChangeStatus({ labels, settings, builtins }: { labels: { name: s
   </div>
 }
 
-export function ChangeError() {
+export function ChangeError({ reloadLabel = 'Reload change state' }: { reloadLabel?: string }) {
   const { pending, error, request } = useBuiltinChanges()
   if (!error) return null
   return <div className="builtin-change-error" role="alert">
     <strong>{error.title ?? (error.action === 'cancel' ? 'Preview could not be cancelled.' : error.conflict ? 'Files changed. Review a fresh preview.' : 'Change could not be completed.')}</strong>
     <p>{error.message}</p>
     {error.retryCancel && <button className="button" type="button" disabled={!!pending} onClick={() => { void request('cancel') }}>Retry cancellation</button>}
-    <button className="button" type="button" disabled={!!pending} onClick={() => { void request() }}>Reload change state</button>
+    <button className="button" type="button" disabled={!!pending} onClick={() => { void request() }}>{reloadLabel}</button>
   </div>
 }
 

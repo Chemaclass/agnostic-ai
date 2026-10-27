@@ -348,14 +348,13 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
   const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
   const locked = pending || !!transaction.proposal
-  const resetButton = localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>Reset to team value</button>
+  const resetButton = !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>Reset to team value</button>
   const previewing = pending || !transaction.ready
   const preview = async (next: string | null, where: 'team' | 'local') => {
     setError(undefined)
     setReloaded(false)
     conflict.current = false
     const stale = await transaction.previewSetting({ path: target || undefined, key: field.key as 'model' | 'effort', value: next, expected: (where === 'local' ? basis.current.local : basis.current.team) ?? null }, where)
-    // As a source-only save does, a stale preview moves the basis to the newer saved value.
     if (stale) {
       const now = latest.current
       const shown = basis.current
@@ -363,7 +362,6 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
         basis.current = now
         setReloaded(true)
       } else conflict.current = true
-      app.reload()
     }
   }
   const shown = overridden ? undefined : scope === 'local' ? (localCurrent !== undefined ? localSource?.path : undefined) : teamCurrent !== undefined ? teamSource?.path : undefined
@@ -380,8 +378,8 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
             {edit.allowed.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
           : <input aria-label={`${field.label} value`} type={edit.kind === 'number' ? 'number' : 'text'} min={edit.kind === 'number' ? 1 : undefined} step={edit.kind === 'number' ? 1 : undefined} value={value} placeholder={field.set.length > 0 && !current ? 'Not set in this file' : 'Not set'} onChange={(event) => setValue(event.target.value)} disabled={locked} />}
-        <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>
-        {scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>Clear</button>}
+        {!transaction.supported && <button type="button" className="button button-primary" disabled={locked || !value.trim() || value === current} onClick={() => save(false)}>{configured ? 'Update' : 'Save'}</button>}
+        {!transaction.supported && scope === 'team' && configured && <button type="button" className="button button-quiet" disabled={locked} onClick={() => save(true)}>Clear</button>}
         {resetButton}
       </div>}
     {scope === 'team' && paths.length > 1 && <label className="field-edit-target">Save to <select value={path} onChange={(event) => setSelectedPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</select></label>}
@@ -394,14 +392,14 @@ function FieldEditControl({ field, sources }: { field: SettingField; sources: (s
       {localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={previewing} onClick={() => { void preview(null, 'local') }}>Preview personal reset</button>}
       {transaction.preparing && <span className="muted">Preparing preview…</span>}
     </div>}
-    {transaction.error && <ChangeError />}
+    {transaction.error && <ChangeError reloadLabel="Reload saved values" />}
     {transaction.proposal && <SettingChangePreview change={transaction.proposal} label={field.label} />}
     {reloaded && <p className="muted" role="status">The saved value changed after you started editing and is now {current ? <Code>{current}</Code> : 'not set'}. Your draft is kept; save it to replace the saved value.</p>}
     <p className="muted field-edit-hint">
       {scope === 'local' && edit.localPath && <>Saves to <Code>{edit.localPath}</Code> · </>}
       {scope === 'team' && configured && paths.length <= 1 && <>from <Code>{path}</Code> · </>}
       {scope === 'team' && !configured && field.set.length > 0 && paths.length <= 1 && path && <>Saves to <Code>{path}</Code> · </>}
-      Run <Code>{syncCommand}</Code> to apply.
+      {!transaction.supported && <>Run <Code>{syncCommand}</Code> to apply.</>}
     </p>
   </div></>
 }

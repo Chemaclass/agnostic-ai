@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- Project model and reasoning effort changes in the web interface now use preview and apply, including removal and personal reset, so a change also updates generated files (#2553).
 - The web interface refuses stale boolean and built-in saves, preserves the displayed choice, and offers to reload saved values (#2542).
 - `serve --no-installed` now also leaves the web interface's overview from comparing generated files with disk, for a project and for `--global`. The overview reports Not checked for every tool, and the source checks still run (#2528).
 - The web interface's Settings page keeps a value from another file, such as a pack, visible with its path while the editor saves to a different file or shows only the personal override message. An empty input there reads Not set in this file and names where a save goes; a value is hidden only when the editor shows that same file's value (#2527).
