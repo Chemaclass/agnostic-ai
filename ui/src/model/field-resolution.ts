@@ -6,6 +6,7 @@ import { joinList } from './format'
 
 export interface ValueGroup {
   value?: string
+  unchecked?: boolean
   labels: string[]
 }
 
@@ -13,8 +14,14 @@ export interface ValueGroup {
 export function valueGroups(resolved: TargetValue[]): ValueGroup[] {
   const groups: ValueGroup[] = []
   for (const r of resolved) {
+    if (!r.checked && !r.dropped) {
+      const group = groups.find((g) => g.unchecked)
+      if (group) group.labels.push(r.label)
+      else groups.push({ unchecked: true, labels: [r.label] })
+      continue
+    }
     const value = r.dropped ? undefined : r.value
-    const group = groups.find((g) => g.value === value)
+    const group = groups.find((g) => !g.unchecked && g.value === value)
     if (group) group.labels.push(r.label)
     else groups.push({ value, labels: [r.label] })
   }
@@ -24,10 +31,12 @@ export function valueGroups(resolved: TargetValue[]): ValueGroup[] {
 /** What sync writes for one tool, without claiming a runtime default. */
 export function generatedAnswer(r: TargetValue): string {
   if (r.dropped) return `Sync writes no value: ${r.dropped}. ${r.label} keeps its own default.`
+  if (!r.checked) return r.value
+    ? `The configured value for ${r.label} is ${r.value}, but sync was not rendered here, so whether its files take this value is unknown.`
+    : `No settings spec sets a value for ${r.label}. Sync was not rendered here, so what its files take is unknown.`
   if (!r.value) return `No settings spec sets a value for ${r.label}, so sync writes none and ${r.label} keeps its own default.`
   const via = [r.alias && `resolved from ${r.alias}`, r.tier && `from model tier ${r.tier}`].filter(Boolean)
-  const unchecked = r.checked ? '' : ` Sync did not render ${r.label} here, so whether its files take this value was not checked.`
-  return `Sync writes ${r.value}${via.length ? ` (${joinList(via as string[])})` : ''}.${unchecked}`
+  return `Sync writes ${r.value}${via.length ? ` (${joinList(via as string[])})` : ''}.`
 }
 
 /** What the installed files say, from the generated-file status. */
