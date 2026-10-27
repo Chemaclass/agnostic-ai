@@ -3,6 +3,7 @@ package opencode
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -106,5 +107,69 @@ func TestEmit_Agent_V2NativeOverridesKeepScalarAndAliases(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func readAgentMeta(t *testing.T, path string) (map[string]any, string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, err := spec.ParseMarkdownBytes(spec.KindAgent, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return entry.Meta, string(data)
+}
+
+func TestEmit_Agent_V2MovesTemperatureIntoRequestBody(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want map[string]any
+	}{
+		{"portable temperature with permissions", map[string]any{"temperature": 0.2, "x-opencode": map[string]any{"permissions": []any{}}}, map[string]any{"body": map[string]any{"temperature": 0.2}}},
+		{"x-opencode temperature with disabled", map[string]any{"x-opencode": map[string]any{"temperature": 0.3, "disabled": false}}, map[string]any{"body": map[string]any{"temperature": 0.3}}},
+		{"merged with request", map[string]any{"temperature": 0.4, "x-opencode": map[string]any{"request": map[string]any{"headers": map[string]any{"x-agent": "reviewer"}, "body": map[string]any{"top_p": 0.9}}}}, map[string]any{"headers": map[string]any{"x-agent": "reviewer"}, "body": map[string]any{"top_p": 0.9, "temperature": 0.4}}},
+		{"request body temperature wins", map[string]any{"temperature": 0.4, "x-opencode": map[string]any{"request": map[string]any{"body": map[string]any{"temperature": 0.1}}}}, map[string]any{"body": map[string]any{"temperature": 0.1}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: tc.meta, Body: "Review."}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{agent}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			meta, data := readAgentMeta(t, filepath.Join(dir, ".opencode/agents/reviewer.md"))
+			if _, present := meta["temperature"]; present {
+				t.Errorf("V2 file keeps top-level temperature, which OpenCode ignores:\n%s", data)
+			}
+			if got := meta["request"]; !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("request = %#v, want %#v\n%s", got, tc.want, data)
+			}
+		})
+	}
+}
+
+func TestEmit_Agent_V2RejectsNonObjectRequestWithTemperature(t *testing.T) {
+	testutil.TempCwd(t)
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"temperature": 0.2, "x-opencode": map[string]any{"request": "fast"}}, Body: "Review."}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{agent}), &config.Config{}, false); err == nil {
+		t.Error("want an error for a request that is not an object")
+	}
+}
+
+func TestEmit_Agent_V1KeepsTopLevelTemperature(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	agent := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Meta: map[string]any{"temperature": 0.4, "tools": []any{"Read"}}, Body: "Review."}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{agent}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	meta, data := readAgentMeta(t, filepath.Join(dir, ".opencode/agents/reviewer.md"))
+	if meta["temperature"] != 0.4 {
+		t.Errorf("temperature = %v, want 0.4\n%s", meta["temperature"], data)
+	}
+	if _, present := meta["request"]; present {
+		t.Errorf("V1 file gains request, which would switch it to V2:\n%s", data)
 	}
 }
