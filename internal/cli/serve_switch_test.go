@@ -25,6 +25,11 @@ func fakePeer(t *testing.T, addr string, identity viewServer) *peerProcess {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return servePeer(t, ln, identity)
+}
+
+func servePeer(t *testing.T, ln net.Listener, identity viewServer) *peerProcess {
+	t.Helper()
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == authority.HealthPath {
 			_ = json.NewEncoder(w).Encode(identity)
@@ -59,7 +64,7 @@ func postSwitch(t *testing.T, h http.Handler) (*httptest.ResponseRecorder, switc
 }
 
 func TestSwitch_StartsTheGlobalServerOnTheFirstFreePort(t *testing.T) {
-	home, project := t.TempDir(), t.TempDir()
+	home, project := t.TempDir(), configuredProject(t, t.TempDir())
 	ports := freeLoopbackAddrs(t, 2)
 	var started []startedPeer
 	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(other switchPeer, addr string) (*peerProcess, error) {
@@ -101,7 +106,7 @@ func TestSwitch_ReusesARunningServerForTheOtherConfiguration(t *testing.T) {
 }
 
 func TestSwitch_StartsItsOwnGlobalServerWhenTheRunningOneLinksToAnotherProject(t *testing.T) {
-	home, project := t.TempDir(), t.TempDir()
+	home, project := t.TempDir(), configuredProject(t, t.TempDir())
 	ports := freeLoopbackAddrs(t, 3)
 	fakePeer(t, ports[0], viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: t.TempDir()})
 	fakePeer(t, ports[1], viewServer{OK: true, Root: home, Global: true, UI: true})
@@ -193,7 +198,7 @@ func TestSwitch_RefusesOtherMethodsAndBodyTypes(t *testing.T) {
 }
 
 func TestSwitch_CloseStopsTheServersItStarted(t *testing.T) {
-	home, project := t.TempDir(), t.TempDir()
+	home, project := t.TempDir(), configuredProject(t, t.TempDir())
 	ports := freeLoopbackAddrs(t, 1)
 	var peer *peerProcess
 	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
@@ -319,5 +324,144 @@ func TestServeSignals_KeepsAnIgnoredHangup(t *testing.T) {
 	}
 	if got := serveSignals(func(os.Signal) bool { return false }); !slices.Contains(got, os.Signal(syscall.SIGHUP)) || !slices.Contains(got, os.Interrupt) {
 		t.Errorf("signals = %v", got)
+	}
+}
+
+// fakeChild acts like a started serve. When the port is taken it exits
+// at once, or stays alive until stopped, as a real child does for the
+// moment between its failed bind and its exit.
+func fakeChild(t *testing.T, addr string, identity viewServer, exitsAtOnce bool) *peerProcess {
+	t.Helper()
+	if ln, err := net.Listen("tcp", addr); err == nil {
+		return servePeer(t, ln, identity)
+	}
+	done := make(chan struct{})
+	var once sync.Once
+	exit := func() { once.Do(func() { close(done) }) }
+	if exitsAtOnce {
+		exit()
+	}
+	return &peerProcess{done: done, stop: exit}
+}
+
+func configuredProject(t *testing.T, dir string) string {
+	t.Helper()
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	return dir
+}
+
+func TestSwitch_RacingProjectsEachOpenAGlobalServerThatLinksBack(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		ports       int
+		exitsAtOnce bool
+		nested      bool
+	}{
+		{"loser probes while its child runs", 2, false, false},
+		{"loser's child exits at once", 2, true, false},
+		{"no port left for the loser", 1, false, false},
+		{"loser is a project inside the winner", 2, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("AGNOSTIC_AI_HOME", home)
+			projects := []string{configuredProject(t, t.TempDir()), configuredProject(t, t.TempDir())}
+			if tc.nested {
+				projects[1] = configuredProject(t, filepath.Join(projects[0], "sub"))
+			}
+			ports := freeLoopbackAddrs(t, tc.ports)
+			var arrived sync.WaitGroup
+			arrived.Add(len(projects))
+			firstBound := make(chan struct{})
+			handlers := make([]*switchHandler, len(projects))
+			for i, project := range projects {
+				var calls int
+				handlers[i] = newSwitchHandler(&switchPeer{root: home, global: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+					calls++
+					if calls == 1 {
+						arrived.Done()
+						arrived.Wait()
+						if i == 1 {
+							<-firstBound
+						}
+					}
+					process := fakeChild(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}, tc.exitsAtOnce)
+					if i == 0 && calls == 1 {
+						close(firstBound)
+					}
+					return process, nil
+				})
+				defer handlers[i].close()
+			}
+
+			recs := make([]*httptest.ResponseRecorder, len(handlers))
+			var wg sync.WaitGroup
+			for i, h := range handlers {
+				wg.Go(func() {
+					req := httptest.NewRequest(http.MethodPost, switchPath, strings.NewReader("{}"))
+					req.Header.Set("Content-Type", "application/json")
+					recs[i] = httptest.NewRecorder()
+					h.ServeHTTP(recs[i], req)
+				})
+			}
+			wg.Wait()
+
+			for i, rec := range recs {
+				if tc.ports == 1 && i == 1 {
+					if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "agnostic-ai ui --global") {
+						t.Errorf("loser without a port = %d %s", rec.Code, rec.Body)
+					}
+					continue
+				}
+				var reply switchReply
+				if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &reply) != nil || !reply.Started {
+					t.Fatalf("project %d switch = %d %s", i, rec.Code, rec.Body)
+				}
+				served := probeViewServer(strings.TrimSuffix(strings.TrimPrefix(reply.URL, "http://"), "/"), viewProbeTimeout)
+				if served == nil || !sameProjectRoot(served.ProjectRoot, projects[i]) {
+					t.Errorf("project %d opened %s, which links back to %+v", i, reply.URL, served)
+				}
+			}
+		})
+	}
+}
+
+func TestSwitch_AcceptsAStartedGlobalServerThatLinksToAnAncestorProject(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("AGNOSTIC_AI_HOME", home)
+	project := configuredProject(t, t.TempDir())
+	folder := filepath.Join(project, "docs")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ports := freeLoopbackAddrs(t, 2)
+	var started []string
+	h := newSwitchHandler(&switchPeer{root: home, global: true, dir: folder}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		started = append(started, addr)
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, Global: true, UI: true, ProjectRoot: project}), nil
+	})
+	defer h.close()
+
+	for range 2 {
+		if rec, reply := postSwitch(t, h); rec.Code != http.StatusOK || reply.URL != "http://"+ports[0]+"/" {
+			t.Fatalf("switch = %d %s", rec.Code, rec.Body)
+		}
+	}
+	if !slices.Equal(started, ports[:1]) {
+		t.Errorf("started = %v", started)
+	}
+}
+
+func TestSwitchPeerFor_ProjectServedWithDirLinksBackToThatProject(t *testing.T) {
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	repo := configuredProject(t, t.TempDir())
+	testutil.Chdir(t, t.TempDir())
+	src, err := openAuthoritySource(repo, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer src.close()
+	if peer := switchPeerFor(".", false); peer == nil || !sameProjectRoot(peer.dir, repo) {
+		t.Errorf("peer = %+v, want dir %s", peer, repo)
 	}
 }

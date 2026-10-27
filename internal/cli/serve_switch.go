@@ -148,16 +148,38 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // serves also requires a global server to link back to this project, so
 // its page offers the right way back and it does not stop with another
-// project's server. A server this one started counts too: in a folder
-// without a config its health names an ancestor project or none.
+// project's server. A live server this one started counts too: in a
+// folder without a config its health names an ancestor project or none.
 func (h *switchHandler) serves(addr string, running *viewServer) bool {
-	if !running.UI || running.Global != h.peer.global || !sameProjectRoot(running.Root, h.peer.root) {
+	if !h.readsPeer(running) {
 		return false
 	}
 	if !h.peer.global || h.runs(addr) {
 		return true
 	}
 	return running.ProjectRoot != "" && sameProjectRoot(running.ProjectRoot, h.peer.dir)
+}
+
+func (h *switchHandler) readsPeer(running *viewServer) bool {
+	return running.UI && running.Global == h.peer.global && sameProjectRoot(running.Root, h.peer.root)
+}
+
+// startedHere checks the answer on a port this handler just started a
+// server on: another handler can bind it first while this child still
+// runs. The answer must name the project the child resolves from
+// peer.dir, or none when the child would find none.
+func (h *switchHandler) startedHere(running *viewServer) bool {
+	if !h.readsPeer(running) {
+		return false
+	}
+	if !h.peer.global {
+		return true
+	}
+	project, useGlobal, err := resolveViewSource(h.peer.dir, false, false)
+	if err != nil || useGlobal {
+		return running.ProjectRoot == ""
+	}
+	return sameProjectRoot(running.ProjectRoot, project)
 }
 
 func (h *switchHandler) runs(addr string) bool {
@@ -174,12 +196,13 @@ func (h *switchHandler) runs(addr string) bool {
 }
 
 // awaitHealthy waits for a started server to answer, and gives up when
-// it exits first, which means another program took the port.
+// it exits first or another server answers, which means another program
+// took the port.
 func (h *switchHandler) awaitHealthy(addr string, process *peerProcess) bool {
 	deadline := time.Now().Add(switchStartTimeout)
 	for time.Now().Before(deadline) {
 		if running := h.probe(addr, viewProbeTimeout); running != nil {
-			return h.serves(addr, running)
+			return h.startedHere(running)
 		}
 		select {
 		case <-process.done:
