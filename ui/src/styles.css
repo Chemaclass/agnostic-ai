@@ -1007,6 +1007,7 @@ input:hover {
 }
 
 .finding-copy,
+.refine-copy,
 .finding-recheck {
   min-height: 32px;
   padding: 4px 8px;
@@ -1019,6 +1020,7 @@ input:hover {
 }
 
 .finding-copy:hover,
+.refine-copy:hover,
 .finding-recheck:not(:disabled, [aria-disabled]):hover {
   border-color: var(--line);
   background: var(--panel);
@@ -1094,6 +1096,7 @@ input:hover {
   }
 
   .finding-copy,
+  .refine-copy,
   .finding-recheck {
     min-height: 44px;
     padding-inline: 0;

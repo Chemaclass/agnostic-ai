@@ -8,6 +8,7 @@ import { EditScopeProvider, EditScopeSwitch, useEditScope, usePageScope } from '
 import { OpenInEditor } from './EditorLink'
 import { GoneFinding, isNewSinceRecheck, RecheckAction, RecheckNote, RecheckSection, RecheckSectionEntries, useGoneFinding, useRechecks } from './Recheck'
 import { findingFixPrompt } from '../model/finding-prompt'
+import { instructionsRefinePrompt } from '../model/refine-prompt'
 import { generatedAnswer, installedAnswer, valueGroups } from '../model/field-resolution'
 import { fieldEntryId, findingEntryIds, itemEntryId, sectionEntryIds } from '../model/identity'
 import { fieldSearchText, itemSearchText } from '../model/search'
@@ -490,6 +491,8 @@ function ItemRow({ item, children }: { item: SectionItem; children: ReactNode })
 }
 
 function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode }) {
+  const root = useContext(ConfigurationRoot)
+  const refinable = item.kind === 'instructions' && item.layer === 'global'
   return (
     <div className="item-heading">
       <div className="item-main">
@@ -502,6 +505,7 @@ function ItemHeading({ item, control }: { item: SectionItem; control: ReactNode 
         {control}
         {item.enabled === undefined && <span className="item-layer" title="Layer the item comes from">{item.layer}</span>}
         {item.scope && <Chip>{item.scope}</Chip>}
+        {refinable && <CopyButton text={instructionsRefinePrompt(item.openPath ?? (root ? `${root}/${item.path}` : item.path))} label="Copy refine prompt" ariaLabel={`Copy refine prompt for ${item.label}`} className="refine-copy" />}
         <OpenInEditor path={item.openPath} label={item.label} compact />
       </div>
     </div>
