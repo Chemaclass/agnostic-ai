@@ -1053,7 +1053,7 @@ func buildGlobalWritesForPlatform(home, source string, targets []string, intro [
 		path := g.path(home, g.hooks)
 		hooks := adapters.TargetHooks(target, b.HooksFor(target))
 		if target == "codebuddy" {
-			if err := codebuddy.ValidateHooks(hooks); err != nil {
+			if err := codebuddy.ValidateUserHooks(hooks); err != nil {
 				return nil, next, err
 			}
 		}

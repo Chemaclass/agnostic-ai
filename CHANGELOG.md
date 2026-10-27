@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
 
+#### CodeBuddy Code
+
+- Sync and import prompt hooks on `Stop`, `UserPromptSubmit`, and `PreToolUse` instead of stopping sync (#2578).
+
 #### Mistral Vibe
 
 - `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).

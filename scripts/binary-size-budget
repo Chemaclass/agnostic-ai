@@ -528,4 +528,7 @@
 # #2581 measured 23724192 on Go 1.27.3: sync --global notes that a global
 # Claude effort reaches older models only; one 8 KiB linker step.
 # Linux amd64 release flags; no added headroom or dependencies.
-23724192
+# #2578 measured 23728288 on Go 1.27.3: CodeBuddy writes and imports prompt
+# hooks on the three events its docs list.
+# Linux amd64 release flags; no added headroom or dependencies.
+23728288
