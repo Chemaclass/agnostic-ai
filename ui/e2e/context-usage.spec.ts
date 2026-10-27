@@ -77,17 +77,17 @@ test.describe('context size', () => {
   })
 
   test('hides the previous tool report when another tool fails', async ({ page }) => {
-    const two = { ...structuredClone(contextView), targets: ['claude', 'codex'] }
+    const two = { ...structuredClone(contextView), targets: ['claude', 'gemini'] }
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
     await page.route('**/api/views/context**', (route) => {
-      if (new URL(route.request().url()).searchParams.get('target') === 'codex') return route.fulfill({ status: 400, json: { error: 'explain --context: --file is not supported for codex' } })
+      if (new URL(route.request().url()).searchParams.get('target') === 'gemini') return route.fulfill({ status: 400, json: { error: 'explain --context: gemini is not a configured target' } })
       return route.fulfill({ json: two })
     })
     await page.goto('/?view=context')
     const panel = page.locator('section.context-usage')
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
-    await panel.getByLabel('Coding tool').selectOption('codex')
-    await expect(panel.getByRole('alert')).toContainText('--file is not supported for codex')
+    await panel.getByLabel('Coding tool').selectOption('gemini')
+    await expect(panel.getByRole('alert')).toContainText('gemini is not a configured target')
     await expect(panel.locator('.context-opportunity')).toHaveCount(0)
     await expect(panel.locator('.context-usage-totals')).toHaveCount(0)
     await panel.getByLabel('Coding tool').selectOption('claude')
