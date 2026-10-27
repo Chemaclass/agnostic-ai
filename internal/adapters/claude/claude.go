@@ -870,6 +870,7 @@ func hookSettingsJSONWithOrder(hooks []spec.Entry, preferred []string) *emit.Ord
 		byKey[k] = append(byKey[k], handlers...)
 	}
 	NoteFailClosedNoOps(emittedHooks)
+	NoteHookEventNoOps(emittedHooks)
 	emit.NoteFieldNoOp(target, spec.KindHook, "once", onceNoOp,
 		"Claude Code only honors once for hooks declared in skill frontmatter; a settings.json or agent-frontmatter hook keeps running every time")
 	byEvent := map[string][]claudehooks.Group{}
