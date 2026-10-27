@@ -5,6 +5,7 @@ sort_by = "date"
 template = "updates/section.html"
 page_template = "updates/page.html"
 generate_feeds = true
+aliases = ["/docs/target-updates/"]
 
 [extra]
 masthead = "AI tooling changed again."

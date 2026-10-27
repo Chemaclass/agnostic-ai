@@ -16,27 +16,13 @@ scripts = ["assets/scripts/capability-matrix.js"]
 # Targets
 
 
-A target writes configuration for one coding tool. Select the tools you use; sync converts the shared specs into their native files.
-
-[Create one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule) to start a setup. For an existing setup, filter the table and open a tool for its paths, import coverage, and native limits.
-
-[Compare targets](@/docs/compare.md) puts two or three tools side by side, with the paths each one gets.
+A target writes configuration for one coding tool. Filter the table, then open a tool for its paths, import coverage, and native limits. New here? [Create one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule).
 
 ## Tool support {#capability-matrix}
 
 {{ <capability_matrix /> }}
 
-[CodeBuddy Code](@/docs/targets/codebuddy.md) requires explicit selection because its native agent name and tool limits can reject existing specs.
-
-[Kimi Code CLI](@/docs/targets/kimi.md) requires explicit selection because its native agent tool lists cannot preserve scoped shell restrictions.
-
-[Grok Build](@/docs/targets/grok.md) requires explicit selection because its native rules must remain visible to Git.
-
-[Qwen Code](@/docs/targets/qwen.md) has a dedicated native target. Its reference lists project paths, global support, and import coverage.
-
-[Mistral Vibe](@/docs/targets/vibe.md) supports project and user instructions, subagents, skills, model settings, MCP servers, and native hooks.
-
-[Pi](@/docs/targets/pi.md) has a dedicated native target. Its reference lists project paths, global support, and import coverage.
+Some tools are left out of the default target list and must be named in `targets`; see [select project targets](@/docs/configuration.md#targets).
 
 ## Tools without a target
 
@@ -48,8 +34,8 @@ To ask for full support, [open an issue](https://github.com/Chemaclass/agnostic-
 
 ## Related reference
 
-- [Use CodeBuddy Code](@/docs/targets/codebuddy.md)
 - [Compare two or three targets](@/docs/compare.md)
+- [Release updates](https://agnostic-ai.org/updates/): dated tool news. A feature a tool announces is supported only once its target page says so.
 - [Select project targets](@/docs/configuration.md#targets)
 - [Understand cross-target behavior](@/docs/target-behavior.md)
 - [Use directory-specific instructions](@/docs/scoped-context.md)

@@ -2,6 +2,7 @@
 title = "Inspect and preview"
 description = "See where a spec goes, compare tools, preview a spec, and trace a generated file."
 weight = 40
+aliases = ["/docs/trace/", "/docs/why/", "/docs/graph/"]
 
 [extra]
 nav_title = "Inspect and preview"
@@ -231,10 +232,19 @@ Each file prints as `# target: <name>: <output path>` and its body. A target tha
 
 ## graph
 
-Show which targets and files each spec feeds (spec → target → file). Read-only. The [graph](@/docs/graph.md) guide shows each format.
+Show which targets and files each spec feeds (spec → target → file). Read-only. When a spec seems missing from a tool, run `agnostic-ai graph --spec <name>`: a `-` means that tool gets no file, so check the tool's supported kinds and the spec's target filters. Rows sort by spec name, then target.
 
-```bash
-agnostic-ai graph --format mermaid --target claude
+```text
+$ agnostic-ai graph
+spec           | claude cursor codex
+code-reviewer  | agent  agent  agent
+no-console-log | rule   rule   rule
+```
+
+`mermaid` starts with `graph LR`, `dot` pipes to Graphviz (`agnostic-ai graph --format dot | dot -Tsvg > graph.svg`), and `json` gives one record per file:
+
+```json
+{"spec": "no-console-log", "kind": "rule", "target": "claude", "path": ".claude/rules/no-console-log.md"}
 ```
 
 | Flag | Description |
@@ -246,11 +256,29 @@ agnostic-ai graph --format mermaid --target claude
 
 ## why
 
-Show a generated file's adapter, source specs, `outputs.<target>.*` keys, and last sync time. The [why](@/docs/trace.md) guide explains each field.
+Name the source of a generated file, so you edit the source instead. Use a project-relative path, even for a file not synced yet; symlinks resolve to the real path. In VS Code, `agnostic-ai: Open canonical source` does the same for the current file.
 
-```bash
-agnostic-ai why .claude/rules/no-console-log.md --format json
+```sh
+$ agnostic-ai why .cursor/rules/no-console-log.mdc
+.cursor/rules/no-console-log.mdc
+  adapter: cursor
+  output keys: (adapter defaults)
+  last sync: 2026-05-15T10:23:00Z
+  sources:
+    [rule] no-console-log (.agnostic-ai/rules/no-console-log.md): full
 ```
+
+Edit the path under `sources`, then run `agnostic-ai sync`.
+
+| Field | Meaning |
+|-------|---------|
+| `adapter` | Tool that wrote the file. For a shared file such as `AGENTS.md`, the first tool that reads it. For a path several tools share (`.agents/skills/`), a tool listed in `targets`. If only a tool you did not list writes the path, it reads `adapter: amp (not configured)`. |
+| `output keys` | Every `outputs.<target>.*` key whose value appears in the path, or `(adapter defaults)`. |
+| `last sync` | UTC time from `.agnostic-ai/.sync-state`, or `unknown` when that file is missing. |
+| `configured` | JSON only. `true` when the tool is listed in `targets`. |
+| `sources` | Every spec that feeds the file: `full` when the spec owns the file, `section` when it is one of several merged into a shared file. Root instruction files list `.agnostic-ai/AGNOSTIC_AI.md` first, then `.agnostic-ai/local/AGNOSTIC_AI.md` when present, then each [inlined rule](@/docs/target-behavior.md#inlined-rules) as a `section`. |
+
+Without `.agnostic-ai/.sync-state`, run `sync` first. A spec path points you to `explain`, and `AGNOSTIC_AI.md` names the entry-point files it feeds; a path sync does not write reports "not synced or not tracked".
 
 | Flag | Description |
 |------|-------------|
