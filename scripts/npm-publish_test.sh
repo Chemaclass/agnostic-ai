@@ -17,6 +17,7 @@ source "$SCRIPT_DIR/npm-publish.sh"
 # The retries are what the release needs and what a test cannot wait for.
 export NPM_PUBLISH_RETRIES=2
 export NPM_PUBLISH_FIRST_DELAY=0
+export NPM_PROVENANCE_RETRIES=3
 
 # ---- fixtures ----------------------------------------------------------------
 
@@ -229,6 +230,52 @@ function test_a_tarball_uploaded_without_attestation_fails() {
   rm -rf "$tmp"
 
   assert_not_same "0" "$code"
+}
+
+# The registry can serve a version before its attestations verify. A check
+# that passes on a later attempt is a complete release, not a broken one.
+function test_provenance_that_verifies_late_passes() {
+  local tmp code
+  tmp="$(mktemp -d)"
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/npm-publish.sh"
+  # shellcheck disable=SC2329
+  function npm_provenance_verifies() {
+    printf 'x' >> "$tmp/attempts"
+    [[ "$(cat "$tmp/attempts")" == "xx" ]]
+  }
+  code="$(verify_npm_provenance agnostic-ai 1.2.3 > /dev/null 2>&1; echo $?)"
+  local attempts
+  attempts="$(cat "$tmp/attempts")"
+  unset -f npm_provenance_verifies
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/npm-publish.sh"
+  rm -rf "$tmp"
+
+  assert_same "0" "$code"
+  assert_same "xx" "$attempts"
+}
+
+function test_provenance_that_never_verifies_fails_after_the_retries() {
+  local tmp code
+  tmp="$(mktemp -d)"
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/npm-publish.sh"
+  # shellcheck disable=SC2329
+  function npm_provenance_verifies() {
+    printf 'x' >> "$tmp/attempts"
+    return 1
+  }
+  code="$(verify_npm_provenance agnostic-ai 1.2.3 > /dev/null 2>&1; echo $?)"
+  local attempts
+  attempts="$(cat "$tmp/attempts")"
+  unset -f npm_provenance_verifies
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/npm-publish.sh"
+  rm -rf "$tmp"
+
+  assert_not_same "0" "$code"
+  assert_same "xxx" "$attempts"
 }
 
 # ---- dist-tag ----------------------------------------------------------------

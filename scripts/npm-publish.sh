@@ -67,17 +67,35 @@ npm_dist_tag() {
   esac
 }
 
-verify_npm_provenance() {
+npm_provenance_verifies() {
   local name="$1" version="$2" commit npm_root
   commit="${GITHUB_SHA:-}"
   if [[ -z "$commit" ]]; then
     commit="$(git -C "$ROOT" rev-parse "v${version}^{commit}")" || return 1
   fi
   npm_root="$(npm root -g)" || return 1
-  if ! node "$ROOT/scripts/npm-verify-provenance.js" "$name" "$version" "$commit" "$npm_root"; then
-    err "$name@$version has missing or invalid provenance. Retry after registry availability recovers. If published without provenance, this immutable version cannot be repaired; stop and cut a new version for all seven packages."
-    return 1
-  fi
+  node "$ROOT/scripts/npm-verify-provenance.js" "$name" "$version" "$commit" "$npm_root"
+}
+
+verify_npm_provenance() {
+  # The registry can serve a new version before its attestations verify, so
+  # retry with backoff before declaring the version broken.
+  local name="$1" version="$2" attempt
+  local retries="${NPM_PROVENANCE_RETRIES:-10}" delay="${NPM_PUBLISH_FIRST_DELAY:-5}"
+  local max_delay="${NPM_PUBLISH_MAX_DELAY:-60}"
+  for ((attempt = 1; attempt <= retries; attempt++)); do
+    if npm_provenance_verifies "$name" "$version"; then
+      return 0
+    fi
+    printf 'attempt %s: %s@%s provenance does not verify yet\n' "$attempt" "$name" "$version"
+    if [[ "$attempt" -lt "$retries" ]]; then
+      sleep "$delay"
+      delay=$((delay * 2))
+      [[ "$delay" -le "$max_delay" ]] || delay="$max_delay"
+    fi
+  done
+  err "$name@$version has missing or invalid provenance. Retry after registry availability recovers. If published without provenance, this immutable version cannot be repaired; stop and cut a new version for all seven packages."
+  return 1
 }
 
 publish_package() {

@@ -56,7 +56,7 @@ The parent requires exact versions of six platform packages, so the release publ
 
 1. `scripts/npm-binaries.sh <tag> <dir>` downloads the six release archives, verifies them against `checksums.txt`, and unpacks one program per platform.
 2. `npm/scripts/build-platform-packages.js --binaries <dir> --version <x.y.z>` writes `npm/platforms/<os>-<cpu>/` and pins the parent to all six.
-3. `scripts/npm-publish.sh <x.y.z>` publishes each platform package with required provenance, waits for it and verifies it, then publishes and verifies the parent.
+3. `scripts/npm-publish.sh <x.y.z>` publishes each platform package with required provenance, waits for it and verifies it, then publishes and verifies the parent. A served version can fail verification for a few minutes while the registry catches up, so each check retries with backoff (`NPM_PROVENANCE_RETRIES`, default 10, about six minutes).
 
 The `distribution` job checks all seven afterwards. Keep this order: publishing the parent before a required platform package breaks `npm install` on that platform until the next release. npm scans each publish before serving it, commonly taking about five minutes and sometimes more than 15. Publication and verification therefore wait about 20 minutes, increasing the delay between attempts up to a fixed maximum.
 
