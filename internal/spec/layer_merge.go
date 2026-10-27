@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -23,6 +24,7 @@ func extendEntry(base, over Entry) Entry {
 	out := over
 	shared := base
 	out.Base, out.LocalMeta = &shared, over.Meta
+	base = withSharedDefaults(base, over)
 	out.Meta = mergeMeta(base.Meta, over.Meta)
 	out.MetaKeys = mergeMetaKeys(base.MetaKeys, over.MetaKeys, out.Meta)
 	out.NestedKeys = mergeNestedKeys(base.NestedKeys, over.NestedKeys, out.Meta)
@@ -52,6 +54,34 @@ func extendEntry(base, over Entry) Entry {
 		out.Assets = base.Assets
 	}
 	return out
+}
+
+// perToolDefaultFields are the settings fields whose per-tool map falls
+// back to its default entry for the tools it leaves out.
+var perToolDefaultFields = []string{"model", "effort"}
+
+// withSharedDefaults reads a shared single model or effort in a settings
+// spec as the default entry of a per-tool map, when the local value is
+// one, so the local entries merge over it instead of replacing it.
+func withSharedDefaults(base, over Entry) Entry {
+	if over.Kind != KindSettings {
+		return base
+	}
+	for _, key := range perToolDefaultFields {
+		shared, set := base.Meta[key]
+		_, sharedMap := shared.(map[string]any)
+		if _, localMap := over.Meta[key].(map[string]any); !localMap || !set || shared == nil || sharedMap {
+			continue
+		}
+		base.Meta = maps.Clone(base.Meta)
+		base.Meta[key] = map[string]any{"default": shared}
+		base.NestedKeys = maps.Clone(base.NestedKeys)
+		if base.NestedKeys == nil {
+			base.NestedKeys = map[string][]string{}
+		}
+		base.NestedKeys[key] = []string{"default"}
+	}
+	return base
 }
 
 func mergeMeta(base, over map[string]any) map[string]any {

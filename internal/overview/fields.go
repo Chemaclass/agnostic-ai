@@ -103,6 +103,13 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 					if !ok {
 						continue
 					}
+					if edit.ToolAllowed == nil {
+						edit.ToolAllowed = map[string][]string{}
+					}
+					edit.ToolAllowed[target] = slices.Sorted(slices.Values(accepter.SettingsEffortLevels()))
+					if edit.ToolAllowed[target] == nil {
+						edit.ToolAllowed[target] = []string{}
+					}
 					for _, level := range accepter.SettingsEffortLevels() {
 						if !slices.Contains(edit.Allowed, level) {
 							edit.Allowed = append(edit.Allowed, level)
@@ -148,19 +155,33 @@ func buildFields(section string, items []SectionItem, entries []spec.Entry, cfg 
 			} else if edit.Path == defaultPath {
 				edit.LocalPath = SettingsOverlayPath(global, "defaults")
 			}
-			// Maps and other non-scalar shapes remain read-only in this slice.
 			for _, source := range f.Set {
 				for _, value := range source.Values {
-					if value.Key != d.key || value.Type != ValueText && d.key != "session-retention-days" {
+					if !d.editableValue(value) {
 						edit.DisabledReason = "This field has a non-scalar value; edit the spec directly."
 					}
 				}
+			}
+			if d.key == "model" && slices.ContainsFunc(entries, func(e spec.Entry) bool {
+				return e.ModelTier != "" && slices.ContainsFunc(f.Set, func(s FieldSource) bool { return s.Spec == e.Name })
+			}) {
+				edit.DisabledReason = "This model names a tier from models: in the config; edit the spec directly."
 			}
 			f.Editable = edit
 		}
 		fields = append(fields, f)
 	}
 	return fields
+}
+
+// editableValue reports whether the page can edit v in place: the
+// field's own scalar, or one tool's scalar in its per-tool map.
+func (d fieldDef) editableValue(v Value) bool {
+	if d.key == "session-retention-days" {
+		return v.Key == d.key
+	}
+	entry, nested := strings.CutPrefix(v.Key, d.key+".")
+	return v.Type == ValueText && (v.Key == d.key || nested && entry != "" && !strings.Contains(entry, "."))
 }
 
 func (d fieldDef) values(all []Value) []Value {

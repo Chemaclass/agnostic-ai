@@ -2,11 +2,12 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type BuiltinChangeAction as Action } from '../builtin-change'
 import { useApp } from './app-context'
 import { useEditScope, type EditScope } from './EditScope'
+import { addressKey } from '../model/field-address'
 import { Code, Switch, Toggle, ToolAvatar } from './ui'
 
 type Pending = 'loading' | 'preparing' | 'applying' | 'undoing' | 'cancelling'
 /** A model or effort edit, sent as /api/edit/field takes it. */
-export interface SettingPreview { path?: string; key: 'model' | 'effort'; value: string | null; expected: string | null }
+export interface SettingPreview { path?: string; key: 'model' | 'effort'; target?: string; value: string | null; expected: string | null }
 interface Controller {
   change?: Change
   pending?: Pending
@@ -109,7 +110,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
       return false
     } catch (err) {
       const conflict = err instanceof BuiltinChangeError && err.conflict
-      const owner = { field: setting?.key ?? (action === 'apply' ? change?.key : undefined), setting: !!setting || (action !== 'preview' && !!change?.key), action }
+      const owner = { field: setting ? addressKey(setting.key, setting.target) : action === 'apply' && change?.key ? addressKey(change.key, change.target) : undefined, setting: !!setting || (action !== 'preview' && !!change?.key), action }
       if (action === 'cancel' && conflict) {
         const now = await builtinChange().catch(() => undefined)
         if (now) {
@@ -131,7 +132,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   }
 
   const resetList = () => request('preview', undefined, undefined, 'local', true)
-  const previewSetting = (setting: SettingPreview, scope: EditScope) => request('preview', setting.key, undefined, scope, false, setting)
+  const previewSetting = (setting: SettingPreview, scope: EditScope) => request('preview', addressKey(setting.key, setting.target), undefined, scope, false, setting)
   return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, notice, request, resetList, previewSetting, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
 }
 
@@ -196,18 +197,20 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
 }
 
 /**
- * The preview flow for one model or effort field. supported is false in the
- * global view, where a field save only writes its source file.
+ * The preview flow for one model or effort field, for every tool or for one
+ * target. supported is false in the global view, where a field save only
+ * writes its source file.
  */
-export function useSettingChange(key: string) {
+export function useSettingChange(key: string, target?: string) {
   const app = useApp()
   const { change, pending, pendingName, error, proposal, previewSetting } = useBuiltinChanges()
+  const address = addressKey(key, target)
   return {
     supported: app.source.kind === 'api' && (key === 'model' || key === 'effort') && change?.supported !== false,
     ready: !!change && !pending && !proposal,
-    preparing: pending === 'preparing' && pendingName === key,
-    proposal: proposal && change?.key === key ? change : undefined,
-    error: error?.field === key,
+    preparing: pending === 'preparing' && pendingName === address,
+    proposal: proposal && change?.key === key && change.target === target ? change : undefined,
+    error: error?.field === address,
     previewSetting,
   }
 }

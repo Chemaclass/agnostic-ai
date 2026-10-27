@@ -153,7 +153,7 @@ func planProjectChange(root string, change projectChange, where editScope) (*bui
 		edited = nil
 	}
 	if change.setting != nil && (edited == nil) == (original.info == nil) && bytes.Equal(edited, original.data) {
-		return nil, fmt.Errorf("%s already has the requested value; refresh the overview", change.setting.key)
+		return nil, fmt.Errorf("%s already has the requested value; refresh the overview", change.setting.addr.label())
 	}
 	cfg.Builtins = slices.Clone(cfg.Builtins)
 	switch {
@@ -221,7 +221,7 @@ func planProjectChange(root string, change projectChange, where editScope) (*bui
 	}
 	plan := &builtinChangePlan{scope: where, change: change, excludeBase: map[string][]byte{}, view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: req.name, Enabled: req.enabled, Reset: req.reset, Scope: string(where), Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
 	if change.setting != nil {
-		plan.view.Name, plan.view.Key, plan.view.Title = change.setting.key, change.setting.key, change.setting.title(where)
+		plan.view.Name, plan.view.Key, plan.view.Target, plan.view.Title = change.setting.addr.key, change.setting.addr.key, change.setting.addr.target, change.setting.title(where)
 	}
 	if slices.ContainsFunc(baseline, func(r driftReport) bool { return r.hasDrift() }) {
 		plan.view.Findings = append(plan.view.Findings, "This preview also applies pending source changes.")

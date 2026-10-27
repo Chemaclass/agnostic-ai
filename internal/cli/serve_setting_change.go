@@ -19,7 +19,7 @@ import (
 // same path, key, value, and expected text /api/edit/field takes.
 type settingRequest struct {
 	path     string
-	key      string
+	addr     fieldAddress
 	value    json.RawMessage
 	expected json.RawMessage
 }
@@ -30,17 +30,18 @@ func (r settingRequest) clearing() bool {
 
 func (r settingRequest) title(where editScope) string {
 	var value string
+	subject := r.addr.label()
 	switch {
 	case r.clearing() && where == scopeLocal:
-		return "personal " + r.key + " reset to the team value"
+		return "personal " + subject + " reset to the team value"
 	case r.clearing():
-		return r.key + " cleared"
+		return subject + " cleared"
 	case json.Unmarshal(r.value, &value) != nil:
-		return r.key + " changed"
+		return subject + " changed"
 	case where == scopeLocal:
-		return preview.RedactText(fmt.Sprintf("%s set to %s for you", r.key, value))
+		return preview.RedactText(fmt.Sprintf("%s set to %s for you", subject, value))
 	}
-	return preview.RedactText(fmt.Sprintf("%s set to %s", r.key, value))
+	return preview.RedactText(fmt.Sprintf("%s set to %s", subject, value))
 }
 
 // settingSourceEdit resolves the settings file and edit exactly as a field
@@ -48,7 +49,7 @@ func (r settingRequest) title(where editScope) string {
 func settingSourceEdit(root string, where editScope, req settingRequest) (string, func([]byte) ([]byte, error), error) {
 	var chosen spec.Entry
 	h := &editHandler{root: root}
-	file, edit, err := h.fieldEdit(where, req.path, req.key, req.value, &chosen)
+	file, edit, err := h.fieldEdit(where, req.path, req.addr, req.value, &chosen)
 	var source fieldSourceError
 	var nothing noPersonalValueError
 	if err != nil && len(req.expected) > 0 && (errors.As(err, &source) || errors.As(err, &nothing)) {
@@ -62,7 +63,7 @@ func settingSourceEdit(root string, where editScope, req settingRequest) (string
 		if err := json.Unmarshal(req.expected, &expected); err != nil {
 			return "", nil, errors.New("expected must be the value the page showed, as text, or null when it was not set")
 		}
-		edit = expectFieldValue(req.key, expected, req.clearing(), inheritedFieldText(where, chosen, file, req.key), edit)
+		edit = expectFieldValue(req.addr, expected, req.clearing(), inheritedFieldText(where, chosen, file, req.addr), edit)
 	}
 	return file, edit, nil
 }

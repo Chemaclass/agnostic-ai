@@ -1604,6 +1604,16 @@ input:hover {
   overflow-wrap: anywhere;
 }
 
+.field-tool-edit {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.field-tool-edit .field-edit { grid-column: 1 / -1; }
+
 .native-groups {
   display: grid;
   gap: 16px;

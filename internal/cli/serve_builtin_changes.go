@@ -34,6 +34,7 @@ type builtinChangeView struct {
 	ID            string              `json:"id,omitempty"`
 	Name          string              `json:"name,omitempty"`
 	Key           string              `json:"key,omitempty"`
+	Target        string              `json:"target,omitempty"`
 	Title         string              `json:"title,omitempty"`
 	Enabled       bool                `json:"enabled"`
 	Reset         bool                `json:"reset,omitempty"`
@@ -93,6 +94,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Setting *struct {
 			Path     string          `json:"path"`
 			Key      string          `json:"key"`
+			Target   string          `json:"target"`
 			Value    json.RawMessage `json:"value"`
 			Expected json.RawMessage `json:"expected"`
 		} `json:"setting"`
@@ -130,7 +132,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 				writeEditJSON(w, http.StatusBadRequest, editError{Error: "a setting preview requires key model or effort and a value (null clears it)"})
 				return
 			}
-			change.setting = &settingRequest{path: request.Setting.Path, key: request.Setting.Key, value: request.Setting.Value, expected: request.Setting.Expected}
+			change.setting = &settingRequest{path: request.Setting.Path, addr: newFieldAddress(request.Setting.Key, request.Setting.Target), value: request.Setting.Value, expected: request.Setting.Expected}
 		}
 		scope, scopeErr := parseEditScope(request.Scope)
 		if scopeErr != nil {
