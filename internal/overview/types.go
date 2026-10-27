@@ -303,6 +303,11 @@ const (
 	SourceDrift  = "drift"
 )
 
+// CodeLintIncomplete is the code of the finding that stands in for a
+// lint run that stopped early, so a client never reads the missing lint
+// findings as fixed.
+const CodeLintIncomplete = "lint-incomplete"
+
 // Finding is one read-only check result handed in by the caller. The
 // overview package cannot run lint, doctor, or drift itself; the CLI
 // collects them and passes them here.
