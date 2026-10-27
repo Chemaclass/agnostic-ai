@@ -515,4 +515,7 @@
 # #2561 measured 23638176 on Go 1.27.3: shared skill ownership reads
 # wait for emitted file mutations before checking the generated marker.
 # Linux amd64 release flags; no added headroom or dependencies.
-23638176
+# #2567 measured 23646368 on Go 1.27.3: the refine prompt text for the
+# global instructions file in the embedded UI bundle crosses one page.
+# Linux amd64 release flags; no added headroom or dependencies.
+23646368
