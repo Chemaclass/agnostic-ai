@@ -17,6 +17,10 @@ targets-left-out = "@/docs/global-configuration.md#targets-left-out"
 
 ## Targets left out {#targets-left-out .legacy-anchor}
 
+## Memory and local state {#memory-and-local-state .legacy-anchor}
+
+## Global output {#global-output .legacy-anchor}
+
 One spec can become different files for each tool. A rule becomes `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Tools also differ in how they find files, in permissions, and in the fields they support. [Compare targets](@/docs/compare.md) shows sample output; `agnostic-ai compare` checks your own specs.
 
 ## Directory-specific instructions
@@ -94,20 +98,9 @@ When both targets are selected, a portable hook's Claude copy exits under Cursor
 
 Event names, tool matcher names, timeout units, and failure behavior differ by tool. Use [portable events](@/docs/spec-format/hook-reference.md#portable-events) where a tool supports them, and test the native event before you rely on a guard.
 
-## Memory and local state
+## Related
 
-[Shared memory](@/docs/memory.md) adds one store that every tool reads, beside each tool's own memory. Claude Code can keep its own store in the shared personal folder; other tools connect in other ways. Put facts every tool needs in shared memory, and project conventions in rules.
-
-For native stores, defaults, and importing facts, see [each tool's own memory](@/docs/memory.md#each-tools-own-memory). For scoped Claude agent stores, see [agent memory](@/docs/targets/claude-reference.md#agent-memory).
-
-## Selecting targets
-
-List only the tools you use in `agnostic-ai.yaml`. A `-t` list replaces that list for one run. `init` offers the tools it detects, or Claude and Codex when it finds none. See [target selection](@/docs/configuration.md#targets).
-
-## Global output
-
-[Global configuration](@/docs/global-configuration.md) covers home instructions, shared global paths, user-level outputs, and the environment variables that move a tool's config folder.
-
-## New targets
-
-To request a target, [open an issue](https://github.com/Chemaclass/agnostic-ai/issues). To implement one, follow [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md).
+- [Shared memory](@/docs/memory.md): one store every tool reads, beside each tool's own memory.
+- [Target selection](@/docs/configuration.md#targets): which tools sync writes by default.
+- [Global output](@/docs/global-configuration.md#global-output): user-level files and the variables that move a tool's config folder.
+- [Adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md), or [open an issue](https://github.com/Chemaclass/agnostic-ai/issues) to request a target.

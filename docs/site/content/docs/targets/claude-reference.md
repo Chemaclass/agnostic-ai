@@ -117,7 +117,7 @@ memory: project
 | `project` | `.claude/agent-memory/<name>/` | shareable; commit it if the team wants it shared |
 | `local` | `.claude/agent-memory-local/<name>/` | do not commit |
 
-Claude Code creates the directory on first use. Subagent memory is part of auto memory: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` field has no effect. With auto memory on, Claude Code turns on Read, Write, and Edit for that agent so it can manage its memory files. Session auto memory (`~/.claude/projects/<project>/memory/`) is separate. Sync leaves it alone unless the [`memory` built-in](@/docs/memory.md#claude-code-s-own-memory) points it at the shared personal store. That needs auto memory on: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, Claude saves nothing there. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
+Claude Code creates the directory on first use. Subagent memory is part of auto memory: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` field has no effect. With auto memory on, Claude Code turns on Read, Write, and Edit for that agent so it can manage its memory files. Session auto memory (`~/.claude/projects/<project>/memory/`) is separate. Sync leaves it alone unless the [`memory` built-in](@/docs/memory.md#claude-code-s-own-memory) points it at the shared personal store. That needs auto memory on: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, Claude saves nothing there. See [shared memory](@/docs/memory.md).
 
 ## Claude settings
 

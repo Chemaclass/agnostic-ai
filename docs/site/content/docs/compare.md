@@ -20,11 +20,6 @@ This page shows sample output paths. Before switching tools in an existing proje
 
 {{ <compare_targets /> }}
 
-## Where the data comes from
+## Read the paths with care
 
-- Support states come from the [tool support table](@/docs/targets/_index.md#capability-matrix).
-- Paths come from a real sync of one sample spec per kind, checked automatically against what sync writes.
-- File formats come from each path's extension.
-- A file that holds several kinds, such as `.claude/settings.json`, appears under each kind.
-
-A listed file does not mean the tool discovers or enforces it. Codex project commands, for example, can be written through a legacy opt-in but Codex does not read them. Open a target page for field limits and optional outputs.
+Paths come from a real sync of one sample spec per kind. A file that holds several kinds, such as `.claude/settings.json`, appears under each. A listed file does not mean the tool reads it: Codex project commands can be written through a legacy opt-in, but Codex does not load them. Open a target page for field limits and optional outputs.
