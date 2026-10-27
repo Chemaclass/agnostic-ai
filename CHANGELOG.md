@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync --global` no longer deletes an empty object you wrote, such as `"env": {}`, when it removes a setting it had added inside it; adding and then removing the setting gives back the original file. An object sync created for the setting still goes with it. The ownership state moves to version 9, which older releases refuse to read (#2529).
 - A first Just me save in the web interface no longer creates a personal file Git would stage in a project that never synced. The server adds the local folder, or `agnostic-ai.local.yaml`, to `.git/info/exclude` before writing, and refuses the save without writing when Git still would not ignore it (#2526).
 - `sync --global` now applies a settings spec's `target`, `targets`, and `targets-exclude` to its model, effort, and `x-<tool>` values, as it already did for permission mode and session retention. Before, a spec limited to Codex could set Claude Code's default model and native settings. `explain --global`, `lint --global`, and `import --global` follow the same rule (#2525).
 - Cancelling a built-in or setting preview in the web interface now discards it on the server, so a reload or leaving Settings no longer brings it back and locks the other switches. The last applied change keeps its undo, and a tab cannot cancel a newer preview made in another tab (#2520).
