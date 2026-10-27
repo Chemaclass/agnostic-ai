@@ -408,7 +408,6 @@ func launchGitRepo(t *testing.T) (string, func(...string)) {
 	t.Helper()
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(t.TempDir(), "config"))
-	t.Setenv("GIT_CONFIG_COUNT", "0")
 	return gitRepo(t)
 }
 

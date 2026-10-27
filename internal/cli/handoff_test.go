@@ -15,7 +15,6 @@ import (
 func handoffListProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	main := setupGitRepo(t)
-	git(t, main, "config", "maintenance.auto", "false")
 	mustWriteFile(t, filepath.Join(main, ".gitignore"), "**/.agnostic-ai/local/\n")
 	git(t, main, "add", ".gitignore")
 	git(t, main, "commit", "-qm", "fixture")

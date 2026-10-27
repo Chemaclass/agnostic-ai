@@ -144,6 +144,7 @@ func TestEditScope_PersonalSaveOutsideGitNeedsNoExclusion(t *testing.T) {
 
 func TestEditScope_PersonalSaveRefusesWhenGitLayoutFails(t *testing.T) {
 	project := gitScopeProject(t)
+	workingCount := os.Getenv("GIT_CONFIG_COUNT")
 	t.Setenv("GIT_CONFIG_COUNT", "invalid")
 	gitquery.Reset()
 	t.Cleanup(gitquery.Reset)
@@ -154,7 +155,7 @@ func TestEditScope_PersonalSaveRefusesWhenGitLayoutFails(t *testing.T) {
 	if _, err := os.Stat(".agnostic-ai/local/settings/defaults.yaml"); !os.IsNotExist(err) {
 		t.Errorf("the refused save wrote the overlay: %v", err)
 	}
-	t.Setenv("GIT_CONFIG_COUNT", "0")
+	t.Setenv("GIT_CONFIG_COUNT", workingCount)
 	rec = postEdit(t, newEditHandler(project, false), editFieldPath, `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("retry after Git recovered = %d %s", rec.Code, rec.Body)

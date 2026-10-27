@@ -39,7 +39,6 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 	t.Setenv("AGNOSTIC_AI_TARGET", "")
 	t.Setenv("AGNOSTIC_AI_PROJECT_BOOTSTRAP", "")
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	t.Setenv("GIT_CONFIG_COUNT", "0")
 	gitConfig := filepath.Join(t.TempDir(), "gitconfig")
 	mustWrite(t, gitConfig, "[user]\n name = lifecycle\n email = lifecycle@example.invalid\n[commit]\n gpgsign = false\n[core]\n autocrlf = false\n")
 	t.Setenv("GIT_CONFIG_GLOBAL", gitConfig)
