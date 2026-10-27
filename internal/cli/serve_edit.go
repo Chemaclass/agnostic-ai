@@ -79,14 +79,16 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var file string
 	var edit func([]byte) ([]byte, error)
+	var sourceGuard func() error
 	var scope editScope
 	switch r.URL.Path {
 	case editBuiltinPath:
 		var req struct {
-			Scope   string `json:"scope"`
-			Name    string `json:"name"`
-			Enabled *bool  `json:"enabled"`
-			Reset   bool   `json:"reset"`
+			Scope    string          `json:"scope"`
+			Name     string          `json:"name"`
+			Enabled  *bool           `json:"enabled"`
+			Reset    bool            `json:"reset"`
+			Expected json.RawMessage `json:"expected"`
 		}
 		if err := json.Unmarshal(body, &req); err != nil || req.Reset != (req.Name == "") || req.Reset && req.Enabled != nil {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: "send a built-in name and enabled, or reset alone"})
@@ -101,19 +103,42 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		scope, err = parseEditScope(req.Scope)
+		if err == nil && len(req.Expected) > 0 {
+			err = h.checkBuiltinExpected(req.Name, req.Reset, req.Expected)
+		}
 		if err == nil {
 			file, edit, err = h.builtinsEdit(scope, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
 		}
+		if err == nil && len(req.Expected) > 0 {
+			team, local := h.builtinsConfigFiles()
+			sourceGuard, err = watchEditSources([]string{team, local}, file, req.Name)
+		}
+		if err == nil && len(req.Expected) > 0 {
+			edit = func(data []byte) ([]byte, error) {
+				if err := h.checkBuiltinExpected(req.Name, req.Reset, req.Expected); err != nil {
+					return nil, err
+				}
+				currentFile, next, err := h.builtinsEdit(scope, builtinRequest{name: req.Name, enabled: req.Enabled != nil && *req.Enabled, reset: req.Reset})
+				if err != nil {
+					return nil, err
+				}
+				if currentFile != file {
+					return nil, staleToggleError{req.Name}
+				}
+				return next(data)
+			}
+		}
 		if err != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			writeExpectedError(w, err)
 			return
 		}
 	case editValuePath:
 		var req struct {
-			Scope string          `json:"scope"`
-			Path  string          `json:"path"`
-			Key   string          `json:"key"`
-			Value json.RawMessage `json:"value"`
+			Scope    string          `json:"scope"`
+			Path     string          `json:"path"`
+			Key      string          `json:"key"`
+			Value    json.RawMessage `json:"value"`
+			Expected json.RawMessage `json:"expected"`
 		}
 		var value *bool
 		if err := json.Unmarshal(body, &req); err != nil || req.Path == "" || req.Key == "" || len(req.Value) == 0 || json.Unmarshal(req.Value, &value) != nil {
@@ -121,11 +146,36 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		scope, err = parseEditScope(req.Scope)
+		if err == nil && len(req.Expected) > 0 {
+			err = h.checkBooleanExpected(req.Path, req.Key, req.Expected)
+		}
 		if err == nil {
 			file, edit, err = h.settingsEdit(scope, req.Path, req.Key, value)
 		}
+		if err == nil && len(req.Expected) > 0 {
+			var paths []string
+			paths, err = h.booleanSourcePaths(req.Path)
+			if err == nil {
+				sourceGuard, err = watchEditSources(paths, file, req.Key)
+			}
+		}
+		if err == nil && len(req.Expected) > 0 {
+			edit = func(data []byte) ([]byte, error) {
+				if err := h.checkBooleanExpected(req.Path, req.Key, req.Expected); err != nil {
+					return nil, err
+				}
+				currentFile, next, err := h.settingsEdit(scope, req.Path, req.Key, value)
+				if err != nil {
+					return nil, err
+				}
+				if currentFile != file {
+					return nil, staleToggleError{req.Key}
+				}
+				return next(data)
+			}
+		}
 		if err != nil {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
+			writeExpectedError(w, err)
 			return
 		}
 	case editFieldPath:
@@ -170,14 +220,31 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no edit at " + r.URL.Path})
 		return
 	}
+	var prepare func() (func(bool) error, error)
 	if scope == scopeLocal {
-		if err := h.keepPersonalOutOfGit(file); err != nil {
+		prepare = func() (func(bool) error, error) {
+			finish, err := h.preparePersonalOutOfGit(file)
+			if err != nil {
+				return nil, personalGitError{err}
+			}
+			return finish, nil
+		}
+	}
+	if sourceGuard == nil {
+		sourceGuard = func() error { return nil }
+	}
+	if problems, err := h.applyValidatedWithPrepare(file, edit, prepare, sourceGuard); err != nil {
+		var protection personalGitError
+		if errors.As(err, &protection) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 			return
 		}
-	}
-	if problems, err := h.applyValidated(file, edit); err != nil {
 		var stale staleFieldError
+		var staleValue staleToggleError
+		if errors.As(err, &staleValue) {
+			writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
+			return
+		}
 		if errors.As(err, &stale) {
 			writeEditJSON(w, http.StatusConflict, editError{Error: overviewDisplay(h.root, file) + ": " + stale.Error()})
 			return

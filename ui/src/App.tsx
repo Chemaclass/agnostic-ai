@@ -147,8 +147,9 @@ export default function App() {
       navigate,
       href: (patch) => serializeUrlState(nextState(state, patch)) || window.location.pathname,
       reload,
+      overviewRevision: overview.loaded,
     }),
-    [state, source, navigate, reload],
+    [state, source, navigate, reload, overview.loaded],
   )
 
   // Move focus to the page heading after a navigation, for keyboard and
