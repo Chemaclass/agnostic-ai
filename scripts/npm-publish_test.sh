@@ -18,6 +18,7 @@ source "$SCRIPT_DIR/npm-publish.sh"
 export NPM_PUBLISH_RETRIES=2
 export NPM_PUBLISH_FIRST_DELAY=0
 export NPM_PROVENANCE_RETRIES=3
+export NPM_ATTESTATION_SETTLE=0
 
 # ---- fixtures ----------------------------------------------------------------
 
@@ -149,6 +150,39 @@ function test_it_refuses_to_publish_the_parent_when_a_platform_package_never_lan
 
   assert_not_same "0" "$code"
   assert_not_contains "publish agnostic-ai" "$log"
+}
+
+# A read before npm finishes signing caches an incomplete attestation for a
+# year, so no package is verified until every platform package is up.
+function test_it_verifies_only_after_every_platform_package_is_published() {
+  local tmp order
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
+  order="$(grep -E '^(publish|verify)' "$tmp/log" | cut -d' ' -f1-2)"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_same "publish @agnostic-ai/darwin-arm64
+publish @agnostic-ai/linux-x64
+verify @agnostic-ai/darwin-arm64@1.2.3
+verify @agnostic-ai/linux-x64@1.2.3
+publish agnostic-ai
+verify agnostic-ai@1.2.3" "$order"
+}
+
+function test_it_waits_for_signing_only_after_an_upload() {
+  local tmp out
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log" "@agnostic-ai/darwin-arm64
+@agnostic-ai/linux-x64"
+  out="$(NPM_ATTESTATION_SETTLE=1 main 1.2.3 "$tmp/npm/platforms" "$tmp/npm")"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_same "1" "$(grep -c 'waiting 1s for npm to finish signing' <<< "$out")"
 }
 
 # ---- idempotence -------------------------------------------------------------
