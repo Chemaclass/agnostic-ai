@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	"gopkg.in/yaml.v3"
@@ -9,11 +10,48 @@ import (
 
 var agentV2Keys = []string{"permissions", "request", "system", "disabled"}
 
-func agentV2Permissions(front map[string]any, keys *[]string) error {
-	if !slices.ContainsFunc(agentV2Keys, func(key string) bool {
+// agentV2 reports whether OpenCode 2 reads the file as V2, which ignores V1 fields.
+func agentV2(front map[string]any) bool {
+	return slices.ContainsFunc(agentV2Keys, func(key string) bool {
 		_, present := front[key]
 		return present
-	}) {
+	})
+}
+
+// agentV2Temperature moves temperature to request.body, where OpenCode puts
+// it when it migrates a V1 file. A temperature already in request.body wins.
+func agentV2Temperature(front map[string]any) error {
+	temperature, present := front["temperature"]
+	if !present || !agentV2(front) {
+		return nil
+	}
+	delete(front, "temperature")
+	request := map[string]any{}
+	if raw, set := front["request"]; set {
+		existing, ok := raw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("agent request: expected an object with headers and body")
+		}
+		request = maps.Clone(existing)
+	}
+	body := map[string]any{}
+	if raw, set := request["body"]; set {
+		existing, ok := raw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("agent request.body: expected an object")
+		}
+		body = maps.Clone(existing)
+	}
+	if _, set := body["temperature"]; !set {
+		body["temperature"] = temperature
+	}
+	request["body"] = body
+	front["request"] = request
+	return nil
+}
+
+func agentV2Permissions(front map[string]any, keys *[]string) error {
+	if !agentV2(front) {
 		return nil
 	}
 	legacy, present := front[permissionKey]
