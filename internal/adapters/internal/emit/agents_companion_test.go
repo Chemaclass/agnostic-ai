@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -230,5 +231,45 @@ func TestRemoveAgentsCompanion(t *testing.T) {
 				t.Errorf("CLAUDE.md.bak should not exist, stat err = %v", err)
 			}
 		})
+	}
+}
+
+func TestRemoveAgentsCompanionWithConcurrentOwnershipRead(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	writeScoped(t, "services/api/AGENTS.md", HeaderBlock(FormatMarkdown)+"\nUse integer minor units.\n")
+	writeScoped(t, "services/api/CLAUDE.md", "@AGENTS.md\n")
+	sess := NewSession()
+	sess.SetBackup(true)
+	ownershipReads.Lock()
+	done := make(chan error, 1)
+	go func() { done <- sess.RemoveAgentsCompanion("services/api", "Use integer minor units.\n", false) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		value, ok := pathLocks.Load(filepath.Clean("services/api/AGENTS.md"))
+		if ok {
+			mu := value.(*sync.Mutex)
+			if !mu.TryLock() {
+				break
+			}
+			mu.Unlock()
+		}
+		if time.Now().After(deadline) {
+			ownershipReads.Unlock()
+			t.Fatal("companion did not acquire sibling lock")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	read := make(chan error, 1)
+	go func() { _, err := ReadFile("services/api/AGENTS.md"); read <- err }()
+	ownershipReads.Unlock()
+	for _, result := range []<-chan error{done, read} {
+		select {
+		case err := <-result:
+			if err != nil {
+				t.Fatal(err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("concurrent companion removal and ownership read deadlocked")
+		}
 	}
 }

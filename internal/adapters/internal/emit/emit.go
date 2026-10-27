@@ -607,6 +607,8 @@ func (s *Session) Commit() {
 // must be back first. An entry at, above, or under a waiting link's path
 // depends on the link, so every waiting link comes back before it.
 func (s *Session) Rollback() error {
+	ownershipReads.RLock()
+	defer ownershipReads.RUnlock()
 	s.mu.Lock()
 	log := s.txLog
 	s.txLog = nil
@@ -737,7 +739,7 @@ func escapesProjectRoot(path string) bool {
 	return clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator))
 }
 
-// pathLocks serializes concurrent writes to the same output path across
+// pathLocks serializes concurrent access to the same output path across
 // sessions. Parallel sync (`--jobs > 1`) emits every target on its own
 // Session, but several targets legitimately write the SAME shared path
 // (e.g. the AGENTS.md family of pointer files). Without coordination two
@@ -748,18 +750,26 @@ func escapesProjectRoot(path string) bool {
 // and skip — matching serial emission, keeping the transaction log free of
 // duplicate entries, and never tearing a half-written file.
 //
-// This is pure write coordination, not shared business state: the map holds
+// This is file coordination, not shared business state: the map holds
 // one mutex per distinct path for the process lifetime (bounded by the
 // output tree, freed on exit) and carries no data of its own.
 var pathLocks sync.Map // map[string]*sync.Mutex
 
-// lockPath acquires the write mutex for path (keyed by its cleaned form so
-// spellings of the same file coincide) and returns the unlock func.
+// ownershipReads excludes reads while emitted files are being mutated.
+var ownershipReads sync.RWMutex
+
 func lockPath(path string) func() {
 	m, _ := pathLocks.LoadOrStore(filepath.Clean(path), &sync.Mutex{})
 	mu := m.(*sync.Mutex)
 	mu.Lock()
 	return mu.Unlock
+}
+
+// ReadFile waits for in-process output mutations before reading path.
+func ReadFile(path string) ([]byte, error) {
+	ownershipReads.Lock()
+	defer ownershipReads.Unlock()
+	return os.ReadFile(path)
 }
 
 // mkdirAll creates dir and its parents, absorbing the transient failures
@@ -836,6 +846,8 @@ func parentGone(err error) bool {
 // only their interleaving is wrong, and recreating the parent is the
 // cheap half of that fix. See pruneEmptiedDirs for the other half.
 func writeFileAt(path, content string, mode os.FileMode, enforceMode bool) error {
+	ownershipReads.RLock()
+	defer ownershipReads.RUnlock()
 	err := os.WriteFile(path, []byte(content), mode)
 	if err == nil {
 		if enforceMode {
@@ -984,7 +996,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			s.mu.Unlock()
 		}
 		if backup && action == "update" {
-			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+			if err := writeBackup(path+".bak", existing); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 			s.noteBackup(path)
@@ -1025,7 +1037,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 
 	if backup {
 		if existing, err := cur.bytes(); err == nil && string(existing) != content {
-			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+			if err := writeBackup(path+".bak", existing); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
 			s.noteBackup(path)
@@ -1042,6 +1054,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	return nil
 }
 
+func writeBackup(path string, content []byte) error {
+	ownershipReads.RLock()
+	defer ownershipReads.RUnlock()
+	return os.WriteFile(path, content, filePerm)
+}
+
 // backUpEdit copies path to backup, which must not exist yet in any form,
 // so an earlier backup is never lost and a planted link is never followed.
 func backUpEdit(cur *onDisk, backup string) error {
@@ -1053,6 +1071,8 @@ func backUpEdit(cur *onDisk, backup string) error {
 	if err != nil {
 		return err
 	}
+	ownershipReads.RLock()
+	defer ownershipReads.RUnlock()
 	f, err := os.OpenFile(backup, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
 	if err != nil {
 		return err
@@ -1108,6 +1128,8 @@ func (s *Session) createUntrackedFileExclusive(path, content string, dryRun bool
 	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}
+	ownershipReads.RLock()
+	defer ownershipReads.RUnlock()
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
 	if err != nil {
 		if errors.Is(err, fs.ErrExist) {
@@ -1310,6 +1332,9 @@ func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun 
 		fmt.Printf("--- rm %s ---\n", path)
 		return true, nil
 	}
+
+	ownershipReads.RLock()
+	defer ownershipReads.RUnlock()
 
 	if transacting {
 		entry := txEntry{path: path, content: existing, mode: filePerm}

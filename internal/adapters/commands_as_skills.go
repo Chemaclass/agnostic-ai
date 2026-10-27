@@ -2,7 +2,6 @@ package adapters
 
 import (
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -207,7 +206,7 @@ func handWrittenSkill(cfg *config.Config, target, name string) bool {
 		if dir == "" {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(filepath.FromSlash(dir), name, "SKILL.md"))
+		data, err := emit.ReadFile(filepath.Join(filepath.FromSlash(dir), name, "SKILL.md"))
 		if err == nil && !header.Has(string(data)) && !WrittenFromCommand(string(data)) {
 			return true
 		}
