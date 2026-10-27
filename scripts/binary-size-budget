@@ -518,7 +518,7 @@
 # #2567 measured 23646368 on Go 1.27.3: the refine prompt text for the
 # global instructions file in the embedded UI bundle crosses one page.
 # Linux amd64 release flags; no added headroom or dependencies.
-# #2570 measured 23666848 on Go 1.27.3: sync keeps diagnostic
-# fingerprints to show new limitations without replaying unchanged notes.
+# #2570 measured 23675040 on Go 1.27.3: sync tracks diagnostics
+# across partial runs without hiding reintroduced warnings.
 # Linux amd64 release flags; no added headroom or dependencies.
-23666848
+23675040

@@ -978,6 +978,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	ledger.warningRecords, ledger.noteRecords = warningRecords, noteRecords
+	if !complete || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+		ledger.warningRecords = mergePartialDropRecords(prev.WarningRecords, warningRecords, emitted)
+		ledger.noteRecords = mergePartialDropRecords(prev.NoteRecords, noteRecords, emitted)
+	}
 	if verbosity < levelDefault {
 		ledger.warningRecords, ledger.noteRecords = prev.WarningRecords, prev.NoteRecords
 		digest, notesDigest = prev.WarningsDigest, prev.NotesDigest
@@ -1453,17 +1457,40 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 func dropFingerprints(records []adapters.DropRecord) []string {
 	out := make([]string, 0, len(records))
 	for _, record := range records {
-		out = append(out, adapters.DropRecordFingerprint(record))
+		out = append(out, record.Target+"\x00"+adapters.DropRecordFingerprint(record))
 	}
+	slices.Sort(out)
 	return out
 }
 
 func fingerprintSet(records []string) map[string]bool {
 	out := make(map[string]bool, len(records))
 	for _, record := range records {
-		out[record] = true
+		_, fingerprint, tagged := strings.Cut(record, "\x00")
+		if !tagged {
+			fingerprint = record
+		}
+		out[fingerprint] = true
 	}
 	return out
+}
+
+func mergePartialDropRecords(previous, current, emitted []string) []string {
+	out := make([]string, 0, len(previous)+len(current))
+	for _, record := range previous {
+		target, _, tagged := strings.Cut(record, "\x00")
+		if tagged && target != "agnostic-ai" && !slices.Contains(emitted, target) {
+			out = append(out, record)
+		}
+	}
+	for _, record := range current {
+		target, _, tagged := strings.Cut(record, "\x00")
+		if tagged && (target == "agnostic-ai" || slices.Contains(emitted, target)) {
+			out = append(out, record)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 // syncJSONOutput is the `sync --json` output: the shared schema plus the
