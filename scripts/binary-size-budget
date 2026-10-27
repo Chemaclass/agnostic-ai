@@ -540,4 +540,6 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2602 measured 23769248 on Go 1.27.3 on top of main: the settings page opens the global server, or starts it, and links back.
 # Linux amd64 release flags; no added headroom or dependencies.
-23769248
+# #2602 measured 23810208 on Go 1.27.3 on top of main: the settings page edits model and effort per tool, with a YAML writer for the per-tool map.
+# Linux amd64 release flags; no added headroom or dependencies.
+23810208
