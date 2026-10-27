@@ -119,7 +119,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
-			return serveUntilInterrupted(cmd.Context(), ln, newServeMux(src.load, opts))
+			return serveUntilInterrupted(cmd.Context(), ln, newServeMuxWith(src.load, opts, !noInstalled))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -141,11 +141,17 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 // --global it runs the global lint and compares the files sync --global
 // would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions) http.Handler {
+	return newServeMuxWith(load, opts, true)
+}
+
+// newServeMuxWith is newServeMux that leaves the generated files
+// uncompared in the overview when compareInstalled is false.
+func newServeMuxWith(load authority.Loader, opts authority.HandlerOptions, compareInstalled bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", authority.NewHandler(load, opts))
-	views := newOverviewHandler(".")
+	views := newOverviewHandler(".", compareInstalled)
 	if opts.Global {
-		views = newGlobalOverviewHandler()
+		views = newGlobalOverviewHandler(compareInstalled)
 	}
 	mux.Handle(overview.OverviewPath, views)
 	edits := newEditHandler(".", false)

@@ -66,6 +66,13 @@ func settingsFieldNotes(notes []adapters.Note) []overview.FieldNote {
 // network. root must be the working directory, because the checks
 // resolve generated paths against it as every command does.
 func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewChecks {
+	return runOverviewChecksWith(root, cfg, b, true)
+}
+
+// runOverviewChecksWith is runOverviewChecks that skips the drift check,
+// and with it the rendering and reading of generated files, when
+// compareInstalled is false.
+func runOverviewChecksWith(root string, cfg *config.Config, b spec.Bundle, compareInstalled bool) overviewChecks {
 	overviewChecksMu.Lock()
 	defer overviewChecksMu.Unlock()
 	// Captures buffer coverage notes and print capability warnings; a
@@ -77,10 +84,12 @@ func runOverviewChecks(root string, cfg *config.Config, b spec.Bundle) overviewC
 	var out overviewChecks
 	out.findings = append(out.findings, overviewLintFindings(cfg, b)...)
 	adapters.DrainNotes()
-	drift, compared, skipped := overviewDriftFindings(cfg, b)
-	out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
-	out.findings = append(out.findings, drift...)
-	out.compared, out.skipped = compared, skipped
+	if compareInstalled {
+		drift, compared, skipped := overviewDriftFindings(cfg, b)
+		out.fieldNotes = settingsFieldNotes(adapters.DrainNotes())
+		out.findings = append(out.findings, drift...)
+		out.compared, out.skipped = compared, skipped
+	}
 	out.findings = append(out.findings, overviewDoctorFindings(root, cfg, b)...)
 	for i := range out.findings {
 		out.findings[i].Message = servedFindingMessage(out.findings[i].Message)
@@ -362,6 +371,12 @@ func overviewHookScriptFindings(root string) []overview.Finding {
 // a server changes into the project once, before it serves, and passes
 // ".".
 func overviewInputs(root string) (overview.Inputs, error) {
+	return overviewInputsWith(root, true)
+}
+
+// overviewInputsWith is overviewInputs that skips comparing generated
+// files with disk when compareInstalled is false.
+func overviewInputsWith(root string, compareInstalled bool) (overview.Inputs, error) {
 	if err := requireOverviewRoot(root); err != nil {
 		return overview.Inputs{}, err
 	}
@@ -369,7 +384,7 @@ func overviewInputs(root string) (overview.Inputs, error) {
 	if err != nil {
 		return overview.Inputs{}, err
 	}
-	checks := runOverviewChecks(".", cfg, b)
+	checks := runOverviewChecksWith(".", cfg, b, compareInstalled)
 	snapshot, err := overviewSnapshot(cfg, b, checks)
 	if err != nil {
 		return overview.Inputs{}, err
@@ -482,6 +497,9 @@ func overviewConfigPath() string {
 
 func overviewEvidenceNote(checks overviewChecks) string {
 	var parts []string
+	if len(checks.compared) == 0 && len(checks.skipped) == 0 {
+		parts = append(parts, "Generated files were not compared with disk.")
+	}
 	if len(checks.compared) > 0 {
 		parts = append(parts, "Generated files were compared with disk for "+strings.Join(checks.compared, ", ")+".")
 	}
@@ -494,9 +512,9 @@ func overviewEvidenceNote(checks overviewChecks) string {
 // newOverviewHandler serves the overview of the project in
 // the working directory, built afresh on every request. root must be
 // the working directory; see overviewInputs.
-func newOverviewHandler(root string) http.Handler {
+func newOverviewHandler(root string, compareInstalled bool) http.Handler {
 	return overview.NewHandler(func() (overview.Inputs, error) {
-		return overviewInputs(root)
+		return overviewInputsWith(root, compareInstalled)
 	})
 }
 
