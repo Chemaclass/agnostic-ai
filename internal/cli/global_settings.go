@@ -41,6 +41,9 @@ type globalSettingsFile struct {
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
 	allowed  map[string]string
+	// ignored names the key a written dotted key sits at or under when
+	// the target ignores it in user settings, with the reason.
+	ignored func(key string) (field, reason string, ok bool)
 }
 
 type globalSurfaceGap struct{ surface, reason string }
@@ -130,11 +133,36 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		}
 	}
 	passthrough := customGlobalSettings(target, f, settings)
+	noteIgnoredGlobalSettings(target, f, passthrough)
 	// An x-<target> key wins over the portable field it shares a key with.
 	out = slices.DeleteFunc(out, func(s globalSetting) bool {
 		return slices.ContainsFunc(passthrough, func(c globalSetting) bool { return c.key == s.key })
 	})
 	return append(out, passthrough...)
+}
+
+// noteIgnoredGlobalSettings keeps each key the target ignores in user
+// settings and names it in a note, counting the specs it comes from.
+func noteIgnoredGlobalSettings(target string, f globalSettingsFile, written []globalSetting) {
+	if f.ignored == nil {
+		return
+	}
+	sources := map[string]map[string]bool{}
+	reasons := map[string]string{}
+	for _, s := range written {
+		field, reason, ok := f.ignored(s.key)
+		if !ok {
+			continue
+		}
+		if sources[field] == nil {
+			sources[field] = map[string]bool{}
+		}
+		sources[field][s.source] = true
+		reasons[field] = reason
+	}
+	for _, field := range slices.Sorted(maps.Keys(sources)) {
+		adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+field, len(sources[field]), reasons[field])
+	}
 }
 
 var globalPermissionModes = []string{"default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"}

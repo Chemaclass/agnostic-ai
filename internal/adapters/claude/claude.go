@@ -331,6 +331,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	configSettings := buildConfigSettings(cfg)
 	retired := retiredConfigKeys(cfg)
 	custom := emit.SettingsCustomKeys(settings, target)
+	noteProjectIgnoredSettings(settings, custom)
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
