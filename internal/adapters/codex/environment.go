@@ -73,6 +73,9 @@ func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, 
 		name, _ := m["name"].(string)
 		command := actionCommand(m["command"])
 		if name == "" || command == "" {
+			if url, _ := m["url"].(string); name != "" && url != "" {
+				emit.NoteProject(fmt.Sprintf("codex: dev command %q has a url and no command, so it is not written as an action; a Codex action needs a command", name))
+			}
 			continue
 		}
 		cwd, _ := m["cwd"].(string)

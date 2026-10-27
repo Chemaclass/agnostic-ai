@@ -45,11 +45,11 @@ terminals:
 - `setup`: the commands a tool runs in a new worktree (one command or a list). `setup-windows` replaces it on Windows.
 - `cleanup`: the commands a tool runs when it removes the worktree.
 - `install` and `terminals`: a sandbox's install step and its long-running processes.
-- `dev-commands`: dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words). `cwd` (relative to the project root), `port`, `auto-port`, `env`, `url`, and `icon` (the Codex button icon, `run` by default) are optional.
+- `dev-commands`: dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words). `cwd` (relative to the project root), `port`, `auto-port`, `env`, `url`, and `icon` (the Codex button icon, `run` by default) are optional. An entry with a `url` and no `command` tells Claude Code to open a server you already run instead of starting one; Codex has no such action, so sync skips the entry there with a note.
 
 - A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
 - Specs merge by top-level key, and the last value wins. A field that no enabled tool uses gets a no-effect note.
-- `lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a value of the wrong type (LINT016).
+- `lint` reports a dev command with no `name`, with neither `command` nor `url`, a repeated name, an unknown key, or a value of the wrong type (LINT016). It also reports a `url` entry with no `command` that reaches Codex, and names the target. Give Codex its own list without that entry under `x-codex.dev-commands`.
 
 ## Support by target
 

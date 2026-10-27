@@ -118,6 +118,36 @@ func TestEmit_EnvironmentWithoutScriptsOrActionsWritesNoFile(t *testing.T) {
 	}
 }
 
+// A dev command with a url and no command, which Claude attaches to a
+// running server, has nothing for a Codex action to run: sync skips it
+// and says so (#2579).
+func TestEmit_EnvironmentNotesADevCommandWithOnlyAURL(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	notes := memoryNoteWarner(t)
+	b := spec.NewBundle([]spec.Entry{{
+		Kind: spec.KindEnvironment, Name: "dev",
+		Meta: map[string]any{"dev-commands": []any{
+			map[string]any{"name": "app", "url": "https://app.localhost:3000"},
+			map[string]any{"name": "web", "command": "npm run dev"},
+		}},
+	}})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex", "environments", "environment.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"app"`) || !strings.Contains(string(raw), `name = "web"`) {
+		t.Errorf("environment.toml:\n%s", raw)
+	}
+	want := `codex: dev command "app" has a url and no command, so it is not written as an action; a Codex action needs a command`
+	if !strings.Contains(notes.String(), want) {
+		t.Errorf("notes:\n%s\nwant %q", notes.String(), want)
+	}
+}
+
 // A dev command's cwd becomes a `cd` before the action's command, since a
 // Codex action has no cwd field and runs from the project root.
 func TestEmit_EnvironmentActionRunsFromCwd(t *testing.T) {

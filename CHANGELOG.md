@@ -6,9 +6,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### By tool
 
+- `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
+- A `dev-commands` entry with a `url` and no `command` writes `{name, url}` to `.claude/launch.json`, so the preview attaches to a server you already run; import reads it back as a spec. With Codex enabled, lint reports the entry (LINT016) and sync notes that Codex skips it (#2579).
+
 #### Claude Code
 
-- `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
+
 
 #### Mistral Vibe
 

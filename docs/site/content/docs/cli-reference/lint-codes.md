@@ -27,7 +27,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT013 | Error, also from `validate`. A rule's `globs`, `paths`, or `x-<target>.globs` is neither a string nor a list of strings, or `paths` and `globs` name different patterns. |
 | LINT014 | Error, `--global` only. A settings `effort` or `permissions.default-mode` that a tool's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. |
 | LINT015 | Warning. A spec body names another spec by a target-native path such as `.claude/skills/style/SKILL.md`. The finding names the `.agnostic-ai/` source path to use. |
-| LINT016 | Error. A `dev-commands` entry in an environment spec has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no tool reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. |
+| LINT016 | Error. A `dev-commands` entry in an environment spec has no `name:`, has neither `command:` nor `url:`, repeats a name, is not a mapping, sets a key no tool reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. A `url:` entry with no `command:` is reported only when it reaches a tool that needs a command, such as Codex. |
 | LINT017 | Warning. A `gitignore.commit` entry such as `cursor:environments` names a target missing from `targets`. |
 | LINT018 | Warning. A skill's frontmatter sets `scope`, which does nothing; the folder under `skills/` sets the scope. |
 | LINT019 | Warning. A skill or command uses Claude Code body syntax (`` !`command` ``, a ` ```! ` block, `$ARGUMENTS`, `$0`, `$1`) outside a `::target` fence, so other enabled tools read it as text. See [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax). |
