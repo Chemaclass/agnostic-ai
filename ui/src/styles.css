@@ -2354,10 +2354,23 @@ input:hover {
   margin: 0;
   padding: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
 }
 
 .stale-guard[data-stale] {
   opacity: 0.6;
+}
+
+@media (max-width: 760px) {
+  .stale-guard {
+    gap: 0;
+  }
+
+  .stale-guard > .block + .block {
+    margin-top: 18px;
+  }
 }
 
 .sync-status {
