@@ -112,8 +112,8 @@ var lintCodes = map[string]lintCode{
 	"LINT016": {
 		Severity: lintError,
 		Title:    "Invalid dev-commands entry",
-		Cause:    "A `dev-commands` entry in an environment spec has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no target reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. `x-claude` overrides are checked too.",
-		Fix:      "Fix the entry the finding names so it has a unique name, a command, and correctly typed fields.",
+		Cause:    "A `dev-commands` entry in an environment spec has no `name:`, has neither `command:` nor `url:`, repeats a name, is not a mapping, sets a key no target reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. An entry with a `url:` and no `command:` is valid for Claude, which opens a server you already run, but is reported when it reaches a target that needs a command, such as Codex; the finding names that target. `x-claude` overrides are checked too.",
+		Fix:      "Fix the entry the finding names so it has a unique name, a command or url, and correctly typed fields. For a url-only entry, add a command or give the target its own list without it, such as `x-codex.dev-commands`.",
 	},
 	"LINT017": {
 		Severity: lintWarn,

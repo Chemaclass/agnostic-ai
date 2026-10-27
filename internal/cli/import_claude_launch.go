@@ -26,9 +26,11 @@ const claudeLaunchSpecName = "dev"
 
 // importClaudeLaunch reads a hand-written .claude/launch.json into an
 // environment spec's dev-commands, the reverse of the claude emit
-// (#1340). A file with a configuration that has no command to start,
-// such as one that only opens a `url`, is left whole with a note. So is a
-// file sync wrote, or one whose destination spec already exists.
+// (#1340). A configuration with a `url` and no command, which attaches
+// the preview to a running server, becomes a dev command without
+// `command`. A file with a configuration that has neither is left whole
+// with a note. So is a file sync wrote, or one whose destination spec
+// already exists.
 func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (int, error) {
 	if src.Environments == "" {
 		return 0, nil
@@ -90,7 +92,9 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		argv, _ := launchArgv(c)
 		cmd := yaml.Node{Kind: yaml.MappingNode}
 		addYAMLField(&cmd, "name", name)
-		addYAMLField(&cmd, "command", devCommandValue(argv))
+		if len(argv) > 0 {
+			addYAMLField(&cmd, "command", devCommandValue(argv))
+		}
 		if cwd := portableLaunchCwd(c["cwd"]); cwd != "" {
 			addYAMLField(&cmd, "cwd", cwd)
 		}
@@ -208,8 +212,9 @@ func launchConfigurationProblem(c map[string]any) string {
 	if name, _ := c["name"].(string); name == "" {
 		return "has no name"
 	}
-	if argv, _ := launchArgv(c); len(argv) == 0 {
-		return "has no command to start"
+	url, _ := c["url"].(string)
+	if argv, _ := launchArgv(c); len(argv) == 0 && url == "" {
+		return "has no command to start or url to open"
 	}
 	return ""
 }

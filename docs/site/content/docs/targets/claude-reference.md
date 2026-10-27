@@ -75,7 +75,7 @@ Remote OAuth keeps `clientId`, `callbackPort`, `authServerMetadataUrl`, and spac
 
 ## Environment mappings
 
-`dev-commands` become `.claude/launch.json` preview servers: command splits into `runtimeExecutable` and `runtimeArgs`, `auto-port` becomes `autoPort`, and `cwd` stays project-relative. `x-claude.autoVerify` sets `autoVerify`. Import normalizes `${workspaceFolder}` paths; a URL-only configuration stays native with a note.
+`dev-commands` become `.claude/launch.json` preview servers: command splits into `runtimeExecutable` and `runtimeArgs`, `auto-port` becomes `autoPort`, and `cwd` stays project-relative. An entry with a `url` and no `command` becomes `{name, url}`, which attaches the preview to a server you already run. `x-claude.autoVerify` sets `autoVerify`. Import normalizes `${workspaceFolder}` paths and reads a URL-only configuration back as a dev command without `command`.
 
 `setup` becomes `.claude/hooks/agnostic-ai-worktree-setup.sh`. Session, subagent, and EnterWorktree hooks run it once per new linked worktree, using Bash. Windows needs Git Bash. `x-claude.setup: false` omits them. Other environment fields have no Claude output and get a note. See [worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
 

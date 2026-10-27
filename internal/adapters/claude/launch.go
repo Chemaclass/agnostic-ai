@@ -75,15 +75,22 @@ func emitLaunch(sess *emit.Session, envs []spec.Entry, dir string, dryRun bool) 
 }
 
 // launchConfiguration renders one dev command as a launch.json
-// configuration, or nil when it has no name or command.
+// configuration, or nil when it has no name, or neither a command nor a
+// url. A url with no command attaches the preview to a server already
+// running instead of starting one
+// (code.claude.com/docs/en/desktop#configure-preview-servers).
 func launchConfiguration(v any) map[string]any {
 	m, _ := v.(map[string]any)
 	name, _ := m["name"].(string)
 	argv := emit.CommandArgv(m["command"])
-	if name == "" || len(argv) == 0 {
+	url, _ := m["url"].(string)
+	if name == "" || (len(argv) == 0 && url == "") {
 		return nil
 	}
-	out := map[string]any{"name": name, "runtimeExecutable": argv[0]}
+	out := map[string]any{"name": name}
+	if len(argv) > 0 {
+		out["runtimeExecutable"] = argv[0]
+	}
 	if len(argv) > 1 {
 		out["runtimeArgs"] = argv[1:]
 	}
@@ -99,7 +106,7 @@ func launchConfiguration(v any) map[string]any {
 	if auto, ok := m["auto-port"].(bool); ok {
 		out["autoPort"] = auto
 	}
-	if url, _ := m["url"].(string); url != "" {
+	if url != "" {
 		out["url"] = url
 	}
 	return out

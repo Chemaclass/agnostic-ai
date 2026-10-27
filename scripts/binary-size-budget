@@ -534,4 +534,6 @@
 # #2582 measured 23732384 on Go 1.27.3 on top of #2578: Claude sync notes
 # hook types and if filters on events that cannot run them, from one
 # vendor table. Linux amd64 release flags; no added headroom or dependencies.
-23732384
+# #2579 measured 23740576 on Go 1.27.3 on top of main: Claude writes url-only dev commands to launch.json, with a Codex skip note.
+# Linux amd64 release flags; no added headroom or dependencies.
+23740576
