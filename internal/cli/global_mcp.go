@@ -35,6 +35,9 @@ type globalMCPFile struct {
 	// private marks a file created at 0600, such as ~/.claude.json,
 	// which holds account state the tool itself keeps private.
 	private bool
+	// retired says why sync no longer writes this file, which import
+	// still reads. Sync removes the servers an earlier run wrote there.
+	retired string
 }
 
 // fileMode is the mode a sync gives the file when it creates it.
@@ -67,7 +70,8 @@ func (g globalTarget) mcpPath(home string) string {
 func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entry) ([]dropRecord, error) {
 	warnings := []dropRecord{}
 	for _, target := range targets {
-		if globalTargets[target].mcp.path != "" {
+		f := globalTargets[target].mcp
+		if f.path != "" && f.retired == "" {
 			continue
 		}
 		var names []string
@@ -80,6 +84,9 @@ func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entr
 			continue
 		}
 		message := "global MCP servers are unsupported; skipping " + strings.Join(names, ", ")
+		if f.retired != "" {
+			message = f.retired + "; skipping " + strings.Join(names, ", ")
+		}
 		if _, err := fmt.Fprintf(warn, "warning: %s: %s\n", target, message); err != nil {
 			return nil, fmt.Errorf("write global MCP warning: %w", err)
 		}
@@ -175,6 +182,11 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 				return globalSettingsMerge{}, err
 			}
 			current, _ = values[f.key].(map[string]any)
+			if f.retired != "" {
+				// The vendor CLI re-saves every server in full; the one
+				// sync wrote still goes.
+				comparison = []globalSettingsComparison{{current: values, equal: func(a, b any) bool { return sameMCPServer(target, a, b) }}}
+			}
 		}
 	}
 	var want []globalSetting

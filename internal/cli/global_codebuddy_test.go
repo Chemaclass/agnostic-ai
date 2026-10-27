@@ -145,3 +145,11 @@ func TestCodebuddy_GlobalNativeConditionalRuleIsRejected(t *testing.T) {
 		t.Fatal("conditional rule broadened globally")
 	}
 }
+
+func TestCodebuddy_GlobalPromptHookIsRejected(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks/stop-check.yaml"), "name: stop-check\nevent: Stop\ntype: prompt\nprompt: check\n")
+	if _, _, err := runGlobalAgentTest("--only", "codebuddy"); err == nil || !strings.Contains(err.Error(), "user settings take only command hooks") {
+		t.Fatalf("prompt hook dropped from user settings without an error: %v", err)
+	}
+}

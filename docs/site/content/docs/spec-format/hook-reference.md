@@ -131,10 +131,10 @@ Handler-specific fields are written only where the tool's schema defines them:
 
 - `server`, `tool`, `input` (`type: mcp_tool`): Claude Code, Codex.
 - `url`, `headers`, `allowedEnvVars` (HTTP handler): Claude Code, Qoder, Copilot.
-- `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
+- `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only). CodeBuddy takes `prompt` without `model`, on `Stop`, `UserPromptSubmit`, and `PreToolUse`.
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
-- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `loop_limit`: Cursor, Trae.
+- `continueOnBlock`: Claude Code, CodeBuddy. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `loop_limit`: Cursor, Trae.
 - `failClosed`: Claude Code (command and HTTP handlers), Cursor. `true` blocks when the hook cannot start, times out, or exits with a code other than 0 or 2; Cursor also blocks on exit 0 with no output. See [Claude Code hook mappings](@/docs/targets/claude-reference.md#hook-mappings) for the events it ignores there.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
