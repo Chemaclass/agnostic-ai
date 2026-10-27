@@ -528,4 +528,7 @@
 # #2581 measured 23724192 on Go 1.27.3: sync --global notes that a global
 # Claude effort reaches older models only; one 8 KiB linker step.
 # Linux amd64 release flags; no added headroom or dependencies.
-23724192
+# #2579 measured 23728288 on Go 1.27.3: Claude writes url-only dev commands
+# to launch.json, with a Codex skip note and lint target check.
+# Linux amd64 release flags; no added headroom or dependencies.
+23728288
