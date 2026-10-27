@@ -2376,7 +2376,11 @@ input:hover {
 
 @media (max-width: 760px) {
   .stale-guard {
-    gap: 12px;
+    gap: 0;
+  }
+
+  .stale-guard > .block + .block {
+    margin-top: 18px;
   }
 }
 
