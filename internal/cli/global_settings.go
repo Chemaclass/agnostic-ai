@@ -35,11 +35,15 @@ type globalSettingsFile struct {
 	itemLists       []string
 	retention       string
 	effortLevel     func() []string
+	// effortGap names the models a written effort key does not reach.
+	effortGap globalSurfaceGap
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
 	allowed  map[string]string
 }
+
+type globalSurfaceGap struct{ surface, reason string }
 
 // accepts reports whether the effort key takes value. A nil level list
 // accepts any string.
@@ -118,6 +122,9 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 			adapters.NoteSettingsFieldNoOp(target, "effort", efforts, "its user settings file has no default effort key")
 		case f.accepts(effort):
 			out = append(out, globalSetting{target: target, key: f.effort, value: effort, field: "effort", source: lastSettingsSource(settings, "effort", target)})
+			if f.effortGap.surface != "" {
+				adapters.NoteSettingsSurfaceGap(target, efforts, f.effortGap.surface, f.effortGap.reason)
+			}
 		default:
 			adapters.NoteSettingsFieldNoOp(target, "effort", 1, fmt.Sprintf("%s does not accept %v; it takes %s", f.effort, effort, f.levelsText()))
 		}

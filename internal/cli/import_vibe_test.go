@@ -49,6 +49,24 @@ func TestImportVibe_HandwrittenNativeRoundTrip(t *testing.T) {
 	execCLI(t, "lint")
 }
 
+func TestImportVibe_NotesAgentNamedMain(t *testing.T) {
+	testutil.TempCwd(t)
+	out := captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")
+	writeFile(t, ".vibe/agents/main.toml", "agent_type='subagent'\ndescription='Main reviewer'\ninstructions='Review.'\n")
+	execCLI(t, "import", "vibe")
+	for _, want := range []string{".vibe/agents/main.toml", "reserves the name main", "rename"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("import note lacks %q:\n%s", want, out.String())
+		}
+	}
+	cmd := NewRootCmd("test")
+	cmd.SetArgs([]string{"sync", "-t", "vibe"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "reserves the name main") {
+		t.Fatalf("sync must stop on the reserved agent name: %v", err)
+	}
+}
+
 func TestImportVibe_RejectsNativeSettingsCredentialWithoutPrintingIt(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")

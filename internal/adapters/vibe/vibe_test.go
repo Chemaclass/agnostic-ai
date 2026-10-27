@@ -91,12 +91,34 @@ func TestUserHookRecords_PostAgentKeepsMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestEmit_RejectsAgentNamedMainInAnyCase(t *testing.T) {
+	for _, name := range []string{"main", "Main"} {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			a := spec.Entry{Kind: spec.KindAgent, Name: name, Body: "Review."}
+			err := New().Emit(emit.NewSession(), spec.Bundle{Agents: []spec.Entry{a}}, &config.Config{}, false)
+			if err == nil {
+				t.Fatal("Vibe refuses to load an agent file named main; sync must fail")
+			}
+			for _, want := range []string{filepath.Join(".vibe", "agents", name+".toml"), "reserves the name main", "rename"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error lacks %q: %v", want, err)
+				}
+			}
+			if _, statErr := os.Stat(filepath.Join(".vibe", "agents", name+".toml")); !os.IsNotExist(statErr) {
+				t.Errorf("reserved agent file was written: %v", statErr)
+			}
+		})
+	}
+}
 func TestUserHookRecords_PostAgentRejectsStrict(t *testing.T) {
 	h := spec.Entry{Kind: spec.KindHook, Name: "after", Meta: map[string]any{"event": "post_agent", "command": "echo done", "x-vibe": map[string]any{"strict": true}}}
 	if _, err := (Adapter{}).UserHookRecordsForPlatform([]spec.Entry{h}, ".vibe/hooks", "linux"); err == nil || !strings.Contains(err.Error(), "cannot set strict") {
 		t.Fatalf("strict on post_agent must fail: %v", err)
 	}
 }
+
 func TestEmit_RejectsInvalidSkill(t *testing.T) {
 	testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), spec.Bundle{Skills: []spec.Entry{{Name: "INVALID", Meta: map[string]any{"description": "d"}}}}, &config.Config{}, false); err == nil {
