@@ -13,6 +13,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 - A project page opens the global settings in a new tab, starting `serve --global` on the next free port when none runs; a global page started in a project links back to it. The header labels each page **Project** or **Global** (#2602).
 - Set `model` and `effort` for one tool under **What each tool gets**, saved as `model.<tool>` or `effort.<tool>`. Each tool shows where its value comes from, such as `personal · codex`, and when an `agnostic-ai.yaml` output key replaces it; **Use the value for every tool** removes the tool's entry. `/api/edit/field` and setting previews take `target` (#2602).
 - **Settings** names where an edit goes **Shared (committed)** or **Personal (not committed)**, and edit and preview requests take `audience: shared` or `audience: personal`. The older `scope: team` or `scope: local` is accepted until the next minor release; a request that sends both with different meanings returns 400. Change plans carry `audience` beside `scope` until then, and a saved choice on the page carries over (#2602).
+- When two project pages open the global settings at the same moment, each opens a global server that links back to its own project. Before, one could open the other project's server, which stopped when that project's server stopped (#2607).
 
 ### By tool
 
