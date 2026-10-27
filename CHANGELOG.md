@@ -10,6 +10,10 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 - `sync --global` notes that a global `effort` reaches Opus 5, Fable 5.1, and earlier models only (#2581).
 
+### Site
+
+- The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
+
 ## v0.89.0 - 2026-10-27
 
 ### General
