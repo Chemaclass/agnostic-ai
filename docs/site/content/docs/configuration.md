@@ -445,7 +445,7 @@ It also covers imported Claude hook root references that cannot be translated. S
   note: 1 agent reaches warp only via outputs.warp.workflows-dir
 ```
 
-Setting the named key clears the note. `sync -v` shows every note.
+Setting the named key clears the note. `sync -vv` shows every note.
 
 | Target | Kind | Set this to write them |
 |--------|------|------------------|
@@ -491,9 +491,9 @@ List each note the project accepts and the reason. Each entry names one note wit
 | `field` | one of three | Matches "`<field>` on N specs has no effect on `<target>`" notes for that field, whatever the reason. |
 | `via` | one of three | Matches "N specs reach `<target>` only via `<via>`" notes, and "only in the source dir (`<via>`)" notes, with that exact text. |
 | `surface` | one of three | Matches "N specs reach `<target>` but not `<surface>`" notes with that surface. |
-| `reason` | yes | Why the note is expected. `sync -v` prints it. |
+| `reason` | yes | Why the note is expected. `sync -vv` prints it. |
 
-An accepted note no longer prints on `sync`, and `fail-on-notes` ignores it. `sync -v` shows it as `accepted:` with its reason. `doctor` counts it, and `doctor --json` reports `coverage_accepted`.
+An accepted note no longer prints on `sync`, and `fail-on-notes` ignores it. `sync -vv` shows it as `accepted:` with its reason. `doctor` counts it, and `doctor --json` reports `coverage_accepted`.
 
 `lint` warns with LINT024 when an entry matches no note on one of its targets. Config loading fails on an unknown target, a repeated entry, or an entry with no `field`, `via`, or `surface`.
 

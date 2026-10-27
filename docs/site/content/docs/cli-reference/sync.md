@@ -67,7 +67,7 @@ agnostic-ai sync --only claude,cursor
 ✓ synced 26 targets · 3 created · 6 updated · 49ms
 ```
 
-Each list shows three paths (`-v` lists all). A `config` spec means `agnostic-ai.yaml` changed. The `!` line, absent outside a git repository, lists changed files git tracks or does not ignore.
+Each list shows three paths (`-vv` lists all). A `config` spec means `agnostic-ai.yaml` changed. The `!` line, absent outside a git repository, lists changed files git tracks or does not ignore.
 
 **Tracked despite ignored.** For a generated path git both tracks and ignores (usually committed before the managed `.gitignore` block), `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` reports it but never fails on it alone.
 
@@ -102,7 +102,7 @@ A plain full `sync` removes none of these. It records them under target `unledge
 
 ### Warning guidance {#warning-guidance}
 
-Unsupported global agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent. These field notes add a next step; guidance never edits specs, and repeated project notes stay hidden until they change or you pass `-v`.
+Unsupported global agents get one `fix:` per run: set `targets:` in `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` (or `local/agnostic-ai.yaml`), or `targets-exclude:` on each agent. These field notes add a next step; guidance never edits specs, and repeated project notes stay hidden until they change or you pass `-vv`.
 
 | Field | Next step |
 |-------|-----------|
@@ -156,7 +156,7 @@ Each target gets its own worker; `--jobs <n>` bounds how many run at once (no co
 
 ### Profiling a slow sync
 
-`--profile <file>` or `AGNOSTIC_AI_PROFILE=<file>` writes a CPU profile. `--verbose` adds the time per target, as in `→ claude: 12 created, 3 updated, 0 unchanged in 42ms`. Under `--jobs > 1` these times overlap.
+`sync -v` shows counts and elapsed time for targets that wrote files, and summarizes unchanged targets. `sync -vv` shows every target, path, and repeated coverage note, including accepted notes; it runs sync again. `--profile <file>` or `AGNOSTIC_AI_PROFILE=<file>` writes a CPU profile. Under `--jobs > 1` target times overlap.
 
 ### JSON output
 

@@ -35,6 +35,12 @@ func newSyncCmd() *cobra.Command {
   # Emit everything except Codex
   agnostic-ai sync --except codex
 
+  # Show changed targets and a short report
+  agnostic-ai sync -v
+
+  # Run sync again and show every target, path, and coverage note
+  agnostic-ai sync -vv
+
   # Preview without writing
   agnostic-ai sync --dry-run
 
@@ -121,7 +127,12 @@ func newSyncCmd() *cobra.Command {
 				}
 				defer func() { _ = lock.Close() }()
 			}
+			firstLoadOut := logOut
+			if verbosity == levelVerbose && !check && !plan && !dryRun && !jsonOut {
+				logOut = io.Discard
+			}
 			cfg, bundle, err := loadProject(".")
+			logOut = firstLoadOut
 			if err != nil {
 				return err
 			}

@@ -166,5 +166,5 @@ func reportAcceptedCoverageNotes(cmd *cobra.Command, cfg *config.Config, accepte
 	}
 	cmd.Println()
 	cmd.Println("Coverage notes:")
-	cmd.Printf("  %d accepted (sync -v lists them)\n", accepted)
+	cmd.Printf("  %d accepted (sync -vv lists them)\n", accepted)
 }

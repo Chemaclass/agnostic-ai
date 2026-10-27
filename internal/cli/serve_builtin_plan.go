@@ -362,8 +362,11 @@ func planProjectChange(root string, change projectChange, where editScope) (*bui
 	next.SpecSums, next.SpecTargets = baselineSums.sums, baselineSums.targets
 	next.SpecFileSums = syncedSpecFileSumsFrom(".", previous.SpecFileSums, bundle, cfg.Targets, cfg, plannedRead(planned))
 	next.Orphans, next.Unledgered = nil, nil
+	adapters.OrderBufferedDropsByTarget(cfg.Targets)
 	next.WarningsDigest = adapters.CapabilityWarningsDigest()
 	next.NotesDigest = adapters.CoverageNotesDigest()
+	next.WarningRecords = dropFingerprints(adapters.PendingCapabilityWarnings())
+	next.NoteRecords = dropFingerprints(adapters.PendingCoverageNotes())
 	for path, data := range desired {
 		snap, err := snapshotEditFile(filepath.Join(root, path))
 		if err != nil {

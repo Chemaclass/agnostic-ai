@@ -21,6 +21,26 @@ type DropRecord struct {
 // belongs to no target.
 const projectNoteTarget = "agnostic-ai"
 
+func warningDropRecord(p pendingWarn) DropRecord {
+	return DropRecord{Target: p.target, Kind: p.kind, Count: p.count,
+		Message: fmt.Sprintf("%d %s unsupported by %s", p.count, pluralizeKind(p.kind, p.count), p.target), Suggestion: capabilityWarningFix}
+}
+
+func gapDropRecord(p pendingNote) DropRecord {
+	return DropRecord{Target: p.target, Kind: p.kind, Count: p.count,
+		Message: gapNoteText(p.kind, p.count, p.via, []string{p.target})}
+}
+
+func fieldDropRecord(p pendingFieldNote) DropRecord {
+	return DropRecord{Target: p.target, Kind: p.kind, Count: p.count,
+		Message: fmt.Sprintf("%s (%s)", fieldNoteText(p.kind, p.field, p.count, []string{p.target}), p.reason), Suggestion: p.suggestion}
+}
+
+func surfaceDropRecord(p pendingSurfaceNote) DropRecord {
+	return DropRecord{Target: p.target, Kind: p.kind, Count: p.count,
+		Message: fmt.Sprintf("%s (%s)", surfaceNoteText(p.kind, p.count, p.surface, []string{p.target}), p.reason)}
+}
+
 // PendingCapabilityWarnings returns one record per buffered (target,
 // kind) warning, in buffer order, without clearing the buffer.
 func PendingCapabilityWarnings() []DropRecord {
@@ -34,8 +54,7 @@ func PendingCapabilityWarnings() []DropRecord {
 			continue
 		}
 		seen[key] = true
-		message := fmt.Sprintf("%d %s unsupported by %s", p.count, pluralizeKind(p.kind, p.count), p.target)
-		out = append(out, DropRecord{Target: p.target, Kind: p.kind, Count: p.count, Message: message, Suggestion: capabilityWarningFix})
+		out = append(out, warningDropRecord(p))
 	}
 	return out
 }
@@ -56,23 +75,13 @@ func PendingCoverageNotes() []DropRecord {
 		}
 	}
 	for _, p := range coverageNoteState.pending {
-		add("gap\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.via, DropRecord{
-			Target: p.target, Kind: p.kind, Count: p.count,
-			Message: gapNoteText(p.kind, p.count, p.via, []string{p.target}),
-		})
+		add("gap\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.via, gapDropRecord(p))
 	}
 	for _, p := range coverageNoteState.pendingField {
-		add("field\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.field+"\x00"+p.reason, DropRecord{
-			Target: p.target, Kind: p.kind, Count: p.count,
-			Message:    fmt.Sprintf("%s (%s)", fieldNoteText(p.kind, p.field, p.count, []string{p.target}), p.reason),
-			Suggestion: p.suggestion,
-		})
+		add("field\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.field+"\x00"+p.reason, fieldDropRecord(p))
 	}
 	for _, p := range coverageNoteState.pendingSurface {
-		add("surface\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.surface+"\x00"+p.reason, DropRecord{
-			Target: p.target, Kind: p.kind, Count: p.count,
-			Message: fmt.Sprintf("%s (%s)", surfaceNoteText(p.kind, p.count, p.surface, []string{p.target}), p.reason),
-		})
+		add("surface\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.surface+"\x00"+p.reason, surfaceDropRecord(p))
 	}
 	// Project notes carry no target to order by, and adapters append
 	// them concurrently, so sort them for a stable output.

@@ -183,17 +183,17 @@ func TestRunSyncOnce_SharedAgentsTreeNoteSuppressedWhenUnchanged(t *testing.T) {
 	if strings.Contains(notes.String()+log.String(), "also read by Devin") {
 		t.Errorf("unchanged note re-printed on second sync:\n%s%s", log.String(), notes.String())
 	}
-	if !strings.Contains(log.String(), "unchanged since last sync; -v shows them") {
+	if !strings.Contains(log.String(), "unchanged since last sync; -vv shows them") {
 		t.Errorf("second sync did not count the suppressed note:\n%s", log.String())
 	}
 
 	notes.Reset()
-	verbosity = levelVerbose
+	verbosity = levelVerbose + 1
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(notes.String(), "also read by Devin") {
-		t.Errorf("-v did not re-show the unchanged note:\n%s", notes.String())
+		t.Errorf("-vv did not re-show the unchanged note:\n%s", notes.String())
 	}
 
 	notes.Reset()
@@ -202,7 +202,7 @@ func TestRunSyncOnce_SharedAgentsTreeNoteSuppressedWhenUnchanged(t *testing.T) {
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(notes.String(), "also read by Devin") || !strings.Contains(log.String(), "-v shows them") {
-		t.Errorf("a plain sync after -v should collapse the note again:\n%s%s", log.String(), notes.String())
+	if strings.Contains(notes.String(), "also read by Devin") || !strings.Contains(log.String(), "-vv shows them") {
+		t.Errorf("a plain sync after -vv should collapse the note again:\n%s%s", log.String(), notes.String())
 	}
 }

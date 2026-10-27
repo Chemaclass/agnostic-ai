@@ -159,7 +159,7 @@ After the file report, doctor prints:
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning does not. | No |
-| **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -v` lists them. | No |
+| **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -vv` lists them. | No |
 | **Packaging ignores** | Generated paths that an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover, with the ignore file. | No, reported only |
 | **Tracked despite ignored** | A generated path that git tracks and ignores, with the `git rm --cached` fix. | No |
 | **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails; disabled does not. | Never grants trust |

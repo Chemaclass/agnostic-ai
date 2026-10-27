@@ -104,7 +104,7 @@ func TestSync_VerboseShowsPerTargetTiming(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !regexp.MustCompile(`→ claude:.*\bin \d+ms`).MatchString(out) {
+	if !regexp.MustCompile(`(?m)^claude\s+\d+\s+\d+\s+\d+\s+\d+ms$`).MatchString(out) {
 		t.Errorf("expected a per-target ms token in verbose output, got:\n%s", out)
 	}
 }
