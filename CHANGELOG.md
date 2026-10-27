@@ -4,45 +4,32 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## v0.89.0 - 2026-10-27
+
 ### General
 
 - **Breaking:** Web edit and built-in preview requests must send `scope` (`team` or `local`).
 
 #### Web interface
 
-- `explain --context` and the web Context section list duplicated startup passages with sources; the web view adds edit links and a review prompt (#2572).
-- **Copy refine prompt** on the global `AGNOSTIC_AI.md`: a coding agent reviews the file against current guidance for instruction files, suggests skill and agent candidates, and leaves the file unchanged until you approve (#2567).
-- Lifecycle stages always show when they run, without a **When this runs** toggle (#2568).
-- Preview, apply, and undo project model and reasoning effort changes for the team or just you (#2511, #2553).
-- Edit model, effort, and global session-retention settings; personal settings use Git-ignored files and can be reset (#2476, #2526).
-- Settings show values from other files and the model and effort sync selects for each tool (#2512, #2527).
-- Stale setting and built-in saves keep your choice or draft and offer to reload saved values (#2518, #2542).
-- Cancelled previews stay cancelled, and a tab cannot cancel a newer preview from another tab (#2520).
-- Toggle built-ins in unsynced projects, including the ignore entry for Claude Code's private memory settings (#2484, #2486).
-- See which generated files match the source, refresh the overview, and retry failed refreshes without losing your input (#2510, #2519).
-- `serve --no-installed` skips installed-file comparisons in project and global overviews while still checking source files (#2528).
-- Recheck findings in place; incomplete checks report an unknown result, and disappearing doctor findings show not confirmed (#2515).
-- Search all sections with **Search** or `Cmd+K` / `Ctrl+K`; result links survive reloads and browser history (#2514).
-- Open source files and findings in Cursor or VS Code, or copy their paths (#2513).
-- The header shows the full configuration path and labels the user-level view Global.
-- `ui` aliases `view`, reuses a running server, and finds a free port for another project or scope (#2477, #2492).
-- `/api/health` returns the root, scope, and `ui` without loading specs; it no longer returns `revision` (#2477).
+- Find duplicate startup passages and copy a prompt to review global instructions (#2572, #2567).
+- Edit and preview team or personal settings, and see which values each tool receives (#2511, #2553, #2476, #2526, #2512, #2527).
+- Search, recheck, and open findings in an editor; see which generated files match their source (#2514, #2515, #2513, #2510, #2519).
+- Toggle built-ins in unsynced projects; stale saves keep drafts and cancelled previews stay cancelled (#2484, #2486, #2518, #2542, #2520).
+- `ui` reuses servers; lifecycle stages show when they run; `serve --no-installed` skips installed comparisons (#2477, #2492, #2568, #2528).
 
 #### Sync and configuration
 
-- `sync -v` highlights changes and new coverage notes; `sync -vv` shows every target, path, and repeated note (#2570).
+- **Breaking:** Global ownership state moves to version 9; older releases cannot read it (#2529).
+- Global sync preserves empty objects, guards changed symlink targets, and backs up removed files with `--backup` (#2529, #2517, #2516).
+- `sync -v` highlights changes, `sync -vv` shows every target, and parallel sync keeps shared Copilot commands (#2570, #2561).
+- Global settings honor target filters, and global rule validation rejects scoped rules in target blocks (#2525, #2508).
+- Personal built-ins stay out of the committed `.gitignore`; `init` creates a shared placeholder note (#2494, #2534).
 
-- Parallel sync preserves Copilot commands when targets share a generated skill (#2561).
-- Global sync, explain, lint, and import respect settings target filters for model, effort, and tool-specific values (#2525).
-- `sync --global` preserves user-written empty objects when removing settings (#2529).
-- Global ownership state moves to version 9; older releases cannot read it (#2529).
-- `sync --global` stops if a symlinked user file changes during sync, preserving the link and its target (#2517).
-- `sync --global --backup` saves removed files as `<path>.bak` and refuses non-regular backup paths (#2516).
-- Global sync, lint, and validation reject scoped rules in target-specific blocks (#2508).
-- Local `builtins` outputs go to `.git/info/exclude` without changing the committed `.gitignore` (#2494).
-- The `caveman` built-in and example pack contain only `SKILL.md`; sync removes generated extras and keeps edited files.
+#### Built-ins
+
+- The `caveman` built-in and example pack ship only `SKILL.md`; sync removes generated extras and keeps edited files.
 - Edited `caveman` extras remain unowned. Delete them, run `doctor --fix`, or list them in `sync.unmanaged`.
-- `init` creates a shared placeholder note for new projects, keeps existing notes, and leaves the global note alone (#2534).
 
 #### Performance and benchmarks
 
