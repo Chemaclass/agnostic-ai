@@ -139,7 +139,7 @@ agnostic-ai explain --context --target cursor --file src/main.go
 
 Counts are estimates from planned output and spec text, not model tokens; runtime context, external imports, user-owned files, and host truncation are not counted. Inlined imports keep their source paths; unresolved ones are not read.
 
-The report ends with opportunities: paragraphs of at least eight words written more than once in the specs that load at startup for that target, byte for byte after trimming. Each lists its copies, source files, size per copy, and the words and bytes one session start could drop. A spec that two generated files both carry counts once, because the fix is the tool setting that reads both files, not the spec. Similar wording is not reported, because only you can tell whether two instructions mean the same. Review the copies and edit the canonical specs, then run the command again to see the new counts. The command never edits a file.
+The report ends with opportunities: paragraphs of at least eight words written more than once in the specs that load at startup for that target, byte for byte after trimming. Each lists its copies, source files, size per copy, and the words and bytes one session start could drop at least. A spec that two generated files both carry counts once, because the fix is the tool setting that reads both files, not the spec. Similar wording is not reported, because only you can tell whether two instructions mean the same. Review the copies and edit the canonical specs, then run the command again to see the new counts. The command never edits a file.
 
 <details>
 <summary>Read context accounting groups and JSON</summary>
@@ -334,7 +334,7 @@ Edit and impact requests take JSON. Every edit and preview names its `scope`: `t
 |----------|---------------|
 | `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. |
 | `GET /api/views/overview` | None. |
-| `GET /api/views/context` | `?target=<tool>`, a configured target; default the first one. `&file=<path>` adds scoped rules for that file, as `--file` does. Returns `targets`, `target`, absolute `root`, and `report`, the `explain --context --json` output. With `--global`, `supported` is false and `reason` says why. |
+| `GET /api/views/context` | `?target=<tool>`, a configured target; default the first one. `&file=<path>` adds scoped rules for that file, as `--file` does; `fileTargets` lists the targets that accept it. Returns `targets`, `target`, absolute `root`, and `report`, the `explain --context --json` output. With `--global`, `supported` is false and `reason` says why. |
 | `GET /api/views/authority` | `?agentId=<id>&target=<tool>` for per-agent decisions. |
 | `POST /api/views/authority/impact` | A permission proposal to preview. |
 | `GET /api/views/authority/schema` | None. |

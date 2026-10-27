@@ -3,6 +3,7 @@ package cli
 import (
 	"net/http"
 	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
@@ -15,6 +16,7 @@ type contextView struct {
 	Reason        string                `json:"reason,omitempty"`
 	Root          string                `json:"root,omitempty"`
 	Targets       []string              `json:"targets"`
+	FileTargets   []string              `json:"fileTargets"`
 	Target        string                `json:"target"`
 	Report        *explainContextOutput `json:"report,omitempty"`
 }
@@ -28,7 +30,7 @@ func newContextHandler(root string, global bool) http.Handler {
 			writeEditJSON(w, http.StatusMethodNotAllowed, editError{Error: r.Method + " is not supported here; use GET"})
 			return
 		}
-		view := contextView{SchemaVersion: "1", Targets: []string{}}
+		view := contextView{SchemaVersion: "1", Targets: []string{}, FileTargets: []string{}}
 		if global {
 			view.Reason = "Context size is reported for a project. Open a project to see it."
 			writeEditJSON(w, http.StatusOK, view)
@@ -49,6 +51,11 @@ func newContextHandler(root string, global bool) http.Handler {
 			return
 		}
 		view.Supported, view.Report, view.Targets = true, &report, append(view.Targets, cfg.Targets...)
+		for _, t := range cfg.Targets {
+			if slices.Contains(fileContextTargets, t) {
+				view.FileTargets = append(view.FileTargets, t)
+			}
+		}
 		if abs, err := filepath.Abs(root); err == nil {
 			view.Root = abs
 		}

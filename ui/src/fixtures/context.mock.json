@@ -6,6 +6,9 @@
   "targets": [
     "claude"
   ],
+  "fileTargets": [
+    "claude"
+  ],
   "target": "claude",
   "report": {
     "version": "1",

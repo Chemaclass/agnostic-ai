@@ -78,7 +78,7 @@ func duplicatedStartupPassages(target string, contributions []contextContributio
 			continue
 		}
 		o.Reduction = contextSize{Words: o.Size.Words * (o.Copies - 1), Bytes: o.Size.Bytes * (o.Copies - 1)}
-		o.Suggestion = fmt.Sprintf("This passage is written %d times in specs that load at startup for %s. Review the copies and remove one if they say the same thing.", o.Copies, target)
+		o.Suggestion = fmt.Sprintf("This passage is written %d times in specs that load at startup for %s. Removing a copy drops at least the size of one. Review the copies and remove one if they say the same thing.", o.Copies, target)
 		opportunities = append(opportunities, o)
 	}
 	slices.SortStableFunc(opportunities, func(a, b contextOpportunity) int {

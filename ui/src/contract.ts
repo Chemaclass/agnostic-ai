@@ -661,6 +661,8 @@ export interface ContextView {
   reason: string
   root?: string
   targets: string[]
+  /** Targets that accept a file, so scoped rules can count as file-scoped. */
+  fileTargets: string[]
   target: string
   report?: ContextReport
 }

@@ -94,6 +94,26 @@ test.describe('context size', () => {
     await expect(panel.locator('.context-opportunity')).toHaveCount(1)
   })
 
+  test('drops the file for a tool without file-scoped rules', async ({ page }) => {
+    const two = { ...structuredClone(contextView), targets: ['claude', 'copilot'], fileTargets: ['claude'] }
+    const requests: string[] = []
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
+    await page.route('**/api/views/context**', (route) => {
+      const url = new URL(route.request().url())
+      requests.push(url.search)
+      return route.fulfill({ json: { ...two, target: url.searchParams.get('target') ?? 'claude' } })
+    })
+    await page.goto('/?view=context')
+    const panel = page.locator('section.context-usage')
+    await expect(panel.locator('.context-opportunity')).toHaveCount(1)
+    await panel.getByLabel('Working on file').fill('src/main.go')
+    await panel.getByRole('button', { name: 'Refresh' }).click()
+    await expect.poll(() => requests.at(-1)).toBe('?target=claude&file=src%2Fmain.go')
+    await panel.getByLabel('Coding tool').selectOption('copilot')
+    await expect.poll(() => requests.at(-1)).toBe('?target=copilot')
+    await expect(panel.getByLabel('Working on file')).toBeDisabled()
+  })
+
   test('shows the reason for user configuration', async ({ page }) => {
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
     await page.route('**/api/views/context**', (route) => route.fulfill({ json: { schemaVersion: '1', supported: false, reason: 'Context size is reported for a project. Open a project to see it.', targets: [], target: '' } }))

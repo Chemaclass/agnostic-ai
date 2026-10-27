@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
@@ -79,7 +80,7 @@ func TestServeContext_CountsScopedRulesForTheGivenFile(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nname: go\nglobs: '**/*.go'\nalwaysApply: false\n---\n"+words(40)+"\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: dir}))
 	defer srv.Close()
-	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude&file=src/main.go", http.StatusOK); view.Report.File != "src/main.go" || view.Report.FileScope.Words != 40 {
+	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude&file=src/main.go", http.StatusOK); view.Report.File != "src/main.go" || view.Report.FileScope.Words != 40 || strings.Join(view.FileTargets, ",") != "claude" {
 		t.Errorf("file scope: %+v", view.Report)
 	}
 	if view := getContextView(t, srv.URL+contextViewPath+"?target=claude", http.StatusOK); view.Report.FileScope.Words != 0 || view.Report.OnDemand.Words < 40 {

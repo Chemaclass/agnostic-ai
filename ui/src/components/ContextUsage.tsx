@@ -66,9 +66,11 @@ export function ContextUsage() {
   const view = current?.view
   const selected = target ?? view?.target ?? ''
   const targets = view?.targets.length ? view.targets : selected ? [selected] : []
+  const takesFile = !!view?.fileTargets.includes(selected)
   const matches = (snapshot: Snapshot | undefined): snapshot is Snapshot => !!snapshot && snapshot.view.target === selected && snapshot.file === file
   const refresh = () => {
-    const nextFile = fileDraft.trim()
+    const nextFile = takesFile ? fileDraft.trim() : ''
+
     setBefore(matches(current) && current.file === nextFile ? current : undefined)
     if (selected) setTarget(selected)
     setFile(nextFile)
@@ -93,12 +95,13 @@ export function ContextUsage() {
               onChange={(event) => {
                 setBefore(undefined)
                 setTarget(event.target.value)
+                if (!view?.fileTargets.includes(event.target.value)) setFile('')
               }}
             >
               {targets.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
             <label htmlFor={fileId}>Working on file</label>
-            <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} onChange={(event) => setFileDraft(event.target.value)} />
+            <input id={fileId} type="text" value={fileDraft} placeholder="src/main.go" spellCheck={false} disabled={!takesFile} title={takesFile ? undefined : `${selected || 'This tool'} has no file-scoped rules to check.`} onChange={(event) => setFileDraft(event.target.value)} />
             <button type="submit" className="button" disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
           </form>
         )}
