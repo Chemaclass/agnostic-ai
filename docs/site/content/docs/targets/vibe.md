@@ -58,7 +58,7 @@ Commands use the shared conversion to skills invoked by the user. Vibe has no na
 
 ## Agents and skills
 
-Agents emit as `agent_type = "subagent"`, with inline `instructions`, a description, and an optional `active_model`. A native `x-vibe.agent_type: agent` preserves a primary profile for explicit selection with `vibe --agent <name>`.
+Agents emit as `agent_type = "subagent"`, with inline `instructions`, a description, and an optional `active_model`. A native `x-vibe.agent_type: agent` preserves a primary profile for explicit selection with `vibe --agent <name>`. Vibe 3.0.3 reserves the agent name `main`, in any case, for hook matching and does not load a file with that name, so sync stops and asks you to rename the agent. Import notes such a file.
 
 Portable agent tools map `Bash`, `Read`, `Write`, and `Edit` to `bash`, `read_file`, `write_file`, and `edit`. `Grep` has no direct mapping in Vibe 3.0; the native agent searches through its shell tool. Unresolved tools are omitted with a coverage note while supported tools keep the agent restricted. Sync fails if none of the requested tools can be mapped. Use `x-vibe.enabled_tools`, `x-vibe.disabled_tools`, and native `x-vibe.tools` permission tables for Vibe-specific policies. Empty `enabled_tools` would allow every tool, so sync rejects it. Portable `readonly` and permission patterns have no direct mapping. Vibe's `safety` field controls presentation, not access.
 
