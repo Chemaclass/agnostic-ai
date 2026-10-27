@@ -29,7 +29,8 @@ const agentToolsUntranslatedReason = "tool name(s) outside OpenCode's permission
 // `.opencode/agents/` (plural; the singular dir is legacy) with
 // frontmatter `description`, `mode` (primary|subagent|all), `model`,
 // `temperature`, and `permission`, or native V2 fields and `permissions`,
-// followed by the system-prompt body.
+// followed by the system-prompt body. A V2 file carries temperature as
+// `request.body.temperature`, because V2 ignores the top-level key.
 // Native permission maps retain source order for last-match evaluation.
 // Names in a `tools` list with no OpenCode key fold into one coverage
 // note per sync.
@@ -136,6 +137,9 @@ func agentMarkdown(e spec.Entry, project *agentProject) (body string, unmapped b
 		keys = append(keys, "steps")
 	}
 	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, append(slices.Clone(agentFrontmatterKeys), "steps", "maxTurns")...)
+	if err := agentV2Temperature(front); err != nil {
+		return "", unmapped, err
+	}
 	if err := agentV2Permissions(front, &keys); err != nil {
 		return "", unmapped, err
 	}

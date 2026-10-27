@@ -15,6 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/grok"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/pi"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qwen"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -395,9 +396,13 @@ var globalTargets = map[string]globalTarget{
 		root:    globalPathHome + ".openhands",
 		agents:  globalPathHome + ".agents/agents",
 		skills:  globalPathHome + ".agents/skills",
-		// The file `openhands mcp add` writes; current releases no longer
-		// read a project config.toml [mcp] section (#1252).
-		mcp: globalMCPFile{path: globalPathHome + ".openhands/mcp.json", format: "json", key: "mcpServers"},
+		// Only the unmaintained OpenHands-CLI reads mcp.json. Agent Canvas,
+		// Cloud, and the SDK keep MCP servers in their settings store
+		// (docs.openhands.dev/openhands/usage/settings/mcp-settings, #2576).
+		mcp: globalMCPFile{
+			path: globalPathHome + ".openhands/mcp.json", format: "json", key: "mcpServers",
+			retired: openhands.MCPSettingsHint,
+		},
 	},
 	"trae": {
 		agents: globalPathHome + ".trae-cn/agents",
@@ -451,7 +456,7 @@ func globalKindSupport() kindSupport {
 			spec.KindRule:     g.instructions != "" || g.rules != "",
 			spec.KindHook:     g.hooks != "" || g.hooksDir != "",
 			spec.KindSettings: g.settings.path != "",
-			spec.KindMCP:      g.mcp.path != "",
+			spec.KindMCP:      g.mcp.path != "" && g.mcp.retired == "",
 		} {
 			if surface {
 				support[kind][name] = struct{}{}

@@ -60,7 +60,7 @@ opencode.json                             # when MCP entries exist (merged with 
 
 - In legacy agent files, a `can` or `tools` list becomes the agent [`permission`](https://opencode.ai/docs/agents/#permissions) map: `can: [read]` writes `permission: {"*": deny, doom_loop: ask, external_directory: ask, read: {"*": allow, "*.env": ask, "*.env.*": ask, "*.env.example": allow}}`. Every tool not listed is denied. The catch-all comes first because the last matching rule wins.
 - Restricted agents keep project permission decisions for their allowed tools, including `.env` prompts, and deny other tools. Sync reads root `opencode.json`, including native V2 `permissions` in order. It does not read `opencode.jsonc`, `.opencode/opencode.json`, or global user policy, so agent rules can override restrictions kept only there.
-- Files with `permissions`, `request`, `system`, or `disabled` use V2 rules, including `disabled: false`. Sync writes generated restrictions as an ordered `permissions` array and appends explicit native array rules in their source order. These explicit rules can override generated restrictions. Import preserves the V2 fields and rebuilds the agent without its original native file.
+- Files with `permissions`, `request`, `system`, or `disabled` use V2 rules, including `disabled: false`. Sync writes generated restrictions as an ordered `permissions` array and appends explicit native array rules in their source order. These explicit rules can override generated restrictions. OpenCode 2 ignores a top-level `temperature` in such a file, so sync writes it as `request: {body: {temperature: ...}}`, merged with any `request` you set; a `temperature` already in `request.body` wins. OpenCode 2.2.0 keeps request values but does not yet send them with model requests ([agents](https://opencode.ai/v2/docs/agents#request)); this also applies to `temperature` in a V1 file. Import preserves the V2 fields and rebuilds the agent without its original native file.
 - Native `permission` keys retain source order because the last matching rule wins. `x-opencode.permission` overrides the keys it names; an explicit native action wins outright. Malformed project rules or resource rules that cannot fit the agent format fail sync with the affected paths.
 - V2 home-relative resources and Windows case differences can make restrictions stricter. Use absolute resources for scoped filesystem grants. Sync rejects grants whose intersection depends on the runtime home. See [native permissions](https://opencode.ai/v2/docs/permissions) for matching semantics.
 - These names translate: `Read`, `Edit` and `Write` (both `edit`), `Bash`, `Glob`, `Grep`, `Task`, `Skill`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>` as `<server>_<tool>`, and a whole server (`mcp:<server>` or `mcp__<server>`) as `<server>_*`. Other names drop with a sync note. If nothing translates, no map is written, because `{"*": deny}` alone would lock the agent out. `x-opencode: {permission: {...}}` wins for each key it names; a single action such as `permission: ask` wins outright.
@@ -71,7 +71,7 @@ opencode.json                             # when MCP entries exist (merged with 
 
 - `disable-model-invocation: true` keeps a skill out of the model's available list in OpenCode V2 (verified with 2.0.26). Explicit loading by ID still works. V1 does not enforce this field. Native `metadata.opencode/autoinvoke` takes precedence when both forms are set, and import preserves both.
 - `outputs.opencode.emit-skills-as-commands: true` also writes the command form. Its relative links to bundled files point into the skill folder (`../skills/<name>/references/x.md`). Other links stay as written.
-- Names must be 1-64 lowercase letters or digits, with single hyphens between segments (the vendor's `name` rule, which Zed also enforces). `Deploy`, `my_skill`, and `my--skill` fail sync with the required format. Sync does not rename them, because OpenCode would skip the folder.
+- Names must be 1-64 lowercase letters or digits, with single hyphens between segments (the vendor's `name` rule, which Zed also enforces). `Deploy`, `my_skill`, and `my--skill` fail sync with the required format. Sync does not rename them, because OpenCode V1 would skip the folder (V2 does not enforce the pattern).
 
 ### Commands
 
@@ -93,7 +93,7 @@ One [OpenCode plugin](https://opencode.ai/docs/plugins/) module per hook spec. T
 
 ### MCP
 
-`opencode.json` in the project root gets a `$schema` link and the `mcp` map.
+`opencode.json` in the project root gets a `$schema` link and the `mcp` map. The linked schema marks the V1 keys sync writes (`permission`, `mcp.<name>`) as deprecated. Sync keeps them because V1 and V2 both read them.
 
 - OpenCode V2 stores servers under `mcp.servers`. `import opencode` keeps the complete native MCP configuration in `settings/opencode-mcp.yaml`, under `x-opencode.mcp`. Sync restores it even without the original JSON file. This import and sync behavior is verified against V2 2.0.26.
 - Native V2 settings and portable MCP specs cannot both own the MCP configuration. Sync reports the conflicting spec paths. Use one representation for OpenCode.

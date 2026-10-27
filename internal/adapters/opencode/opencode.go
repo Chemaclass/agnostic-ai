@@ -19,7 +19,8 @@
 //
 // Agents emit natively as subagent definitions at
 // `.opencode/agents/<name>.md` (frontmatter `description`, `mode`,
-// `model`, `temperature`, `permission`). Skills emit natively as one
+// `model`, `temperature`, `permission`; V2 files move `temperature`
+// under `request.body`). Skills emit natively as one
 // folder per skill at `.opencode/skills/<name>/SKILL.md` with bundled
 // assets; `outputs.opencode.emit-skills-as-commands: true` additionally
 // writes the command form. Command specs emit at
@@ -39,7 +40,7 @@
 //
 // Skill names must contain 1-64 lowercase alphanumeric characters
 // separated by single hyphens, per opencode.ai/docs/skills. Invalid
-// names fail before output is written: OpenCode skips such a folder, so
+// names fail before output is written: OpenCode V1 skips such a folder (V2 does not enforce the pattern), so
 // the skill would never reach the `skill` tool catalog.
 package opencode
 

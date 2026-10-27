@@ -528,10 +528,9 @@
 # #2581 measured 23724192 on Go 1.27.3: sync --global notes that a global
 # Claude effort reaches older models only; one 8 KiB linker step.
 # Linux amd64 release flags; no added headroom or dependencies.
-# #2583 measured 23728288 on Go 1.27.3: Claude sync notes settings keys a
-# project settings file cannot set, from one vendor scope table.
+# #2578 measured 23728288 on Go 1.27.3: CodeBuddy writes and imports prompt
+# hooks on the three events its docs list.
 # Linux amd64 release flags; no added headroom or dependencies.
-# #2583 review measured 23732384 on Go 1.27.3: sync --global also notes
-# Claude managed-only keys, and project notes read the merged block.
+# #2583 measured 23740576 on Go 1.27.3 on top of main: Claude sync notes settings keys a scope ignores, from one vendor scope table.
 # Linux amd64 release flags; no added headroom or dependencies.
-23732384
+23740576
