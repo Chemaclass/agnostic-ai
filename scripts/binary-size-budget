@@ -528,4 +528,7 @@
 # #2581 measured 23724192 on Go 1.27.3: sync --global notes that a global
 # Claude effort reaches older models only; one 8 KiB linker step.
 # Linux amd64 release flags; no added headroom or dependencies.
-23724192
+# #2582 measured 23728288 on Go 1.27.3: Claude sync notes hook types and
+# if filters on events that cannot run them, from one vendor table.
+# Linux amd64 release flags; no added headroom or dependencies.
+23728288
