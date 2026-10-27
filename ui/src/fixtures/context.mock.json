@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1",
+  "supported": true,
+  "reason": "",
+  "root": "/path/to/agnostic-ai/internal/authority/testdata/demo-project",
+  "targets": [
+    "claude"
+  ],
+  "target": "claude",
+  "report": {
+    "version": "1",
+    "command": "explain",
+    "target": "claude",
+    "note": "Estimates from generated instruction layers and spec text, using lint's word accounting, not model tokens or live context. On-demand bodies are excluded from startup totals. Runtime context, user-owned files, external imports, and host truncation are unknown.",
+    "startup": {
+      "words": 184,
+      "bytes": 1212
+    },
+    "file_scope": {
+      "words": 0,
+      "bytes": 0
+    },
+    "on_demand": {
+      "words": 316,
+      "bytes": 2084
+    },
+    "contributions": [
+      {
+        "source": ".agnostic-ai/AGNOSTIC_AI.md",
+        "category": "entry-point layer",
+        "load": "startup",
+        "words": 120,
+        "bytes": 790
+      },
+      {
+        "source": ".agnostic-ai/rules/testing.md",
+        "category": "always-on rule",
+        "load": "startup",
+        "words": 36,
+        "bytes": 236
+      },
+      {
+        "source": "CLAUDE.md",
+        "category": "generated framing",
+        "load": "startup",
+        "words": 19,
+        "bytes": 128
+      },
+      {
+        "source": ".agnostic-ai/skills/release/SKILL.md",
+        "category": "skill discovery",
+        "load": "startup",
+        "words": 9,
+        "bytes": 58
+      },
+      {
+        "source": ".agnostic-ai/skills/release/SKILL.md",
+        "category": "skill body",
+        "load": "on-demand",
+        "words": 260,
+        "bytes": 1720
+      },
+      {
+        "source": ".agnostic-ai/rules/go.md",
+        "category": "conditional rule body",
+        "load": "on-demand",
+        "words": 46,
+        "bytes": 301
+      },
+      {
+        "source": ".agnostic-ai/agents/reviewer.md",
+        "category": "agent body",
+        "load": "on-demand",
+        "words": 10,
+        "bytes": 63
+      }
+    ],
+    "opportunities": [
+      {
+        "kind": "duplicate-passage",
+        "target": "claude",
+        "load": "startup",
+        "passage": "Run the full test suite before you push. Fix any failing test before you open a pull request.",
+        "copies": 2,
+        "size": {
+          "words": 18,
+          "bytes": 94
+        },
+        "reduction": {
+          "words": 18,
+          "bytes": 94
+        },
+        "sources": [
+          {
+            "source": ".agnostic-ai/AGNOSTIC_AI.md",
+            "category": "entry-point layer"
+          },
+          {
+            "source": ".agnostic-ai/rules/testing.md",
+            "category": "always-on rule"
+          }
+        ],
+        "suggestion": "This passage loads 2 times at startup for claude. Review the copies and remove one if they say the same thing."
+      }
+    ]
+  }
+}

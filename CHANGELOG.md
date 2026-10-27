@@ -10,6 +10,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 #### Web interface
 
+- `explain --context` and the web Context section list duplicated startup passages with sources; the web view adds edit links and a review prompt (#2572).
 - **Copy refine prompt** on the global `AGNOSTIC_AI.md`: a coding agent reviews the file against current guidance for instruction files, suggests skill and agent candidates, and leaves the file unchanged until you approve (#2567).
 - Lifecycle stages always show when they run, without a **When this runs** toggle (#2568).
 - Preview, apply, and undo project model and reasoning effort changes for the team or just you (#2511, #2553).

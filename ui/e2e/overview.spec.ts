@@ -336,7 +336,7 @@ test.describe('overview', () => {
     const before = await theme.getAttribute('aria-label')
     await theme.click()
     await expect(theme).not.toHaveAttribute('aria-label', before ?? '')
-    await expect(page.getByRole('combobox')).toHaveCount(0)
+    await expect(page.locator('.topbar').getByRole('combobox')).toHaveCount(0)
     const open = page.locator('.item-row', { hasText: 'agents/' }).first().getByRole('link', { name: /^Open .+ in Cursor$/ })
     if (MOCK) await expect(open).toHaveCount(0)
     else await expect(open).toHaveAttribute('href', /^cursor:\/\/file\/.+\.md$/)

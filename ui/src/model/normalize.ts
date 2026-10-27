@@ -4,7 +4,7 @@
 // Normalizing never invents a decision: a missing effect stays missing
 // and renders as its raw value, a missing list becomes an empty list.
 
-import type { OverviewView, Section, Snapshot } from '../contract'
+import type { ContextLoad, ContextReport, ContextSize, ContextView, OverviewView, Section, Snapshot } from '../contract'
 
 type Loose = Record<string, unknown>
 
@@ -84,5 +84,61 @@ export function normalizeOverviewView(raw: unknown): OverviewView {
         sync: { state: sync.state === 'in-sync' || sync.state === 'drifted' ? sync.state : 'not-checked', files: arr(sync.files) },
       }
     }),
+  }
+}
+
+function count(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function size(raw: unknown): ContextSize {
+  const s = obj(raw)
+  return { words: count(s.words), bytes: count(s.bytes) }
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function load(value: unknown): ContextLoad {
+  return value === 'file-scope' || value === 'on-demand' ? value : 'startup'
+}
+
+function normalizeContextReport(raw: unknown): ContextReport {
+  const r = obj(raw)
+  return {
+    version: text(r.version),
+    command: text(r.command),
+    target: text(r.target),
+    ...(typeof r.file === 'string' && r.file ? { file: r.file } : {}),
+    note: text(r.note),
+    startup: size(r.startup),
+    file_scope: size(r.file_scope),
+    on_demand: size(r.on_demand),
+    contributions: arr<Loose>(r.contributions).map((c) => ({ source: text(c.source), category: text(c.category), load: load(c.load), ...size(c) })),
+    opportunities: arr<Loose>(r.opportunities).map((o) => ({
+      kind: text(o.kind),
+      target: text(o.target),
+      load: load(o.load),
+      passage: text(o.passage),
+      copies: count(o.copies),
+      size: size(o.size),
+      reduction: size(o.reduction),
+      sources: arr<Loose>(o.sources).map((src) => ({ source: text(src.source), category: text(src.category) })),
+      suggestion: text(o.suggestion),
+    })),
+  }
+}
+
+export function normalizeContextView(raw: unknown): ContextView {
+  const v = obj(raw)
+  return {
+    schemaVersion: text(v.schemaVersion),
+    supported: v.supported === true,
+    reason: text(v.reason),
+    ...(typeof v.root === 'string' ? { root: v.root } : {}),
+    targets: arr<unknown>(v.targets).filter((t): t is string => typeof t === 'string'),
+    target: text(v.target),
+    ...(v.report ? { report: normalizeContextReport(v.report) } : {}),
   }
 }
