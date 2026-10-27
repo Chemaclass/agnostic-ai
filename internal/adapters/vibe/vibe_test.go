@@ -75,6 +75,28 @@ func TestEmit_UnknownAgentToolFailsClosed(t *testing.T) {
 		t.Fatal("unknown allowlist must not become all tools")
 	}
 }
+func TestUserHookRecords_PostAgentKeepsMatch(t *testing.T) {
+	for name, meta := range map[string]map[string]any{
+		"native":   {"event": "post_agent", "command": "echo done", "x-vibe": map[string]any{"match": "main"}},
+		"portable": {"event": "post_agent", "command": "echo done", "matcher": "main"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			records, err := (Adapter{}).UserHookRecordsForPlatform([]spec.Entry{{Kind: spec.KindHook, Name: "after-main", Meta: meta}}, ".vibe/hooks", "linux")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(records) != 1 || records[0]["type"] != "post_agent" || records[0]["match"] != "main" {
+				t.Errorf("post_agent hook lost its match: %v", records)
+			}
+		})
+	}
+}
+func TestUserHookRecords_PostAgentRejectsStrict(t *testing.T) {
+	h := spec.Entry{Kind: spec.KindHook, Name: "after", Meta: map[string]any{"event": "post_agent", "command": "echo done", "x-vibe": map[string]any{"strict": true}}}
+	if _, err := (Adapter{}).UserHookRecordsForPlatform([]spec.Entry{h}, ".vibe/hooks", "linux"); err == nil || !strings.Contains(err.Error(), "cannot set strict") {
+		t.Fatalf("strict on post_agent must fail: %v", err)
+	}
+}
 func TestEmit_RejectsInvalidSkill(t *testing.T) {
 	testutil.TempCwd(t)
 	if err := New().Emit(emit.NewSession(), spec.Bundle{Skills: []spec.Entry{{Name: "INVALID", Meta: map[string]any{"description": "d"}}}}, &config.Config{}, false); err == nil {

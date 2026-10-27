@@ -4,6 +4,12 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### By tool
+
+#### Mistral Vibe
+
+- `post_agent` hooks accept `match` and `matcher`, so a hook runs only after one agent, as Vibe 3.0.3 allows (#2577).
+
 ### Site
 
 - The Warp guide explains that global MCP servers reach the Warp app but not the Warp Agent CLI, and how to copy them (#2580).
