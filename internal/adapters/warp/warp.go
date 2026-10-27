@@ -60,6 +60,18 @@
 // are documented nowhere on that page and no longer emit, with
 // `disabled` raising a coverage note and the other two reachable
 // through `x-warp` (#641).
+//
+// The Warp app and the Warp Agent CLI keep separate MCP files
+// (docs.warp.dev/agents/cli/configuration, #2580). This adapter and
+// `sync --global` write the app files, `.warp/.mcp.json` and
+// `~/.warp/.mcp.json`. The CLI reads its own global file: documented
+// only on macOS, `~/.warp_cli/.mcp.json`; on other systems the path
+// (`cli/.mcp.json` in the Warp config directory) comes from vendor
+// source alone and is unconfirmed. Nothing here writes that file.
+// The CLI also lists project `.warp/.mcp.json` servers in `/mcp` as
+// off until enabled, despite the vendor page saying project files
+// are not detected, and `/tui-migrate-setup` copies app setup to the
+// CLI once.
 package warp
 
 import (

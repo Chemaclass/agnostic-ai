@@ -198,7 +198,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | copilot | `~/.copilot/mcp-config.json` | `mcpServers.<name>`, with `tools: ["*"]` when the spec sets none |
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
 | qoder | `~/.qoder/settings.json` | `mcpServers.<name>` |
-| warp | `~/.warp/.mcp.json` | `mcpServers.<name>`: `{command, args, env, working_directory}` or `{url, headers}` |
+| warp | `~/.warp/.mcp.json` (Warp app only; [the Agent CLI reads its own file](@/docs/targets/warp.md#app-and-cli)) | `mcpServers.<name>`: `{command, args, env, working_directory}` or `{url, headers}` |
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 | openhands | `~/.openhands/mcp.json` (`$OPENHANDS_PERSISTENCE_DIR/mcp.json` when set) | `mcpServers.<name>`: `{command, args, env}` or `{url, transport, headers, auth}` |

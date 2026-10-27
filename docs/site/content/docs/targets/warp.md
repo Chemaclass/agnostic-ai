@@ -86,9 +86,22 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 
 ## Global configuration
 
-`agnostic-ai sync --global --only warp` adds your home MCP specs to `~/.warp/.mcp.json`, using the same fields as project output. Warp starts these global servers automatically. Sync leaves out a spec with `disabled: true` and explains why.
+`agnostic-ai sync --global --only warp` adds your home MCP specs to `~/.warp/.mcp.json`, using the same fields as project output. The Warp app starts these global servers automatically. The Warp Agent CLI does not read this file; see [Warp app and Agent CLI](#app-and-cli). Sync leaves out a spec with `disabled: true` and explains why.
 
 `agnostic-ai import --global warp` reads this file and maps `working_directory` back to `cwd`. See [global MCP ownership and name conflicts](@/docs/global-configuration.md#global-mcp-servers).
+
+## Warp app and Agent CLI {#app-and-cli}
+
+The Warp app and the Warp Agent CLI keep separate MCP settings ([CLI configuration](https://docs.warp.dev/agents/cli/configuration)):
+
+| Reader | Global MCP file | Project MCP file |
+| --- | --- | --- |
+| Warp app | `~/.warp/.mcp.json` | `.warp/.mcp.json` |
+| Warp Agent CLI | its own file (see below) | `.warp/.mcp.json`, listed as off in `/mcp` until you enable each server |
+
+- **Global servers written by sync reach the app only.** `sync --global` does not write the CLI file, so the CLI gets your rules and skills but none of your global MCP servers. To copy your app setup to the CLI once, run `/tui-migrate-setup` in the CLI. Later changes to `~/.warp/.mcp.json` do not follow.
+- **CLI file paths.** Warp documents only the macOS path, `~/.warp_cli/.mcp.json`. For other systems the path comes from Warp's source, not its docs: `cli/.mcp.json` inside the Warp config directory. It is unconfirmed in a running CLI; the `/mcp` header shows the file the CLI reads.
+- **Project servers.** Warp's CLI page says project MCP files are not detected, but the shipped CLI lists servers from `.warp/.mcp.json` in `/mcp`. They stay off until you enable each one.
 
 ## Import
 
