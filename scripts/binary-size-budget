@@ -512,4 +512,7 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2542 combined with #2560 measured 23634080 on Go 1.27.3.
 # Same Linux amd64 release flags; no added headroom or dependencies.
-23634080
+# #2561 measured 23638176 on Go 1.27.3: shared skill ownership reads
+# wait for emitted file mutations before checking the generated marker.
+# Linux amd64 release flags; no added headroom or dependencies.
+23638176
