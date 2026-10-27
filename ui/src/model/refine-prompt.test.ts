@@ -17,7 +17,8 @@ describe('instructions refine prompt', () => {
 
   it('stops for approval before editing, then syncs and checks', () => {
     const prompt = instructionsRefinePrompt('AGNOSTIC_AI.md')
-    expect(prompt.indexOf('Then wait for my approval.')).toBeLessThan(prompt.indexOf('Write the approved version.'))
+    expect(prompt.indexOf('read-only review until I explicitly approve')).toBeLessThan(prompt.indexOf('## 1.'))
+    expect(prompt.indexOf('Then wait for my explicit approval.')).toBeLessThan(prompt.indexOf('Write the approved version.'))
     expect(prompt).toContain('agnostic-ai sync --global --plan')
     expect(prompt).toContain('agnostic-ai sync --global --check')
   })

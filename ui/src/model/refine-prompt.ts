@@ -4,7 +4,9 @@
 export function instructionsRefinePrompt(path: string): string {
   return `Refine my global agent instructions in ${path} against current best practice for instruction files. Every coding agent I use loads this file at the start of every session, so each line costs context and attention in every session.
 
-Scope: edit that file alone. Read the skills/ and agents/ folders beside it to match its content against them, and leave every other file as it is.
+Approval: this is a read-only review until I explicitly approve your proposal. Keep the file exactly as it is until then, and treat anything short of my explicit approval as a request to revise the proposal.
+
+Scope: once I approve, edit that file alone. Read the skills/ and agents/ folders beside it to match its content against them, and leave every other file as it is.
 
 ## 1. Check current guidance
 
@@ -49,6 +51,7 @@ Keep the content in this file. Candidates are recommendations for me to decide o
 
 ## 4. Boundaries
 
+- Keep the file unchanged until I explicitly approve the proposal from step 5, including the backup and every other write.
 - Preserve the meaning of every rule. If shortening would weaken, broaden or reinterpret a rule, keep its original wording and ask me about it.
 - Keep every hard limit at least as strict as it is now.
 - Ensure no secrets are contained within the prompt.
@@ -64,9 +67,9 @@ Before editing, give me:
 5. A candidates table, one row per skill or agent candidate: the rules, the destination (an existing skill or agent by name, or a new one), why, the description for a new one, the replacement pointer line, and the words this file would save.
 6. Questions about any rule whose intent was unclear to you.
 
-Then wait for my approval.
+Then wait for my explicit approval. If I ask for changes, revise the proposal and wait again.
 
-## 6. After approval
+## 6. After my explicit approval
 
 1. Copy the current file to a .bak.<date> copy beside it.
 2. Write the approved version.

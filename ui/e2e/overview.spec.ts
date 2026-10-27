@@ -70,7 +70,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
     expect(prompt).toContain('global agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
-    expect(prompt).toContain('Then wait for my approval.')
+    expect(prompt).toContain('Then wait for my explicit approval.')
   })
 
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
