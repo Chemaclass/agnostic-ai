@@ -16,7 +16,7 @@ func TestEditValue_RejectsStaleBoolean(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	mustWriteGlobalTest(t, file, "x-claude:\n  verbose: true\n")
-	rec := postEdit(t, newEditHandler(source, true), editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`, nil)
+	rec := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
 	}
@@ -31,7 +31,7 @@ func TestEditBuiltin_RejectsStaleToggle(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "agnostic-ai.yaml")
 	mustWriteGlobalTest(t, file, "targets:\n  - claude\nbuiltins:\n  - memory\n")
-	rec := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"scope":"team","name":"memory","enabled":true,"expected":false}`, nil)
+	rec := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true,"expected":false}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
 	}
@@ -46,7 +46,7 @@ func TestEditBuiltin_RejectsStalePersonalListReset(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "local", "agnostic-ai.yaml")
 	mustWriteGlobalTest(t, file, "builtins:\n  - memory\n  - handoff\n")
-	rec := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"scope":"local","reset":true,"expected":["memory"]}`, nil)
+	rec := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"personal","reset":true,"expected":["memory"]}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
 	}
@@ -61,7 +61,7 @@ func TestEditValue_RejectsStalePersonalReset(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "local", "settings", "native.yaml")
 	mustWriteGlobalTest(t, file, "name: native\nx-claude:\n  verbose: true\n")
-	rec := postEdit(t, newEditHandler(source, true), editValuePath, `{"scope":"local","path":"settings/native.yaml","key":"x-claude.verbose","value":null,"expected":false}`, nil)
+	rec := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"settings/native.yaml","key":"x-claude.verbose","value":null,"expected":false}`, nil)
 	if rec.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409: %s", rec.Code, rec.Body)
 	}
@@ -79,10 +79,10 @@ func TestEditExpected_AcceptsMatchingValuesAndRejectsInvalidInput(t *testing.T) 
 		path, body string
 		status     int
 	}{
-		{editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`, http.StatusOK},
-		{editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":"false"}`, http.StatusBadRequest},
-		{editBuiltinPath, `{"scope":"team","name":"memory","enabled":true,"expected":false}`, http.StatusOK},
-		{editBuiltinPath, `{"scope":"team","name":"memory","enabled":false,"expected":null}`, http.StatusBadRequest},
+		{editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`, http.StatusOK},
+		{editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":true,"expected":"false"}`, http.StatusBadRequest},
+		{editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true,"expected":false}`, http.StatusOK},
+		{editBuiltinPath, `{"audience":"shared","name":"memory","enabled":false,"expected":null}`, http.StatusBadRequest},
 	} {
 		rec := postEdit(t, h, tc.path, tc.body, nil)
 		if rec.Code != tc.status {
@@ -102,11 +102,11 @@ func TestEditPersonal_RejectsTeamChangesBeforeReplacement(t *testing.T) {
 			var err error
 			if kind == "builtin" {
 				team, _ = h.builtinsConfigFiles()
-				file, edit, err = h.builtinsEdit(scopeLocal, builtinRequest{name: "memory", enabled: true})
+				file, edit, err = h.builtinsEdit(audiencePersonal, builtinRequest{name: "memory", enabled: true})
 			} else {
 				team = filepath.Join(source, "settings", "native.yaml")
 				value := true
-				file, edit, err = h.settingsEdit(scopeLocal, "settings/native.yaml", "x-claude.verbose", &value)
+				file, edit, err = h.settingsEdit(audiencePersonal, "settings/native.yaml", "x-claude.verbose", &value)
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -145,11 +145,11 @@ func TestEditPersonal_StaleWriteDoesNotAlterGitExclude(t *testing.T) {
 			var err error
 			if kind == "builtin" {
 				team, _ = h.builtinsConfigFiles()
-				file, edit, err = h.builtinsEdit(scopeLocal, builtinRequest{name: "handoff", enabled: true})
+				file, edit, err = h.builtinsEdit(audiencePersonal, builtinRequest{name: "handoff", enabled: true})
 			} else {
 				team = filepath.Join(project, ".agnostic-ai", "settings", "native.yaml")
 				value := true
-				file, edit, err = h.settingsEdit(scopeLocal, ".agnostic-ai/settings/native.yaml", "x-claude.verbose", &value)
+				file, edit, err = h.settingsEdit(audiencePersonal, ".agnostic-ai/settings/native.yaml", "x-claude.verbose", &value)
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -186,7 +186,7 @@ func TestEditPersonal_TeamChangeDuringExcludeUpdateKeepsGitExclude(t *testing.T)
 	project := gitScopeProject(t)
 	h := &editHandler{root: project}
 	team, _ := h.builtinsConfigFiles()
-	file, edit, err := h.builtinsEdit(scopeLocal, builtinRequest{name: "handoff", enabled: true})
+	file, edit, err := h.builtinsEdit(audiencePersonal, builtinRequest{name: "handoff", enabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestEditPersonal_RollbackKeepsConcurrentGitExcludeEdits(t *testing.T) {
 	project := gitScopeProject(t)
 	h := &editHandler{root: project}
 	team, _ := h.builtinsConfigFiles()
-	file, edit, err := h.builtinsEdit(scopeLocal, builtinRequest{name: "handoff", enabled: true})
+	file, edit, err := h.builtinsEdit(audiencePersonal, builtinRequest{name: "handoff", enabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestEditPersonal_RollbackKeepsExclusionWhenPersonalFileAppears(t *testing.T
 	project := gitScopeProject(t)
 	h := &editHandler{root: project}
 	team, _ := h.builtinsConfigFiles()
-	file, edit, err := h.builtinsEdit(scopeLocal, builtinRequest{name: "handoff", enabled: true})
+	file, edit, err := h.builtinsEdit(audiencePersonal, builtinRequest{name: "handoff", enabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestEditPersonal_FailedGitExclusionKeepsExclude(t *testing.T) {
 	project := gitScopeProject(t)
 	mustWrite(t, ".gitignore", "!/agnostic-ai.local.yaml\n")
 	before := excludeOf(t, project)
-	rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true,"expected":false}`, nil)
+	rec := postEdit(t, newEditHandler(project, false), editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true,"expected":false}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Git would still track") {
 		t.Errorf("save = %d %s, want Git refusal", rec.Code, rec.Body)
 	}
@@ -324,7 +324,7 @@ func TestEditPersonal_RejectedValidationKeepsGitExclude(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	rec := postEdit(t, h, editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true,"expected":false}`, nil)
+	rec := postEdit(t, h, editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true,"expected":false}`, nil)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Errorf("save = %d %s, want validation rejection", rec.Code, rec.Body)
 	}
@@ -344,7 +344,7 @@ func TestEditPersonal_RollbackKeepsExclusionWhenSiblingAppears(t *testing.T) {
 	h := &editHandler{root: project}
 	team := filepath.Join(project, ".agnostic-ai", "settings", "native.yaml")
 	value := true
-	file, edit, err := h.settingsEdit(scopeLocal, ".agnostic-ai/settings/native.yaml", "x-claude.verbose", &value)
+	file, edit, err := h.settingsEdit(audiencePersonal, ".agnostic-ai/settings/native.yaml", "x-claude.verbose", &value)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,12 +391,12 @@ func TestEditPersonal_HTTPConflictAfterGitExclusion(t *testing.T) {
 			}
 			var endpoint, body, team, file, pattern string
 			if kind == "builtin" {
-				endpoint, body = editBuiltinPath, `{"scope":"local","name":"handoff","enabled":true,"expected":false}`
+				endpoint, body = editBuiltinPath, `{"audience":"personal","name":"handoff","enabled":true,"expected":false}`
 				team = filepath.Join(project, "agnostic-ai.yaml")
 				file = filepath.Join(project, "agnostic-ai.local.yaml")
 				pattern = "/agnostic-ai.local.yaml\n"
 			} else {
-				endpoint, body = editValuePath, `{"scope":"local","path":".agnostic-ai/settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`
+				endpoint, body = editValuePath, `{"audience":"personal","path":".agnostic-ai/settings/native.yaml","key":"x-claude.verbose","value":true,"expected":false}`
 				team = filepath.Join(project, ".agnostic-ai", "settings", "native.yaml")
 				file = filepath.Join(project, ".agnostic-ai", "local", "settings", "native.yaml")
 				pattern = "/.agnostic-ai/local/\n"

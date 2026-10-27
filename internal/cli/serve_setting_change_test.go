@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-func settingProposal(t *testing.T, h http.Handler, scope editScope, setting map[string]any, want int) builtinChangeView {
+func settingProposal(t *testing.T, h http.Handler, audience editAudience, setting map[string]any, want int) builtinChangeView {
 	t.Helper()
-	body, _ := json.Marshal(map[string]any{"scope": scope, "setting": setting})
+	body, _ := json.Marshal(map[string]any{"audience": audience, "setting": setting})
 	rec := postEdit(t, h, builtinPreviewPath, string(body), nil)
 	if rec.Code != want {
 		t.Fatalf("preview: %d %s", rec.Code, rec.Body)
@@ -49,7 +49,7 @@ func TestSettingChanges_PreviewApplyUndoEffortRestoresProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(root, false)
-	proposal := settingProposal(t, h, scopeTeam, map[string]any{"key": "effort", "value": "high", "expected": nil}, http.StatusOK)
+	proposal := settingProposal(t, h, audienceShared, map[string]any{"key": "effort", "value": "high", "expected": nil}, http.StatusOK)
 	if err := before.check(root); err != nil {
 		t.Fatalf("preview wrote project: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestSettingChanges_PreviewApplyUndoEffortRestoresProject(t *testing.T) {
 	if !slices.ContainsFunc(paths, func(p string) bool { return strings.Contains(p, ".claude/") }) || !slices.ContainsFunc(paths, func(p string) bool { return strings.Contains(p, ".codex/") }) {
 		t.Errorf("preview changes = %v, want Claude Code and Codex output", paths)
 	}
-	if proposal.Key != "effort" || proposal.Title != "effort set to high" || proposal.Config != ".agnostic-ai/settings/defaults.yaml" || proposal.Scope != "team" {
+	if proposal.Key != "effort" || proposal.Title != "effort set to high" || proposal.Config != ".agnostic-ai/settings/defaults.yaml" || proposal.Audience != "shared" {
 		t.Errorf("proposal = %+v", proposal)
 	}
 	applied := builtinAction(t, h, builtinApplyPath, proposal.ID)
@@ -95,9 +95,9 @@ func TestSettingChanges_StaleExpectedAndInterveningEditsAreConflicts(t *testing.
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(root, false)
-	settingProposal(t, h, scopeTeam, map[string]any{"key": "effort", "value": "high", "expected": "medium"}, http.StatusConflict)
+	settingProposal(t, h, audienceShared, map[string]any{"key": "effort", "value": "high", "expected": "medium"}, http.StatusConflict)
 
-	proposal := settingProposal(t, h, scopeTeam, map[string]any{"key": "effort", "value": "high", "expected": "low"}, http.StatusOK)
+	proposal := settingProposal(t, h, audienceShared, map[string]any{"key": "effort", "value": "high", "expected": "low"}, http.StatusOK)
 	mustWriteFile(t, ".agnostic-ai/settings/defaults.yaml", "name: defaults\neffort: medium\n")
 	if rec := postEdit(t, h, builtinApplyPath, `{"id":"`+proposal.ID+`"}`, nil); rec.Code != http.StatusConflict {
 		t.Fatalf("apply after an intervening edit: %d %s", rec.Code, rec.Body)
@@ -113,7 +113,7 @@ func TestSettingChanges_PersonalResetRemovesCreatedFileAndSharesUndo(t *testing.
 	builtin := builtinProposal(t, h, true)
 	builtinAction(t, h, builtinApplyPath, builtin.ID)
 
-	personal := settingProposal(t, h, scopeLocal, map[string]any{"key": "model", "value": "opus", "expected": nil}, http.StatusOK)
+	personal := settingProposal(t, h, audiencePersonal, map[string]any{"key": "model", "value": "opus", "expected": nil}, http.StatusOK)
 	if !slices.Contains(plannedChanges(personal), "create .agnostic-ai/local/settings/defaults.yaml") {
 		t.Fatalf("personal preview = %v", plannedChanges(personal))
 	}
@@ -125,7 +125,7 @@ func TestSettingChanges_PersonalResetRemovesCreatedFileAndSharesUndo(t *testing.
 		t.Fatalf("check: %v\n%s", err, output)
 	}
 
-	reset := settingProposal(t, h, scopeLocal, map[string]any{"key": "model", "value": nil, "expected": "opus"}, http.StatusOK)
+	reset := settingProposal(t, h, audiencePersonal, map[string]any{"key": "model", "value": nil, "expected": "opus"}, http.StatusOK)
 	if !slices.Contains(plannedChanges(reset), "delete .agnostic-ai/local/settings/defaults.yaml") {
 		t.Fatalf("reset preview = %v", plannedChanges(reset))
 	}
@@ -152,10 +152,10 @@ func TestSettingChanges_RequestBoundaries(t *testing.T) {
 	root := builtinChangeProject(t)
 	h := newBuiltinChangeHandler(root, false)
 	for _, body := range []string{
-		`{"scope":"team","setting":{"key":"session-retention-days","value":3}}`,
-		`{"scope":"team","setting":{"key":"effort"}}`,
-		`{"scope":"team","name":"caveman","enabled":true,"setting":{"key":"effort","value":"high"}}`,
-		`{"scope":"team","setting":{"key":"effort","value":"high","other":1}}`,
+		`{"audience":"shared","setting":{"key":"session-retention-days","value":3}}`,
+		`{"audience":"shared","setting":{"key":"effort"}}`,
+		`{"audience":"shared","name":"caveman","enabled":true,"setting":{"key":"effort","value":"high"}}`,
+		`{"audience":"shared","setting":{"key":"effort","value":"high","other":1}}`,
 		`{"id":"x","setting":{"key":"effort","value":"high"}}`,
 	} {
 		if rec := postEdit(t, h, builtinPreviewPath, body, nil); rec.Code != http.StatusBadRequest {
@@ -165,7 +165,7 @@ func TestSettingChanges_RequestBoundaries(t *testing.T) {
 	if rec := postEdit(t, h, builtinApplyPath, `{"id":"x","setting":{"key":"effort","value":"high"}}`, nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("apply with a setting: %d", rec.Code)
 	}
-	settingProposal(t, h, scopeTeam, map[string]any{"key": "model", "value": " "}, http.StatusUnprocessableEntity)
+	settingProposal(t, h, audienceShared, map[string]any{"key": "model", "value": " "}, http.StatusUnprocessableEntity)
 	if _, err := os.Stat(".agnostic-ai/settings/defaults.yaml"); !os.IsNotExist(err) {
 		t.Errorf("refused previews wrote a file: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestSettingChanges_PendingSourceEditsAreNamedAndWriteFailureRestores(t *tes
 		t.Fatal(err)
 	}
 	h := newBuiltinChangeHandler(root, false)
-	proposal := settingProposal(t, h, scopeTeam, map[string]any{"key": "model", "value": "opus"}, http.StatusOK)
+	proposal := settingProposal(t, h, audienceShared, map[string]any{"key": "model", "value": "opus"}, http.StatusOK)
 	if !slices.Contains(proposal.Findings, "This preview also applies pending source changes.") {
 		t.Errorf("findings = %v", proposal.Findings)
 	}

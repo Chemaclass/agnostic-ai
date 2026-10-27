@@ -124,7 +124,7 @@ type FieldEdit struct {
 	ToolAllowed    map[string][]string `json:"toolAllowed,omitempty"`
 	DisabledReason string              `json:"disabledReason,omitempty"`
 	SyncCommand    string              `json:"syncCommand,omitempty"`
-	// LocalPath is the personal, git-ignored file a "just me" edit of
+	// LocalPath is the personal, git-ignored file a personal edit of
 	// Path writes.
 	LocalPath string `json:"localPath,omitempty"`
 }

@@ -1,3 +1,5 @@
+import type { EditAudience } from './model/edit-audience'
+
 export const BUILTIN_CHANGE_PATH = '/api/changes/builtin'
 
 export interface BuiltinFileChange {
@@ -16,7 +18,7 @@ export interface BuiltinChange {
   title?: string
   enabled: boolean
   reset?: boolean
-  scope?: 'team' | 'local'
+  audience?: EditAudience
   config?: string
   targets: string[]
   changes: BuiltinFileChange[]
@@ -51,7 +53,7 @@ export function parseBuiltinChange(value: unknown): BuiltinChange {
     || typeof value.enabled !== 'boolean' || typeof value.supported !== 'boolean' || typeof value.undoAvailable !== 'boolean'
     || !strings(value.targets) || !strings(value.findings) || !Array.isArray(value.changes) || !value.changes.every(fileChange)
     || (value.name !== undefined && !nonempty(value.name)) || (value.status !== 'idle' && !nonempty(value.name) && value.reset !== true)
-    || (value.reset !== undefined && typeof value.reset !== 'boolean') || (value.scope !== undefined && value.scope !== 'team' && value.scope !== 'local')
+    || (value.reset !== undefined && typeof value.reset !== 'boolean') || (value.audience !== undefined && value.audience !== 'shared' && value.audience !== 'personal')
     || (value.id !== undefined && !nonempty(value.id)) || (value.config !== undefined && typeof value.config !== 'string')
     || (value.undoId !== undefined && (!nonempty(value.undoId) || !value.undoAvailable))
     || (value.undoName !== undefined && (!nonempty(value.undoName) || !value.undoAvailable || !value.undoId))
@@ -63,7 +65,7 @@ export function parseBuiltinChange(value: unknown): BuiltinChange {
     throw new Error('The server returned an invalid change. Reload before trying again.')
   }
   return {
-    status: value.status, id: value.id, name: value.name, key: value.key, target: value.target, title: value.title, enabled: value.enabled, reset: value.reset, scope: value.scope, config: value.config,
+    status: value.status, id: value.id, name: value.name, key: value.key, target: value.target, title: value.title, enabled: value.enabled, reset: value.reset, audience: value.audience, config: value.config,
     targets: value.targets, changes: value.changes, findings: value.findings,
     undoId: value.undoId, undoName: value.undoName, undoTitle: value.undoTitle, undoAvailable: value.undoAvailable, supported: value.supported,
   }

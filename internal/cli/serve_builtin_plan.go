@@ -30,11 +30,11 @@ type builtinFileChange struct {
 }
 
 type builtinChangePlan struct {
-	view    builtinChangeView
-	scope   editScope
-	change  projectChange
-	inputs  builtinProjectSnapshot
-	changes []builtinFileChange
+	view     builtinChangeView
+	audience editAudience
+	change   projectChange
+	inputs   builtinProjectSnapshot
+	changes  []builtinFileChange
 	// excludeBase holds the info/exclude bytes each planned exclude was
 	// built from, read before the plan's snapshot. Apply refuses when the
 	// file no longer holds them, as after a nested project's sync.
@@ -48,11 +48,11 @@ type projectChange struct {
 	setting *settingRequest
 }
 
-func planBuiltinChange(root string, req builtinRequest, where editScope) (*builtinChangePlan, error) {
+func planBuiltinChange(root string, req builtinRequest, where editAudience) (*builtinChangePlan, error) {
 	return planProjectChange(root, projectChange{builtin: req}, where)
 }
 
-func planProjectChange(root string, change projectChange, where editScope) (*builtinChangePlan, error) {
+func planProjectChange(root string, change projectChange, where editAudience) (*builtinChangePlan, error) {
 	req := change.builtin
 	defer adapters.SetAsideNotes()()
 	initial, err := snapshotBuiltinProject(root, []string{config.ConfigFileName, config.LegacyConfigFileName, config.LocalOverrideFileName, stateFilePath(".")})
@@ -219,7 +219,7 @@ func planProjectChange(root string, change projectChange, where editScope) (*bui
 	if _, err := applyCoverageAccept(cfg, cfg.Targets); err != nil {
 		return nil, err
 	}
-	plan := &builtinChangePlan{scope: where, change: change, excludeBase: map[string][]byte{}, view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: req.name, Enabled: req.enabled, Reset: req.reset, Scope: string(where), Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
+	plan := &builtinChangePlan{audience: where, change: change, excludeBase: map[string][]byte{}, view: builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "proposed", Name: req.name, Enabled: req.enabled, Reset: req.reset, Audience: string(where), Scope: where.legacyScope(), Config: configPath, Targets: slices.Clone(cfg.Targets), Changes: []builtinFileChange{}, Findings: []string{}}}
 	if change.setting != nil {
 		plan.view.Name, plan.view.Key, plan.view.Target, plan.view.Title = change.setting.addr.key, change.setting.addr.key, change.setting.addr.target, change.setting.title(where)
 	}

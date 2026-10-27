@@ -16,7 +16,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 			t.Skip("symlinks unavailable:", err)
 		}
 	}
-	field := `{"scope":"local","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`
+	field := `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`
 	for _, tc := range []struct {
 		name    string
 		global  bool
@@ -33,13 +33,13 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 			mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nbuiltins: [memory]\nsources:\n  settings: shared/settings\n")
 			mustWrite(t, "shared/settings/defaults.yaml", "name: defaults\ndescription: Team defaults.\nmodel: sonnet\n")
 			link(t, "../shared", ".agnostic-ai/local")
-		}, path: editFieldPath, body: `{"scope":"local","path":"shared/settings/defaults.yaml","key":"model","value":"opus"}`, guarded: "shared/settings/defaults.yaml"},
+		}, path: editFieldPath, body: `{"audience":"personal","path":"shared/settings/defaults.yaml","key":"model","value":"opus"}`, guarded: "shared/settings/defaults.yaml"},
 		{name: "personal config linked to the team config", setup: func(t *testing.T, _ string) {
 			link(t, "agnostic-ai.yaml", "agnostic-ai.local.yaml")
-		}, path: editBuiltinPath, body: `{"scope":"local","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
+		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
 		{name: "global local folder linked to the source", global: true, setup: func(t *testing.T, root string) {
 			link(t, ".", filepath.Join(root, "local"))
-		}, path: editBuiltinPath, body: `{"scope":"local","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
+		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
 		{name: "tracked personal file", setup: func(t *testing.T, root string) {
 			isolateGit(t)
 			mustWrite(t, ".agnostic-ai/local/settings/defaults.yaml", "name: defaults\nmodel: haiku\n")

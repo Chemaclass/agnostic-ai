@@ -542,4 +542,6 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2602 measured 23810208 on Go 1.27.3 on top of main: the settings page edits model and effort per tool, with a YAML writer for the per-tool map.
 # Linux amd64 release flags; no added headroom or dependencies.
-23810208
+# #2602 measured 23818400 on Go 1.27.3 on top of main: edit requests take audience, with scope kept as an alias for one release.
+# Linux amd64 release flags; no added headroom or dependencies.
+23818400

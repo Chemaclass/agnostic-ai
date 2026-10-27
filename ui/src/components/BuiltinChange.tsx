@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type BuiltinChangeAction as Action } from '../builtin-change'
 import { useApp } from './app-context'
-import { useEditScope, type EditScope } from './EditScope'
+import { useEditAudience, type EditAudience } from './EditAudience'
 import { addressKey } from '../model/field-address'
 import { Code, Switch, Toggle, ToolAvatar } from './ui'
 
@@ -15,9 +15,9 @@ interface Controller {
   error?: { message: string; conflict: boolean; field?: string; setting?: boolean; action?: Action; title?: string; retryCancel?: boolean }
   proposal: boolean
   notice?: string
-  request: (action?: Action, name?: string, enabled?: boolean, scope?: EditScope) => Promise<boolean>
+  request: (action?: Action, name?: string, enabled?: boolean, audience?: EditAudience) => Promise<boolean>
   resetList: () => Promise<boolean>
-  previewSetting: (setting: SettingPreview, scope: EditScope) => Promise<boolean>
+  previewSetting: (setting: SettingPreview, audience: EditAudience) => Promise<boolean>
   cancel: () => Promise<boolean>
 }
 
@@ -30,9 +30,9 @@ function useBuiltinChanges(): Controller {
   return value
 }
 
-// A proposal restored from the server is shown only on the scope it saves to.
-function otherScope(change: Change, scope: EditScope): boolean {
-  return change.status === 'proposed' && change.scope !== undefined && change.scope !== scope
+// A proposal restored from the server is shown only on the audience it saves to.
+function otherAudience(change: Change, audience: EditAudience): boolean {
+  return change.status === 'proposed' && change.audience !== undefined && change.audience !== audience
 }
 
 export function BuiltinChangeProvider({ active, children }: { active: boolean; children: ReactNode }) {
@@ -45,8 +45,8 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   const [notice, setNotice] = useState<string>()
   const busy = useRef(false)
   const api = app.source.kind === 'api'
-  const pageScope = useEditScope()
-  const shownScope = useRef(pageScope)
+  const pageAudience = useEditAudience()
+  const shownAudience = useRef(pageAudience)
 
   const discard = async (id?: string) => {
     if (!id) return
@@ -59,13 +59,13 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
   }
 
   useEffect(() => {
-    if (shownScope.current === pageScope) return
-    shownScope.current = pageScope
+    if (shownAudience.current === pageAudience) return
+    shownAudience.current = pageAudience
     if (busy.current || change?.status !== 'proposed' || change.id === cancelledId) return
     setCancelledId(change.id)
     busy.current = true
     void discard(change.id).finally(() => { busy.current = false; setPending(undefined) })
-  }, [pageScope, change, cancelledId])
+  }, [pageAudience, change, cancelledId])
 
   useEffect(() => {
     if (!api || !active) return
@@ -76,7 +76,7 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     builtinChange().then((value) => {
       if (!current) return
       setChange(value)
-      if (otherScope(value, shownScope.current)) setCancelledId(value.id)
+      if (otherAudience(value, shownAudience.current)) setCancelledId(value.id)
     }).catch((err: unknown) => {
       if (current) setError({ message: err instanceof Error ? err.message : 'Could not load the change.', conflict: false })
     }).finally(() => {
@@ -90,19 +90,19 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
 
   const proposal = change?.status === 'proposed' && change.id !== cancelledId && !error
   // Resolves true when the server refused the request as a conflict.
-  const request = async (action?: Action, name?: string, enabled?: boolean, scope: EditScope = pageScope, reset = false, setting?: SettingPreview) => {
+  const request = async (action?: Action, name?: string, enabled?: boolean, audience: EditAudience = pageAudience, reset = false, setting?: SettingPreview) => {
     if (busy.current) return false
     busy.current = true
     setPending(action === 'preview' ? 'preparing' : action === 'apply' ? 'applying' : action === 'undo' ? 'undoing' : action === 'cancel' ? 'cancelling' : 'loading')
     setPendingName(name)
     setError(undefined)
     setNotice(undefined)
-    const requestedIn = shownScope.current
+    const requestedIn = shownAudience.current
     try {
-      const value = await builtinChange(action, action === 'preview' ? (setting ? { scope, setting } : reset ? { scope: 'local', reset } : { scope, name, enabled }) : action ? { id: action === 'undo' ? change?.undoId : change?.id } : undefined)
+      const value = await builtinChange(action, action === 'preview' ? (setting ? { audience, setting } : reset ? { audience: 'personal', reset } : { audience, name, enabled }) : action ? { id: action === 'undo' ? change?.undoId : change?.id } : undefined)
       setChange(value)
-      // A preview that answers after the page switched scope targets the old files.
-      const stale = action === 'preview' ? shownScope.current !== requestedIn : !action && otherScope(value, shownScope.current)
+      // A preview that answers after the page switched audience targets the old files.
+      const stale = action === 'preview' ? shownAudience.current !== requestedIn : !action && otherAudience(value, shownAudience.current)
       setCancelledId(stale ? value.id : undefined)
       if (stale && action === 'preview') await discard(value.id)
       if (action === 'cancel') setNotice('Preview discarded.')
@@ -131,8 +131,8 @@ export function BuiltinChangeProvider({ active, children }: { active: boolean; c
     }
   }
 
-  const resetList = () => request('preview', undefined, undefined, 'local', true)
-  const previewSetting = (setting: SettingPreview, scope: EditScope) => request('preview', addressKey(setting.key, setting.target), undefined, scope, false, setting)
+  const resetList = () => request('preview', undefined, undefined, 'personal', true)
+  const previewSetting = (setting: SettingPreview, audience: EditAudience) => request('preview', addressKey(setting.key, setting.target), undefined, audience, false, setting)
   return <BuiltinChanges.Provider value={{ change, pending, pendingName, error, proposal, notice, request, resetList, previewSetting, cancel: () => request('cancel') }}>{children}</BuiltinChanges.Provider>
 }
 
@@ -190,9 +190,9 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
   return <div className="builtin-change">
     <div className="builtin-change-controls">
       {!proposal && <span className="muted">Preview before applying to your tools.</span>}
-      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the team list</button>}
+      {local && <button className="button button-quiet" type="button" disabled={!change || !!pending || proposal} onClick={() => { void resetList() }}>Reset built-ins to the shared list</button>}
     </div>
-    {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading="Reset the built-in list to the team list" />}
+    {proposal && change?.reset && <Preview change={change} title="Built-in list reset" heading="Reset the built-in list to the shared list" />}
   </div>
 }
 
@@ -223,7 +223,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
   const { pending, request, cancel } = useBuiltinChanges()
   return <section className="builtin-change builtin-change-preview" aria-label={`${title} preview`} aria-busy={!!pending}>
     <h3>{heading}</h3>
-    <p>Update <Code>{change.config}</Code> {change.scope === 'local' ? 'for you only' : 'for the team'} and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
+    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : 'for the team'} and sync <span className="tool-list">{change.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</p>
     {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> Applying writes source changes that were not synced yet, too. Every affected file is listed below.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     <div className="builtin-change-files">
@@ -258,7 +258,7 @@ export function BuiltinChange({ name, label, on, local, fallback, renderHeading 
   return <>
     {renderHeading(<>
       <Toggle on={on} label={`${name} built-in`} disabled={!change || !!pending || proposal || blocked} pending={pending === 'preparing' && pendingName === name} onToggle={() => { void request('preview', name, !on) }} />
-      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to team value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'local') }}>Reset to team value</button>}
+      {local && <button type="button" className="button button-quiet" aria-label={`Reset ${name} to shared value`} disabled={!change || !!pending || proposal} onClick={() => { void request('preview', name, !on, 'personal') }}>Reset to shared value</button>}
     </>)}
     {selected && change && <Preview change={change} title={`${title} change`} heading={`${change.enabled ? 'Enable' : 'Disable'} ${title}`} />}
   </>

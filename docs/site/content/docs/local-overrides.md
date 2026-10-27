@@ -17,7 +17,7 @@ Answer in Spanish.
 
 Then run `agnostic-ai sync`. The text extends the shared project instructions. Generated instruction files are ignored by default; if your project commits them, your personal text appears there too, so review before committing.
 
-For personal configuration values, use `agnostic-ai.local.yaml` (see [configuration](@/docs/configuration.md#local-overrides)). In `agnostic-ai ui`, **Just me (not committed)** on **Settings** saves built-ins and settings fields as local overrides; see [saving for yourself](@/docs/cli-reference/inspect.md#edit-scope).
+For personal configuration values, use `agnostic-ai.local.yaml` (see [configuration](@/docs/configuration.md#local-overrides)). In `agnostic-ai ui`, **Personal (not committed)** on **Settings** saves built-ins and settings fields as local overrides; see [saving for yourself](@/docs/cli-reference/inspect.md#edit-scope).
 
 ## Add a spec
 

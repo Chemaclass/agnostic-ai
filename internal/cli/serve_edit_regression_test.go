@@ -85,7 +85,7 @@ func TestEditInheritedBooleanWritesOnlyLocalOverride(t *testing.T) {
 	local := filepath.Join(source, "local", "settings", "native.yaml")
 	original := "# personal\nx-claude:\n    alwaysThinkingEnabled: true # keep\n"
 	mustWriteGlobalTest(t, local, original)
-	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"scope":"local","path":"local/settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
+	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"local/settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -180,7 +180,7 @@ func TestEditBuiltinEmptyOverrideSurvivesNewHandler(t *testing.T) {
 	local := filepath.Join(source, "local", "agnostic-ai.yaml")
 	mustWriteGlobalTest(t, local, "# local\nbuiltins:\n    - memory # chosen here\n")
 	for _, enabled := range []string{"false", "true", "false"} {
-		w := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"scope":"local","name":"memory","enabled":`+enabled+`}`, nil)
+		w := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"personal","name":"memory","enabled":`+enabled+`}`, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("%d %s", w.Code, w.Body)
 		}
@@ -316,7 +316,7 @@ func TestEditBuiltinNewFileRoundTripRestoresAbsence(t *testing.T) {
 	file := filepath.Join(source, "local", "agnostic-ai.yaml")
 	h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
 	for _, enabled := range []bool{true, false} {
-		target, edit, err := h.builtinsEdit(scopeLocal, builtinRequest{name: "memory", enabled: enabled})
+		target, edit, err := h.builtinsEdit(audiencePersonal, builtinRequest{name: "memory", enabled: enabled})
 		if err != nil || target != file {
 			t.Fatalf("target %s: %v", target, err)
 		}
@@ -387,7 +387,7 @@ func TestEditInheritedFalseRemainsAfterSharedValueChanges(t *testing.T) {
 	local := filepath.Join(source, "local", "settings", "native.yaml")
 	original := "# my choice\nx-claude:\n    alwaysThinkingEnabled: true # keep\n"
 	mustWriteGlobalTest(t, local, original)
-	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"scope":"local","path":"local/settings/native.yaml","key":"x-claude.verbose","value":false}`, nil)
+	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"local/settings/native.yaml","key":"x-claude.verbose","value":false}`, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -408,7 +408,7 @@ func TestEditInheritedFalseRemainsAfterSharedValueChanges(t *testing.T) {
 func TestEditUsesExplicitOuterOriginAllowance(t *testing.T) {
 	source := editHome(t)
 	h := authority.CORS(newEditHandler(source, true), "http://localhost:5173")
-	w := postEdit(t, h, editBuiltinPath, `{"scope":"team","name":"memory","enabled":true}`, func(r *http.Request) { r.Header.Set("Origin", "http://localhost:5173") })
+	w := postEdit(t, h, editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true}`, func(r *http.Request) { r.Header.Set("Origin", "http://localhost:5173") })
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -450,10 +450,10 @@ func TestEditInheritedBooleanInFlowMapWithTrailingComma(t *testing.T) {
 
 func TestEditRequiresAnExplicitBoolean(t *testing.T) {
 	for _, request := range []struct{ path, body string }{
-		{editBuiltinPath, `{"scope":"team","name":"memory"}`},
-		{editBuiltinPath, `{"scope":"team","name":"memory","enabled":null}`},
-		{editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose"}`},
-		{editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose","value":null}`},
+		{editBuiltinPath, `{"audience":"shared","name":"memory"}`},
+		{editBuiltinPath, `{"audience":"shared","name":"memory","enabled":null}`},
+		{editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose"}`},
+		{editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":null}`},
 	} {
 		t.Run(request.body, func(t *testing.T) {
 			source := editHome(t)
@@ -482,7 +482,7 @@ func TestEditInheritedBooleanInTrailingCommaFlowMapIsPersisted(t *testing.T) {
 	before, _ := os.ReadFile(shared)
 	local := filepath.Join(source, "local", "settings", "native.yaml")
 	mustWriteGlobalTest(t, local, "x-claude: {alwaysThinkingEnabled: true,} # keep\n")
-	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"scope":"local","path":"local/settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
+	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"personal","path":"local/settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -509,7 +509,7 @@ func TestEditErrorsRedactInvalidConfigCredentials(t *testing.T) {
 	file := filepath.Join(source, "agnostic-ai.yaml")
 	original := "targets: [claude]\nbuiltins: [" + token + "]\n"
 	mustWriteGlobalTest(t, file, original)
-	w := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"scope":"team","name":"memory","enabled":true}`, nil)
+	w := postEdit(t, newEditHandler(source, true), editBuiltinPath, `{"audience":"shared","name":"memory","enabled":true}`, nil)
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -530,7 +530,7 @@ func TestEditErrorsRedactPathsAndValidationProblems(t *testing.T) {
 	token := "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	source := editHome(t)
 	path := token + "/settings.yaml"
-	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"scope":"team","path":"`+path+`","key":"x-claude.verbose","value":true}`, nil)
+	w := postEdit(t, newEditHandler(source, true), editValuePath, `{"audience":"shared","path":"`+path+`","key":"x-claude.verbose","value":true}`, nil)
 	if w.Code != http.StatusBadRequest || strings.Contains(w.Body.String(), token) {
 		t.Errorf("path response=%d %s", w.Code, w.Body)
 	}
@@ -542,7 +542,7 @@ func TestEditErrorsRedactPathsAndValidationProblems(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	w = postEdit(t, h, editValuePath, `{"scope":"team","path":"settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
+	w = postEdit(t, h, editValuePath, `{"audience":"shared","path":"settings/native.yaml","key":"x-claude.verbose","value":true}`, nil)
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}

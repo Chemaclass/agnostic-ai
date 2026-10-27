@@ -123,7 +123,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('alert')).toContainText('The value changed. Git protection was kept.')
     await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    expect(sent).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-claude.verbose', value: true, expected: false })
+    expect(sent).toEqual({ audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'x-claude.verbose', value: true, expected: false })
     await page.getByRole('button', { name: 'Reload saved values' }).click()
     await expect(page.getByText('The overview could not be refreshed.')).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
@@ -149,7 +149,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('alert')).toContainText('The built-in changed.')
     await expect(page.getByRole('button', { name: 'Reload saved values' })).toBeVisible()
     await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
-    expect(sent).toEqual({ scope: 'team', name: 'memory', enabled: before !== 'true', expected: before === 'true' })
+    expect(sent).toEqual({ audience: 'shared', name: 'memory', enabled: before !== 'true', expected: before === 'true' })
   })
 
   test('loads a logo for every registered target', async ({ page }) => {
@@ -215,7 +215,7 @@ test.describe('overview', () => {
     await expect(native.locator('.native-group-title')).toHaveText('x-ellipsis')
     await expect(native.locator('dt').first()).toHaveText('environment.repository.name')
     await native.getByRole('switch', { name: 'x-ellipsis.pull_requests.draft' }).click()
-    expect(edit).toEqual({ scope: 'team', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true, expected: false })
+    expect(edit).toEqual({ audience: 'shared', path: '.agnostic-ai/settings/native.yaml', key: 'x-ellipsis.pull_requests.draft', value: true, expected: false })
     const finding = page.locator('.finding', { hasText: 'LINT038' })
     await expect(finding.getByText('This rule grants all file reads.', { exact: true })).not.toBeVisible()
     await finding.getByText('Details', { exact: true }).click()
@@ -544,7 +544,7 @@ test.describe('overview', () => {
     await expect(page.getByRole('switch')).toHaveCount(5)
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    expect(posted).toEqual([{ scope: 'team', name: 'memory', enabled: true, expected: false }])
+    expect(posted).toEqual([{ audience: 'shared', name: 'memory', enabled: true, expected: false }])
 
     refuse = true
     await toggle.click()
@@ -586,35 +586,35 @@ test.describe('overview', () => {
       })
     }
     await page.goto('/?view=settings')
-    const teamButton = page.getByRole('button', { name: 'Team (committed)', exact: true })
-    const justMe = page.getByRole('button', { name: 'Just me (not committed)', exact: true })
-    await expect(teamButton).toHaveAttribute('aria-pressed', 'true')
+    const shared = page.getByRole('button', { name: 'Shared (committed)', exact: true })
+    const personal = page.getByRole('button', { name: 'Personal (not committed)', exact: true })
+    await expect(shared).toHaveAttribute('aria-pressed', 'true')
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await expect(model).toContainText('Your local value overrides the team value.')
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'model', value: null, expected: 'opus' })
+    await expect(model).toContainText('Your local value overrides the shared value.')
+    await model.getByRole('button', { name: 'Reset to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'model', value: null, expected: 'opus' })
 
     const caveman = page.locator('.item-row').filter({ has: page.getByRole('switch', { name: 'caveman built-in' }) })
     await expect(caveman.locator('.badge', { hasText: 'local' })).toBeVisible()
-    await caveman.getByRole('button', { name: 'Reset caveman to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'caveman', enabled: false, expected: true })
+    await caveman.getByRole('button', { name: 'Reset caveman to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'caveman', enabled: false, expected: true })
 
-    await justMe.click()
-    await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+    await personal.click()
+    await expect(personal).toHaveAttribute('aria-pressed', 'true')
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort.locator('.badge', { hasText: 'local' })).toHaveCount(0)
     await expect(effort).toContainText(`Saves to ${local}`)
     await effort.getByRole('textbox', { name: 'Reasoning effort value' }).fill('low')
     await effort.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: team, key: 'effort', value: 'low', expected: null })
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: team, key: 'effort', value: 'low', expected: null })
     await expect(model.getByRole('textbox', { name: 'Default model value' })).toHaveValue('opus')
     await page.getByRole('switch', { name: 'memory built-in' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', name: 'memory', enabled: true, expected: false })
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', name: 'memory', enabled: true, expected: false })
 
     await page.reload()
-    await expect(justMe).toHaveAttribute('aria-pressed', 'true')
+    await expect(personal).toHaveAttribute('aria-pressed', 'true')
   })
 
   const refreshFailures: { name: string; fail: (route: import('@playwright/test').Route) => Promise<void>; message: RegExp }[] = [
@@ -748,19 +748,19 @@ test.describe('overview', () => {
       })
     }
     await page.goto('/?view=settings')
-    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const native = page.locator('.field-row').filter({ has: page.getByText('Native keys', { exact: true }) })
-    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to team value' })).toHaveCount(1)
-    await native.getByRole('button', { name: 'Reset x-claude.verbose to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: nativeLocal, key: 'x-claude.verbose', value: null, expected: true })
+    await expect(native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' })).toHaveCount(1)
+    await native.getByRole('button', { name: 'Reset x-claude.verbose to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: nativeLocal, key: 'x-claude.verbose', value: null, expected: true })
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    await expect(model.getByRole('button', { name: 'Reset to team value' })).toHaveCount(0)
+    await expect(model.getByRole('button', { name: 'Reset to shared value' })).toHaveCount(0)
     await model.getByRole('combobox').selectOption(b)
-    await expect(model).toContainText('Your local value overrides the team value.')
-    await model.getByRole('button', { name: 'Reset to team value' }).click()
-    await expect.poll(() => posted.at(-1)).toEqual({ scope: 'local', path: b, key: 'model', value: null, expected: 'opus' })
+    await expect(model).toContainText('Your local value overrides the shared value.')
+    await model.getByRole('button', { name: 'Reset to shared value' }).click()
+    await expect.poll(() => posted.at(-1)).toEqual({ audience: 'personal', path: b, key: 'model', value: null, expected: 'opus' })
   })
 
   test('shows a configured value from another source beside the editor and hides only the value the editor shows', async ({ page }) => {
@@ -774,7 +774,7 @@ test.describe('overview', () => {
     Object.assign(field('session-retention-days'), { set: [{ spec: 'defaults', path: team, values: [{ key: 'session-retention-days', type: 'text', value: '30' }] }], editable: { ...editable, kind: 'number' } })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=settings')
-    await page.getByRole('button', { name: 'Team (committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Shared (committed)', exact: true }).click()
 
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
     await expect(model.locator('.field-source')).toContainText('sonnet')
@@ -783,7 +783,7 @@ test.describe('overview', () => {
     await expect(model).toContainText(`Saves to ${team}`)
 
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
-    await expect(effort).toContainText('Your local value overrides the team value.')
+    await expect(effort).toContainText('Your local value overrides the shared value.')
     await expect(effort.locator('.field-source')).toContainText('low')
     await expect(effort.locator('.field-source')).toContainText(`from ${local}`)
 
@@ -792,7 +792,7 @@ test.describe('overview', () => {
     await expect(retention.locator('.field-source')).toHaveCount(0)
     await expect(retention).toContainText(`from ${team}`)
 
-    await page.getByRole('button', { name: 'Just me (not committed)', exact: true }).click()
+    await page.getByRole('button', { name: 'Personal (not committed)', exact: true }).click()
     await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
     await expect(effort.locator('.field-source')).toHaveCount(0)
     await expect(model.locator('.field-source')).toContainText(`from ${pack}`)
@@ -847,7 +847,7 @@ test.describe('overview', () => {
     await expect(model).toContainText('Run agnostic-ai sync --global to apply.')
     await model.getByRole('textbox', { name: 'Default model value' }).fill('haiku')
     await model.getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => edit).toEqual({ scope: 'team', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
+    await expect.poll(() => edit).toEqual({ audience: 'shared', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
     await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
