@@ -866,7 +866,6 @@ test('live generated-file status shows a save as needing sync and refreshes afte
 
     await page.getByRole('searchbox').fill('default')
     const model = page.locator('.field-row').filter({ has: page.getByText('Default model', { exact: true }) })
-    const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await model.getByRole('textbox', { name: 'Default model value' }).fill('my-draft')
     await put(f.settings, 'name: native\nmodel: sonnet\neffort: low\n')
     await status.getByRole('button', { name: 'Refresh' }).click()

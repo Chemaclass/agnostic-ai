@@ -383,6 +383,7 @@ test('previews an effort change with pending source changes and shows a stale va
     return route.fulfill({ json: now })
   })
   await page.route('**/api/changes/builtin', (route) => route.fulfill({ json: idle }))
+  await page.route('**/api/changes/builtin/cancel', (route) => route.fulfill({ json: idle }))
   await page.route('**/api/changes/builtin/preview', (route) => {
     previews.push(route.request().postDataJSON())
     if (stale && (route.request().postDataJSON() as { setting: { expected: string } }).setting.expected === 'high') return route.fulfill({ status: 409, json: { error: `${team}: effort changed after this page loaded and is now medium. Reload to review it, then save again` } })
@@ -406,6 +407,7 @@ test('previews an effort change with pending source changes and shows a stale va
   stale = true
   await effort.getByRole('button', { name: 'Preview and apply' }).click()
   await expect(effort.getByRole('alert')).toContainText('effort changed after this page loaded and is now medium')
+  await effort.getByRole('button', { name: 'Reload saved values' }).click()
   await expect(effort).toContainText('The saved value changed after you started editing and is now medium.')
   await expect(effort.getByRole('textbox', { name: 'Reasoning effort value' })).toHaveValue('low')
   await effort.getByRole('button', { name: 'Preview and apply' }).click()
