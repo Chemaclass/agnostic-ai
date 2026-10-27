@@ -184,7 +184,7 @@ A tool whose column in the [table above](#environment-references) shows `${NAME}
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` and `sandbox` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
-| [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in `~/.openhands/mcp.json` |
+| [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in an agent's `mcp_servers` |
 
 The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which wins, and other tools leave them out. On Amp, set `x-amp.includeTools`. `x-factory`, `x-kilo`, and `x-continue` override the matching top-level options for that target. Each target page gives the details: [Factory tool lists](@/docs/targets/factory.md#mcp), [Crush channels](@/docs/targets/crush.md#mcp), and [Claude Code flags](@/docs/targets/claude-reference.md#mcp-mappings).
 

@@ -15,13 +15,13 @@ set-up-this-tool = "@/docs/targets/openhands.md#first-rule"
 
 ## Set up this tool {#set-up-this-tool .legacy-anchor}
 
-[OpenHands](https://docs.openhands.dev/overview/skills) gets `AGENTS.md`, agents and skills under `.agents/`, hooks, and a setup script. MCP servers install globally.
+[OpenHands](https://docs.openhands.dev/overview/skills) gets `AGENTS.md`, agents and skills under `.agents/`, hooks, and a setup script. Add MCP servers in OpenHands itself.
 
 ## First rule
 
 Select `openhands` in `agnostic-ai.yaml`, then follow [First rule](@/docs/getting-started.md#first-rule) to add the shared commit-prefix rule and sync it. With the default paths, it reaches `AGENTS.md`.
 
-MCP servers have no project output. Put home MCP specs through `sync --global` as described below.
+MCP servers have no output. Add them in Agent Canvas, as [MCP](#mcp) describes.
 
 For existing files, check [what `import openhands` reads](#import) before syncing.
 
@@ -79,11 +79,11 @@ OpenHands [reads `.openhands/hooks.json` (`outputs.openhands.hooks-file`) per re
 
 ### MCP
 
-No project file. OpenHands reads servers from Agent Canvas, `~/.openhands/mcp.json`, or the SDK. It ignores the `[mcp]` section of a project `config.toml` (legacy V0).
+No file. OpenHands keeps MCP servers in its [settings store](https://docs.openhands.dev/openhands/usage/settings/mcp-settings): add them in Agent Canvas under **Customize > MCP Servers**, or pass `mcp_config` to the SDK. It reads no project file, and ignores the `[mcp]` section of a project `config.toml` (legacy V0).
 
-- Put MCP specs in `~/.agnostic-ai/mcps/` and run `agnostic-ai sync --global` to install them in `~/.openhands/mcp.json` ([global MCP servers](@/docs/configuration.md#global-mcp-servers)). A project MCP spec gets one note pointing at `sync --global`.
-- A remote `api_key` becomes an `Authorization: Bearer <key>` header, as [OpenHands sends](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) it. An `Authorization` entry in `headers` wins.
-- `timeout` gets a sync note, because `mcp.json` has no per-server timeout.
+- A project or home MCP spec gets one sync note that points at **Customize > MCP Servers**.
+- An agent's `mcpServers` still reach its `mcp_servers`, as [Agents](#agents) describes. There a remote `api_key` becomes an `Authorization: Bearer <key>` header, as [OpenHands sends](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) it. An `Authorization` entry in `headers` wins.
+- `timeout` gets a sync note, because the OpenHands MCP config has no per-server timeout.
 
 ### Environments
 
@@ -94,9 +94,11 @@ No project file. OpenHands reads servers from Agent Canvas, `~/.openhands/mcp.js
 - With several environment specs, the last `install` wins, as for Cursor.
 
 <details>
-<summary>Legacy config.toml</summary>
+<summary>Legacy config.toml and mcp.json</summary>
 
 The next sync removes a `config.toml` that an earlier release wrote. `import openhands` still reads the `[mcp]` table of a legacy `config.toml` into specs.
+
+Only the unmaintained OpenHands-CLI reads `~/.openhands/mcp.json`. `sync --global` no longer writes it. The next `sync --global` removes the servers an earlier release wrote there, and the file too when sync created it and nothing else is left. Servers you added stay. `import --global openhands` still reads the file into specs.
 
 </details>
 
