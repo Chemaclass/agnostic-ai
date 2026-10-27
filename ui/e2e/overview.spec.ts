@@ -73,6 +73,16 @@ test.describe('overview', () => {
     expect(prompt).toContain('Then wait for my explicit approval.')
   })
 
+  test('spaces each kind block apart from the one before it', async ({ page }) => {
+    await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
+    await page.goto('/?view=context')
+    const blocks = page.locator('.stale-guard > .block')
+    await expect(blocks.nth(1)).toBeVisible()
+    const first = await blocks.nth(0).boundingBox()
+    const second = await blocks.nth(1).boundingBox()
+    expect(second!.y - (first!.y + first!.height)).toBeGreaterThanOrEqual(24)
+  })
+
   test('shows the brand once and keeps other project names as plain context', async ({ page }) => {
     const data = structuredClone(fixture)
     data.snapshot.project.name = 'agnostic-ai'
@@ -340,6 +350,9 @@ test.describe('overview', () => {
     await expect(stages.nth(0)).toHaveText('Session start')
     await expect(stages.nth(6)).toHaveText('Session end')
     if (MOCK) await expect(page.locator('.stage-empty')).toHaveCount(7)
+    await expect(page.locator('.stage-description')).toHaveCount(7)
+    await expect(page.locator('.stage-description').first()).toBeVisible()
+    await expect(page.locator('.stage details')).toHaveCount(0)
     const avatar = page.locator('.stage').first().locator('.tool-avatar').first()
     await expect(avatar).toHaveAttribute('title', /^Claude Code - SessionStart$/)
     await expect(avatar.locator('img')).toBeVisible()

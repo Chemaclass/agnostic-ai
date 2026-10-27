@@ -1357,17 +1357,6 @@ input:hover {
   font-size: 13px;
 }
 
-.stage-description summary {
-  min-height: 24px;
-  width: fit-content;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.stage-description[open] summary {
-  margin-bottom: 4px;
-}
-
 .stage .item-list {
   border: 0;
   border-radius: 0;
@@ -2368,10 +2357,23 @@ input:hover {
   margin: 0;
   padding: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
 }
 
 .stale-guard[data-stale] {
   opacity: 0.6;
+}
+
+@media (max-width: 760px) {
+  .stale-guard {
+    gap: 0;
+  }
+
+  .stale-guard > .block + .block {
+    margin-top: 18px;
+  }
 }
 
 .sync-status {
