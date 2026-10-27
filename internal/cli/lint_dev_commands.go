@@ -23,26 +23,31 @@ var devCommandTargetsNeedingCommand = []string{"codex"}
 // value that is not a scalar. Claude Code drops or rewrites such an entry
 // in launch.json, and `sync` passes, so nothing else says the preview
 // server changed. The list is read as Claude Code resolves it, `x-claude`
-// included. A url-only entry is flagged once for each enabled target it
-// reaches that needs a command, read as that target resolves it.
+// included. A url-only entry is flagged for each enabled target that needs
+// a command, in the list that target keeps: the last spec that sets one.
 func lintDevCommands(envs []spec.Entry, targets []string) []lintFinding {
 	out := lintClaudeDevCommands(envs)
 	for _, target := range devCommandTargetsNeedingCommand {
 		if !slices.Contains(targets, target) {
 			continue
 		}
-		for _, e := range envs {
-			if !e.EmitsTo(target) {
+		var e spec.Entry
+		var list []any
+		for _, env := range envs {
+			if !env.EmitsTo(target) {
 				continue
 			}
-			list, _ := adapters.ResolveMeta(e.Meta, target)["dev-commands"].([]any)
-			for i, item := range list {
-				m, _ := item.(map[string]any)
-				url, _ := m["url"].(string)
-				if url != "" && len(adapters.CommandArgv(m["command"])) == 0 {
-					out = append(out, devCommandFinding(e, fmt.Sprintf(
-						"dev command %d has a `url:` and no `command:`, which %s needs; add a command, or give %s its own list under `x-%s.dev-commands`", i+1, target, target, target)))
-				}
+			if v, ok := adapters.ResolveMeta(env.Meta, target)["dev-commands"]; ok {
+				e = env
+				list, _ = v.([]any)
+			}
+		}
+		for i, item := range list {
+			m, _ := item.(map[string]any)
+			url, _ := m["url"].(string)
+			if url != "" && len(adapters.CommandArgv(m["command"])) == 0 {
+				out = append(out, devCommandFinding(e, fmt.Sprintf(
+					"dev command %d has a `url:` and no `command:`, which %s needs; add a command, or give %s its own list under `x-%s.dev-commands`", i+1, target, target, target)))
 			}
 		}
 	}

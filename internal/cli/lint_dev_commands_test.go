@@ -63,21 +63,23 @@ func TestLintDevCommands(t *testing.T) {
 
 // A dev command with a url and no command is valid for Claude, which
 // attaches to a server already running. Only an enabled target that
-// needs a command reports it (#2579).
+// needs a command reports it, in the list that target keeps (#2579).
 func TestLintDevCommands_URLWithoutCommandFailsOnlyWhereACommandIsNeeded(t *testing.T) {
 	commands := []any{map[string]any{"name": "app", "url": "https://app.localhost:3000"}}
-	envs := []spec.Entry{
-		{Kind: spec.KindEnvironment, Path: "environments/dev.yaml", Meta: map[string]any{"dev-commands": commands}},
-		{Kind: spec.KindEnvironment, Path: "environments/claude.yaml", Meta: map[string]any{"targets": []any{"claude"}, "dev-commands": commands}},
-		{Kind: spec.KindEnvironment, Path: "environments/split.yaml", Meta: map[string]any{"dev-commands": commands,
-			"x-codex": map[string]any{"dev-commands": []any{map[string]any{"name": "web", "command": "npm run dev"}}}}},
-	}
-	if got := lintDevCommands(envs, []string{"claude"}); len(got) != 0 {
+	codexOwn := map[string]any{"dev-commands": []any{map[string]any{"name": "web", "command": "npm run dev"}}}
+	dev := spec.Entry{Kind: spec.KindEnvironment, Path: "environments/dev.yaml", Meta: map[string]any{"dev-commands": commands}}
+	claudeOnly := spec.Entry{Kind: spec.KindEnvironment, Path: "environments/claude.yaml", Meta: map[string]any{"targets": []any{"claude"}, "dev-commands": commands}}
+	split := spec.Entry{Kind: spec.KindEnvironment, Path: "environments/split.yaml", Meta: map[string]any{"dev-commands": commands, "x-codex": codexOwn}}
+
+	if got := lintDevCommands([]spec.Entry{dev, claudeOnly}, []string{"claude"}); len(got) != 0 {
 		t.Errorf("claude only: findings %+v, want none", got)
 	}
-	got := lintDevCommands(envs, []string{"claude", "codex"})
+	if got := lintDevCommands([]spec.Entry{dev, split}, []string{"claude", "codex"}); len(got) != 0 {
+		t.Errorf("a later spec gives codex its own list: findings %+v, want none", got)
+	}
+	got := lintDevCommands([]spec.Entry{split, dev, claudeOnly}, []string{"claude", "codex"})
 	if len(got) != 1 {
-		t.Fatalf("claude and codex: findings %+v, want one", got)
+		t.Fatalf("codex keeps the url-only list: findings %+v, want one", got)
 	}
 	want := "dev command 1 has a `url:` and no `command:`, which codex needs; add a command, or give codex its own list under `x-codex.dev-commands`"
 	if got[0].Code != "LINT016" || got[0].Severity != lintError || got[0].Path != "environments/dev.yaml" || got[0].Message != want {
