@@ -317,10 +317,14 @@ test.describe('overview', () => {
 
   test('keeps the header and navigation in place while the content scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 500 })
+    if (MOCK) await page.route('**/assets/overview.mock-*.js', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await route.continue()
+    })
     await openApp(page, '?view=lifecycle')
     await expect(page.locator('.footer')).toHaveCount(0)
     const main = page.locator('#main')
-    expect(await main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    await expect.poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
     expect(await page.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight + 1)).toBe(true)
     const navTop = await page.locator('.sidenav').evaluate((el) => el.getBoundingClientRect().top)
     await main.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
