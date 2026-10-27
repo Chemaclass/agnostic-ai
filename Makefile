@@ -23,7 +23,11 @@ test:
 	go test ./...
 
 test-race:
-	go test -count=1 -race ./...
+	@if [ "$$(uname -s)" = Darwin ]; then \
+		scripts/test-race-macos.sh; \
+	else \
+		go test -count=1 -race ./...; \
+	fi
 
 # Same target and flags as the linux/amd64 build in .goreleaser.yml, so the
 # number matches the published binary.
@@ -38,7 +42,7 @@ test-shell: build
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
 		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh \
-		scripts/bench-commands_test.sh
+		scripts/bench-commands_test.sh scripts/test-race-macos_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
