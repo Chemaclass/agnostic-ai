@@ -1962,6 +1962,7 @@ func mergeGlobalHooksData(path, format string, target globalHookTarget, entries 
 		}
 	}
 	claude.NoteFailClosedNoOps(claudeHooks)
+	claude.NoteHookEventNoOps(claudeHooks)
 	// writesNow reports that an edited copy of a recorded entry is what
 	// sync writes now. The form without the target signal counts only
 	// for a record that lacked it too, as versions before it wrote:
