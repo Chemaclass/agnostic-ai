@@ -43,14 +43,43 @@ jobs:
   # already tested, and a full matrix on every merge tripled the runner time.
   # Nightly and manual runs add macOS and a focused Windows smoke check.
   # The full Windows Go suite is manual only, with full_windows=true.
-  test:
-    name: Test
-    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
+  #
+  # One Linux job ran internal/cli and tests/integration side by side and
+  # reached the ten-minute limit (#2610), so they run in shards split by test
+  # name. Each last shard skips the earlier ones, so a new test lands in
+  # exactly one shard.
+  linux:
+    name: Test (ubuntu-latest, ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
-    runs-on: ${{ matrix.os }}
+        include:
+          - shard: packages
+            packages: ''
+            run: ''
+            skip: ''
+          - shard: cli a-h
+            packages: ./internal/cli
+            run: '^Test[A-H]'
+            skip: ''
+          - shard: cli i-l
+            packages: ./internal/cli
+            run: '^Test[I-L]'
+            skip: ''
+          - shard: cli m-z
+            packages: ./internal/cli
+            run: ''
+            skip: '^Test[A-L]'
+          - shard: integration a-h
+            packages: ./tests/integration
+            run: '^Test[A-H]'
+            skip: ''
+          - shard: integration i-z
+            packages: ./tests/integration
+            run: ''
+            skip: '^Test[A-H]'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -62,9 +91,65 @@ jobs:
           cache: true
 
       - name: Test with coverage
-        if: matrix.os == 'ubuntu-latest'
         shell: bash
-        run: go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          PACKAGES: ${{ matrix.packages }}
+          RUN: ${{ matrix.run }}
+          SKIP: ${{ matrix.skip }}
+        run: |
+          packages=()
+          if [ -n "$PACKAGES" ]; then
+            packages=("$PACKAGES")
+          else
+            module=$(go list -m)
+            all_packages=$(go list ./...)
+            while IFS= read -r package; do
+              case "$package" in
+                "$module/tests/integration"|"$module/internal/cli") ;;
+                *) packages+=("$package") ;;
+              esac
+            done <<< "$all_packages"
+          fi
+          go test -timeout=10m -count=1 -race -coverprofile=coverage.out -covermode=atomic -run "$RUN" -skip "$SKIP" "${packages[@]}"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
+
+  # Branch protection requires this check name, so it passes only when every
+  # Linux shard passed.
+  linux-result:
+    name: Test (ubuntu-latest)
+    if: always()
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every Linux shard
+        env:
+          RESULT: ${{ needs.linux.result }}
+        run: test "$RESULT" = success
+
+  test:
+    name: Test
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && inputs.full_windows != true && 7 || 10 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Test
         if: matrix.os == 'windows-latest' && inputs.full_windows == true
@@ -109,13 +194,6 @@ jobs:
         env:
           AGNOSTIC_AI_WINDOWS_STARTUP_TESTS: "1"
         run: go test -v -failfast -timeout=3m -count=10 ./tests/integration -run '^TestProjectLifecycle_FirstLaunchAfterFreshInstall$'
-
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
-        with:
-          files: coverage.out
-          fail_ci_if_error: false
 
   # Split the macOS CLI race tests by name to stay within the job timeout.
   # The last shard skips the first two, so new tests land in exactly one shard.
