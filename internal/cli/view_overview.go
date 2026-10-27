@@ -32,6 +32,8 @@ type viewServer struct {
 	Root   string `json:"root"`
 	Global bool   `json:"global"`
 	UI     bool   `json:"ui"`
+	// ProjectRoot is set by a global server started in a project.
+	ProjectRoot string `json:"projectRoot,omitempty"`
 }
 
 const (

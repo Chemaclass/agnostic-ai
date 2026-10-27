@@ -538,4 +538,6 @@
 # Linux amd64 release flags; no added headroom or dependencies.
 # #2583 measured 23748768 on Go 1.27.3 on top of main: Claude sync notes settings keys a scope ignores, from one vendor scope table.
 # Linux amd64 release flags; no added headroom or dependencies.
-23748768
+# #2602 measured 23769248 on Go 1.27.3 on top of main: the settings page opens the global server, or starts it, and links back.
+# Linux amd64 release flags; no added headroom or dependencies.
+23769248

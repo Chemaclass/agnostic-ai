@@ -329,6 +329,7 @@ agnostic-ai serve --api-only
 In the browser:
 
 - **Authority** lists permission files and rules. Permission proposals have no editor; use the [API](#api).
+- The header labels the page **Project** or **Global**. On a project page, **Open global settings** opens the user configuration in a new tab: it reuses a `serve --global` already running on `127.0.0.1:4310` to `4319` that started in this project, or starts one on the next free port. A global page that started in a project (from that button, or `ui --global` or `serve --global` run in a project folder) shows **Open project** with the project's name to go back. A server the button starts stops with the server that started it. Each tab edits only the configuration it serves.
 - **Open files in** in the header picks Cursor or VS Code for every edit link, and the browser remembers it. A finding on a file opens at its line when known. **Copy path** sits beside each link, because the browser cannot tell whether the editor opened.
 - With `--global`, the `AGNOSTIC_AI.md` row in **Context** has **Copy refine prompt**: a prompt that asks a coding agent to review the file against current guidance for instruction files, propose a full rewrite with a change table, recommend which rules belong in an existing or new skill or agent, and leave the file unchanged until you approve.
 - **Context size** in **Context** shows the [context report](#rank-context-contributions) for a chosen target: startup, file-scoped (for a file you enter), and on-demand sizes, ranked sources, and duplicated startup passages. Each duplicate has edit links to its sources and **Copy review prompt**, which asks a coding agent to compare the copies and propose a change with its tradeoffs before editing. **Refresh** reads the specs again. Sizes are words and bytes, not tokens, and smaller numbers do not guarantee lower cost or faster replies.
@@ -360,7 +361,8 @@ Edit and impact requests take JSON. Every edit and preview names its `scope`: `t
 
 | Endpoint | Body or query |
 |----------|---------------|
-| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. |
+| `GET /api/health` | None. Returns `ok`, absolute `root`, `global`, and `ui` (whether the web interface is served), without loading specs. A global server started in a project adds that project's absolute `projectRoot`. |
+| `POST /api/switch` | `{}` with `Content-Type: application/json`. Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server. Returns `url`, `root`, `global`, and `started`. Answers 404 on a global server with no `projectRoot`, and 503 with the command to run when no server could start. |
 | `GET /api/views/overview` | None. |
 | `GET /api/views/context` | `?target=<tool>`, a configured target; default the first one. `&file=<path>` adds scoped rules for that file, as `--file` does; `fileTargets` lists the targets that accept it. Returns `targets`, `target`, absolute `root`, and `report`, the `explain --context --json` output. With `--global`, `supported` is false and `reason` says why. |
 | `GET /api/views/authority` | `?agentId=<id>&target=<tool>` for per-agent decisions. |

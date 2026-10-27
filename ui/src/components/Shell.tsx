@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { API, type OverviewView } from '../contract'
 import type { Loaded } from '../api'
+import { parseServedConfig, type ServedConfig } from '../model/config-switch'
+import { ConfigSwitch } from './ConfigSwitch'
 import { SECTION_VIEWS, type ViewId } from '../model/url'
 import { AppLink, useApp } from './app-context'
 import { EditorChoice } from './EditorLink'
@@ -48,12 +50,13 @@ export function Header({
   const app = useApp()
   const snapshot = overview.loaded?.data.snapshot
   const projectName = snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
-  const [served, setServed] = useState<{ root: string; global: boolean }>()
+  const [served, setServed] = useState<ServedConfig>()
   useEffect(() => {
     if (app.source.kind !== 'api') return
     let live = true
     fetch(API.health).then((response) => response.ok ? response.json() : undefined).then((health) => {
-      if (live && health && typeof health.root === 'string') setServed({ root: health.root, global: health.global === true })
+      const config = parseServedConfig(health)
+      if (live && config) setServed(config)
     }).catch(() => undefined)
     return () => { live = false }
   }, [app.source.kind])
@@ -76,15 +79,16 @@ export function Header({
         </svg>
         <span className="brand-name">{PRODUCT_NAME}</span>
       </div>
-      {(projectName || app.source.kind === 'static' || app.source.kind === 'mock') && (
+      {(projectName || served || app.source.kind === 'static' || app.source.kind === 'mock') && (
         <div className="topbar-context">
           {projectName && (
             <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
               <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
-              <span className="project-title">{projectName}{served?.global && <span className="chip chip-source">Global</span>}</span>
+              <span className="project-title">{projectName}{served && <span className="chip chip-source">{served.global ? 'Global' : 'Project'}</span>}</span>
               {root && <code className="project-root"><bdi>{root}</bdi></code>}
             </span>
           )}
+          {served && <ConfigSwitch served={served} />}
           {app.source.kind === 'static' && (
             <span className="chip chip-source" title={`Read from ${app.source.base} with no server`}>
               Static snapshot{snapshot?.revision ? ` · revision ${snapshot.revision}` : ''}
