@@ -146,7 +146,8 @@ func removeJSONPathKeeping(text string, open int, path []string, prefix string, 
 		if text, err = removeJSONPathKeeping(text, m.valueStart, path[1:], parentKey+".", keep); err != nil {
 			return "", err
 		}
-		// A parent the path left empty goes too, which undoes creating it.
+		// A parent the path left empty goes too, which undoes creating it,
+		// unless keep says the user wrote it.
 		inner, innerClose, err := scanJSONObject(text, m.valueStart)
 		if err != nil {
 			return "", err
@@ -155,6 +156,10 @@ func removeJSONPathKeeping(text string, open int, path []string, prefix string, 
 			return text, nil
 		}
 		if original, present := keep[parentKey]; present {
+			// An empty original keeps the parent as the removal left it.
+			if original == "" {
+				return text, nil
+			}
 			return text[:m.valueStart] + original + text[innerClose+1:], nil
 		}
 		if members, closing, err = scanJSONObject(text, open); err != nil {

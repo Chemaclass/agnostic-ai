@@ -164,7 +164,7 @@ Each item wins over the one before it:
 4. An agent's own `model` and `effort`, for that agent.
 5. The tool's flag for one run, such as `codex -m` or `claude --model`.
 
-Sync edits only the keys it writes. Removing the spec removes only those keys, and sync deletes a file it created once the file is empty.
+Sync edits only the keys it writes. Removing the spec removes only those keys and the objects sync created to hold them, so an object you wrote, even an empty one such as `"env": {}`, stays. Sync deletes a file it created once the file is empty.
 
 - A key that already holds the value sync would write is adopted. A key with another value stops the run and names the file, key, and both values; this is normal for Codex, whose `/model` picker saves to `config.toml`. `--backup` overwrites the key and keeps `<path>.bak`.
 - `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
