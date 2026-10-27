@@ -28,7 +28,47 @@ func HookCommands(cfg *config.Config, h spec.Entry) []HookCommand {
 	}
 	return out
 }
+
+// PromptHookEvents are the events CodeBuddy runs prompt hooks on.
+func PromptHookEvents() []string { return []string{"Stop", "UserPromptSubmit", "PreToolUse"} }
+
+// PromptHandler returns the native prompt handler for h, or nil when h is not a prompt hook.
+func PromptHandler(h spec.Entry) map[string]any {
+	m := emit.ResolveMeta(h.Meta, target)
+	if m["type"] != "prompt" {
+		return nil
+	}
+	handler := map[string]any{"type": "prompt", "prompt": m["prompt"]}
+	if timeout := emit.HookIntMeta(m, "timeout"); timeout > 0 {
+		handler["timeout"] = timeout
+	}
+	if emit.HookBoolMeta(m, "continueOnBlock") {
+		handler["continueOnBlock"] = true
+	}
+	return handler
+}
+
+// ValidateHooks checks hooks for project settings, which take command and prompt handlers.
 func ValidateHooks(hooks []spec.Entry) error {
+	if err := validateHooks(hooks, true); err != nil {
+		return err
+	}
+	count := 0
+	for _, h := range hooks {
+		if m := emit.ResolveMeta(h.Meta, target); m["type"] == "prompt" && m["model"] != nil {
+			count++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindHook, "model", count, "CodeBuddy prompt hooks have no model field")
+	return nil
+}
+
+// ValidateUserHooks checks hooks for user settings, where sync writes command handlers only.
+func ValidateUserHooks(hooks []spec.Entry) error {
+	return validateHooks(hooks, false)
+}
+
+func validateHooks(hooks []spec.Entry, prompts bool) error {
 	for _, h := range hooks {
 		m := emit.ResolveMeta(h.Meta, target)
 		if m["disabled"] == true {
@@ -38,8 +78,17 @@ func ValidateHooks(hooks []spec.Entry) error {
 		if event != "" && !slices.Contains(HookEvents(), event) {
 			return fmt.Errorf("%s: codebuddy: unsupported hook event %q", h.Path, event)
 		}
-		if typ, _ := m["type"].(string); typ != "" && typ != "command" {
-			return fmt.Errorf("%s: codebuddy: only command hooks are supported", h.Path)
+		typ, _ := m["type"].(string)
+		switch {
+		case typ == "" || typ == "command":
+		case !prompts:
+			return fmt.Errorf("%s: codebuddy: user settings take only command hooks", h.Path)
+		case typ != "prompt" || !slices.Contains(PromptHookEvents(), event):
+			return fmt.Errorf("%s: codebuddy: only command hooks, or prompt hooks on Stop, UserPromptSubmit, and PreToolUse, are supported", h.Path)
+		default:
+			if prompt, _ := m["prompt"].(string); prompt == "" {
+				return fmt.Errorf("%s: codebuddy: prompt hooks need a prompt", h.Path)
+			}
 		}
 	}
 	return nil

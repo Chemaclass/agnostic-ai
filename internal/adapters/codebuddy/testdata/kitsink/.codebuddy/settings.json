@@ -11,6 +11,18 @@
         ],
         "matcher": "Bash"
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "continueOnBlock": true,
+            "prompt": "Check tests pass: $ARGUMENTS",
+            "timeout": 30,
+            "type": "prompt"
+          }
+        ]
+      }
     ]
   },
   "model": "lite",

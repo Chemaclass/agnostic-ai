@@ -179,3 +179,54 @@ func TestEmit_KeepsNativeAgentRestrictionsAndSkillResources(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestEmit_PromptHooksOnDocumentedEvents(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	b := spec.Bundle{Hooks: []spec.Entry{
+		{Kind: spec.KindHook, Name: "stop-check", Meta: map[string]any{"event": "Stop", "type": "prompt", "prompt": "Check tests pass: $ARGUMENTS", "timeout": 30, "continueOnBlock": true, "model": "fast"}},
+		{Kind: spec.KindHook, Name: "bash-check", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "type": "prompt", "prompt": "Is this safe? $ARGUMENTS"}},
+	}}
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string           `json:"matcher"`
+			Hooks   []map[string]any `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(read(t, ".codebuddy/settings.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	stop := doc.Hooks["Stop"][0].Hooks[0]
+	want := map[string]any{"type": "prompt", "prompt": "Check tests pass: $ARGUMENTS", "timeout": float64(30), "continueOnBlock": true}
+	if len(stop) != len(want) {
+		t.Fatalf("Stop handler = %v, want %v", stop, want)
+	}
+	for key, value := range want {
+		if stop[key] != value {
+			t.Errorf("Stop handler %s = %v, want %v", key, stop[key], value)
+		}
+	}
+	pre := doc.Hooks["PreToolUse"][0]
+	if pre.Matcher != "Bash" || pre.Hooks[0]["type"] != "prompt" || len(pre.Hooks[0]) != 2 {
+		t.Errorf("PreToolUse group = %+v", pre)
+	}
+}
+
+func TestEmit_RejectsPromptHooksOnOtherEventsAndOtherHandlers(t *testing.T) {
+	for name, meta := range map[string]map[string]any{
+		"prompt on PostToolUse": {"event": "PostToolUse", "type": "prompt", "prompt": "check"},
+		"http":                  {"event": "Stop", "type": "http", "url": "https://example.com"},
+		"agent":                 {"event": "Stop", "type": "agent", "prompt": "check"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			b := spec.Bundle{Hooks: []spec.Entry{{Kind: spec.KindHook, Path: "p.yaml", Name: "p", Meta: meta}}}
+			err := New().Emit(emit.NewSession(), b, &config.Config{}, false)
+			if err == nil || !strings.Contains(err.Error(), "Stop, UserPromptSubmit, and PreToolUse") {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
