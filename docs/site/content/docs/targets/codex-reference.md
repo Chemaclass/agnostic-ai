@@ -60,7 +60,7 @@ Imported `$CLAUDE_PROJECT_DIR` paths use the Git worktree root and need Git and 
 
 Reviews become `## Code Review Rules` in root or scoped `AGENTS.md`. Other tools reading that file see the review section too. A legacy `rules-file` override prevents root reviews and raises a note.
 
-Environment specs write the Codex app's `.codex/environments/environment.toml`. `setup`, `cleanup`, and `setup-windows` become native scripts; `dev-commands` become action buttons with name, command, and icon (default `run`). `cwd` prefixes the command with `cd`. Last top-level values win. Ports, environment maps, URLs, install, and terminals have no native key and get a note.
+Environment specs write the Codex app's `.codex/environments/environment.toml`. `setup`, `cleanup`, and `setup-windows` become native scripts; `dev-commands` become action buttons with name, command, and icon (default `run`). `cwd` prefixes the command with `cd`. Last top-level values win. Ports, environment maps, URLs, install, and terminals have no native key and get a note. An entry with a `url` and no `command` has nothing to run, so sync skips it with a note and lint reports it (LINT016).
 
 ## MCP mappings
 
